@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from gymnasium.envs.toy_text.taxi import TaxiEnv
 
-from reward_kit.mcp import EnvironmentAdapter
+from reward_protocol.mcp import EnvironmentAdapter
 
 
 class TaxiAdapter(EnvironmentAdapter):

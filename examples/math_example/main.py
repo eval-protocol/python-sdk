@@ -9,11 +9,11 @@ expects answers to be in <think>...</think><answer>...</answer> format.
 import re
 from typing import Any, Dict, List, Optional, Union
 
-from reward_kit import EvaluateResult, MetricResult, reward_function
-from reward_kit.models import Message
+from reward_protocol import EvaluateResult, MetricResult, reward_function
+from reward_protocol.models import Message
 
 # Import the existing reward function from reward-kit
-from reward_kit.rewards.math import math_reward
+from reward_protocol.rewards.math import math_reward
 
 
 def check_think_answer_format(text: str) -> bool:
