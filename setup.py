@@ -6,7 +6,7 @@ setup(
     name="reward-kit",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
-    packages=find_packages(),
+    packages=find_packages(include=["reward_kit*", "reward_protocol*", "development*"]),
     install_requires=[
         "requests>=2.25.0",
         "pydantic>=2.0.0",
@@ -68,6 +68,7 @@ setup(
         "console_scripts": [
             "fireworks-reward=reward_kit.cli:main",
             "reward-kit=reward_kit.cli:main",
+            "reward-protocol=reward_kit.cli:main",
         ],
     },
     author="Fireworks AI",

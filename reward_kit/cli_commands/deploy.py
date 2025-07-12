@@ -15,14 +15,51 @@ from typing import Any, Dict
 import yaml  # For saving config if save_config helper doesn't exist
 
 # TODO: Consider moving subprocess_manager functions to a more central location if used by core CLI
-from development.utils.subprocess_manager import (
-    start_ngrok_and_get_url,  # Added ngrok function
-)
-from development.utils.subprocess_manager import (
-    start_process,
-    start_serveo_and_get_url,
-    stop_process,
-)
+try:
+    from development.utils.subprocess_manager import (
+        start_ngrok_and_get_url,  # Added ngrok function
+        start_process,
+        start_serveo_and_get_url,
+        stop_process,
+    )
+except ImportError:
+    # Fallback implementations when development module is not available
+    import subprocess
+    import signal
+    import socket
+    
+    def start_process(command, log_path, env=None):
+        """Fallback process starter."""
+        try:
+            with open(log_path, 'w') as log_file:
+                process = subprocess.Popen(
+                    command,
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    env=env
+                )
+                return process
+        except Exception as e:
+            print(f"Error starting process: {e}")
+            return None
+    
+    def stop_process(pid):
+        """Fallback process stopper."""
+        try:
+            import os
+            os.kill(pid, signal.SIGTERM)
+        except Exception:
+            pass
+    
+    def start_serveo_and_get_url(local_port, log_path):
+        """Fallback serveo tunnel - returns None to indicate unavailable."""
+        print("Serveo tunneling not available - development module not found")
+        return None, None
+    
+    def start_ngrok_and_get_url(local_port, log_path):
+        """Fallback ngrok tunnel - returns None to indicate unavailable.""" 
+        print("ngrok tunneling not available - development module not found")
+        return None, None
 from reward_kit.auth import get_fireworks_account_id
 from reward_kit.config import GCPCloudRunConfig, RewardKitConfig
 from reward_kit.config import _config_file_path as global_loaded_config_path
