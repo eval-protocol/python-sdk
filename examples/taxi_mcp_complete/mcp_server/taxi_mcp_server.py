@@ -25,7 +25,7 @@ from typing import Any, Dict
 from mcp.server.fastmcp import Context
 from taxi_adapter import TaxiAdapter
 
-from reward_kit.mcp import GymProductionServer
+from reward_protocol.mcp import GymProductionServer
 
 
 class TaxiProdServer(GymProductionServer):

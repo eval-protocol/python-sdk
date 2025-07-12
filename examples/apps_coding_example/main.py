@@ -8,11 +8,11 @@ built-in APPS coding evaluation to test code correctness against test cases.
 
 from typing import Any, Dict, List, Optional, Union
 
-from reward_kit import EvaluateResult, reward_function
-from reward_kit.models import Message
+from reward_protocol import EvaluateResult, reward_function
+from reward_protocol.models import Message
 
 # Import the existing reward function from reward-kit
-from reward_kit.rewards.apps_coding_reward import evaluate_apps_solution
+from reward_protocol.rewards.apps_coding_reward import evaluate_apps_solution
 
 
 @reward_function

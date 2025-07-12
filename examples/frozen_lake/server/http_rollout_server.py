@@ -20,7 +20,7 @@ from gymnasium_frozen_lake_server import GymnasiumFrozenLakeGame as FrozenLakeGa
 from pydantic import BaseModel
 
 # Import standardized HTTP rollout protocol types from reward-kit
-from reward_kit.agent.resources import (
+from reward_protocol.agent.resources import (
     EndEpisodeRequest,
     EndEpisodeResponse,
     HealthResponse,

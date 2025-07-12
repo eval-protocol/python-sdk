@@ -15,8 +15,8 @@ from typing import Any, Dict
 from taxi_adapter import TaxiAdapter
 from taxi_mcp_server import TaxiProdServer
 
-from reward_kit.mcp import SimulationServerBase
-from reward_kit.mcp.simulation_server import simulation_resource, simulation_tool
+from reward_protocol.mcp import SimulationServerBase
+from reward_protocol.mcp.simulation_server import simulation_resource, simulation_tool
 
 
 class TaxiSimServer(TaxiAdapter, SimulationServerBase):
