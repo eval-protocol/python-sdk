@@ -255,11 +255,11 @@ def git_versions_from_keywords(
                 "error": None,
                 "date": date,
             }
-    # no suitable tags, so version is "0+unknown", but full hex is still there
+    # no suitable tags, so version is "0.4.0+unknown", but full hex is still there
     if verbose:
         print("no suitable tags, using unknown + full revision id")
     return {
-        "version": "0+unknown",
+        "version": "0.4.0+unknown",
         "full-revisionid": keywords["full"].strip(),
         "dirty": False,
         "error": "no suitable tags",
@@ -435,7 +435,7 @@ def render_pep440(pieces: Dict[str, Any]) -> str:
                 rendered += ".dirty"
     else:
         # exception #1
-        rendered = "0+untagged.%d.g%s" % (pieces["distance"], pieces["short"])
+        rendered = "0.4.0+untagged.%d.g%s" % (pieces["distance"], pieces["short"])
         if pieces["dirty"]:
             rendered += ".dirty"
     return rendered
@@ -461,7 +461,7 @@ def render_pep440_branch(pieces: Dict[str, Any]) -> str:
                 rendered += ".dirty"
     else:
         # exception #1
-        rendered = "0"
+        rendered = "0.4.0"
         if pieces["branch"] != "master":
             rendered += ".dev0"
         rendered += "+untagged.%d.g%s" % (pieces["distance"], pieces["short"])
@@ -500,7 +500,7 @@ def render_pep440_pre(pieces: Dict[str, Any]) -> str:
             rendered = pieces["closest-tag"]
     else:
         # exception #1
-        rendered = "0.post0.dev%d" % pieces["distance"]
+        rendered = "0.4.0.post0.dev%d" % pieces["distance"]
     return rendered
 
 
@@ -524,7 +524,7 @@ def render_pep440_post(pieces: Dict[str, Any]) -> str:
             rendered += "g%s" % pieces["short"]
     else:
         # exception #1
-        rendered = "0.post%d" % pieces["distance"]
+        rendered = "0.4.0.post%d" % pieces["distance"]
         if pieces["dirty"]:
             rendered += ".dev0"
         rendered += "+g%s" % pieces["short"]
@@ -551,7 +551,7 @@ def render_pep440_post_branch(pieces: Dict[str, Any]) -> str:
                 rendered += ".dirty"
     else:
         # exception #1
-        rendered = "0.post%d" % pieces["distance"]
+        rendered = "0.4.0.post%d" % pieces["distance"]
         if pieces["branch"] != "master":
             rendered += ".dev0"
         rendered += "+g%s" % pieces["short"]
@@ -576,7 +576,7 @@ def render_pep440_old(pieces: Dict[str, Any]) -> str:
                 rendered += ".dev0"
     else:
         # exception #1
-        rendered = "0.post%d" % pieces["distance"]
+        rendered = "0.4.0.post%d" % pieces["distance"]
         if pieces["dirty"]:
             rendered += ".dev0"
     return rendered
@@ -688,7 +688,7 @@ def get_versions() -> Dict[str, Any]:
             root = os.path.dirname(root)
     except NameError:
         return {
-            "version": "0+unknown",
+            "version": "0.4.0+unknown",
             "full-revisionid": None,
             "dirty": None,
             "error": "unable to find root of source tree",
@@ -708,7 +708,7 @@ def get_versions() -> Dict[str, Any]:
         pass
 
     return {
-        "version": "0+unknown",
+        "version": "0.4.0+unknown",
         "full-revisionid": None,
         "dirty": None,
         "error": "unable to compute version",

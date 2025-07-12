@@ -1,0 +1,50 @@
+"""
+Fireworks Reward Protocol - Simplify reward modeling for LLM RL fine-tuning.
+
+This package provides an alternative import name for reward_kit.
+All functionality from reward_kit is available through reward_protocol.
+
+A Python library for defining, testing, deploying, and using reward functions
+for LLM fine-tuning, including launching full RL jobs on the Fireworks platform.
+
+The library also provides an agent evaluation framework for testing and evaluating
+tool-augmented models using self-contained task bundles.
+"""
+
+# Re-export everything from reward_kit
+from reward_kit import *
+from reward_kit import __version__
+
+# Make sure all public symbols are available
+from reward_kit import __all__
+
+# Additional convenience imports for common submodules
+from reward_kit import (
+    adapters,
+    agent,
+    auth,
+    cli,
+    cli_commands,
+    common_utils,
+    config,
+    datasets,
+    evaluation,
+    execution,
+    gcp_tools,
+    generation,
+    generic_server,
+    integrations,
+    mcp,
+    mcp_agent,
+    models,
+    packaging,
+    platform_api,
+    playback_policy,
+    resources,
+    reward_function,
+    rewards,
+    rl_processing,
+    server,
+    typed_interface,
+    utils,
+) 
