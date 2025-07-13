@@ -10,7 +10,6 @@ authors = [
 ]
 description = "A Python library for defining, testing, and using reward functions"
 readme = "README.md"
-license = "Apache-2.0"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
