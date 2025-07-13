@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=61.0", "versioneer[toml]>=0.29"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reward-kit"
+dynamic = ["version"]
+authors = [
+    {name = "Fireworks AI", email = "info@fireworks.ai"},
+]
+description = "A Python library for defining, testing, and using reward functions"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "requests>=2.25.0",
+    "pydantic>=2.0.0",
+    "dataclasses-json>=0.5.7",
+    "fastapi>=0.68.0",
+    "uvicorn>=0.15.0",
+    "python-dotenv>=0.19.0",
+    "openai==1.78.1",
+    "aiosqlite",
+    "aiohttp",
+    "mcp>=1.9.2",
+    "PyYAML>=5.0",
+    "datasets==3.6.0",
+    "fsspec==2025.3.0",
+    "hydra-core>=1.3.2",
+    "omegaconf>=2.3.0",
+    "gymnasium>=0.29.0",
+    "httpx>=0.24.0",
+    "fireworks-ai>=0.17.19",
+]
+
+[project.urls]
+Homepage = "https://github.com/fireworks-ai/reward-kit"
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "twine",
+    "pytest>=6.0.0",
+    "pytest-asyncio",
+    "pytest-httpserver",
+    "werkzeug>=2.0.0",
+    "black>=21.5b2",
+    "mypy>=0.812",
+    "flake8>=3.9.2",
+    "autopep8>=1.5.0",
+    "transformers>=4.0.0",
+    "types-setuptools",
+    "types-requests",
+    "types-PyYAML",
+    "types-docker",
+    "versioneer>=0.20",
+    "openai==1.78.1",
+    "pre-commit",
+    "e2b>=0.15.0",
+    "docker==7.1.0",
+]
+trl = [
+    "torch>=1.9",
+    "trl>=0.7.0",
+    "peft>=0.7.0",
+    "transformers>=4.0.0",
+    "accelerate>=0.28.0",
+]
+deepseek = [
+    "difflib>=3.0.0",
+]
+openevals = [
+    "openevals>=0.1.0",
+]
+
+[project.scripts]
+fireworks-reward = "reward_kit.cli:main"
+reward-kit = "reward_kit.cli:main"
+reward-protocol = "reward_kit.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["reward_kit*", "reward_protocol*", "development*"]
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "reward_kit/_version.py"
+versionfile_build = "reward_kit/_version.py"
+tag_prefix = "v"
+parentdir_prefix = "reward-kit-" 
