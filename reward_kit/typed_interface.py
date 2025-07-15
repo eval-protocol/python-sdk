@@ -43,6 +43,8 @@ def reward_function(
     id: Optional[str] = None,
     requirements: Optional[List[str]] = None,  # Changed to List[str]
     resources: Optional[ResourceDict] = None,  # Resource management
+    concurrency: Optional[int] = None,
+    timeout: Optional[int] = None,
 ) -> Union[F, Callable[[F], F]]:
     """
     Decorator for user-defined reward and evaluation functions with resource management.
@@ -64,6 +66,8 @@ def reward_function(
         resources: Optional dictionary of resource types to resource instances.
                   Example: {"llms": [llm_resource]}
                   Resources are automatically setup before evaluation and cleaned up after.
+        concurrency: Optional number of concurrent requests to the reward function. This will only take effect if the function is async or there are async resources binded to the reward function (e.g. LLM resource).
+        timeout: Optional timeout for the reward function. This will only take effect if the function is async or there are async resources binded to the reward function (e.g. LLM resource).
 
     Returns:
         A decorator if `_func` is None, or the decorated function.
@@ -94,38 +98,14 @@ def reward_function(
                     managers.append(resource)
                 resource_managers[resource_type] = managers
 
-        @wraps(func)
-        def wrapper(
-            # The wrapper's signature should be generic enough to accept what the original func might take.
-            # The specific coercion below targets 'messages' and 'ground_truth'.
-            # For 'pointwise', 'messages' is expected. For 'batch', 'rollouts_messages' is more typical.
-            # This simplified wrapper signature might need adjustment if we generalize input param coercion.
-            *args: Any,
-            **kwargs: Any,
-        ) -> Union[EvaluateResult, List[EvaluateResult]]:  # Return type depends on mode
+        # Detect if the user supplied function is a coroutine (async def)
+        _is_async_function = inspect.iscoroutinefunction(func)
 
-            # For now, we'll assume 'messages' is the primary input for pointwise,
-            # and it's passed via kwargs or as the first arg if not named 'messages'.
-            # This part needs to be more robust based on actual function signatures.
-            # The current reverted logic specifically looks for 'messages' in params.
-
-            # Extract 'messages' or 'rollouts_messages' from args/kwargs for processing
-            # This is a simplification; a more robust solution would inspect `sig`
-            # to find the correct parameter name based on `mode`.
-            # For now, sticking to the structure of the reverted file which explicitly handles 'messages'.
-
-            current_messages_arg_name = "messages"  # Default for pointwise
-            if mode == "batch":
-                # A common pattern for batch mode is 'rollouts_messages'
-                # We'd need to find this in *args or **kwargs if not hardcoded.
-                # For now, let's assume it's still passed as 'messages' for simplicity of this step,
-                # or that the user function handles it. The key is output validation.
-                pass
-
-            # The reverted logic for input coercion:
-            # It explicitly looks for 'messages' and 'ground_truth' in params.
-            # We need to adapt how `processed_messages` and `kwargs` are prepared for `func` call.
-
+        def _prepare_final_args(*args: Any, **kwargs: Any):
+            """Prepare final positional and keyword arguments for the user function call.
+            This includes Pydantic coercion and resource injection. Returns a tuple of
+            (call_args, call_kwargs).
+            """
             # Bind arguments to handle *args and **kwargs correctly for the wrapped function
             bound_args = sig.bind_partial(*args, **kwargs)
             bound_args.apply_defaults()
@@ -159,13 +139,9 @@ def reward_function(
                 and "messages" in final_func_args
             ):
                 messages_param_annotation = params["messages"].annotation
-                is_list_message_hint = False
-                if get_origin(messages_param_annotation) in (list, List):
-                    ann_args = get_args(messages_param_annotation)
-                    if ann_args and ann_args[0] == Message:
-                        is_list_message_hint = True
-
-                if is_list_message_hint:
+                if get_origin(messages_param_annotation) in (list, List) and get_args(
+                    messages_param_annotation
+                ) and get_args(messages_param_annotation)[0] == Message:
                     try:
                         final_func_args["messages"] = _coerce_to_list_message(
                             final_func_args["messages"], "messages"
@@ -181,72 +157,36 @@ def reward_function(
                 and "rollouts_messages" in final_func_args
             ):
                 param_annotation = params["rollouts_messages"].annotation
-                is_list_list_msg_hint = False
-                # Check if the annotation is List[List[Message]]
-                # get_origin(typing.List[T]) is list.
-                if get_origin(param_annotation) == list:
-                    inner_list_type_args = get_args(param_annotation)
-                    if inner_list_type_args and len(inner_list_type_args) == 1:
-                        inner_list_type = inner_list_type_args[0]
-                        if get_origin(inner_list_type) == list:
-                            msg_type_args = get_args(inner_list_type)
-                            if (
-                                msg_type_args
-                                and len(msg_type_args) == 1
-                                and msg_type_args[0] == Message
-                            ):
-                                is_list_list_msg_hint = True
-
-                if is_list_list_msg_hint:
-                    try:
-                        coerced_rollouts = []
-                        for i, rollout_data in enumerate(
-                            final_func_args["rollouts_messages"]
-                        ):
-                            coerced_rollouts.append(
-                                _coerce_to_list_message(
-                                    rollout_data, f"rollouts_messages[{i}]"
+                inner = get_args(param_annotation)[0] if get_args(param_annotation) else None
+                if get_origin(param_annotation) == list and inner and get_origin(inner) == list:
+                    if get_args(inner) and get_args(inner)[0] == Message:
+                        try:
+                            coerced_rollouts = []
+                            for i, rollout_data in enumerate(final_func_args["rollouts_messages"]):
+                                coerced_rollouts.append(
+                                    _coerce_to_list_message(
+                                        rollout_data, f"rollouts_messages[{i}]"
+                                    )
                                 )
-                            )
-                        final_func_args["rollouts_messages"] = coerced_rollouts
-                    except Exception as err:
-                        raise ValueError(
-                            f"Input 'rollouts_messages' failed Pydantic validation: {err}"
-                        ) from None
+                            final_func_args["rollouts_messages"] = coerced_rollouts
+                        except Exception as err:
+                            raise ValueError(
+                                f"Input 'rollouts_messages' failed Pydantic validation: {err}"
+                            ) from None
 
-            # 2. Conditional Pydantic conversion for 'ground_truth' (applies to both modes if present)
-            # This logic might need to be mode-aware if ground_truth structure changes with mode (e.g. List[Any] for batch)
+            # Ground truth coercion (if needed)
             if "ground_truth" in params and "ground_truth" in final_func_args:
-                ground_truth_param_annotation = params["ground_truth"].annotation
-                ground_truth_data = final_func_args["ground_truth"]
-
-                is_list_message_gt_hint = False
-                if get_origin(ground_truth_param_annotation) in (list, List):
-                    ann_args = get_args(ground_truth_param_annotation)
-                    if ann_args and ann_args[0] == Message:
-                        is_list_message_gt_hint = True
-
-                if is_list_message_gt_hint and ground_truth_data is not None:
-                    if not isinstance(ground_truth_data, list):
-                        raise TypeError(
-                            f"'ground_truth' expected a list for List[Message] hint, got {type(ground_truth_data)}"
-                        )
-                    try:
-                        typed_ground_truth_list = []
-                        for gt_item_data in ground_truth_data:
-                            if isinstance(gt_item_data, Message):
-                                typed_ground_truth_list.append(gt_item_data)
-                            elif isinstance(gt_item_data, dict):
-                                typed_ground_truth_list.append(Message(**gt_item_data))
-                            else:
-                                raise TypeError(
-                                    f"Unexpected type in ground_truth list: {type(gt_item_data)}"
-                                )
-                        final_func_args["ground_truth"] = typed_ground_truth_list
-                    except Exception as err:
-                        raise ValueError(
-                            f"Input 'ground_truth' failed Pydantic validation for List[Message]: {err}"
-                        ) from None
+                gt_ann = params["ground_truth"].annotation
+                if get_origin(gt_ann) in (list, List) and get_args(gt_ann) and get_args(gt_ann)[0] == Message:
+                    if final_func_args["ground_truth"] is not None:
+                        try:
+                            final_func_args["ground_truth"] = _coerce_to_list_message(
+                                final_func_args["ground_truth"], "ground_truth"
+                            )
+                        except Exception as err:
+                            raise ValueError(
+                                f"Input 'ground_truth' failed Pydantic validation for List[Message]: {err}"
+                            ) from None
 
             # Inject resource clients into kwargs (resources are already setup)
             if resource_managers:
@@ -258,8 +198,8 @@ def reward_function(
             # Call the author's function using the (potentially modified) arguments dictionary.
             # final_func_args should contain all parameters expected by func, correctly mapped.
             # Reconstruct args and kwargs for the call to func
-            call_args = []
-            call_kwargs = {}
+            call_args: List[Any] = []
+            call_kwargs: Dict[str, Any] = {}
             for (
                 p_name,
                 p_obj,
@@ -276,36 +216,67 @@ def reward_function(
                     else:  # POSITIONAL_OR_KEYWORD, KEYWORD_ONLY
                         call_kwargs[p_name] = final_func_args[p_name]
 
-            result = func(*call_args, **call_kwargs)
+            return call_args, call_kwargs
 
-            # --- Output Validation ---
-            try:
-                if mode == "pointwise":
-                    if isinstance(result, EvaluateResult):  # Already correct type
-                        return result
-                    return _single_res_adapter.validate_python(result)
-                elif mode == "batch":
-                    if isinstance(result, list) and all(
-                        isinstance(item, EvaluateResult) for item in result
-                    ):
-                        return result
-                    return _list_res_adapter.validate_python(result)
-                else:  # Should not happen due to EvaluationMode typing
+        def _validate_output(result: Any):
+            if mode == "pointwise":
+                if isinstance(result, EvaluateResult):
+                    return result
+                return _single_res_adapter.validate_python(result)
+            elif mode == "batch":
+                if isinstance(result, list) and all(
+                    isinstance(item, EvaluateResult) for item in result
+                ):
+                    return result
+                return _list_res_adapter.validate_python(result)
+            else:
+                raise ValueError(f"Internal error: Invalid mode '{mode}' in wrapper.")
+
+        if _is_async_function:
+
+            @wraps(func)
+            async def async_wrapper(
+                *args: Any,
+                **kwargs: Any,
+            ) -> Union[EvaluateResult, List[EvaluateResult]]:
+                call_args, call_kwargs = _prepare_final_args(*args, **kwargs)
+                result = await func(*call_args, **call_kwargs)  # type: ignore[misc]
+                try:
+                    return _validate_output(result)
+                except ValidationError as err:
                     raise ValueError(
-                        f"Internal error: Invalid mode '{mode}' in wrapper."
-                    )
-            except ValidationError as err:
-                raise ValueError(
-                    f"Return value from function '{func.__name__}' failed Pydantic validation for mode '{mode}':\n{err}"
-                ) from None
+                        f"Return value from function '{func.__name__}' failed Pydantic validation for mode '{mode}':\n{err}"
+                    ) from None
+
+            wrapper_fn = async_wrapper
+
+        else:
+
+            @wraps(func)
+            def sync_wrapper(
+                *args: Any,
+                **kwargs: Any,
+            ) -> Union[EvaluateResult, List[EvaluateResult]]:
+                call_args, call_kwargs = _prepare_final_args(*args, **kwargs)
+                result = func(*call_args, **call_kwargs)
+                try:
+                    return _validate_output(result)
+                except ValidationError as err:
+                    raise ValueError(
+                        f"Return value from function '{func.__name__}' failed Pydantic validation for mode '{mode}':\n{err}"
+                    ) from None
+
+            wrapper_fn = sync_wrapper
 
         # Set attributes for introspection and deployment
-        wrapper._reward_function_id = id
-        wrapper._reward_function_requirements = requirements
-        wrapper._reward_function_mode = mode
-        wrapper._reward_function_resources = resources
+        wrapper_fn._reward_function_id = id  # type: ignore[attr-defined]
+        wrapper_fn._reward_function_requirements = requirements  # type: ignore[attr-defined]
+        wrapper_fn._reward_function_mode = mode  # type: ignore[attr-defined]
+        wrapper_fn._reward_function_resources = resources  # type: ignore[attr-defined]
+        wrapper_fn._reward_function_timeout = timeout  # type: ignore[attr-defined]
+        wrapper_fn._reward_function_concurrency = concurrency  # type: ignore[attr-defined]
 
-        return cast(F, wrapper)
+        return cast(F, wrapper_fn)
 
     if (
         _func is None

@@ -2,6 +2,7 @@
 Tests for the typed interface functionality.
 """
 
+import asyncio
 from typing import Any, Dict, List
 
 import pytest
@@ -130,7 +131,7 @@ def test_typed_interface_output_validation():
             score=0.5,
             reason=None,
             metrics={
-                "test": {"score": 0.5},  # type: ignore[dict-item] # Missing 'success' and 'reason'
+                "test": {"score": 0.5},  # type: ignore[dict-item] # Missing 'success' 
             },
         )  # type: ignore
 
@@ -229,3 +230,45 @@ def test_typed_interface_model_dump():
     assert metric_test_dict_access["is_score_valid"] is True
     assert metric_test_dict_access["score"] == 0.8
     assert metric_test_dict_access["reason"] == "Test reason"
+
+
+def test_async_reward_function():
+    """Test that the typed_interface works with async functions."""
+    @reward_function
+    async def async_evaluator(messages: List[Message], **kwargs) -> EvaluateResult:
+        """Sample async evaluator that returns a hardcoded result."""
+        return EvaluateResult(
+            score=0.8,
+            reason="Overall test reason",
+            is_score_valid=True
+        )
+        
+    async def _test_async_reward_function():
+        messages = [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there!"},
+        ]
+
+        result = await async_evaluator(messages=messages)
+        assert isinstance(result, EvaluateResult)
+        assert result.score == 0.8
+        assert result.reason == "Overall test reason"
+    
+    asyncio.run(_test_async_reward_function())
+
+def test_reward_function_decorator_attributes():
+    """Test that the reward_function decorator sets attributes correctly."""
+
+    @reward_function(mode="batch", requirements=["requests", "numpy"], concurrency=10, timeout=10)
+    def sample_evaluator(messages: List[Message], **kwargs) -> EvaluateResult:
+        """Sample evaluator that returns a hardcoded result."""
+        return EvaluateResult(
+            score=0.8,
+            reason="Overall test reason",
+            metrics={}
+        )
+
+    assert sample_evaluator._reward_function_mode == "batch"
+    assert sample_evaluator._reward_function_requirements == ["requests", "numpy"]
+    assert sample_evaluator._reward_function_concurrency == 10
+    assert sample_evaluator._reward_function_timeout == 10
