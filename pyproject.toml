@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "versioneer[toml]>=0.29"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "reward-kit"
+name = "reward-protocol"
 dynamic = ["version"]
 authors = [
     {name = "Fireworks AI", email = "info@fireworks.ai"},
