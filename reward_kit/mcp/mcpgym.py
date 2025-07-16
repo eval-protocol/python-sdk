@@ -98,8 +98,7 @@ class McpGym(GymProductionServer):
         }
 
         # Reset with seed if provided
-        if seed is not None:
-            self.env, self.obs, _info = self._new_env(seed=seed)
+        self.env, self.obs, _info = self._new_env(seed=seed)
 
         # Discover and register control plane endpoints
         self._discover_and_register_control_plane_endpoints()
@@ -434,3 +433,19 @@ class McpGym(GymProductionServer):
             Formatted observation dictionary (DATA PLANE ONLY)
         """
         pass
+
+    def _new_env(self, seed: Optional[int] = None) -> Tuple[Any, Any, Dict]:
+        """Create new environment and return initial state."""
+        config = self.adapter.get_default_config()
+        
+        try:
+            env, obs, info = self.adapter.create_environment_with_seed(config, seed=seed)
+        except AttributeError:
+            env = self.adapter.create_environment(config)
+            obs, info = self.adapter.reset_environment(env, seed=seed)
+        
+        return env, obs, info
+
+    def _render(self, obs) -> Dict[str, Any]:
+        """Format observation using subclass implementation."""
+        return self.format_observation(obs, self.env)
