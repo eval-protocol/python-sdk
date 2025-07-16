@@ -50,9 +50,9 @@ import random
 from typing import Any, Callable, Dict, List, Optional, Union
 
 # Import all functionality from the new modular components
+from .mcp.execution.manager import ExecutionManager
 from .mcp.execution.policy import FireworksPolicy, LLMBasePolicy
-from .mcp.execution.rollout import RolloutManager
-from .mcp.session.manager import GeneralMCPVectorEnv, SessionManager
+from .mcp.session.manager import GeneralMCPVectorEnv
 from .mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
 logger = logging.getLogger(__name__)
@@ -216,11 +216,10 @@ async def rollout(
         # Playback mode (after recording file exists)
         trajectories = await rk.rollout(envs, policy)
     """
-    # Use the new RolloutManager for execution
-    session_manager = SessionManager()
-    rollout_manager = RolloutManager(session_manager)
+    # Use the new ExecutionManager for execution
+    execution_manager = ExecutionManager()
 
-    return await rollout_manager.execute_rollout(
+    return await execution_manager.execute_rollout(
         envs, policy, steps, openai_format_log_file
     )
 

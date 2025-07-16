@@ -10,52 +10,10 @@ import json
 import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from ..client.connection import MCPConnectionManager
+from ..execution.manager import ExecutionManager
 from ..types import DatasetRow, MCPSession, MCPToolCall
 
 logger = logging.getLogger(__name__)
-
-
-class SessionManager:
-    """Manages MCP sessions and their lifecycle."""
-
-    def __init__(self):
-        """Initialize the session manager."""
-        self.connection_manager = MCPConnectionManager()
-
-    async def initialize_sessions(self, sessions: List[MCPSession]) -> None:
-        """
-        Initialize multiple MCP sessions in parallel.
-
-        Args:
-            sessions: List of MCPSessions to initialize
-        """
-        tasks = [
-            self.connection_manager.initialize_session(session) for session in sessions
-        ]
-        await asyncio.gather(*tasks)
-
-    async def close_sessions(self, sessions: List[MCPSession]) -> None:
-        """
-        Close multiple MCP sessions in parallel.
-
-        Args:
-            sessions: List of MCPSessions to close
-        """
-        tasks = [
-            asyncio.create_task(self.connection_manager.close_session(session))
-            for session in sessions
-        ]
-
-        if tasks:
-            try:
-                # Wait for all close operations to complete
-                await asyncio.gather(*tasks, return_exceptions=True)
-            except asyncio.CancelledError:
-                # Handle cancellation gracefully (especially important for Python 3.12)
-                logger.debug(
-                    "Close operation was cancelled, but sessions are marked as closed"
-                )
 
 
 class GeneralMCPVectorEnv:
@@ -85,7 +43,7 @@ class GeneralMCPVectorEnv:
         self.user_prompt_formatter = user_prompt_formatter or self._default_formatter
         self.n = len(sessions)
         self.tool_schemas = []  # Discovered from MCP servers
-        self.session_manager = SessionManager()
+        self.execution_manager = ExecutionManager()
 
         if len(sessions) != len(dataset_rows):
             raise ValueError(
@@ -108,16 +66,16 @@ class GeneralMCPVectorEnv:
 
         async def reset_session(session: MCPSession) -> Tuple[Any, List[Dict]]:
             # Establish a persistent session for each environment.
-            await self.session_manager.connection_manager.initialize_session(session)
+            await self.execution_manager.connection_manager.initialize_session(session)
 
             # Get available tools from MCP server
-            tool_schemas = await self.session_manager.connection_manager.discover_tools(
+            tool_schemas = await self.execution_manager.connection_manager.discover_tools(
                 session
             )
 
             # PROPER MCP PATTERN: Get initial state from resources during session establishment
             initial_observation = (
-                await self.session_manager.connection_manager.get_initial_state(session)
+                await self.execution_manager.connection_manager.get_initial_state(session)
             )
 
             # Update session state
@@ -190,7 +148,7 @@ class GeneralMCPVectorEnv:
 
             # Execute the tool call via MCP protocol
             observation, reward, done, info = (
-                await self.session_manager.connection_manager.call_tool(
+                await self.execution_manager.connection_manager.call_tool(
                     session, tool_call.tool_name, tool_call.arguments
                 )
             )
@@ -261,7 +219,7 @@ class GeneralMCPVectorEnv:
     async def close(self):
         """Closes all MCP sessions."""
         print(f"🧹 Closing {self.n} MCP sessions...")
-        await self.session_manager.close_sessions(self.sessions)
+        await self.execution_manager.close_sessions(self.sessions)
         print(f"✅ All MCP sessions closed.")
 
 

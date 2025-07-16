@@ -22,9 +22,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Add the mcp directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from reward_protocol.mcp.execution.rollout import RolloutManager
-from reward_protocol.mcp.session.manager import GeneralMCPVectorEnv, SessionManager
-from reward_protocol.mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
+from reward_kit.mcp.execution.manager import ExecutionManager
+from reward_kit.mcp.session.manager import GeneralMCPVectorEnv
+from reward_kit.mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
 
 class DemoPolicy:
@@ -93,8 +93,7 @@ async def demonstrate_control_plane_rollout():
     ]
 
     # Create rollout manager
-    session_manager = SessionManager()
-    rollout_manager = RolloutManager(session_manager)
+    execution_manager = ExecutionManager()
 
     # Mock the vector environment to simulate control plane separation
     with patch.object(GeneralMCPVectorEnv, "__init__", return_value=None), patch.object(
@@ -274,7 +273,7 @@ async def demonstrate_control_plane_rollout():
         print()
 
         # Execute rollout
-        trajectories = await rollout_manager.execute_rollout(mock_env, policy, steps=10)
+        trajectories = await execution_manager.execute_rollout(mock_env, policy, steps=10)
 
         print()
         print("📋 ROLLOUT RESULTS")

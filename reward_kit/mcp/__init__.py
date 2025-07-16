@@ -11,13 +11,13 @@ from .adapter import EnvironmentAdapter
 
 # New refactored components
 from .client import MCPConnectionManager
-from .execution import FireworksPolicy, LLMBasePolicy, RolloutManager
+from .execution import FireworksPolicy, LLMBasePolicy, ExecutionManager
 from .gym_production_server import GymProductionServer
 
 # North Star MCP-Gym Framework
 from .mcpgym import McpGym
 from .server import MCPEnvironmentServer
-from .session import GeneralMCPVectorEnv, SessionManager
+from .session import GeneralMCPVectorEnv
 from .simulation_server import SimulationServerBase
 from .types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
@@ -31,8 +31,7 @@ __all__ = [
     "MCPConnectionManager",
     "LLMBasePolicy",
     "FireworksPolicy",
-    "RolloutManager",
-    "SessionManager",
+    "ExecutionManager",
     "GeneralMCPVectorEnv",
     "MCPSession",
     "MCPToolCall",
