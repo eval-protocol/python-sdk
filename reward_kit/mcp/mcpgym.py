@@ -12,6 +12,8 @@ Key Features:
 - Session-aware control plane endpoints via @control_plane_endpoint decorator
 """
 
+import hashlib
+import threading
 import inspect
 import json
 import logging
@@ -84,6 +86,12 @@ class McpGym(GymProductionServer):
         """
         super().__init__(server_name, adapter)
 
+        # Multi-session support
+        self.sessions = (
+            {}
+        )  # session_id -> {"env": env, "obs": obs, "session_data": data}
+        self.session_lock = threading.Lock()
+
         # Control plane endpoints dictionary
         self._control_plane_endpoints: Dict[str, Callable] = {}
 
@@ -98,11 +106,140 @@ class McpGym(GymProductionServer):
         }
 
         # Reset with seed if provided
-        if seed is not None:
-            self.env, self.obs, _info = self._new_env(seed=seed)
+        self.env, self.obs, _info = self._new_env(seed=seed)
 
         # Discover and register control plane endpoints
         self._discover_and_register_control_plane_endpoints()
+
+    def _get_session_id(self, ctx: Context) -> str:
+        """
+        Extract session ID from MCP context using proper FastMCP pattern.
+        
+        Creates stable session IDs based on client info (seed + config + client details)
+        for consistent session management across reconnections.
+        """
+        print(f"🔍 _get_session_id: Starting session ID extraction")
+        print(f"🔍 _get_session_id: ctx type: {type(ctx)}")
+        print(f"🔍 _get_session_id: hasattr(ctx, 'session'): {hasattr(ctx, 'session')}")
+
+        # Use stable session ID based on client info (following simulation_server.py pattern)
+        if hasattr(ctx, "session") and hasattr(ctx.session, "client_params"):
+            client_params = ctx.session.client_params
+            print(f"🔍 _get_session_id: client_params type: {type(client_params)}")
+            print(
+                f"🔍 _get_session_id: hasattr(client_params, 'clientInfo'): {hasattr(client_params, 'clientInfo')}"
+            )
+
+            if hasattr(client_params, "clientInfo"):
+                client_info = client_params.clientInfo
+                print(f"🔍 _get_session_id: client_info: {client_info}")
+                print(
+                    f"🔍 _get_session_id: hasattr(client_info, '_extra'): {hasattr(client_info, '_extra')}"
+                )
+
+                if client_info and hasattr(client_info, "_extra"):
+                    extra_data = client_info._extra
+                    print(f"🔍 _get_session_id: extra_data: {extra_data}")
+                    print(f"🔍 _get_session_id: extra_data type: {type(extra_data)}")
+
+                    if extra_data and isinstance(extra_data, dict):
+                        # Create a stable session ID based on seed and other config
+                        seed_value = extra_data.get("seed")
+                        config_value = extra_data.get("config", {})
+
+                        print(
+                            f"🔍 _get_session_id: seed_value: {seed_value} (type: {type(seed_value)})"
+                        )
+                        print(f"🔍 _get_session_id: config_value: {config_value}")
+
+                        stable_data = {
+                            "seed": seed_value,
+                            "config": config_value,
+                            "name": client_info.name,
+                            "version": client_info.version,
+                        }
+
+                        print(f"🔍 _get_session_id: stable_data: {stable_data}")
+                        stable_str = json.dumps(stable_data, sort_keys=True)
+                        session_id = hashlib.md5(stable_str.encode()).hexdigest()
+                        print(
+                            f"🎯 Generated stable session_id: {session_id} for seed: {seed_value}"
+                        )
+                        return session_id
+
+        # Fallback for testing or other scenarios
+        session_id = f"gym_{id(ctx)}"
+        print(f"🎯 Generated fallback session_id: {session_id}")
+        return session_id
+
+    def _get_or_create_session(self, ctx: Context) -> Dict[str, Any]:
+        """
+        Get or create session data for the given context.
+        
+        This method handles comprehensive session creation with seed extraction
+        from MCP context and proper environment initialization.
+        """
+        session_id = self._get_session_id(ctx)
+        print(f"🔍 _get_or_create_session: session_id: {session_id}")
+
+        with self.session_lock:
+            if session_id not in self.sessions:
+                print(
+                    f"🔍 _get_or_create_session: Creating new session for {session_id}"
+                )
+                # Extract seed from context using proper FastMCP pattern
+                seed = None
+                config = self._get_default_config()
+                print(f"🔍 _get_or_create_session: default_config: {config}")
+
+                if hasattr(ctx, "session") and hasattr(ctx.session, "client_params"):
+                    client_params = ctx.session.client_params
+                    if hasattr(client_params, "clientInfo"):
+                        client_info = client_params.clientInfo
+                        if client_info and hasattr(client_info, "_extra"):
+                            extra_data = client_info._extra
+                            print(
+                                f"🔍 _get_or_create_session: extra_data in session creation: {extra_data}"
+                            )
+                            if extra_data and isinstance(extra_data, dict):
+                                # Extract seed from client info
+                                seed = extra_data.get("seed")
+                                print(
+                                    f"🌱 Extracted seed from client_info: {seed} (type: {type(seed)})"
+                                )
+                                # Update config with any additional options
+                                if "config" in extra_data:
+                                    config.update(extra_data["config"])
+                                    print(
+                                        f"🔍 _get_or_create_session: updated config: {config}"
+                                    )
+
+                print(
+                    f"🔍 _get_or_create_session: About to create environment with seed: {seed}"
+                )
+
+                env, obs, info = self._new_env(seed=seed)
+                print(
+                    f"🔍 _get_or_create_session: environment created with obs: {obs}, info: {info}"
+                )
+
+                # Initialize session state
+                self.sessions[session_id] = {
+                    "env": env,
+                    "obs": obs,
+                    "session_data": {},  # Subclasses can store additional data here
+                    "session_id": session_id,
+                }
+
+                print(
+                    f"🎮 Created new session {session_id[:16]}... with seed {seed}, initial obs: {obs}"
+                )
+            else:
+                print(
+                    f"🔍 _get_or_create_session: Returning existing session {session_id}"
+                )
+
+            return self.sessions[session_id]
 
     def _discover_and_register_control_plane_endpoints(self):
         """
@@ -141,10 +278,16 @@ class McpGym(GymProductionServer):
                                 # For initial state endpoint, we need to create the session
                                 # based on the session ID and available information
                                 if func.__name__ == "get_initial_state_endpoint":
-                                    # Create session with extracted seed from session ID
-                                    session_data = self._create_session_from_id(
-                                        session_id
-                                    )
+                                    env, obs, info = self._new_env(seed=None)
+                                    # Initialize session state with extracted seed from session ID
+                                    session_data = {
+                                        "env": env,
+                                        "obs": obs,
+                                        "session_data": {},  # Subclasses can store additional data here
+                                        "session_id": session_id,
+                                    }
+                                    # Store the session
+                                    self.sessions[session_id] = session_data
                                 else:
                                     return JSONResponse(
                                         {"error": f"Session {session_id} not found"},
@@ -177,42 +320,6 @@ class McpGym(GymProductionServer):
         else:
             logger.info("⚠️  No session-aware control plane endpoints discovered")
 
-    def _create_session_from_id(self, session_id: str) -> Dict[str, Any]:
-        """
-        Create a session based on session ID when the initial state endpoint is called.
-
-        The session ID is a hash of seed + config, so we can't extract the original values.
-        Instead, we'll create a session with default values and let the tool calls handle
-        the proper seed extraction from the MCP context.
-
-        Args:
-            session_id: Session ID from the client
-
-        Returns:
-            Session data dictionary
-        """
-        # Create environment with default settings
-        # The proper seed will be applied when the first tool is called
-        config = self.adapter.get_default_config()
-
-        # Create environment without seed initially
-        env = self.adapter.create_environment(config)
-        obs, info = self.adapter.reset_environment(env, seed=None)
-
-        # Initialize session state
-        session_data = {
-            "env": env,
-            "obs": obs,
-            "session_data": {},  # Subclasses can store additional data here
-            "session_id": session_id,
-        }
-
-        # Store the session
-        self.sessions[session_id] = session_data
-
-        print(f"🎮 Created session {session_id[:16]}... for initial state endpoint")
-
-        return session_data
 
     def _update_control_plane(
         self, reward: float, terminated: bool, truncated: bool, info: Dict[str, Any]
@@ -342,6 +449,36 @@ class McpGym(GymProductionServer):
 
         # Return ONLY data plane information (no rewards/termination)
         return self.format_observation(obs, env)
+
+
+    def _new_env(self, seed: Optional[int] = None) -> Tuple[Any, Any, Dict]:
+        """Create new environment and return initial state."""
+        config = self.adapter.get_default_config()
+        
+        try:
+            env, obs, info = self.adapter.create_environment_with_seed(config, seed=seed)
+        except AttributeError:
+            env = self.adapter.create_environment(config)
+            obs, info = self.adapter.reset_environment(env, seed=seed)
+        
+        return env, obs, info
+
+    def _render(self, obs) -> Dict[str, Any]:
+        """Format observation using subclass implementation."""
+        return self.format_observation(obs, self.env)
+
+    
+    def _get_default_config(self) -> Dict[str, Any]:
+        """
+        Get default configuration from adapter.
+        
+        Wrapper method to handle potential adapter interface issues.
+        """
+        try:
+            return self.adapter.get_default_config()
+        except AttributeError:
+            # Fallback for adapters that don't implement get_default_config
+            return {}
 
     # ===== SESSION-AWARE CONTROL PLANE ENDPOINTS =====
     # These provide session-specific control plane data via HTTP endpoints

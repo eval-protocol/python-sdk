@@ -54,15 +54,6 @@ class GymProductionServer(ABC):
         """
         self.adapter = adapter
 
-        # For backward compatibility, keep single-session support
-        self.env, self.obs, _info = self._new_env()
-
-        # Multi-session support
-        self.sessions = (
-            {}
-        )  # session_id -> {"env": env, "obs": obs, "session_data": data}
-        self.session_lock = threading.Lock()
-
         # Create FastMCP server
         self.mcp = FastMCP(
             name,
@@ -74,20 +65,6 @@ class GymProductionServer(ABC):
         self._register_resources()
         self._register_tools()
 
-    def _new_env(self, seed: Optional[int] = None) -> Tuple[Any, Any, Dict]:
-        """Create new environment and return initial state."""
-        if hasattr(self.adapter, "create_environment_with_seed"):
-            env, obs, info = self.adapter.create_environment_with_seed(
-                self.adapter.get_default_config(), seed=seed
-            )
-        else:
-            env = self.adapter.create_environment(self.adapter.get_default_config())
-            obs, info = self.adapter.reset_environment(env, seed=seed)
-        return env, obs, info
-
-    def _render(self, obs) -> Dict[str, Any]:
-        """Format observation using subclass implementation."""
-        return self.format_observation(obs, self.env)
 
     def _register_resources(self):
         """Register standard MCP resources."""
@@ -110,167 +87,6 @@ class GymProductionServer(ABC):
         #
         # The rollout system has been updated to query these HTTP endpoints instead.
         pass
-
-    def _get_session_id(self, ctx: Context) -> str:
-        """Extract session ID from MCP context using proper FastMCP pattern."""
-        print(f"🔍 _get_session_id: Starting session ID extraction")
-        print(f"🔍 _get_session_id: ctx type: {type(ctx)}")
-        print(f"🔍 _get_session_id: hasattr(ctx, 'session'): {hasattr(ctx, 'session')}")
-
-        # Use stable session ID based on client info (following simulation_server.py pattern)
-        if hasattr(ctx, "session") and hasattr(ctx.session, "client_params"):
-            client_params = ctx.session.client_params
-            print(f"🔍 _get_session_id: client_params type: {type(client_params)}")
-            print(
-                f"🔍 _get_session_id: hasattr(client_params, 'clientInfo'): {hasattr(client_params, 'clientInfo')}"
-            )
-
-            if hasattr(client_params, "clientInfo"):
-                client_info = client_params.clientInfo
-                print(f"🔍 _get_session_id: client_info: {client_info}")
-                print(
-                    f"🔍 _get_session_id: hasattr(client_info, '_extra'): {hasattr(client_info, '_extra')}"
-                )
-
-                if client_info and hasattr(client_info, "_extra"):
-                    extra_data = client_info._extra
-                    print(f"🔍 _get_session_id: extra_data: {extra_data}")
-                    print(f"🔍 _get_session_id: extra_data type: {type(extra_data)}")
-
-                    if extra_data and isinstance(extra_data, dict):
-                        # Create a stable session ID based on seed and other config
-                        import hashlib
-                        import json
-
-                        seed_value = extra_data.get("seed")
-                        config_value = extra_data.get("config", {})
-
-                        print(
-                            f"🔍 _get_session_id: seed_value: {seed_value} (type: {type(seed_value)})"
-                        )
-                        print(f"🔍 _get_session_id: config_value: {config_value}")
-
-                        stable_data = {
-                            "seed": seed_value,
-                            "config": config_value,
-                            "name": client_info.name,
-                            "version": client_info.version,
-                        }
-
-                        print(f"🔍 _get_session_id: stable_data: {stable_data}")
-                        stable_str = json.dumps(stable_data, sort_keys=True)
-                        session_id = hashlib.md5(stable_str.encode()).hexdigest()
-                        print(
-                            f"🎯 Generated stable session_id: {session_id} for seed: {seed_value}"
-                        )
-                        return session_id
-
-        # Fallback for testing or other scenarios
-        session_id = f"gym_{id(ctx)}"
-        print(f"🎯 Generated fallback session_id: {session_id}")
-        return session_id
-
-    def _get_or_create_session(self, ctx: Context) -> Dict[str, Any]:
-        """Get or create session data for the given context."""
-        session_id = self._get_session_id(ctx)
-        print(f"🔍 _get_or_create_session: session_id: {session_id}")
-
-        with self.session_lock:
-            if session_id not in self.sessions:
-                print(
-                    f"🔍 _get_or_create_session: Creating new session for {session_id}"
-                )
-                # Extract seed from context using proper FastMCP pattern
-                seed = None
-                config = self.adapter.get_default_config()
-                print(f"🔍 _get_or_create_session: default_config: {config}")
-
-                if hasattr(ctx, "session") and hasattr(ctx.session, "client_params"):
-                    client_params = ctx.session.client_params
-                    if hasattr(client_params, "clientInfo"):
-                        client_info = client_params.clientInfo
-                        if client_info and hasattr(client_info, "_extra"):
-                            extra_data = client_info._extra
-                            print(
-                                f"🔍 _get_or_create_session: extra_data in session creation: {extra_data}"
-                            )
-                            if extra_data and isinstance(extra_data, dict):
-                                # Extract seed from client info
-                                seed = extra_data.get("seed")
-                                print(
-                                    f"🌱 Extracted seed from client_info: {seed} (type: {type(seed)})"
-                                )
-                                # Update config with any additional options
-                                if "config" in extra_data:
-                                    config.update(extra_data["config"])
-                                    print(
-                                        f"🔍 _get_or_create_session: updated config: {config}"
-                                    )
-
-                print(
-                    f"🔍 _get_or_create_session: About to create environment with seed: {seed}"
-                )
-
-                # Create environment with seed
-                if seed is not None:
-                    print(
-                        f"🔍 _get_or_create_session: Calling create_environment_with_seed({config}, seed={seed})"
-                    )
-                    env, obs, info = self.adapter.create_environment_with_seed(
-                        config, seed=seed
-                    )
-                    print(
-                        f"🔍 _get_or_create_session: create_environment_with_seed returned obs: {obs}, info: {info}"
-                    )
-                else:
-                    print(
-                        f"🔍 _get_or_create_session: Calling create_environment({config}) + reset_environment(seed={seed})"
-                    )
-                    env = self.adapter.create_environment(config)
-                    obs, info = self.adapter.reset_environment(env, seed=seed)
-                    print(
-                        f"🔍 _get_or_create_session: create_environment + reset returned obs: {obs}, info: {info}"
-                    )
-
-                # Initialize session state
-                self.sessions[session_id] = {
-                    "env": env,
-                    "obs": obs,
-                    "session_data": {},  # Subclasses can store additional data here
-                    "session_id": session_id,
-                }
-
-                print(
-                    f"🎮 Created new session {session_id[:16]}... with seed {seed}, initial obs: {obs}"
-                )
-            else:
-                print(
-                    f"🔍 _get_or_create_session: Returning existing session {session_id}"
-                )
-
-            return self.sessions[session_id]
-
-    def extract_seed_from_context(self, ctx: Context) -> Optional[int]:
-        """
-        Extract seed from MCP client info if available.
-
-        NOTE: This method is kept for backward compatibility. New code should use
-        _get_or_create_session() which handles seed extraction automatically.
-        """
-        if hasattr(ctx, "session") and hasattr(ctx.session, "client_params"):
-            client_params = ctx.session.client_params
-            if hasattr(client_params, "clientInfo"):
-                client_info = client_params.clientInfo
-                if client_info and hasattr(client_info, "_extra"):
-                    extra_data = client_info._extra
-                    if extra_data and isinstance(extra_data, dict):
-                        seed = extra_data.get("seed")
-                        if seed is not None:
-                            print(f"🌱 Reinitializing with seed from client: {seed}")
-                            self.env, self.obs, _info = self._new_env(seed=seed)
-                            return seed
-
-        return None
 
     # Abstract methods that subclasses must implement
 
