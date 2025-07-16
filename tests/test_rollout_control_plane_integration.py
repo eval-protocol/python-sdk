@@ -26,8 +26,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "examples" / "frozen_lake_mcp"))
 
 
-from reward_kit.mcp.execution.rollout import RolloutManager
-from reward_kit.mcp.session.manager import GeneralMCPVectorEnv, SessionManager
+from reward_kit.mcp.execution.manager import ExecutionManager
+from reward_kit.mcp.session.manager import GeneralMCPVectorEnv
 from reward_kit.mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
 
@@ -69,8 +69,7 @@ class TestRolloutControlPlaneIntegration:
 
     def setup_method(self):
         """Setup test environment."""
-        self.session_manager = SessionManager()
-        self.rollout_manager = RolloutManager(self.session_manager)
+        self.execution_manager = ExecutionManager()
 
     @pytest.mark.asyncio
     async def test_rollout_with_control_plane_separation(self):
@@ -208,7 +207,7 @@ class TestRolloutControlPlaneIntegration:
             policy = MockPolicy(["right", "down", "right"])
 
             # Execute rollout
-            trajectories = await self.rollout_manager.execute_rollout(
+            trajectories = await self.execution_manager.execute_rollout(
                 mock_env, policy, steps=10
             )
 
@@ -445,7 +444,7 @@ class TestRolloutControlPlaneIntegration:
 
             # Execute rollout with control plane failure
             policy = MockPolicy(["right"])
-            trajectories = await self.rollout_manager.execute_rollout(
+            trajectories = await self.execution_manager.execute_rollout(
                 mock_env, policy, steps=1
             )
 
