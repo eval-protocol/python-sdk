@@ -1,27 +1,27 @@
-# Reward-Kit: Core Strategy & Roadmap
+# Reward-Protocol: Core Strategy & Roadmap
 
 ## Punch Line
 
-**Reward-Kit: Author, reproduce, and evaluate reward functions seamlessly on Fireworks, TRL, and your own infrastructure.**
+**Reward-Protocol: Author, reproduce, and evaluate reward functions seamlessly on Fireworks, TRL, and your own infrastructure.**
 
 ## Core Tenets
 
-These tenets guide the development and evolution of Reward-Kit:
+These tenets guide the development and evolution of Reward-Protocol:
 
 *   **T1: Empower Effortless Reward Function Authoring & Unwavering Reproducibility.**
-    *   Reward-Kit must provide an intuitive and simple interface for defining reward functions. The process from idea to a functioning reward function should be as frictionless as possible. Crucially, all aspects of evaluation, including data, verifier setups, and execution environments, must be easily and reliably reproducible to ensure consistent results and facilitate debugging and iteration.
+    *   Reward-Protocol must provide an intuitive and simple interface for defining reward functions. The process from idea to a functioning reward function should be as frictionless as possible. Crucially, all aspects of evaluation, including data, verifier setups, and execution environments, must be easily and reliably reproducible to ensure consistent results and facilitate debugging and iteration.
 
 *   **T2: Champion Broad Integration & Principled Extensibility.**
-    *   Reward-Kit aims for deep and seamless integration with key platforms like Fireworks AI and popular RL frameworks such as TRL. Beyond these, it must be architected to support diverse execution infrastructures (local, managed cloud services like GCP/Lambda, or user-owned servers) and be extensible for new reward types, data sources, and evaluation paradigms.
+    *   Reward-Protocol aims for deep and seamless integration with key platforms like Fireworks AI and popular RL frameworks such as TRL. Beyond these, it must be architected to support diverse execution infrastructures (local, managed cloud services like GCP/Lambda, or user-owned servers) and be extensible for new reward types, data sources, and evaluation paradigms.
 
 *   **T3: Deliver Robust Evaluation Capabilities & Insightful Debugging.**
-    *   The library must offer powerful and flexible tools for evaluating reward functions. This includes not just scoring, but also rich metric collection. Integration with UIs like Fireworks for detailed review, comparison, and debugging of evaluators is paramount. Reward-Kit should facilitate experimentation, allowing users to easily test different models, parameters (e.g., pass @ k), and configurations.
+    *   The library must offer powerful and flexible tools for evaluating reward functions. This includes not just scoring, but also rich metric collection. Integration with UIs like Fireworks for detailed review, comparison, and debugging of evaluators is paramount. Reward-Protocol should facilitate experimentation, allowing users to easily test different models, parameters (e.g., pass @ k), and configurations.
 
 *   **T4: Uphold Enterprise-Grade Security & Trust.**
-    *   As Reward-Kit handles potentially sensitive models and data, and integrates with various services, security is non-negotiable. It must support robust authentication mechanisms (API keys, IAM roles, mTLS) to protect developer workloads and ensure that integrations do not compromise the security posture of user environments.
+    *   As Reward-Protocol handles potentially sensitive models and data, and integrates with various services, security is non-negotiable. It must support robust authentication mechanisms (API keys, IAM roles, mTLS) to protect developer workloads and ensure that integrations do not compromise the security posture of user environments.
 
 *   **T5: Foster Learning & Adoption through Rich Examples & Crystal-Clear Documentation.**
-    *   To be truly useful, Reward-Kit needs comprehensive, practical examples that showcase its capabilities across various use cases. These examples should be paired with well-defined datasets. All documentation, from high-level guides to API references, must be clear, accurate, up-to-date, and focused on enabling users to achieve their goals quickly and effectively.
+    *   To be truly useful, Reward-Protocol needs comprehensive, practical examples that showcase its capabilities across various use cases. These examples should be paired with well-defined datasets. All documentation, from high-level guides to API references, must be clear, accurate, up-to-date, and focused on enabling users to achieve their goals quickly and effectively.
 
 ## Phased Implementation Roadmap
 
@@ -62,7 +62,7 @@ This roadmap outlines the development priorities. Tasks within each phase can be
 
 ---
 **Phase 2: Core Feature Enhancements, Dataset Management & New Example Suites**
-*(Focus: Develop core utilities, key integrations, robust dataset handling, and new comprehensive examples that showcase the power of Reward-Kit.)*
+*(Focus: Develop core utilities, key integrations, robust dataset handling, and new comprehensive examples that showcase the power of Reward-Protocol.)*
 
 *   **P2.1: Hydra-based Dataset Management Refactor:**
     *   [ ] **Core Dataset Module:** Create `reward_kit/datasets/loader.py` (or similar) for centralized dataset loading/processing logic driven by Hydra.
@@ -76,7 +76,7 @@ This roadmap outlines the development priorities. Tasks within each phase can be
     *   [ ] Implement an API mocking utility for testing.
     *   [ ] Develop math-specific string processing utilities (if still needed).
 *   **P2.3: TRL Integration Development:**
-    *   [ ] Create a generic adapter for using `reward-kit` reward functions with TRL.
+    *   [ ] Create a generic adapter for using `reward-protocol` reward functions with TRL.
 *   **P2.4: Comprehensive Coding Example Creation:**
     *   [ ] Curate/generate `examples/coding_example/dataset.jsonl`.
     *   [ ] Create `local_eval.py`, `fireworks_preview.py`, `fireworks_regenerate.py`, `trl_grpo_integration.py` for coding.
@@ -105,8 +105,8 @@ This roadmap outlines the development priorities. Tasks within each phase can be
 *   **P3.2: Advanced Authentication for Self-Hosted Evaluators:**
     *   [ ] Implement IAM and mTLS options for self-hosted evaluators (requires self-hosted infrastructure from P3.3).
 *   **P3.3: Future Vision - Self-Hosted Remote Evaluators:**
-    *   **GCP Cloud Run Integration:** Implement `reward-kit deploy ... --target gcp-cloud-run`, Dockerfile generation, `gcloud` orchestration, API key auth, GCP Secret Manager integration.
-    *   **AWS Lambda Integration:** Implement `reward-kit deploy ... --target aws-lambda`, Lambda packaging, `aws` CLI orchestration, API key auth, AWS Secrets Manager integration.
+    *   **GCP Cloud Run Integration:** Implement `reward-protocol deploy ... --target gcp-cloud-run`, Dockerfile generation, `gcloud` orchestration, API key auth, GCP Secret Manager integration.
+    *   **AWS Lambda Integration:** Implement `reward-protocol deploy ... --target aws-lambda`, Lambda packaging, `aws` CLI orchestration, API key auth, AWS Secrets Manager integration.
     *   **(Future) Local Secret Store (Optional):** Implement if needed.
 *   **P3.4: Advanced CI/CD & Release Process:**
     *   [ ] Full CI pipeline: multi-Python version testing, build sdist/wheel, docs build check, coverage reporting.
