@@ -54,9 +54,6 @@ class GymProductionServer(ABC):
         """
         self.adapter = adapter
 
-        # For backward compatibility, keep single-session support
-        self.env, self.obs, _info = self._new_env()
-
         # Multi-session support
         self.sessions = (
             {}
@@ -74,20 +71,6 @@ class GymProductionServer(ABC):
         self._register_resources()
         self._register_tools()
 
-    def _new_env(self, seed: Optional[int] = None) -> Tuple[Any, Any, Dict]:
-        """Create new environment and return initial state."""
-        if hasattr(self.adapter, "create_environment_with_seed"):
-            env, obs, info = self.adapter.create_environment_with_seed(
-                self.adapter.get_default_config(), seed=seed
-            )
-        else:
-            env = self.adapter.create_environment(self.adapter.get_default_config())
-            obs, info = self.adapter.reset_environment(env, seed=seed)
-        return env, obs, info
-
-    def _render(self, obs) -> Dict[str, Any]:
-        """Format observation using subclass implementation."""
-        return self.format_observation(obs, self.env)
 
     def _register_resources(self):
         """Register standard MCP resources."""
@@ -249,28 +232,6 @@ class GymProductionServer(ABC):
                 )
 
             return self.sessions[session_id]
-
-    def extract_seed_from_context(self, ctx: Context) -> Optional[int]:
-        """
-        Extract seed from MCP client info if available.
-
-        NOTE: This method is kept for backward compatibility. New code should use
-        _get_or_create_session() which handles seed extraction automatically.
-        """
-        if hasattr(ctx, "session") and hasattr(ctx.session, "client_params"):
-            client_params = ctx.session.client_params
-            if hasattr(client_params, "clientInfo"):
-                client_info = client_params.clientInfo
-                if client_info and hasattr(client_info, "_extra"):
-                    extra_data = client_info._extra
-                    if extra_data and isinstance(extra_data, dict):
-                        seed = extra_data.get("seed")
-                        if seed is not None:
-                            print(f"🌱 Reinitializing with seed from client: {seed}")
-                            self.env, self.obs, _info = self._new_env(seed=seed)
-                            return seed
-
-        return None
 
     # Abstract methods that subclasses must implement
 

@@ -25,8 +25,9 @@ from typing import Any, Dict
 from mcp.server.fastmcp import Context
 from taxi_adapter import TaxiAdapter
 
-from reward_protocol.mcp import GymProductionServer
+from reward_kit.mcp import GymProductionServer
 
+# TODO: FAST FOLLOW. refactor this entire file to use McpGym, leaving logic below incorrect for now.
 
 class TaxiProdServer(GymProductionServer):
     """Taxi production server using unified framework."""
@@ -53,6 +54,7 @@ class TaxiProdServer(GymProductionServer):
             """
             # Extract seed from client info and reinitialize if needed
             self.extract_seed_from_context(ctx)
+            # note for later, should be: session_data = self._get_or_create_session(ctx)
 
             # Validate action
             if not action or not isinstance(action, str):

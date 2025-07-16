@@ -34,6 +34,7 @@ from mcp.server.fastmcp import Context
 
 from reward_kit.mcp import GymProductionServer
 
+# TODO: FAST FOLLOW. refactor this entire file to use McpGym, leaving logic below incorrect for now.
 
 class LunarLanderProdServer(GymProductionServer):
     """LunarLander production server with visual rendering support."""
