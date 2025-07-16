@@ -162,19 +162,19 @@ class TestRewardProtocolImports:
         import os
         
         # Read setup.py content directly to avoid running it
-        setup_path = os.path.join(os.path.dirname(__file__), '..', 'setup.py')
+        setup_path = os.path.join(os.path.dirname(__file__), '..', 'pyproject.toml')
         with open(setup_path, 'r') as f:
             setup_content = f.read()
         
         # Check for console scripts in the file content
         expected_scripts = [
-            'fireworks-reward=reward_kit.cli:main',
-            'reward-kit=reward_kit.cli:main',
-            'reward-protocol=reward_kit.cli:main',
+            'fireworks-reward = "reward_kit.cli:main"',
+            'reward-kit = "reward_kit.cli:main"',
+            'reward-protocol = "reward_kit.cli:main"',
         ]
         
         for script in expected_scripts:
-            assert script in setup_content, f"Console script '{script}' not found in setup.py"
+            assert script in setup_content, f"Console script '{script}' not found in pyproject.toml"
     
     def test_package_structure_in_setup(self):
         """Test that both packages are included in setup.py."""
