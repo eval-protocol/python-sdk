@@ -37,15 +37,15 @@ Reward Protocol allows you to define custom logic to evaluate model responses. H
 
 ```python
 # This is a conceptual example of how exact_tool_match_reward is defined and used.
-# You would typically import it from reward_kit.rewards.function_calling.
+# You would typically import it from reward_protocol.rewards.function_calling.
 # For actual usage, you configure it in your YAML files for `reward-protocol run`.
 
-from reward_kit import reward_function
-from reward_kit.models import EvaluateResult, Message, MetricResult
+from reward_protocol import reward_function
+from reward_protocol.models import EvaluateResult, Message, MetricResult
 from typing import List, Dict, Any, Optional, Union
 
 # Definition of exact_tool_match_reward (simplified for brevity, see source for full details)
-# from reward_kit.rewards.function_calling import exact_tool_match_reward, eval_tool_call
+# from reward_protocol.rewards.function_calling import exact_tool_match_reward, eval_tool_call
 
 @reward_function
 def exact_tool_match_reward(
@@ -108,7 +108,7 @@ def exact_tool_match_reward(
     })
 
 ```
-This example illustrates the structure. The actual `exact_tool_match_reward` in `reward_kit.rewards.function_calling` handles complex parsing and comparison of tool calls.
+This example illustrates the structure. The actual `exact_tool_match_reward` in `reward_protocol.rewards.function_calling` handles complex parsing and comparison of tool calls.
 
 ### 2. Testing Your Reward Function with a Dataset
 
@@ -140,8 +140,8 @@ Effective testing of a reward function involves evaluating it against a represen
 While `reward-protocol run` is the primary way to evaluate with datasets, here's a conceptual local test:
 
 ```python
-from reward_kit.rewards.function_calling import exact_tool_match_reward # Import the actual function
-from reward_kit.models import Message
+from reward_protocol.rewards.function_calling import exact_tool_match_reward # Import the actual function
+from reward_protocol.models import Message
 
 # Sample 1: Correct tool call
 test_messages_correct = [
@@ -317,7 +317,7 @@ This is ideal for development, testing webhook integrations, or accessing your r
 Or deploy programmatically:
 
 ```python
-from reward_kit.evaluation import create_evaluation
+from reward_protocol.evaluation import create_evaluation
 
 evaluator = create_evaluation(
     evaluator_id="my-evaluator",
@@ -335,8 +335,8 @@ evaluator = create_evaluation(
 Combine multiple metrics in a single reward function:
 
 ```python
-from reward_kit import reward_function
-from reward_kit.models import EvaluateResult, MetricResult, Message # Assuming models are here
+from reward_protocol import reward_function
+from reward_protocol.models import EvaluateResult, MetricResult, Message # Assuming models are here
 from typing import List, Dict, Any, Optional
 
 @reward_function
@@ -451,11 +451,11 @@ Check the `examples` directory for complete examples:
 - `apps_coding_example/`: Shows CLI-based evaluation (`reward-protocol run`) for code generation tasks (APPS dataset).
  - `apps_coding_example/`: Shows CLI-based evaluation (`reward-protocol run`) for code generation tasks (APPS dataset).
 
-The OpenEvals project provides a suite of evaluators that can be used directly within Reward Protocol. The helper `reward_kit.integrations.openeval.adapt` converts any OpenEvals evaluator into a reward function returning an `EvaluateResult`.
+The OpenEvals project provides a suite of evaluators that can be used directly within Reward Protocol. The helper `reward_protocol.integrations.openeval.adapt` converts any OpenEvals evaluator into a reward function returning an `EvaluateResult`.
 
 ```python
 from openevals import exact_match
-from reward_kit.integrations.openeval import adapt
+from reward_protocol.integrations.openeval import adapt
 
 exact_match_reward = adapt(exact_match)
 result = exact_match_reward(
@@ -466,13 +466,13 @@ print(result.score)
 ```
 
 The [deepeval](https://github.com/confident-ai/deepeval) project also offers a
-variety of metrics. The helper `reward_kit.integrations.deepeval.adapt_metric`
+variety of metrics. The helper `reward_protocol.integrations.deepeval.adapt_metric`
 converts a deepeval metric instance into a reward function returning an
 `EvaluateResult`.
 
 ```python
 from deepeval.metrics import FaithfulnessMetric
-from reward_kit.integrations.deepeval import adapt_metric
+from reward_protocol.integrations.deepeval import adapt_metric
 
 faithfulness_reward = adapt_metric(FaithfulnessMetric())
 result = faithfulness_reward(
@@ -489,7 +489,7 @@ way:
 ```python
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCaseParams
-from reward_kit.integrations.deepeval import adapt_metric
+from reward_protocol.integrations.deepeval import adapt_metric
 
 correctness_metric = GEval(
     name="Correctness",
