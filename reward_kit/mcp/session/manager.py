@@ -233,12 +233,12 @@ class GeneralMCPVectorEnv:
         """
         # Extract formatted display from observation if available
         display_obs = obs
-        image_url = None
+        image_dict = None
 
         if isinstance(obs, dict):
             # For visual environments like LunarLander, we have image_url
             if "image_url" in obs:
-                image_url = obs["image_url"]
+                image_dict = obs["image_url"]
                 display_obs.pop("image_url")
             # For other structured observations, try to extract meaningful display
             elif (
@@ -257,12 +257,12 @@ class GeneralMCPVectorEnv:
         formatted_prompt = template.format(observation=display_obs, **context)
         
         # If we have image data, return multimodal content
-        if image_url:
+        if image_dict:
             return [
                 {"type": "text", "text": formatted_prompt},
                 {
                     "type": "image_url",
-                    "image_url": image_url,
+                    "image_url": image_dict,
                 }
             ]
         
