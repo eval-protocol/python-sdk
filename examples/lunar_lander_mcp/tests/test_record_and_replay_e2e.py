@@ -1131,7 +1131,7 @@ async def test_fireworks_multi_environment_sessions(
         # Set up playback environment
         os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
 
-        # Create playback policy
+        # Create playback policy, using OpenAI policy for vision modality + tool calling
         playback_policy = rk.OpenAIPolicy(
             model_id="gpt-4.1",
             temperature=0.2,
