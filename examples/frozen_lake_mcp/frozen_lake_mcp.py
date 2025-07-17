@@ -99,7 +99,6 @@ class FrozenLakeMcp(McpGym):
 
             return observation_data
 
-
     @staticmethod
     def format_observation(obs: int, env: Any) -> Dict[str, Any]:
         """Format observation for MCP response (data plane only)."""
@@ -107,22 +106,3 @@ class FrozenLakeMcp(McpGym):
             "position": int(obs),
             "grid": env.render(),
         }
-
-
-# Example usage and testing
-# if __name__ == "__main__":
-#     # Test the FrozenLake MCP-Gym environment
-#     print("Creating FrozenLake MCP-Gym server...")
-#     server = FrozenLakeMcp(seed=42)
-#
-#     print("Server created successfully!")
-#     print(f"Environment adapter: {server.adapter.__class__.__name__}")
-#     print("\n🎛️  Multi-session control plane features:")
-#     print("  - Session-based environment isolation")
-#     print("  - Server-side control plane state management")
-#     print("  - get_control_plane_state tool for rollout system")
-#     print("  - Data plane tools return observations only")
-#
-#     # Run the server
-#     print("\nStarting MCP server...")
-#     server.run()

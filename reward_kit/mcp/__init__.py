@@ -11,8 +11,7 @@ from .adapter import EnvironmentAdapter
 
 # New refactored components
 from .client import MCPConnectionManager
-from .execution import FireworksPolicy, LLMBasePolicy, ExecutionManager
-from .gym_production_server import GymProductionServer
+from .execution import FireworksPolicy, LLMBasePolicy, OpenAIPolicy, ExecutionManager
 
 # North Star MCP-Gym Framework
 from .mcpgym import McpGym
@@ -26,11 +25,11 @@ __all__ = [
     "MCPEnvironmentServer",
     "EnvironmentAdapter",
     "SimulationServerBase",
-    "GymProductionServer",
     # New refactored components
     "MCPConnectionManager",
     "LLMBasePolicy",
     "FireworksPolicy",
+    "OpenAIPolicy",
     "ExecutionManager",
     "GeneralMCPVectorEnv",
     "MCPSession",

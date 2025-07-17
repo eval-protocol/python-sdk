@@ -12,7 +12,7 @@ import warnings
 
 from .adapters.braintrust import reward_fn_to_scorer, scorer_to_reward_fn
 from .common_utils import load_jsonl
-from .mcp_env import FireworksPolicy, MCPVectorEnv, make, rollout, test_mcp
+from .mcp_env import FireworksPolicy, OpenAIPolicy, MCPVectorEnv, make, rollout, test_mcp
 from .models import EvaluateResult, Message, MetricResult
 from .playback_policy import PlaybackPolicyBase
 from .resources import create_llm_resource
@@ -36,6 +36,7 @@ __all__ = [
     "make",
     "rollout",
     "FireworksPolicy",
+    "OpenAIPolicy",
     "MCPVectorEnv",
     "test_mcp",
     # Playback functionality
