@@ -114,36 +114,9 @@ class McpGym(ABC):
         # Reset with seed if provided
         self.env, self.obs, _info = self._new_env(seed=seed)
 
-        # Register resources, tools, and control plane endpoints
-        self._register_resources()
+        # Register tools and control plane endpoints
         self._register_tools()
         self._discover_and_register_control_plane_endpoints()
-
-    def _register_resources(self):
-        """
-        Register standard MCP resources.
-        
-        NOTE: Resources have been removed in favor of session-aware HTTP endpoints.
-        This method is kept for backward compatibility but does nothing.
-        """
-        # REMOVED: game://initial_state MCP resource
-        # This was not session-aware and caused all sessions to return identical initial state.
-        #
-        # Initial state is now provided by session-aware HTTP endpoint:
-        # - GET /control/initial_state (with mcp-session-id header)
-        #
-        # The connection manager has been updated to query this HTTP endpoint instead.
-
-        # REMOVED: Control plane MCP resources (control://reward, control://status, control://info)
-        # These were not session-aware and caused all sessions to return identical control plane state.
-        #
-        # Control plane data is now provided by session-aware HTTP endpoints:
-        # - GET /control/reward (with mcp-session-id header)
-        # - GET /control/status (with mcp-session-id header)  
-        # - GET /control/info (with mcp-session-id header)
-        #
-        # The rollout system has been updated to query these HTTP endpoints instead.
-        pass
 
     def _get_session_id(self, ctx: Context) -> str:
         """
