@@ -1,4 +1,0 @@
-gymnasium[box2d]
-pygame
-fastmcp
-mcp

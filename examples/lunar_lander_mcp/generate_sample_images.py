@@ -23,12 +23,12 @@ def generate_sample_trajectory():
     print("🚀 Generating sample lunar lander trajectory")
 
     # Create output directory
-    output_dir = Path("sample_trajectory")
+    output_dir = Path("examples/lunar_lander_mcp/sample_trajectory")
     output_dir.mkdir(exist_ok=True)
 
     # Create adapter and environment
     adapter = LunarLanderAdapter()
-    env = adapter.create_environment("LunarLander-v3")
+    env = adapter.create_environment({})
 
     # Reset environment with seed for reproducibility
     obs, info = adapter.reset_environment(env, seed=42)

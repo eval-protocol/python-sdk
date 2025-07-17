@@ -51,7 +51,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 # Import all functionality from the new modular components
 from .mcp.execution.manager import ExecutionManager
-from .mcp.execution.policy import FireworksPolicy, LLMBasePolicy
+from .mcp.execution.policy import FireworksPolicy, LLMBasePolicy, OpenAIPolicy
 from .mcp.session.manager import GeneralMCPVectorEnv
 from .mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
@@ -285,6 +285,7 @@ __all__ = [
     "make",
     "rollout",
     "FireworksPolicy",
+    "OpenAIPolicy",
     "LLMBasePolicy",  # New base class for OpenAI integration
     "MCPVectorEnv",
     "GeneralMCPVectorEnv",

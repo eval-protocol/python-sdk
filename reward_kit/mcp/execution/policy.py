@@ -10,7 +10,7 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from ...playback_policy import PlaybackPolicyBase
 from ..types import MCPToolCall
@@ -98,14 +98,14 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         pass
 
     def initialize_conversations(
-        self, n_envs: int, system_prompts: List[str], initial_user_prompts: List[str]
+        self, n_envs: int, system_prompts: List[str], user_prompts: List[Union[str, List[Dict[str, Any]]]]
     ):
         """Initialize conversation histories for each environment."""
         self.conversation_histories = {}
         for i in range(n_envs):
             self.conversation_histories[i] = [
                 {"role": "system", "content": system_prompts[i]},
-                {"role": "user", "content": initial_user_prompts[i]},
+                {"role": "user", "content": user_prompts[i]},
             ]
         self.initialized = True
 
@@ -113,10 +113,10 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         self,
         env_index: int,
         tool_call: MCPToolCall,
-        tool_response: str,
+        tool_response: Union[str, List[Dict[str, Any]]],
         reward: float = 0.0,
         terminated: bool = False,
-        info: Dict[str, Any] = None,
+        info: Optional[Dict[str, Any]] = None,
     ):
         """Add tool call and response to conversation history with control plane metadata."""
         if env_index not in self.conversation_histories:
@@ -139,11 +139,6 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
                 if call_id:
                     break
 
-        # Fallback if no matching tool call found
-        if not call_id:
-            call_id = f"call_{env_index}_{len(conversation)}"
-
-        # Add tool response with control plane metadata
         tool_message = {
             "role": "tool",
             "tool_call_id": call_id,
@@ -194,7 +189,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         tool_schemas: List[List[Dict]],
         observations: List[Any],
         system_prompts: List[str],
-        user_prompts: List[str],
+        user_prompts: List[Union[str, List[Dict[str, Any]]]],
     ) -> List[MCPToolCall]:
         """
         Generate tool calls for all environments using LLM in live mode.
@@ -235,22 +230,12 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
 
         # Process responses and handle exceptions
         result_calls = []
+
         for i, tool_call in enumerate(tool_calls):
             if isinstance(tool_call, Exception):
-                logger.warning(
-                    f"Tool call generation {i} failed: {tool_call}, using fallback"
-                )
-                # Use first available tool as fallback
-                if tool_schemas[i]:
-                    fallback_tool = tool_schemas[i][0]
-                    fallback_call = MCPToolCall(
-                        tool_name=fallback_tool["name"], arguments={}
-                    )
-                    result_calls.append(fallback_call)
-                else:
-                    logger.error(f"No tools available for environment {i}")
-                    result_calls.append(MCPToolCall("unknown", {}))
-            elif tool_call is None:
+                logger.error(f"tool_call failed with exception: {tool_call}")
+                raise tool_call
+            if tool_call is None:
                 # No tool call generated (e.g., success message with no tools) - use special termination signal
                 logger.info(
                     f"Environment {i}: No tool call generated, using termination signal"
@@ -273,6 +258,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         Args:
             tools: Available MCP tools for this environment
             env_index: Environment index
+            user_prompt: Current user prompt with observation
 
         Returns:
             MCPToolCall object
@@ -284,6 +270,18 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
                 raise RuntimeError(
                     f"No conversation history for environment {env_index}"
                 )
+
+            # Add current user prompt with observation to conversation history
+            
+            # TODO: make this an option the users can trigger
+            # if isinstance(user_prompt, str):
+            #     current_user_message = {"role": "user", "content": user_prompt}
+            # elif isinstance(user_prompt, dict):
+            #     current_user_message = {"role": "user", "content": user_prompt["content"]}
+            # else:
+            #     current_user_message = {"role": "user", "content": str(user_prompt)}
+            
+            # messages.append(current_user_message)
 
             # Convert MCP tools to LLM format
             llm_tools = self._convert_mcp_tools_to_llm_format(tools)
@@ -305,35 +303,36 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
                 "content": response["choices"][0]["message"]["content"],
             }
 
-            # Add tool calls if present with the actual API response IDs
-            if response["choices"][0]["message"].get("tool_calls"):
-                assistant_message_for_history["tool_calls"] = response["choices"][0][
-                    "message"
-                ]["tool_calls"]
-
-            # Add to actual conversation history
-            messages.append(assistant_message_for_history)
-
             # Extract tool call from response
             message = response["choices"][0]["message"]
             logger.debug(f"Environment {env_index} - Response message: {message}")
 
-            if message.get("tool_calls") and len(message["tool_calls"]) > 0:
-                tool_call = message["tool_calls"][0]
-                logger.debug(
-                    f"Environment {env_index} - Using tool call: {tool_call['function']['name']}({tool_call['function']['arguments']})"
-                )
+            # Add first tool call only if present with the actual API response IDs
+            if message.get("tool_calls"):
+                assistant_message_for_history["tool_calls"] = [message["tool_calls"][0]]
 
+            # Add to actual conversation history
+            messages.append(assistant_message_for_history)
+
+            if message.get("tool_calls") and len(message["tool_calls"]) > 0:
+                tool_calls = message["tool_calls"]
+                
+                # Handle single tool call (discrete actions)
                 return MCPToolCall(
-                    tool_name=tool_call["function"]["name"],
-                    arguments=json.loads(tool_call["function"]["arguments"]),
+                    tool_name=tool_calls[0]["function"]["name"],
+                    arguments=json.loads(tool_calls[0]["function"]["arguments"]),
                 )
             else:
                 # No tool calls in response - this is normal when episode ends or LLM provides only text
                 logger.info(
                     f"No tool calls in response for env {env_index}, message content: {message.get('content')}"
                 )
-                return None
+                return MCPToolCall(
+                    tool_name="_no_tool_call",
+                    arguments={
+                        "reason": "no_tool_call_generated",
+                    },
+                )
 
         except Exception as e:
             logger.error(f"LLM API call failed for env {env_index}: {e}")
@@ -344,7 +343,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         tool_schemas: List[List[Dict]],
         observations: List[Any],
         system_prompts: List[str],
-        user_prompts: List[str],
+        user_prompts: List[Union[str, List[Dict[str, Any]]]],
     ) -> List[MCPToolCall]:
         """
         Override to ensure conversation histories are maintained in both live and playback modes.
@@ -544,6 +543,173 @@ class FireworksPolicy(LLMBasePolicy):
     def _convert_mcp_tools_to_llm_format(self, mcp_tools: List[Dict]) -> List[Dict]:
         """
         Convert MCP tool schemas to OpenAI function calling format for Fireworks.
+
+        Args:
+            mcp_tools: List of MCP tool definitions
+
+        Returns:
+            List of OpenAI-compatible tool definitions
+        """
+        openai_tools = []
+
+        for mcp_tool in mcp_tools:
+            openai_tool = {
+                "type": "function",
+                "function": {
+                    "name": mcp_tool["name"],
+                    "description": mcp_tool.get(
+                        "description", f"Execute {mcp_tool['name']} action"
+                    ),
+                    "parameters": mcp_tool.get(
+                        "input_schema",
+                        {"type": "object", "properties": {}, "required": []},
+                    ),
+                },
+            }
+            openai_tools.append(openai_tool)
+
+        return openai_tools
+
+
+class OpenAIPolicy(LLMBasePolicy):
+    """
+    OpenAI policy implementation that works with ANY MCP environment via tool calling.
+
+    NO environment-specific logic - everything comes from MCP tools and dataset prompts.
+    Supports both live mode (using OpenAI API) and playback mode (replaying recorded trajectories).
+    """
+
+    def __init__(
+        self,
+        model_id: str,
+        temperature: float = 0.2,
+        max_tokens: int = 4096,
+        **kwargs,
+    ):
+        """
+        Initialize OpenAI policy.
+
+        Args:
+            model_id: OpenAI model identifier (e.g., "gpt-4o", "gpt-4o-mini", "gpt-4-turbo")
+            temperature: Sampling temperature (0.0 to 2.0)
+            max_tokens: Maximum tokens to generate per request
+        """
+        super().__init__(model_id, temperature, max_tokens, **kwargs)
+
+        # Only initialize OpenAI client in live mode (not in playback mode)
+        if not self._is_playback:
+            # Import OpenAI SDK - optional at module level
+            try:
+                from openai import AsyncOpenAI
+
+                OPENAI_AVAILABLE = True
+            except ImportError:
+                raise ImportError(
+                    "The 'openai' package is required for OpenAIPolicy. "
+                    "Please install it with 'pip install openai'"
+                )
+
+            # Verify authentication
+            api_key = os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError(
+                    "OPENAI_API_KEY environment variable is required "
+                    "to use OpenAIPolicy. Set this variable before running."
+                )
+
+            # Initialize the OpenAI client
+            try:
+                self.client = AsyncOpenAI(api_key=api_key)
+                logger.info(
+                    f"✅ Initialized OpenAI client: {self.model_id}"
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to initialize OpenAI client for '{self.model_id}': {e}"
+                )
+        else:
+            # In playback mode, skip expensive client initialization
+            self.client = None
+            logger.info(
+                f"🎬 Playback mode: Skipping OpenAI client initialization for performance"
+            )
+
+    def _clean_messages_for_api(self, messages: List[Dict]) -> List[Dict]:
+        """
+        Clean messages by removing metadata fields that OpenAI API doesn't accept.
+
+        Args:
+            messages: Conversation messages with potential metadata
+
+        Returns:
+            Clean messages without metadata fields
+        """
+        clean_messages = []
+        for msg in messages:
+            clean_msg = msg.copy()
+            # Remove metadata field if present
+            if "metadata" in clean_msg:
+                del clean_msg["metadata"]
+            clean_messages.append(clean_msg)
+        return clean_messages
+
+    async def _make_llm_call(self, messages: List[Dict], tools: List[Dict]) -> Dict:
+        """
+        Make an OpenAI API call.
+
+        Args:
+            messages: Conversation messages (may contain metadata)
+            tools: Available tools in OpenAI format
+
+        Returns:
+            API response in OpenAI format
+        """
+        # Clean messages by removing metadata before sending to API
+        clean_messages = self._clean_messages_for_api(messages)
+
+        current_request = {
+            "model": self.model_id,
+            "messages": clean_messages,
+            "tools": tools,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
+
+        if self.client is None:
+            raise RuntimeError("OpenAI client not initialized")
+
+        # Make the API call
+        response = await self.client.chat.completions.create(**current_request)
+
+        # Convert OpenAI response to standard format
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": response.choices[0].message.content,
+                        "tool_calls": (
+                            [
+                                {
+                                    "id": tc.id,
+                                    "type": tc.type,
+                                    "function": {
+                                        "name": tc.function.name,
+                                        "arguments": tc.function.arguments,
+                                    },
+                                }
+                                for tc in (response.choices[0].message.tool_calls or [])
+                            ]
+                            if response.choices[0].message.tool_calls
+                            else []
+                        ),
+                    }
+                }
+            ]
+        }
+
+    def _convert_mcp_tools_to_llm_format(self, mcp_tools: List[Dict]) -> List[Dict]:
+        """
+        Convert MCP tool schemas to OpenAI function calling format.
 
         Args:
             mcp_tools: List of MCP tool definitions
