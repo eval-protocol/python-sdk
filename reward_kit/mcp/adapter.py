@@ -32,6 +32,13 @@ class EnvironmentAdapter(ABC):
         pass
 
     @abstractmethod
+    def create_environment_with_seed(self, config: Optional[Dict[str, Any]] = None, seed: Optional[int] = None) -> Tuple[Any, int, Dict[str, Any]]:
+        """
+        Create and return a new environment instance with a specific seed.
+        """
+        pass
+
+    @abstractmethod
     def reset_environment(
         self, env: Any, seed: Optional[int] = None
     ) -> Tuple[Any, Dict[str, Any]]:
@@ -106,5 +113,15 @@ class EnvironmentAdapter(ABC):
 
         Returns:
             Dict describing the action space (for tool schema generation)
+        """
+        pass
+
+    @abstractmethod
+    def get_default_config(self) -> Dict[str, Any]:
+        """
+        Get the default environment configuration.
+
+        Returns:
+            Dict describing the default environment configuration
         """
         pass

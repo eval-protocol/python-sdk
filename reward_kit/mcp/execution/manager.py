@@ -228,10 +228,8 @@ class ExecutionManager:
                         )
                         continue
 
-                    # Convert observation to tool response format
-                    tool_response = (
-                        json.dumps(obs) if isinstance(obs, dict) else str(obs)
-                    )
+                    # Format observation to tool response
+                    tool_response = envs.format_tool_response(obs)
 
                     # Check if policy supports control plane metadata
                     import inspect

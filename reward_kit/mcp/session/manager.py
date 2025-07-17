@@ -8,14 +8,14 @@ Extracted from mcp_env.py to improve modularity.
 import asyncio
 import json
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from ..execution.manager import ExecutionManager
 from ..types import DatasetRow, MCPSession, MCPToolCall
 
 logger = logging.getLogger(__name__)
 
-
+# TODO: rename this file or the other manager.py
 class GeneralMCPVectorEnv:
     """
     General MCP vector environment that works with any MCP server.
@@ -169,16 +169,22 @@ class GeneralMCPVectorEnv:
         observations, rewards, dones, infos = zip(*results)
         return list(observations), list(rewards), list(dones), list(infos)
 
-    def format_user_prompts(self, observations: List[Any]) -> List[str]:
+    def format_user_prompts(self, observations: List[Any]) -> List[Union[str, List[Dict[str, Any]]]]:
         """
         Format user prompts dynamically based on current observations.
 
         This is the callback pattern - prompts are generated based on current state.
+        Can return either text-only prompts or multimodal content structures.
+        
+        Returns:
+            List of prompts - each can be either:
+            - str: Text-only prompt
+            - Dict: Multimodal content with "type": "multimodal" and "content" list
         """
         user_prompts = []
 
         for obs, row in zip(observations, self.dataset_rows):
-            # Use the callback to format the prompt
+            # Use the callback to format the prompt (may return string or dict)
             prompt = self.user_prompt_formatter(
                 row.user_prompt_template, obs, row.environment_context
             )
@@ -186,35 +192,81 @@ class GeneralMCPVectorEnv:
 
         return user_prompts
 
-    def _default_formatter(self, template: str, observation: Any, context: Dict) -> str:
+    def format_tool_response(self, obs: Any) -> Union[str, List[Dict[str, Any]]]:
+        """
+        Format observation to tool response. If there's an image_url, it will be returned as a multimodal content. If not, it will be returned as a string.
+        This is what gets filled in for the tool responses content.
+        """
+
+        if isinstance(obs, dict) and obs.get("image_url"):
+            image_url = obs["image_url"]["url"]
+            obs.pop("image_url")
+
+            return [
+                {
+                    "type": "text",
+                    "text": json.dumps(obs) if isinstance(obs, dict) else str(obs)
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": image_url,
+                    }
+                }
+            ]
+
+        else:
+            return json.dumps(obs) if isinstance(obs, dict) else str(obs)
+
+        
+
+    def _default_formatter(self, template: str, obs: Any, context: Dict) -> Union[str, List[Dict[str, Any]]]:
         """
         Default user prompt formatter.
 
         Extracts meaningful display data from MCP observations.
         For FrozenLake: extracts grid_layout if available, otherwise uses raw observation.
+        For visual environments: returns multimodal content with both text and images.
+        
+        Returns:
+            Either a string (text-only) or a dict (multimodal content)
         """
         # Extract formatted display from observation if available
-        display_observation = observation
+        display_obs = obs
+        image_url = None
 
-        if isinstance(observation, dict):
-            # For FrozenLake and similar games, prefer grid_layout for display
-            if "grid_layout" in observation:
-                display_observation = observation["grid_layout"]
+        if isinstance(obs, dict):
+            # For visual environments like LunarLander, we have image_url
+            if "image_url" in obs:
+                image_url = obs["image_url"]
+                display_obs.pop("image_url")
             # For other structured observations, try to extract meaningful display
             elif (
-                "observation" in observation
-                and observation["observation"] != "default_initial_state"
+                "observation" in obs
+                and obs["observation"] != "default_initial_state"
             ):
-                display_observation = observation["observation"]
+                display_obs = obs["observation"]
             # If we still have default_initial_state, try to use position info
             elif (
-                observation.get("observation") == "default_initial_state"
-                and "session_id" in observation
+                obs.get("observation") == "default_initial_state"
+                and "session_id" in obs
             ):
                 # This is the fallback case - we should have gotten the proper initial state from MCP resources
-                display_observation = f"Initial game state (Session: {observation['session_id']})\nWaiting for grid data from server..."
+                display_obs = f"Initial game state (Session: {obs['session_id']})\nWaiting for grid data from server..."
 
-        return template.format(observation=display_observation, **context)
+        formatted_prompt = template.format(observation=display_obs, **context)
+        
+        # If we have image data, return multimodal content
+        if image_url:
+            return [
+                {"type": "text", "text": formatted_prompt},
+                {
+                    "type": "image_url",
+                    "image_url": image_url,
+                }
+            ]
+        
+        return formatted_prompt
 
     async def close(self):
         """Closes all MCP sessions."""
