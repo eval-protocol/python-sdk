@@ -7,8 +7,7 @@ enabling integration with the MCP-Gym framework.
 
 from typing import Any, Dict, Optional, Tuple
 
-from gymnasium.envs.toy_text import FrozenLakeEnv
-from gymnasium.envs.toy_text.frozen_lake import generate_random_map
+from gymnasium.envs.toy_text.frozen_lake import generate_random_map, FrozenLakeEnv
 
 from reward_kit.mcp.adapter import EnvironmentAdapter
 
