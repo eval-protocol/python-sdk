@@ -259,7 +259,10 @@ class GeneralMCPVectorEnv:
         # If we have image data, return multimodal content
         if image_dict:
             return [
-                {"type": "text", "text": formatted_prompt},
+                {
+                    "type": "text",
+                    "text": formatted_prompt,
+                },
                 {
                     "type": "image_url",
                     "image_url": image_dict,
