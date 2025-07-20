@@ -46,3 +46,32 @@ def error_reward(
     A dummy reward function that always raises an error.
     """
     raise ValueError("This is a deliberate error from error_reward function.")
+
+
+@reward_function
+def length_based_reward(messages: List[Message], **kwargs: Any) -> EvaluateResult:
+    """Reward based on the length of the assistant's last reply."""
+    if not messages or messages[-1].role != "assistant":
+        return EvaluateResult(
+            score=0.0,
+            reason="No assistant response found.",
+            metrics={
+                "length": MetricResult(
+                    score=0.0, success=False, reason="No assistant response."
+                )
+            },
+        )
+
+    assistant_message_content = messages[-1].content or ""
+    length = len(assistant_message_content)
+    score = min(1.0, length / 100.0)
+
+    return EvaluateResult(
+        score=score,
+        reason=f"Assistant response length: {length} characters.",
+        metrics={
+            "length": MetricResult(
+                score=score, success=length > 0, reason=f"Length: {length}"
+            )
+        },
+    )
