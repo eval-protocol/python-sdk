@@ -470,7 +470,7 @@ Use the Reward Kit CLI for common operations during development. Ensure your vir
 
 # Deploy as local development server with tunnel (ideal for development/testing)
 .venv/bin/reward-kit deploy --id test-local-serve-eval --target local-serve \
---function-ref dummy_rewards.simple_echo_reward --verbose --force
+--function-ref examples.row_wise.dummy_example.dummy_rewards.simple_echo_reward --verbose --force
 ```
 
 ### Local Development Server
@@ -479,7 +479,7 @@ For local development and testing, you can use the `--target local-serve` option
 
 ```bash
 .venv/bin/reward-kit deploy --id test-local-serve-eval --target local-serve \
---function-ref dummy_rewards.simple_echo_reward --verbose --force
+--function-ref examples.row_wise.dummy_example.dummy_rewards.simple_echo_reward --verbose --force
 ```
 
 **What this does:**

@@ -36,7 +36,7 @@ def pipeline_config():
                 "api_params": {"max_concurrent_requests": 5},
             },
             "reward": {
-                "function_path": "dummy_rewards.simple_echo_reward",
+                "function_path": "examples.row_wise.dummy_example.dummy_rewards.simple_echo_reward",
                 "params": {},
             },
             "output": {"results_file": "test_results.jsonl"},
