@@ -296,7 +296,7 @@ For local development and testing, you can deploy a reward function as a local s
 
 ```bash
 # Deploy as local server with automatic tunnel (ngrok/serveo)
-reward-protocol deploy --id test-local-serve-eval --target local-serve --function-ref dummy_rewards.simple_echo_reward --verbose --force
+reward-protocol deploy --id test-local-serve-eval --target local-serve --function-ref examples.row_wise.dummy_example.dummy_rewards.simple_echo_reward --verbose --force
 ```
 
 **What this does:**
