@@ -6,12 +6,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Ensure the module is loaded (though RewardFunction import likely does this)
-import reward_kit.reward_function
-from reward_kit.models import EvaluateResult, MetricResult  # Changed
+import reward_protocol
+from reward_protocol.models import EvaluateResult, MetricResult  # Changed
 
 # Get a direct reference to the module object
 reward_function_module_obj = sys.modules["reward_kit.reward_function"]
-from reward_kit.reward_function import RewardFunction
+from reward_protocol import RewardFunction
 
 
 class TestEdgeCases:
