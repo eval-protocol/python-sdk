@@ -15,14 +15,14 @@ from unittest.mock import AsyncMock  # For mocking async methods if needed later
 import pytest
 import pytest_asyncio  # Import pytest_asyncio
 
-from reward_kit.agent.resources.docker_resource import (
+from eval_protocol.agent.resources.docker_resource import (
     DOCKER_DAEMON_AVAILABLE,
     DOCKER_SDK_AVAILABLE,
     DockerResource,
 )
-from reward_kit.agent.resources.filesystem_resource import FileSystemResource
-from reward_kit.agent.resources.python_state_resource import PythonStateResource
-from reward_kit.agent.resources.sql_resource import SQLResource
+from eval_protocol.agent.resources.filesystem_resource import FileSystemResource
+from eval_protocol.agent.resources.python_state_resource import PythonStateResource
+from eval_protocol.agent.resources.sql_resource import SQLResource
 
 
 @pytest.mark.asyncio

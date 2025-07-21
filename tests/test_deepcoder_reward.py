@@ -3,8 +3,8 @@ import os
 import unittest
 from typing import Any, Dict, List
 
-from reward_kit.models import EvaluateResult, Message
-from reward_kit.rewards import deepcoder_code_reward
+from eval_protocol.models import EvaluateResult, Message
+from eval_protocol.rewards import deepcoder_code_reward
 
 # Path to the transformed sample data
 TRANSFORMED_SAMPLE_DATA_PATH = (

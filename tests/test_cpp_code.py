@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from reward_kit.models import EvaluateResult, Message, MetricResult  # Changed
-from reward_kit.rewards.cpp_code import (
+from eval_protocol.models import EvaluateResult, Message, MetricResult  # Changed
+from eval_protocol.rewards.cpp_code import (
     PistonClient,
     _ioi_cpp_code_reward_impl,
     add_c_includes,
@@ -442,7 +442,7 @@ class TestPistonClient:
 
 
 class TestExecuteCppCode:
-    @patch("reward_kit.rewards.cpp_code.PistonClient")
+    @patch("eval_protocol.rewards.cpp_code.PistonClient")
     def test_execute_cpp_success(self, MockPistonClient):
         # Setup the mock client
         mock_client = MagicMock()
@@ -454,7 +454,7 @@ class TestExecuteCppCode:
 
         # Mock get_piston_client
         with patch(
-            "reward_kit.rewards.cpp_code.get_piston_client",
+            "eval_protocol.rewards.cpp_code.get_piston_client",
             return_value=mock_client,
         ):
             # Call function with a synchronous wrapper
@@ -473,7 +473,7 @@ class TestExecuteCppCode:
             finally:
                 loop.close()
 
-    @patch("reward_kit.rewards.cpp_code.PistonClient")
+    @patch("eval_protocol.rewards.cpp_code.PistonClient")
     def test_execute_cpp_compile_error(self, MockPistonClient):
         # Setup the mock client
         mock_client = MagicMock()
@@ -485,7 +485,7 @@ class TestExecuteCppCode:
 
         # Mock get_piston_client
         with patch(
-            "reward_kit.rewards.cpp_code.get_piston_client",
+            "eval_protocol.rewards.cpp_code.get_piston_client",
             return_value=mock_client,
         ):
             # Bad code with compilation error
@@ -507,7 +507,7 @@ class TestExecuteCppCode:
             finally:
                 loop.close()
 
-    @patch("reward_kit.rewards.cpp_code.PistonClient")
+    @patch("eval_protocol.rewards.cpp_code.PistonClient")
     def test_execute_c_code(self, MockPistonClient):
         # Setup the mock client
         mock_client = MagicMock()
@@ -519,7 +519,7 @@ class TestExecuteCppCode:
 
         # Mock get_piston_client
         with patch(
-            "reward_kit.rewards.cpp_code.get_piston_client",
+            "eval_protocol.rewards.cpp_code.get_piston_client",
             return_value=mock_client,
         ):
             # Call function with a synchronous wrapper
@@ -542,8 +542,8 @@ class TestExecuteCppCode:
 
 
 class TestIOICppCodeReward:
-    @patch("reward_kit.rewards.cpp_code.asyncio.get_event_loop")
-    @patch("reward_kit.rewards.cpp_code.execute_cpp_code")
+    @patch("eval_protocol.rewards.cpp_code.asyncio.get_event_loop")
+    @patch("eval_protocol.rewards.cpp_code.execute_cpp_code")
     def test_success_match(self, mock_execute, mock_get_loop):
         # Set up mock event loop
         mock_loop = MagicMock()
@@ -591,8 +591,8 @@ This program reads two integers and outputs their sum.
         #     "executed successfully" in result['metrics']["execution_result"]['reason'] # Use attribute access
         # )
 
-    @patch("reward_kit.rewards.cpp_code.asyncio.get_event_loop")
-    @patch("reward_kit.rewards.cpp_code.execute_cpp_code")
+    @patch("eval_protocol.rewards.cpp_code.asyncio.get_event_loop")
+    @patch("eval_protocol.rewards.cpp_code.execute_cpp_code")
     def test_success_mismatch(self, mock_execute, mock_get_loop):
         # Set up mock event loop
         mock_loop = MagicMock()
@@ -638,8 +638,8 @@ This program reads two integers and outputs their sum.
         # assert result['score'] < 1.0 # Use attribute access
         # assert "Output similarity:" in result['metrics']["output_match"]['reason'] # Use attribute access
 
-    @patch("reward_kit.rewards.cpp_code.asyncio.get_event_loop")
-    @patch("reward_kit.rewards.cpp_code.execute_cpp_code")
+    @patch("eval_protocol.rewards.cpp_code.asyncio.get_event_loop")
+    @patch("eval_protocol.rewards.cpp_code.execute_cpp_code")
     def test_execution_failure(self, mock_execute, mock_get_loop):
         # Set up mock event loop
         mock_loop = MagicMock()
@@ -690,15 +690,15 @@ int main() {
         # assert result['score'] == 0.0 # Use attribute access
         # assert "failed with error" in result['metrics']["execution_result"]['reason'] # Use attribute access
 
-    @patch("reward_kit.rewards.cpp_code.asyncio.get_event_loop")
-    @patch("reward_kit.rewards.cpp_code.run_cpp_test_cases")
+    @patch("eval_protocol.rewards.cpp_code.asyncio.get_event_loop")
+    @patch("eval_protocol.rewards.cpp_code.run_cpp_test_cases")
     def test_multiple_test_cases(self, mock_run_tests, mock_get_loop):
         # Set up mock event loop
         mock_loop = MagicMock()
         mock_get_loop.return_value = mock_loop
 
         # Create test cases result
-        from reward_kit.rewards.cpp_code import TestResult
+        from eval_protocol.rewards.cpp_code import TestResult
 
         test_results = [
             TestResult(test_name="Test 1", score=1.0, status="AC", feedback="Perfect"),
@@ -759,7 +759,7 @@ This program reads two integers and outputs their sum.
 
 
 class TestBinaryCppCodeReward:
-    @patch("reward_kit.rewards.cpp_code._ioi_cpp_code_reward_impl")
+    @patch("eval_protocol.rewards.cpp_code._ioi_cpp_code_reward_impl")
     def test_binary_pass(self, mock_reward_impl):
         # Set up mock response
         mock_metrics = {
@@ -805,7 +805,7 @@ class TestBinaryCppCodeReward:
         # assert result['score'] == 1.0 # Use attribute access
         # assert "Passed" in result['metrics']['binary_result']['reason'] # Use attribute access
 
-    @patch("reward_kit.rewards.cpp_code._ioi_cpp_code_reward_impl")
+    @patch("eval_protocol.rewards.cpp_code._ioi_cpp_code_reward_impl")
     def test_binary_fail(self, mock_reward_impl):
         # Set up mock response
         mock_metrics = {

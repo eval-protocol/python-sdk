@@ -76,7 +76,7 @@ This roadmap outlines the development priorities. Tasks within each phase can be
     *   [ ] Implement an API mocking utility for testing.
     *   [ ] Develop math-specific string processing utilities (if still needed).
 *   **P2.3: TRL Integration Development:**
-    *   [ ] Create a generic adapter for using `reward-protocol` reward functions with TRL.
+    *   [ ] Create a generic adapter for using `eval-protocol` reward functions with TRL.
 *   **P2.4: Comprehensive Coding Example Creation:**
     *   [ ] Curate/generate `examples/coding_example/dataset.jsonl`.
     *   [ ] Create `local_eval.py`, `fireworks_preview.py`, `fireworks_regenerate.py`, `trl_grpo_integration.py` for coding.
@@ -105,8 +105,8 @@ This roadmap outlines the development priorities. Tasks within each phase can be
 *   **P3.2: Advanced Authentication for Self-Hosted Evaluators:**
     *   [ ] Implement IAM and mTLS options for self-hosted evaluators (requires self-hosted infrastructure from P3.3).
 *   **P3.3: Future Vision - Self-Hosted Remote Evaluators:**
-    *   **GCP Cloud Run Integration:** Implement `reward-protocol deploy ... --target gcp-cloud-run`, Dockerfile generation, `gcloud` orchestration, API key auth, GCP Secret Manager integration.
-    *   **AWS Lambda Integration:** Implement `reward-protocol deploy ... --target aws-lambda`, Lambda packaging, `aws` CLI orchestration, API key auth, AWS Secrets Manager integration.
+    *   **GCP Cloud Run Integration:** Implement `eval-protocol deploy ... --target gcp-cloud-run`, Dockerfile generation, `gcloud` orchestration, API key auth, GCP Secret Manager integration.
+    *   **AWS Lambda Integration:** Implement `eval-protocol deploy ... --target aws-lambda`, Lambda packaging, `aws` CLI orchestration, API key auth, AWS Secrets Manager integration.
     *   **(Future) Local Secret Store (Optional):** Implement if needed.
 *   **P3.4: Advanced CI/CD & Release Process:**
     *   [ ] Full CI pipeline: multi-Python version testing, build sdist/wheel, docs build check, coverage reporting.

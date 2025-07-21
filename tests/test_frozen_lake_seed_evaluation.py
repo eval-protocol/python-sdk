@@ -17,13 +17,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import pytest_asyncio
 
+from eval_protocol.agent.orchestrator import Orchestrator
+from eval_protocol.agent.resources.http_rollout_protocol import StartEpisodeRequest
+from eval_protocol.agent.resources.http_rollout_resource import HttpRolloutResource
+from eval_protocol.agent.task_manager import TaskManager
+from eval_protocol.models import TaskDefinitionModel
+
 # Import components under test
 from examples.frozen_lake.gymnasium_frozen_lake_server import GymnasiumFrozenLakeGame
-from reward_kit.agent.orchestrator import Orchestrator
-from reward_kit.agent.resources.http_rollout_protocol import StartEpisodeRequest
-from reward_kit.agent.resources.http_rollout_resource import HttpRolloutResource
-from reward_kit.agent.task_manager import TaskManager
-from reward_kit.models import TaskDefinitionModel
 
 
 class TestSeedBasedMapGeneration:

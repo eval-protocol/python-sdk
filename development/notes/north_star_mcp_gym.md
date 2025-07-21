@@ -125,7 +125,7 @@ Fireworks enables today:
 
 **Next frontier:** Universal MCP-Gym environments. We invite you to:
 
-1. Contribute to the [Reward Protocol Specification](http://fireworks.ai/reward-protocol)
+1. Contribute to the [Eval Protocol Specification](http://fireworks.ai/eval-protocol)
 2. Host environments with MCP-Gym
 3. Run benchmarks with hosted environments
 

@@ -8,8 +8,8 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
-from reward_kit.cli_commands.deploy import deploy_command
-from reward_kit.config import GCPCloudRunConfig, RewardKitConfig
+from eval_protocol.cli_commands.deploy import deploy_command
+from eval_protocol.config import GCPCloudRunConfig, RewardKitConfig
 
 # Constants for a dummy reward function module
 # This module will be created and deleted by tests needing it.
@@ -22,7 +22,7 @@ DUMMY_DEPLOY_FUNCTION_REF = (
 DUMMY_DEPLOY_REQUIREMENTS = "requests==2.25.0\nfastapi==0.70.0"
 
 DUMMY_DEPLOY_MODULE_CONTENT = f"""
-from reward_kit.typed_interface import reward_function
+from eval_protocol.typed_interface import reward_function
 
 @reward_function(id="test-deploy-func", requirements='''{DUMMY_DEPLOY_REQUIREMENTS}''')
 def {DUMMY_DEPLOY_TEST_FUNCTION_NAME}(messages, ground_truth=None, **kwargs):
@@ -144,31 +144,40 @@ def test_deploy_gcp_with_inline_requirements(
     )
 
     # Mock all external dependencies of _deploy_to_gcp_cloud_run and deploy_command
-    with patch(
-        "reward_kit.cli_commands.deploy.check_environment", return_value=True
-    ) as mock_check_env, patch(
-        "reward_kit.cli_commands.deploy.get_config"
-    ) as mock_get_config, patch(
-        "reward_kit.cli_commands.deploy.ensure_artifact_registry_repo_exists",
-        return_value=True,
-    ) as mock_ensure_ar, patch(
-        "reward_kit.cli_commands.deploy.generate_dockerfile_content",
-        return_value="DOCKERFILE CONTENT",
-    ) as mock_gen_dockerfile, patch(
-        "reward_kit.cli_commands.deploy.build_and_push_docker_image", return_value=True
-    ) as mock_build_push, patch(
-        "reward_kit.cli_commands.deploy.ensure_gcp_secret",
-        return_value="projects/p/secrets/s/versions/1",
-    ) as mock_ensure_secret, patch(
-        "reward_kit.cli_commands.deploy.create_or_update_fireworks_secret",
-        return_value=True,
-    ) as mock_fw_secret, patch(
-        "reward_kit.cli_commands.deploy.deploy_to_cloud_run",
-        return_value="https://service-url.run.app",
-    ) as mock_deploy_cr, patch(
-        "reward_kit.cli_commands.deploy.create_evaluation",
-        return_value={"name": evaluator_id},
-    ) as mock_create_eval:
+    with (
+        patch(
+            "eval_protocol.cli_commands.deploy.check_environment", return_value=True
+        ) as mock_check_env,
+        patch("eval_protocol.cli_commands.deploy.get_config") as mock_get_config,
+        patch(
+            "eval_protocol.cli_commands.deploy.ensure_artifact_registry_repo_exists",
+            return_value=True,
+        ) as mock_ensure_ar,
+        patch(
+            "eval_protocol.cli_commands.deploy.generate_dockerfile_content",
+            return_value="DOCKERFILE CONTENT",
+        ) as mock_gen_dockerfile,
+        patch(
+            "eval_protocol.cli_commands.deploy.build_and_push_docker_image",
+            return_value=True,
+        ) as mock_build_push,
+        patch(
+            "eval_protocol.cli_commands.deploy.ensure_gcp_secret",
+            return_value="projects/p/secrets/s/versions/1",
+        ) as mock_ensure_secret,
+        patch(
+            "eval_protocol.cli_commands.deploy.create_or_update_fireworks_secret",
+            return_value=True,
+        ) as mock_fw_secret,
+        patch(
+            "eval_protocol.cli_commands.deploy.deploy_to_cloud_run",
+            return_value="https://service-url.run.app",
+        ) as mock_deploy_cr,
+        patch(
+            "eval_protocol.cli_commands.deploy.create_evaluation",
+            return_value={"name": evaluator_id},
+        ) as mock_create_eval,
+    ):
 
         # Configure mock_get_config to return a basic config
         mock_config_instance = RewardKitConfig(

@@ -3,10 +3,10 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from reward_kit import auth
+from eval_protocol import auth
 
 # Removed import of register_evaluator_with_remote_url and REMOTE_EVALUATOR_REGISTRATION_ENDPOINT_TEMPLATE
-from reward_kit.platform_api import PlatformAPIError
+from eval_protocol.platform_api import PlatformAPIError
 
 # Store original functions
 original_get_fireworks_api_key = auth.get_fireworks_api_key
@@ -100,7 +100,7 @@ class TestPlatformAPI(unittest.TestCase):
     #     auth.get_fireworks_api_base = MagicMock(return_value=self.mock_api_base)
 
     # @patch('requests.put')
-    # @patch('reward_kit.platform_api.logger.warning')
+    # @patch('eval_protocol.platform_api.logger.warning')
     # def test_missing_account_id_logs_warning_but_proceeds(self, mock_logger_warning, mock_put):
     #     auth.get_fireworks_account_id = MagicMock(return_value=None)
 

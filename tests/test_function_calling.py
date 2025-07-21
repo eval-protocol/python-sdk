@@ -4,12 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from reward_protocol.models import EvaluateResult  # Changed
-from reward_protocol.models import Message  # Added import
-from reward_protocol.rewards.function_calling import (
-    exact_tool_match_reward,
+from eval_protocol.models import EvaluateResult  # Changed
+from eval_protocol.models import Message  # Added import
+from eval_protocol.rewards.function_calling import (
     calculate_jaccard_similarity,
     composite_function_call_reward,
+    exact_tool_match_reward,
     extract_schema_properties,
     llm_judge_reward,
     match_function_call,

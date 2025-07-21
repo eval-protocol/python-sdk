@@ -6,11 +6,11 @@ import json  # Added import for json.loads
 
 import pytest
 
-from reward_kit.models import EvaluateResult, Message  # Added for new tests
-from reward_kit.rewards.code_execution import (
+from eval_protocol.models import EvaluateResult, Message  # Added for new tests
+from eval_protocol.rewards.code_execution import (
     fractional_code_reward,  # Added for new tests
 )
-from reward_kit.rewards.code_execution import (
+from eval_protocol.rewards.code_execution import (
     _HAS_E2B,
     compare_outputs,
     e2b_code_execution_reward,
@@ -27,7 +27,7 @@ from reward_kit.rewards.code_execution import (
 class TestE2BCodeExecution:
     def test_e2b_reward_function_missing_e2b(self, monkeypatch):
         # Patch _HAS_E2B to False to simulate missing E2B package
-        monkeypatch.setattr("reward_kit.rewards.code_execution._HAS_E2B", False)
+        monkeypatch.setattr("eval_protocol.rewards.code_execution._HAS_E2B", False)
 
         prompt_message_dict = {
             "role": "user",
@@ -61,7 +61,7 @@ This will output `5`.
         # assert "E2B package not installed" in result['metrics']['error']['reason'] # Use attribute access
 
         # Restore _HAS_E2B to its original value
-        monkeypatch.setattr("reward_kit.rewards.code_execution._HAS_E2B", _HAS_E2B)
+        monkeypatch.setattr("eval_protocol.rewards.code_execution._HAS_E2B", _HAS_E2B)
 
     @pytest.mark.skipif(not _HAS_E2B, reason="E2B not installed")
     def test_execute_code_with_e2b_authentication(self, monkeypatch):

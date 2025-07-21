@@ -171,7 +171,7 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs):
 
 def test_preview_evaluation(mock_env_variables, mock_preview_api, monkeypatch):
     """Test the preview_evaluation function in isolation"""
-    from reward_kit.evaluation import preview_evaluation
+    from eval_protocol.evaluation import preview_evaluation
 
     # Create a temporary directory for the test
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -232,9 +232,9 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs):
             )
 
         # Set used_preview_api flag to simulate successful preview
-        import reward_kit.evaluation
+        import eval_protocol.evaluation
 
-        reward_kit.evaluation.used_preview_api = True
+        eval_protocol.evaluation.used_preview_api = True
 
         # Call preview_evaluation
         result = preview_evaluation(
@@ -257,7 +257,7 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs):
 
 def test_create_evaluation(mock_env_variables, mock_create_api, monkeypatch):
     """Test the create_evaluation function in isolation"""
-    from reward_kit.evaluation import create_evaluation
+    from eval_protocol.evaluation import create_evaluation
 
     # Create a temporary directory for the test
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -365,7 +365,7 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs):
             )
 
         # Create a patched example module with modified paths
-        from reward_kit.evaluation import create_evaluation, preview_evaluation
+        from eval_protocol.evaluation import create_evaluation, preview_evaluation
 
         # Define a patched main function
         def patched_main():
@@ -380,7 +380,7 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs):
             preview_result.display()
 
             # Check if 'used_preview_api' attribute exists and is True
-            import reward_kit.evaluation as evaluation_module
+            import eval_protocol.evaluation as evaluation_module
 
             # For testing, always assume the API was used successfully
             evaluation_module.used_preview_api = True

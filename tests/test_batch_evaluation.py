@@ -16,9 +16,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from reward_kit.agent.task_manager import TaskManager
-from reward_kit.cli_commands.agent_eval_cmd import agent_eval_command
-from reward_kit.models import TaskDefinitionModel
+from eval_protocol.agent.task_manager import TaskManager
+from eval_protocol.cli_commands.agent_eval_cmd import agent_eval_command
+from eval_protocol.models import TaskDefinitionModel
 
 
 class MockArgs:
@@ -272,7 +272,7 @@ class TestBatchEvaluation:
                 os.environ[var] = value
 
     @pytest.mark.asyncio
-    @patch("reward_kit.agent.orchestrator.AsyncOpenAI")
+    @patch("eval_protocol.agent.orchestrator.AsyncOpenAI")
     @patch("subprocess.Popen")
     @patch("aiohttp.ClientSession.post")
     @patch("httpx.Client.post")
@@ -413,9 +413,14 @@ class TestBatchEvaluation:
 
         try:
             # Mock server process management
-            with patch.object(
-                task_manager, "_start_resource_server", return_value=12345
-            ), patch.object(task_manager, "_wait_for_server_health", return_value=True):
+            with (
+                patch.object(
+                    task_manager, "_start_resource_server", return_value=12345
+                ),
+                patch.object(
+                    task_manager, "_wait_for_server_health", return_value=True
+                ),
+            ):
 
                 # Execute the task with batch evaluation
                 results = await task_manager.execute_tasks(
@@ -474,7 +479,7 @@ class TestBatchEvaluation:
             await task_manager.cleanup()
 
     @pytest.mark.asyncio
-    @patch("reward_kit.agent.orchestrator.AsyncOpenAI")
+    @patch("eval_protocol.agent.orchestrator.AsyncOpenAI")
     @patch("subprocess.Popen")
     @patch("httpx.Client.post")
     @patch("requests.get")
@@ -582,9 +587,14 @@ class TestBatchEvaluation:
 
         try:
             # Mock server process management
-            with patch.object(
-                task_manager, "_start_resource_server", return_value=12346
-            ), patch.object(task_manager, "_wait_for_server_health", return_value=True):
+            with (
+                patch.object(
+                    task_manager, "_start_resource_server", return_value=12346
+                ),
+                patch.object(
+                    task_manager, "_wait_for_server_health", return_value=True
+                ),
+            ):
 
                 # Execute the task with batch evaluation
                 results = await task_manager.execute_tasks(
@@ -647,7 +657,7 @@ class TestBatchEvaluation:
                 os.environ.pop("MODEL_AGENT", None)
             await task_manager.cleanup()
 
-    @patch("reward_kit.agent.orchestrator.AsyncOpenAI")
+    @patch("eval_protocol.agent.orchestrator.AsyncOpenAI")
     @patch("subprocess.Popen")
     @patch("aiohttp.ClientSession.post")
     @patch("httpx.Client.post")
@@ -759,7 +769,7 @@ class TestBatchEvaluation:
         # Should complete successfully
         assert exit_code == 0, "CLI command should complete successfully"
 
-    @patch("reward_kit.agent.orchestrator.AsyncOpenAI")
+    @patch("eval_protocol.agent.orchestrator.AsyncOpenAI")
     @patch("subprocess.Popen")
     @patch("httpx.Client.post")
     @patch("requests.get")
@@ -871,7 +881,7 @@ class TestBatchEvaluation:
                 os.environ.pop("MODEL_AGENT", None)
 
     @pytest.mark.asyncio
-    @patch("reward_kit.agent.orchestrator.AsyncOpenAI")
+    @patch("eval_protocol.agent.orchestrator.AsyncOpenAI")
     @patch("subprocess.Popen")
     @patch("aiohttp.ClientSession.post")
     @patch("httpx.Client.post")
@@ -1008,9 +1018,14 @@ class TestBatchEvaluation:
 
         try:
             # Mock server process management
-            with patch.object(
-                task_manager, "_start_resource_server", return_value=12347
-            ), patch.object(task_manager, "_wait_for_server_health", return_value=True):
+            with (
+                patch.object(
+                    task_manager, "_start_resource_server", return_value=12347
+                ),
+                patch.object(
+                    task_manager, "_wait_for_server_health", return_value=True
+                ),
+            ):
 
                 # Execute with parallel enabled
                 results = await task_manager.execute_tasks(
@@ -1035,7 +1050,7 @@ class TestBatchEvaluation:
             await task_manager.cleanup()
 
     @pytest.mark.asyncio
-    @patch("reward_kit.agent.orchestrator.AsyncOpenAI")
+    @patch("eval_protocol.agent.orchestrator.AsyncOpenAI")
     @patch("subprocess.Popen")
     @patch("aiohttp.ClientSession.post")
     @patch("httpx.Client.post")
@@ -1165,9 +1180,14 @@ class TestBatchEvaluation:
 
         try:
             # Mock server process management
-            with patch.object(
-                task_manager, "_start_resource_server", return_value=12348
-            ), patch.object(task_manager, "_wait_for_server_health", return_value=True):
+            with (
+                patch.object(
+                    task_manager, "_start_resource_server", return_value=12348
+                ),
+                patch.object(
+                    task_manager, "_wait_for_server_health", return_value=True
+                ),
+            ):
 
                 # Execute task
                 results = await task_manager.execute_tasks(

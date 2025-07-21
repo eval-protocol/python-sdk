@@ -1,4 +1,4 @@
-"""Test that eval_protocol imports work correctly and provide the same functionality as reward_kit."""
+"""Test that eval_protocol imports work correctly and provide the same functionality as eval_protocol."""
 
 import importlib
 import sys
@@ -8,42 +8,42 @@ import pytest
 
 
 class TestRewardProtocolImports:
-    """Test that eval_protocol provides the same functionality as reward_kit."""
+    """Test that eval_protocol provides the same functionality as eval_protocol."""
 
     def test_basic_imports(self):
         """Test that both packages can be imported successfully."""
         import eval_protocol
-        import reward_kit
 
         # Both should be importable
-        assert reward_kit is not None
+        assert eval_protocol is not None
         assert eval_protocol is not None
 
     def test_version_consistency(self):
         """Test that both packages have the same version."""
         import eval_protocol
-        import reward_kit
 
-        assert hasattr(reward_kit, "__version__")
         assert hasattr(eval_protocol, "__version__")
-        assert reward_kit.__version__ == eval_protocol.__version__
+        assert hasattr(eval_protocol, "__version__")
+        assert eval_protocol.__version__ == eval_protocol.__version__
 
     def test_all_exports_consistency(self):
         """Test that both packages export the same __all__ list."""
         import eval_protocol
-        import reward_kit
 
-        assert hasattr(reward_kit, "__all__")
         assert hasattr(eval_protocol, "__all__")
-        assert reward_kit.__all__ == eval_protocol.__all__
+        assert hasattr(eval_protocol, "__all__")
+        assert eval_protocol.__all__ == eval_protocol.__all__
 
     def test_core_classes_available(self):
         """Test that core classes are available through both imports."""
+        from eval_protocol import EvaluateResult
         from eval_protocol import EvaluateResult as RPEvaluateResult
+        from eval_protocol import Message
         from eval_protocol import Message as RPMessage
+        from eval_protocol import MetricResult
         from eval_protocol import MetricResult as RPMetricResult
+        from eval_protocol import RewardFunction
         from eval_protocol import RewardFunction as RPRewardFunction
-        from reward_kit import EvaluateResult, Message, MetricResult, RewardFunction
 
         # Classes should be the same
         assert RewardFunction is RPRewardFunction
@@ -53,12 +53,16 @@ class TestRewardProtocolImports:
 
     def test_functions_available(self):
         """Test that core functions are available through both imports."""
+        from eval_protocol import load_jsonl
         from eval_protocol import load_jsonl as rp_load_jsonl
+        from eval_protocol import make
         from eval_protocol import make as rp_make
+        from eval_protocol import reward_function
         from eval_protocol import reward_function as rp_reward_function
+        from eval_protocol import rollout
         from eval_protocol import rollout as rp_rollout
+        from eval_protocol import test_mcp
         from eval_protocol import test_mcp as rp_test_mcp
-        from reward_kit import load_jsonl, make, reward_function, rollout, test_mcp
 
         # Functions should be the same
         assert reward_function is rp_reward_function
@@ -70,24 +74,25 @@ class TestRewardProtocolImports:
     def test_submodules_available(self):
         """Test that submodules are available through both imports."""
         import eval_protocol
-        import reward_kit
 
         # Test a few key submodules
         submodules_to_test = ["models", "auth", "config", "rewards", "mcp"]
 
         for submodule in submodules_to_test:
-            assert hasattr(reward_kit, submodule)
+            assert hasattr(eval_protocol, submodule)
             assert hasattr(eval_protocol, submodule)
             # The submodules should be the same object
-            assert getattr(reward_kit, submodule) is getattr(eval_protocol, submodule)
+            assert getattr(eval_protocol, submodule) is getattr(
+                eval_protocol, submodule
+            )
 
     def test_star_import_works(self):
         """Test that star imports work for both packages."""
         # This needs to be done in separate namespaces to avoid conflicts
 
-        # Test reward_kit star import
+        # Test eval_protocol star import
         rk_globals = {}
-        exec("from reward_kit import *", rk_globals)
+        exec("from eval_protocol import *", rk_globals)
 
         # Test eval_protocol star import
         rp_globals = {}
@@ -107,11 +112,11 @@ class TestRewardProtocolImports:
 
     def test_reward_function_decorator_works(self):
         """Test that the @reward_function decorator works through both imports."""
+        from eval_protocol import EvaluateResult
+        from eval_protocol import reward_function as rk_reward_function
         from eval_protocol import reward_function as rp_reward_function
-        from reward_kit import EvaluateResult
-        from reward_kit import reward_function as rk_reward_function
 
-        # Create a simple reward function using reward_kit
+        # Create a simple reward function using eval_protocol
         @rk_reward_function
         def test_reward_rk(response: str, **kwargs) -> EvaluateResult:
             score = len(response) / 10.0
@@ -144,8 +149,8 @@ class TestRewardProtocolImports:
 
     def test_message_class_works(self):
         """Test that Message class works through both imports."""
+        from eval_protocol import Message as RKMessage
         from eval_protocol import Message as RPMessage
-        from reward_kit import Message as RKMessage
 
         # They should be the same class
         assert RKMessage is RPMessage
@@ -169,9 +174,9 @@ class TestRewardProtocolImports:
 
         # Check for console scripts in the file content
         expected_scripts = [
-            'fireworks-reward = "reward_kit.cli:main"',
-            'reward-kit = "reward_kit.cli:main"',
-            'eval-protocol = "reward_kit.cli:main"',
+            'fireworks-reward = "eval_protocol.cli:main"',
+            'reward-kit = "eval_protocol.cli:main"',
+            'eval-protocol = "eval_protocol.cli:main"',
         ]
 
         for script in expected_scripts:
@@ -183,44 +188,44 @@ class TestRewardProtocolImports:
         """Test that both packages are included in setup.py."""
         from setuptools import find_packages
 
-        packages = find_packages(include=["reward_kit*", "eval_protocol*"])
+        packages = find_packages(include=["eval_protocol*", "eval_protocol*"])
 
         # Should include both main packages
-        assert "reward_kit" in packages
+        assert "eval_protocol" in packages
         assert "eval_protocol" in packages
 
         # Should include subpackages
-        assert any(pkg.startswith("reward_kit.") for pkg in packages)
+        assert any(pkg.startswith("eval_protocol.") for pkg in packages)
 
     def test_deep_import_consistency(self):
         """Test that deep imports work consistently."""
         try:
             # Test importing from submodules
+            from eval_protocol.models import Message as RKMessage
             from eval_protocol.models import Message as RPMessage
-            from reward_kit.models import Message as RKMessage
 
             # Should be the same class
             assert RKMessage is RPMessage
         except ImportError:
             # If submodule imports don't work, that's expected in some install scenarios
             # Just verify the star import works
+            from eval_protocol import Message as RKMessage
             from eval_protocol import Message as RPMessage
-            from reward_kit import Message as RKMessage
 
             assert RKMessage is RPMessage
 
         try:
             # Test another submodule - use a function that actually exists
+            from eval_protocol.auth import get_fireworks_account_id
             from eval_protocol.auth import (
                 get_fireworks_account_id as rp_get_fireworks_account_id,
             )
-            from reward_kit.auth import get_fireworks_account_id
 
             assert get_fireworks_account_id is rp_get_fireworks_account_id
         except ImportError:
             # If submodule imports don't work, verify through star import
+            from eval_protocol import auth as rk_auth
             from eval_protocol import auth as rp_auth
-            from reward_kit import auth as rk_auth
 
             assert rk_auth is rp_auth
 
@@ -230,8 +235,7 @@ class TestRewardProtocolFunctionality:
 
     def test_reward_function_creation(self):
         """Test creating reward functions with eval_protocol."""
-        from eval_protocol import reward_function
-        from reward_kit import EvaluateResult
+        from eval_protocol import EvaluateResult, reward_function
 
         @reward_function
         def simple_reward(response: str, **kwargs) -> EvaluateResult:

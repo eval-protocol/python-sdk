@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from reward_protocol.packaging import (
+from eval_protocol.packaging import (
     DEFAULT_PYTHON_VERSION,
     _resolve_module_path_and_name,
     generate_dockerfile_content,
@@ -36,7 +36,7 @@ class TestPackaging(unittest.TestCase):
         )
 
         cls.DUMMY_REWARD_MODULE_CONTENT = f"""
-from reward_protocol.typed_interface import reward_function
+from eval_protocol.typed_interface import reward_function
 
 @reward_function(id="test-dummy-packaging", requirements="requests==2.25.1\\nnumpy>=1.20.0")
 def {cls.DUMMY_REWARD_FUNCTION_NAME}(messages, ground_truth=None):
@@ -81,7 +81,7 @@ def {cls.DUMMY_REWARD_FUNCTION_NAME}(messages, ground_truth=None):
         self.assertIn("COPY . .", dockerfile)
         self.assertIn(
             "RUN pip install --no-cache-dir .", dockerfile
-        )  # Installs reward_kit
+        )  # Installs eval_protocol
 
         # Check for inline requirements installation
         # Need to handle potential shell escaping in the echo command
@@ -98,7 +98,7 @@ def {cls.DUMMY_REWARD_FUNCTION_NAME}(messages, ground_truth=None):
         )
 
         self.assertIn(
-            f"CMD python -m reward_kit.generic_server {self.DUMMY_FUNCTION_REF}",
+            f"CMD python -m eval_protocol.generic_server {self.DUMMY_FUNCTION_REF}",
             dockerfile,
         )
 

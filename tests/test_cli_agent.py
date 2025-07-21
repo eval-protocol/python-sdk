@@ -16,8 +16,8 @@ from unittest.mock import (  # Added AsyncMock and Mock
 import pytest
 import yaml
 
-from reward_kit.cli_commands.agent_eval_cmd import agent_eval_command
-from reward_kit.models import TaskDefinitionModel
+from eval_protocol.cli_commands.agent_eval_cmd import agent_eval_command
+from eval_protocol.models import TaskDefinitionModel
 
 MINIMAL_TASK_DEF_CONTENT_DICT = {
     "name": "CLI Test Task",
@@ -35,8 +35,8 @@ MINIMAL_TASK_DEF_JSON_CONTENT = json.dumps(MINIMAL_TASK_DEF_CONTENT_DICT)
 class TestAgentEvalCommand:
     """Tests for the agent_eval_command function."""
 
-    @patch("reward_kit.cli_commands.agent_eval_cmd.TaskManager")
-    @patch("reward_kit.cli_commands.agent_eval_cmd.Path")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
     def test_agent_eval_success_yaml(self, MockPath, MockTaskManager, caplog):
         # Setup Path mock
         mock_path_instance = Mock()
@@ -73,9 +73,9 @@ class TestAgentEvalCommand:
         mock_task_manager.cleanup.assert_awaited_once()
         assert "agent-eval command finished successfully" in caplog.text
 
-    @patch("reward_kit.cli_commands.agent_eval_cmd.TaskManager")
-    @patch("reward_kit.cli_commands.agent_eval_cmd.Path")
-    @patch("reward_kit.cli_commands.agent_eval_cmd.yaml", None)
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.yaml", None)
     def test_agent_eval_success_json_no_yaml_lib(
         self, MockPath, MockTaskManager, caplog
     ):
@@ -115,8 +115,8 @@ class TestAgentEvalCommand:
             in caplog.text
         )
 
-    @patch("reward_kit.cli_commands.agent_eval_cmd.TaskManager")
-    @patch("reward_kit.cli_commands.agent_eval_cmd.Path")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
     def test_agent_eval_task_def_file_not_found(
         self, MockPath, MockTaskManager, caplog
     ):
@@ -134,8 +134,8 @@ class TestAgentEvalCommand:
         assert result == 1
         assert "Task definition path not found or invalid" in caplog.text
 
-    @patch("reward_kit.cli_commands.agent_eval_cmd.TaskManager")
-    @patch("reward_kit.cli_commands.agent_eval_cmd.Path")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
     def test_agent_eval_invalid_yaml_content(self, MockPath, MockTaskManager, caplog):
         # Setup path mock
         mock_path_instance = Mock()
@@ -155,8 +155,8 @@ class TestAgentEvalCommand:
         assert result == 1
         assert "Failed to load task definition" in caplog.text
 
-    @patch("reward_kit.cli_commands.agent_eval_cmd.TaskManager")
-    @patch("reward_kit.cli_commands.agent_eval_cmd.Path")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
     def test_agent_eval_pydantic_validation_error(
         self, MockPath, MockTaskManager, caplog
     ):
@@ -178,8 +178,8 @@ class TestAgentEvalCommand:
         assert result == 1
         assert "Failed to load task definition" in caplog.text
 
-    @patch("reward_kit.cli_commands.agent_eval_cmd.TaskManager")
-    @patch("reward_kit.cli_commands.agent_eval_cmd.Path")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
     def test_agent_eval_orchestrator_instantiation_fails(
         self, MockPath, MockTaskManager, caplog
     ):
@@ -201,8 +201,8 @@ class TestAgentEvalCommand:
         assert result == 1
         assert "Failed to load task definition" in caplog.text
 
-    @patch("reward_kit.cli_commands.agent_eval_cmd.TaskManager")
-    @patch("reward_kit.cli_commands.agent_eval_cmd.Path")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
+    @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
     def test_agent_eval_orchestrator_execution_fails(
         self, MockPath, MockTaskManager, caplog
     ):

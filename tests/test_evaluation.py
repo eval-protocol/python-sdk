@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from reward_kit.evaluation import Evaluator, create_evaluation, preview_evaluation
-from reward_kit.models import MetricResult
+from eval_protocol.evaluation import Evaluator, create_evaluation, preview_evaluation
+from eval_protocol.models import MetricResult
 
 
 def create_test_folder():
@@ -137,7 +137,7 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
     assert new_code == unchanged_code
 
 
-@patch("reward_kit.evaluation.requests.post")
+@patch("eval_protocol.evaluation.requests.post")
 def test_evaluator_preview(mock_requests_post, monkeypatch):
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -244,7 +244,7 @@ def test_evaluator_preview(mock_requests_post, monkeypatch):
         os.unlink(sample_file)
 
 
-@patch("reward_kit.evaluation.requests.post")
+@patch("eval_protocol.evaluation.requests.post")
 def test_preview_evaluation_helper(mock_requests_post, monkeypatch):
     mock_response = MagicMock()
     mock_response.status_code = 200

@@ -20,10 +20,10 @@ def test_basic_imports():
         sys.path.insert(0, project_root)
 
         # Test importing both packages
-        print("  Importing reward_kit...")
-        import reward_kit
+        print("  Importing eval_protocol...")
+        import eval_protocol
 
-        print("  ✓ reward_kit imported successfully")
+        print("  ✓ eval_protocol imported successfully")
 
         print("  Importing eval_protocol...")
         import eval_protocol
@@ -42,12 +42,11 @@ def test_version_consistency():
     print("\nTesting version consistency...")
     try:
         import eval_protocol
-        import reward_kit
 
-        rk_version = getattr(reward_kit, "__version__", "unknown")
+        rk_version = getattr(eval_protocol, "__version__", "unknown")
         rp_version = getattr(eval_protocol, "__version__", "unknown")
 
-        print(f"  reward_kit version: {rk_version}")
+        print(f"  eval_protocol version: {rk_version}")
         print(f"  eval_protocol version: {rp_version}")
 
         if rk_version == rp_version:
@@ -66,12 +65,11 @@ def test_all_exports():
     print("\nTesting __all__ exports...")
     try:
         import eval_protocol
-        import reward_kit
 
-        rk_all = getattr(reward_kit, "__all__", [])
+        rk_all = getattr(eval_protocol, "__all__", [])
         rp_all = getattr(eval_protocol, "__all__", [])
 
-        print(f"  reward_kit.__all__ has {len(rk_all)} items")
+        print(f"  eval_protocol.__all__ has {len(rk_all)} items")
         print(f"  eval_protocol.__all__ has {len(rp_all)} items")
 
         if rk_all == rp_all:
@@ -113,11 +111,11 @@ def test_specific_imports():
             print(f"  Testing {item}...")
 
             # Try importing from both packages
-            exec(f"from reward_kit import {item}")
+            exec(f"from eval_protocol import {item}")
             exec(f"from eval_protocol import {item}")
 
             # Check if they're the same object
-            rk_obj = eval(f"__import__('reward_kit', fromlist=['{item}']).{item}")
+            rk_obj = eval(f"__import__('eval_protocol', fromlist=['{item}']).{item}")
             rp_obj = eval(f"__import__('eval_protocol', fromlist=['{item}']).{item}")
 
             if rk_obj is rp_obj:
@@ -147,7 +145,7 @@ def test_submodule_access():
             print(f"  Testing {submodule}...")
 
             # Try accessing submodules
-            rk_sub = getattr(__import__("reward_kit"), submodule, None)
+            rk_sub = getattr(__import__("eval_protocol"), submodule, None)
             rp_sub = getattr(__import__("eval_protocol"), submodule, None)
 
             if rk_sub is not None and rp_sub is not None:
@@ -172,15 +170,15 @@ def test_package_structure():
     try:
         from setuptools import find_packages
 
-        packages = find_packages(include=["reward_kit*", "eval_protocol*"])
+        packages = find_packages(include=["eval_protocol*", "eval_protocol*"])
 
-        rk_packages = [p for p in packages if p.startswith("reward_kit")]
+        rk_packages = [p for p in packages if p.startswith("eval_protocol")]
         rp_packages = [p for p in packages if p == "eval_protocol"]
 
-        print(f"  Found {len(rk_packages)} reward_kit packages")
+        print(f"  Found {len(rk_packages)} eval_protocol packages")
         print(f"  Found {len(rp_packages)} eval_protocol packages")
 
-        if "reward_kit" in packages and "eval_protocol" in packages:
+        if "eval_protocol" in packages and "eval_protocol" in packages:
             print("  ✓ Both main packages are discoverable")
             return True
         else:

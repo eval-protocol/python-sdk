@@ -11,15 +11,15 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from omegaconf import DictConfig, OmegaConf
 
-from reward_kit.execution.pipeline import EvaluationPipeline
-from reward_kit.generation.clients import GenerationResult
-from reward_kit.models import EvaluateResult, Message
-from reward_kit.typed_interface import reward_function
-from reward_kit.utils.batch_evaluation import (
+from eval_protocol.execution.pipeline import EvaluationPipeline
+from eval_protocol.generation.clients import GenerationResult
+from eval_protocol.models import EvaluateResult, Message
+from eval_protocol.typed_interface import reward_function
+from eval_protocol.utils.batch_evaluation import (
     create_sample_batch_reward_function,
     run_batch_evaluation,
 )
-from reward_kit.utils.batch_transformation import (
+from eval_protocol.utils.batch_transformation import (
     create_batch_evaluation_dataset,
     transform_n_variant_jsonl_to_batch_format,
 )
@@ -148,7 +148,7 @@ async def test_end_to_end_n_variant_to_batch_evaluation(
         mock_session = Mock()
 
         with patch(
-            "reward_kit.utils.module_loader.load_function",
+            "eval_protocol.utils.module_loader.load_function",
             return_value=mock_reward_function,
         ):
             pipeline = EvaluationPipeline(n_variant_pipeline_config)
@@ -232,8 +232,8 @@ async def test_end_to_end_n_variant_to_batch_evaluation(
         with open(batch_func_module, "w") as f:
             f.write(
                 '''
-from reward_kit.typed_interface import reward_function
-from reward_kit.models import EvaluateResult, Message
+from eval_protocol.typed_interface import reward_function
+from eval_protocol.models import EvaluateResult, Message
 from typing import List
 
 @reward_function(mode="batch")

@@ -1,7 +1,7 @@
 import pytest
 
-from reward_protocol.models import Message  # Import Message
-from reward_protocol.rewards.lean_prover import (
+from eval_protocol.models import Message  # Import Message
+from eval_protocol.rewards.lean_prover import (
     deepseek_huggingface_prover_benchmark,
     deepseek_prover_v2_reward,
     lean_prover_reward,

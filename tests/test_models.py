@@ -3,7 +3,7 @@ from typing import Dict
 
 import pytest
 
-from reward_protocol.models import (  # Added Message to existing import
+from eval_protocol.models import (  # Added Message to existing import
     EvaluateResult,
     Message,
     MetricResult,

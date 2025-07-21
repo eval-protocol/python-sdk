@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from reward_kit.evaluation import Evaluator, create_evaluation, preview_evaluation
+from eval_protocol.evaluation import Evaluator, create_evaluation, preview_evaluation
 
 
 def create_test_folder():
@@ -201,7 +201,7 @@ def test_integration_multi_metrics(mock_env_variables, mock_requests_post):
 def test_integration_cli_commands(
     mock_sys_exit, mock_env_variables, mock_requests_post
 ):  # Corrected parameter name
-    from reward_kit.cli import deploy_command, preview_command
+    from eval_protocol.cli import deploy_command, preview_command
 
     mock_sys_exit.side_effect = lambda code=0: None
 
@@ -210,7 +210,7 @@ def test_integration_cli_commands(
     try:
         # Test preview command
         with patch(
-            "reward_kit.cli_commands.preview.preview_evaluation"
+            "eval_protocol.cli_commands.preview.preview_evaluation"
         ) as mock_preview_eval_func:
             mock_preview_result = MagicMock()
             mock_preview_result.display = MagicMock()
@@ -227,7 +227,7 @@ def test_integration_cli_commands(
             args.remote_url = None  # Explicitly set for local path
 
             with patch(
-                "reward_kit.cli_commands.preview.Path.exists", return_value=True
+                "eval_protocol.cli_commands.preview.Path.exists", return_value=True
             ):
                 result = preview_command(args)
                 assert result == 0
@@ -245,7 +245,7 @@ def test_integration_cli_commands(
 
         # Test deploy command
         with patch(
-            "reward_kit.cli_commands.deploy.create_evaluation"
+            "eval_protocol.cli_commands.deploy.create_evaluation"
         ) as mock_create_eval_func:
             mock_create_eval_func.return_value = {
                 "name": "accounts/test_account/evaluators/test-eval",

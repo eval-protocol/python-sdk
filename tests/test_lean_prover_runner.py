@@ -15,8 +15,11 @@ import sys
 # Add project directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from reward_kit.models import Message  # Import Message
-from reward_kit.rewards.lean_prover import deepseek_prover_v2_reward, lean_prover_reward
+from eval_protocol.models import Message  # Import Message
+from eval_protocol.rewards.lean_prover import (
+    deepseek_prover_v2_reward,
+    lean_prover_reward,
+)
 
 
 # Helper to create messages list for the runner

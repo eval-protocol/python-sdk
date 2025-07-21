@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from reward_protocol.models import EvaluateResult, MetricResult
-from reward_protocol.server import create_app
+from eval_protocol.models import EvaluateResult, MetricResult
+from eval_protocol.server import create_app
 
 
 @pytest.fixture
@@ -15,7 +15,7 @@ def test_reward_func():
     def _reward_func(
         messages: List[Dict[str, str]],
         original_messages: Optional[List[Dict[str, str]]] = None,
-        **kwargs
+        **kwargs,
     ) -> EvaluateResult:
         """Test reward function that returns a simple score."""
         metrics = {"test": MetricResult(score=0.5, success=True, reason="Test reason")}

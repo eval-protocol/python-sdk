@@ -9,8 +9,8 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     OPENEVALS_AVAILABLE = False
 
-from reward_protocol.integrations.openeval import adapt
-from reward_protocol.models import EvaluateResult
+from eval_protocol.integrations.openeval import adapt
+from eval_protocol.models import EvaluateResult
 
 
 class TestOpenEvalIntegration(unittest.TestCase):

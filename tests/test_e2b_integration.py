@@ -10,8 +10,8 @@ import os
 
 import pytest
 
-from reward_kit.models import EvaluateResult
-from reward_kit.rewards.code_execution import _HAS_E2B, e2b_code_execution_reward
+from eval_protocol.models import EvaluateResult
+from eval_protocol.rewards.code_execution import _HAS_E2B, e2b_code_execution_reward
 from tests.conftest import skip_e2b
 
 

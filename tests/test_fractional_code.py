@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-from reward_kit.models import EvaluateResult  # Added import
-from reward_kit.rewards import fractional_code_reward
-from reward_kit.rewards.code_execution import _HAS_E2B
+from eval_protocol.models import EvaluateResult  # Added import
+from eval_protocol.rewards import fractional_code_reward
+from eval_protocol.rewards.code_execution import _HAS_E2B
 
 
 class TestFractionalCodeReward:

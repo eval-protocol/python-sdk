@@ -7,10 +7,10 @@ from typing import List, Optional, Tuple, Union  # Added Tuple
 
 import pytest
 
-# Removed: from reward_kit.rewards.advanced_math import advanced_math_reward
-from reward_kit.models import Message  # Added Message import
-from reward_kit.models import EvaluateResult, MetricResult
-from reward_kit.rewards.math import compare_numbers, extract_numbers, math_reward
+# Removed: from eval_protocol.rewards.advanced_math import advanced_math_reward
+from eval_protocol.models import Message  # Added Message import
+from eval_protocol.models import EvaluateResult, MetricResult
+from eval_protocol.rewards.math import compare_numbers, extract_numbers, math_reward
 
 
 class TestExtractNumbers:

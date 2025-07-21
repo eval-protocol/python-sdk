@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from omegaconf import DictConfig, OmegaConf
 
-from reward_kit.execution.pipeline import EvaluationPipeline
-from reward_kit.generation.clients import GenerationResult
+from eval_protocol.execution.pipeline import EvaluationPipeline
+from eval_protocol.generation.clients import GenerationResult
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def mock_reward_function():
     """Mock reward function that returns a simple evaluation result."""
 
     def mock_func(*args, **kwargs):
-        from reward_kit.models import EvaluateResult
+        from eval_protocol.models import EvaluateResult
 
         return EvaluateResult(
             score=0.8, reason="Mock evaluation", is_score_valid=True, metrics={}
@@ -65,7 +65,7 @@ async def test_n_variant_generation_single_sample(
     mock_session = Mock()
 
     with patch(
-        "reward_kit.utils.module_loader.load_function",
+        "eval_protocol.utils.module_loader.load_function",
         return_value=mock_reward_function,
     ):
         pipeline = EvaluationPipeline(pipeline_config)
@@ -120,7 +120,7 @@ async def test_n_variant_generation_disabled(pipeline_config, mock_reward_functi
     mock_session = Mock()
 
     with patch(
-        "reward_kit.utils.module_loader.load_function",
+        "eval_protocol.utils.module_loader.load_function",
         return_value=mock_reward_function,
     ):
         pipeline = EvaluationPipeline(pipeline_config)
@@ -173,7 +173,7 @@ async def test_n_variant_generation_config_validation(
         mock_session = Mock()
 
         with patch(
-            "reward_kit.utils.module_loader.load_function",
+            "eval_protocol.utils.module_loader.load_function",
             return_value=mock_reward_function,
         ):
             pipeline = EvaluationPipeline(pipeline_config)
