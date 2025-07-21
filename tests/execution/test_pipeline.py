@@ -5,13 +5,13 @@ import aiohttp
 import pytest
 from omegaconf import DictConfig, OmegaConf
 
-from reward_kit.execution.pipeline import EvaluationPipeline
-from reward_kit.generation.cache import ResponseCache
-from reward_kit.generation.clients import GenerationResult  # Import GenerationResult
-from reward_kit.generation.clients import (  # For type hinting and mocking
+from reward_protocol.execution.pipeline import EvaluationPipeline
+from reward_protocol.generation.cache import ResponseCache
+from reward_protocol.generation.clients import GenerationResult  # Import GenerationResult
+from reward_protocol.generation.clients import (  # For type hinting and mocking
     FireworksModelClient,
 )
-from reward_kit.models import EvaluateResult, Message, MetricResult
+from reward_protocol.models import EvaluateResult, Message, MetricResult
 
 
 # Minimal valid config for pipeline initialization
@@ -99,10 +99,10 @@ def mock_dataset():
 
 @pytest.mark.asyncio
 @patch(
-    "reward_kit.execution.pipeline.FireworksModelClient", autospec=True
+    "reward_protocol.execution.pipeline.FireworksModelClient", autospec=True
 )  # Mock at source of import
-@patch("reward_kit.execution.pipeline.ResponseCache", autospec=True)
-@patch("reward_kit.execution.pipeline.load_reward_function")
+@patch("reward_protocol.execution.pipeline.ResponseCache", autospec=True)
+@patch("reward_protocol.execution.pipeline.load_reward_function")
 @patch("hydra.utils.instantiate")  # Mock hydra's instantiate for dataset loading
 async def test_pipeline_passes_reasoning_effort_to_cache(
     mock_instantiate: MagicMock,
@@ -141,7 +141,7 @@ async def test_pipeline_passes_reasoning_effort_to_cache(
 
     # Patch get_fireworks_api_key as it's called in pipeline init
     with patch(
-        "reward_kit.execution.pipeline.get_fireworks_api_key", return_value="fake_key"
+        "reward_protocol.execution.pipeline.get_fireworks_api_key", return_value="fake_key"
     ):
         pipeline = EvaluationPipeline(minimal_pipeline_cfg)
 
