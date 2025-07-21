@@ -7,7 +7,7 @@ This guide provides a detailed explanation of how reward functions are structure
 The `@reward_function` decorator is the core mechanism that transforms a regular Python function into a reward function that can be used for evaluation and deployment.
 
 ```python
-from reward_kit import reward_function, EvaluateResult, MetricResult
+from eval_protocol import reward_function, EvaluateResult, MetricResult
 
 @reward_function
 def my_reward_function(messages, original_messages=None, **kwargs):
@@ -43,7 +43,7 @@ A standard reward function has these parameters:
 
 ```python
 from typing import List, Dict, Optional
-from reward_kit import EvaluateResult
+from eval_protocol import EvaluateResult
 
 def reward_function(
     messages: List[Dict[str, str]],
@@ -68,7 +68,7 @@ def reward_function(
 A reward function must return an `EvaluateResult` object:
 
 ```python
-from reward_kit import EvaluateResult, MetricResult
+from eval_protocol import EvaluateResult, MetricResult
 
 # score, clarity_score, accuracy_score would be calculated by your logic
 clarity_score = 0.8
@@ -106,7 +106,7 @@ return EvaluateResult(
 Complex reward functions often evaluate multiple aspects of a response:
 
 ```python
-from reward_kit import reward_function, EvaluateResult, MetricResult
+from eval_protocol import reward_function, EvaluateResult, MetricResult
 from typing import List, Dict, Optional
 
 # Assume evaluate_clarity and evaluate_accuracy are defined elsewhere
@@ -171,7 +171,7 @@ evaluation_id = my_reward_function.deploy(
 Robust reward functions include proper error handling:
 
 ```python
-from reward_kit import reward_function, EvaluateResult, MetricResult
+from eval_protocol import reward_function, EvaluateResult, MetricResult
 from typing import List, Dict, Optional
 
 @reward_function
@@ -219,7 +219,7 @@ def safe_evaluation(
 You can pass additional configuration through the `**kwargs` parameter, often via a `metadata` dictionary.
 
 ```python
-from reward_kit import reward_function, EvaluateResult, MetricResult
+from eval_protocol import reward_function, EvaluateResult, MetricResult
 from typing import List, Dict, Optional, Any
 
 # Assume base_score and metrics are calculated based on messages

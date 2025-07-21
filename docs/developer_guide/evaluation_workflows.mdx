@@ -26,7 +26,7 @@ Create your reward function using the `@reward_function` decorator or by structu
 ### Example: Basic Reward Function
 
 ```python
-from reward_kit import reward_function, EvaluateResult, MetricResult
+from eval_protocol import reward_function, EvaluateResult, MetricResult
 from typing import List, Dict, Optional
 
 @reward_function
@@ -165,10 +165,10 @@ For more details on `reward-kit deploy`, see the [CLI Reference](../cli_referenc
 
 ### Lower-level `create_evaluation` Function
 
-For more direct control, or if not using the `@reward_function` decorator's `deploy` method, you can use the `create_evaluation` function from `reward_kit.evaluation`. This is generally for more advanced use cases or internal tooling.
+For more direct control, or if not using the `@reward_function` decorator's `deploy` method, you can use the `create_evaluation` function from `eval_protocol.evaluation`. This is generally for more advanced use cases or internal tooling.
 
 ```python
-from reward_kit.evaluation import create_evaluation
+from eval_protocol.evaluation import create_evaluation
 
 # Create an evaluation
 evaluator = create_evaluation(
@@ -201,7 +201,7 @@ firectl create rl-job \
 For programmatic integration with the Transformer Reinforcement Learning (TRL) library:
 
 ```python
-from reward_kit import RewardFunction
+from eval_protocol import RewardFunction
 
 # Create a reward function instance
 reward_fn = RewardFunction(

@@ -1,6 +1,6 @@
 from braintrust import Eval
 
-from reward_protocol.adapters.braintrust import scorer_to_reward_fn
+from eval_protocol.adapters.braintrust import scorer_to_reward_fn
 
 
 def equality_scorer(input: str, output: str, expected: str) -> float:
