@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-from reward_kit.models import EvaluateResult, Message, MetricResult
-from reward_kit.rewards.apps_coding_reward import (
+from reward_protocol.models import EvaluateResult, Message, MetricResult
+from reward_protocol.rewards.apps_coding_reward import (
     _extract_python_code,
     evaluate_apps_solution,
 )

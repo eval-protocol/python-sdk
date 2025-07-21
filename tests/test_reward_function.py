@@ -5,12 +5,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Ensure the module is loaded (though RewardFunction import likely does this)
-import reward_kit.reward_function
-from reward_kit.reward_function import RewardFunction, reward_function
+import reward_protocol
+from reward_protocol import RewardFunction, reward_function
 
 # Get a direct reference to the module object
 reward_function_module_obj = sys.modules["reward_kit.reward_function"]
-from reward_kit.models import EvaluateResult, MetricResult  # Changed
+from reward_protocol.models import EvaluateResult, MetricResult  # Changed
 
 
 def simple_reward_func(

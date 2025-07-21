@@ -4,7 +4,7 @@ import httpx
 import pytest
 from werkzeug.wrappers import Response
 
-import reward_kit as rk
+import reward_protocol as rk
 
 
 # Sync tests for the rk.make() function
