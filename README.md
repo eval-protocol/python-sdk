@@ -8,14 +8,14 @@
 *   **Local Testing**: Quickly test your reward functions with sample data.
 *   **Flexible Evaluation**: Evaluate model outputs based on single or multiple custom metrics.
 *   **Seamless Deployment**: Deploy your reward functions to platforms like Fireworks AI.
-*   **Comprehensive CLI**: Manage reward functions, preview evaluations (`reward-protocol preview`), deploy (`reward-protocol deploy`), and run complex evaluation pipelines (`reward-protocol run`).
+*   **Comprehensive CLI**: Manage reward functions, preview evaluations (`eval-protocol preview`), deploy (`eval-protocol deploy`), and run complex evaluation pipelines (`eval-protocol run`).
 *   **Simplified Dataset Integration**: Direct integration with HuggingFace datasets and on-the-fly format conversion.
 *   **Extensible**: Designed to be adaptable for various LLM evaluation scenarios.
 
 ## Installation
 
 ```bash
-pip install reward-protocol
+pip install eval-protocol
 ```
 
 ### Optional TRL Extras
@@ -24,7 +24,7 @@ Install the additional dependencies required for running the TRL-based training
 examples:
 
 ```bash
-pip install "reward-protocol[trl]"
+pip install "eval-protocol[trl]"
 ```
 
 ## Getting Started
@@ -37,15 +37,15 @@ Reward Protocol allows you to define custom logic to evaluate model responses. H
 
 ```python
 # This is a conceptual example of how exact_tool_match_reward is defined and used.
-# You would typically import it from reward_protocol.rewards.function_calling.
-# For actual usage, you configure it in your YAML files for `reward-protocol run`.
+# You would typically import it from eval_protocol.rewards.function_calling.
+# For actual usage, you configure it in your YAML files for `eval-protocol run`.
 
-from reward_protocol import reward_function
-from reward_protocol.models import EvaluateResult, Message, MetricResult
+from eval_protocol import reward_function
+from eval_protocol.models import EvaluateResult, Message, MetricResult
 from typing import List, Dict, Any, Optional, Union
 
 # Definition of exact_tool_match_reward (simplified for brevity, see source for full details)
-# from reward_protocol.rewards.function_calling import exact_tool_match_reward, eval_tool_call
+# from eval_protocol.rewards.function_calling import exact_tool_match_reward, eval_tool_call
 
 @reward_function
 def exact_tool_match_reward(
@@ -108,7 +108,7 @@ def exact_tool_match_reward(
     })
 
 ```
-This example illustrates the structure. The actual `exact_tool_match_reward` in `reward_protocol.rewards.function_calling` handles complex parsing and comparison of tool calls.
+This example illustrates the structure. The actual `exact_tool_match_reward` in `eval_protocol.rewards.function_calling` handles complex parsing and comparison of tool calls.
 
 ### 2. Testing Your Reward Function with a Dataset
 
@@ -137,11 +137,11 @@ Effective testing of a reward function involves evaluating it against a represen
 
 **Example Test Snippet (Conceptual):**
 
-While `reward-protocol run` is the primary way to evaluate with datasets, here's a conceptual local test:
+While `eval-protocol run` is the primary way to evaluate with datasets, here's a conceptual local test:
 
 ```python
-from reward_protocol.rewards.function_calling import exact_tool_match_reward # Import the actual function
-from reward_protocol.models import Message
+from eval_protocol.rewards.function_calling import exact_tool_match_reward # Import the actual function
+from eval_protocol.models import Message
 
 # Sample 1: Correct tool call
 test_messages_correct = [
@@ -172,11 +172,11 @@ print(f"Correct Call - Score: {result_correct.score}, Reason: {result_correct.re
 result_incorrect = exact_tool_match_reward(messages=test_messages_incorrect, ground_truth=ground_truth_correct)
 print(f"Incorrect Call - Score: {result_incorrect.score}, Reason: {result_incorrect.reason}")
 ```
-This local test helps verify the reward function's logic with specific inputs. For comprehensive evaluation, use `reward-protocol run` with a full dataset (see next section).
+This local test helps verify the reward function's logic with specific inputs. For comprehensive evaluation, use `eval-protocol run` with a full dataset (see next section).
 
-### 3. Running Local Evaluations with `reward-protocol run`
+### 3. Running Local Evaluations with `eval-protocol run`
 
-For comprehensive local evaluations, especially when working with datasets and complex configurations, the `reward-protocol run` command is the recommended tool. It leverages Hydra for configuration management, allowing you to define your evaluation pipeline (dataset, model, reward function, etc.) in YAML files.
+For comprehensive local evaluations, especially when working with datasets and complex configurations, the `eval-protocol run` command is the recommended tool. It leverages Hydra for configuration management, allowing you to define your evaluation pipeline (dataset, model, reward function, etc.) in YAML files.
 
 **Example: Math Evaluation using `codeparrot/gsm8k`**
 
@@ -184,13 +184,13 @@ The `examples/math_example` demonstrates evaluating models on math word problems
 
 ```bash
 # Ensure you are in the repository root
-# cd /path/to/reward-protocol
+# cd /path/to/eval-protocol
 
 # Run evaluation with the math configuration
-reward-protocol run --config-name run_math_eval.yaml --config-path examples/math_example/conf
+eval-protocol run --config-name run_math_eval.yaml --config-path examples/math_example/conf
 
 # Override parameters directly from the command line:
-reward-protocol run --config-name run_math_eval.yaml --config-path examples/math_example/conf \
+eval-protocol run --config-name run_math_eval.yaml --config-path examples/math_example/conf \
   generation.model_name="accounts/fireworks/models/llama-v3p1-405b-instruct" \
   evaluation_params.limit_samples=10
 ```
@@ -201,7 +201,7 @@ reward-protocol run --config-name run_math_eval.yaml --config-path examples/math
 *   Generates model responses (e.g., using the Fireworks API or other configured providers).
 *   Evaluates the generated responses using the specified reward function(s).
 *   Saves detailed evaluation results to `<config_output_name>.jsonl` (e.g., `math_example_results.jsonl`) in a timestamped output directory (e.g., under `outputs/`).
-*   Saves generated prompt/response pairs to `preview_input_output_pairs.jsonl` in the same output directory, suitable for inspection or re-evaluation with `reward-protocol preview`.
+*   Saves generated prompt/response pairs to `preview_input_output_pairs.jsonl` in the same output directory, suitable for inspection or re-evaluation with `eval-protocol preview`.
 
 **Example: APPS Coding Evaluation**
 
@@ -209,22 +209,22 @@ The `examples/apps_coding_example` shows evaluation on code generation tasks usi
 
 ```bash
 # Run evaluation with the APPS coding configuration
-reward-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval
+eval-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval
 
 # Example: Limit samples for a quick test
-reward-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval evaluation_params.limit_samples=2
+eval-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval evaluation_params.limit_samples=2
 
 # Example: Disable generation to test reward function on cached responses
-reward-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval generation.enabled=false
+eval-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval generation.enabled=false
 ```
 
-These examples showcase how `reward-protocol run` can be adapted for different tasks and datasets through configuration files.
+These examples showcase how `eval-protocol run` can be adapted for different tasks and datasets through configuration files.
 
 For more details on this command, Hydra configuration, and advanced usage, see the [CLI Overview](docs/cli_reference/cli_overview.mdx) and [Hydra Configuration Guide](docs/developer_guide/hydra_configuration.mdx).
 
 ### Fireworks Authentication Setup (Required for Preview/Deploy with Fireworks)
 
-To interact with the Fireworks AI platform for deploying and managing evaluations (including some preview scenarios that might use remote evaluators or if `reward-protocol run` uses a Fireworks-hosted model), Reward Protocol needs your Fireworks AI credentials. You can configure these in two ways:
+To interact with the Fireworks AI platform for deploying and managing evaluations (including some preview scenarios that might use remote evaluators or if `eval-protocol run` uses a Fireworks-hosted model), Reward Protocol needs your Fireworks AI credentials. You can configure these in two ways:
 
 **A. Environment Variables (Highest Priority)**
 
@@ -274,12 +274,12 @@ Create a JSONL file with sample conversations to evaluate:
 Preview your evaluation using the CLI:
 
 ```bash
-reward-protocol preview --metrics-folders "word_count=./path/to/metrics" --samples ./path/to/samples.jsonl
+eval-protocol preview --metrics-folders "word_count=./path/to/metrics" --samples ./path/to/samples.jsonl
 ```
 
 For example
 ```
-reward-protocol preview --metrics-folders "word_count=examples/metrics/word_count" --samples development/CODING_DATASET.jsonl
+eval-protocol preview --metrics-folders "word_count=examples/metrics/word_count" --samples development/CODING_DATASET.jsonl
 ```
 
 ### 5. Deploying Your Reward Function
@@ -287,7 +287,7 @@ reward-protocol preview --metrics-folders "word_count=examples/metrics/word_coun
 Deploy your reward function to use in training workflows:
 
 ```bash
-reward-protocol deploy --id my-evaluator --metrics-folders "word_count=./path/to/metrics" --force
+eval-protocol deploy --id my-evaluator --metrics-folders "word_count=./path/to/metrics" --force
 ```
 
 #### Local Development Server
@@ -296,7 +296,7 @@ For local development and testing, you can deploy a reward function as a local s
 
 ```bash
 # Deploy as local server with automatic tunnel (ngrok/serveo)
-reward-protocol deploy --id test-local-serve-eval --target local-serve --function-ref examples.row_wise.dummy_example.dummy_rewards.simple_echo_reward --verbose --force
+eval-protocol deploy --id test-local-serve-eval --target local-serve --function-ref examples.row_wise.dummy_example.dummy_rewards.simple_echo_reward --verbose --force
 ```
 
 **What this does:**
@@ -309,7 +309,7 @@ reward-protocol deploy --id test-local-serve-eval --target local-serve --functio
 - The CLI returns to prompt after deployment, but the server continues running in background
 - Check running processes: `ps aux | grep -E "(generic_server|ngrok)"`
 - Test locally: `curl -X POST http://localhost:8001/evaluate -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "test"}]}'`
-- Monitor logs: `tail -f logs/reward-protocol-local/generic_server_*.log`
+- Monitor logs: `tail -f logs/eval-protocol-local/generic_server_*.log`
 - Stop server: Kill the background processes manually when done
 
 This is ideal for development, testing webhook integrations, or accessing your reward function from remote services without full cloud deployment.
@@ -317,7 +317,7 @@ This is ideal for development, testing webhook integrations, or accessing your r
 Or deploy programmatically:
 
 ```python
-from reward_protocol.evaluation import create_evaluation
+from eval_protocol.evaluation import create_evaluation
 
 evaluator = create_evaluation(
     evaluator_id="my-evaluator",
@@ -335,8 +335,8 @@ evaluator = create_evaluation(
 Combine multiple metrics in a single reward function:
 
 ```python
-from reward_protocol import reward_function
-from reward_protocol.models import EvaluateResult, MetricResult, Message # Assuming models are here
+from eval_protocol import reward_function
+from eval_protocol.models import EvaluateResult, MetricResult, Message # Assuming models are here
 from typing import List, Dict, Any, Optional
 
 @reward_function
@@ -409,7 +409,7 @@ Load datasets directly from HuggingFace Hub without manual preprocessing:
 
 ```bash
 # Evaluate using GSM8K dataset with math-specific prompts
-reward-protocol run --config-name run_math_eval.yaml --config-path examples/math_example/conf
+eval-protocol run --config-name run_math_eval.yaml --config-path examples/math_example/conf
 ```
 
 ### Derived Datasets
@@ -447,15 +447,15 @@ Check the `examples` directory for complete examples:
 
 - `evaluation_preview_example.py`: How to preview an evaluator.
 - `deploy_example.py`: How to deploy a reward function to Fireworks.
-- `math_example/`: Demonstrates CLI-based evaluation (`reward-protocol run`) and TRL GRPO training for math problems (GSM8K dataset).
-- `apps_coding_example/`: Shows CLI-based evaluation (`reward-protocol run`) for code generation tasks (APPS dataset).
- - `apps_coding_example/`: Shows CLI-based evaluation (`reward-protocol run`) for code generation tasks (APPS dataset).
+- `math_example/`: Demonstrates CLI-based evaluation (`eval-protocol run`) and TRL GRPO training for math problems (GSM8K dataset).
+- `apps_coding_example/`: Shows CLI-based evaluation (`eval-protocol run`) for code generation tasks (APPS dataset).
+ - `apps_coding_example/`: Shows CLI-based evaluation (`eval-protocol run`) for code generation tasks (APPS dataset).
 
-The OpenEvals project provides a suite of evaluators that can be used directly within Reward Protocol. The helper `reward_protocol.integrations.openeval.adapt` converts any OpenEvals evaluator into a reward function returning an `EvaluateResult`.
+The OpenEvals project provides a suite of evaluators that can be used directly within Reward Protocol. The helper `eval_protocol.integrations.openeval.adapt` converts any OpenEvals evaluator into a reward function returning an `EvaluateResult`.
 
 ```python
 from openevals import exact_match
-from reward_protocol.integrations.openeval import adapt
+from eval_protocol.integrations.openeval import adapt
 
 exact_match_reward = adapt(exact_match)
 result = exact_match_reward(
@@ -466,13 +466,13 @@ print(result.score)
 ```
 
 The [deepeval](https://github.com/confident-ai/deepeval) project also offers a
-variety of metrics. The helper `reward_protocol.integrations.deepeval.adapt_metric`
+variety of metrics. The helper `eval_protocol.integrations.deepeval.adapt_metric`
 converts a deepeval metric instance into a reward function returning an
 `EvaluateResult`.
 
 ```python
 from deepeval.metrics import FaithfulnessMetric
-from reward_protocol.integrations.deepeval import adapt_metric
+from eval_protocol.integrations.deepeval import adapt_metric
 
 faithfulness_reward = adapt_metric(FaithfulnessMetric())
 result = faithfulness_reward(
@@ -489,7 +489,7 @@ way:
 ```python
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCaseParams
-from reward_protocol.integrations.deepeval import adapt_metric
+from eval_protocol.integrations.deepeval import adapt_metric
 
 correctness_metric = GEval(
     name="Correctness",
@@ -515,18 +515,18 @@ Reward Protocol includes a CLI for common operations:
 
 ```bash
 # Show help
-reward-protocol --help
+eval-protocol --help
 
 # Preview an evaluator
-reward-protocol preview --metrics-folders "metric=./path" --samples ./samples.jsonl
+eval-protocol preview --metrics-folders "metric=./path" --samples ./samples.jsonl
 
 # Deploy an evaluator
-reward-protocol deploy --id my-evaluator --metrics-folders "metric=./path" --force
+eval-protocol deploy --id my-evaluator --metrics-folders "metric=./path" --force
 ```
 
 ## Community and Support
 
-*   **GitHub Issues**: For bug reports and feature requests, please use [GitHub Issues](https://github.com/reward-protocol/python-sdk/issues).
+*   **GitHub Issues**: For bug reports and feature requests, please use [GitHub Issues](https://github.com/eval-protocol/python-sdk/issues).
 *   **GitHub Discussions**: (If enabled) For general questions, ideas, and discussions.
 *   Please also review our [Contributing Guidelines](development/CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
 
@@ -541,7 +541,7 @@ The codebase uses mypy for static type checking. To run type checking:
 pip install -e ".[dev]"
 
 # Run mypy
-mypy reward_protocol
+mypy eval_protocol
 ```
 
 Our CI pipeline enforces type checking, so please ensure your code passes mypy checks before submitting PRs.

@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "versioneer[toml]>=0.29"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "reward-protocol"
+name = "eval-protocol"
 dynamic = ["version"]
 authors = [
     {name = "Fireworks AI", email = "info@fireworks.ai"},
@@ -81,9 +81,10 @@ openevals = [
 fireworks-reward = "reward_kit.cli:main"
 reward-kit = "reward_kit.cli:main"
 reward-protocol = "reward_kit.cli:main"
+eval-protocol = "reward_kit.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["reward_kit*", "reward_protocol*", "development*"]
+include = ["reward_kit*", "reward_protocol*", "eval_protocol*", "development*"]
 
 [tool.versioneer]
 VCS = "git"
@@ -91,4 +92,4 @@ style = "pep440"
 versionfile_source = "reward_kit/_version.py"
 versionfile_build = "reward_kit/_version.py"
 tag_prefix = "v"
-parentdir_prefix = "reward-kit-" 
+parentdir_prefix = "reward-kit-"

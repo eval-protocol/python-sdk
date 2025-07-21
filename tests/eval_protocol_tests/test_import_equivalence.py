@@ -1,201 +1,232 @@
 #!/usr/bin/env python3
 """
-Test to demonstrate that reward_protocol and reward_kit imports are equivalent.
+Test to demonstrate that eval_protocol and reward_kit imports are equivalent.
 This test works by examining the module structure without triggering dependency imports.
 """
 
-import sys
 import importlib.util
 import os
+import sys
+
 
 def test_module_specs():
     """Test that both modules have the correct specifications."""
     print("=== Testing Module Specifications ===")
-    
+
     # Test reward_kit spec
-    rk_spec = importlib.util.find_spec('reward_kit')
+    rk_spec = importlib.util.find_spec("reward_kit")
     if rk_spec:
         print(f"✓ reward_kit spec found: {rk_spec.origin}")
     else:
         print("✗ reward_kit spec not found")
         return False
-    
-    # Test reward_protocol spec
-    rp_spec = importlib.util.find_spec('reward_protocol')
+
+    # Test eval_protocol spec
+    rp_spec = importlib.util.find_spec("eval_protocol")
     if rp_spec:
-        print(f"✓ reward_protocol spec found: {rp_spec.origin}")
+        print(f"✓ eval_protocol spec found: {rp_spec.origin}")
     else:
-        print("✗ reward_protocol spec not found")
+        print("✗ eval_protocol spec not found")
         return False
-    
+
     return True
+
 
 def test_import_structure():
     """Test the import structure without triggering dependency loads."""
     print("\n=== Testing Import Structure ===")
-    
-    # Read the reward_protocol __init__.py to verify it re-exports reward_kit
+
+    # Read the eval_protocol __init__.py to verify it re-exports reward_kit
     try:
-        with open('reward_protocol/__init__.py', 'r') as f:
+        with open("eval_protocol/__init__.py", "r") as f:
             rp_content = f.read()
-        
+
         # Check that it imports everything from reward_kit
-        if 'from reward_kit import *' in rp_content:
-            print("✓ reward_protocol imports everything from reward_kit")
+        if "from reward_kit import *" in rp_content:
+            print("✓ eval_protocol imports everything from reward_kit")
         else:
-            print("✗ reward_protocol does not import everything from reward_kit")
+            print("✗ eval_protocol does not import everything from reward_kit")
             return False
-        
+
         # Check version consistency
-        if 'from reward_kit import __version__' in rp_content:
-            print("✓ reward_protocol imports __version__ from reward_kit")
+        if "from reward_kit import __version__" in rp_content:
+            print("✓ eval_protocol imports __version__ from reward_kit")
         else:
-            print("✗ reward_protocol does not import __version__ from reward_kit")
+            print("✗ eval_protocol does not import __version__ from reward_kit")
             return False
-        
+
         # Check __all__ consistency
-        if 'from reward_kit import __all__' in rp_content:
-            print("✓ reward_protocol imports __all__ from reward_kit")
+        if "from reward_kit import __all__" in rp_content:
+            print("✓ eval_protocol imports __all__ from reward_kit")
         else:
-            print("✗ reward_protocol does not import __all__ from reward_kit")
+            print("✗ eval_protocol does not import __all__ from reward_kit")
             return False
-        
+
         return True
-        
+
     except Exception as e:
         print(f"✗ Error testing import structure: {e}")
         return False
 
+
 def test_submodule_structure():
     """Test that submodules will be accessible through both packages."""
     print("\n=== Testing Submodule Structure ===")
-    
-    # Check that reward_protocol __init__.py imports submodules
+
+    # Check that eval_protocol __init__.py imports submodules
     try:
-        with open('reward_protocol/__init__.py', 'r') as f:
+        with open("eval_protocol/__init__.py", "r") as f:
             rp_content = f.read()
-        
+
         # Check for submodule imports
         expected_submodules = [
-            'adapters', 'agent', 'auth', 'cli', 'cli_commands', 'common_utils',
-            'config', 'datasets', 'evaluation', 'execution', 'gcp_tools',
-            'generation', 'generic_server', 'integrations', 'mcp', 'mcp_agent',
-            'models', 'packaging', 'platform_api', 'playback_policy', 'resources',
-            'reward_function', 'rewards', 'rl_processing', 'server', 'typed_interface', 'utils'
+            "adapters",
+            "agent",
+            "auth",
+            "cli",
+            "cli_commands",
+            "common_utils",
+            "config",
+            "datasets",
+            "evaluation",
+            "execution",
+            "gcp_tools",
+            "generation",
+            "generic_server",
+            "integrations",
+            "mcp",
+            "mcp_agent",
+            "models",
+            "packaging",
+            "platform_api",
+            "playback_policy",
+            "resources",
+            "reward_function",
+            "rewards",
+            "rl_processing",
+            "server",
+            "typed_interface",
+            "utils",
         ]
-        
+
         found_submodules = []
         for submodule in expected_submodules:
             if submodule in rp_content:
                 found_submodules.append(submodule)
-        
-        print(f"✓ reward_protocol imports {len(found_submodules)} submodules")
-        
+
+        print(f"✓ eval_protocol imports {len(found_submodules)} submodules")
+
         # Check a few key ones
-        key_submodules = ['models', 'rewards', 'auth', 'config']
+        key_submodules = ["models", "rewards", "auth", "config"]
         for submodule in key_submodules:
             if submodule in found_submodules:
                 print(f"  ✓ {submodule} imported")
             else:
-                print(f"  ⚠ {submodule} not explicitly imported (will be available via star import)")
-        
+                print(
+                    f"  ⚠ {submodule} not explicitly imported (will be available via star import)"
+                )
+
         return True
-        
+
     except Exception as e:
         print(f"✗ Error testing submodule structure: {e}")
         return False
 
+
 def test_console_scripts():
     """Test that console scripts are properly configured."""
     print("\n=== Testing Console Scripts ===")
-    
+
     try:
-        with open('setup.py', 'r') as f:
+        with open("setup.py", "r") as f:
             setup_content = f.read()
-        
+
         # Check for all three console scripts
         expected_scripts = [
-            'fireworks-reward=reward_kit.cli:main',
-            'reward-kit=reward_kit.cli:main',
-            'reward-protocol=reward_kit.cli:main'
+            "fireworks-reward=reward_kit.cli:main",
+            "reward-kit=reward_kit.cli:main",
+            "reward-protocol=reward_kit.cli:main",
         ]
-        
+
         for script in expected_scripts:
             if script in setup_content:
                 print(f"✓ Console script configured: {script}")
             else:
                 print(f"✗ Console script missing: {script}")
                 return False
-        
+
         return True
-        
+
     except Exception as e:
         print(f"✗ Error testing console scripts: {e}")
         return False
 
+
 def test_package_metadata():
     """Test that package metadata is consistent."""
     print("\n=== Testing Package Metadata ===")
-    
+
     try:
-        with open('setup.py', 'r') as f:
+        with open("setup.py", "r") as f:
             setup_content = f.read()
-        
+
         # Check package discovery
-        if 'reward_kit*' in setup_content and 'reward_protocol*' in setup_content:
+        if "reward_kit*" in setup_content and "eval_protocol*" in setup_content:
             print("✓ Both packages included in find_packages")
         else:
             print("✗ Package discovery configuration incorrect")
             return False
-        
+
         # Check that the package name is still reward-kit
         if 'name="reward-kit"' in setup_content:
             print("✓ Package name remains 'reward-kit'")
         else:
             print("✗ Package name changed incorrectly")
             return False
-        
+
         return True
-        
+
     except Exception as e:
         print(f"✗ Error testing package metadata: {e}")
         return False
 
+
 def demonstrate_usage():
     """Demonstrate how the dual imports will work."""
     print("\n=== Usage Demonstration ===")
-    
+
     print("After installation, users can use either import style:")
     print()
-    
+
     print("# Style 1: reward_kit (original)")
     print("from reward_kit import reward_function, Message")
     print("from reward_kit.rewards import accuracy")
     print()
-    
-    print("# Style 2: reward_protocol (new)")
-    print("from reward_protocol import reward_function, Message")
-    print("from reward_protocol.rewards import accuracy")
+
+    print("# Style 2: eval_protocol (new)")
+    print("from eval_protocol import reward_function, Message")
+    print("from eval_protocol.rewards import accuracy")
     print()
-    
+
     print("Both styles provide identical functionality!")
     print()
-    
+
     print("Command-line usage:")
     print("reward-kit --help          # Original")
     print("reward-protocol --help     # New")
     print("fireworks-reward --help    # Alternative")
     print()
 
+
 def main():
     """Run all tests."""
-    print("=== Testing reward_protocol Import Equivalence ===")
-    
+    print("=== Testing eval_protocol Import Equivalence ===")
+
     # Add project root to sys.path so we can find the packages
-    project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
+    project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
     sys.path.insert(0, project_root)
     os.chdir(project_root)  # Change to project root for relative paths
-    
+
     tests = [
         test_module_specs,
         test_import_structure,
@@ -203,10 +234,10 @@ def main():
         test_console_scripts,
         test_package_metadata,
     ]
-    
+
     passed = 0
     failed = 0
-    
+
     for test in tests:
         try:
             if test():
@@ -216,17 +247,17 @@ def main():
         except Exception as e:
             print(f"Test {test.__name__} crashed: {e}")
             failed += 1
-    
+
     demonstrate_usage()
-    
+
     print("=== Final Results ===")
     print(f"Passed: {passed}")
     print(f"Failed: {failed}")
     print(f"Total: {passed + failed}")
-    
+
     if failed == 0:
         print("\n🎉 All tests passed!")
-        print("✅ reward_protocol is properly configured")
+        print("✅ eval_protocol is properly configured")
         print("✅ Import equivalence verified")
         print("✅ Console scripts configured")
         print("✅ Package ready for PyPI publishing")
@@ -235,5 +266,6 @@ def main():
         print(f"\n❌ {failed} tests failed")
         return 1
 
+
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())

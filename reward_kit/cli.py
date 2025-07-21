@@ -31,7 +31,7 @@ from .cli_commands.run_eval_cmd import hydra_cli_entry_point
 def parse_args(args=None):
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="reward-protocol: Tools for evaluation and reward modeling"
+        description="eval-protocol: Tools for evaluation and reward modeling"
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
