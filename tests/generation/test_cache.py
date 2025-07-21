@@ -6,7 +6,7 @@ from unittest.mock import patch  # Added import for patch
 import pytest
 from omegaconf import DictConfig
 
-from reward_kit.generation.cache import ResponseCache
+from reward_protocol.generation.cache import ResponseCache
 
 
 @pytest.fixture(scope="function")

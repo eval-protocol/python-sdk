@@ -26,9 +26,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "examples" / "frozen_lake_mcp"))
 
 
-from reward_kit.mcp.execution.manager import ExecutionManager
-from reward_kit.mcp.session.manager import GeneralMCPVectorEnv
-from reward_kit.mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
+from reward_protocol.mcp.execution.manager import ExecutionManager
+from reward_protocol.mcp.session.manager import GeneralMCPVectorEnv
+from reward_protocol.mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
 
 class MockPolicy:

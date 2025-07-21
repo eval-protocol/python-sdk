@@ -1,8 +1,8 @@
 import pytest
 
-from reward_kit.adapters.braintrust import reward_fn_to_scorer, scorer_to_reward_fn
-from reward_kit.models import EvaluateResult, Message
-from reward_kit.typed_interface import reward_function
+from reward_protocol.adapters.braintrust import reward_fn_to_scorer, scorer_to_reward_fn
+from reward_protocol.models import EvaluateResult, Message
+from reward_protocol.typed_interface import reward_function
 
 
 def simple_scorer(input, output, expected):

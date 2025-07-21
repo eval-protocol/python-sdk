@@ -4,8 +4,8 @@ from unittest.mock import patch
 import pytest
 
 # Module to be tested
-from reward_kit import generic_server
-from reward_kit.generic_server import load_reward_function
+from reward_protocol import generic_server
+from reward_protocol.generic_server import load_reward_function
 
 # Dummy functions for testing from our dummy module
 from tests.dummy_module_for_server_test import (

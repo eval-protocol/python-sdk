@@ -17,7 +17,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-from reward_kit import EvaluateResult, Message, MetricResult, reward_function
+from reward_protocol import EvaluateResult, Message, MetricResult, reward_function
 
 
 class OpenAICompatibilityTest(unittest.TestCase):
