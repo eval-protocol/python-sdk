@@ -1,7 +1,7 @@
 """
-Fireworks Reward Protocol - legacy import path.
+Fireworks Eval Protocol - Simplify reward modeling and evaluation for LLM RL fine-tuning.
 
-This package remains for backward compatibility and re-exports everything from `eval_protocol`.
+This package is the canonical import name for the evaluation toolkit. All functionality from `reward_kit` is re-exported here so existing code can gradually migrate.
 
 A Python library for defining, testing, deploying, and using reward functions
 for LLM fine-tuning, including launching full RL jobs on the Fireworks platform.
@@ -10,14 +10,14 @@ The library also provides an agent evaluation framework for testing and evaluati
 tool-augmented models using self-contained task bundles.
 """
 
-# Map reward_protocol submodules (compatibility) to the underlying eval_protocol modules
+# Map eval_protocol submodules to the underlying reward_kit modules
 import sys
 
 # Additional convenience imports for common submodules
 # Make sure all public symbols are available
-# Re-export everything from eval_protocol
-from eval_protocol import *  # noqa: F401,F403
-from eval_protocol import (
+# Re-export everything from reward_kit
+from reward_kit import *  # noqa: F401,F403
+from reward_kit import (
     __all__,
     __version__,
     adapters,
@@ -80,4 +80,4 @@ _SUBMODULES = [
 ]
 
 for _name in _SUBMODULES:
-    sys.modules[f"{__name__}.{_name}"] = getattr(sys.modules["eval_protocol"], _name)
+    sys.modules[f"{__name__}.{_name}"] = getattr(sys.modules["reward_kit"], _name)

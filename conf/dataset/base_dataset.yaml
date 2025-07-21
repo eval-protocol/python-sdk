@@ -4,7 +4,7 @@
 # and provide concrete values.
 
 # REQUIRED by Hydra for instantiation. Points to the function that loads the dataset.
-_target_: reward_protocol.datasets.loader.load_and_process_dataset
+_target_: eval_protocol.datasets.loader.load_and_process_dataset
 
 # REQUIRED: Specifies the type of the dataset source.
 # Examples: "huggingface", "jsonl", "fireworks" (fireworks is not yet implemented)

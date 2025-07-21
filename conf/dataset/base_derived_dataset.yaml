@@ -3,7 +3,7 @@
 # such as adding system prompts or converting formats.
 
 # REQUIRED by Hydra for instantiation. Points to the function that loads the derived dataset.
-_target_: reward_protocol.datasets.loader.load_derived_dataset
+_target_: eval_protocol.datasets.loader.load_derived_dataset
 
 # REQUIRED: Reference to the base dataset configuration to derive from.
 # This can be a config name (e.g., "gsm8k") that will be loaded from conf/dataset/
