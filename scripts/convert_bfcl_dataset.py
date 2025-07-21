@@ -15,7 +15,7 @@ sys.path.append("/home/bchen/home/reward-kit")
 sys.path.append("references/verifiers")
 
 # Import BFCLSimAPIResource
-from reward_kit.agent_v2.resources.bfcl_sim_api_resource import BFCLSimAPIResource
+from reward_protocol.agent_v2.resources.bfcl_sim_api_resource import BFCLSimAPIResource
 
 
 # Helper function to parse function calls - Corrected to handle positional and keyword arguments
@@ -241,7 +241,7 @@ for row in dataset:
             "ground_truth_comparable_state": ground_truth_comparable_state,
         },
         "messages": messages_for_yaml,  # Use the cleaned messages list
-        "reward_function_path": "reward_kit.rewards.bfcl_reward",
+        "reward_function_path": "reward_protocol.rewards.bfcl_reward",
         # Add poc_max_turns based on the number of user turns, or a default
         # This ensures the orchestrator processes all defined user turns if poc_max_turns is not explicitly set lower.
         # "poc_max_turns": len(messages_for_yaml) # Or a fixed default like 10 if preferred

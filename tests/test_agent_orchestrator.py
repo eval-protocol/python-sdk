@@ -9,17 +9,17 @@ from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
 import pytest
 
-from reward_kit.agent.orchestrator import Orchestrator
-from reward_kit.agent.resource_abc import ForkableResource
+from reward_protocol.agent.orchestrator import Orchestrator
+from reward_protocol.agent.resource_abc import ForkableResource
 
 # Import actual resource classes for some tests
-from reward_kit.agent.resources import (
+from reward_protocol.agent.resources import (
     DockerResource,
     FileSystemResource,
     PythonStateResource,
     SQLResource,
 )
-from reward_kit.models import EvaluationCriteriaModel, TaskDefinitionModel
+from reward_protocol.models import EvaluationCriteriaModel, TaskDefinitionModel
 
 
 # A minimal valid TaskDefinitionModel for testing
@@ -456,9 +456,9 @@ class TestOrchestratorExecutionFlow:
         base_res.close = AsyncMock(return_value=None)
         return base_res
 
-    @patch("reward_kit.agent.orchestrator.Orchestrator._get_resource_class")
+    @patch("reward_protocol.agent.orchestrator.Orchestrator._get_resource_class")
     @patch(
-        "reward_kit.agent.orchestrator.Orchestrator._load_task_components",
+        "reward_protocol.agent.orchestrator.Orchestrator._load_task_components",
         new_callable=AsyncMock,
     )
     async def test_execute_task_poc_successful_run_generic_tool(
@@ -530,7 +530,7 @@ class TestOrchestratorExecutionFlow:
         assert "Failed to load task components" in caplog.text
 
     @patch(
-        "reward_kit.agent.orchestrator.Orchestrator._load_task_components",
+        "reward_protocol.agent.orchestrator.Orchestrator._load_task_components",
         new_callable=AsyncMock,
     )
     async def test_execute_task_poc_setup_base_resource_fails(
@@ -559,9 +559,9 @@ class TestOrchestratorExecutionFlow:
             "Base resource setup failed or not performed" in caplog.text
         )  # Check this exact message
 
-    @patch("reward_kit.agent.orchestrator.Orchestrator._get_resource_class")
+    @patch("reward_protocol.agent.orchestrator.Orchestrator._get_resource_class")
     @patch(
-        "reward_kit.agent.orchestrator.Orchestrator._load_task_components",
+        "reward_protocol.agent.orchestrator.Orchestrator._load_task_components",
         new_callable=AsyncMock,
     )
     async def test_execute_task_poc_tool_exception(

@@ -12,7 +12,7 @@ hf_extra_load_params:
   # download_mode: "force_redownload" # Removed to enable caching
 
 preprocessing_steps:
-  - "reward_kit.datasets.loader.transform_codeparrot_apps_sample"
+  - "reward_protocol.datasets.loader.transform_codeparrot_apps_sample"
 
 column_mapping:
   # Map from original (codeparrot/apps or preprocessed) column names to standard pipeline names
