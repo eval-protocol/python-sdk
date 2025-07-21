@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from reward_kit.packaging import (
+from reward_protocol.packaging import (
     DEFAULT_PYTHON_VERSION,
     _resolve_module_path_and_name,
     generate_dockerfile_content,
@@ -36,7 +36,7 @@ class TestPackaging(unittest.TestCase):
         )
 
         cls.DUMMY_REWARD_MODULE_CONTENT = f"""
-from reward_kit.typed_interface import reward_function
+from reward_protocol.typed_interface import reward_function
 
 @reward_function(id="test-dummy-packaging", requirements="requests==2.25.1\\nnumpy>=1.20.0")
 def {cls.DUMMY_REWARD_FUNCTION_NAME}(messages, ground_truth=None):

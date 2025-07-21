@@ -3,12 +3,12 @@ from typing import Any, Dict, List, Union
 import pytest
 from pydantic import ValidationError
 
-from reward_kit.agent.models import StepData
+from reward_protocol.agent.models import StepData
 
 # Assuming these are the correct import paths based on our plan
-from reward_kit.models import EvaluateResult
-from reward_kit.models import Message as RewardKitMessage
-from reward_kit.models import StepOutput
+from reward_protocol.models import EvaluateResult
+from reward_protocol.models import Message as RewardKitMessage
+from reward_protocol.models import StepOutput
 
 # Minimal Message for StepData if direct import from reward_kit.models is problematic in tests
 # For now, assume RewardKitMessage from reward_kit.models works.

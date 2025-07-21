@@ -3,7 +3,7 @@ import argparse
 import pytest
 
 # Module to be tested
-from reward_kit.cli import parse_args
+from reward_protocol.cli import parse_args
 
 
 class TestCliArgParsing:
