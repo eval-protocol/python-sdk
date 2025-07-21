@@ -16,7 +16,7 @@ Understanding these types is crucial for creating effective reward functions.
 ### The `Message` Class
 
 ```python
-from reward_kit import Message
+from eval_protocol import Message
 
 message = Message(
     role="assistant",
@@ -55,7 +55,7 @@ Additional fields for function/tool calling may include:
 ### `EvaluateResult` Class
 
 ```python
-from reward_kit import EvaluateResult, MetricResult
+from eval_protocol import EvaluateResult, MetricResult
 
 result = EvaluateResult(
     score=0.75,  # Overall score between 0.0 and 1.0
@@ -84,7 +84,7 @@ The `EvaluateResult` class represents the complete result of a reward function e
 ### `MetricResult` Class
 
 ```python
-from reward_kit import MetricResult
+from eval_protocol import MetricResult
 
 metric = MetricResult(
     score=0.8,  # Score for this specific metric
@@ -109,7 +109,7 @@ If you are migrating from an older version that used `RewardOutput`, please refe
 Here's how to use these types properly in your reward functions:
 
 ```python
-from reward_kit import reward_function, EvaluateResult, MetricResult, Message
+from eval_protocol import reward_function, EvaluateResult, MetricResult, Message
 from typing import List, Optional, Dict, Any
 
 @reward_function

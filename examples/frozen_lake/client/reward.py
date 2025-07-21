@@ -4,8 +4,8 @@ Reward function for the Frozen Lake evaluation task.
 
 from typing import List, Optional
 
-from reward_protocol.models import EvaluateResult, Message, MetricResult, StepOutput
-from reward_protocol.typed_interface import reward_function
+from eval_protocol.models import EvaluateResult, Message, MetricResult, StepOutput
+from eval_protocol.typed_interface import reward_function
 
 
 @reward_function

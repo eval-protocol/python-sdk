@@ -67,7 +67,7 @@ export FIREWORKS_API_BASE=https://dev.api.fireworks.ai
 Here's a simple reward function that evaluates responses based on word count:
 
 ```python
-from reward_kit import reward_function, EvaluateResult, MetricResult
+from eval_protocol import reward_function, EvaluateResult, MetricResult
 from typing import List, Dict, Optional
 
 @reward_function
