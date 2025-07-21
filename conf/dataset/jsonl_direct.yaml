@@ -2,7 +2,7 @@
 # Minimal configuration for loading a JSONL dataset directly.
 # The 'path_or_name' should be overridden by the experiment-specific config.
 
-_target_: reward_kit.datasets.loader.load_and_process_dataset
+_target_: reward_protocol.datasets.loader.load_and_process_dataset
 dataset_source_type: jsonl
 path_or_name: "PLEASE_OVERRIDE_THIS_PATH" # This will be overridden
 

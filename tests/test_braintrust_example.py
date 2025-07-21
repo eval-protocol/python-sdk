@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from reward_kit.models import Message
+from reward_protocol.models import Message
 
 
 def load_module_from_path(name, path):

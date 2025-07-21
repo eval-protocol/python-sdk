@@ -3,11 +3,11 @@
 
 defaults:
   - dataset: # Requires a dataset configuration group. Example: dataset=gsm8k_local_prompts
-      _target_: reward_kit.datasets.loader.load_and_process_dataset
+      _target_: reward_protocol.datasets.loader.load_and_process_dataset
       # Default dataset (e.g., a small sample for quick testing if no dataset is specified)
       # This should ideally be a very small, self-contained dataset if a default is provided.
       # For now, let's make it mandatory to specify a dataset via CLI or a custom config.
-      # path_or_name: "reward_kit/sample_data/default_prompts.jsonl" # Example path
+      # path_or_name: "reward_protocol/sample_data/default_prompts.jsonl" # Example path
       # source_type: "jsonl"
       # column_mapping: {"id":"id", "user_query":"user_query", "ground_truth_for_eval":"ground_truth_for_eval"}
       optional: true # Make the dataset group itself optional here, forcing user to specify one.
@@ -41,7 +41,7 @@ generation:
     # force_regenerate: false # Example, not used by current ResponseCache
 
 reward:
-  function_path: "reward_kit.rewards.math.math_reward" # Example default reward function
+  function_path: "reward_protocol.rewards.math.math_reward" # Example default reward function
   params: # Parameters to pass to the reward function
     tolerance: 0.001
     require_units: false

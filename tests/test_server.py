@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from reward_kit.models import EvaluateResult, MetricResult
-from reward_kit.server import create_app
+from reward_protocol.models import EvaluateResult, MetricResult
+from reward_protocol.server import create_app
 
 
 @pytest.fixture
