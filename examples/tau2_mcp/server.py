@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-LunarLander MCP-Gym Server
+Airline MCP-Gym Server (τ²-Bench domain)
 
-This script launches the LunarLander MCP-Gym server using the proper MCP-Gym framework.
-Compatible with CondaServerProcessManager for isolated execution.
+This script launches the Airline MCP-Gym server implemented in `tau2_mcp.py`.
+It exposes all airline booking / cancellation tools so an agent can be evaluated
+end-to-end.  Compatible with CondaServerProcessManager for isolated execution.
 
 Usage:
-    python server.py --port 9004 --seed 42
+    python server.py --port 9100 --seed 42
 """
 
 import argparse
@@ -17,12 +18,12 @@ from pathlib import Path
 # Add current directory to path so we can import local modules
 sys.path.insert(0, str(Path(__file__).parent))
 
-from lunar_lander_mcp import LunarLanderMcp
+from tau2_mcp import AirlineMcp
 
 
 def main():
     """Run the LunarLander MCP server."""
-    parser = argparse.ArgumentParser(description="LunarLander MCP Server")
+    parser = argparse.ArgumentParser(description="Airline MCP Server")
     parser.add_argument(
         "--transport",
         choices=["streamable-http", "stdio"],
@@ -44,9 +45,9 @@ def main():
         os.environ["PORT"] = str(args.port)
 
     # Create and run server
-    server = LunarLanderMcp(seed=args.seed)
+    server = AirlineMcp(seed=args.seed)
 
-    print(f"🚀 Starting LunarLander MCP server on port {args.port}")
+    print(f"✈️  Starting Airline MCP server on port {args.port}")
     print(f"🌱 Seed: {args.seed}")
     print(f"📡 Transport: {args.transport}")
 

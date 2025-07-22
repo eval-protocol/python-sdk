@@ -161,6 +161,7 @@ async def test_production_server_record_and_replay(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=16384,  # Taxi needs more thinking space
+        max_tools_per_turn=1,
     )
 
     assert not policy.is_playback_mode(), "Should be in recording mode initially"
@@ -195,6 +196,7 @@ async def test_production_server_record_and_replay(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=16384,
+        max_tools_per_turn=1,
     )
 
     assert playback_policy.is_playback_mode(), "Should be in playback mode"
@@ -254,6 +256,7 @@ async def test_simulation_server_record_and_replay(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=16384,
+        max_tools_per_turn=1,
     )
 
     # Create environments pointing to simulation server
@@ -283,6 +286,7 @@ async def test_simulation_server_record_and_replay(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=16384,
+        max_tools_per_turn=1,
     )
 
     # Create new environments for playback
@@ -373,6 +377,7 @@ async def test_production_only_recorded_policy(taxi_dataset):
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=16384,
+            max_tools_per_turn=1,
         )
 
         assert policy.is_playback_mode(), "Policy should be in playback mode"

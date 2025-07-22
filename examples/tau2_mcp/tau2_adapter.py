@@ -12,6 +12,8 @@ from typing import Any, Dict, Optional, Tuple, List
 from reward_kit.mcp.adapter import EnvironmentAdapter
 from airplane_environment.airline_environment import AirlineEnvironment
 
+# TODO: Open question: 
+# I know we said we shouldn't use adapter when we can define the environment, but mcpgym.py relies on self.adapter.step_environment() and so on. Should that be refactored? I can make that change + remove tau2_adapter.py in a fast follow.
 
 class AirlineAdapter(EnvironmentAdapter):
     """τ²-Bench Airline domain adapter"""
@@ -22,8 +24,15 @@ class AirlineAdapter(EnvironmentAdapter):
         if config:
             env_config.update(config)
         
-        env = AirlineEnvironment(**env_config)
+        env = AirlineEnvironment(config=env_config)
         return env
+    
+    def create_environment_with_seed(self, config: Optional[Dict[str, Any]] = None, seed: Optional[int] = None) -> Tuple[Any, int, Dict[str, Any]]:
+        """Create environment instance with a deterministic seed and return env, seed, info."""
+        env = self.create_environment(config)
+        obs, info = env.reset(seed=seed)
+
+        return env, obs, info
 
     def reset_environment(
         self, env: Any, seed: Optional[int] = None
@@ -51,8 +60,30 @@ class AirlineAdapter(EnvironmentAdapter):
 
     def format_observation(self, obs: Any) -> Dict[str, Any]:
         """Format observation for MCP tool responses."""
-        # TODO: Implement this
         return obs
+
+    def get_action_space_description(self) -> Dict[str, Any]:
+        """Get description of valid actions for airline environment."""
+        return {
+            "type": "airline_tools",
+            "description": "Airline booking and management tools",
+            "available_actions": [
+                "get_user_details",
+                "get_reservation_details", 
+                "cancel_reservation",
+                "book_reservation",
+                "search_direct_flight",
+                "search_onestop_flight",
+                "update_reservation_flights",
+                "update_reservation_passengers", 
+                "update_reservation_baggages",
+                "list_all_airports",
+                "get_flight_status",
+                "send_certificate",
+                "transfer_to_human_agents",
+                "calculate"
+            ]
+        }
 
     def get_default_config(self) -> Dict[str, Any]:
         """Get default configuration for airline environment."""

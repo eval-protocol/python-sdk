@@ -254,16 +254,14 @@ class PlaybackPolicyBase(ABC):
         Returns:
             List of ToolCall objects for each environment
         """
-        # TODO: fix this entire class to reflect changes in the LLMBasePolicy class
-        pass
-        # if self._is_playback:
-        #     return await self._handle_playback_mode(
-        #         tool_schemas
-        #     )
-        # else:
-        #     return await self._generate_live_tool_calls(
-        #         tool_schemas, observations, system_prompts, user_prompts
-        #     )
+        if self._is_playback:
+            return await self._handle_playback_mode(
+                tool_schema, env_index, conversation_history
+            )
+        else:
+            return await self._generate_live_tool_calls(
+                tool_schema, env_index, conversation_history
+            )
 
     async def _handle_playback_mode(
         self,
@@ -309,49 +307,53 @@ class PlaybackPolicyBase(ABC):
 
     def _extract_tool_call_from_messages(
         self, messages: List[Dict[str, Any]], env_index: int
-    ) -> "MCPToolCall":
+    ) -> List[MCPToolCall]:
         """
-        Extract tool call from recorded conversation messages.
+        Extract tool calls from recorded conversation messages.
 
         Args:
             messages: List of conversation messages
             env_index: Environment index for logging
 
         Returns:
-            ToolCall object extracted from messages
+            List of MCPToolCall objects
         """
         # Look for the last assistant message with tool_calls
         for message in reversed(messages):
             if message.get("role") == "assistant" and message.get("tool_calls"):
                 tool_calls = message["tool_calls"]
                 if tool_calls and len(tool_calls) > 0:
-                    tool_call = tool_calls[0]  # Use first tool call
+                    # Process ALL tool calls, not just the first one
+                    mcp_tool_calls = []
+                    for tool_call in tool_calls:
+                        # Extract function name and arguments
+                        function = tool_call.get("function", {})
+                        tool_name = function.get("name", "unknown")
+                        tool_call_id = tool_call.get("id", "unknown")
 
-                    # Extract function name and arguments
-                    function = tool_call.get("function", {})
-                    tool_name = function.get("name", "unknown")
+                        # Parse arguments if they're a string
+                        arguments = function.get("arguments", {})
+                        if isinstance(arguments, str):
+                            try:
+                                arguments = json.loads(arguments)
+                            except json.JSONDecodeError:
+                                logger.warning(
+                                    f"🎬 Environment {env_index}: Failed to parse tool call arguments: {arguments}"
+                                )
+                                arguments = {}
 
-                    # Parse arguments if they're a string
-                    arguments = function.get("arguments", {})
-                    if isinstance(arguments, str):
-                        try:
-                            arguments = json.loads(arguments)
-                        except json.JSONDecodeError:
-                            logger.warning(
-                                f"🎬 Environment {env_index}: Failed to parse tool call arguments: {arguments}"
-                            )
-                            arguments = {}
+                        mcp_tool_calls.append(MCPToolCall(tool_name, arguments, tool_call_id))
 
                     logger.debug(
-                        f"🎬 Environment {env_index}: Extracted tool call {tool_name}({arguments})"
+                        f"🎬 Environment {env_index}: Extracted {len(mcp_tool_calls)} tool calls"
                     )
-                    return MCPToolCall(tool_name, arguments)
+                    return mcp_tool_calls
 
         # Fallback if no tool calls found
         logger.warning(
             f"🎬 Environment {env_index}: No tool calls found in messages, using unknown tool"
         )
-        return MCPToolCall("unknown", {})
+        return [MCPToolCall("unknown", {})]
 
     def is_playback_mode(self) -> bool:
         """
@@ -393,6 +395,32 @@ class PlaybackPolicyBase(ABC):
                 }
 
         return progress
+
+    def log_conversation_state_for_playback(self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]):
+        """
+        Log the current conversation state in the format required for playback.
+        
+        Base implementation that subclasses can override with specific behavior.
+        Expected format: {"env_index": 0, "step": 0, "messages": [{..}, {..}]}
+
+        Args:
+            env_index: Environment index
+            step: Current step number
+            conversation_history: List of conversation messages
+        """
+        # Use REWARD_KIT_PLAYBACK_FILE environment variable for recording
+        playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
+        if not playback_file:
+            return  # No recording file specified
+
+        playback_entry = {
+            "env_index": env_index,
+            "step": step,
+            "messages": conversation_history.copy(),
+        }
+
+        with open(playback_file, "a") as f:
+            f.write(json.dumps(playback_entry) + "\n")
 
     def log_conversation_state_for_playback(self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]):
         """

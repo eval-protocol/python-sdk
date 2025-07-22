@@ -52,6 +52,7 @@ async def test_north_star_interface():
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=16384,  # Increased from default 4096 for more thinking space
+            max_tools_per_turn=1,
         )
         print(
             f"✅ Policy created in {'playback' if policy.is_playback_mode() else 'live'} mode"

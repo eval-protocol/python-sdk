@@ -82,6 +82,7 @@ jobs:
           pip install -e ".[dev,trl,openevals]" # Install all deps for core tests
           pip install pytest-cov pytest-asyncio pytest-xdist
           pip install e2b || echo "e2b not available, some tests may be skipped"
+          pip install git+https://github.com/sierra-research/tau2-bench.git
 
       - name: Run Core Tests with pytest-xdist
         env:
@@ -126,6 +127,7 @@ jobs:
           pip install -e ".[dev,trl]"
           pip install pytest-cov pytest-asyncio
           pip install e2b || echo "e2b not available, some tests may be skipped"
+          pip install git+https://github.com/sierra-research/tau2-bench.git
       - name: Run Batch Evaluation Tests
         env:
           E2B_API_KEY: ${{ secrets.E2B_API_KEY }}

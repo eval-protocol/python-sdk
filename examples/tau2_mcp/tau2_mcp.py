@@ -339,3 +339,14 @@ class AirlineMcp(McpGym):
                     }
                 }
             )
+
+    @staticmethod
+    def format_observation(obs: Any, env: Any) -> Dict[str, Any]:
+        """Return observation as JSON-serialisable dict.
+
+        For the airline domain the environment already returns dictionaries, so
+        we simply pass them through.  If another type slips through, wrap it.
+        """
+        if isinstance(obs, dict):
+            return obs
+        return {"observation": obs}

@@ -17,6 +17,9 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 from ..client.connection import MCPConnectionManager
 from ..types import MCPSession, MCPToolCall, Trajectory
 
+from tau2.user.user_simulator import UserSimulator
+from tau2.data_model.message import AssistantMessage, UserMessage
+
 if TYPE_CHECKING:
     from ..session.manager import GeneralMCPVectorEnv
     from .policy import LLMBasePolicy
@@ -167,8 +170,7 @@ class ExecutionManager:
         terminated_by_control_plane = sum(
             1
             for traj in trajectories
-            if hasattr(traj, "control_plane_summary")
-            and traj.control_plane_summary.get("termination_reason")
+            if traj.control_plane_summary.get("termination_reason")
             == "control_plane_signal"
         )
 
@@ -198,7 +200,7 @@ class ExecutionManager:
         openai_logger: Optional[Callable],
         recording_mode: bool,
         playback_mode: bool,
-        start_time: float
+        start_time: float,
     ) -> Trajectory:
         """
         Execute a single rollout for one environment (async version for thread execution).
@@ -206,6 +208,7 @@ class ExecutionManager:
         This method runs within a thread's event loop and handles all async operations.
         """
         session = envs.sessions[rollout_idx]
+        dataset_row = envs.dataset_rows[rollout_idx]
         
         # Initialize trajectory
         trajectory = Trajectory(
@@ -219,13 +222,35 @@ class ExecutionManager:
             duration=0.0,
         )
 
+        trajectory.control_plane_steps = []
+        trajectory.control_plane_summary = {}
+
         current_observation, tool_schema = await envs.reset(session)
-        system_prompt = envs.dataset_rows[rollout_idx].system_prompt
+        system_prompt = dataset_row.system_prompt
         
         # Record initial observation
-        trajectory.observations.append(current_observation)
+        trajectory.observations.append(current_observation)        
+        
+        # Create user simulator for this rollout if configured in dataset
+        user_simulator = None
+        user_simulator_state = None
+        
+        # If user simulation is enabled, initial message is from the simulated user
+        if dataset_row.user_simulation and dataset_row.user_simulation.get("enabled", False):            
+            user_simulator = UserSimulator(
+                instructions=dataset_row.user_simulation.get("system_prompt"),
+                llm=dataset_row.user_simulation.get("llm", "gpt-4.1"),
+                llm_args=dataset_row.user_simulation.get("llm_args", {"temperature": 0.7})
+            )
 
-        # Initialize conversation history for this thread
+            # Get initial messages in tau2-bench format for user simulator
+            user_simulator_state = user_simulator.get_init_state()
+            user_message, user_simulator_state = user_simulator.generate_next_message(
+                AssistantMessage(role="assistant", content="Hi! How can I help you today?"), 
+                user_simulator_state
+            )
+            current_observation = user_message.content if user_message.content else ""
+        
         user_prompt = envs.format_user_prompt(rollout_idx, current_observation)
         conversation_history = [
             {"role": "system", "content": system_prompt},
@@ -235,11 +260,15 @@ class ExecutionManager:
         logger.info(f"🎯 Starting rollout {rollout_idx} in thread {threading.current_thread().name}")
 
         # Run rollout loop for this specific environment
-        for step in range(steps):
-            # Check if already terminated
-            if trajectory.terminated:
-                logger.debug(f"Rollout {rollout_idx} already terminated at step {step}")
-                break
+        step = 0
+        rollout_end = False
+
+        while step < steps and not trajectory.terminated:
+            turn_completed = False
+            info = {}
+            reward = 0.0
+            observation = current_observation
+            tool_calls = []
 
             # Check control plane termination status
             control_plane_state = await self._get_control_plane_status(session)
@@ -249,71 +278,122 @@ class ExecutionManager:
                 logger.debug(f"Rollout {rollout_idx} terminated by control plane before step {step}")
                 break
 
-            # Format user prompt based on current observation
-            user_prompt = envs.format_user_prompt(rollout_idx, current_observation)
+            if user_simulator and user_simulator_state:
+                # Get user simulator messages and find the last assistant message
+                user_simulator_messages = self._get_user_simulator_messages(conversation_history)
+                
+                # Last message was agent, simulated user response
+                if user_simulator_messages and isinstance(user_simulator_messages[-1], AssistantMessage):
+                    # Generate user response using the simulator
+                    user_message, user_simulator_state = user_simulator.generate_next_message(user_simulator_messages[-1], user_simulator_state)
+                    user_content = user_message.content if user_message.content else ""
 
-            # Generate tool call for this environment using thread-local conversation history
-            tool_call = await policy(tool_schema, rollout_idx, conversation_history)
+                    user_prompt = envs.format_user_prompt(rollout_idx, user_content)
+                    conversation_history.append({"role": "user", "content": user_prompt})
 
-            # Handle fallback case where no tool call is generated
-            if tool_call is None:
-                tool_call = MCPToolCall(
-                    tool_name="_no_tool_call",
-                    arguments={"reason": "no_tool_call_generated"},
-                )
-
-            # Execute tool call for this environment
-            observation, reward, done, info = await envs.step(rollout_idx, tool_call)
-
-            tool_response = envs.format_tool_response(observation)
+                    # Check if user simulator signaled termination
+                    if UserSimulator.is_stop(user_message):
+                        trajectory.terminated = True
+                        session.terminated = True
             
-            policy.add_tool_response(
-                rollout_idx, tool_call, tool_response, conversation_history, reward, done, info
-            )
+            # In each turn: keep looping until assistant is ready to provide final response
+            while not turn_completed and not trajectory.terminated:
+                tool_calls = await policy(tool_schema, rollout_idx, conversation_history)
 
-            # Log conversation state for playback if in recording mode
-            if recording_mode:
-                policy.log_conversation_state_for_playback(rollout_idx, step, conversation_history)
+                # If no tool call is generated, turn is finished
+                if len(tool_calls) == 1 and tool_calls[0].tool_name == "_no_tool_call":
+                    # No tool calls means the policy is ready to provide final response
+                    turn_completed = True
+                    break
 
-            # Update trajectory with both data and control plane information
-            trajectory.observations.append(observation)
-            
-            # Record action (tool call)
-            action_str = f"{tool_call.tool_name}({tool_call.arguments})"
-            trajectory.actions.append(action_str)
-            
-            # Record control plane (reward/termination)
-            trajectory.rewards.append(reward)
-            trajectory.total_reward += reward
-            trajectory.steps += 1
+                # Execute each tool call sequentially
+                for tool_call in tool_calls:
 
-            # Enhanced trajectory recording with control plane info
-            if not hasattr(trajectory, "control_plane_steps"):
-                trajectory.control_plane_steps = []
+                    # Execute tool call for this environment
+                    observation, reward, rollout_end, info = await envs.step(rollout_idx, tool_call)
 
-            control_plane_step = {
-                "step": step,
-                "reward": reward,
-                "terminated": done,
-                "info": info.get("control_plane", {}),
-                "tool_call": action_str,
-            }
-            trajectory.control_plane_steps.append(control_plane_step)
+                    tool_response = envs.format_tool_response(observation)
+
+                    policy.add_tool_response(
+                        rollout_idx, tool_call, tool_response, conversation_history, reward, rollout_end, info
+                    )
+
+                    # Update trajectory with both data and control plane information
+                    # TODO: revisit when implementing eval/reward at end of rollout. this block of code is not quite right. i believe we should be appending obs, actions, rewards once per set of tools, not per tool call.
+                    trajectory.observations.append(observation)
+                    
+                    # Record action (tool call)
+                    action_str = f"{tool_call.tool_name}({tool_call.arguments})"
+                    trajectory.actions.append(action_str)
+                    
+                    # Record control plane (reward/termination)
+                    trajectory.rewards.append(reward)
+                    trajectory.total_reward += reward
+
+                    # Non-user simulator step counter: each tool call is a step
+                    if user_simulator is None:
+                        step += 1
+                        trajectory.steps = step
+
+                        control_plane_step = {
+                            "step": step - 1,
+                            "reward": reward,
+                            "terminated": rollout_end,
+                            "info": info.get("control_plane", {}),
+                            "tool_calls": [f"{tool_call.tool_name}({tool_call.arguments})"],
+                            "num_tool_calls": 1,
+                        }
+                        trajectory.control_plane_steps.append(control_plane_step)
+                        
+                        # Log conversation state for playback if in recording mode
+                        if recording_mode:
+                            policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
+
+                    # If environment terminates after this tool call or step limit is reached, end the turn and trajectory
+                    if rollout_end or step >= steps:
+                        turn_completed = True
+                        trajectory.terminated = True
+                        session.terminated = True
+                        break
+
+                # Update current observation for potential next turn
+                if observation is not None:
+                    current_observation = observation
+
+            # With user simulator, increment step after an entire conversation step
+            if user_simulator is not None:
+                step += 1
+                trajectory.steps = step
+
+                # Enhanced trajectory recording with control plane info
+                # Create summary of all tool calls executed in this step
+                tool_calls_summary = [f"{tc.tool_name}({tc.arguments})" for tc in tool_calls]
+                
+                control_plane_step = {
+                    "step": step - 1,
+                    "reward": reward,
+                    "terminated": rollout_end,
+                    "info": info.get("control_plane", {}),
+                    "tool_calls": tool_calls_summary,
+                    "num_tool_calls": len(tool_calls),
+                }
+                trajectory.control_plane_steps.append(control_plane_step)
+                
+                # Log conversation state for playback if in recording mode
+                if recording_mode:
+                    policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
 
             # Use control plane information for termination decision
-            if done:
+            if rollout_end:
                 trajectory.terminated = True
                 session.terminated = True
 
                 # Add final control plane summary
-                if not hasattr(trajectory, "control_plane_summary"):
-                    trajectory.control_plane_summary = {}
-
                 trajectory.control_plane_summary.update(
                     {
                         "total_reward": trajectory.total_reward,
                         "termination_reason": "control_plane_signal",
-                        "final_step": step,
+                        "final_step": step - 1,
                         "control_plane_source": info.get("control_plane", {}),
                     }
                 )
@@ -336,69 +416,17 @@ class ExecutionManager:
                             }
                         )
 
-                logger.info(f"🏁 Rollout {rollout_idx} terminated at step {step + 1} (reward: {trajectory.total_reward}) in thread {threading.current_thread().name}")
+                logger.info(f"🏁 Rollout {rollout_idx} terminated at step {step} (reward: {trajectory.total_reward}) in thread {threading.current_thread().name}")
                 break
-
-            # Update current observation for next step
-            current_observation = observation
 
             # Progress logging
             if step % 10 == 0:
                 logger.debug(f"Rollout {rollout_idx} step {step}, reward: {trajectory.total_reward:.2f}")
 
-        # Final completion logging with termination reason
-        termination_reason = "max_steps_reached"
-        if trajectory.terminated:
-            termination_reason = "environment_terminated"
-        
-        logger.info(f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, reason: {termination_reason} in thread {threading.current_thread().name}")
+        # TODO: Open question: should termination reason be added? should it be part of the trajectory object?
 
+        logger.info(f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, in thread {threading.current_thread().name}")
         return trajectory
-
-    def _add_tool_response(
-        self,
-        conversation_history: List[Dict[str, Any]], 
-        tool_call: MCPToolCall,
-        tool_response: Union[str, List[Dict[str, Any]]],
-        reward: float = 0.0,
-        terminated: bool = False,
-        info: Optional[Dict[str, Any]] = None,
-    ):
-        """
-        Add tool call and response to conversation history with control plane metadata.
-        
-        Extracted from policy.py to use directly in thread-local conversation management.
-        """
-        # Find the most recent assistant message with tool calls to get the correct call_id
-        call_id = None
-        for i in range(len(conversation_history) - 1, -1, -1):
-            if (
-                conversation_history[i]["role"] == "assistant"
-                and "tool_calls" in conversation_history[i]
-            ):
-                # Find the tool call that matches our tool_name
-                for tc in conversation_history[i]["tool_calls"]:
-                    if tc["function"]["name"] == tool_call.tool_name:
-                        call_id = tc["id"]
-                        break
-                if call_id:
-                    break
-
-        tool_message = {
-            "role": "tool",
-            "tool_call_id": call_id,
-            "content": tool_response,
-        }
-
-        # Add control plane metadata if provided
-        if reward != 0.0 or terminated or info:
-            tool_message["metadata"] = {
-                "reward": reward,
-                "terminated": terminated,
-                "info": info or {},
-            }
-
-        conversation_history.append(tool_message)
 
     async def _get_control_plane_status(self, session) -> Optional[Dict[str, Any]]:
         """
@@ -455,3 +483,22 @@ class ExecutionManager:
         """Helper function to log OpenAI format entries."""
         with open(log_file, "a") as f:
             f.write(json.dumps(data) + "\n") 
+
+    def _get_user_simulator_messages(self, conversation_history: List[Dict[str, Any]]) -> List:
+        """
+        Filter conversation history for user simulator and convert to tau2-bench format.
+        """
+        tau2_messages = []
+        
+        for message in conversation_history:
+            role = message.get("role")
+            content = message.get("content", "")
+            
+            if role == "assistant":
+                if "tool_calls" not in message or not message.get("tool_calls"):
+                    tau2_messages.append(AssistantMessage(role="assistant", content=content))
+                
+            elif role == "user":
+                tau2_messages.append(UserMessage(role="user", content=content))
+                
+        return tau2_messages

@@ -12,21 +12,9 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, field
 import os
+from pathlib import Path
 
-from .data_model import FlightDB
-from .utils import AIRLINE_DB_PATH
-
-logger = logging.getLogger(__name__)
-
-class TerminationReason(Enum):
-    """Reasons for simulation termination"""
-    USER_STOP = "user_stop"
-    AGENT_STOP = "agent_stop"
-    MAX_STEPS = "max_steps"
-    TOO_MANY_ERRORS = "too_many_errors"
-
-
-from airplane_environment.data_model import (
+from tau2.domains.airline.data_model import (
     AirportCode,
     CabinClass,
     Certificate,
@@ -44,7 +32,10 @@ from airplane_environment.data_model import (
     User,
     FlightInfo,
 )
-from airplane_environment.utils import AIRLINE_DB_PATH
+
+logger = logging.getLogger(__name__)
+
+AIRLINE_DB_PATH = Path(__file__).parent / "db.json"
 
 class AirlineEnvironment:
     """
@@ -73,7 +64,7 @@ class AirlineEnvironment:
         
         result = self._execute_airline_action(action_name, parameters)
 
-        # TODO: Do we need to do more here like check termination?
+        # In tau2-bench, if there's a simulated user, the agent cannot terminate the rollout, and there are no per step rewards.
         
         return result, 0.0, False, False, {}
 

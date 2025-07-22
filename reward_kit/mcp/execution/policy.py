@@ -32,6 +32,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         model_id: str,
         temperature: float = 0.2,
         max_tokens: int = 4096,
+        max_tools_per_turn: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -41,6 +42,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             model_id: Model identifier
             temperature: Sampling temperature (0.0 to 2.0)
             max_tokens: Maximum tokens to generate per request
+            max_tools_per_turn: Maximum number of tool calls per turn (None = unlimited, 1 = single tool)
         """
         # Check for automatic playback mode
         playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
@@ -66,6 +68,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         self.model_id = model_id
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.max_tools_per_turn = max_tools_per_turn
 
         # Initialize conversation state tracking for proper OpenAI trajectories
         self.initialized = False
@@ -108,24 +111,13 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         info: Optional[Dict[str, Any]] = None,
     ):
         """Add tool call and response to conversation history with control plane metadata."""
-        # Find the most recent assistant message with tool calls to get the correct call_id
-        call_id = None
-        for i in range(len(conversation_history) - 1, -1, -1):
-            if (
-                conversation_history[i]["role"] == "assistant"
-                and "tool_calls" in conversation_history[i]
-            ):
-                # Find the tool call that matches our tool_name
-                for tc in conversation_history[i]["tool_calls"]:
-                    if tc["function"]["name"] == tool_call.tool_name:
-                        call_id = tc["id"]
-                        break
-                if call_id:
-                    break
-
+        # Use the preserved tool_call_id directly
+        if tool_call.tool_call_id is None:
+            raise ValueError("Tool call ID is required for tool response recording")
+        
         tool_message = {
             "role": "tool",
-            "tool_call_id": call_id,
+            "tool_call_id": tool_call.tool_call_id,
             "content": tool_response,
         }
 
@@ -177,9 +169,9 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
 
     async def _generate_tool_call_with_history(
         self, tools: List[Dict], env_index: int, conversation_history: List[Dict[str, Any]]
-    ) -> MCPToolCall:
+    ) -> List[MCPToolCall]:
         """
-        Generate a tool call using conversation history for proper OpenAI trajectories.
+        Generate tool calls using conversation history for proper OpenAI trajectories.
 
         Args:
             tools: Available MCP tools for this environment
@@ -187,21 +179,9 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             user_prompt: Current user prompt with observation
 
         Returns:
-            MCPToolCall object
+            List of MCPToolCall objects
         """
         try:
-            # Add current user prompt with observation to conversation history
-            
-            # TODO: make this an option the users can trigger
-            # if isinstance(user_prompt, str):
-            #     current_user_message = {"role": "user", "content": user_prompt}
-            # elif isinstance(user_prompt, dict):
-            #     current_user_message = {"role": "user", "content": user_prompt["content"]}
-            # else:
-            #     current_user_message = {"role": "user", "content": str(user_prompt)}
-            
-            # messages.append(current_user_message)
-
             # Convert MCP tools to LLM format
             llm_tools = self._convert_mcp_tools_to_llm_format(tools)
 
@@ -226,9 +206,9 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             message = response["choices"][0]["message"]
             logger.debug(f"Environment {env_index} - Response message: {message}")
 
-            # Add first tool call only if present with the actual API response IDs
+            # Add ALL tool calls if present with the actual API response IDs
             if message.get("tool_calls"):
-                assistant_message_for_history["tool_calls"] = [message["tool_calls"][0]]
+                assistant_message_for_history["tool_calls"] = message["tool_calls"]
 
             # Add to actual conversation history
             conversation_history.append(assistant_message_for_history)
@@ -236,22 +216,33 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             if message.get("tool_calls") and len(message["tool_calls"]) > 0:
                 tool_calls = message["tool_calls"]
                 
-                # Handle single tool call (discrete actions)
-                return MCPToolCall(
-                    tool_name=tool_calls[0]["function"]["name"],
-                    arguments=json.loads(tool_calls[0]["function"]["arguments"]),
-                )
+                # Handle multiple tool calls - create MCPToolCall for each
+                mcp_tool_calls = []
+                for tool_call in tool_calls:
+                    mcp_tool_call = MCPToolCall(
+                        tool_name=tool_call["function"]["name"],
+                        arguments=json.loads(tool_call["function"]["arguments"]),
+                        tool_call_id=tool_call["id"]
+                    )
+                    mcp_tool_calls.append(mcp_tool_call)
+                
+                if self.max_tools_per_turn:
+                    mcp_tool_calls = mcp_tool_calls[:self.max_tools_per_turn]
+                
+                return mcp_tool_calls
             else:
                 # No tool calls in response - this is normal when episode ends or LLM provides only text
                 logger.info(
                     f"No tool calls in response for env {env_index}, message content: {message.get('content')}"
                 )
-                return MCPToolCall(
-                    tool_name="_no_tool_call",
-                    arguments={
-                        "reason": "no_tool_call_generated",
-                    },
-                )
+                return [
+                    MCPToolCall(
+                        tool_name="_no_tool_call",
+                        arguments={
+                            "reason": "no_tool_call_generated",
+                        },
+                    )
+                ]
 
         except Exception as e:
             logger.error(f"LLM API call failed for env {env_index}: {e}")
@@ -262,9 +253,9 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         tool_schema: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> MCPToolCall:
+    ) -> List[MCPToolCall]:
         """
-        Generate a single tool call for one environment.
+        Generate tool calls for one environment.
         
         This is more efficient than the batch __call__ method when processing 
         individual environments in threads. Uses provided conversation history
@@ -279,7 +270,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             conversation_history: Conversation history for this environment (thread-local)
             
         Returns:
-            Single MCPToolCall object
+            List of MCPToolCall objects
         """
         if self._is_playback:
             # In playback mode, get recorded messages
@@ -287,10 +278,12 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             
             if messages is None:
                 # No more recorded actions - signal early termination
-                return MCPToolCall(
-                    "_playback_terminate",
-                    {"reason": "no_more_recorded_actions"},
-                )   
+                return [
+                    MCPToolCall(
+                        "_playback_terminate",
+                        {"reason": "no_more_recorded_actions"},
+                    )
+                ]   
             
             # Return the recorded tool call
             return self._extract_tool_call_from_messages(messages, env_index)
@@ -313,6 +306,7 @@ class FireworksPolicy(LLMBasePolicy):
         temperature: float = 0.2,
         deployment_type: str = "serverless",
         max_tokens: int = 4096,
+        max_tools_per_turn: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -323,8 +317,9 @@ class FireworksPolicy(LLMBasePolicy):
             temperature: Sampling temperature (0.0 to 2.0)
             deployment_type: "serverless", "on-demand", or "auto"
             max_tokens: Maximum tokens to generate per request
+            max_tools_per_turn: Maximum number of tool calls per turn (None = unlimited, 1 = single tool)
         """
-        super().__init__(model_id, temperature, max_tokens, **kwargs)
+        super().__init__(model_id, temperature, max_tokens, max_tools_per_turn, **kwargs)
 
         self.deployment_type = deployment_type
 
@@ -501,6 +496,7 @@ class OpenAIPolicy(LLMBasePolicy):
         model_id: str,
         temperature: float = 0.2,
         max_tokens: int = 4096,
+        max_tools_per_turn: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -510,8 +506,9 @@ class OpenAIPolicy(LLMBasePolicy):
             model_id: OpenAI model identifier (e.g., "gpt-4o", "gpt-4o-mini", "gpt-4-turbo")
             temperature: Sampling temperature (0.0 to 2.0)
             max_tokens: Maximum tokens to generate per request
+            max_tools_per_turn: Maximum number of tool calls per turn (None = unlimited, 1 = single tool)
         """
-        super().__init__(model_id, temperature, max_tokens, **kwargs)
+        super().__init__(model_id, temperature, max_tokens, max_tools_per_turn, **kwargs)
 
         # Only initialize OpenAI client in live mode (not in playback mode)
         if not self._is_playback:

@@ -212,6 +212,7 @@ async def test_production_server_record_and_replay(
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=4096,
+            max_tools_per_turn=1,
         )
 
         assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
@@ -251,6 +252,7 @@ async def test_production_server_record_and_replay(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=4096,
+        max_tools_per_turn=1,
     )
 
     assert not policy.is_playback_mode(), "Should be in recording mode initially"
@@ -317,6 +319,7 @@ async def test_production_server_record_and_replay(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=4096,
+        max_tools_per_turn=1,
     )
 
     assert playback_policy.is_playback_mode(), "Should be in playback mode"
@@ -415,6 +418,7 @@ async def test_production_only_recorded_policy(frozen_lake_dataset):
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=4096,
+            max_tools_per_turn=1,
         )
 
         assert policy.is_playback_mode(), "Policy should be in playback mode"
@@ -468,6 +472,7 @@ async def test_frozen_lake_step_by_step(conda_isolation_recording_file):
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=4096,
+            max_tools_per_turn=1,
         )
 
         # Create simple dataset for testing
@@ -1116,6 +1121,7 @@ async def test_fireworks_multi_environment_sessions(
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=4096,
+            max_tools_per_turn=1,
         )
 
         assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
@@ -1163,6 +1169,7 @@ async def test_fireworks_multi_environment_sessions(
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=4096,
+            max_tools_per_turn=1,
         )
 
         assert not policy.is_playback_mode(), "Should be in recording mode initially"
@@ -1347,6 +1354,7 @@ async def _run_playback_only(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=4096,
+        max_tools_per_turn=1,
     )
 
     assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"

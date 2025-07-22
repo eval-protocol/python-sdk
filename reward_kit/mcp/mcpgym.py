@@ -462,9 +462,9 @@ class McpGym(ABC):
         """Create new environment and return initial state."""
         config = self.adapter.get_default_config()
         
-        try:
+        if seed:
             env, obs, info = self.adapter.create_environment_with_seed(config, seed=seed)
-        except AttributeError:
+        else:
             env = self.adapter.create_environment(config)
             obs, info = self.adapter.reset_environment(env, seed=seed)
         

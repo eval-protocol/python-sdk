@@ -119,6 +119,7 @@ def make(
                     system_prompt=row["system_prompt"],
                     user_prompt_template=row["user_prompt_template"],
                     environment_context=environment_context,
+                    user_simulation=row["user_simulation"] if "user_simulation" in row else None,
                 )
             else:
                 dataset_row = row  # Assume it's already a DatasetRow

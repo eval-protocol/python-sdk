@@ -8,6 +8,7 @@ class MCPToolCall:
 
     tool_name: str
     arguments: Dict[str, Any]
+    tool_call_id: Optional[str] = None
 
 
 @dataclass
@@ -19,6 +20,7 @@ class DatasetRow:
     system_prompt: str
     user_prompt_template: str
     environment_context: Dict[str, Any]
+    user_simulation: Optional[Dict[str, Any]] = None
 
 
 @dataclass

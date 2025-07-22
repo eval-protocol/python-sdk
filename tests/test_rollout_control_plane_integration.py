@@ -45,9 +45,12 @@ class MockPolicy:
         else:
             action = "right"  # Default action
 
+        tool_calls = []
         tool_call = MCPToolCall(tool_name="lake_move", arguments={"action": action})
+        tool_calls.append(tool_call)
+
         self.step_count += 1
-        return tool_call
+        return tool_calls
 
     def add_tool_response(self, env_index, tool_call, response, conversation_history, reward=0.0, done=False, info=None):
         """Mock method for conversation tracking."""
@@ -246,8 +249,8 @@ class TestRolloutControlPlaneIntegration:
                     "info" in cp_step
                 ), "Control plane step should have control plane info"
                 assert (
-                    "tool_call" in cp_step
-                ), "Control plane step should have tool call"
+                    "tool_calls" in cp_step
+                ), "Control plane step should have tool calls"
 
             # Validate control plane summary
             assert hasattr(
