@@ -166,7 +166,7 @@ def generate_dockerfile_content(
             "",
             "# Run the generic server, pointing to the user's function",
             # Using shell form for CMD to allow $PORT expansion
-            f"CMD python -m reward_kit.generic_server {function_ref} --host 0.0.0.0 --port $PORT",
+            f"CMD python -m eval_protocol.generic_server {function_ref} --host 0.0.0.0 --port $PORT",
         ]
     )
 

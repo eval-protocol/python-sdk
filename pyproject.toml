@@ -78,12 +78,12 @@ openevals = [
 ]
 
 [project.scripts]
-fireworks-reward = "reward_kit.cli:main"
-reward-kit = "reward_kit.cli:main"
-eval-protocol = "reward_kit.cli:main"
+fireworks-reward = "eval_protocol.cli:main"
+reward-kit = "eval_protocol.cli:main"
+eval-protocol = "eval_protocol.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["reward_kit*", "eval_protocol*", "development*"]
+include = ["eval_protocol*", "development*"]
 
 [tool.versioneer]
 VCS = "git"

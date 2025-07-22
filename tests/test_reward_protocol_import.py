@@ -174,9 +174,9 @@ class TestRewardProtocolImports:
 
         # Check for console scripts in the file content
         expected_scripts = [
-            'fireworks-reward = "reward_kit.cli:main"',
-            'reward-kit = "reward_kit.cli:main"',
-            'eval-protocol = "reward_kit.cli:main"',
+            'fireworks-reward = "eval_protocol.cli:main"',
+            'reward-kit = "eval_protocol.cli:main"',
+            'eval-protocol = "eval_protocol.cli:main"',
         ]
 
         for script in expected_scripts:
@@ -188,10 +188,9 @@ class TestRewardProtocolImports:
         """Test that both packages are included in setup.py."""
         from setuptools import find_packages
 
-        packages = find_packages(include=["reward_kit*", "eval_protocol*"])
+        packages = find_packages(include=["eval_protocol*"])
 
-        # Should include both main packages
-        assert "reward_kit" in packages
+        # Should include main package
         assert "eval_protocol" in packages
 
         # Should include subpackages
