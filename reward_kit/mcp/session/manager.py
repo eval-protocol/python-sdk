@@ -50,147 +50,97 @@ class GeneralMCPVectorEnv:
                 f"Sessions ({len(sessions)}) and dataset rows ({len(dataset_rows)}) must have same length"
             )
 
-    async def reset(self) -> Tuple[List[Any], List[List[Dict]], List[str]]:
+    async def reset(self, session: MCPSession) -> Tuple[Any, List[Dict]]:
         """
-        Reset all environments and return observations, tools, and system prompts.
-
-        Establishes persistent MCP sessions for each environment.
-        Uses proper MCP pattern: get initial state from resources during session establishment.
-
-        Returns:
-            observations: Current state of each environment from MCP resources
-            tool_schemas: Available MCP tools for each environment
-            system_prompts: System prompts from dataset
-        """
-        print(f"🔄 Resetting {self.n} MCP environments...")
-
-        async def reset_session(session: MCPSession) -> Tuple[Any, List[Dict]]:
-            # Establish a persistent session for each environment.
-            await self.execution_manager.connection_manager.initialize_session(session)
-
-            # Get available tools from MCP server
-            tool_schemas = await self.execution_manager.connection_manager.discover_tools(
-                session
-            )
-
-            # PROPER MCP PATTERN: Get initial state from resources during session establishment
-            initial_observation = (
-                await self.execution_manager.connection_manager.get_initial_state(session)
-            )
-
-            # Update session state
-            session.terminated = False
-            session.last_observation = initial_observation
-            return initial_observation, tool_schemas
-
-        # Execute resets in parallel, each with its own isolated session.
-        tasks = [reset_session(session) for session in self.sessions]
-        results = await asyncio.gather(*tasks)
-
-        observations, tool_schemas_list = zip(*results)
-        self.tool_schemas = list(tool_schemas_list)
-
-        # Extract system prompts from dataset
-        system_prompts = [row.system_prompt for row in self.dataset_rows]
-
-        return list(observations), self.tool_schemas, system_prompts
-
-    async def step(
-        self, tool_calls: List[MCPToolCall]
-    ) -> Tuple[List[Any], List[float], List[bool], List[Dict]]:
-        """
-        Execute tool calls via MCP protocol using persistent sessions.
-
-        Note: This uses MCP tools for actions/interactions during rollout.
-        Initial state was obtained from MCP resources during reset() - different pattern.
-
-        Args:
-            tool_calls: Tool calls to execute in each environment
-
-        Returns:
-            observations, rewards, dones, infos
-        """
-        if len(tool_calls) != self.n:
-            raise ValueError(f"Expected {self.n} tool calls, got {len(tool_calls)}")
-
-        async def step_session(session: MCPSession, tool_call: MCPToolCall):
-            if session.terminated:
-                return session.last_observation, 0.0, True, {}
-
-            # Handle special playback termination signal
-            if tool_call.tool_name == "_playback_terminate":
-                logger.info(
-                    f"🎬 Session {session.session_id}: Received playback termination signal"
-                )
-                session.terminated = True
-                return (
-                    session.last_observation,
-                    0.0,
-                    True,
-                    {"playback_terminated": True},
-                )
-
-            # Handle special no-tool-call signal (episode ended, no action needed)
-            if tool_call.tool_name == "_no_tool_call":
-                logger.info(
-                    f"🏁 Session {session.session_id}: No tool call generated, episode likely ended"
-                )
-                session.terminated = True
-                return (
-                    session.last_observation,
-                    0.0,
-                    True,
-                    {
-                        "no_tool_call": True,
-                        "reason": tool_call.arguments.get("reason", "unknown"),
-                    },
-                )
-
-            # Execute the tool call via MCP protocol
-            observation, reward, done, info = (
-                await self.execution_manager.connection_manager.call_tool(
-                    session, tool_call.tool_name, tool_call.arguments
-                )
-            )
-
-            # Update session state
-            session.last_observation = observation
-            session.terminated = done
-
-            return observation, reward, done, info
-
-        # Execute steps in parallel using persistent sessions
-        tasks = [
-            step_session(session, tool_call)
-            for session, tool_call in zip(self.sessions, tool_calls)
-        ]
-        results = await asyncio.gather(*tasks)
-
-        observations, rewards, dones, infos = zip(*results)
-        return list(observations), list(rewards), list(dones), list(infos)
-
-    def format_user_prompts(self, observations: List[Any]) -> List[Union[str, List[Dict[str, Any]]]]:
-        """
-        Format user prompts dynamically based on current observations.
-
-        This is the callback pattern - prompts are generated based on current state.
-        Can return either text-only prompts or multimodal content structures.
+        Reset a single session - establish connection, get tools and initial state.
         
-        Returns:
-            List of prompts - each can be either:
-            - str: Text-only prompt
-            - Dict: Multimodal content with "type": "multimodal" and "content" list
+        This is thread-safe and can be called from worker threads.
         """
-        user_prompts = []
+        # Establish a persistent session for each environment.
+        await self.execution_manager.connection_manager.initialize_session(session)
 
-        for obs, row in zip(observations, self.dataset_rows):
-            # Use the callback to format the prompt (may return string or dict)
-            prompt = self.user_prompt_formatter(
-                row.user_prompt_template, obs, row.environment_context
-            )
-            user_prompts.append(prompt)
+        # Get available tools from MCP server
+        tool_schemas = await self.execution_manager.connection_manager.discover_tools(
+            session
+        )
 
-        return user_prompts
+        # PROPER MCP PATTERN: Get initial state from resources during session establishment
+        initial_observation = (
+            await self.execution_manager.connection_manager.get_initial_state(session)
+        )
+
+        # Update session state
+        session.terminated = False
+        session.last_observation = initial_observation
+
+        return initial_observation, tool_schemas
+
+    async def step(self, env_index: int, tool_call: MCPToolCall) -> Tuple[Any, float, bool, Dict]:
+        """
+        Execute a tool call for a single environment.
+        
+        Args:
+            env_index: Index of the environment to step
+            tool_call: Tool call to execute
+            
+        Returns:
+            observation: New observation after executing the tool call
+            reward: Reward from the environment
+            done: Whether the environment is terminated
+            info: Additional info from the environment
+        """
+        if env_index >= self.n or env_index < 0:
+            raise ValueError(f"Environment index {env_index} out of range [0, {self.n})")
+            
+        session = self.sessions[env_index]
+        
+        if session.terminated:
+            return session.last_observation, 0.0, True, {}
+
+        # Handle special playback termination signal
+        if tool_call.tool_name == "_playback_terminate":
+            logger.info(f"🎬 Session {session.session_id}: Received playback termination signal")
+            session.terminated = True
+            return session.last_observation, 0.0, True, {"playback_terminated": True}
+
+        # Handle special no-tool-call signal
+        if tool_call.tool_name == "_no_tool_call":
+            logger.info(f"🏁 Session {session.session_id}: No tool call generated, episode likely ended")
+            session.terminated = True
+            return session.last_observation, 0.0, True, {
+                "no_tool_call": True,
+                "reason": tool_call.arguments.get("reason", "unknown"),
+            }
+
+        # Execute the tool call via MCP protocol
+        observation, reward, done, info = await self.execution_manager.connection_manager.call_tool(
+            session, tool_call.tool_name, tool_call.arguments
+        )
+
+        # Update session state
+        session.last_observation = observation
+        session.terminated = done
+
+        return observation, reward, done, info
+
+
+    def format_user_prompt(self, env_index: int, observation: Any) -> Union[str, List[Dict[str, Any]]]:
+        """
+        Format user prompt dynamically for a single environment based on current observation.
+        """
+        if env_index >= self.n or env_index < 0:
+            raise ValueError(f"Environment index {env_index} out of range [0, {self.n})")
+            
+        dataset_row = self.dataset_rows[env_index]
+        
+        # Use the callback to format the prompt
+        prompt = self.user_prompt_formatter(
+            dataset_row.user_prompt_template, 
+            observation, 
+            dataset_row.environment_context
+        )
+        
+        return prompt
 
     def format_tool_response(self, obs: Any) -> Union[str, List[Dict[str, Any]]]:
         """
@@ -218,7 +168,7 @@ class GeneralMCPVectorEnv:
         else:
             return json.dumps(obs) if isinstance(obs, dict) else str(obs)
 
-        
+
 
     def _default_formatter(self, template: str, obs: Any, context: Dict) -> Union[str, List[Dict[str, Any]]]:
         """

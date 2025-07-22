@@ -37,30 +37,22 @@ class MockPolicy:
     def __init__(self, actions=None):
         self.actions = actions or ["right", "down", "right", "down"]
         self.step_count = 0
-        self.conversation_histories = {}
 
-    async def __call__(self, tool_schemas, observations, system_prompts, user_prompts):
+    async def __call__(self, tool_schema, env_index, conversation_history):
         """Return predetermined actions as tool calls."""
-        tool_calls = []
-        for i, _ in enumerate(observations):
-            if self.step_count < len(self.actions):
-                action = self.actions[self.step_count]
-            else:
-                action = "right"  # Default action
+        if self.step_count < len(self.actions):
+            action = self.actions[self.step_count]
+        else:
+            action = "right"  # Default action
 
-            tool_calls.append(
-                MCPToolCall(tool_name="lake_move", arguments={"action": action})
-            )
-
+        tool_call = MCPToolCall(tool_name="lake_move", arguments={"action": action})
         self.step_count += 1
-        return tool_calls
+        return tool_call
 
-    def add_tool_response(self, env_index, tool_call, response):
+    def add_tool_response(self, env_index, tool_call, response, conversation_history, reward=0.0, done=False, info=None):
         """Mock method for conversation tracking."""
-        if env_index not in self.conversation_histories:
-            self.conversation_histories[env_index] = []
-        self.conversation_histories[env_index].append(
-            {"tool_call": tool_call, "response": response}
+        conversation_history.append(
+            {"tool_call": tool_call, "response": response, "reward": reward, "done": done, "info": info}
         )
 
 
@@ -110,7 +102,9 @@ class TestRolloutControlPlaneIntegration:
             GeneralMCPVectorEnv, "step"
         ) as mock_step, patch.object(
             GeneralMCPVectorEnv, "close"
-        ) as mock_close:
+        ) as mock_close, patch.object(
+            GeneralMCPVectorEnv, "format_user_prompt"
+        ) as mock_format_user_prompt:
 
             # Setup mock vector environment
             mock_env = GeneralMCPVectorEnv(sessions, dataset_rows)
@@ -121,64 +115,56 @@ class TestRolloutControlPlaneIntegration:
 
             # Mock reset to return initial state
             mock_reset.return_value = (
-                [{"position": 0, "grid": "4x4 FrozenLake"}],  # observations
-                [
-                    [{"name": "lake_move", "description": "Move in FrozenLake"}]
-                ],  # tool schemas
-                ["System prompt"],  # system prompts
+                {"position": 0, "grid": "4x4 FrozenLake"},  # single observation
+                [{"name": "lake_move", "description": "Move in FrozenLake"}],  # single tool schema
             )
+
+            # Mock format_user_prompt to return template
+            mock_format_user_prompt.return_value = "Navigate to the goal"
 
             # Mock step to simulate control plane separation
             step_responses = [
                 # Step 1: Move right, no reward, not terminated
                 (
-                    [
-                        {"position": 1, "grid": "4x4 FrozenLake"}
-                    ],  # observations (data plane only)
-                    [0.0],  # rewards (from control plane)
-                    [False],  # dones (from control plane)
-                    [
-                        {
-                            "control_plane": {
-                                "reward_source": "control_plane",
-                                "status_source": "control_plane",
-                            }
+                    {"position": 1, "grid": "4x4 FrozenLake"},  # single observation (data plane only)
+                    0.0,  # single reward (from control plane)
+                    False,  # single done (from control plane)
+                    {
+                        "control_plane": {
+                            "reward_source": "control_plane",
+                            "status_source": "control_plane",
                         }
-                    ],  # info
+                    },  # single info
                 ),
                 # Step 2: Move down, no reward, not terminated
                 (
-                    [{"position": 5, "grid": "4x4 FrozenLake"}],
-                    [0.0],
-                    [False],
-                    [
-                        {
-                            "control_plane": {
-                                "reward_source": "control_plane",
-                                "status_source": "control_plane",
-                            }
+                    {"position": 5, "grid": "4x4 FrozenLake"},
+                    0.0,
+                    False,
+                    {
+                        "control_plane": {
+                            "reward_source": "control_plane",
+                            "status_source": "control_plane",
                         }
-                    ],
+                    },
                 ),
                 # Step 3: Move right, reach goal, reward, terminated
                 (
-                    [{"position": 6, "grid": "4x4 FrozenLake"}],
-                    [1.0],  # Success reward from control plane
-                    [True],  # Terminated from control plane
-                    [
-                        {
-                            "control_plane": {
-                                "reward_source": "control_plane",
-                                "status_source": "control_plane",
-                            }
+                    {"position": 6, "grid": "4x4 FrozenLake"},
+                    1.0,  # Success reward from control plane
+                    True,  # Terminated from control plane
+                    {
+                        "control_plane": {
+                            "reward_source": "control_plane",
+                            "status_source": "control_plane",
                         }
-                    ],
+                    },
                 ),
             ]
 
             step_call_count = 0
 
-            def mock_step_side_effect(tool_calls):
+            def mock_step_side_effect(env_index, tool_call):
                 nonlocal step_call_count
                 if step_call_count < len(step_responses):
                     result = step_responses[step_call_count]
@@ -187,17 +173,15 @@ class TestRolloutControlPlaneIntegration:
                 else:
                     # Default to terminated if we run out of responses
                     return (
-                        [{"position": 6, "grid": "4x4 FrozenLake"}],
-                        [0.0],
-                        [True],
-                        [
-                            {
-                                "control_plane": {
-                                    "reward_source": "control_plane",
-                                    "status_source": "control_plane",
-                                }
+                        {"position": 6, "grid": "4x4 FrozenLake"},
+                        0.0,
+                        True,
+                        {
+                            "control_plane": {
+                                "reward_source": "control_plane",
+                                "status_source": "control_plane",
                             }
-                        ],
+                        },
                     )
 
             mock_step.side_effect = mock_step_side_effect
@@ -207,7 +191,7 @@ class TestRolloutControlPlaneIntegration:
             policy = MockPolicy(["right", "down", "right"])
 
             # Execute rollout
-            trajectories = await self.execution_manager.execute_rollout(
+            trajectories = await self.execution_manager.execute_rollouts(
                 mock_env, policy, steps=10
             )
 
@@ -280,9 +264,6 @@ class TestRolloutControlPlaneIntegration:
 
             # Validate policy interaction
             assert policy.step_count == 3, "Policy should have been called 3 times"
-            assert (
-                len(policy.conversation_histories) == 1
-            ), "Should have conversation history"
 
     @pytest.mark.asyncio
     async def test_rollout_trajectory_recording_with_control_plane(self):
@@ -417,7 +398,9 @@ class TestRolloutControlPlaneIntegration:
             GeneralMCPVectorEnv, "step"
         ) as mock_step, patch.object(
             GeneralMCPVectorEnv, "close"
-        ) as mock_close:
+        ) as mock_close, patch.object(
+            GeneralMCPVectorEnv, "format_user_prompt"
+        ) as mock_format_user_prompt:
 
             mock_env = GeneralMCPVectorEnv(sessions, dataset_rows)
             mock_env.sessions = sessions
@@ -427,24 +410,23 @@ class TestRolloutControlPlaneIntegration:
 
             # Mock reset
             mock_reset.return_value = (
-                [{"position": 0}],
-                [[{"name": "move", "description": "Move"}]],
-                ["System prompt"],
+                {"position": 0},  # single observation
+                [{"name": "move", "description": "Move"}],  # single tool schema
             )
 
             # Mock step to simulate control plane failure (no control plane info)
             mock_step.return_value = (
-                [{"position": 1}],  # observations
-                [0.0],  # rewards (fallback)
-                [False],  # dones (fallback)
-                [{}],  # info (no control plane)
+                {"position": 1},  # single observation
+                0.0,  # single reward (fallback)
+                False,  # single done (fallback)
+                {},  # single info (no control plane)
             )
 
             mock_close.return_value = None
 
             # Execute rollout with control plane failure
             policy = MockPolicy(["right"])
-            trajectories = await self.execution_manager.execute_rollout(
+            trajectories = await self.execution_manager.execute_rollouts(
                 mock_env, policy, steps=1
             )
 

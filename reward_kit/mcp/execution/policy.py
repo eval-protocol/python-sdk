@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from ...playback_policy import PlaybackPolicyBase
 from ..types import MCPToolCall
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,6 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         self.max_tokens = max_tokens
 
         # Initialize conversation state tracking for proper OpenAI trajectories
-        self.conversation_histories = {}  # {env_index: [messages]}
         self.initialized = False
 
     @abstractmethod
@@ -97,42 +97,26 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         """
         pass
 
-    def initialize_conversations(
-        self, n_envs: int, system_prompts: List[str], user_prompts: List[Union[str, List[Dict[str, Any]]]]
-    ):
-        """Initialize conversation histories for each environment."""
-        self.conversation_histories = {}
-        for i in range(n_envs):
-            self.conversation_histories[i] = [
-                {"role": "system", "content": system_prompts[i]},
-                {"role": "user", "content": user_prompts[i]},
-            ]
-        self.initialized = True
-
     def add_tool_response(
         self,
         env_index: int,
         tool_call: MCPToolCall,
         tool_response: Union[str, List[Dict[str, Any]]],
+        conversation_history: List[Dict[str, Any]],
         reward: float = 0.0,
         terminated: bool = False,
         info: Optional[Dict[str, Any]] = None,
     ):
         """Add tool call and response to conversation history with control plane metadata."""
-        if env_index not in self.conversation_histories:
-            return
-
-        conversation = self.conversation_histories[env_index]
-
         # Find the most recent assistant message with tool calls to get the correct call_id
         call_id = None
-        for i in range(len(conversation) - 1, -1, -1):
+        for i in range(len(conversation_history) - 1, -1, -1):
             if (
-                conversation[i]["role"] == "assistant"
-                and "tool_calls" in conversation[i]
+                conversation_history[i]["role"] == "assistant"
+                and "tool_calls" in conversation_history[i]
             ):
                 # Find the tool call that matches our tool_name
-                for tc in conversation[i]["tool_calls"]:
+                for tc in conversation_history[i]["tool_calls"]:
                     if tc["function"]["name"] == tool_call.tool_name:
                         call_id = tc["id"]
                         break
@@ -154,9 +138,9 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
                 "info": info or {},
             }
 
-        conversation.append(tool_message)
+        conversation_history.append(tool_message)
 
-    def log_conversation_state_for_playback(self, env_index: int, step: int):
+    def log_conversation_state_for_playback(self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]):
         """
         Log the current conversation state in the format required for playback.
 
@@ -171,15 +155,13 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         if not playback_file:
             return  # No recording file specified
 
-        conversation = self.conversation_histories.get(env_index, [])
-        if not conversation:
-            return
-
         playback_entry = {
             "env_index": env_index,
             "step": step,
-            "messages": conversation.copy(),
+            "messages": conversation_history.copy(),
         }
+
+        # TODO: because we're using threads now, the ordering will be wrong.
 
         with open(playback_file, "a") as f:
             f.write(json.dumps(playback_entry) + "\n")
@@ -190,67 +172,11 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         observations: List[Any],
         system_prompts: List[str],
         user_prompts: List[Union[str, List[Dict[str, Any]]]],
-    ) -> List[MCPToolCall]:
-        """
-        Generate tool calls for all environments using LLM in live mode.
-
-        For first call: Initialize conversations with system + user prompts
-        For subsequent calls: Use existing conversation history for continuity
-
-        Args:
-            tool_schemas: Available MCP tools for each environment [env][tool]
-            observations: Current observations from each environment
-            system_prompts: System prompts from dataset (environment-specific)
-            user_prompts: Formatted user prompts for current state
-
-        Returns:
-            List of tool calls to execute via MCP protocol
-        """
-        if not observations:
-            return []
-
-        # Initialize conversations on first call
-        if not self.initialized:
-            self.initialize_conversations(
-                len(observations), system_prompts, user_prompts
-            )
-
-        logger.debug(
-            f"🤖 Generating tool calls for {len(observations)} environments using {self.model_id}"
-        )
-
-        # Make parallel API calls using conversation history
-        tasks = []
-        for i, tools in enumerate(tool_schemas):
-            task = asyncio.create_task(self._generate_tool_call_with_history(tools, i))
-            tasks.append(task)
-
-        # Wait for all API calls to complete
-        tool_calls = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Process responses and handle exceptions
-        result_calls = []
-
-        for i, tool_call in enumerate(tool_calls):
-            if isinstance(tool_call, Exception):
-                logger.error(f"tool_call failed with exception: {tool_call}")
-                raise tool_call
-            if tool_call is None:
-                # No tool call generated (e.g., success message with no tools) - use special termination signal
-                logger.info(
-                    f"Environment {i}: No tool call generated, using termination signal"
-                )
-                result_calls.append(
-                    MCPToolCall("_no_tool_call", {"reason": "no_tool_call_generated"})
-                )
-            else:
-                result_calls.append(tool_call)
-
-        logger.debug(f"🎯 Generated {len(result_calls)} tool calls")
-        return result_calls
+    ):
+        pass
 
     async def _generate_tool_call_with_history(
-        self, tools: List[Dict], env_index: int
+        self, tools: List[Dict], env_index: int, conversation_history: List[Dict[str, Any]]
     ) -> MCPToolCall:
         """
         Generate a tool call using conversation history for proper OpenAI trajectories.
@@ -264,13 +190,6 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             MCPToolCall object
         """
         try:
-            # Get conversation history for this environment
-            messages = self.conversation_histories.get(env_index, [])
-            if not messages:
-                raise RuntimeError(
-                    f"No conversation history for environment {env_index}"
-                )
-
             # Add current user prompt with observation to conversation history
             
             # TODO: make this an option the users can trigger
@@ -290,11 +209,11 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
                 f"Environment {env_index} - Converted {len(tools)} MCP tools to {len(llm_tools)} LLM tools"
             )
             logger.debug(
-                f"Environment {env_index} - Conversation length: {len(messages)} messages"
+                f"Environment {env_index} - Conversation length: {len(conversation_history)} messages"
             )
 
             # Make API call with conversation history
-            response = await self._make_llm_call(messages, llm_tools)
+            response = await self._make_llm_call(conversation_history, llm_tools)
 
             # ADD ASSISTANT MESSAGE TO ACTUAL CONVERSATION HISTORY
             # This is crucial for proper tool call ID management in add_tool_response
@@ -312,7 +231,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
                 assistant_message_for_history["tool_calls"] = [message["tool_calls"][0]]
 
             # Add to actual conversation history
-            messages.append(assistant_message_for_history)
+            conversation_history.append(assistant_message_for_history)
 
             if message.get("tool_calls") and len(message["tool_calls"]) > 0:
                 tool_calls = message["tool_calls"]
@@ -340,57 +259,44 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
 
     async def __call__(
         self,
-        tool_schemas: List[List[Dict]],
-        observations: List[Any],
-        system_prompts: List[str],
-        user_prompts: List[Union[str, List[Dict[str, Any]]]],
-    ) -> List[MCPToolCall]:
+        tool_schema: List[Dict],
+        env_index: int,
+        conversation_history: List[Dict[str, Any]],
+    ) -> MCPToolCall:
         """
-        Override to ensure conversation histories are maintained in both live and playback modes.
-
-        This is crucial for OpenAI format logging which requires conversation_histories.
+        Generate a single tool call for one environment.
+        
+        This is more efficient than the batch __call__ method when processing 
+        individual environments in threads. Uses provided conversation history
+        instead of shared state for thread safety.
+        
+        Args:
+            tool_schema: Available MCP tools for this environment
+            observation: Current observation from the environment (unused, kept for compatibility)
+            system_prompt: System prompt from dataset
+            user_prompt: Formatted user prompt for current state
+            env_index: Environment index (used for playback mode)
+            conversation_history: Conversation history for this environment (thread-local)
+            
+        Returns:
+            Single MCPToolCall object
         """
-        # Initialize conversations if not already done (important for both modes)
-        if not hasattr(self, "initialized") or not self.initialized:
-            self.initialize_conversations(
-                len(observations), system_prompts, user_prompts
-            )
-
         if self._is_playback:
-            # In playback mode, populate conversation histories with recorded messages
-            tool_calls = []
-            n_envs = len(tool_schemas)
-
-            for env_index in range(n_envs):
-                # Get recorded messages for this environment and step
-                messages = self._get_playback_messages(env_index)
-
-                if messages is None:
-                    # No more recorded actions - signal early termination
-                    tool_calls.append(
-                        MCPToolCall(
-                            "_playback_terminate",
-                            {"reason": "no_more_recorded_actions"},
-                        )
-                    )
-                    logger.info(
-                        f"🎬 Environment {env_index}: No more recorded actions, signaling termination"
-                    )
-                    continue
-
-                # Store the recorded messages in conversation history for OpenAI logging
-                self.conversation_histories[env_index] = messages.copy()
-
-                # Extract tool call from the last assistant message with tool_calls
-                tool_call = self._extract_tool_call_from_messages(messages, env_index)
-                tool_calls.append(tool_call)
-
-            return tool_calls
+            # In playback mode, get recorded messages
+            messages = self._get_playback_messages(env_index)
+            
+            if messages is None:
+                # No more recorded actions - signal early termination
+                return MCPToolCall(
+                    "_playback_terminate",
+                    {"reason": "no_more_recorded_actions"},
+                )   
+            
+            # Return the recorded tool call
+            return self._extract_tool_call_from_messages(messages, env_index)
         else:
-            # Live mode - use the inherited behavior
-            return await self._generate_live_tool_calls(
-                tool_schemas, observations, system_prompts, user_prompts
-            )
+            # Live mode - generate tool call using provided conversation history
+            return await self._generate_tool_call_with_history(tool_schema, env_index, conversation_history)
 
 
 class FireworksPolicy(LLMBasePolicy):
@@ -462,12 +368,23 @@ class FireworksPolicy(LLMBasePolicy):
                 raise RuntimeError(
                     f"Failed to initialize Fireworks LLM '{self.model_id}': {e}"
                 )
+            # Create dedicated executor for non-blocking LLM calls
+            self.llm_executor = ThreadPoolExecutor(
+                max_workers=16,  # Allow up to 16 concurrent LLM API calls
+                thread_name_prefix="fireworks-api"
+            )
         else:
             # In playback mode, skip expensive LLM initialization
             self.llm = None
             logger.info(
                 f"🎬 Playback mode: Skipping Fireworks LLM initialization for performance"
             )
+
+    def __del__(self):
+        """Clean up executor on garbage collection."""
+        if hasattr(self, 'llm_executor'):
+            self.llm_executor.shutdown(wait=False)
+
 
     def _clean_messages_for_api(self, messages: List[Dict]) -> List[Dict]:
         """

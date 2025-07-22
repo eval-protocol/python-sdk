@@ -181,9 +181,12 @@ async def rollout(
     policy: Union[FireworksPolicy, LLMBasePolicy, Callable],
     steps: int = 512,
     openai_format_log_file: Optional[str] = None,
+    max_concurrent_rollouts: int = 8,
 ) -> List[Trajectory]:
     """
     Execute general rollouts using tool calling interface with automatic record/playback.
+    
+    Uses concurrent execution with semaphore-based concurrency control for efficiency.
 
     This works with ANY MCP environment because:
     1. Policy receives tool schemas and makes tool calls
@@ -195,6 +198,7 @@ async def rollout(
         policy: Policy that takes tool schemas, observations, prompts and returns tool calls
         steps: Maximum steps per rollout
         openai_format_log_file: Optional file to log clean OpenAI format for terminated trajectories only
+        max_concurrent_rollouts: Maximum number of concurrent rollouts to run
 
     Environment Variable Control:
         REWARD_KIT_PLAYBACK_FILE: Controls record/playback mode
@@ -219,8 +223,8 @@ async def rollout(
     # Use the new ExecutionManager for execution
     execution_manager = ExecutionManager()
 
-    return await execution_manager.execute_rollout(
-        envs, policy, steps, openai_format_log_file
+    return await execution_manager.execute_rollouts(
+        envs, policy, steps, openai_format_log_file, max_concurrent_rollouts
     )
 
 

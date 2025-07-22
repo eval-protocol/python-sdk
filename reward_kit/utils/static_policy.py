@@ -67,20 +67,13 @@ class StaticPolicy(PlaybackPolicyBase):
         self.step_counts = {}  # Track step count per environment
 
         # Initialize conversation history management like LLMBasePolicy
-        self.conversation_histories = {}  # {env_index: [messages]}
         self.initialized = False
 
     def initialize_conversations(
         self, n_envs: int, system_prompts: List[str], user_prompts: List[Union[str, List[Dict[str, Any]]]]
     ):
-        """Initialize conversation histories for each environment."""
+        """Initialize policy for the given number of environments."""
         self.step_counts = {i: 0 for i in range(n_envs)}
-        self.conversation_histories = {}
-        for i in range(n_envs):
-            self.conversation_histories[i] = [
-                {"role": "system", "content": system_prompts[i]},
-                {"role": "user", "content": user_prompts[i]},
-            ]
         self.initialized = True
         logger.info(f"🎯 Static policy initialized for {n_envs} environments")
         logger.info(f"🛠️  Tool name: {self.tool_name}")
@@ -133,24 +126,7 @@ class StaticPolicy(PlaybackPolicyBase):
 
             results.append(tool_call)
 
-            # Create assistant message with tool call for conversation history
-            assistant_message = {
-                "role": "assistant",
-                "content": None,
-                "tool_calls": [
-                    {
-                        "id": f"call_{env_idx}_{step_count}",
-                        "type": "function",
-                        "function": {
-                            "name": self.tool_name,
-                            "arguments": json.dumps({"action": action}),
-                        },
-                    }
-                ],
-            }
-
-            # Add to conversation history
-            self.conversation_histories[env_idx].append(assistant_message)
+            # Note: Conversation history is now managed externally by the execution manager
 
             # Update step count
             self.step_counts[env_idx] = step_count + 1
@@ -164,25 +140,22 @@ class StaticPolicy(PlaybackPolicyBase):
         env_index: int,
         tool_call: MCPToolCall,
         tool_response: Union[str, List[Dict[str, Any]]],
+        conversation_history: List[Dict[str, Any]],
         reward: float = 0.0,
         terminated: bool = False,
         info: Dict[str, Any] = None,
     ):
         """Add tool call and response to conversation history for recording."""
-        if env_index not in self.conversation_histories:
-            return
-
-        conversation = self.conversation_histories[env_index]
 
         # Find the most recent assistant message with tool calls to get the correct call_id
         call_id = None
-        for i in range(len(conversation) - 1, -1, -1):
+        for i in range(len(conversation_history) - 1, -1, -1):
             if (
-                conversation[i]["role"] == "assistant"
-                and "tool_calls" in conversation[i]
+                conversation_history[i]["role"] == "assistant"
+                and "tool_calls" in conversation_history[i]
             ):
                 # Find the tool call that matches our tool_name
-                for tc in conversation[i]["tool_calls"]:
+                for tc in conversation_history[i]["tool_calls"]:
                     if tc["function"]["name"] == tool_call.tool_name:
                         call_id = tc["id"]
                         break
@@ -191,7 +164,7 @@ class StaticPolicy(PlaybackPolicyBase):
 
         # Fallback if no matching tool call found
         if not call_id:
-            call_id = f"call_{env_index}_{len(conversation)}"
+            call_id = f"call_{env_index}_{len(conversation_history)}"
 
         # Add tool response with control plane metadata
         tool_message = {
@@ -208,9 +181,9 @@ class StaticPolicy(PlaybackPolicyBase):
                 "info": info or {},
             }
 
-        conversation.append(tool_message)
+        conversation_history.append(tool_message)
 
-    def log_conversation_state_for_playback(self, env_index: int, step: int):
+    def log_conversation_state_for_playback(self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]):
         """
         Log the current conversation state in the format required for playback.
 
@@ -219,20 +192,17 @@ class StaticPolicy(PlaybackPolicyBase):
         Args:
             env_index: Environment index
             step: Current step number
+            conversation_history: List of conversation messages
         """
         # Use REWARD_KIT_PLAYBACK_FILE environment variable for recording
         playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
         if not playback_file:
             return  # No recording file specified
 
-        conversation = self.conversation_histories.get(env_index, [])
-        if not conversation:
-            return
-
         playback_entry = {
             "env_index": env_index,
             "step": step,
-            "messages": conversation.copy(),
+            "messages": conversation_history.copy(),
         }
 
         with open(playback_file, "a") as f:
@@ -273,20 +243,12 @@ class RandomPolicy(PlaybackPolicyBase):
         self.available_actions = available_actions
         self.random = random.Random(seed)
 
-        # Initialize conversation history management
-        self.conversation_histories = {}
         self.initialized = False
 
     def initialize_conversations(
         self, n_envs: int, system_prompts: List[str], user_prompts: List[Union[str, List[Dict[str, Any]]]]
     ):
-        """Initialize conversation histories for each environment."""
-        self.conversation_histories = {}
-        for i in range(n_envs):
-            self.conversation_histories[i] = [
-                {"role": "system", "content": system_prompts[i]},
-                {"role": "user", "content": user_prompts[i]},
-            ]
+        """Initialize policy for the given number of environments."""
         self.initialized = True
         logger.info(f"🎲 Random policy initialized for {n_envs} environments")
         logger.info(f"🛠️  Tool name: {self.tool_name}")
@@ -328,24 +290,7 @@ class RandomPolicy(PlaybackPolicyBase):
 
             results.append(tool_call)
 
-            # Create assistant message with tool call for conversation history
-            assistant_message = {
-                "role": "assistant",
-                "content": None,
-                "tool_calls": [
-                    {
-                        "id": f"call_{i}_{self.random.randint(1000, 9999)}",
-                        "type": "function",
-                        "function": {
-                            "name": self.tool_name,
-                            "arguments": json.dumps({"action": action}),
-                        },
-                    }
-                ],
-            }
-
-            # Add to conversation history
-            self.conversation_histories[i].append(assistant_message)
+            # Note: Conversation history is now managed externally by the execution manager
 
             logger.debug(f"🎲 Env {i}: {action}")
 
@@ -356,24 +301,21 @@ class RandomPolicy(PlaybackPolicyBase):
         env_index: int,
         tool_call: MCPToolCall,
         tool_response: Union[str, List[Dict[str, Any]]],
+        conversation_history: List[Dict[str, Any]],
         reward: float = 0.0,
         terminated: bool = False,
         info: Dict[str, Any] = None,
     ):
         """Add tool call and response to conversation history for recording."""
-        if env_index not in self.conversation_histories:
-            return
-
-        conversation = self.conversation_histories[env_index]
 
         # Find the most recent assistant message with tool calls
         call_id = None
-        for i in range(len(conversation) - 1, -1, -1):
+        for i in range(len(conversation_history) - 1, -1, -1):
             if (
-                conversation[i]["role"] == "assistant"
-                and "tool_calls" in conversation[i]
+                conversation_history[i]["role"] == "assistant"
+                and "tool_calls" in conversation_history[i]
             ):
-                for tc in conversation[i]["tool_calls"]:
+                for tc in conversation_history[i]["tool_calls"]:
                     if tc["function"]["name"] == tool_call.tool_name:
                         call_id = tc["id"]
                         break
@@ -381,7 +323,7 @@ class RandomPolicy(PlaybackPolicyBase):
                     break
 
         if not call_id:
-            call_id = f"call_{env_index}_{len(conversation)}"
+            call_id = f"call_{env_index}_{len(conversation_history)}"
 
         # Add tool response with control plane metadata
         tool_message = {
@@ -398,22 +340,18 @@ class RandomPolicy(PlaybackPolicyBase):
                 "info": info or {},
             }
 
-        conversation.append(tool_message)
+        conversation_history.append(tool_message)
 
-    def log_conversation_state_for_playback(self, env_index: int, step: int):
+    def log_conversation_state_for_playback(self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]):
         """Log the current conversation state for playback recording."""
         playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
         if not playback_file:
             return
 
-        conversation = self.conversation_histories.get(env_index, [])
-        if not conversation:
-            return
-
         playback_entry = {
             "env_index": env_index,
             "step": step,
-            "messages": conversation.copy(),
+            "messages": conversation_history.copy(),
         }
 
         with open(playback_file, "a") as f:

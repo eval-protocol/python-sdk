@@ -238,11 +238,10 @@ class PlaybackPolicyBase(ABC):
 
     async def __call__(
         self,
-        tool_schemas: List[List[Dict]],
-        observations: List[Any],
-        system_prompts: List[str],
-        user_prompts: List[Union[str, List[Dict[str, Any]]]],
-    ) -> List["MCPToolCall"]:
+        tool_schema: List[Dict],
+        env_index: int,
+        conversation_history: List[Dict[str, Any]],
+    ):
         """
         Main policy call method. Delegates to playback or live mode.
 
@@ -255,14 +254,16 @@ class PlaybackPolicyBase(ABC):
         Returns:
             List of ToolCall objects for each environment
         """
-        if self._is_playback:
-            return await self._handle_playback_mode(
-                tool_schemas
-            )
-        else:
-            return await self._generate_live_tool_calls(
-                tool_schemas, observations, system_prompts, user_prompts
-            )
+        # TODO: fix this entire class to reflect changes in the LLMBasePolicy class
+        pass
+        # if self._is_playback:
+        #     return await self._handle_playback_mode(
+        #         tool_schemas
+        #     )
+        # else:
+        #     return await self._generate_live_tool_calls(
+        #         tool_schemas, observations, system_prompts, user_prompts
+        #     )
 
     async def _handle_playback_mode(
         self,
@@ -392,3 +393,29 @@ class PlaybackPolicyBase(ABC):
                 }
 
         return progress
+
+    def log_conversation_state_for_playback(self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]):
+        """
+        Log the current conversation state in the format required for playback.
+        
+        Base implementation that subclasses can override with specific behavior.
+        Expected format: {"env_index": 0, "step": 0, "messages": [{..}, {..}]}
+
+        Args:
+            env_index: Environment index
+            step: Current step number
+            conversation_history: List of conversation messages
+        """
+        # Use REWARD_KIT_PLAYBACK_FILE environment variable for recording
+        playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
+        if not playback_file:
+            return  # No recording file specified
+
+        playback_entry = {
+            "env_index": env_index,
+            "step": step,
+            "messages": conversation_history.copy(),
+        }
+
+        with open(playback_file, "a") as f:
+            f.write(json.dumps(playback_entry) + "\n")
