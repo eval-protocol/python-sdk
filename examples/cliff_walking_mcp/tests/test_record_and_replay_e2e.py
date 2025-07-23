@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-End-to-End Record and Replay Tests for Blackjack MCP
+End-to-End Record and Replay Tests for Cliff Walking MCP
 
 This module provides pytest-compatible tests that:
 1. Set up production server automatically
@@ -28,30 +28,31 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-import eval_protocol as rk
-from eval_protocol.utils.static_policy import StaticPolicy, RandomPolicy
+import reward_kit as rk
+from reward_kit.utils.static_policy import StaticPolicy, RandomPolicy
 
 
 # Helper functions for creating environment-specific policies
-def create_blackjack_static_policy(
+def create_cliff_walking_static_policy(
     action_sequence: Optional[List[str]] = None, **kwargs
 ) -> StaticPolicy:
-    """Create a static policy configured for Blackjack environment."""
+    """Create a static policy configured for Cliff Walking environment."""
     return StaticPolicy(
-        tool_name="blackjack_move",
-        action_sequence=action_sequence or ["HIT", "HIT", "STICK"],
-        available_actions=["STICK", "HIT"],
+        tool_name="cliff_move",
+        action_sequence=action_sequence
+        or ["UP", "UP", "RIGHT", "RIGHT", "RIGHT", "DOWN", "DOWN", "DOWN"],
+        available_actions=["UP", "RIGHT", "DOWN", "LEFT"],
         **kwargs,
     )
 
 
-def create_blackjack_random_policy(
+def create_cliff_walking_random_policy(
     seed: Optional[int] = None, **kwargs
 ) -> RandomPolicy:
-    """Create a random policy configured for Blackjack environment."""
+    """Create a random policy configured for Cliff Walking environment."""
     return RandomPolicy(
-        tool_name="blackjack_move",
-        available_actions=["STICK", "HIT"],
+        tool_name="cliff_move",
+        available_actions=["UP", "RIGHT", "DOWN", "LEFT"],
         seed=seed,
         **kwargs,
     )
@@ -160,8 +161,8 @@ def test_data_dir():
 
 
 @pytest.fixture(scope="session")
-def blackjack_dataset(test_data_dir):
-    """Load Blackjack test dataset."""
+def cliff_walking_dataset(test_data_dir):
+    """Load Cliff Walking test dataset."""
     rollouts_file = test_data_dir / "rollouts.jsonl"
     if not rollouts_file.exists():
         pytest.skip(f"Dataset not found: {rollouts_file}")
@@ -199,7 +200,7 @@ def conda_isolation_recording_file():
 
 @pytest.mark.asyncio
 async def test_production_server_record_and_replay(
-    production_server, blackjack_dataset, production_recording_file
+    production_server, cliff_walking_dataset, production_recording_file
 ):
     """Test production server with record and replay functionality."""
 
@@ -223,7 +224,7 @@ async def test_production_server_record_and_replay(
         # Create environments for playback
         playback_envs = rk.make(
             "http://localhost:9500/mcp/",
-            dataset=blackjack_dataset,
+            dataset=cliff_walking_dataset,
             model_id=playback_policy.model_id,
         )
 
@@ -245,7 +246,7 @@ async def test_production_server_record_and_replay(
         return  # Skip recording phase in CI
 
     # === RECORDING PHASE ===
-    print("\n📝 === BLACKJACK RECORDING PHASE ===")
+    print("\n📝 === CLIFF WALKING RECORDING PHASE ===")
 
     # Set up recording environment
     os.environ["REWARD_KIT_PLAYBACK_FILE"] = production_recording_file
@@ -262,22 +263,21 @@ async def test_production_server_record_and_replay(
     # Create environments
     envs = rk.make(
         "http://localhost:9500/mcp/",
-        dataset=blackjack_dataset,
+        dataset=cliff_walking_dataset,
         model_id=policy.model_id,
     )
 
-    # Record trajectories
     start_time = time.time()
     trajectories = await rk.rollout(
         envs,
         policy=policy,
-        steps=8,  # Blackjack episodes are typically shorter
+        steps=16,  # Cliff Walking episodes are typically longer
         openai_format_log_file=None,  # Don't need OpenAI format for testing
     )
     recording_duration = time.time() - start_time
 
     assert len(trajectories) == len(
-        blackjack_dataset
+        cliff_walking_dataset
     ), "Should have trajectory for each dataset entry"
     assert os.path.exists(production_recording_file), "Recording file should be created"
 
@@ -287,10 +287,10 @@ async def test_production_server_record_and_replay(
     # Print trajectory summary for review
     print("📊 Trajectory Summary:")
     for i, traj in enumerate(trajectories):
-        dataset_entry = blackjack_dataset[i]
+        dataset_entry = cliff_walking_dataset[i]
         seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
         print(
-            f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
+            f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
         )
         if hasattr(traj, "actions") and len(traj.actions) > 0:
             print(
@@ -314,7 +314,7 @@ async def test_production_server_record_and_replay(
         print(f"    Could not read recording file for preview: {e}")
 
     # === PLAYBACK PHASE ===
-    print("\n🎬 === BLACKJACK PLAYBACK PHASE ===")
+    print("\n🎬 === CLIFF WALKING PLAYBACK PHASE ===")
 
     # Create new policy for playback (same environment variable)
     playback_policy = rk.FireworksPolicy(
@@ -328,7 +328,7 @@ async def test_production_server_record_and_replay(
     # Create new environments for playback
     playback_envs = rk.make(
         "http://localhost:9500/mcp/",
-        dataset=blackjack_dataset,
+        dataset=cliff_walking_dataset,
         model_id=playback_policy.model_id,
     )
 
@@ -369,7 +369,7 @@ def test_server_health_checks(production_server):
 
 
 @pytest.mark.asyncio
-async def test_production_only_recorded_policy(blackjack_dataset):
+async def test_production_only_recorded_policy(cliff_walking_dataset):
     """Test that production environments work with pre-recorded policies only."""
 
     # Create a test recording file that persists for review
@@ -383,7 +383,10 @@ async def test_production_only_recorded_policy(blackjack_dataset):
             "env_index": 0,
             "step": 0,
             "messages": [
-                {"role": "system", "content": blackjack_dataset[0]["system_prompt"]},
+                {
+                    "role": "system",
+                    "content": cliff_walking_dataset[0]["system_prompt"],
+                },
                 {"role": "user", "content": "Initial state"},
                 {
                     "role": "assistant",
@@ -393,8 +396,8 @@ async def test_production_only_recorded_policy(blackjack_dataset):
                             "id": "call_123",
                             "type": "function",
                             "function": {
-                                "name": "blackjack_move",
-                                "arguments": '{"action": "HIT"}',
+                                "name": "cliff_move",
+                                "arguments": '{"action": "UP"}',
                             },
                         }
                     ],
@@ -423,7 +426,9 @@ async def test_production_only_recorded_policy(blackjack_dataset):
 
         assert policy.is_playback_mode(), "Policy should be in playback mode"
 
-        print("✅ Blackjack production environment successfully using recorded policy")
+        print(
+            "✅ Cliff Walking production environment successfully using recorded policy"
+        )
         print(f"📊 Playback policy using: {test_recording_file}")
 
     finally:
@@ -433,10 +438,10 @@ async def test_production_only_recorded_policy(blackjack_dataset):
 
 
 @pytest.mark.asyncio
-async def test_blackjack_step_by_step(conda_isolation_recording_file):
-    """Test Blackjack step by step functionality with conda isolation."""
+async def test_cliff_walking_step_by_step(conda_isolation_recording_file):
+    """Test Cliff Walking step by step functionality with conda isolation."""
 
-    print("\n🧪 === BLACKJACK STEP BY STEP TEST ===")
+    print("\n🧪 === CLIFF WALKING STEP BY STEP TEST ===")
 
     # Check if we're in CI mode and have existing recording
     is_ci = os.environ.get("CI", "").lower() in ["true", "1", "yes"]
@@ -448,7 +453,7 @@ async def test_blackjack_step_by_step(conda_isolation_recording_file):
 
     # Test with conda isolation (if CondaServerProcessManager is available)
     try:
-        from eval_protocol.mcp import CondaServerProcessManager
+        from reward_kit.mcp import CondaServerProcessManager
 
         # Create process manager for conda isolation
         script_path = Path(__file__).parent.parent / "server.py"
@@ -478,12 +483,10 @@ async def test_blackjack_step_by_step(conda_isolation_recording_file):
         test_dataset = [
             {
                 "id": "conda_test_001",
-                "system_prompt": "You are playing Blackjack. Use blackjack_move tool with STAND and HIT actions.",
+                "system_prompt": "You are playing Cliff Walking, a 4x12 grid game. Use cliff_move tool with LEFT, DOWN, RIGHT, UP actions.",
                 "user_prompt_template": "Current state: {observation}. Choose your move.",
                 "environment_context": {
-                    "game": "Blackjack",
-                    "natural": False,
-                    "sab": False,
+                    "game": "CliffWalking",
                     "seed": 42,
                 },
             }
@@ -514,7 +517,7 @@ async def test_blackjack_step_by_step(conda_isolation_recording_file):
         # Print trajectory summary
         traj = trajectories[0]
         print(
-            f"📊 Conda Isolation Trajectory: {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
+            f"📊 Conda Isolation Trajectory: {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
         )
         if hasattr(traj, "actions") and len(traj.actions) > 0:
             print(f"    Actions: {traj.actions}")
@@ -540,34 +543,28 @@ def multi_env_dataset():
     return [
         {
             "id": "multi_env_test_001",
-            "system_prompt": "You are playing Blackjack. Use blackjack_move tool with STAND and HIT actions.",
+            "system_prompt": "You are playing Cliff Walking, a 4x12 grid game. Use cliff_move tool with LEFT, DOWN, RIGHT, UP actions.",
             "user_prompt_template": "Current state: {observation}. Choose your move wisely.",
             "environment_context": {
-                "game": "Blackjack",
-                "natural": False,
-                "sab": False,
+                "game": "CliffWalking",
                 "seed": 42,
             },
         },
         {
             "id": "multi_env_test_002",
-            "system_prompt": "You are playing Blackjack. Use blackjack_move tool with STAND and HIT actions.",
-            "user_prompt_template": "Current state: {observation}. Choose your move wisely.",
+            "system_prompt": "You are playing Cliff Walking, a 4x12 grid game. Use cliff_move tool with LEFT, DOWN, RIGHT, UP actions.",
+            "user_prompt_template": "Current state: {observation}. Navigate carefully to avoid cliffs.",
             "environment_context": {
-                "game": "Blackjack",
-                "natural": False,
-                "sab": False,
+                "game": "CliffWalking",
                 "seed": 123,
             },
         },
         {
             "id": "multi_env_test_003",
-            "system_prompt": "You are playing Blackjack. Use blackjack_move tool with STAND and HIT actions.",
-            "user_prompt_template": "Current state: {observation}. Choose your move wisely.",
+            "system_prompt": "You are playing Cliff Walking, a 4x12 grid game. Use cliff_move tool with LEFT, DOWN, RIGHT, UP actions.",
+            "user_prompt_template": "Current state: {observation}. Find the shortest path to the goal.",
             "environment_context": {
-                "game": "Blackjack",
-                "natural": False,
-                "sab": False,
+                "game": "CliffWalking",
                 "seed": 456,
             },
         },
@@ -599,7 +596,9 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
         os.environ["REWARD_KIT_PLAYBACK_FILE"] = multi_env_recording_file
 
         # Create static policy for fast testing
-        policy = create_blackjack_static_policy(action_sequence=["HIT", "HIT", "STICK"])
+        policy = create_cliff_walking_static_policy(
+            action_sequence=["UP", "UP", "UP", "RIGHT", "RIGHT", "RIGHT"]
+        )
 
         # Create multiple environments
         envs = rk.make(
@@ -634,7 +633,7 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
             dataset_entry = multi_env_dataset[i]
             seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
             print(
-                f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
+                f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
             )
 
         # Validate that different seeds produce different environments
@@ -681,11 +680,11 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
 
     # Validation 1: Different seeds should produce different starting states
     print("\n🌱 Validating multi-seed environments...")
-    _validate_no_repeated_initial_states(env_recordings, dataset)
+    _validate_multi_seed_environments(env_recordings, dataset)
 
     # Validation 2: State progression within each environment
     print("\n🎮 Validating state progression...")
-    _validate_state_progression(env_recordings)
+    _validate_state_progression(env_recordings, dataset)
 
     # Validation 3: Check for all terminated=false (control plane sync bug)
     print("\n🎛️  Validating control plane termination...")
@@ -702,12 +701,9 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
     print(f"✅ Recording integrity validation completed")
 
 
-def _validate_no_repeated_initial_states(env_recordings: Dict, dataset: List[Dict]):
-    """
-    SIMPLE CRITICAL TEST: Check if there are repeated initial states with different seeds.
-    """
-    starting_states = []
-
+def _validate_multi_seed_environments(env_recordings: Dict, dataset: List[Dict]):
+    """Validate that different seeds produce different environments."""
+    starting_grids = []
     for env_idx in range(len(dataset)):
         if env_idx not in env_recordings:
             print(
@@ -729,53 +725,49 @@ def _validate_no_repeated_initial_states(env_recordings: Dict, dataset: List[Dic
             print(f"  ⚠️  Environment {env_idx}: No user message found")
             continue
 
-        # Extract blackjack state from user message
+        # Extract grid from user message
         import re
 
-        state_match = re.search(
-            r"\{'player_sum': \d+, 'dealer_card': \d+, 'usable_ace': \d+\}", user_msg
-        )
-        if not state_match:
-            print(f"  ⚠️  Environment {env_idx}: No game state found in user message")
+        grid_match = re.search(r"'grid': '([^']+)'", user_msg)
+        if not grid_match:
+            print(f"  ⚠️  Environment {env_idx}: No grid found in user message")
             continue
 
-        state = state_match.group(0)
-        starting_states.append(state)
+        grid = grid_match.group(1)
+        starting_grids.append(grid)
 
         expected_seed = dataset[env_idx]["environment_context"]["seed"]
-        print(f"  Env {env_idx} (seed {expected_seed}): State hash {hash(state)}")
+        print(f"  Env {env_idx} (seed {expected_seed}): Grid hash {hash(grid)}")
 
-    # Check that recorded states are different (different seeds should produce different initial states)
-    if len(starting_states) > 1:
-        unique_states = set(starting_states)
-        if len(unique_states) < len(starting_states):
+    # Check that recorded grids are different (different seeds should produce different maps)
+    if len(starting_grids) > 1:
+        unique_grids = set(starting_grids)
+        if len(unique_grids) < len(starting_grids):
             print(
-                f"⚠️  Warning: Only {len(unique_states)} unique states for {len(starting_states)} recorded environments"
+                f"⚠️  Warning: Only {len(unique_grids)} unique grids for {len(starting_grids)} recorded environments"
             )
-            print("   This may indicate seed issues or identical random initial states")
+            print("   This may indicate seed issues or identical random maps")
         else:
             print(
-                f"✅ All {len(starting_states)} recorded environments have unique starting states"
+                f"✅ All {len(starting_grids)} recorded environments have unique starting grids"
             )
     else:
         print(
-            f"ℹ️  Only {len(starting_states)} environments recorded - cannot validate state uniqueness"
+            f"ℹ️  Only {len(starting_grids)} environments recorded - cannot validate grid uniqueness"
         )
 
 
-def _validate_state_progression(env_recordings: Dict):
-    """
-    SIMPLE CRITICAL TEST: Check if the state progression is correct.
-    """
+def _validate_state_progression(env_recordings: Dict, dataset: List[Dict]):
+    """Validate that the state progresses within each environment."""
     recorded_env_indices = list(env_recordings.keys())
     for env_idx in recorded_env_indices:
         env_entries = env_recordings[env_idx]
 
-        # Find entries with enough steps (at least 2 tool responses)
+        # Find entries with tool responses
         tool_responses = []
         for entry in env_entries:
             messages = entry["messages"]
-            # only append last tool response in each step
+            # Get the last tool response in each step
             response = None
             for msg in messages:
                 if msg["role"] == "tool":
@@ -789,51 +781,69 @@ def _validate_state_progression(env_recordings: Dict):
             )
             continue
 
-        game_states = []
+        positions = []
         for i, response in enumerate(tool_responses):
             try:
                 response_data = json.loads(response)
-                game_states.append(response_data)
-                print(f"    Step {i+1}: Game state {response_data}")
+                position = response_data.get("position")
+                if position is not None:
+                    positions.append(position)
+                    print(f"    Step {i+1}: Position {position}")
             except json.JSONDecodeError:
                 pytest.fail(
                     f"❌ Invalid JSON in tool response {i+1} for env {env_idx}: {response}"
                 )
 
-        # Check that player_sum changes when HIT action is taken
-        for i in range(len(game_states) - 1):
-            current_state = game_states[i]
-            next_state = game_states[i + 1]
+        if len(positions) < 2:
+            print(
+                f"  Env {env_idx}: Only {len(positions)} valid positions, skipping progression check"
+            )
+            continue
 
-            current_action = current_state.get("action")
-            current_player_sum = current_state.get("player_sum")
-            next_player_sum = next_state.get("player_sum")
+        # Check that consecutive positions are different (state progression)
+        # In Cliff Walking, position can only remain the same at position 36 (starting point)
+        # when the player steps on a cliff and gets reset. Otherwise, position MUST change.
+        invalid_static_steps = []
 
-            if current_action == "HIT":
-                if current_player_sum == next_player_sum:
-                    pytest.fail(
-                        f"❌ STATE PROGRESSION BUG DETECTED in Env {env_idx}: "
-                        f"After HIT action at step {i+1}, player_sum remained {current_player_sum}. "
-                        f"When hitting, player should draw a card and player_sum should change. "
-                        f"Current state: {current_state}, Next state: {next_state}"
+        for i in range(1, len(positions)):
+            current_pos = positions[i]
+            previous_pos = positions[i - 1]
+
+            if current_pos == previous_pos:
+                if current_pos == 36:
+                    print(
+                        f"    ✅ Step {i}: Position {current_pos} remained at starting point (cliff reset)"
                     )
                 else:
+                    invalid_static_steps.append((i, current_pos))
                     print(
-                        f"    ✅ Step {i+1}: HIT action changed player_sum from {current_player_sum} to {next_player_sum}"
+                        f"    ❌ Step {i}: Position {current_pos} illegally remained the same (not starting point)"
                     )
-            elif current_action == "STAND":
-                # STAND action should not change player_sum (dealer's turn)
-                print(
-                    f"    ℹ️  Step {i+1}: STAND action - player_sum transition from {current_player_sum} to {next_player_sum}"
-                )
             else:
                 print(
-                    f"    ⚠️  Step {i+1}: Unknown action '{current_action}' - skipping validation"
+                    f"    ✅ Step {i}: Position changed from {previous_pos} to {current_pos}"
                 )
 
-        print(
-            f"  ✅ Env {env_idx}: State progression validation completed successfully"
-        )
+        # CRITICAL ASSERTION: Position can only remain the same at starting point (36)
+        if invalid_static_steps:
+            step_details = ", ".join(
+                [f"step {step} at position {pos}" for step, pos in invalid_static_steps]
+            )
+            pytest.fail(
+                f"❌ INVALID STATE PROGRESSION DETECTED in Env {env_idx}: "
+                f"Position remained the same at non-starting positions: {step_details}. "
+                f"In Cliff Walking, position can only remain the same at position 36 (starting point) "
+                f"when the player steps on a cliff and gets reset. All other positions must change every step. "
+                f"This indicates either: "
+                f"1) Session state is not persisting between tool calls, "
+                f"2) The environment is not properly updating position state, or "
+                f"3) Invalid moves are not being handled correctly. "
+                f"Full position sequence: {positions}"
+            )
+        else:
+            print(
+                f"  ✅ Valid state progression - all position changes follow Cliff Walking rules"
+            )
 
 
 def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
@@ -964,6 +974,10 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
     for env_idx, env_entries in env_recordings.items():
         if not env_entries:
             continue
+
+        # Look at the last few entries to see if we have proper termination
+        last_entry = env_entries[-1]
+        messages = last_entry.get("messages", [])
 
         # Find the last tool response with metadata
         last_tool_metadata = None
@@ -1145,7 +1159,7 @@ async def test_fireworks_multi_environment_sessions(
             dataset_entry = multi_env_dataset[i]
             seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
             print(
-                f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
+                f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
             )
             if hasattr(traj, "actions") and len(traj.actions) > 0:
                 print(
@@ -1191,8 +1205,8 @@ async def test_static_policy_functionality():
     print("\n🧪 === STATIC POLICY TEST ===")
 
     # Create policy
-    policy = create_blackjack_static_policy(
-        action_sequence=["HIT", "STAND"]
+    policy = create_cliff_walking_static_policy(
+        action_sequence=["UP", "UP", "UP", "RIGHT", "RIGHT", "RIGHT"]
     )
 
     # Initialize
@@ -1215,11 +1229,13 @@ async def test_static_policy_functionality():
 
         for i, action in enumerate(actions):
             # Actions are MCPToolCall objects
-            assert action.tool_name == "blackjack_move", "Should call blackjack_move"
+            assert action.tool_name == "cliff_move", "Should call cliff_move"
             assert "action" in action.arguments, "Should have action argument"
             assert action.arguments["action"] in [
-                "HIT",
-                "STAND",
+                "RIGHT",
+                "DOWN",
+                "LEFT",
+                "UP",
             ], "Should be valid action"
 
             print(f"  Step {step}, Env {i}: {action.arguments['action']}")
@@ -1238,7 +1254,7 @@ async def test_control_plane_state_querying(multi_env_dataset):
     try:
 
         # Create policy with shorter sequence for testing
-        policy = create_blackjack_static_policy(action_sequence=["HIT", "STAND"])
+        policy = create_cliff_walking_static_policy(action_sequence=["UP", "UP"])
 
         # Create environments
         envs = rk.make(
@@ -1265,7 +1281,7 @@ async def test_control_plane_state_querying(multi_env_dataset):
         print("📊 Control Plane State Summary:")
         for i, traj in enumerate(trajectories):
             print(
-                f"  Trajectory {i}: {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
+                f"  Trajectory {i}: {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
             )
 
         # Clean up
