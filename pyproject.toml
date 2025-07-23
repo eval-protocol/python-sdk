@@ -88,7 +88,7 @@ include = ["eval_protocol*", "development*"]
 [tool.versioneer]
 VCS = "git"
 style = "pep440"
-versionfile_source = "reward_kit/_version.py"
-versionfile_build = "reward_kit/_version.py"
+versionfile_source = "eval_protocol/_version.py"
+versionfile_build = "eval_protocol/_version.py"
 tag_prefix = "v"
 parentdir_prefix = "reward-kit-"

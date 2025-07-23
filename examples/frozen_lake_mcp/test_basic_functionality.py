@@ -16,7 +16,7 @@ import subprocess
 import time
 from pathlib import Path
 
-import reward_kit as rk
+import eval_protocol as rk
 
 
 async def test_basic_server_functionality():
@@ -80,7 +80,7 @@ def test_conda_server_manager_compatibility():
     print("=" * 60)
 
     try:
-        from reward_kit.mcp import CondaServerProcessManager
+        from eval_protocol.mcp import CondaServerProcessManager
 
         # Test server script and requirements exist
         script_path = Path(__file__).parent / "server.py"

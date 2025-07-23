@@ -15,16 +15,16 @@ from typing import Any, Dict, List, Optional
 # Ensure reward-kit is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from reward_kit.integrations.trl import (  # Import the new generic TRL adapter
+from eval_protocol.integrations.trl import (  # Import the new generic TRL adapter
     create_trl_adapter,
 )
-from reward_kit.models import (  # RewardOutput, MetricRewardOutput are likely legacy
+from eval_protocol.models import (  # RewardOutput, MetricRewardOutput are likely legacy
     EvaluateResult,
     MetricResult,
 )
 
 # Import reward-kit components
-from reward_kit.reward_function import (  # RewardFunction class no longer needed for this example
+from eval_protocol.reward_function import (  # RewardFunction class no longer needed for this example
     reward_function,
 )
 

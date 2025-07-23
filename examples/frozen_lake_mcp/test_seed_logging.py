@@ -10,7 +10,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-import reward_kit as rk
+import eval_protocol as rk
 
 
 async def test_seed_logging():
@@ -42,7 +42,7 @@ async def test_seed_logging():
 
         # Make a tool call to trigger more logging
         print("🎮 Making a test move...")
-        from reward_kit.mcp.types import MCPToolCall
+        from eval_protocol.mcp.types import MCPToolCall
 
         # Create a simple static action
         tool_call = MCPToolCall(tool_name="lake_move", arguments={"action": "RIGHT"})

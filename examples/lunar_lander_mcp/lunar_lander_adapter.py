@@ -16,7 +16,7 @@ from PIL import Image
 
 from gymnasium.envs.box2d.lunar_lander import LunarLander
 
-from reward_kit.mcp.adapter import EnvironmentAdapter
+from eval_protocol.mcp.adapter import EnvironmentAdapter
 
 
 class LunarLanderAdapter(EnvironmentAdapter):

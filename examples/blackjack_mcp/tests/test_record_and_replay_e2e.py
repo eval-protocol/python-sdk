@@ -28,8 +28,8 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-import reward_kit as rk
-from reward_kit.utils.static_policy import StaticPolicy, RandomPolicy
+import eval_protocol as rk
+from eval_protocol.utils.static_policy import StaticPolicy, RandomPolicy
 
 
 # Helper functions for creating environment-specific policies
@@ -448,7 +448,7 @@ async def test_blackjack_step_by_step(conda_isolation_recording_file):
 
     # Test with conda isolation (if CondaServerProcessManager is available)
     try:
-        from reward_kit.mcp import CondaServerProcessManager
+        from eval_protocol.mcp import CondaServerProcessManager
 
         # Create process manager for conda isolation
         script_path = Path(__file__).parent.parent / "server.py"

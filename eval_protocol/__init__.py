@@ -1,8 +1,6 @@
 """
 Fireworks Eval Protocol - Simplify reward modeling and evaluation for LLM RL fine-tuning.
 
-This package is the canonical import name for the evaluation toolkit. All functionality from `reward_kit` is re-exported here so existing code can gradually migrate.
-
 A Python library for defining, testing, deploying, and using reward functions
 for LLM fine-tuning, including launching full RL jobs on the Fireworks platform.
 
@@ -10,93 +8,43 @@ The library also provides an agent evaluation framework for testing and evaluati
 tool-augmented models using self-contained task bundles.
 """
 
-import importlib
-import pkgutil
+import warnings
 
-# Map eval_protocol submodules to the underlying reward_kit modules
-import sys
+from .adapters.braintrust import reward_fn_to_scorer, scorer_to_reward_fn
+from .common_utils import load_jsonl
+from .mcp_env import FireworksPolicy, OpenAIPolicy, MCPVectorEnv, make, rollout, test_mcp
+from .models import EvaluateResult, Message, MetricResult
+from .playback_policy import PlaybackPolicyBase
+from .resources import create_llm_resource
+from .reward_function import RewardFunction
+from .typed_interface import reward_function
 
-import reward_kit
+warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
-# Additional convenience imports for common submodules
-# Make sure all public symbols are available
-# Re-export everything from reward_kit
-from reward_kit import *  # noqa: F401,F403
-from reward_kit import (
-    __all__,
-    __version__,
-    adapters,
-    agent,
-    auth,
-    cli,
-    cli_commands,
-    common_utils,
-    config,
-    datasets,
-    evaluation,
-    execution,
-    gcp_tools,
-    generation,
-    generic_server,
-    integrations,
-    mcp,
-    mcp_agent,
-    models,
-    packaging,
-    platform_api,
-    playback_policy,
-    resources,
-    reward_function,
-    rewards,
-    rl_processing,
-    server,
-    typed_interface,
-    utils,
-)
-
-_SUBMODULES = [
-    "adapters",
-    "agent",
-    "auth",
-    "cli",
-    "cli_commands",
-    "common_utils",
-    "config",
-    "datasets",
-    "evaluation",
-    "execution",
-    "gcp_tools",
-    "generation",
-    "generic_server",
-    "integrations",
-    "mcp",
-    "mcp_agent",
-    "models",
-    "packaging",
-    "platform_api",
-    "playback_policy",
-    "resources",
+__all__ = [
+    # Core interfaces
+    "Message",
+    "MetricResult",
+    "EvaluateResult",
     "reward_function",
-    "rewards",
-    "rl_processing",
-    "server",
-    "typed_interface",
-    "utils",
+    "RewardFunction",
+    "scorer_to_reward_fn",
+    "reward_fn_to_scorer",
+    # Utilities
+    "load_jsonl",
+    # MCP Environment API
+    "make",
+    "rollout",
+    "FireworksPolicy",
+    "OpenAIPolicy",
+    "MCPVectorEnv",
+    "test_mcp",
+    # Playback functionality
+    "PlaybackPolicyBase",
+    # Resource management
+    "create_llm_resource",
 ]
 
-for _name in _SUBMODULES:
-    module = importlib.import_module(f"reward_kit.{_name}")
-    sys.modules[f"{__name__}.{_name}"] = module
+from . import _version
 
-# Mirror all nested submodules from reward_kit so that patches on eval_protocol
-# affect the original modules.
-for finder, mod_name, _ in pkgutil.walk_packages(
-    reward_kit.__path__, reward_kit.__name__ + "."
-):
-    try:
-        module = importlib.import_module(mod_name)
-        alias_name = f"{__name__}{mod_name[len('reward_kit'):]}"
-        sys.modules.setdefault(alias_name, module)
-    except Exception:
-        # If a module fails to import, skip it. These are optional extras.
-        pass
+__version__ = _version.get_versions()["version"]

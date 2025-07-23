@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from gymnasium.envs.toy_text.blackjack import BlackjackEnv
 
-from reward_kit.mcp.adapter import EnvironmentAdapter
+from eval_protocol.mcp.adapter import EnvironmentAdapter
 
 
 class BlackjackAdapter(EnvironmentAdapter):

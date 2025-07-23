@@ -15,10 +15,10 @@ from typing import Any, Callable, Dict, List, Optional, Union
 # Ensure reward-kit is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from reward_kit.models import EvaluateResult, MetricResult
+from eval_protocol.models import EvaluateResult, MetricResult
 
 # Import reward-kit components
-from reward_kit.reward_function import RewardFunction, reward_function
+from eval_protocol.reward_function import RewardFunction, reward_function
 
 
 def create_combined_reward(
@@ -340,7 +340,7 @@ def apply_reward_to_responses(
 # Example usage
 if __name__ == "__main__":
     # Test the functions with a simple example
-    from reward_kit.rewards.length import length_reward
+    from eval_protocol.rewards.length import length_reward
 
     # Create a length reward function
     length_rf = RewardFunction(func=length_reward)

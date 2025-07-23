@@ -13,11 +13,19 @@ from _pytest.outcomes import Failed
 # Add the test directory to the path so we can import our validation functions
 sys.path.insert(0, str(Path(__file__).parent / "tests"))
 
-from test_record_and_replay_e2e import (
-    _validate_control_plane_sync,
-    _validate_no_repeated_states,
-    _validate_trajectory_termination,
+# Import from the local test file explicitly 
+import sys
+import importlib.util
+spec = importlib.util.spec_from_file_location(
+    "test_frozen_lake_e2e_local", 
+    Path(__file__).parent / "tests" / "test_frozen_lake_e2e.py"
 )
+local_test_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(local_test_module)
+
+_validate_control_plane_sync = local_test_module._validate_control_plane_sync
+_validate_no_repeated_states = local_test_module._validate_no_repeated_states  
+_validate_trajectory_termination = local_test_module._validate_trajectory_termination
 
 
 def test_validation_with_existing_data():

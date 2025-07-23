@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional
 
-from reward_kit.models import EvaluateResult, MetricResult
-from reward_kit.reward_function import (  # Assuming @reward_function is available
+from eval_protocol.models import EvaluateResult, MetricResult
+from eval_protocol.reward_function import (  # Assuming @reward_function is available
     reward_function,
 )
 

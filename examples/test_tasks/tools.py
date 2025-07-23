@@ -2,7 +2,7 @@
 Tools for the test tasks.
 """
 
-from reward_kit.agent.tool_registry import ToolRegistry
+from eval_protocol.agent.tool_registry import ToolRegistry
 
 # Create tool registry
 R = ToolRegistry("test_task_tools")

@@ -1,8 +1,8 @@
 import json  # Moved import to top of file
 from typing import Any, Dict, List, Optional
 
-from reward_kit.models import EvaluateResult, Message, MetricResult
-from reward_kit.typed_interface import reward_function
+from eval_protocol.models import EvaluateResult, Message, MetricResult
+from eval_protocol.typed_interface import reward_function
 
 
 @reward_function

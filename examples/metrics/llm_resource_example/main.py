@@ -12,13 +12,13 @@ from typing import Any, Dict, List, Optional, Union
 # Import the Fireworks Build SDK
 from fireworks import LLM
 
-from reward_kit import (
+from eval_protocol import (
     EvaluateResult,
     MetricResult,
     create_llm_resource,
     reward_function,
 )
-from reward_kit.models import Message
+from eval_protocol.models import Message
 
 # Initialize the judge LLM with on-demand deployment
 judge_llm = LLM(

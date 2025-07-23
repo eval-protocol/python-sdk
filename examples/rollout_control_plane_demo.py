@@ -22,9 +22,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Add the mcp directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from reward_kit.mcp.execution.manager import ExecutionManager
-from reward_kit.mcp.session.manager import GeneralMCPVectorEnv
-from reward_kit.mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
+from eval_protocol.mcp.execution.manager import ExecutionManager
+from eval_protocol.mcp.session.manager import GeneralMCPVectorEnv
+from eval_protocol.mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
 
 class DemoPolicy:

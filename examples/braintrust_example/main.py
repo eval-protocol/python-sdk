@@ -1,7 +1,7 @@
 """Braintrust scorer wrapped for Reward Kit."""
 
-from reward_kit.adapters.braintrust import scorer_to_reward_fn
-from reward_kit.typed_interface import reward_function
+from eval_protocol.adapters.braintrust import scorer_to_reward_fn
+from eval_protocol.typed_interface import reward_function
 
 
 def equality_scorer(input: str, output: str, expected: str) -> float:

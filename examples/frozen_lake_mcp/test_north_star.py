@@ -161,7 +161,7 @@ def test_north_star_features():
     env = FrozenLakeMcp(seed=42)
 
     # Feature 1: Clean inheritance from McpGym
-    from reward_kit.mcp import McpGym
+    from eval_protocol.mcp import McpGym
 
     assert isinstance(env, McpGym)
     print("✓ Clean inheritance from McpGym")

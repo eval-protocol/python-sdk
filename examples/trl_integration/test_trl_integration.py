@@ -23,11 +23,11 @@ from examples.trl_integration.trl_adapter import (  # Changed to absolute import
     create_grpo_reward,
     grpo_format_reward,
 )
-from reward_kit.models import EvaluateResult, MetricResult
+from eval_protocol.models import EvaluateResult, MetricResult
 
 # Import reward-kit components
-from reward_kit.reward_function import RewardFunction, reward_function
-from reward_kit.rewards.length import length_reward
+from eval_protocol.reward_function import RewardFunction, reward_function
+from eval_protocol.rewards.length import length_reward
 
 
 # Define a simple example reward function (not a pytest test case)

@@ -14,7 +14,7 @@ import sys
 import time
 from pathlib import Path
 
-import reward_kit as rk
+import eval_protocol as rk
 
 
 async def test_lunar_lander_with_conda_isolation():
@@ -134,7 +134,7 @@ async def test_lunar_lander_with_conda_isolation():
             async def __call__(
                 self, tool_schemas, observations, system_prompts, user_prompts
             ):
-                from reward_kit.mcp.types import MCPToolCall
+                from eval_protocol.mcp.types import MCPToolCall
 
                 tool_calls = []
                 actions = ["NOTHING", "FIRE_LEFT", "FIRE_MAIN", "FIRE_RIGHT"]

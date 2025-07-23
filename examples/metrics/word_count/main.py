@@ -2,7 +2,7 @@ from typing import Any, Dict, List  # Added Dict, Any for clarity
 
 from haikus import haikus
 
-from reward_kit import EvaluateResult, Message, MetricResult, reward_function
+from eval_protocol import EvaluateResult, Message, MetricResult, reward_function
 
 
 # https://pypi.org/project/haikus/

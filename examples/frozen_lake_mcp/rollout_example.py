@@ -14,7 +14,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from frozen_lake_mcp import FrozenLakeMcp
-from reward_kit.mcp import McpGym
+from eval_protocol.mcp import McpGym
 
 
 class SimplePolicy:
