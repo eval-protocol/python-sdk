@@ -15,14 +15,12 @@ from .execution import FireworksPolicy, LLMBasePolicy, OpenAIPolicy, ExecutionMa
 
 # North Star MCP-Gym Framework
 from .mcpgym import McpGym
-from .server import MCPEnvironmentServer
 from .session import GeneralMCPVectorEnv
 from .simulation_server import SimulationServerBase
 from .types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
 __all__ = [
     # Legacy MCP server components
-    "MCPEnvironmentServer",
     "EnvironmentAdapter",
     "SimulationServerBase",
     # New refactored components

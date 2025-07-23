@@ -88,25 +88,6 @@ class LunarLanderAdapter(EnvironmentAdapter):
             "legs": {"left_contact": bool(obs[6]), "right_contact": bool(obs[7])},
         }
 
-    def get_action_space_description(self) -> Dict[str, Any]:
-        """Get description of valid actions for this environment."""
-        return {
-            "type": "discrete",
-            "n": 4,
-            "actions": {
-                "NOTHING": {"value": 0, "description": "Do nothing"},
-                "FIRE_LEFT": {"value": 1, "description": "Fire left orientation engine"},
-                "FIRE_MAIN": {"value": 2, "description": "Fire main engine"},
-                "FIRE_RIGHT": {"value": 3, "description": "Fire right orientation engine"},
-            },
-            "examples": {
-                "idle": "NOTHING",
-                "descend": "FIRE_MAIN",
-                "turn_left": "FIRE_LEFT",
-                "turn_right": "FIRE_RIGHT",
-            }
-        }
-
     def get_observation_space_info(self) -> Dict[str, Any]:
         """Get information about the observation space."""
         return {

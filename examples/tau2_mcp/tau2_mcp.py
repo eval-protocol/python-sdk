@@ -11,10 +11,10 @@ import os
 from typing import Any, Dict, Optional, List
 import json
 
-from tau2_adapter import AirlineAdapter
 from mcp.server.fastmcp import Context
+from airplane_environment.airline_environment import AirlineEnvironment
 
-from eval_protocol.mcp import McpGym
+from eval_protocol.mcp import McpGym, EnvironmentAdapter
 from eval_protocol.mcp.mcpgym import control_plane_endpoint
 
 
@@ -23,7 +23,17 @@ class AirlineMcp(McpGym):
 
     def __init__(self, seed: Optional[int] = None):
         """Initialize Airline MCP-Gym environment."""
-        self.adapter = AirlineAdapter()
+        # Use EnvironmentAdapter directly as the default adapter
+        default_config = {
+            "domain": "airline",
+            "max_turns": 20,
+        }
+        
+        self.adapter = EnvironmentAdapter(
+            env_class=AirlineEnvironment,
+            default_config=default_config
+        )
+        
         super().__init__("airline", self.adapter, seed)
 
     def _register_tools(self):

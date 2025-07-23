@@ -144,15 +144,6 @@ class TaxiAdapter(EnvironmentAdapter):
         """Format observation for JSON."""
         return int(observation)
 
-    def get_action_space_description(self) -> Dict[str, Any]:
-        """Get action space description."""
-        return {
-            "type": "discrete",
-            "num_actions": 6,
-            "actions": self.ACTION_NAMES,
-            "description": "Move actions: SOUTH(0), NORTH(1), EAST(2), WEST(3), PICKUP(4), DROPOFF(5)",
-        }
-
     def get_observation_space_description(self) -> Dict[str, Any]:
         """Get observation space description."""
         return {

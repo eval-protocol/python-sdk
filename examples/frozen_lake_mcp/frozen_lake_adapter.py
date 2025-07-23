@@ -173,19 +173,6 @@ class FrozenLakeAdapter(EnvironmentAdapter):
         """
         return int(observation)
 
-    def get_action_space_description(self) -> Dict[str, Any]:
-        """
-        Get action space description.
-
-        Returns:
-            Action space description dictionary
-        """
-        return {
-            "type": "discrete",
-            "actions": self.ACTION_NAMES,
-            "description": "Move actions: LEFT(0), DOWN(1), RIGHT(2), UP(3)",
-        }
-
     def get_default_config(self) -> Dict[str, Any]:
         """
         Get default configuration.

@@ -173,19 +173,6 @@ class BlackjackAdapter(EnvironmentAdapter):
             "usable_ace": observation[2],
         }
 
-    def get_action_space_description(self) -> Dict[str, Any]:
-        """
-        Get action space description.
-
-        Returns:
-            Action space description dictionary
-        """
-        return {
-            "type": "discrete",
-            "actions": self.ACTION_NAMES,
-            "description": "Move actions: STICK(0), HIT(1)",
-        }
-
     def get_default_config(self) -> Dict[str, bool]:
         """
         Get default configuration.
