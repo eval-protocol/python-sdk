@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from ..client.connection import MCPConnectionManager
-from ..types import MCPSession, MCPToolCall, Trajectory
+from ..types import MCPSession, MCPToolCall, Trajectory, TerminationReason
 
 from tau2.user.user_simulator import UserSimulator
 from tau2.data_model.message import AssistantMessage, UserMessage
@@ -220,10 +220,10 @@ class ExecutionManager:
             total_reward=0.0,
             steps=0,
             duration=0.0,
+            control_plane_steps=[],
+            control_plane_summary={},
+            termination_reason="",
         )
-
-        trajectory.control_plane_steps = []
-        trajectory.control_plane_summary = {}
 
         current_observation, tool_schema = await envs.reset(session)
         system_prompt = dataset_row.system_prompt
@@ -286,6 +286,7 @@ class ExecutionManager:
                     # Check if user simulator signaled termination
                     if UserSimulator.is_stop(user_message):
                         trajectory.terminated = True
+                        trajectory.termination_reason = TerminationReason.USER_STOP
             
             # In each turn: keep looping until assistant is ready to provide final response
             while not turn_completed and not trajectory.terminated:
@@ -344,9 +345,13 @@ class ExecutionManager:
                         if recording_mode:
                             policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
 
-                    # If environment terminates after this tool call or step limit is reached, end the turn and trajectory
-                    if rollout_end or step >= steps:
+                    if rollout_end:
                         trajectory.terminated = True
+                        trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
+                        break
+                    elif step >= steps:
+                        trajectory.terminated = True
+                        trajectory.termination_reason = TerminationReason.MAX_STEPS
                         break
 
                 # Update current observation for potential next turn
@@ -379,12 +384,13 @@ class ExecutionManager:
             # Use control plane information for termination decision
             if rollout_end:
                 trajectory.terminated = True
+                trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
 
                 # Add final control plane summary
                 trajectory.control_plane_summary.update(
                     {
                         "total_reward": trajectory.total_reward,
-                        "termination_reason": "control_plane_signal",
+                        "termination_reason": trajectory.termination_reason,
                         "final_step": step - 1,
                         "control_plane_source": info.get("control_plane", {}),
                     }
@@ -415,9 +421,11 @@ class ExecutionManager:
             if step % 10 == 0:
                 logger.debug(f"Rollout {rollout_idx} step {step}, reward: {trajectory.total_reward:.2f}")
 
-        # TODO: Open question: should termination reason be added? should it be part of the trajectory object?
+        # Set termination reason if not already set (e.g., due to step limit)
+        if not trajectory.termination_reason and step >= steps:
+            trajectory.termination_reason = TerminationReason.MAX_STEPS
 
-        logger.info(f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, in thread {threading.current_thread().name}")
+        logger.info(f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}")
         return trajectory
 
     async def _get_control_plane_status(self, session) -> Optional[Dict[str, Any]]:

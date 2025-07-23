@@ -295,7 +295,7 @@ async def test_production_server_record_and_replay(
         dataset_entry = frozen_lake_dataset[i]
         seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
         print(
-            f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
+            f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
         )
         if hasattr(traj, "actions") and len(traj.actions) > 0:
             print(
@@ -521,7 +521,7 @@ async def test_frozen_lake_step_by_step(conda_isolation_recording_file):
         # Print trajectory summary
         traj = trajectories[0]
         print(
-            f"📊 Conda Isolation Trajectory: {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
+            f"📊 Conda Isolation Trajectory: {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
         )
         if hasattr(traj, "actions") and len(traj.actions) > 0:
             print(f"    Actions: {traj.actions}")
@@ -640,7 +640,7 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
             dataset_entry = multi_env_dataset[i]
             seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
             print(
-                f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
+                f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
             )
 
         # Validate that different seeds produce different environments
@@ -1216,7 +1216,7 @@ async def test_fireworks_multi_environment_sessions(
             dataset_entry = multi_env_dataset[i]
             seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
             print(
-                f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
+                f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
             )
             if hasattr(traj, "actions") and len(traj.actions) > 0:
                 print(
@@ -1337,7 +1337,7 @@ async def test_control_plane_state_querying(multi_env_dataset):
         print("📊 Control Plane State Summary:")
         for i, traj in enumerate(trajectories):
             print(
-                f"  Trajectory {i}: {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
+                f"  Trajectory {i}: {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
             )
 
         # Clean up

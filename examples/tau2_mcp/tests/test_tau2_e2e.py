@@ -756,7 +756,7 @@ async def test_fireworks_multi_environment_sessions(
             seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
             domain = dataset_entry.get("environment_context", {}).get("domain", "N/A")
             print(
-                f"  Trajectory {i} (domain: {domain}, seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
+                f"  Trajectory {i} (domain: {domain}, seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
             )
             if hasattr(traj, "actions") and len(traj.actions) > 0:
                 print(

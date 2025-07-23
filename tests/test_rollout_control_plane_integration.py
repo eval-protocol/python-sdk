@@ -291,6 +291,9 @@ class TestRolloutControlPlaneIntegration:
             total_reward=0.0,
             steps=0,
             duration=0.0,
+            control_plane_steps=[],
+            control_plane_summary={},
+            termination_reason="",
         )
 
         # Simulate steps with control plane separation
@@ -464,6 +467,9 @@ class TestRolloutControlPlaneIntegration:
             total_reward=0.0,
             steps=1,
             duration=1.0,
+            control_plane_steps=[],
+            control_plane_summary={},
+            termination_reason="",
         )
 
         # Add control plane data
