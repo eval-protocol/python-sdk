@@ -31,14 +31,14 @@ except ImportError as e:
     )
     HAS_TRL_AND_TRANSFORMERS = False
 
-# from reward_kit.models import Message # No longer directly needed here
-from reward_kit.integrations.trl import create_trl_adapter  # Import the new adapter
+# from eval_protocol.models import Message # No longer directly needed here
+from eval_protocol.integrations.trl import create_trl_adapter  # Import the new adapter
 
 # Import reward-kit components
-# from reward_kit.reward_function import RewardFunction # No longer strictly needed here
-from reward_kit.rewards import deepcoder_code_reward
-from reward_kit.rewards.code_execution_utils import prepare_deepcoder_sample_for_trl
-from reward_kit.utils.dataset_helpers import load_jsonl_to_hf_dataset
+# from eval_protocol.reward_function import RewardFunction # No longer strictly needed here
+from eval_protocol.rewards import deepcoder_code_reward
+from eval_protocol.rewards.code_execution_utils import prepare_deepcoder_sample_for_trl
+from eval_protocol.utils.dataset_helpers import load_jsonl_to_hf_dataset
 
 # Configuration
 MODEL_NAME = "Qwen/Qwen3-0.6B"  # Small Qwen model for example
@@ -83,7 +83,7 @@ def load_and_prepare_dataset(raw_data_path: Path) -> Optional[Dataset]:
 
 
 # The custom deepcoder_grpo_reward_adapter function is no longer needed.
-# It will be replaced by using create_trl_adapter from reward_kit.
+# It will be replaced by using create_trl_adapter from eval_protocol.
 
 
 def generate_for_comparison(model, tokenizer, prompt_text: str, device) -> str:

@@ -25,7 +25,7 @@ from typing import Any, Dict
 from mcp.server.fastmcp import Context
 from taxi_adapter import TaxiAdapter
 
-from reward_kit.mcp import GymProductionServer
+from eval_protocol.mcp import GymProductionServer
 
 # TODO: FAST FOLLOW. refactor this entire file to use McpGym, leaving logic below incorrect for now.
 

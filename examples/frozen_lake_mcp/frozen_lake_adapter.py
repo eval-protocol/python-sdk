@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from gymnasium.envs.toy_text.frozen_lake import generate_random_map, FrozenLakeEnv
 
-from reward_kit.mcp.adapter import EnvironmentAdapter
+from eval_protocol.mcp.adapter import EnvironmentAdapter
 
 
 class FrozenLakeAdapter(EnvironmentAdapter):

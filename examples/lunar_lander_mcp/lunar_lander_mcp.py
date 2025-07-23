@@ -28,8 +28,8 @@ import json
 from lunar_lander_adapter import LunarLanderAdapter
 from mcp.server.fastmcp import Context
 
-from reward_kit.mcp import McpGym
-from reward_kit.mcp.mcpgym import control_plane_endpoint
+from eval_protocol.mcp import McpGym
+from eval_protocol.mcp.mcpgym import control_plane_endpoint
 
 
 class LunarLanderMcp(McpGym):

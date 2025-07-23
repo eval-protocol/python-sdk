@@ -24,7 +24,7 @@ async def test_north_star_interface():
         import os
         import time
 
-        import reward_kit as rk
+        import eval_protocol as rk
 
         # Load dataset with environment configuration and prompts
         dataset = load_jsonl(

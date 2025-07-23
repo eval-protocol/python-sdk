@@ -10,10 +10,10 @@ import math
 import re
 from typing import Any, Dict, List, Optional, Union
 
-from reward_kit import EvaluateResult, MetricResult, reward_function
-from reward_kit.models import Message
-from reward_kit.rewards.length import count_tokens
-from reward_kit.rewards.math import math_reward
+from eval_protocol import EvaluateResult, MetricResult, reward_function
+from eval_protocol.models import Message
+from eval_protocol.rewards.length import count_tokens
+from eval_protocol.rewards.math import math_reward
 
 
 def check_think_answer_format(text: str) -> bool:

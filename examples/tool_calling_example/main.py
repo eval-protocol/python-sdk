@@ -8,11 +8,11 @@ exact_tool_match_reward function to evaluate tool calling accuracy.
 
 from typing import Any, Dict, List, Optional, Union
 
-from reward_kit import EvaluateResult, reward_function
-from reward_kit.models import Message
+from eval_protocol import EvaluateResult, reward_function
+from eval_protocol.models import Message
 
 # Import the existing reward function from reward-kit
-from reward_kit.rewards.function_calling import exact_tool_match_reward
+from eval_protocol.rewards.function_calling import exact_tool_match_reward
 
 
 @reward_function

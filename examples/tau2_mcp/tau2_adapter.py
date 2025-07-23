@@ -9,7 +9,7 @@ including reservation management, flight search, and policy enforcement.
 import json
 from typing import Any, Dict, Optional, Tuple, List
 
-from reward_kit.mcp.adapter import EnvironmentAdapter
+from eval_protocol.mcp.adapter import EnvironmentAdapter
 from airplane_environment.airline_environment import AirlineEnvironment
 
 # TODO: Open question: 

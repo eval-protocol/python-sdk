@@ -22,8 +22,8 @@ from typing import Any, Dict, Optional
 from frozen_lake_adapter import FrozenLakeAdapter
 from mcp.server.fastmcp import Context
 
-from reward_kit.mcp import McpGym
-from reward_kit.mcp.mcpgym import control_plane_endpoint
+from eval_protocol.mcp import McpGym
+from eval_protocol.mcp.mcpgym import control_plane_endpoint
 
 
 class FrozenLakeMcp(McpGym):

@@ -17,7 +17,7 @@ from pathlib import Path
 # Add the reward-kit package to the path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from reward_kit.models import (  # Ensure EvaluateResult is imported
+from eval_protocol.models import (  # Ensure EvaluateResult is imported
     EvaluateResult,
     Message,
 )
@@ -81,7 +81,7 @@ def test_reward_function_import():
 
     # Import EvaluateResult specifically within this function's scope
     from examples.mcp_agent_filesystem_rl import main as filesystem_rl_main
-    from reward_kit.models import EvaluateResult
+    from eval_protocol.models import EvaluateResult
 
     assert hasattr(
         filesystem_rl_main, "evaluate"

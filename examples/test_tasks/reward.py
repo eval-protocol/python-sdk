@@ -2,8 +2,8 @@
 Reward function for the test tasks.
 """
 
-from reward_kit import reward_function
-from reward_kit.models import EvaluateResult, MetricResult
+from eval_protocol import reward_function
+from eval_protocol.models import EvaluateResult, MetricResult
 
 
 @reward_function

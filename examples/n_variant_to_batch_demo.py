@@ -16,10 +16,10 @@ import tempfile
 from pathlib import Path
 from typing import List
 
-from reward_kit.models import EvaluateResult, Message, MetricResult
-from reward_kit.typed_interface import reward_function
-from reward_kit.utils.batch_evaluation import run_batch_evaluation
-from reward_kit.utils.batch_transformation import (
+from eval_protocol.models import EvaluateResult, Message, MetricResult
+from eval_protocol.typed_interface import reward_function
+from eval_protocol.utils.batch_evaluation import run_batch_evaluation
+from eval_protocol.utils.batch_transformation import (
     transform_n_variant_jsonl_to_batch_format,
 )
 
