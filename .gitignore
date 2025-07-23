@@ -237,3 +237,4 @@ examples/frozen_lake_mcp/openai_format.jsonl
 node_modules/
 package-lock.json
 package.json
+tau2-bench
