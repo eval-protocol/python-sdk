@@ -5,18 +5,18 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Ensure the module is loaded (though RewardFunction import likely does this)
-import reward_protocol
-from reward_protocol import RewardFunction, reward_function
+import eval_protocol
+from eval_protocol import RewardFunction, reward_function
 
 # Get a direct reference to the module object
-reward_function_module_obj = sys.modules["reward_kit.reward_function"]
-from reward_protocol.models import EvaluateResult, MetricResult  # Changed
+reward_function_module_obj = sys.modules["eval_protocol.reward_function"]
+from eval_protocol.models import EvaluateResult, MetricResult  # Changed
 
 
 def simple_reward_func(
     messages: List[Dict[str, str]],
     ground_truth: Optional[Union[str, List[Dict[str, str]]]] = None,
-    **kwargs
+    **kwargs,
 ) -> EvaluateResult:  # Changed
     """Example reward function for testing."""
     metrics = {
@@ -31,7 +31,7 @@ def simple_reward_func(
 def decorated_reward_func(
     messages: List[Dict[str, str]],
     ground_truth: Optional[Union[str, List[Dict[str, str]]]] = None,
-    **kwargs
+    **kwargs,
 ) -> EvaluateResult:  # Changed
     """Example decorated reward function."""
     metrics = {
@@ -231,7 +231,7 @@ class TestRewardFunctionDecorator:
         # by the RewardFunction class or a separate utility.
 
         # # Directly patch the requests.post call for simplicity
-        # with patch("reward_kit.reward_function.requests.post") as mock_post:
+        # with patch("eval_protocol.reward_function.requests.post") as mock_post:
         #     # Configure the response
         #     mock_response = MagicMock()
         #     mock_response.status_code = 200

@@ -10,8 +10,13 @@ The library also provides an agent evaluation framework for testing and evaluati
 tool-augmented models using self-contained task bundles.
 """
 
+import importlib
+import pkgutil
+
 # Map eval_protocol submodules to the underlying reward_kit modules
 import sys
+
+import reward_kit
 
 # Additional convenience imports for common submodules
 # Make sure all public symbols are available
@@ -80,4 +85,18 @@ _SUBMODULES = [
 ]
 
 for _name in _SUBMODULES:
-    sys.modules[f"{__name__}.{_name}"] = getattr(sys.modules["reward_kit"], _name)
+    module = importlib.import_module(f"reward_kit.{_name}")
+    sys.modules[f"{__name__}.{_name}"] = module
+
+# Mirror all nested submodules from reward_kit so that patches on eval_protocol
+# affect the original modules.
+for finder, mod_name, _ in pkgutil.walk_packages(
+    reward_kit.__path__, reward_kit.__name__ + "."
+):
+    try:
+        module = importlib.import_module(mod_name)
+        alias_name = f"{__name__}{mod_name[len('reward_kit'):]}"
+        sys.modules.setdefault(alias_name, module)
+    except Exception:
+        # If a module fails to import, skip it. These are optional extras.
+        pass

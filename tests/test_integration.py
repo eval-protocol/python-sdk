@@ -4,9 +4,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from reward_kit.models import EvaluateResult, Message, MetricResult  # Changed
-from reward_kit.reward_function import RewardFunction, reward_function
-from reward_kit.server import create_app
+from eval_protocol.models import EvaluateResult, Message, MetricResult  # Changed
+from eval_protocol.reward_function import RewardFunction, reward_function
+from eval_protocol.server import create_app
 
 
 @reward_function
@@ -142,7 +142,7 @@ class TestIntegration:
         # batch_original_messages is no longer passed as TRL adapter
         # should get ground_truth from the dataset structure if needed,
         # or the reward_fn doesn't use it.
-        # The TRL adapter in reward_kit.reward_function.py might need updates
+        # The TRL adapter in eval_protocol.reward_function.py might need updates
         # if it still expects original_messages. This change assumes the adapter
         # or the underlying reward function (sample_reward_function) no longer needs it passed this way.
         # For now, focusing on fixing the call based on sample_reward_function's new signature.
@@ -152,7 +152,7 @@ class TestIntegration:
         # The TRL adapter likely needs to be updated as part of Task 5.
         # For now, to make this test call `sample_reward_function` correctly via the adapter,
         # we assume the adapter will pass `messages` correctly and not need `original_messages`.
-        # The TRL adapter's `__call__` method in `reward_kit/reward_function.py`
+        # The TRL adapter's `__call__` method in `eval_protocol/reward_function.py`
         # seems to take `prompts` and `completions`.
         # `prompts`: List[List[Dict]] (list of user messages)
         # `completions`: List[str] (list of assistant responses)

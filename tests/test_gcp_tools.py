@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-from reward_kit.gcp_tools import (
+from eval_protocol.gcp_tools import (
     _run_gcloud_command,
     build_and_push_docker_image,
     deploy_to_cloud_run,
@@ -23,7 +23,7 @@ class TestGCPTools(unittest.TestCase):
         self.mock_secret_value = "supersecret"
         self.mock_repo_name = "test-repo"
 
-    @patch("reward_kit.gcp_tools.subprocess.run")
+    @patch("eval_protocol.gcp_tools.subprocess.run")
     def test_run_gcloud_command_success(self, mock_subprocess_run):
         mock_process = MagicMock()
         mock_process.returncode = 0
@@ -40,7 +40,7 @@ class TestGCPTools(unittest.TestCase):
             ["gcloud", "info"], capture_output=True, text=True, check=False
         )
 
-    @patch("reward_kit.gcp_tools.subprocess.run")
+    @patch("eval_protocol.gcp_tools.subprocess.run")
     def test_run_gcloud_command_failure(self, mock_subprocess_run):
         mock_process = MagicMock()
         mock_process.returncode = 1
@@ -54,7 +54,7 @@ class TestGCPTools(unittest.TestCase):
         self.assertEqual(stdout, "")
         self.assertEqual(stderr, "Error!")
 
-    @patch("reward_kit.gcp_tools.subprocess.run")
+    @patch("eval_protocol.gcp_tools.subprocess.run")
     def test_run_gcloud_command_file_not_found(self, mock_subprocess_run):
         mock_subprocess_run.side_effect = FileNotFoundError
 
@@ -71,7 +71,7 @@ class TestGCPTools(unittest.TestCase):
         self.assertEqual(stdout, "Dry run: gcloud projects list")
         self.assertEqual(stderr, "")
 
-    @patch("reward_kit.gcp_tools.subprocess.run")
+    @patch("eval_protocol.gcp_tools.subprocess.run")
     def test_run_gcloud_command_success_with_stderr(self, mock_subprocess_run):
         mock_process = MagicMock()
         mock_process.returncode = 0
@@ -86,10 +86,10 @@ class TestGCPTools(unittest.TestCase):
         self.assertEqual(stderr, "Informational message on stderr")
         mock_subprocess_run.assert_called_once()
 
-    @patch("reward_kit.gcp_tools.Path", autospec=True)
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools.Path", autospec=True)
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
     @patch(
-        "reward_kit.gcp_tools.os.remove"
+        "eval_protocol.gcp_tools.os.remove"
     )  # os.path.exists mock removed as not directly used by SUT for this path
     @patch("builtins.open", new_callable=mock_open)
     def test_build_and_push_docker_image_success(
@@ -143,9 +143,9 @@ class TestGCPTools(unittest.TestCase):
         )
         mock_os_remove.assert_called_once_with(mock_dockerfile_path_obj)
 
-    @patch("reward_kit.gcp_tools.Path", autospec=True)
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
-    @patch("reward_kit.gcp_tools.os.remove")  # os.path.exists mock removed
+    @patch("eval_protocol.gcp_tools.Path", autospec=True)
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools.os.remove")  # os.path.exists mock removed
     @patch("builtins.open", new_callable=mock_open)
     def test_build_and_push_docker_image_build_fails(
         self, mock_open_file, mock_os_remove, mock_run_gcloud, MockGCPPath
@@ -186,7 +186,7 @@ class TestGCPTools(unittest.TestCase):
         dockerfile_content = "FROM ubuntu"
         build_context_dir_str = "."
 
-        # logger is imported from reward_kit.gcp_tools
+        # logger is imported from eval_protocol.gcp_tools
         with patch.object(logger, "error") as mock_logger_error:
             result = build_and_push_docker_image(
                 self.mock_image_name_tag,
@@ -200,9 +200,9 @@ class TestGCPTools(unittest.TestCase):
             "GCP Project ID is required for Google Cloud Build."
         )
 
-    @patch("reward_kit.gcp_tools.Path", autospec=True)
+    @patch("eval_protocol.gcp_tools.Path", autospec=True)
     @patch("builtins.open", new_callable=mock_open)
-    @patch("reward_kit.gcp_tools.os.remove")  # Added for this test
+    @patch("eval_protocol.gcp_tools.os.remove")  # Added for this test
     def test_build_and_push_docker_image_open_fails(
         self, mock_os_remove, mock_open_file, MockGCPPath
     ):  # mock_os_remove added
@@ -244,9 +244,9 @@ class TestGCPTools(unittest.TestCase):
         mock_dockerfile_path_obj.exists.assert_called_once_with()
         mock_os_remove.assert_not_called()  # Because .exists() returned False
 
-    @patch("reward_kit.gcp_tools.Path", autospec=True)
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
-    @patch("reward_kit.gcp_tools.os.remove")
+    @patch("eval_protocol.gcp_tools.Path", autospec=True)
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools.os.remove")
     @patch("builtins.open", new_callable=mock_open)
     def test_build_and_push_docker_image_success_dockerfile_vanishes(
         self, mock_open_file, mock_os_remove, mock_run_gcloud, MockGCPPath
@@ -284,7 +284,7 @@ class TestGCPTools(unittest.TestCase):
         mock_dockerfile_path_obj.exists.assert_called_once_with()
         mock_os_remove.assert_not_called()  # Because .exists() returned False
 
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
     def test_deploy_to_cloud_run_success(self, mock_run_gcloud):
 
         # Mock for deploy command
@@ -344,7 +344,7 @@ class TestGCPTools(unittest.TestCase):
             "GCP Region is required for deploying to Cloud Run."
         )
 
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
     def test_deploy_to_cloud_run_deploy_fails(self, mock_run_gcloud):
         mock_run_gcloud.return_value = (
             False,
@@ -368,7 +368,7 @@ class TestGCPTools(unittest.TestCase):
             mock_logger_error.call_args[0][0],
         )
 
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
     def test_deploy_to_cloud_run_describe_fails(self, mock_run_gcloud):
         mock_run_gcloud.side_effect = [
             (True, "Deploy success", ""),  # First call (deploy) succeeds
@@ -391,7 +391,7 @@ class TestGCPTools(unittest.TestCase):
             f"Deployed service {self.mock_service_name}, but failed to retrieve its URL. Stderr: Describe command failed",
         )
 
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
     def test_deploy_to_cloud_run_bad_url(self, mock_run_gcloud):
         mock_run_gcloud.side_effect = [
             (True, "Deploy success", ""),
@@ -411,7 +411,7 @@ class TestGCPTools(unittest.TestCase):
         mock_logger_error.assert_called_once()
         self.assertIn("Service URL is not valid", mock_logger_error.call_args[0][0])
 
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
     def test_deploy_to_cloud_run_gcloud_exception(self, mock_run_gcloud):
         mock_run_gcloud.side_effect = Exception("gcloud exploded")
 
@@ -432,7 +432,7 @@ class TestGCPTools(unittest.TestCase):
         )
         self.assertIn("gcloud exploded", logged_error_message)
 
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
     def test_ensure_artifact_registry_repo_exists_already_exists(self, mock_run_gcloud):
         mock_run_gcloud.return_value = (True, "Repo exists", "")  # Describe success
 
@@ -454,7 +454,7 @@ class TestGCPTools(unittest.TestCase):
             dry_run=False,
         )
 
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
     def test_ensure_artifact_registry_repo_exists_create_new(self, mock_run_gcloud):
         mock_run_gcloud.side_effect = [
             (False, "", "NOT_FOUND"),  # Describe fails (not found)
@@ -470,7 +470,7 @@ class TestGCPTools(unittest.TestCase):
         self.assertIn("create", create_call_args)
         self.assertIn(self.mock_repo_name, create_call_args)
 
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
     def test_ensure_artifact_registry_repo_exists_exception(self, mock_run_gcloud):
         mock_run_gcloud.side_effect = Exception("Kaboom")
         with patch.object(logger, "error") as mock_logger_error:
@@ -519,11 +519,11 @@ class TestGCPTools(unittest.TestCase):
             "Secret value is required to create or update a secret."
         )
 
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
-    @patch("reward_kit.gcp_tools.tempfile.NamedTemporaryFile")
-    @patch("reward_kit.gcp_tools.os.remove")
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools.tempfile.NamedTemporaryFile")
+    @patch("eval_protocol.gcp_tools.os.remove")
     @patch(
-        "reward_kit.gcp_tools.os.path.exists"
+        "eval_protocol.gcp_tools.os.path.exists"
     )  # Changed from Path.exists to os.path.exists as used in gcp_tools.py
     def test_ensure_gcp_secret_create_and_add_version(
         self, mock_os_path_exists, mock_os_remove, mock_named_temp_file, mock_run_gcloud
@@ -571,10 +571,10 @@ class TestGCPTools(unittest.TestCase):
         mock_os_remove.assert_called_once_with("mock_temp_file_path")
         mock_os_path_exists.assert_called_with("mock_temp_file_path")
 
-    @patch("reward_kit.gcp_tools._run_gcloud_command")
-    @patch("reward_kit.gcp_tools.tempfile.NamedTemporaryFile")
-    @patch("reward_kit.gcp_tools.os.remove")
-    @patch("reward_kit.gcp_tools.os.path.exists")  # Changed from Path.exists
+    @patch("eval_protocol.gcp_tools._run_gcloud_command")
+    @patch("eval_protocol.gcp_tools.tempfile.NamedTemporaryFile")
+    @patch("eval_protocol.gcp_tools.os.remove")
+    @patch("eval_protocol.gcp_tools.os.path.exists")  # Changed from Path.exists
     def test_ensure_gcp_secret_add_version_to_existing(
         self, mock_os_path_exists, mock_os_remove, mock_named_temp_file, mock_run_gcloud
     ):

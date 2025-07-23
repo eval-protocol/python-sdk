@@ -8,9 +8,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from reward_kit.models import Message
-from reward_kit.rewards.apps_coding_reward import evaluate_apps_solution
-from reward_kit.rewards.function_calling import exact_tool_match_reward
+from eval_protocol.models import Message
+from eval_protocol.rewards.apps_coding_reward import evaluate_apps_solution
+from eval_protocol.rewards.function_calling import exact_tool_match_reward
 
 
 # Helper function to import modules from file paths
@@ -42,9 +42,11 @@ def mock_env_variables(monkeypatch):
 @pytest.fixture
 def mock_requests():
     """Mock all requests methods with appropriate responses"""
-    with patch("requests.post") as mock_post, patch("requests.get") as mock_get, patch(
-        "requests.delete"
-    ) as mock_delete:
+    with (
+        patch("requests.post") as mock_post,
+        patch("requests.get") as mock_get,
+        patch("requests.delete") as mock_delete,
+    ):
 
         # Configure mock_post for different use cases
         def post_side_effect(*args, **kwargs):

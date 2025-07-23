@@ -6,8 +6,8 @@ from typing import Any, Dict, List
 
 import pytest
 
-from reward_kit.models import EvaluateResult, MetricResult
-from reward_kit.typed_interface import reward_function
+from eval_protocol.models import EvaluateResult, MetricResult
+from eval_protocol.typed_interface import reward_function
 
 
 class TestKwargsValidation:

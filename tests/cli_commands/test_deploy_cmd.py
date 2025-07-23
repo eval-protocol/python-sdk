@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Module to be tested
-from reward_kit.cli_commands.deploy import deploy_command
-from reward_kit.platform_api import PlatformAPIError  # Import for exception testing
+from eval_protocol.cli_commands.deploy import deploy_command
+from eval_protocol.platform_api import PlatformAPIError  # Import for exception testing
 
 
 # --- Mocking argparse.Namespace to simulate parsed CLI arguments ---
@@ -39,24 +39,30 @@ class MockArgs:
 @pytest.fixture
 def mock_check_environment():
     with patch(
-        "reward_kit.cli_commands.deploy.check_environment", return_value=True
+        "eval_protocol.cli_commands.deploy.check_environment", return_value=True
     ) as mock_check:
         yield mock_check
 
 
 @pytest.fixture
 def mock_gcp_tools():
-    with patch(
-        "reward_kit.cli_commands.deploy.ensure_artifact_registry_repo_exists"
-    ) as mock_ensure_repo, patch(
-        "reward_kit.cli_commands.deploy.generate_dockerfile_content"
-    ) as mock_gen_dockerfile, patch(
-        "reward_kit.cli_commands.deploy.build_and_push_docker_image"
-    ) as mock_build_push, patch(
-        "reward_kit.cli_commands.deploy.deploy_to_cloud_run"
-    ) as mock_deploy_run, patch(
-        "reward_kit.cli_commands.deploy.ensure_gcp_secret"
-    ) as mock_ensure_gcp_secret:
+    with (
+        patch(
+            "eval_protocol.cli_commands.deploy.ensure_artifact_registry_repo_exists"
+        ) as mock_ensure_repo,
+        patch(
+            "eval_protocol.cli_commands.deploy.generate_dockerfile_content"
+        ) as mock_gen_dockerfile,
+        patch(
+            "eval_protocol.cli_commands.deploy.build_and_push_docker_image"
+        ) as mock_build_push,
+        patch(
+            "eval_protocol.cli_commands.deploy.deploy_to_cloud_run"
+        ) as mock_deploy_run,
+        patch(
+            "eval_protocol.cli_commands.deploy.ensure_gcp_secret"
+        ) as mock_ensure_gcp_secret,
+    ):
 
         mock_ensure_repo.return_value = True
         mock_gen_dockerfile.return_value = "DOCKERFILE CONTENT"
@@ -76,7 +82,7 @@ def mock_gcp_tools():
 
 class TestDeployCommandRemoteUrl:
 
-    @patch("reward_kit.cli_commands.deploy.create_evaluation")
+    @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_remote_url_success(
         self, mock_create_evaluation_call, mock_check_environment, capsys
     ):
@@ -120,7 +126,7 @@ class TestDeployCommandRemoteUrl:
             in captured.out
         )
 
-    @patch("reward_kit.cli_commands.deploy.create_evaluation")
+    @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_remote_url_with_metrics_folders_warning(
         self, mock_create_eval, mock_check_environment, capsys
     ):
@@ -147,7 +153,7 @@ class TestDeployCommandRemoteUrl:
         captured = capsys.readouterr()
         assert "Error: Invalid --remote-url 'ftp://invalid.com'" in captured.out
 
-    @patch("reward_kit.cli_commands.deploy.create_evaluation")
+    @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_remote_url_platform_api_error(
         self, mock_create_eval, mock_check_environment, capsys
     ):
@@ -171,7 +177,7 @@ class TestDeployCommandRemoteUrl:
             f"Error registering URL with Fireworks AI: {error_message}" in captured.out
         )
 
-    @patch("reward_kit.cli_commands.deploy.create_evaluation")
+    @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_remote_url_unexpected_error(
         self, mock_create_eval, mock_check_environment, capsys
     ):
@@ -195,7 +201,7 @@ class TestDeployCommandRemoteUrl:
 
 class TestDeployCommandLocalMode:  # This class tests the "fireworks" target (packaging metrics)
 
-    @patch("reward_kit.cli_commands.deploy.create_evaluation")
+    @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_local_mode_success(  # Renaming to reflect it tests "fireworks" target
         self, mock_create_eval, mock_check_environment, capsys
     ):
@@ -248,7 +254,7 @@ class TestDeployCommandLocalMode:  # This class tests the "fireworks" target (pa
             in captured.out
         )
 
-    @patch("reward_kit.cli_commands.deploy.create_evaluation")
+    @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_local_mode_create_evaluation_fails(  # Renaming
         self, mock_create_eval, mock_check_environment, capsys
     ):
@@ -267,7 +273,7 @@ class TestDeployCommandLocalMode:  # This class tests the "fireworks" target (pa
             in captured.out
         )
 
-    @patch("reward_kit.cli_commands.deploy.create_evaluation")
+    @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_local_mode_create_evaluation_fails_generic_exception(  # Renaming
         self, mock_create_eval, mock_check_environment, capsys
     ):
@@ -285,7 +291,7 @@ class TestDeployCommandLocalMode:  # This class tests the "fireworks" target (pa
 
 
 class TestDeployCommandGCPMode:
-    @patch("reward_kit.cli_commands.deploy.create_evaluation")
+    @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_gcp_mode_success(
         self,
         mock_create_evaluation_final_step,
@@ -334,12 +340,12 @@ class TestDeployCommandGCPMode:
             in captured.out
         )
 
-    @patch("reward_kit.cli_commands.deploy.get_config")
+    @patch("eval_protocol.cli_commands.deploy.get_config")
     def test_deploy_gcp_mode_missing_args(
         self, mock_get_config, mock_check_environment, capsys
     ):
         # Mock empty config to test missing project/region scenarios
-        from reward_kit.config import RewardKitConfig
+        from eval_protocol.config import RewardKitConfig
 
         mock_get_config.return_value = RewardKitConfig()
 
@@ -378,7 +384,7 @@ class TestDeployCommandGCPMode:
         assert "Error: GCP Region must be provided" in captured.out
 
     @patch(
-        "reward_kit.cli_commands.deploy.ensure_artifact_registry_repo_exists",
+        "eval_protocol.cli_commands.deploy.ensure_artifact_registry_repo_exists",
         return_value=False,
     )
     def test_deploy_gcp_mode_ensure_repo_fails(
@@ -398,11 +404,12 @@ class TestDeployCommandGCPMode:
         assert "Failed to ensure Artifact Registry repository" in captured.out
 
     @patch(
-        "reward_kit.cli_commands.deploy.ensure_artifact_registry_repo_exists",
+        "eval_protocol.cli_commands.deploy.ensure_artifact_registry_repo_exists",
         return_value=True,
     )
     @patch(
-        "reward_kit.cli_commands.deploy.generate_dockerfile_content", return_value=None
+        "eval_protocol.cli_commands.deploy.generate_dockerfile_content",
+        return_value=None,
     )
     def test_deploy_gcp_mode_gen_dockerfile_fails(
         self,
@@ -425,15 +432,16 @@ class TestDeployCommandGCPMode:
         assert "Failed to generate Dockerfile content. Aborting." in captured.out
 
     @patch(
-        "reward_kit.cli_commands.deploy.ensure_artifact_registry_repo_exists",
+        "eval_protocol.cli_commands.deploy.ensure_artifact_registry_repo_exists",
         return_value=True,
     )
     @patch(
-        "reward_kit.cli_commands.deploy.generate_dockerfile_content",
+        "eval_protocol.cli_commands.deploy.generate_dockerfile_content",
         return_value="Dockerfile",
     )
     @patch(
-        "reward_kit.cli_commands.deploy.build_and_push_docker_image", return_value=False
+        "eval_protocol.cli_commands.deploy.build_and_push_docker_image",
+        return_value=False,
     )
     def test_deploy_gcp_mode_build_fails(
         self,
@@ -457,19 +465,20 @@ class TestDeployCommandGCPMode:
         assert "Failed to build and push Docker image" in captured.out
 
     @patch(
-        "reward_kit.cli_commands.deploy.ensure_artifact_registry_repo_exists",
+        "eval_protocol.cli_commands.deploy.ensure_artifact_registry_repo_exists",
         return_value=True,
     )
     @patch(
-        "reward_kit.cli_commands.deploy.generate_dockerfile_content",
+        "eval_protocol.cli_commands.deploy.generate_dockerfile_content",
         return_value="Dockerfile",
     )
     @patch(
-        "reward_kit.cli_commands.deploy.build_and_push_docker_image", return_value=True
+        "eval_protocol.cli_commands.deploy.build_and_push_docker_image",
+        return_value=True,
     )
-    @patch("reward_kit.cli_commands.deploy.deploy_to_cloud_run", return_value=None)
+    @patch("eval_protocol.cli_commands.deploy.deploy_to_cloud_run", return_value=None)
     @patch(
-        "reward_kit.cli_commands.deploy.ensure_gcp_secret",
+        "eval_protocol.cli_commands.deploy.ensure_gcp_secret",
         return_value="projects/p/secrets/mocksecret/versions/1",
     )
     def test_deploy_gcp_mode_cloud_run_deploy_fails(
@@ -499,9 +508,9 @@ class TestDeployCommandGCPMode:
             in captured.out
         )
 
-    @patch("reward_kit.cli_commands.deploy.create_evaluation")
+    @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     @patch(
-        "reward_kit.cli_commands.deploy.ensure_gcp_secret",
+        "eval_protocol.cli_commands.deploy.ensure_gcp_secret",
         return_value="projects/p/secrets/mocksecret/versions/1",
     )
     def test_deploy_gcp_mode_final_registration_fails_platform_error(
@@ -533,9 +542,9 @@ class TestDeployCommandGCPMode:
             f"Error registering URL with Fireworks AI: {error_message}" in captured.out
         )
 
-    @patch("reward_kit.cli_commands.deploy.create_evaluation")
+    @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     @patch(
-        "reward_kit.cli_commands.deploy.ensure_gcp_secret",
+        "eval_protocol.cli_commands.deploy.ensure_gcp_secret",
         return_value="projects/p/secrets/mocksecret/versions/1",
     )
     def test_deploy_gcp_mode_final_registration_fails_generic_error(

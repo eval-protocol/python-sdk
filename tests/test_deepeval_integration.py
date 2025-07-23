@@ -89,8 +89,8 @@ except ImportError:
 # Fallback for OpenAI types if they were not imported (ChatCompletion will be None, etc.)
 # The mock will handle this by returning SimpleNamespace if Pydantic types are None.
 
-from reward_kit.integrations.deepeval import adapt_metric
-from reward_kit.models import EvaluateResult
+from eval_protocol.integrations.deepeval import adapt_metric
+from eval_protocol.models import EvaluateResult
 
 
 class DummyMetric(BaseMetric):  # type: ignore

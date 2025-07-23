@@ -8,11 +8,11 @@ from typing import (  # Optional was already here, this is fine.
 
 import pytest
 
-from reward_kit.agent.models import StepData
-from reward_kit.models import EvaluateResult
-from reward_kit.models import Message as RewardKitMessage
-from reward_kit.models import StepOutput
-from reward_kit.rl_processing import RLDataAligner
+from eval_protocol.agent.models import StepData
+from eval_protocol.models import EvaluateResult
+from eval_protocol.models import Message as RewardKitMessage
+from eval_protocol.models import StepOutput
+from eval_protocol.rl_processing import RLDataAligner
 
 
 class TestRLDataAligner:

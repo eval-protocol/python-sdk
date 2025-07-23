@@ -4,8 +4,8 @@ from unittest.mock import patch
 import pytest
 
 # Module to be tested
-from reward_protocol import generic_server
-from reward_protocol.generic_server import load_reward_function
+from eval_protocol import generic_server
+from eval_protocol.generic_server import load_reward_function
 
 # Dummy functions for testing from our dummy module
 from tests.dummy_module_for_server_test import (
@@ -104,9 +104,9 @@ class TestLoadRewardFunction:
 # --- Tests for FastAPI app endpoints ---
 from fastapi.testclient import TestClient
 
-from reward_kit.generic_server import EvaluationRequest
-from reward_kit.generic_server import app as generic_fastapi_app
-from reward_kit.models import EvaluateResult, Message, MetricResult
+from eval_protocol.generic_server import EvaluationRequest
+from eval_protocol.generic_server import app as generic_fastapi_app
+from eval_protocol.models import EvaluateResult, Message, MetricResult
 
 
 class TestServerEndpoints:

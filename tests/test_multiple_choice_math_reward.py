@@ -1,8 +1,8 @@
 import unittest
 from typing import Any, Dict, List
 
-from reward_kit.models import EvaluateResult, Message
-from reward_kit.rewards.multiple_choice_math_reward import (
+from eval_protocol.models import EvaluateResult, Message
+from eval_protocol.rewards.multiple_choice_math_reward import (
     extract_mcq_option,
     multiple_choice_math_reward,
 )

@@ -17,9 +17,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from reward_kit.agent.orchestrator import Orchestrator
-from reward_kit.agent.task_manager import TaskManager
-from reward_kit.models import TaskDefinitionModel
+from eval_protocol.agent.orchestrator import Orchestrator
+from eval_protocol.agent.task_manager import TaskManager
+from eval_protocol.models import TaskDefinitionModel
 
 
 class TestDataDrivenTaskManager:
@@ -163,11 +163,15 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
         samples = [{"id": "sample1", "seed": 42}, {"id": "sample2", "seed": 123}]
 
         # Mock the orchestrator execution
-        with patch.object(
-            self.task_manager, "_start_resource_server", return_value=8080
-        ), patch.object(self.task_manager, "_stop_resource_server"), patch(
-            "reward_kit.agent.task_manager.Orchestrator"
-        ) as mock_orchestrator_class:
+        with (
+            patch.object(
+                self.task_manager, "_start_resource_server", return_value=8080
+            ),
+            patch.object(self.task_manager, "_stop_resource_server"),
+            patch(
+                "eval_protocol.agent.task_manager.Orchestrator"
+            ) as mock_orchestrator_class,
+        ):
 
             # Set up mock orchestrator
             mock_orchestrator = AsyncMock()
@@ -201,11 +205,15 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
         samples = [{"id": "sample1", "seed": 42}]
         rollouts_per_sample = 3
 
-        with patch.object(
-            self.task_manager, "_start_resource_server", return_value=8080
-        ), patch.object(self.task_manager, "_stop_resource_server"), patch(
-            "reward_kit.agent.task_manager.Orchestrator"
-        ) as mock_orchestrator_class:
+        with (
+            patch.object(
+                self.task_manager, "_start_resource_server", return_value=8080
+            ),
+            patch.object(self.task_manager, "_stop_resource_server"),
+            patch(
+                "eval_protocol.agent.task_manager.Orchestrator"
+            ) as mock_orchestrator_class,
+        ):
 
             # Set up mock orchestrator to return different scores for each rollout
             mock_orchestrator = AsyncMock()
@@ -247,11 +255,15 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
         """Test handling of failures during data-driven execution."""
         samples = [{"id": "sample1", "seed": 42}, {"id": "sample2", "seed": 123}]
 
-        with patch.object(
-            self.task_manager, "_start_resource_server", return_value=8080
-        ), patch.object(self.task_manager, "_stop_resource_server"), patch(
-            "reward_kit.agent.task_manager.Orchestrator"
-        ) as mock_orchestrator_class:
+        with (
+            patch.object(
+                self.task_manager, "_start_resource_server", return_value=8080
+            ),
+            patch.object(self.task_manager, "_stop_resource_server"),
+            patch(
+                "eval_protocol.agent.task_manager.Orchestrator"
+            ) as mock_orchestrator_class,
+        ):
 
             # Set up mock orchestrator with one success and one failure
             mock_orchestrator = AsyncMock()
@@ -304,11 +316,15 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
             concurrent_count -= 1
             return {"score": 1.0, "reason": "Success"}
 
-        with patch.object(
-            self.task_manager, "_start_resource_server", return_value=8080
-        ), patch.object(self.task_manager, "_stop_resource_server"), patch(
-            "reward_kit.agent.task_manager.Orchestrator"
-        ) as mock_orchestrator_class:
+        with (
+            patch.object(
+                self.task_manager, "_start_resource_server", return_value=8080
+            ),
+            patch.object(self.task_manager, "_stop_resource_server"),
+            patch(
+                "eval_protocol.agent.task_manager.Orchestrator"
+            ) as mock_orchestrator_class,
+        ):
 
             mock_orchestrator = AsyncMock()
             mock_orchestrator.setup_base_resource = AsyncMock()
@@ -355,11 +371,14 @@ class TestTaskExecutionFlow(TestDataDrivenTaskManager):
             self.task_manager.register_task("data_driven", data_driven_task)
             self.task_manager.register_task("traditional", traditional_task)
 
-            with patch.object(
-                self.task_manager, "_execute_data_driven_rollouts"
-            ) as mock_data_driven, patch.object(
-                self.task_manager, "_execute_batch_rollouts"
-            ) as mock_traditional:
+            with (
+                patch.object(
+                    self.task_manager, "_execute_data_driven_rollouts"
+                ) as mock_data_driven,
+                patch.object(
+                    self.task_manager, "_execute_batch_rollouts"
+                ) as mock_traditional,
+            ):
 
                 mock_data_driven.return_value = [{"score": 1.0}]
                 mock_traditional.return_value = [{"score": 0.5}]

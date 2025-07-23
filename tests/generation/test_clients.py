@@ -5,7 +5,7 @@ import aiohttp
 import pytest
 from omegaconf import DictConfig
 
-from reward_protocol.generation.clients import FireworksModelClient
+from eval_protocol.generation.clients import FireworksModelClient
 
 
 @pytest.fixture

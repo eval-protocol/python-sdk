@@ -7,8 +7,8 @@ from typing import Any, Dict, List
 
 import pytest
 
-from reward_kit.models import EvaluateResult, Message, MetricResult
-from reward_kit.typed_interface import reward_function
+from eval_protocol.models import EvaluateResult, Message, MetricResult
+from eval_protocol.typed_interface import reward_function
 
 
 def test_typed_interface_basic():
@@ -131,7 +131,7 @@ def test_typed_interface_output_validation():
             score=0.5,
             reason=None,
             metrics={
-                "test": {"score": 0.5},  # type: ignore[dict-item] # Missing 'success' 
+                "test": {"score": 0.5},  # type: ignore[dict-item] # Missing 'success'
             },
         )  # type: ignore
 
@@ -234,15 +234,14 @@ def test_typed_interface_model_dump():
 
 def test_async_reward_function():
     """Test that the typed_interface works with async functions."""
+
     @reward_function
     async def async_evaluator(messages: List[Message], **kwargs) -> EvaluateResult:
         """Sample async evaluator that returns a hardcoded result."""
         return EvaluateResult(
-            score=0.8,
-            reason="Overall test reason",
-            is_score_valid=True
+            score=0.8, reason="Overall test reason", is_score_valid=True
         )
-        
+
     async def _test_async_reward_function():
         messages = [
             {"role": "user", "content": "Hello"},
@@ -253,20 +252,19 @@ def test_async_reward_function():
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.8
         assert result.reason == "Overall test reason"
-    
+
     asyncio.run(_test_async_reward_function())
+
 
 def test_reward_function_decorator_attributes():
     """Test that the reward_function decorator sets attributes correctly."""
 
-    @reward_function(mode="batch", requirements=["requests", "numpy"], concurrency=10, timeout=10)
+    @reward_function(
+        mode="batch", requirements=["requests", "numpy"], concurrency=10, timeout=10
+    )
     def sample_evaluator(messages: List[Message], **kwargs) -> EvaluateResult:
         """Sample evaluator that returns a hardcoded result."""
-        return EvaluateResult(
-            score=0.8,
-            reason="Overall test reason",
-            metrics={}
-        )
+        return EvaluateResult(score=0.8, reason="Overall test reason", metrics={})
 
     assert sample_evaluator._reward_function_mode == "batch"
     assert sample_evaluator._reward_function_requirements == ["requests", "numpy"]

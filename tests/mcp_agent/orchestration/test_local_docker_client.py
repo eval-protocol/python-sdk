@@ -15,9 +15,9 @@ from mcp import types as mcp_types  # Tool is defined here
 # from mcp.shared import message_types as mcp_message_types # No longer needed for ToolDefinition
 from mcp.client.session import ClientSession  # Import ClientSession
 
-from reward_kit.mcp_agent.config import AppConfig, BackendServerConfig
-from reward_kit.mcp_agent.orchestration.base_client import ManagedInstanceInfo
-from reward_kit.mcp_agent.orchestration.local_docker_client import (
+from eval_protocol.mcp_agent.config import AppConfig, BackendServerConfig
+from eval_protocol.mcp_agent.orchestration.base_client import ManagedInstanceInfo
+from eval_protocol.mcp_agent.orchestration.local_docker_client import (
     LocalDockerOrchestrationClient,
 )
 
@@ -75,7 +75,7 @@ async def local_docker_orchestrator() -> (
     orchestrator = LocalDockerOrchestrationClient(app_config=app_cfg)
     # Patch docker.from_env for the duration of this fixture
     with patch(
-        "reward_kit.mcp_agent.orchestration.local_docker_client.docker.from_env"
+        "eval_protocol.mcp_agent.orchestration.local_docker_client.docker.from_env"
     ) as mock_docker_from_env:
         mock_docker_client = MagicMock(spec=docker.DockerClient)
         mock_docker_client.ping = MagicMock(return_value=True)
@@ -167,7 +167,7 @@ async def test_provision_deprovision_http_instance(
         # This function is decorated with @asynccontextmanager, so it returns an ACM when called.
         # We patch the function itself.
         with patch(
-            "reward_kit.mcp_agent.orchestration.local_docker_client.streamablehttp_client",
+            "eval_protocol.mcp_agent.orchestration.local_docker_client.streamablehttp_client",
             new_callable=MagicMock,
         ) as mock_streamablehttp_client_func:
 
@@ -201,7 +201,7 @@ async def test_provision_deprovision_http_instance(
             )
 
             with patch(
-                "reward_kit.mcp_agent.orchestration.local_docker_client.ClientSession",
+                "eval_protocol.mcp_agent.orchestration.local_docker_client.ClientSession",
                 new_callable=MagicMock,
             ) as MockedClientSessionInSUT:
                 # This is the mock for the ClientSession *instance*

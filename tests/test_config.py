@@ -5,8 +5,8 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from reward_kit import config as rk_config  # Alias to avoid conflict
-from reward_kit.config import (
+from eval_protocol import config as rk_config  # Alias to avoid conflict
+from eval_protocol.config import (
     CONFIG_FILE_NAME,
     AWSLambdaConfig,
     GCPCloudRunConfig,
@@ -54,7 +54,7 @@ class TestFindConfigFile:
 class TestLoadConfig:
     def test_load_no_config_file_found(self):
         """Test loading config when no rewardkit.yaml exists."""
-        with patch("reward_kit.config.find_config_file", return_value=None):
+        with patch("eval_protocol.config.find_config_file", return_value=None):
             cfg = rk_config.get_config()
             assert isinstance(cfg, RewardKitConfig)
             # Check for default values
@@ -168,7 +168,7 @@ gcp_cloud_run:
 
         # Patch find_config_file to control its result for this test
         with patch(
-            "reward_kit.config.find_config_file", return_value=str(config_file)
+            "eval_protocol.config.find_config_file", return_value=str(config_file)
         ) as mock_find:
             cfg1 = rk_config.get_config()
             assert cfg1.default_deployment_target == "local"
@@ -208,7 +208,8 @@ gcp_cloud_run:
 
         # Patch find_config_file to return the "default" location
         with patch(
-            "reward_kit.config.find_config_file", return_value=str(default_config_file)
+            "eval_protocol.config.find_config_file",
+            return_value=str(default_config_file),
         ):
             # First, get_config might load the one found by find_config_file
             cfg_found = rk_config.get_config()

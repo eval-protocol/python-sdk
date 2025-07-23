@@ -3,8 +3,8 @@ from typing import Any, Dict, List, Union
 import pytest
 from pydantic import ValidationError
 
-from reward_kit.models import EvaluateResult, Message, StepOutput
-from reward_kit.typed_interface import EvaluationMode, reward_function
+from eval_protocol.models import EvaluateResult, Message, StepOutput
+from eval_protocol.typed_interface import EvaluationMode, reward_function
 
 # --- Mock User Reward Functions ---
 

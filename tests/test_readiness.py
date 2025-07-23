@@ -14,8 +14,8 @@ except Exception:  # pragma: no cover - optional dependency
 # Ensure reward-kit is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from reward_kit.models import EvaluateResult, Message  # Removed PreviewBulk* models
-from reward_kit.rewards.math import math_reward
+from eval_protocol.models import EvaluateResult, Message  # Removed PreviewBulk* models
+from eval_protocol.rewards.math import math_reward
 
 # Import functions from the example scripts if they are structured for import
 # For simplicity here, we might re-implement small parts or directly call reward functions

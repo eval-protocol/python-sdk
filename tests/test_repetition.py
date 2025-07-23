@@ -9,8 +9,8 @@ import unittest
 # Add the parent directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from reward_protocol.models import EvaluateResult, Message
-from reward_protocol.rewards.repetition import (
+from eval_protocol.models import EvaluateResult, Message
+from eval_protocol.rewards.repetition import (
     diversity_reward,
     get_ngrams,
     repetition_penalty_reward,

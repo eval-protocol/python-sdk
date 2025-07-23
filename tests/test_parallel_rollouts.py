@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-import reward_protocol as rk
+import eval_protocol as rk
 
 
 @pytest.mark.asyncio

@@ -1,8 +1,8 @@
 import unittest
 from typing import Any, Dict, List, Optional
 
-from reward_kit.models import EvaluateResult, Message
-from reward_kit.rewards.list_comparison_math_reward import (
+from eval_protocol.models import EvaluateResult, Message
+from eval_protocol.rewards.list_comparison_math_reward import (
     extract_number_list,
     list_comparison_math_reward,
     parse_number_list_from_string,

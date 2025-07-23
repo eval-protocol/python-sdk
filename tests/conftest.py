@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-from reward_protocol.models import EvaluateResult, MetricResult
+from eval_protocol.models import EvaluateResult, MetricResult
 
 # Check if e2b is available and skip related tests if not
 try:

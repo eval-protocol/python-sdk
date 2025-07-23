@@ -5,10 +5,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from reward_kit.cli_commands import preview as preview_cmd_module
-from reward_kit.cli_commands.preview import preview_command
-from reward_kit.generic_server import EvaluationRequest
-from reward_kit.models import EvaluateResult, Message, MetricResult
+from eval_protocol.cli_commands import preview as preview_cmd_module
+from eval_protocol.cli_commands.preview import preview_command
+from eval_protocol.generic_server import EvaluationRequest
+from eval_protocol.models import EvaluateResult, Message, MetricResult
 
 try:
     from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict
@@ -41,7 +41,7 @@ class MockArgs:
 @pytest.fixture
 def mock_check_environment():
     with patch(
-        "reward_kit.cli_commands.preview.check_environment", return_value=True
+        "eval_protocol.cli_commands.preview.check_environment", return_value=True
     ) as mock_check:
         yield mock_check
 
@@ -221,7 +221,7 @@ class TestPreviewCommandRemoteUrl:
 
 
 class TestPreviewCommandLocalMode:
-    @patch("reward_kit.cli_commands.preview.preview_evaluation")
+    @patch("eval_protocol.cli_commands.preview.preview_evaluation")
     def test_preview_local_mode_success(
         self, mock_preview_eval, mock_check_environment, tmp_path, capsys
     ):

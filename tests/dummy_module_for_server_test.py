@@ -1,11 +1,11 @@
 from typing import Any, Dict, List, Optional, Union
 
-from reward_protocol.models import (  # Ensure MetricResult is imported
+from eval_protocol import reward_function
+from eval_protocol.models import (  # Ensure MetricResult is imported
     EvaluateResult,
     Message,
     MetricResult,
 )
-from reward_protocol import reward_function
 
 
 @reward_function

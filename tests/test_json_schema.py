@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from reward_kit.models import EvaluateResult  # Changed
-from reward_kit.rewards.json_schema import (
+from eval_protocol.models import EvaluateResult  # Changed
+from eval_protocol.rewards.json_schema import (
     json_schema_reward,
     json_schema_reward_with_llm_judge,
 )

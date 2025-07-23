@@ -2,7 +2,7 @@
 Debugging script for repetition rewards.
 """
 
-from reward_kit.rewards.repetition import repetition_penalty_reward
+from eval_protocol.rewards.repetition import repetition_penalty_reward
 
 
 def main():

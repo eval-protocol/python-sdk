@@ -3,15 +3,15 @@ from typing import Any, Dict, List, Union
 import pytest
 from pydantic import ValidationError
 
-from reward_protocol.agent.models import StepData
+from eval_protocol.agent.models import StepData
 
 # Assuming these are the correct import paths based on our plan
-from reward_protocol.models import EvaluateResult
-from reward_protocol.models import Message as RewardKitMessage
-from reward_protocol.models import StepOutput
+from eval_protocol.models import EvaluateResult
+from eval_protocol.models import Message as RewardKitMessage
+from eval_protocol.models import StepOutput
 
-# Minimal Message for StepData if direct import from reward_kit.models is problematic in tests
-# For now, assume RewardKitMessage from reward_kit.models works.
+# Minimal Message for StepData if direct import from eval_protocol.models is problematic in tests
+# For now, assume RewardKitMessage from eval_protocol.models works.
 
 
 class TestRLDataStructures:
@@ -153,7 +153,7 @@ class TestRLDataStructures:
 
     def test_step_data_message_import(self):
         """Test that Message can be used within StepData."""
-        # This test implicitly checks if the Message import in reward_kit.agent.models
+        # This test implicitly checks if the Message import in eval_protocol.agent.models
         # is working or if the fallback is used. A more direct test might involve
         # checking the type of resulting_messages_history items if possible.
         m1 = RewardKitMessage(role="user", content="Test")

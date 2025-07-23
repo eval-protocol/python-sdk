@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from reward_kit.cli_commands import common
+from eval_protocol.cli_commands import common
 
 try:
     from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict
@@ -124,7 +124,7 @@ def test_load_samples_from_file_invalid_json(tmp_path, caplog):
 def test_load_samples_from_file_empty_file(tmp_path):
     file_path = tmp_path / "empty.jsonl"
     file_path.write_text("")
-    with patch("reward_kit.cli_commands.common.logger.info") as mock_info:
+    with patch("eval_protocol.cli_commands.common.logger.info") as mock_info:
         samples = list(common.load_samples_from_file(str(file_path), max_samples=10))
         assert len(samples) == 0
         mock_info.assert_called_once_with(

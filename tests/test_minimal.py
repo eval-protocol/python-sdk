@@ -55,7 +55,7 @@ def setup_minimal_task_bundle():
         with open(os.path.join(task_dir, "tools.py"), "w") as f:
             f.write(
                 """
-from reward_kit.agent import ToolRegistry
+from eval_protocol.agent import ToolRegistry
 
 # Create tool registry
 R = ToolRegistry("test_tools")
@@ -70,7 +70,7 @@ def echo(text):
         with open(os.path.join(task_dir, "reward.py"), "w") as f:
             f.write(
                 """
-from reward_kit import reward_function, EvaluateResult, MetricResult
+from eval_protocol import reward_function, EvaluateResult, MetricResult
 
 @reward_function
 def evaluate(messages, **kwargs) -> EvaluateResult:

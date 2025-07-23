@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 
 # Import the SUT
-from reward_kit.auth import (
+from eval_protocol.auth import (
     AUTH_INI_FILE,
     get_fireworks_account_id,
     get_fireworks_api_key,
@@ -49,7 +49,7 @@ def test_get_api_key_from_env():
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")  # Mocks the ConfigParser class
 @patch(
-    "reward_kit.auth._parse_simple_auth_file", return_value={}
+    "eval_protocol.auth._parse_simple_auth_file", return_value={}
 )  # Ensure simple parse finds nothing
 def test_get_api_key_from_ini(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists
@@ -89,11 +89,11 @@ def test_get_api_key_from_ini(
 
 def test_get_api_key_env_overrides_ini():
     os.environ["FIREWORKS_API_KEY"] = TEST_ENV_API_KEY
-    with patch("pathlib.Path.exists") as mock_path_exists, patch(
-        "configparser.ConfigParser"
-    ) as mock_ConfigParser_class, patch(
-        "reward_kit.auth._parse_simple_auth_file"
-    ) as mock_parse_simple:
+    with (
+        patch("pathlib.Path.exists") as mock_path_exists,
+        patch("configparser.ConfigParser") as mock_ConfigParser_class,
+        patch("eval_protocol.auth._parse_simple_auth_file") as mock_parse_simple,
+    ):
         assert get_fireworks_api_key() == TEST_ENV_API_KEY
         mock_parse_simple.assert_not_called()  # Env var should be checked first
         mock_path_exists.assert_not_called()
@@ -104,7 +104,7 @@ def test_get_api_key_env_overrides_ini():
 def test_get_api_key_not_found(mock_path_exists):
     # Ensure _parse_simple_auth_file is also considered if Path.exists is True but file is empty/no key
     with patch(
-        "reward_kit.auth._parse_simple_auth_file", return_value={}
+        "eval_protocol.auth._parse_simple_auth_file", return_value={}
     ) as mock_parse_simple:
         assert get_fireworks_api_key() is None
         # _get_credential_from_config_file checks AUTH_INI_FILE.exists() first
@@ -119,7 +119,7 @@ def test_get_api_key_not_found(mock_path_exists):
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
 @patch(
-    "reward_kit.auth._parse_simple_auth_file", return_value={}
+    "eval_protocol.auth._parse_simple_auth_file", return_value={}
 )  # Simple parse finds nothing
 def test_get_api_key_ini_exists_no_section(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists
@@ -140,7 +140,7 @@ def test_get_api_key_ini_exists_no_section(
 
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
-@patch("reward_kit.auth._parse_simple_auth_file", return_value={})
+@patch("eval_protocol.auth._parse_simple_auth_file", return_value={})
 def test_get_api_key_ini_exists_no_key_option(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists
 ):
@@ -157,7 +157,7 @@ def test_get_api_key_ini_exists_no_key_option(
 
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
-@patch("reward_kit.auth._parse_simple_auth_file", return_value={})
+@patch("eval_protocol.auth._parse_simple_auth_file", return_value={})
 def test_get_api_key_ini_empty_value(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists
 ):
@@ -181,7 +181,7 @@ def test_get_api_key_ini_empty_value(
 
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
-@patch("reward_kit.auth._parse_simple_auth_file", return_value={})
+@patch("eval_protocol.auth._parse_simple_auth_file", return_value={})
 def test_get_api_key_from_ini_default_section_success(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists
 ):
@@ -212,7 +212,9 @@ def test_get_api_key_from_ini_default_section_success(
 def test_get_api_key_from_ini_simple_parsing_success(mock_path_exists):
     file_content = f"api_key = {INI_API_KEY}\nother_key = value"
     # Patch open specifically for _parse_simple_auth_file if it's different from configparser's use
-    with patch("reward_kit.auth.open", mock_open(read_data=file_content), create=True):
+    with patch(
+        "eval_protocol.auth.open", mock_open(read_data=file_content), create=True
+    ):
         # Ensure configparser path is not taken or also returns None for api_key
         with patch("configparser.ConfigParser") as mock_ConfigParser_class_inner:
             mock_parser_instance = mock_ConfigParser_class_inner.return_value
@@ -234,7 +236,7 @@ def test_get_account_id_from_env():
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
 @patch(
-    "reward_kit.auth._parse_simple_auth_file", return_value={}
+    "eval_protocol.auth._parse_simple_auth_file", return_value={}
 )  # Ensure simple parse finds nothing
 def test_get_account_id_from_ini(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists
@@ -267,11 +269,11 @@ def test_get_account_id_from_ini(
 
 def test_get_account_id_env_overrides_ini():
     os.environ["FIREWORKS_ACCOUNT_ID"] = TEST_ENV_ACCOUNT_ID
-    with patch("pathlib.Path.exists") as mock_path_exists, patch(
-        "configparser.ConfigParser"
-    ) as mock_ConfigParser_class, patch(
-        "reward_kit.auth._parse_simple_auth_file"
-    ) as mock_parse_simple:
+    with (
+        patch("pathlib.Path.exists") as mock_path_exists,
+        patch("configparser.ConfigParser") as mock_ConfigParser_class,
+        patch("eval_protocol.auth._parse_simple_auth_file") as mock_parse_simple,
+    ):
         assert get_fireworks_account_id() == TEST_ENV_ACCOUNT_ID
         mock_parse_simple.assert_not_called()
         mock_path_exists.assert_not_called()
@@ -281,7 +283,7 @@ def test_get_account_id_env_overrides_ini():
 @patch("pathlib.Path.exists", return_value=False)
 def test_get_account_id_not_found(mock_path_exists):
     with patch(
-        "reward_kit.auth._parse_simple_auth_file", return_value={}
+        "eval_protocol.auth._parse_simple_auth_file", return_value={}
     ) as mock_parse_simple:
         assert get_fireworks_account_id() is None
         mock_parse_simple.assert_not_called()
@@ -290,7 +292,7 @@ def test_get_account_id_not_found(mock_path_exists):
 
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
-@patch("reward_kit.auth._parse_simple_auth_file", return_value={})
+@patch("eval_protocol.auth._parse_simple_auth_file", return_value={})
 def test_get_account_id_ini_exists_no_section(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists
 ):
@@ -308,7 +310,7 @@ def test_get_account_id_ini_exists_no_section(
 
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
-@patch("reward_kit.auth._parse_simple_auth_file", return_value={})
+@patch("eval_protocol.auth._parse_simple_auth_file", return_value={})
 def test_get_account_id_ini_exists_no_id_option(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists
 ):
@@ -324,7 +326,7 @@ def test_get_account_id_ini_exists_no_id_option(
 
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
-@patch("reward_kit.auth._parse_simple_auth_file", return_value={})
+@patch("eval_protocol.auth._parse_simple_auth_file", return_value={})
 def test_get_account_id_ini_empty_value(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists
 ):
@@ -346,7 +348,7 @@ def test_get_account_id_ini_empty_value(
 
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
-@patch("reward_kit.auth._parse_simple_auth_file", return_value={})
+@patch("eval_protocol.auth._parse_simple_auth_file", return_value={})
 def test_get_account_id_from_ini_default_section_success(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists
 ):
@@ -379,7 +381,9 @@ def test_get_account_id_from_ini_simple_parsing_success(
     mock_path_exists,
 ):  # Renamed from fallback_parsing
     file_content = f"account_id = {INI_ACCOUNT_ID}\nother_key = value"
-    with patch("reward_kit.auth.open", mock_open(read_data=file_content), create=True):
+    with patch(
+        "eval_protocol.auth.open", mock_open(read_data=file_content), create=True
+    ):
         # Ensure configparser path is not taken or also returns None for account_id
         with patch("configparser.ConfigParser") as mock_ConfigParser_class_inner:
             mock_parser_instance = mock_ConfigParser_class_inner.return_value
@@ -394,7 +398,7 @@ def test_get_account_id_from_ini_simple_parsing_success(
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
 @patch(
-    "reward_kit.auth._parse_simple_auth_file", return_value={}
+    "eval_protocol.auth._parse_simple_auth_file", return_value={}
 )  # Simple parse finds nothing
 def test_get_api_key_ini_parse_error(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists, caplog
@@ -412,7 +416,7 @@ def test_get_api_key_ini_parse_error(
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
 @patch(
-    "reward_kit.auth._parse_simple_auth_file", return_value={}
+    "eval_protocol.auth._parse_simple_auth_file", return_value={}
 )  # Simple parse finds nothing
 def test_get_account_id_ini_parse_error(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists, caplog
@@ -430,7 +434,7 @@ def test_get_account_id_ini_parse_error(
 @patch("pathlib.Path.exists", return_value=True)
 @patch("configparser.ConfigParser")
 @patch(
-    "reward_kit.auth._parse_simple_auth_file", return_value={}
+    "eval_protocol.auth._parse_simple_auth_file", return_value={}
 )  # Simple parse finds nothing
 def test_get_api_key_unexpected_error_reading_ini(
     mock_parse_simple, mock_ConfigParser_class, mock_path_exists, caplog

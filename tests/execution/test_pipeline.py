@@ -5,13 +5,13 @@ import aiohttp
 import pytest
 from omegaconf import DictConfig, OmegaConf
 
-from reward_protocol.execution.pipeline import EvaluationPipeline
-from reward_protocol.generation.cache import ResponseCache
-from reward_protocol.generation.clients import GenerationResult  # Import GenerationResult
-from reward_protocol.generation.clients import (  # For type hinting and mocking
+from eval_protocol.execution.pipeline import EvaluationPipeline
+from eval_protocol.generation.cache import ResponseCache
+from eval_protocol.generation.clients import GenerationResult  # Import GenerationResult
+from eval_protocol.generation.clients import (  # For type hinting and mocking
     FireworksModelClient,
 )
-from reward_protocol.models import EvaluateResult, Message, MetricResult
+from eval_protocol.models import EvaluateResult, Message, MetricResult
 
 
 # Minimal valid config for pipeline initialization
@@ -35,7 +35,7 @@ def minimal_pipeline_cfg():
                 "api_params": {"max_retries": 1, "max_concurrent_requests": 1},
             },
             "dataset": {  # Required for instantiation, even if not directly used in some tests
-                "_target_": "reward_kit.datasets.loader.load_and_process_dataset",  # Dummy target
+                "_target_": "eval_protocol.datasets.loader.load_and_process_dataset",  # Dummy target
                 "source_type": "jsonl",
                 "path_or_name": "dummy.jsonl",
             },
@@ -99,10 +99,10 @@ def mock_dataset():
 
 @pytest.mark.asyncio
 @patch(
-    "reward_protocol.execution.pipeline.FireworksModelClient", autospec=True
+    "eval_protocol.execution.pipeline.FireworksModelClient", autospec=True
 )  # Mock at source of import
-@patch("reward_protocol.execution.pipeline.ResponseCache", autospec=True)
-@patch("reward_protocol.execution.pipeline.load_reward_function")
+@patch("eval_protocol.execution.pipeline.ResponseCache", autospec=True)
+@patch("eval_protocol.execution.pipeline.load_reward_function")
 @patch("hydra.utils.instantiate")  # Mock hydra's instantiate for dataset loading
 async def test_pipeline_passes_reasoning_effort_to_cache(
     mock_instantiate: MagicMock,
@@ -141,7 +141,8 @@ async def test_pipeline_passes_reasoning_effort_to_cache(
 
     # Patch get_fireworks_api_key as it's called in pipeline init
     with patch(
-        "reward_protocol.execution.pipeline.get_fireworks_api_key", return_value="fake_key"
+        "eval_protocol.execution.pipeline.get_fireworks_api_key",
+        return_value="fake_key",
     ):
         pipeline = EvaluationPipeline(minimal_pipeline_cfg)
 

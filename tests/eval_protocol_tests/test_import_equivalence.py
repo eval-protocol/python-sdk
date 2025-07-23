@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test to demonstrate that eval_protocol and reward_kit imports are equivalent.
+Test to demonstrate that eval_protocol and eval_protocol imports are equivalent.
 This test works by examining the module structure without triggering dependency imports.
 """
 
@@ -13,12 +13,12 @@ def test_module_specs():
     """Test that both modules have the correct specifications."""
     print("=== Testing Module Specifications ===")
 
-    # Test reward_kit spec
-    rk_spec = importlib.util.find_spec("reward_kit")
+    # Test eval_protocol spec
+    rk_spec = importlib.util.find_spec("eval_protocol")
     if rk_spec:
-        print(f"✓ reward_kit spec found: {rk_spec.origin}")
+        print(f"✓ eval_protocol spec found: {rk_spec.origin}")
     else:
-        print("✗ reward_kit spec not found")
+        print("✗ eval_protocol spec not found")
         return False
 
     # Test eval_protocol spec
@@ -36,30 +36,30 @@ def test_import_structure():
     """Test the import structure without triggering dependency loads."""
     print("\n=== Testing Import Structure ===")
 
-    # Read the eval_protocol __init__.py to verify it re-exports reward_kit
+    # Read the eval_protocol __init__.py to verify it re-exports eval_protocol
     try:
         with open("eval_protocol/__init__.py", "r") as f:
             rp_content = f.read()
 
-        # Check that it imports everything from reward_kit
-        if "from reward_kit import *" in rp_content:
-            print("✓ eval_protocol imports everything from reward_kit")
+        # Check that it imports everything from eval_protocol
+        if "from eval_protocol import *" in rp_content:
+            print("✓ eval_protocol imports everything from eval_protocol")
         else:
-            print("✗ eval_protocol does not import everything from reward_kit")
+            print("✗ eval_protocol does not import everything from eval_protocol")
             return False
 
         # Check version consistency
-        if "from reward_kit import __version__" in rp_content:
-            print("✓ eval_protocol imports __version__ from reward_kit")
+        if "from eval_protocol import __version__" in rp_content:
+            print("✓ eval_protocol imports __version__ from eval_protocol")
         else:
-            print("✗ eval_protocol does not import __version__ from reward_kit")
+            print("✗ eval_protocol does not import __version__ from eval_protocol")
             return False
 
         # Check __all__ consistency
-        if "from reward_kit import __all__" in rp_content:
-            print("✓ eval_protocol imports __all__ from reward_kit")
+        if "from eval_protocol import __all__" in rp_content:
+            print("✓ eval_protocol imports __all__ from eval_protocol")
         else:
-            print("✗ eval_protocol does not import __all__ from reward_kit")
+            print("✗ eval_protocol does not import __all__ from eval_protocol")
             return False
 
         return True
@@ -145,7 +145,7 @@ def test_console_scripts():
         expected_scripts = [
             "fireworks-reward=reward_kit.cli:main",
             "reward-kit=reward_kit.cli:main",
-            "reward-protocol=reward_kit.cli:main",
+            "eval-protocol=reward_kit.cli:main",
         ]
 
         for script in expected_scripts:
@@ -171,7 +171,7 @@ def test_package_metadata():
             setup_content = f.read()
 
         # Check package discovery
-        if "reward_kit*" in setup_content and "eval_protocol*" in setup_content:
+        if "eval_protocol*" in setup_content and "eval_protocol*" in setup_content:
             print("✓ Both packages included in find_packages")
         else:
             print("✗ Package discovery configuration incorrect")
@@ -198,9 +198,9 @@ def demonstrate_usage():
     print("After installation, users can use either import style:")
     print()
 
-    print("# Style 1: reward_kit (original)")
-    print("from reward_kit import reward_function, Message")
-    print("from reward_kit.rewards import accuracy")
+    print("# Style 1: eval_protocol (original)")
+    print("from eval_protocol import reward_function, Message")
+    print("from eval_protocol.rewards import accuracy")
     print()
 
     print("# Style 2: eval_protocol (new)")
@@ -213,7 +213,7 @@ def demonstrate_usage():
 
     print("Command-line usage:")
     print("reward-kit --help          # Original")
-    print("reward-protocol --help     # New")
+    print("eval-protocol --help       # New")
     print("fireworks-reward --help    # Alternative")
     print()
 

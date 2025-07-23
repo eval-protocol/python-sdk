@@ -15,7 +15,7 @@ def test_package_directories():
     print("Testing package directories...")
 
     required_dirs = [
-        "reward_kit",
+        "eval_protocol",
         "eval_protocol",
     ]
 
@@ -38,7 +38,7 @@ def test_init_files():
     print("\nTesting __init__.py files...")
 
     init_files = [
-        "reward_kit/__init__.py",
+        "eval_protocol/__init__.py",
         "eval_protocol/__init__.py",
     ]
 
@@ -66,9 +66,9 @@ def test_eval_protocol_init():
 
         # Check for key imports
         expected_patterns = [
-            "from reward_kit import *",
-            "from reward_kit import __version__",
-            "from reward_kit import __all__",
+            "from eval_protocol import *",
+            "from eval_protocol import __version__",
+            "from eval_protocol import __all__",
         ]
 
         for pattern in expected_patterns:
@@ -93,7 +93,7 @@ def test_setup_py_structure():
             content = f.read()
 
         # Check for package inclusion
-        if "reward_kit*" in content and "eval_protocol*" in content:
+        if "eval_protocol*" in content and "eval_protocol*" in content:
             print("  ✓ Both packages included in setup.py")
         else:
             print("  ✗ Package inclusion not found in setup.py")
@@ -103,7 +103,7 @@ def test_setup_py_structure():
         console_scripts = [
             "fireworks-reward=reward_kit.cli:main",
             "reward-kit=reward_kit.cli:main",
-            "reward-protocol=reward_kit.cli:main",
+            "eval-protocol=reward_kit.cli:main",
         ]
 
         for script in console_scripts:
@@ -126,14 +126,14 @@ def test_find_packages():
     try:
         from setuptools import find_packages
 
-        packages = find_packages(include=["reward_kit*", "eval_protocol*"])
+        packages = find_packages(include=["eval_protocol*", "eval_protocol*"])
 
         print(f"  Found {len(packages)} packages total")
 
-        if "reward_kit" in packages:
-            print("  ✓ reward_kit package found")
+        if "eval_protocol" in packages:
+            print("  ✓ eval_protocol package found")
         else:
-            print("  ✗ reward_kit package not found")
+            print("  ✗ eval_protocol package not found")
             return False
 
         if "eval_protocol" in packages:
@@ -143,8 +143,8 @@ def test_find_packages():
             return False
 
         # Count subpackages
-        rk_sub = [p for p in packages if p.startswith("reward_kit.")]
-        print(f"  Found {len(rk_sub)} reward_kit subpackages")
+        rk_sub = [p for p in packages if p.startswith("eval_protocol.")]
+        print(f"  Found {len(rk_sub)} eval_protocol subpackages")
 
         return True
     except Exception as e:

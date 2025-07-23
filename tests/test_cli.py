@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from reward_kit.cli import deploy_command, main, parse_args, preview_command
+from eval_protocol.cli import deploy_command, main, parse_args, preview_command
 
 
 class TestCLI:
@@ -32,8 +32,8 @@ class TestCLI:
         assert args.metrics_folders == ["test=./test"]
         assert not args.force  # default value
 
-    @patch("reward_kit.cli_commands.preview.check_environment", return_value=True)
-    @patch("reward_kit.cli_commands.preview.preview_evaluation")
+    @patch("eval_protocol.cli_commands.preview.check_environment", return_value=True)
+    @patch("eval_protocol.cli_commands.preview.preview_evaluation")
     def test_preview_command(self, mock_preview_eval, mock_preview_check_env):
         """Test the preview command (local mode)."""
         mock_preview_result = MagicMock()
@@ -51,7 +51,7 @@ class TestCLI:
         args.huggingface_key_map = None
         args.remote_url = None  # Added for compatibility with updated preview_command
 
-        with patch("reward_kit.cli_commands.preview.Path.exists", return_value=True):
+        with patch("eval_protocol.cli_commands.preview.Path.exists", return_value=True):
             result = preview_command(args)
 
             assert result == 0
@@ -68,8 +68,8 @@ class TestCLI:
             )
             mock_preview_result.display.assert_called_once()
 
-    @patch("reward_kit.cli_commands.deploy.check_environment", return_value=True)
-    @patch("reward_kit.cli_commands.deploy.create_evaluation")
+    @patch("eval_protocol.cli_commands.deploy.check_environment", return_value=True)
+    @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_command(self, mock_create_eval, mock_deploy_check_env):
         """Test the deploy command (local mode)."""
         mock_create_eval.return_value = {"name": "test-evaluator"}
@@ -119,8 +119,8 @@ class TestCLI:
             # remote_url=None removed as it relies on default
         )
 
-    @patch("reward_kit.cli_commands.deploy.check_environment", return_value=False)
-    @patch("reward_kit.cli_commands.preview.check_environment", return_value=False)
+    @patch("eval_protocol.cli_commands.deploy.check_environment", return_value=False)
+    @patch("eval_protocol.cli_commands.preview.check_environment", return_value=False)
     def test_command_environment_check(
         self, mock_preview_check_env, mock_deploy_check_env
     ):
@@ -163,7 +163,7 @@ class TestCLI:
         deploy_args.gcp_auth_mode = None
 
         # Mock Path.exists for preview_args if it uses samples file
-        with patch("reward_kit.cli_commands.preview.Path.exists", return_value=True):
+        with patch("eval_protocol.cli_commands.preview.Path.exists", return_value=True):
             preview_result = preview_command(preview_args)
 
         deploy_result = deploy_command(deploy_args)

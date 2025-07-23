@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Demo script showing how dual imports work with reward_kit and eval_protocol.
+Demo script showing how dual imports work with eval_protocol and eval_protocol.
 This demonstrates the functionality that will be available once the package is installed.
 """
 
@@ -21,9 +21,9 @@ def demo_import_equivalence():
 
     # Show both import styles
     print("# Option 1: Original import style")
-    print("from reward_kit import RewardFunction, Message, reward_function")
-    print("from reward_kit.rewards import accuracy")
-    print("from reward_kit.models import EvaluateResult")
+    print("from eval_protocol import RewardFunction, Message, reward_function")
+    print("from eval_protocol.rewards import accuracy")
+    print("from eval_protocol.models import EvaluateResult")
     print()
 
     print("# Option 2: New import style")
@@ -46,7 +46,7 @@ def demo_console_scripts():
     print()
     print("1. fireworks-reward --help")
     print("2. reward-kit --help")
-    print("3. reward-protocol --help  # NEW!")
+    print("3. eval-protocol --help  # NEW!")
     print()
     print("All three scripts provide the same CLI functionality.")
     print()
@@ -59,11 +59,11 @@ def demo_usage_examples():
     print("=== Usage Examples ===")
     print()
 
-    # Example 1: reward_kit style
-    print("# Example 1: Using reward_kit (original style)")
+    # Example 1: eval_protocol style
+    print("# Example 1: Using eval_protocol (original style)")
     print(
         """
-from reward_kit import reward_function
+from eval_protocol import reward_function
 
 @reward_function
 def simple_length_reward(response: str, **kwargs) -> float:
@@ -101,12 +101,12 @@ def demo_migration_guide():
     """
     print("=== Migration Guide ===")
     print()
-    print("Existing users can continue using reward_kit:")
+    print("Existing users can continue using eval_protocol:")
     print("✓ All existing code continues to work unchanged")
     print("✓ No breaking changes")
     print()
     print("New users can choose either import style:")
-    print("✓ reward_kit - Original and widely documented")
+    print("✓ eval_protocol - Original and widely documented")
     print("✓ eval_protocol - New alternative name")
     print()
     print("Both styles are fully equivalent and interchangeable!")
@@ -122,7 +122,7 @@ def verify_package_structure():
 
     # Check that files exist
     files_to_check = [
-        "reward_kit/__init__.py",
+        "eval_protocol/__init__.py",
         "eval_protocol/__init__.py",
         "setup.py",
     ]
@@ -140,12 +140,12 @@ def verify_package_structure():
         with open("eval_protocol/__init__.py", "r") as f:
             content = f.read()
 
-        if "from reward_kit import *" in content:
-            print("✓ eval_protocol properly re-exports reward_kit")
+        if "from eval_protocol import *" in content:
+            print("✓ eval_protocol properly re-exports eval_protocol")
         else:
-            print("✗ eval_protocol does not re-export reward_kit")
+            print("✗ eval_protocol does not re-export eval_protocol")
 
-        if "from reward_kit import __version__" in content:
+        if "from eval_protocol import __version__" in content:
             print("✓ Version consistency maintained")
         else:
             print("✗ Version consistency not maintained")
@@ -160,15 +160,15 @@ def verify_package_structure():
         with open("setup.py", "r") as f:
             content = f.read()
 
-        if "reward_kit*" in content and "eval_protocol*" in content:
+        if "eval_protocol*" in content and "reward_kit*" in content:
             print("✓ setup.py includes both packages")
         else:
             print("✗ setup.py missing package configurations")
 
-        if "reward-protocol=reward_kit.cli:main" in content:
-            print("✓ Console script for reward-protocol configured")
+        if "eval-protocol=reward_kit.cli:main" in content:
+            print("✓ Console script for eval-protocol configured")
         else:
-            print("✗ Console script for reward-protocol not configured")
+            print("✗ Console script for eval-protocol not configured")
 
     except Exception as e:
         print(f"✗ Error checking setup.py: {e}")
