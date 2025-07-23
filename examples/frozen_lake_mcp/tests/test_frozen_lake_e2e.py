@@ -116,12 +116,19 @@ class MCPServerManager:
 
         # Start server process
         cmd = ["python", self.server_script, "--port", str(self.port)]
+        # Setup log file with cleanup
+        log_file_path = os.path.join(self.base_dir, f"server_output_{self.port}.log")
+        if os.path.exists(log_file_path):
+            os.remove(log_file_path)
+
+        log_file = open(log_file_path, "w")
+
         self.process = subprocess.Popen(
             cmd,
             cwd=self.base_dir,
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=log_file,
+            stderr=log_file,
             text=True,
         )
 
@@ -1257,25 +1264,26 @@ async def test_static_policy_functionality():
     # Create policy
     policy = create_frozen_lake_static_policy(action_sequence=["RIGHT", "DOWN", "LEFT", "UP"])
 
-    # Initialize
-    policy.initialize_conversations(
-        n_envs=2,
-        system_prompts=["Test system prompt 1", "Test system prompt 2"],
-        user_prompts=["Test user prompt 1", "Test user prompt 2"],
-    )
-
-    # Test action generation
+    # Test action generation for 2 environments
+    n_envs = 2
     for step in range(6):
-        actions = await policy(
-            tool_schemas=[[], []],
-            observations=[None, None],
-            system_prompts=["Test system prompt 1", "Test system prompt 2"],
-            user_prompts=["Test user prompt 1", "Test user prompt 2"],
-        )
+        for env_index in range(n_envs):
+            # Create sample conversation history
+            conversation_history = [
+                {"role": "system", "content": f"Test system prompt {env_index + 1}"},
+                {"role": "user", "content": f"Test user prompt {env_index + 1}"},
+            ]
 
-        assert len(actions) == 2, "Should generate action for each environment"
+            # Call policy for this specific environment
+            actions = await policy(
+                tool_schemas=[],  # Empty tool schema for test
+                env_index=env_index,
+                conversation_history=conversation_history,
+            )
 
-        for i, action in enumerate(actions):
+            assert len(actions) == 1, "Should generate one action per call"
+            action = actions[0]
+
             # Actions are MCPToolCall objects
             assert action.tool_name == "lake_move", "Should call lake_move"
             assert "action" in action.arguments, "Should have action argument"
@@ -1286,7 +1294,7 @@ async def test_static_policy_functionality():
                 "UP",
             ], "Should be valid action"
 
-            print(f"  Step {step}, Env {i}: {action.arguments['action']}")
+            print(f"  Step {step}, Env {env_index}: {action.arguments['action']}")
 
     print("✅ Static policy test completed successfully")
 

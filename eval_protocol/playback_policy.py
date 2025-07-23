@@ -42,7 +42,6 @@ class PlaybackPolicyBase(ABC):
         # Playback state management
         self._playback_actions = _playback_actions
         self._is_playback = _playback_actions is not None
-        # print("show is playback: ", self._is_playback, _playback_actions)
         self._playback_step_counters = {}  # {env_index: current_step}
 
         # Environment variable override
@@ -217,28 +216,26 @@ class PlaybackPolicyBase(ABC):
     @abstractmethod
     async def _generate_live_tool_calls(
         self,
-        tool_schemas: List[List[Dict]],
-        observations: List[Any],
-        system_prompts: List[str],
-        user_prompts: List[Union[str, List[Dict[str, Any]]]],
+        tool_schemas: List[Dict],
+        env_index: int,
+        conversation_history: List[Dict[str, Any]],
     ) -> List["MCPToolCall"]:
         """
         Generate tool calls in live mode. Concrete classes must implement this.
 
         Args:
-            tool_schemas: Available tools for each environment
-            observations: Current observations from environments
-            system_prompts: System prompts for each environment
-            user_prompts: User prompts for each environment
+            tool_schemas: Available tools for this environment
+            env_index: Environment index
+            conversation_history: Current conversation history for this environment
 
         Returns:
-            List of ToolCall objects for each environment
+            List of ToolCall objects
         """
         pass
 
     async def __call__(
         self,
-        tool_schema: List[Dict],
+        tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
     ):
@@ -255,55 +252,23 @@ class PlaybackPolicyBase(ABC):
             List of ToolCall objects for each environment
         """
         if self._is_playback:
-            return await self._handle_playback_mode(
-                tool_schema, env_index, conversation_history
-            )
-        else:
-            return await self._generate_live_tool_calls(
-                tool_schema, env_index, conversation_history
-            )
-
-    async def _handle_playback_mode(
-        self,
-        tool_schemas: List[List[Dict]],
-    ) -> List["MCPToolCall"]:
-        """
-        Handle policy calls in playback mode by extracting tool calls from recorded messages.
-
-        Args:
-            tool_schemas: Available tools for each environment (used for validation)
-            observations: Current observations (not used in playback)
-            system_prompts: System prompts (not used in playback)
-            user_prompts: User prompts (not used in playback)
-
-        Returns:
-            List of ToolCall objects extracted from recorded messages
-        """
-        tool_calls = []
-        n_envs = len(tool_schemas)
-
-        for env_index in range(n_envs):
-            # Get recorded messages for this environment and step
+            # In playback mode, get recorded messages
             messages = self._get_playback_messages(env_index)
-
+            
             if messages is None:
-                # No more recorded actions - signal early termination by using a special tool call
-                # This will cause the environment to terminate (similar to how recording worked)
-                tool_calls.append(
+                # No more recorded actions - signal early termination
+                return [
                     MCPToolCall(
-                        "_playback_terminate", {"reason": "no_more_recorded_actions"}
+                        "_playback_terminate",
+                        {"reason": "no_more_recorded_actions"},
                     )
-                )
-                logger.info(
-                    f"🎬 Environment {env_index}: No more recorded actions, signaling termination"
-                )
-                continue
-
-            # Extract tool call from the last assistant message with tool_calls
-            tool_call = self._extract_tool_call_from_messages(messages, env_index)
-            tool_calls.append(tool_call)
-
-        return tool_calls
+                ]
+            
+            # Return the recorded tool call
+            return self._extract_tool_call_from_messages(messages, env_index)
+        else:
+            # Live mode - generate tool call using provided conversation history
+            return await self._generate_live_tool_calls(tool_schemas, env_index, conversation_history)
 
     def _extract_tool_call_from_messages(
         self, messages: List[Dict[str, Any]], env_index: int

@@ -66,25 +66,11 @@ class StaticPolicy(PlaybackPolicyBase):
 
         self.step_counts = {}  # Track step count per environment
 
-        # Initialize conversation history management like LLMBasePolicy
-        self.initialized = False
-
-    def initialize_conversations(
-        self, n_envs: int, system_prompts: List[str], user_prompts: List[Union[str, List[Dict[str, Any]]]]
-    ):
-        """Initialize policy for the given number of environments."""
-        self.step_counts = {i: 0 for i in range(n_envs)}
-        self.initialized = True
-        logger.info(f"🎯 Static policy initialized for {n_envs} environments")
-        logger.info(f"🛠️  Tool name: {self.tool_name}")
-        logger.info(f"📋 Action sequence: {self.action_sequence}")
-
     async def _generate_live_tool_calls(
         self,
-        tool_schemas: List[List[Dict]],
-        observations: List[Any],
-        system_prompts: List[str],
-        user_prompts: List[Union[str, List[Dict[str, Any]]]],
+        tool_schemas: List[Dict],
+        env_index: int,
+        conversation_history: List[Dict[str, Any]],
     ) -> List[MCPToolCall]:
         """
         Generate tool calls in live mode using the static action sequence.
@@ -92,48 +78,32 @@ class StaticPolicy(PlaybackPolicyBase):
         This implements the abstract method from PlaybackPolicyBase.
 
         Args:
-            tool_schemas: Available tools for each environment
-            observations: Current observations from environments
-            system_prompts: System prompts for each environment
-            user_prompts: User prompts for each environment
+            tool_schemas: Available tools for this environment
+            env_index: Environment index
+            conversation_history: Current conversation history for this environment
 
         Returns:
-            List of MCPToolCall objects for each environment
+            List of MCPToolCall objects
         """
-        # Initialize conversations on first call
-        if not self.initialized:
-            self.initialize_conversations(
-                len(observations), system_prompts, user_prompts
-            )
+        # Get current step count for this environment
+        step_count = self.step_counts.get(env_index, 0)
 
-        # Generate actions using the same logic as before, but now create conversation entries
-        env_indices = list(range(len(observations)))
-        results = []
+        # Determine action based on step count
+        if step_count < len(self.action_sequence):
+            action = self.action_sequence[step_count]
+        else:
+            # After sequence completes, repeat the last action
+            action = self.action_sequence[-1]
 
-        for i, env_idx in enumerate(env_indices):
-            # Get current step count for this environment
-            step_count = self.step_counts.get(env_idx, 0)
+        # Create tool call in MCPToolCall format
+        tool_call = MCPToolCall(tool_name=self.tool_name, arguments={"action": action})
 
-            # Determine action based on step count
-            if step_count < len(self.action_sequence):
-                action = self.action_sequence[step_count]
-            else:
-                # After sequence completes, repeat the last action
-                action = self.action_sequence[-1]
+        # Update step count
+        self.step_counts[env_index] = step_count + 1
 
-            # Create tool call in MCPToolCall format
-            tool_call = MCPToolCall(tool_name=self.tool_name, arguments={"action": action})
+        logger.debug(f"🎮 Env {env_index} step {step_count}: {action}")
 
-            results.append(tool_call)
-
-            # Note: Conversation history is now managed externally by the execution manager
-
-            # Update step count
-            self.step_counts[env_idx] = step_count + 1
-
-            logger.debug(f"🎮 Env {env_idx} step {step_count}: {action}")
-
-        return results
+        return [tool_call]
 
     def add_tool_response(
         self,
@@ -243,58 +213,32 @@ class RandomPolicy(PlaybackPolicyBase):
         self.available_actions = available_actions
         self.random = random.Random(seed)
 
-        self.initialized = False
-
-    def initialize_conversations(
-        self, n_envs: int, system_prompts: List[str], user_prompts: List[Union[str, List[Dict[str, Any]]]]
-    ):
-        """Initialize policy for the given number of environments."""
-        self.initialized = True
-        logger.info(f"🎲 Random policy initialized for {n_envs} environments")
-        logger.info(f"🛠️  Tool name: {self.tool_name}")
-        logger.info(f"🎯 Available actions: {self.available_actions}")
-
     async def _generate_live_tool_calls(
         self,
-        tool_schemas: List[List[Dict]],
-        observations: List[Any],
-        system_prompts: List[str],
-        user_prompts: List[Union[str, List[Dict[str, Any]]]],
+        tool_schemas: List[Dict],
+        env_index: int,
+        conversation_history: List[Dict[str, Any]],
     ) -> List[MCPToolCall]:
         """
         Generate random tool calls in live mode.
 
         Args:
-            tool_schemas: Available tools for each environment
-            observations: Current observations from environments
-            system_prompts: System prompts for each environment
-            user_prompts: User prompts for each environment
+            tool_schemas: Available tools for this environment
+            env_index: Environment index
+            conversation_history: Current conversation history for this environment
 
         Returns:
-            List of MCPToolCall objects for each environment
+            List of MCPToolCall objects
         """
-        # Initialize conversations on first call
-        if not self.initialized:
-            self.initialize_conversations(
-                len(observations), system_prompts, user_prompts
-            )
+        # Select random action
+        action = self.random.choice(self.available_actions)
 
-        results = []
+        # Create tool call
+        tool_call = MCPToolCall(tool_name=self.tool_name, arguments={"action": action})
 
-        for i, obs in enumerate(observations):
-            # Select random action
-            action = self.random.choice(self.available_actions)
+        logger.debug(f"🎲 Env {env_index}: {action}")
 
-            # Create tool call
-            tool_call = MCPToolCall(tool_name=self.tool_name, arguments={"action": action})
-
-            results.append(tool_call)
-
-            # Note: Conversation history is now managed externally by the execution manager
-
-            logger.debug(f"🎲 Env {i}: {action}")
-
-        return results
+        return [tool_call]
 
     def add_tool_response(
         self,

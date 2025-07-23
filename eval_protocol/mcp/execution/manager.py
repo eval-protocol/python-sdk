@@ -270,14 +270,6 @@ class ExecutionManager:
             observation = current_observation
             tool_calls = []
 
-            # Check control plane termination status
-            control_plane_state = await self._get_control_plane_status(session)
-            if control_plane_state and control_plane_state.get("terminated", False):
-                trajectory.terminated = True
-                session.terminated = True
-                logger.debug(f"Rollout {rollout_idx} terminated by control plane before step {step}")
-                break
-
             if user_simulator and user_simulator_state:
                 # Get user simulator messages and find the last assistant message
                 user_simulator_messages = self._get_user_simulator_messages(conversation_history)
@@ -294,17 +286,20 @@ class ExecutionManager:
                     # Check if user simulator signaled termination
                     if UserSimulator.is_stop(user_message):
                         trajectory.terminated = True
-                        session.terminated = True
             
             # In each turn: keep looping until assistant is ready to provide final response
             while not turn_completed and not trajectory.terminated:
                 tool_calls = await policy(tool_schema, rollout_idx, conversation_history)
 
                 # If no tool call is generated, turn is finished
-                if len(tool_calls) == 1 and tool_calls[0].tool_name == "_no_tool_call":
-                    # No tool calls means the policy is ready to provide final response
-                    turn_completed = True
-                    break
+                if len(tool_calls) == 1:
+                    # No tool calls means the policy is ready to provide final response on this turn
+                    if tool_calls[0].tool_name == "_no_tool_call":
+                        turn_completed = True
+                        break
+                    elif tool_calls[0].tool_name == "_playback_terminate":
+                        trajectory.terminated = True
+                        break
 
                 # Execute each tool call sequentially
                 for tool_call in tool_calls:
@@ -351,9 +346,7 @@ class ExecutionManager:
 
                     # If environment terminates after this tool call or step limit is reached, end the turn and trajectory
                     if rollout_end or step >= steps:
-                        turn_completed = True
                         trajectory.terminated = True
-                        session.terminated = True
                         break
 
                 # Update current observation for potential next turn
@@ -386,7 +379,6 @@ class ExecutionManager:
             # Use control plane information for termination decision
             if rollout_end:
                 trajectory.terminated = True
-                session.terminated = True
 
                 # Add final control plane summary
                 trajectory.control_plane_summary.update(

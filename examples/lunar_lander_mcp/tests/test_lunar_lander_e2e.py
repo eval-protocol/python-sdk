@@ -231,6 +231,7 @@ async def test_production_server_record_and_replay(
             model_id="gpt-4.1",
             # temperature=0.2,
             max_tokens=4096,
+            max_tools_per_turn=1,
         )
 
         assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
@@ -270,6 +271,7 @@ async def test_production_server_record_and_replay(
         model_id="gpt-4.1",
         # temperature=0.2,
         max_tokens=4096,
+        max_tools_per_turn=1,
     )
 
     assert not policy.is_playback_mode(), "Should be in recording mode initially"
@@ -336,6 +338,7 @@ async def test_production_server_record_and_replay(
         model_id="gpt-4.1",
         # temperature=0.2,
         max_tokens=4096,
+        max_tools_per_turn=1,
     )
 
     assert playback_policy.is_playback_mode(), "Should be in playback mode"
@@ -434,6 +437,7 @@ async def test_production_only_recorded_policy(lunar_lander_dataset):
             model_id="gpt-4.1",
             # temperature=0.2,
             max_tokens=4096,
+            max_tools_per_turn=1,
         )
 
         assert policy.is_playback_mode(), "Policy should be in playback mode"
@@ -487,6 +491,7 @@ async def test_lunar_lander_step_by_step(conda_isolation_recording_file):
             model_id="gpt-4.1",
             # temperature=0.2,
             max_tokens=4096,
+            max_tools_per_turn=1,
         )
 
         # Create simple dataset for testing
@@ -1136,6 +1141,7 @@ async def test_fireworks_multi_environment_sessions(
             model_id="gpt-4.1",
             temperature=0.2,
             max_tokens=8192,
+            max_tools_per_turn=1,
         )
 
         assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
@@ -1183,6 +1189,7 @@ async def test_fireworks_multi_environment_sessions(
             model_id="gpt-4.1",
             # temperature=0.2,
             max_tokens=4096,
+            max_tools_per_turn=1,
         )
 
         assert not policy.is_playback_mode(), "Should be in recording mode initially"
@@ -1260,25 +1267,27 @@ async def test_static_policy_functionality():
         action_sequence=["FIRE_MAIN", "FIRE_LEFT", "FIRE_RIGHT", "NOTHING"]
     )
 
-    # Initialize
-    policy.initialize_conversations(
-        n_envs=2,
-        system_prompts=["Test system prompt 1", "Test system prompt 2"],
-        user_prompts=["Test user prompt 1", "Test user prompt 2"],
-    )
-
-    # Test action generation
+    # Test action generation for 2 environments
+    n_envs = 2
     for step in range(6):
-        actions = await policy(
-            tool_schemas=[[], []],
-            observations=[None, None],
-            system_prompts=["Test system prompt 1", "Test system prompt 2"],
-            user_prompts=["Test user prompt 1", "Test user prompt 2"],
-        )
+        for env_index in range(n_envs):
+            # Create sample conversation history
+            conversation_history = [
+                {"role": "system", "content": f"Test system prompt {env_index + 1}"},
+                {"role": "user", "content": f"Test user prompt {env_index + 1}"},
+            ]
+            
+            # Call policy for this specific environment
+            actions = await policy(
+                tool_schemas=[],  # Empty tool schema for test
+                env_index=env_index,
+                conversation_history=conversation_history,
+            )
 
-        assert len(actions) == 2, "Should generate action for each environment"
+            assert len(actions) == 1, "Should generate one action per call"
 
-        for i, action in enumerate(actions):
+            action = actions[0]
+
             # Actions are MCPToolCall objects
             assert action.tool_name == "lander_action", "Should call lander_action"
             assert "action" in action.arguments, "Should have action argument"
@@ -1289,7 +1298,7 @@ async def test_static_policy_functionality():
                 "NOTHING",
             ], "Should be valid lunar lander action"
 
-            print(f"  Step {step}, Env {i}: {action.arguments['action']}")
+            print(f"  Step {step}, Env {env_index}: {action.arguments['action']}")
 
     print("✅ Static policy test completed successfully")
 
