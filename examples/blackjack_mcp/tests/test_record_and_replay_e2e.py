@@ -780,7 +780,7 @@ def _validate_state_progression(env_recordings: Dict):
             for msg in messages:
                 if msg["role"] == "tool":
                     response = msg["content"]
-            if response:  # Only append if we have a valid response
+            if not response:
                 tool_responses.append(response)
 
         if len(tool_responses) < 2:
