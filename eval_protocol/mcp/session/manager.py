@@ -45,6 +45,7 @@ class GeneralMCPVectorEnv:
         self.n = len(sessions)
         self.tool_schemas = []  # Discovered from MCP servers
         self.execution_manager = ExecutionManager()
+        self.usage_stats = {}  # llm usage stats for monitoring
 
         if len(sessions) != len(dataset_rows):
             raise ValueError(

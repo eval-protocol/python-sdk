@@ -10,9 +10,9 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple
 
-from .mcp.types import MCPToolCall
+from .mcp.types import LLMUsageStats, MCPToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +205,7 @@ class PlaybackPolicyBase(ABC):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> List["MCPToolCall"]:
+    ) -> Tuple[List["MCPToolCall"], LLMUsageStats]:
         """
         Generate tool calls in live mode. Concrete classes must implement this.
 
@@ -215,7 +215,7 @@ class PlaybackPolicyBase(ABC):
             conversation_history: Current conversation history for this environment
 
         Returns:
-            List of ToolCall objects
+            List of ToolCall objects and LLM interation usage stats
         """
         pass
 
@@ -235,7 +235,7 @@ class PlaybackPolicyBase(ABC):
             user_prompts: User prompts for each environment
 
         Returns:
-            List of ToolCall objects for each environment
+            List of ToolCall objects and LLM interation usage stats for each environment
         """
         if self._is_playback:
             # In playback mode, get recorded messages
@@ -251,7 +251,7 @@ class PlaybackPolicyBase(ABC):
                 ]
 
             # Return the recorded tool call
-            return self._extract_tool_call_from_messages(messages, env_index)
+            return self._extract_tool_call_from_messages(messages, env_index), None
         else:
             # Live mode - generate tool call using provided conversation history
             return await self._generate_live_tool_calls(tool_schemas, env_index, conversation_history)

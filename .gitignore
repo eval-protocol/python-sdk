@@ -235,3 +235,4 @@ node_modules/
 package-lock.json
 package.json
 tau2-bench
+*.err

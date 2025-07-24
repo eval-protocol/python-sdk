@@ -16,10 +16,10 @@ import json
 import logging
 import os
 import random
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 # Import the base policy and types for proper recording functionality
-from eval_protocol.mcp.types import MCPToolCall
+from eval_protocol.mcp.types import LLMUsageStats, MCPToolCall
 from eval_protocol.playback_policy import PlaybackPolicyBase
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class StaticPolicy(PlaybackPolicyBase):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> List[MCPToolCall]:
+    ) -> Tuple[List[MCPToolCall], LLMUsageStats]:
         """
         Generate tool calls in live mode using the static action sequence.
 
@@ -103,7 +103,7 @@ class StaticPolicy(PlaybackPolicyBase):
 
         logger.debug(f"🎮 Env {env_index} step {step_count}: {action}")
 
-        return [tool_call]
+        return [tool_call], None
 
     def add_tool_response(
         self,
@@ -217,7 +217,7 @@ class RandomPolicy(PlaybackPolicyBase):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> List[MCPToolCall]:
+    ) -> Tuple[List[MCPToolCall], LLMUsageStats]:
         """
         Generate random tool calls in live mode.
 
@@ -237,7 +237,7 @@ class RandomPolicy(PlaybackPolicyBase):
 
         logger.debug(f"🎲 Env {env_index}: {action}")
 
-        return [tool_call]
+        return [tool_call], None
 
     def add_tool_response(
         self,

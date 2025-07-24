@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
 
 from ...playback_policy import PlaybackPolicyBase
-from ..types import MCPToolCall
+from ..types import LLMUsageStats, MCPToolCall
 from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
@@ -181,6 +181,11 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             "role": "assistant",
             "content": response["choices"][0]["message"]["content"],
         }
+        usage_stats = LLMUsageStats(
+            prompt_tokens=response["usage"]["prompt_tokens"],
+            completion_tokens=response["usage"]["completion_tokens"],
+            total_tokens=response["usage"]["total_tokens"],
+        )
 
         # Extract tool call from response
         message = response["choices"][0]["message"]
@@ -209,7 +214,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             if self.max_tools_per_turn:
                 mcp_tool_calls = mcp_tool_calls[: self.max_tools_per_turn]
 
-            return mcp_tool_calls
+            return mcp_tool_calls, usage_stats
         else:
             # No tool calls in response - this is normal when episode ends or LLM provides only text
             logger.info(f"No tool calls in response for env {env_index}, message content: {message.get('content')}")
@@ -220,7 +225,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
                         "reason": "no_tool_call_generated",
                     },
                 )
-            ]
+            ], usage_stats
 
 
 class FireworksPolicy(LLMBasePolicy):
@@ -259,8 +264,6 @@ class FireworksPolicy(LLMBasePolicy):
             # Import Fireworks Build SDK - optional at module level
             try:
                 from fireworks import LLM
-
-                FIREWORKS_AVAILABLE = True
             except ImportError:
                 raise ImportError(
                     "The 'fireworks-ai' package is required for FireworksPolicy. "
@@ -346,7 +349,9 @@ class FireworksPolicy(LLMBasePolicy):
         }
 
         loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(None, lambda: self.llm.chat.completions.create(**current_request))
+        response = await loop.run_in_executor(
+            self.llm_executor, lambda: self.llm.chat.completions.create(**current_request)
+        )
 
         # Convert Fireworks response to standard format
         return {
@@ -371,7 +376,12 @@ class FireworksPolicy(LLMBasePolicy):
                         ),
                     }
                 }
-            ]
+            ],
+            "usage": {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            },
         }
 
     def _convert_mcp_tools_to_llm_format(self, mcp_tools: List[Dict]) -> List[Dict]:
@@ -435,8 +445,6 @@ class OpenAIPolicy(LLMBasePolicy):
             # Import OpenAI SDK - optional at module level
             try:
                 from openai import AsyncOpenAI
-
-                OPENAI_AVAILABLE = True
             except ImportError:
                 raise ImportError(
                     "The 'openai' package is required for OpenAIPolicy. " "Please install it with 'pip install openai'"
@@ -531,7 +539,12 @@ class OpenAIPolicy(LLMBasePolicy):
                         ),
                     }
                 }
-            ]
+            ],
+            "usage": {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            },
         }
 
     def _convert_mcp_tools_to_llm_format(self, mcp_tools: List[Dict]) -> List[Dict]:

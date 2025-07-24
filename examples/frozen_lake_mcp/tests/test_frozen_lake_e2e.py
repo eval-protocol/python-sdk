@@ -118,17 +118,22 @@ class MCPServerManager:
         cmd = ["python", self.server_script, "--port", str(self.port)]
         # Setup log file with cleanup
         log_file_path = os.path.join(self.base_dir, f"server_output_{self.port}.log")
+        log_err_file_path = os.path.join(self.base_dir, f"server_output_{self.port}.err")
         if os.path.exists(log_file_path):
             os.remove(log_file_path)
 
+        if os.path.exists(log_err_file_path):
+            os.remove(log_err_file_path)
+
         log_file = open(log_file_path, "w")
+        log_err_file = open(log_err_file_path, "w")
 
         self.process = subprocess.Popen(
             cmd,
             cwd=self.base_dir,
             env=env,
             stdout=log_file,
-            stderr=log_file,
+            stderr=log_err_file,
             text=True,
         )
 
@@ -137,8 +142,12 @@ class MCPServerManager:
 
         # Check if process is still running
         if self.process.poll() is not None:
-            stdout, stderr = self.process.communicate()
-            raise RuntimeError(f"Server failed to start: {stderr}")
+            # error is in the log
+            log_file.close()
+            log_err_file.close()
+            with open(log_err_file_path, "r") as f:
+                error_output = f.read()
+            raise RuntimeError(f"Server failed to start:\n{error_output}")
 
     def stop(self) -> None:
         """Stop the MCP server."""
