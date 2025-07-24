@@ -286,6 +286,7 @@ async def test_production_server_record_and_replay(production_server, frozen_lak
 
     assert len(trajectories) == len(frozen_lake_dataset), "Should have trajectory for each dataset entry"
     assert os.path.exists(production_recording_file), "Recording file should be created"
+    assert trajectories[0].llm_usage_summary["prompt_tokens"] > 0, "LLM usage summary should be non-zero"
 
     print(f"✅ Recorded {len(trajectories)} trajectories in {recording_duration:.2f}s")
     print(f"📁 Recording saved to: {production_recording_file}")
