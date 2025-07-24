@@ -69,3 +69,4 @@ class Trajectory:
     control_plane_steps: List[Dict[str, Any]]
     control_plane_summary: Dict[str, Any]
     termination_reason: str
+    conversation_history: List[Dict[str, Any]]

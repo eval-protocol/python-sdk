@@ -223,6 +223,7 @@ class ExecutionManager:
             control_plane_steps=[],
             control_plane_summary={},
             termination_reason="",
+            conversation_history=[],
         )
 
         current_observation, tool_schema = await envs.reset(session)
@@ -315,7 +316,6 @@ class ExecutionManager:
                     )
 
                     # Update trajectory with both data and control plane information
-                    # TODO: revisit when implementing eval/reward at end of rollout. this block of code is not quite right. i believe we should be appending obs, actions, rewards once per set of tools, not per tool call.
                     trajectory.observations.append(observation)
                     
                     # Record action (tool call)
@@ -424,6 +424,8 @@ class ExecutionManager:
         # Set termination reason if not already set (e.g., due to step limit)
         if not trajectory.termination_reason and step >= steps:
             trajectory.termination_reason = TerminationReason.MAX_STEPS
+
+        trajectory.conversation_history = conversation_history
 
         logger.info(f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}")
         return trajectory

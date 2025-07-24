@@ -16,6 +16,10 @@ from typing import Any, Dict, List, Optional
 import pytest
 
 import eval_protocol as rk
+from eval_protocol import reward_function, EvaluateResult
+
+from tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
+from tau2.data_model.message import SystemMessage, AssistantMessage, UserMessage, ToolMessage
 
 
 def _is_ci_mode():
@@ -168,6 +172,21 @@ USER_INSTRUCTIONS_AIRLINE3 = """Domain: airline
 Reason for call: First, try to book a flight from sf to ny. You will have 3 passengers. Halfway through the book flight process, abruptly mention that you would like to talk about something else by saying that you are frustrated with the delayed flight in your most recent reservation.
 Known info: You are Noah Muller. Your user id is noah_muller_9847.
 """
+
+NL_ASSERTIONS = [
+        [
+            "Agent should refuse to proceed with the cancellation."
+        ],
+        [
+            "Agent should not approve the cancellation."
+        ],
+        [
+            "Agent should not offer compensation unless the user asks for it.",
+            "Agent should check that the flight was indeed delayed.",
+            "Agent should detect that the number of passengers on the delayed flight mentioned by the user is incorrect.",
+            "Agent should offer a certificate of $50."
+        ],
+    ]
 
 @pytest.fixture
 def multi_env_dataset():
@@ -645,6 +664,68 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
             )
 
 
+@reward_function
+def airline_eval(
+    messages: List[Dict[str, Any]],
+    nl_assertions: List[str] = None,
+    **kwargs
+) -> EvaluateResult:
+    """
+    Evaluate airline conversation using tau2-bench NLAssertionsEvaluator.
+    
+    Args:
+        messages: Conversation between agent and customer
+        nl_assertions: List of natural language assertions to evaluate
+        **kwargs: Additional parameters
+        
+    Returns:
+        EvaluateResult with binary pass/fail and detailed assertion breakdown
+    """
+    # Default assertions if none provided (should not happen in practice)
+    if nl_assertions is None:
+        nl_assertions = ["The agent handled the customer request appropriately according to airline policy"]
+
+    # Convert messages to tau2-bench message objects based on role
+    trajectory_objects = []
+    for msg in messages:
+        role = msg['role']
+        content = msg['content']
+        
+        if role == 'system':
+            trajectory_objects.append(SystemMessage(role=role, content=content))
+        elif role == 'assistant':
+            trajectory_objects.append(AssistantMessage(role=role, content=content))
+        elif role == 'user':
+            trajectory_objects.append(UserMessage(role=role, content=content))
+        elif role == 'tool':
+            tool_id = msg.get('tool_call_id')
+            trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=content))
+
+    # Use tau2-bench NLAssertionsEvaluator
+    nl_assertions_checks = NLAssertionsEvaluator.evaluate_nl_assertions(
+        trajectory=trajectory_objects,
+        nl_assertions=nl_assertions
+    )
+
+    all_expectations_met = all(result.met for result in nl_assertions_checks)
+    reward = 1.0 if all_expectations_met else 0.0
+    
+    # Build reason string
+    if all_expectations_met:
+        reason = f"All {len(nl_assertions)} natural language assertions passed"
+    else:
+        failed_assertions = [
+            nl_assertions[i] for i, result in enumerate(nl_assertions_checks) 
+            if not result.met
+        ]
+        reason = f"Failed assertions: {failed_assertions}"
+    
+    return EvaluateResult(
+        score=reward,
+        reason=reason,
+        metrics={},
+    )
+
 # TODO: add rest of tests, but test_fireworks_multi_environment_sessions is the most important one.
 
 @pytest.mark.asyncio
@@ -771,6 +852,26 @@ async def test_fireworks_multi_environment_sessions(
         await _validate_recording_integrity(
             fireworks_multi_env_recording_file, multi_env_dataset
         )
+
+        # 🧪 TAU2 REWARD FUNCTION EVALUATION
+        print(f"\n🎯 Evaluating {len(trajectories)} trajectories using conversation_history field")
+        
+        for env_idx, trajectory in enumerate(trajectories):
+            conversation_history = trajectory.conversation_history
+            nl_assertions = NL_ASSERTIONS[env_idx]
+            
+            print(f"\n🔍 Environment {env_idx} conversation history:")
+            print(f"  Messages: {len(conversation_history)} total")
+            
+            eval = airline_eval(conversation_history, nl_assertions)
+            
+            # Print evaluation result details
+            print(f"🎯 Evaluation Result for env {env_idx}:")
+            print(f"  Score: {eval.score}")
+            print(f"  Reason: {eval.reason}")
+            print(f"  Metrics ({len(eval.metrics)} total):")
+            for metric_name, metric_result in eval.metrics.items():
+                print(f"    {metric_name}: score={metric_result.score:.2f}, success={metric_result.is_score_valid}, reason='{metric_result.reason}'")
 
         # Clean up
         await envs.close()
