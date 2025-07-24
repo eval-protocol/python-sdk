@@ -1,4 +1,4 @@
-PYTHON_DIRS = reward_kit tests examples scripts eval_protocol
+PYTHON_DIRS = tests examples scripts eval_protocol
 
 .PHONY: clean build dist upload test lint typecheck format release sync-docs version tag-version show-version bump-major bump-minor bump-patch full-release quick-release
 
