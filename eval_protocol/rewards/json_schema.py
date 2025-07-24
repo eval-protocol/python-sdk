@@ -46,11 +46,7 @@ def json_schema_reward(
             return EvaluateResult(
                 score=0.0,
                 reason="No messages provided to extract JSON content.",
-                metrics={
-                    "error": MetricResult(
-                        score=0.0, reason="No messages provided", is_score_valid=False
-                    )
-                },
+                metrics={"error": MetricResult(score=0.0, reason="No messages provided", is_score_valid=False)},
             )
 
         last_message = messages[-1]
@@ -72,10 +68,7 @@ def json_schema_reward(
                     },
                 )
         elif isinstance(last_message, dict):
-            if (
-                last_message.get("role") == "assistant"
-                and last_message.get("content") is not None
-            ):
+            if last_message.get("role") == "assistant" and last_message.get("content") is not None:
                 content_text = last_message.get("content", "")
             else:
                 return EvaluateResult(
@@ -110,9 +103,7 @@ def json_schema_reward(
                 if code_blocks:
                     extracted_json_str = code_blocks[0]
                 else:
-                    json_match = re.search(
-                        r"(\{[\s\S]*\}|\[[\s\S]*\])", content_text, re.DOTALL
-                    )
+                    json_match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", content_text, re.DOTALL)
                     if json_match:
                         try:
                             json.loads(json_match.group(0))
@@ -200,9 +191,7 @@ def json_schema_reward(
     content_schema = build_schema_from_content(parsed_content)
     expected_properties = extract_schema_properties(expected_schema)
     actual_properties = extract_schema_properties(content_schema)
-    schema_similarity = calculate_jaccard_similarity(
-        expected_properties, actual_properties
-    )
+    schema_similarity = calculate_jaccard_similarity(expected_properties, actual_properties)
 
     missing_props = expected_properties - actual_properties
     extra_props = actual_properties - expected_properties
@@ -330,11 +319,7 @@ def json_schema_reward_with_llm_judge(
         else:
             json_str_for_llm = str(json_content)
 
-        expected_schema_str = (
-            json.dumps(expected_schema, indent=2)
-            if expected_schema
-            else "No schema provided"
-        )
+        expected_schema_str = json.dumps(expected_schema, indent=2) if expected_schema else "No schema provided"
 
         conversation_msg = "No conversation context provided"
         if messages:
@@ -386,9 +371,7 @@ EXPLANATION: [your detailed explanation]
             )
             llm_response = response.choices[0].message.content or ""
             score_match = re.search(r"SCORE:\s*([\d.]+)", llm_response)
-            explanation_match = re.search(
-                r"EXPLANATION:\s*(.*)", llm_response, re.DOTALL
-            )
+            explanation_match = re.search(r"EXPLANATION:\s*(.*)", llm_response, re.DOTALL)
             if score_match:
                 try:
                     llm_score = float(score_match.group(1))
@@ -397,11 +380,7 @@ EXPLANATION: [your detailed explanation]
                     llm_score = 0.5
             else:
                 llm_score = 0.5
-            llm_reason = (
-                explanation_match.group(1).strip()
-                if explanation_match
-                else "No explanation provided"
-            )
+            llm_reason = explanation_match.group(1).strip() if explanation_match else "No explanation provided"
         except Exception as e:
             llm_score = 0.0
             llm_reason = f"Error calling OpenAI API: {str(e)}"
@@ -440,6 +419,4 @@ EXPLANATION: [your detailed explanation]
         is_score_valid=True,
     )
 
-    return EvaluateResult(
-        score=final_score, reason=final_reason, metrics=combined_metrics
-    )
+    return EvaluateResult(score=final_score, reason=final_reason, metrics=combined_metrics)

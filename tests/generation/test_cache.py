@@ -180,9 +180,7 @@ def test_cache_non_zero_temperature(cache_manager: ResponseCache):
         max_tokens=params["max_tokens"],
         reasoning_effort=params["reasoning_effort"],
     )
-    assert (
-        retrieved is None
-    ), "Should not cache or retrieve for non-zero temperature by default"
+    assert retrieved is None, "Should not cache or retrieve for non-zero temperature by default"
 
 
 def test_cache_disabled_if_dir_creation_fails(tmp_path):
@@ -191,9 +189,7 @@ def test_cache_disabled_if_dir_creation_fails(tmp_path):
     unique_dir_2 = tmp_path / "another_uncreatable_dir"
 
     with patch("os.makedirs", side_effect=OSError("Test OS Error")):
-        with patch(
-            "logging.Logger.error"
-        ) as mock_log_error:  # Check that error is logged
+        with patch("logging.Logger.error") as mock_log_error:  # Check that error is logged
             cache_config_fail = DictConfig({"cache_dir": str(unique_dir_1)})
             cache = ResponseCache(cache_config_fail)
             assert cache.cache_dir is None  # Caching should be disabled

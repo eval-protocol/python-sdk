@@ -146,11 +146,7 @@ def list_comparison_math_reward(
         return EvaluateResult(
             score=0.0,
             reason="Ground truth string (expected list) is empty.",
-            metrics={
-                "error": MetricResult(
-                    score=0.0, is_score_valid=False, reason="Empty ground truth string."
-                )
-            },
+            metrics={"error": MetricResult(score=0.0, is_score_valid=False, reason="Empty ground truth string.")},
         )
 
     gen_lists = extract_number_list(gen_content)
@@ -192,7 +188,9 @@ def list_comparison_math_reward(
         # Note: To be robust against float precision, comparison element-wise with tolerance might be needed.
         if gen_list_to_compare == orig_list_to_compare:
             score = 1.0
-            match_reason = f"Exact list match (order matters). Gen: {gen_list_to_compare} vs Orig: {orig_list_to_compare}"
+            match_reason = (
+                f"Exact list match (order matters). Gen: {gen_list_to_compare} vs Orig: {orig_list_to_compare}"
+            )
         else:
             score = 0.0
             match_reason = f"List mismatch (order matters). Gen: {gen_list_to_compare} vs Orig: {orig_list_to_compare}"
@@ -203,7 +201,9 @@ def list_comparison_math_reward(
 
         if gen_set == orig_set:
             score = 1.0
-            match_reason = f"Set match (order does not matter). Gen: {sorted(list(gen_set))} vs Orig: {sorted(list(orig_set))}"
+            match_reason = (
+                f"Set match (order does not matter). Gen: {sorted(list(gen_set))} vs Orig: {sorted(list(orig_set))}"
+            )
         else:
             score = 0.0
             missing_in_gen = orig_set - gen_set
@@ -212,16 +212,10 @@ def list_comparison_math_reward(
                 f"Set mismatch (order does not matter). Gen: {sorted(list(gen_set))} vs Orig: {sorted(list(orig_set))}."
             ]
             if missing_in_gen:
-                match_reason_parts.append(
-                    f"Missing in generated: {sorted(list(missing_in_gen))}."
-                )
+                match_reason_parts.append(f"Missing in generated: {sorted(list(missing_in_gen))}.")
             if extra_in_gen:
-                match_reason_parts.append(
-                    f"Extra in generated: {sorted(list(extra_in_gen))}."
-                )
+                match_reason_parts.append(f"Extra in generated: {sorted(list(extra_in_gen))}.")
             match_reason = " ".join(match_reason_parts)
 
-    metrics["list_comparison"] = MetricResult(
-        score=score, is_score_valid=(score == 1.0), reason=match_reason
-    )
+    metrics["list_comparison"] = MetricResult(score=score, is_score_valid=(score == 1.0), reason=match_reason)
     return EvaluateResult(score=score, reason=match_reason, metrics=metrics)

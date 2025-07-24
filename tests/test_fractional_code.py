@@ -33,24 +33,20 @@ This will output `5`.
             },
         ]
 
-        result = fractional_code_reward(
-            messages=messages, ground_truth="5", language="python"
-        )
+        result = fractional_code_reward(messages=messages, ground_truth="5", language="python")
 
         assert isinstance(result, EvaluateResult)
         # Attribute access
         assert result.score == 1.0
         assert (
             result.metrics["execution_result"].reason is not None
-            and "Code executed successfully"
-            in result.metrics["execution_result"].reason
+            and "Code executed successfully" in result.metrics["execution_result"].reason
         )
         # Dictionary access
         assert result["score"] == 1.0
         assert (
             result["metrics"]["execution_result"]["reason"] is not None
-            and "Code executed successfully"
-            in result["metrics"]["execution_result"]["reason"]
+            and "Code executed successfully" in result["metrics"]["execution_result"]["reason"]
         )
 
     def test_simple_python_partial_match(self):
@@ -117,24 +113,20 @@ print(add(2, undefined_variable))
             },
         ]
 
-        result = fractional_code_reward(
-            messages=messages, ground_truth="5", language="python"
-        )
+        result = fractional_code_reward(messages=messages, ground_truth="5", language="python")
 
         assert isinstance(result, EvaluateResult)
         # Attribute access
         assert result.score == 0.0
         assert (
             result.metrics["execution_result"].reason is not None
-            and "execution failed with error"
-            in result.metrics["execution_result"].reason
+            and "execution failed with error" in result.metrics["execution_result"].reason
         )
         # Dictionary access
         assert result["score"] == 0.0
         assert (
             result["metrics"]["execution_result"]["reason"] is not None
-            and "execution failed with error"
-            in result["metrics"]["execution_result"]["reason"]
+            and "execution failed with error" in result["metrics"]["execution_result"]["reason"]
         )
 
     def test_no_code_blocks(self):
@@ -147,9 +139,7 @@ print(add(2, undefined_variable))
             },
         ]
 
-        result = fractional_code_reward(
-            messages=messages, ground_truth="5", language="python"
-        )
+        result = fractional_code_reward(messages=messages, ground_truth="5", language="python")
 
         assert isinstance(result, EvaluateResult)
         # Attribute access
@@ -162,8 +152,7 @@ print(add(2, undefined_variable))
         assert result["score"] == 0.0
         assert (
             result["metrics"]["error"]["reason"] is not None
-            and "no python code blocks found"
-            in result["metrics"]["error"]["reason"].lower()
+            and "no python code blocks found" in result["metrics"]["error"]["reason"].lower()
         )
 
     def test_extract_expected_output(self):
@@ -230,10 +219,7 @@ print(add(2, 3))
 
                 assert isinstance(result, EvaluateResult)
                 # Check if we got a connection error
-                if (
-                    "execution_result" in result.metrics
-                    and not result.metrics["execution_result"].is_score_valid
-                ):
+                if "execution_result" in result.metrics and not result.metrics["execution_result"].is_score_valid:
                     reason = result.metrics["execution_result"].reason
                     if "502 Bad Gateway" in reason or "sandbox timeout" in reason:
                         pytest.skip("Skipping due to E2B connection issues")
@@ -283,19 +269,14 @@ if __name__ == "__main__":
             },  # This will fail
         ]
 
-        result = fractional_code_reward(
-            messages=messages, language="python", ground_truth=test_cases
-        )
+        result = fractional_code_reward(messages=messages, language="python", ground_truth=test_cases)
 
         assert isinstance(result, EvaluateResult)
         # Attribute access
         # Test case behavior may vary depending on Python environment, so just check it's between 0 and 1
         assert 0 <= result.score <= 1.0
         # Should contain pass_rate indicator
-        assert (
-            result.metrics["pass_rate"].reason is not None
-            and "tests passed" in result.metrics["pass_rate"].reason
-        )
+        assert result.metrics["pass_rate"].reason is not None and "tests passed" in result.metrics["pass_rate"].reason
         # Dictionary access
         assert 0 <= result["score"] <= 1.0
         assert (
@@ -322,9 +303,7 @@ console.log(add(2, 3));
             },
         ]
 
-        result = fractional_code_reward(
-            messages=messages, ground_truth="5", language="javascript"
-        )
+        result = fractional_code_reward(messages=messages, ground_truth="5", language="javascript")
 
         assert isinstance(result, EvaluateResult)
         # Attribute access

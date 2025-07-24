@@ -44,9 +44,7 @@ def run_tests():
     print("\nTest: Empty response")
     empty_statement = "Any statement"
     empty_response_messages = create_runner_messages(empty_statement, "")
-    result = lean_prover_reward(
-        messages=empty_response_messages, ground_truth=None, statement=empty_statement
-    )
+    result = lean_prover_reward(messages=empty_response_messages, ground_truth=None, statement=empty_statement)
     print(f"Score: {result['score']}")
     assert result["score"] == 0.0
 
@@ -79,9 +77,7 @@ end
 
     # Test with a complex proof with subgoals
     print("\nTest: Complex proof with subgoals")
-    statement_complex = (
-        "For all natural numbers n, the sum of the first n natural numbers is n(n+1)/2."
-    )
+    statement_complex = "For all natural numbers n, the sum of the first n natural numbers is n(n+1)/2."
     response_complex = """theorem sum_naturals (n : ℕ) : ∑ i in range n, i = n * (n + 1) / 2 :=
 begin
   -- We'll prove this by induction on n

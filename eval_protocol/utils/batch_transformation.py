@@ -53,29 +53,21 @@ def transform_n_variant_jsonl_to_batch_format(
 
                     # Skip lines with errors
                     if "error" in data:
-                        logger.warning(
-                            f"Skipping line {line_num} due to error: {data.get('error')}"
-                        )
+                        logger.warning(f"Skipping line {line_num} due to error: {data.get('error')}")
                         continue
 
                     # Validate required fields
                     if request_id_field not in data:
-                        raise ValueError(
-                            f"Line {line_num}: Missing required field '{request_id_field}'"
-                        )
+                        raise ValueError(f"Line {line_num}: Missing required field '{request_id_field}'")
 
                     if response_id_field not in data:
-                        raise ValueError(
-                            f"Line {line_num}: Missing required field '{response_id_field}'"
-                        )
+                        raise ValueError(f"Line {line_num}: Missing required field '{response_id_field}'")
 
                     request_id = data[request_id_field]
                     response_id = data[response_id_field]
 
                     # Extract messages
-                    messages = _extract_messages_from_data(
-                        data, messages_field, fallback_messages_fields, line_num
-                    )
+                    messages = _extract_messages_from_data(data, messages_field, fallback_messages_fields, line_num)
 
                     # Store variant data
                     variant_data = {
@@ -144,9 +136,7 @@ def transform_n_variant_jsonl_to_batch_format(
         with open(output_file_path, "w", encoding="utf-8") as f:
             for entry in batch_entries:
                 f.write(json.dumps(entry) + "\n")
-        logger.info(
-            f"Transformed {len(batch_entries)} batch entries written to {output_file_path}"
-        )
+        logger.info(f"Transformed {len(batch_entries)} batch entries written to {output_file_path}")
 
     return batch_entries
 
@@ -172,9 +162,7 @@ def _extract_messages_from_data(
         if isinstance(messages, list):
             return messages
         else:
-            logger.warning(
-                f"Line {line_num}: {primary_field} is not a list, trying fallback"
-            )
+            logger.warning(f"Line {line_num}: {primary_field} is not a list, trying fallback")
 
     # Try to construct messages from fallback fields
     messages = []
@@ -192,16 +180,12 @@ def _extract_messages_from_data(
         messages.append({"role": "assistant", "content": data["assistant_response"]})
 
     if not messages:
-        raise ValueError(
-            f"Line {line_num}: Could not extract messages from any available fields"
-        )
+        raise ValueError(f"Line {line_num}: Could not extract messages from any available fields")
 
     return messages
 
 
-def create_batch_evaluation_dataset(
-    n_variant_jsonl_path: str, output_jsonl_path: str, **transform_kwargs
-) -> str:
+def create_batch_evaluation_dataset(n_variant_jsonl_path: str, output_jsonl_path: str, **transform_kwargs) -> str:
     """
     Convenience function to create a batch evaluation dataset from N-variant generation output.
 

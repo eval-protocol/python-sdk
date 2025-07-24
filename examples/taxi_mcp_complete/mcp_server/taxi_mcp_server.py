@@ -29,6 +29,7 @@ from eval_protocol.mcp import GymProductionServer
 
 # TODO: FAST FOLLOW. refactor this entire file to use McpGym, leaving logic below incorrect for now.
 
+
 class TaxiProdServer(GymProductionServer):
     """Taxi production server using unified framework."""
 
@@ -72,9 +73,7 @@ class TaxiProdServer(GymProductionServer):
                 raise ValueError(str(e))
 
             # Execute move
-            obs, reward, terminated, truncated, info = self.adapter.step_environment(
-                self.env, action_int
-            )
+            obs, reward, terminated, truncated, info = self.adapter.step_environment(self.env, action_int)
 
             # Update global state
             self.obs = obs
@@ -155,9 +154,7 @@ def main():
         default="streamable-http",
         help="Transport protocol to use",
     )
-    parser.add_argument(
-        "--port", type=int, default=8000, help="Port for HTTP transport"
-    )
+    parser.add_argument("--port", type=int, default=8000, help="Port for HTTP transport")
 
     args = parser.parse_args()
 

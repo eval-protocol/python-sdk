@@ -29,10 +29,7 @@ async def test_lunar_lander_with_conda_isolation():
 
     # Start managed simulation server with conda isolation
     managed_server_script = (
-        Path(__file__).parent.parent
-        / "frozen_lake_mcp_complete"
-        / "mcp_server"
-        / "managed_simulation_server.py"
+        Path(__file__).parent.parent / "frozen_lake_mcp_complete" / "mcp_server" / "managed_simulation_server.py"
     )
 
     print(f"📦 Production script: {production_script}")
@@ -131,9 +128,7 @@ async def test_lunar_lander_with_conda_isolation():
 
                 self.rng = random.Random(42)
 
-            async def __call__(
-                self, tool_schemas, observations, system_prompts, user_prompts
-            ):
+            async def __call__(self, tool_schemas, observations, system_prompts, user_prompts):
                 from eval_protocol.mcp.types import MCPToolCall
 
                 tool_calls = []
@@ -176,17 +171,11 @@ async def test_lunar_lander_with_conda_isolation():
 
             # Save observations and actions if available
             if hasattr(trajectory, "observations"):
-                trajectory_summary["observations"] = trajectory.observations[
-                    :5
-                ]  # First 5 for brevity
+                trajectory_summary["observations"] = trajectory.observations[:5]  # First 5 for brevity
             if hasattr(trajectory, "actions"):
-                trajectory_summary["actions"] = trajectory.actions[
-                    :5
-                ]  # First 5 for brevity
+                trajectory_summary["actions"] = trajectory.actions[:5]  # First 5 for brevity
             if hasattr(trajectory, "rewards"):
-                trajectory_summary["rewards"] = trajectory.rewards[
-                    :5
-                ]  # First 5 for brevity
+                trajectory_summary["rewards"] = trajectory.rewards[:5]  # First 5 for brevity
 
             # Save trajectory summary to JSON
             with open(output_dir / f"episode_{i}_summary.json", "w") as f:
@@ -195,9 +184,7 @@ async def test_lunar_lander_with_conda_isolation():
             # Debug: print the structure of observations
             if hasattr(trajectory, "observations"):
                 print(f"  🔍 Observations type: {type(trajectory.observations)}")
-                print(
-                    f"  🔍 Number of observations: {len(trajectory.observations) if trajectory.observations else 0}"
-                )
+                print(f"  🔍 Number of observations: {len(trajectory.observations) if trajectory.observations else 0}")
 
                 if trajectory.observations and len(trajectory.observations) > 0:
                     first_obs = trajectory.observations[0]
@@ -207,22 +194,16 @@ async def test_lunar_lander_with_conda_isolation():
                     )
 
                     # Save full first observation for debugging
-                    with open(
-                        output_dir / f"episode_{i}_first_obs_debug.json", "w"
-                    ) as f:
+                    with open(output_dir / f"episode_{i}_first_obs_debug.json", "w") as f:
                         json.dump(first_obs, f, indent=2, default=str)
 
                 # Try to extract frames from observations
-                for step_idx, obs in enumerate(
-                    trajectory.observations[:10]
-                ):  # First 10 steps
+                for step_idx, obs in enumerate(trajectory.observations[:10]):  # First 10 steps
                     if isinstance(obs, dict):
                         print(f"    Step {step_idx} keys: {list(obs.keys())}")
                         if "rendered_frame" in obs:
                             frame_data = obs["rendered_frame"]
-                            if frame_data and frame_data.startswith(
-                                "data:image/png;base64,"
-                            ):
+                            if frame_data and frame_data.startswith("data:image/png;base64,"):
                                 try:
                                     # Decode base64 image
                                     import base64
@@ -231,10 +212,7 @@ async def test_lunar_lander_with_conda_isolation():
                                     image_bytes = base64.b64decode(image_data)
 
                                     # Save image
-                                    image_path = (
-                                        output_dir
-                                        / f"episode_{i}_step_{step_idx:03d}.png"
-                                    )
+                                    image_path = output_dir / f"episode_{i}_step_{step_idx:03d}.png"
                                     with open(image_path, "wb") as img_file:
                                         img_file.write(image_bytes)
 

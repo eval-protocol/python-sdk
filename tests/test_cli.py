@@ -24,9 +24,7 @@ class TestCLI:
         assert args.max_samples == 5  # default value
 
         # Test deploy command
-        args, _ = parse_args(  # Unpack tuple
-            ["deploy", "--id", "test-eval", "--metrics-folders", "test=./test"]
-        )
+        args, _ = parse_args(["deploy", "--id", "test-eval", "--metrics-folders", "test=./test"])  # Unpack tuple
         assert args.command == "deploy"
         assert args.id == "test-eval"
         assert args.metrics_folders == ["test=./test"]
@@ -121,9 +119,7 @@ class TestCLI:
 
     @patch("eval_protocol.cli_commands.deploy.check_environment", return_value=False)
     @patch("eval_protocol.cli_commands.preview.check_environment", return_value=False)
-    def test_command_environment_check(
-        self, mock_preview_check_env, mock_deploy_check_env
-    ):
+    def test_command_environment_check(self, mock_preview_check_env, mock_deploy_check_env):
         """Test that commands check the environment and fail if check_environment returns False."""
         preview_args = argparse.Namespace()
         # For preview_command to proceed to check_environment, it needs either remote_url or metrics_folders,

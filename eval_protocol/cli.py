@@ -30,19 +30,13 @@ from .cli_commands.run_eval_cmd import hydra_cli_entry_point
 
 def parse_args(args=None):
     """Parse command line arguments"""
-    parser = argparse.ArgumentParser(
-        description="eval-protocol: Tools for evaluation and reward modeling"
-    )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging"
-    )
+    parser = argparse.ArgumentParser(description="eval-protocol: Tools for evaluation and reward modeling")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # Preview command
-    preview_parser = subparsers.add_parser(
-        "preview", help="Preview an evaluator with sample data"
-    )
+    preview_parser = subparsers.add_parser("preview", help="Preview an evaluator with sample data")
     preview_parser.add_argument(
         "--metrics-folders",
         "-m",
@@ -96,9 +90,7 @@ def parse_args(args=None):
     )
 
     # Deploy command
-    deploy_parser = subparsers.add_parser(
-        "deploy", help="Create and deploy an evaluator, or register a remote one"
-    )
+    deploy_parser = subparsers.add_parser("deploy", help="Create and deploy an evaluator, or register a remote one")
     deploy_parser.add_argument("--id", required=True, help="ID for the evaluator")
     deploy_parser.add_argument(
         "--metrics-folders",
@@ -164,9 +156,7 @@ def parse_args(args=None):
     )
 
     # Local serving options (relevant if --target is local-serve)
-    local_serve_group = deploy_parser.add_argument_group(
-        "Local Serving Options (used if --target is local-serve)"
-    )
+    local_serve_group = deploy_parser.add_argument_group("Local Serving Options (used if --target is local-serve)")
     local_serve_group.add_argument(
         "--local-port",
         type=int,
@@ -219,12 +209,8 @@ def parse_args(args=None):
     )
 
     # Deploy MCP command
-    deploy_mcp_parser = subparsers.add_parser(
-        "deploy-mcp", help="Deploy an MCP server to Google Cloud Run"
-    )
-    deploy_mcp_parser.add_argument(
-        "--id", required=True, help="Unique ID for the MCP server deployment"
-    )
+    deploy_mcp_parser = subparsers.add_parser("deploy-mcp", help="Deploy an MCP server to Google Cloud Run")
+    deploy_mcp_parser.add_argument("--id", required=True, help="Unique ID for the MCP server deployment")
     deploy_mcp_parser.add_argument(
         "--mcp-server-module",
         help="Python module containing the MCP server (e.g., 'examples.frozen_lake_mcp.frozen_lake_mcp_server'). Required if --dockerfile is not provided.",
@@ -256,12 +242,8 @@ def parse_args(args=None):
         default="3.11",
         help="Python version for the container (default: 3.11)",
     )
-    deploy_mcp_parser.add_argument(
-        "--requirements", help="Additional pip requirements (newline separated)"
-    )
-    deploy_mcp_parser.add_argument(
-        "--env-vars", nargs="*", help="Environment variables in KEY=VALUE format"
-    )
+    deploy_mcp_parser.add_argument("--requirements", help="Additional pip requirements (newline separated)")
+    deploy_mcp_parser.add_argument("--env-vars", nargs="*", help="Environment variables in KEY=VALUE format")
 
     # Agent-eval command
     agent_eval_parser = subparsers.add_parser(
@@ -363,9 +345,7 @@ def main():
         hydra_specific_args = [arg for arg in remaining_argv if arg != "--"]
 
         # Auto-detect local conf directory and add it to config path if not explicitly provided
-        has_config_path = any(
-            arg.startswith("--config-path") for arg in hydra_specific_args
-        )
+        has_config_path = any(arg.startswith("--config-path") for arg in hydra_specific_args)
         current_dir = os.getcwd()
         local_conf_dir = os.path.join(current_dir, "conf")
 
@@ -406,9 +386,7 @@ def main():
             i += 1
 
         sys.argv = [sys.argv[0]] + processed_hydra_args
-        logger.info(
-            f"SYSCALL_ARGV_FOR_HYDRA (after potential abspath conversion): {sys.argv}"
-        )
+        logger.info(f"SYSCALL_ARGV_FOR_HYDRA (after potential abspath conversion): {sys.argv}")
 
         try:
             hydra_cli_entry_point()
@@ -420,44 +398,25 @@ def main():
             # Provide helpful suggestions for common Hydra/config errors
             if "Cannot find primary config" in error_msg:
                 logger.error("HINT: Configuration file not found.")
-                logger.error(
-                    "SOLUTION: Ensure you have a config file in ./conf/ directory"
-                )
+                logger.error("SOLUTION: Ensure you have a config file in ./conf/ directory")
                 logger.error("Try: reward-kit run --config-name simple_uipath_eval")
-            elif (
-                "missing from config" in error_msg
-                or "MissingMandatoryValue" in error_msg
-            ):
+            elif "missing from config" in error_msg or "MissingMandatoryValue" in error_msg:
                 logger.error("HINT: Required configuration values are missing.")
-                logger.error(
-                    "SOLUTION: Check your config file for missing required fields"
-                )
+                logger.error("SOLUTION: Check your config file for missing required fields")
             elif "Config search path" in error_msg:
                 logger.error("HINT: Hydra cannot find the configuration directory.")
-                logger.error(
-                    "SOLUTION: Create a ./conf directory with your config files"
-                )
+                logger.error("SOLUTION: Create a ./conf directory with your config files")
             elif "ValidationError" in error_msg:
                 logger.error("HINT: Configuration validation failed.")
-                logger.error(
-                    "SOLUTION: Run 'reward-kit validate-data --file your_data.jsonl' to check data"
-                )
+                logger.error("SOLUTION: Run 'reward-kit validate-data --file your_data.jsonl' to check data")
 
             logger.error("\nQuick fix suggestions:")
-            logger.error(
-                "1. Use the simplified setup: reward-kit run --config-name simple_uipath_eval"
-            )
-            logger.error(
-                "2. Validate your data first: reward-kit validate-data --file data.jsonl --schema agent"
-            )
-            logger.error(
-                "3. Ensure you have: ./conf/simple_uipath_eval.yaml and ./uipath_reward.py"
-            )
+            logger.error("1. Use the simplified setup: reward-kit run --config-name simple_uipath_eval")
+            logger.error("2. Validate your data first: reward-kit validate-data --file data.jsonl --schema agent")
+            logger.error("3. Ensure you have: ./conf/simple_uipath_eval.yaml and ./uipath_reward.py")
             return 1
     else:
-        temp_parser = argparse.ArgumentParser(
-            prog=os.path.basename(original_script_name)
-        )
+        temp_parser = argparse.ArgumentParser(prog=os.path.basename(original_script_name))
         temp_parser.print_help()
         return 1
 

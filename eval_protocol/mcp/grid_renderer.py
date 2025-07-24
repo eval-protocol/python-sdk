@@ -35,9 +35,7 @@ def render_grid(desc, position: int) -> str:
             line = ""
             for c, cell in enumerate(desc_row):
                 # Convert bytes to string if needed
-                cell_char = (
-                    cell.decode("utf-8") if isinstance(cell, bytes) else str(cell)
-                )
+                cell_char = cell.decode("utf-8") if isinstance(cell, bytes) else str(cell)
 
                 if r == row and c == col:
                     # Show player position with 'P', unless it's the goal

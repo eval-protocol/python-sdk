@@ -72,9 +72,7 @@ class McpGym(ABC):
     - Environment Implementation: Single-process MCP server per environment
     """
 
-    def __init__(
-        self, server_name: str, adapter: EnvironmentAdapter, seed: Optional[int] = None
-    ):
+    def __init__(self, server_name: str, adapter: EnvironmentAdapter, seed: Optional[int] = None):
         """
         Initialize the MCP-Gym environment.
 
@@ -93,9 +91,7 @@ class McpGym(ABC):
         )
 
         # Multi-session support
-        self.sessions = (
-            {}
-        )  # session_id -> {"env": env, "obs": obs, "session_data": data}
+        self.sessions = {}  # session_id -> {"env": env, "obs": obs, "session_data": data}
         self.session_lock = threading.Lock()
 
         # Control plane endpoints dictionary
@@ -121,7 +117,7 @@ class McpGym(ABC):
     def _get_session_id(self, ctx: Context) -> str:
         """
         Extract session ID from MCP context using proper FastMCP pattern.
-        
+
         Creates stable session IDs based on client info (seed + config + client details)
         for consistent session management across reconnections.
         """
@@ -133,16 +129,12 @@ class McpGym(ABC):
         if hasattr(ctx, "session") and hasattr(ctx.session, "client_params"):
             client_params = ctx.session.client_params
             print(f"🔍 _get_session_id: client_params type: {type(client_params)}")
-            print(
-                f"🔍 _get_session_id: hasattr(client_params, 'clientInfo'): {hasattr(client_params, 'clientInfo')}"
-            )
+            print(f"🔍 _get_session_id: hasattr(client_params, 'clientInfo'): {hasattr(client_params, 'clientInfo')}")
 
             if hasattr(client_params, "clientInfo"):
                 client_info = client_params.clientInfo
                 print(f"🔍 _get_session_id: client_info: {client_info}")
-                print(
-                    f"🔍 _get_session_id: hasattr(client_info, '_extra'): {hasattr(client_info, '_extra')}"
-                )
+                print(f"🔍 _get_session_id: hasattr(client_info, '_extra'): {hasattr(client_info, '_extra')}")
 
                 if client_info and hasattr(client_info, "_extra"):
                     extra_data = client_info._extra
@@ -154,9 +146,7 @@ class McpGym(ABC):
                         seed_value = extra_data.get("seed")
                         config_value = extra_data.get("config", {})
 
-                        print(
-                            f"🔍 _get_session_id: seed_value: {seed_value} (type: {type(seed_value)})"
-                        )
+                        print(f"🔍 _get_session_id: seed_value: {seed_value} (type: {type(seed_value)})")
                         print(f"🔍 _get_session_id: config_value: {config_value}")
 
                         stable_data = {
@@ -169,9 +159,7 @@ class McpGym(ABC):
                         print(f"🔍 _get_session_id: stable_data: {stable_data}")
                         stable_str = json.dumps(stable_data, sort_keys=True)
                         session_id = hashlib.md5(stable_str.encode()).hexdigest()
-                        print(
-                            f"🎯 Generated stable session_id: {session_id} for seed: {seed_value}"
-                        )
+                        print(f"🎯 Generated stable session_id: {session_id} for seed: {seed_value}")
                         return session_id
 
         # Fallback for testing or other scenarios
@@ -182,7 +170,7 @@ class McpGym(ABC):
     def _get_or_create_session(self, ctx: Context) -> Dict[str, Any]:
         """
         Get or create session data for the given context.
-        
+
         This method handles comprehensive session creation with seed extraction
         from MCP context and proper environment initialization.
         """
@@ -191,9 +179,7 @@ class McpGym(ABC):
 
         with self.session_lock:
             if session_id not in self.sessions:
-                print(
-                    f"🔍 _get_or_create_session: Creating new session for {session_id}"
-                )
+                print(f"🔍 _get_or_create_session: Creating new session for {session_id}")
                 # Extract seed from context using proper FastMCP pattern
                 seed = None
                 config = self._get_default_config()
@@ -205,30 +191,20 @@ class McpGym(ABC):
                         client_info = client_params.clientInfo
                         if client_info and hasattr(client_info, "_extra"):
                             extra_data = client_info._extra
-                            print(
-                                f"🔍 _get_or_create_session: extra_data in session creation: {extra_data}"
-                            )
+                            print(f"🔍 _get_or_create_session: extra_data in session creation: {extra_data}")
                             if extra_data and isinstance(extra_data, dict):
                                 # Extract seed from client info
                                 seed = extra_data.get("seed")
-                                print(
-                                    f"🌱 Extracted seed from client_info: {seed} (type: {type(seed)})"
-                                )
+                                print(f"🌱 Extracted seed from client_info: {seed} (type: {type(seed)})")
                                 # Update config with any additional options
                                 if "config" in extra_data:
                                     config.update(extra_data["config"])
-                                    print(
-                                        f"🔍 _get_or_create_session: updated config: {config}"
-                                    )
+                                    print(f"🔍 _get_or_create_session: updated config: {config}")
 
-                print(
-                    f"🔍 _get_or_create_session: About to create environment with seed: {seed}"
-                )
+                print(f"🔍 _get_or_create_session: About to create environment with seed: {seed}")
 
                 env, obs, info = self._new_env(seed=seed)
-                print(
-                    f"🔍 _get_or_create_session: environment created with obs: {obs}, info: {info}"
-                )
+                print(f"🔍 _get_or_create_session: environment created with obs: {obs}, info: {info}")
 
                 # Initialize session state
                 self.sessions[session_id] = {
@@ -238,13 +214,9 @@ class McpGym(ABC):
                     "session_id": session_id,
                 }
 
-                print(
-                    f"🎮 Created new session {session_id[:16]}... with seed {seed}, initial obs: {obs}"
-                )
+                print(f"🎮 Created new session {session_id[:16]}... with seed {seed}, initial obs: {obs}")
             else:
-                print(
-                    f"🔍 _get_or_create_session: Returning existing session {session_id}"
-                )
+                print(f"🔍 _get_or_create_session: Returning existing session {session_id}")
 
             return self.sessions[session_id]
 
@@ -319,18 +291,13 @@ class McpGym(ABC):
             self.mcp.custom_route(path, methods=["GET"])(handler)
 
         if discovered_endpoints:
-            logger.info(
-                f"✅ Registered {len(discovered_endpoints)} session-aware control plane endpoints"
-            )
+            logger.info(f"✅ Registered {len(discovered_endpoints)} session-aware control plane endpoints")
             for name, endpoint in discovered_endpoints.items():
                 logger.info(f"  - {name}: {endpoint._control_plane_path}")
         else:
             logger.info("⚠️  No session-aware control plane endpoints discovered")
 
-
-    def _update_control_plane(
-        self, reward: float, terminated: bool, truncated: bool, info: Dict[str, Any]
-    ):
+    def _update_control_plane(self, reward: float, terminated: bool, truncated: bool, info: Dict[str, Any]):
         """
         Update control plane state after environment step (single session).
 
@@ -412,9 +379,7 @@ class McpGym(ABC):
             Data plane response (observation only, no rewards)
         """
         # Execute environment step
-        obs, reward, terminated, truncated, info = self.adapter.step_environment(
-            self.env, action_int
-        )
+        obs, reward, terminated, truncated, info = self.adapter.step_environment(self.env, action_int)
 
         # Update global observation state
         self.obs = obs
@@ -425,9 +390,7 @@ class McpGym(ABC):
         # Return ONLY data plane information (no rewards/termination)
         return self._render(obs)
 
-    def _execute_session_environment_step(
-        self, session_id: str, action: Any
-    ) -> Dict[str, Any]:
+    def _execute_session_environment_step(self, session_id: str, action: Any) -> Dict[str, Any]:
         """
         Execute environment step for a specific session and update control plane.
 
@@ -442,43 +405,37 @@ class McpGym(ABC):
         env = session_data["env"]
 
         # Execute environment step
-        obs, reward, terminated, truncated, info = self.adapter.step_environment(
-            env, action
-        )
+        obs, reward, terminated, truncated, info = self.adapter.step_environment(env, action)
 
         # Update session observation state
         session_data["obs"] = obs
 
         # Update control plane for this session
-        self._update_session_control_plane(
-            session_id, reward, terminated, truncated, info
-        )
+        self._update_session_control_plane(session_id, reward, terminated, truncated, info)
 
         # Return ONLY data plane information (no rewards/termination)
         return self.format_observation(obs, env)
 
-
     def _new_env(self, seed: Optional[int] = None) -> Tuple[Any, Any, Dict]:
         """Create new environment and return initial state."""
         config = self.adapter.get_default_config()
-        
+
         if seed:
             env, obs, info = self.adapter.create_environment_with_seed(config, seed=seed)
         else:
             env = self.adapter.create_environment(config)
             obs, info = self.adapter.reset_environment(env, seed=seed)
-        
+
         return env, obs, info
 
     def _render(self, obs) -> Dict[str, Any]:
         """Format observation using subclass implementation."""
         return self.format_observation(obs, self.env)
 
-    
     def _get_default_config(self) -> Dict[str, Any]:
         """
         Get default configuration from adapter.
-        
+
         Wrapper method to handle potential adapter interface issues.
         """
         try:
@@ -518,9 +475,7 @@ class McpGym(ABC):
         return control_plane.get("info", {})
 
     @control_plane_endpoint("/control/initial_state")
-    def get_initial_state_endpoint(
-        self, session_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def get_initial_state_endpoint(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
         """Get initial state for this session."""
         env = session_data.get("env")
         obs = session_data.get("obs")
@@ -535,9 +490,7 @@ class McpGym(ABC):
                 "session_id": session_data.get("session_id", "unknown"),
             }
 
-    def _get_session_control_plane_from_data(
-        self, session_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _get_session_control_plane_from_data(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
         """Extract control plane state from session data."""
         return session_data.get("session_data", {}).get(
             "control_plane",
@@ -582,7 +535,7 @@ class McpGym(ABC):
     def run(self, transport: str = "streamable-http", **kwargs):
         """
         Run the unified MCP-Gym server.
-        
+
         Args:
             transport: MCP transport protocol ("stdio", "sse", "streamable-http")
             **kwargs: Additional arguments passed to FastMCP.run()
@@ -591,14 +544,14 @@ class McpGym(ABC):
         print(f"📡 Transport: {transport}")
         print("🎯 MCP Pattern: HTTP endpoints for control plane, tools for data plane")
         print("🔗 Session-aware control plane endpoints:")
-        
+
         # List registered control plane endpoints
         for endpoint_name, endpoint_func in self._control_plane_endpoints.items():
             print(f"  - {endpoint_name}: {endpoint_func._control_plane_path}")
-        
+
         if not self._control_plane_endpoints:
             print("  - No control plane endpoints registered")
-        
+
         print()
 
         # Run the unified server

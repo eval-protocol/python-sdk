@@ -150,9 +150,7 @@ class FrozenLakeMcpSimplified:
 
             # Parse action (directly without adapter)
             if action not in self.ACTION_NAMES:
-                raise ValueError(
-                    f"Invalid action '{action}'. Valid actions: {self.ACTION_NAMES}"
-                )
+                raise ValueError(f"Invalid action '{action}'. Valid actions: {self.ACTION_NAMES}")
             action_int = self.ACTION_NAMES.index(action)
 
             # Execute environment step with control plane separation
@@ -162,13 +160,8 @@ class FrozenLakeMcpSimplified:
             observation_data["action"] = action
 
             # Log the result (control plane state is already logged in _execute_environment_step)
-            if (
-                self.control_plane_state["terminated"]
-                or self.control_plane_state["truncated"]
-            ):
-                status = (
-                    "🏆 GOAL!" if self.control_plane_state["reward"] > 0 else "💀 HOLE!"
-                )
+            if self.control_plane_state["terminated"] or self.control_plane_state["truncated"]:
+                status = "🏆 GOAL!" if self.control_plane_state["reward"] > 0 else "💀 HOLE!"
                 print(f"🎮 Game ended: {status}")
             else:
                 print(f"🎮 {action} → position {self.obs}")
@@ -198,9 +191,7 @@ class FrozenLakeMcpSimplified:
         # Return ONLY data plane information (no rewards/termination)
         return self._format_observation(obs)
 
-    def _update_control_plane(
-        self, reward: float, terminated: bool, truncated: bool, info: Dict[str, Any]
-    ):
+    def _update_control_plane(self, reward: float, terminated: bool, truncated: bool, info: Dict[str, Any]):
         """
         Update control plane state after environment step.
 

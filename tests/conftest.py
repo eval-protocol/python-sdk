@@ -36,18 +36,14 @@ def sample_messages():
 @pytest.fixture
 def sample_ground_truth_messages(sample_messages):  # Renamed fixture
     """Sample ground truth messages (e.g., user context or expected full conversation)."""
-    return [
-        sample_messages[0]
-    ]  # Keeping the same logic for now, assuming it represents context
+    return [sample_messages[0]]  # Keeping the same logic for now, assuming it represents context
 
 
 @pytest.fixture
 def sample_reward_output():
     """Sample reward output structure."""
     metrics = {
-        "helpfulness": MetricResult(
-            score=0.7, reason="Response acknowledges limitations", success=True
-        ),
+        "helpfulness": MetricResult(score=0.7, reason="Response acknowledges limitations", success=True),
         "accuracy": MetricResult(
             score=0.8,
             reason="Response correctly states lack of access to weather data",

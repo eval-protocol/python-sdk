@@ -300,9 +300,7 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs):
         assert result["description"] == "Evaluates responses based on word count"
 
 
-def test_preview_then_create(
-    monkeypatch, mock_env_variables, mock_preview_api, mock_create_api
-):
+def test_preview_then_create(monkeypatch, mock_env_variables, mock_preview_api, mock_create_api):
     """Test the full example flow (simulated)"""
     # Patch input to always return 'y'
     monkeypatch.setattr("builtins.input", lambda _: "y")
@@ -389,9 +387,7 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs):
             try:
                 evaluator = create_evaluation(
                     evaluator_id="word-count-eval",
-                    metric_folders=[
-                        f"word_count={os.path.join(tmp_dir, 'word_count')}"
-                    ],
+                    metric_folders=[f"word_count={os.path.join(tmp_dir, 'word_count')}"],
                     display_name="Word Count Evaluator",
                     description="Evaluates responses based on word count",
                     force=True,

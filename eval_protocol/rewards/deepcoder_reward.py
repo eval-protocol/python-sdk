@@ -103,9 +103,7 @@ def deepcoder_code_reward(
             score=0.0,
             reason="No test cases provided.",
             metrics={
-                "error": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No test cases provided."
-                ),
+                "error": MetricResult(score=0.0, is_score_valid=False, reason="No test cases provided."),
                 **metrics_dict,  # Include already gathered metrics like extracted_code
             },
             is_score_valid=False,
@@ -144,11 +142,7 @@ def deepcoder_code_reward(
     if eval_result_from_tests.metrics:
         metrics_dict.update(eval_result_from_tests.metrics)
 
-    overall_reason = (
-        "All tests passed."
-        if final_score == 1.0
-        else "One or more tests failed or an error occurred."
-    )
+    overall_reason = "All tests passed." if final_score == 1.0 else "One or more tests failed or an error occurred."
     if eval_result_from_tests.reason and eval_result_from_tests.score == 0.0:
         pass
     metrics_dict["overall_status"] = MetricResult(

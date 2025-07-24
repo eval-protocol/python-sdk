@@ -66,9 +66,7 @@ def extract_mcq_option(text: str) -> List[Tuple[str, str]]:
             }
             all_potential_matches.append(match_data)
 
-    all_potential_matches.sort(
-        key=lambda m: (m["span"][0], m["priority"], -(m["span"][1] - m["span"][0]))
-    )
+    all_potential_matches.sort(key=lambda m: (m["span"][0], m["priority"], -(m["span"][1] - m["span"][0])))
 
     last_covered_end = -1
     for match_info in all_potential_matches:
@@ -215,9 +213,7 @@ def multiple_choice_math_reward(
             is_score_valid=False,
             reason=f"Generated message has multiple MCQ options extracted: {format_extracted_mcq(gen_mcq_options)}",
         )
-        if (
-            len(orig_mcq_options) == 1
-        ):  # Penalize if GT is specific but gen is ambiguous
+        if len(orig_mcq_options) == 1:  # Penalize if GT is specific but gen is ambiguous
             return EvaluateResult(
                 score=0.0,
                 reason="Generated answer is ambiguous (multiple MCQ options) while ground truth is specific.",
@@ -231,8 +227,6 @@ def multiple_choice_math_reward(
     score = 1.0 if is_match else 0.0
     reason = f"Match: {is_match}. Gen: '{gen_mcq_options[0][0]}' ({gen_answer_letter}) vs Orig: '{orig_mcq_options[0][0]}' ({orig_answer_letter})"
 
-    metrics["mcq_comparison"] = MetricResult(
-        score=score, is_score_valid=is_match, reason=reason
-    )
+    metrics["mcq_comparison"] = MetricResult(score=score, is_score_valid=is_match, reason=reason)
 
     return EvaluateResult(score=score, reason=reason, metrics=metrics)

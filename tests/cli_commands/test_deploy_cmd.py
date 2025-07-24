@@ -38,39 +38,25 @@ class MockArgs:
 
 @pytest.fixture
 def mock_check_environment():
-    with patch(
-        "eval_protocol.cli_commands.deploy.check_environment", return_value=True
-    ) as mock_check:
+    with patch("eval_protocol.cli_commands.deploy.check_environment", return_value=True) as mock_check:
         yield mock_check
 
 
 @pytest.fixture
 def mock_gcp_tools():
     with (
-        patch(
-            "eval_protocol.cli_commands.deploy.ensure_artifact_registry_repo_exists"
-        ) as mock_ensure_repo,
-        patch(
-            "eval_protocol.cli_commands.deploy.generate_dockerfile_content"
-        ) as mock_gen_dockerfile,
-        patch(
-            "eval_protocol.cli_commands.deploy.build_and_push_docker_image"
-        ) as mock_build_push,
-        patch(
-            "eval_protocol.cli_commands.deploy.deploy_to_cloud_run"
-        ) as mock_deploy_run,
-        patch(
-            "eval_protocol.cli_commands.deploy.ensure_gcp_secret"
-        ) as mock_ensure_gcp_secret,
+        patch("eval_protocol.cli_commands.deploy.ensure_artifact_registry_repo_exists") as mock_ensure_repo,
+        patch("eval_protocol.cli_commands.deploy.generate_dockerfile_content") as mock_gen_dockerfile,
+        patch("eval_protocol.cli_commands.deploy.build_and_push_docker_image") as mock_build_push,
+        patch("eval_protocol.cli_commands.deploy.deploy_to_cloud_run") as mock_deploy_run,
+        patch("eval_protocol.cli_commands.deploy.ensure_gcp_secret") as mock_ensure_gcp_secret,
     ):
 
         mock_ensure_repo.return_value = True
         mock_gen_dockerfile.return_value = "DOCKERFILE CONTENT"
         mock_build_push.return_value = True
         mock_deploy_run.return_value = "http://mock-cloud-run-url.com/service"
-        mock_ensure_gcp_secret.return_value = (
-            "projects/test-proj/secrets/mocksecret/versions/1"
-        )
+        mock_ensure_gcp_secret.return_value = "projects/test-proj/secrets/mocksecret/versions/1"
         yield {
             "ensure_repo": mock_ensure_repo,
             "gen_dockerfile": mock_gen_dockerfile,
@@ -83,9 +69,7 @@ def mock_gcp_tools():
 class TestDeployCommandRemoteUrl:
 
     @patch("eval_protocol.cli_commands.deploy.create_evaluation")
-    def test_deploy_remote_url_success(
-        self, mock_create_evaluation_call, mock_check_environment, capsys
-    ):
+    def test_deploy_remote_url_success(self, mock_create_evaluation_call, mock_check_environment, capsys):
         """Test successful registration of a remote URL via create_evaluation."""
         args = MockArgs(
             id="my-remote-eval",
@@ -127,9 +111,7 @@ class TestDeployCommandRemoteUrl:
         )
 
     @patch("eval_protocol.cli_commands.deploy.create_evaluation")
-    def test_deploy_remote_url_with_metrics_folders_warning(
-        self, mock_create_eval, mock_check_environment, capsys
-    ):
+    def test_deploy_remote_url_with_metrics_folders_warning(self, mock_create_eval, mock_check_environment, capsys):
         args = MockArgs(
             id="my-remote-eval",
             remote_url="http://my-evaluator.com/evaluate",
@@ -145,18 +127,14 @@ class TestDeployCommandRemoteUrl:
         )
 
     def test_deploy_remote_url_invalid_url_format(self, mock_check_environment, capsys):
-        args = MockArgs(
-            id="my-eval", remote_url="ftp://invalid.com", target="fireworks"
-        )
+        args = MockArgs(id="my-eval", remote_url="ftp://invalid.com", target="fireworks")
         return_code = deploy_command(args)
         assert return_code == 1
         captured = capsys.readouterr()
         assert "Error: Invalid --remote-url 'ftp://invalid.com'" in captured.out
 
     @patch("eval_protocol.cli_commands.deploy.create_evaluation")
-    def test_deploy_remote_url_platform_api_error(
-        self, mock_create_eval, mock_check_environment, capsys
-    ):
+    def test_deploy_remote_url_platform_api_error(self, mock_create_eval, mock_check_environment, capsys):
         args = MockArgs(
             id="my-remote-eval-fail",
             remote_url="http://my-evaluator.com/evaluate",
@@ -173,14 +151,10 @@ class TestDeployCommandRemoteUrl:
 
         captured = capsys.readouterr()
         # Updated error message to match common registration block
-        assert (
-            f"Error registering URL with Fireworks AI: {error_message}" in captured.out
-        )
+        assert f"Error registering URL with Fireworks AI: {error_message}" in captured.out
 
     @patch("eval_protocol.cli_commands.deploy.create_evaluation")
-    def test_deploy_remote_url_unexpected_error(
-        self, mock_create_eval, mock_check_environment, capsys
-    ):
+    def test_deploy_remote_url_unexpected_error(self, mock_create_eval, mock_check_environment, capsys):
         args = MockArgs(
             id="my-remote-eval-generic-fail",
             remote_url="http://my-evaluator.com/evaluate",
@@ -193,10 +167,7 @@ class TestDeployCommandRemoteUrl:
 
         captured = capsys.readouterr()
         # Updated error message to match common registration block
-        assert (
-            f"An unexpected error occurred during Fireworks AI registration: Something broke"
-            in captured.out
-        )
+        assert f"An unexpected error occurred during Fireworks AI registration: Something broke" in captured.out
 
 
 class TestDeployCommandLocalMode:  # This class tests the "fireworks" target (packaging metrics)
@@ -205,9 +176,7 @@ class TestDeployCommandLocalMode:  # This class tests the "fireworks" target (pa
     def test_deploy_local_mode_success(  # Renaming to reflect it tests "fireworks" target
         self, mock_create_eval, mock_check_environment, capsys
     ):
-        mock_create_eval.return_value = {
-            "name": "my-fireworks-eval"
-        }  # Adjusted for clarity
+        mock_create_eval.return_value = {"name": "my-fireworks-eval"}  # Adjusted for clarity
         args = MockArgs(
             id="my-fireworks-eval",
             metrics_folders=["mf=./path"],
@@ -231,13 +200,8 @@ class TestDeployCommandLocalMode:  # This class tests the "fireworks" target (pa
             huggingface_response_key=args.huggingface_response_key,
         )
         captured = capsys.readouterr()
-        assert (
-            "Packaging and deploying metrics for evaluator 'my-fireworks-eval' to Fireworks AI..."
-            in captured.out
-        )
-        assert (
-            "Successfully created/updated evaluator: my-fireworks-eval" in captured.out
-        )
+        assert "Packaging and deploying metrics for evaluator 'my-fireworks-eval' to Fireworks AI..." in captured.out
+        assert "Successfully created/updated evaluator: my-fireworks-eval" in captured.out
 
     def test_deploy_local_mode_missing_metrics_folders(  # Renaming to reflect "fireworks" target
         self, mock_check_environment, capsys
@@ -259,35 +223,23 @@ class TestDeployCommandLocalMode:  # This class tests the "fireworks" target (pa
         self, mock_create_eval, mock_check_environment, capsys
     ):
         error_message = "Platform API error (Status: 503, Response: N/A)"
-        mock_create_eval.side_effect = PlatformAPIError(
-            "Platform API error", status_code=503, response_text="N/A"
-        )
-        args = MockArgs(
-            id="my-fireworks-eval", metrics_folders=["mf=./path"], target="fireworks"
-        )
+        mock_create_eval.side_effect = PlatformAPIError("Platform API error", status_code=503, response_text="N/A")
+        args = MockArgs(id="my-fireworks-eval", metrics_folders=["mf=./path"], target="fireworks")
         return_code = deploy_command(args)
         assert return_code == 1
         captured = capsys.readouterr()
-        assert (
-            f"Error creating/updating evaluator 'my-fireworks-eval': {error_message}"
-            in captured.out
-        )
+        assert f"Error creating/updating evaluator 'my-fireworks-eval': {error_message}" in captured.out
 
     @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_local_mode_create_evaluation_fails_generic_exception(  # Renaming
         self, mock_create_eval, mock_check_environment, capsys
     ):
         mock_create_eval.side_effect = Exception("Generic error")
-        args = MockArgs(
-            id="my-fireworks-eval", metrics_folders=["mf=./path"], target="fireworks"
-        )
+        args = MockArgs(id="my-fireworks-eval", metrics_folders=["mf=./path"], target="fireworks")
         return_code = deploy_command(args)
         assert return_code == 1
         captured = capsys.readouterr()
-        assert (
-            "Error creating/updating evaluator 'my-fireworks-eval': Generic error"
-            in captured.out
-        )
+        assert "Error creating/updating evaluator 'my-fireworks-eval': Generic error" in captured.out
 
 
 class TestDeployCommandGCPMode:
@@ -309,9 +261,7 @@ class TestDeployCommandGCPMode:
             runtime="python310",
             gcp_auth_mode="api-key",
         )
-        mock_create_evaluation_final_step.return_value = {
-            "name": args.id
-        }  # Simulate platform API returning full name
+        mock_create_evaluation_final_step.return_value = {"name": args.id}  # Simulate platform API returning full name
 
         return_code = deploy_command(args)
         assert return_code == 0
@@ -325,10 +275,7 @@ class TestDeployCommandGCPMode:
 
         captured = capsys.readouterr()
         # Check initial message from helper
-        assert (
-            f"Starting GCP Cloud Run deployment for evaluator '{args.id}'..."
-            in captured.out
-        )
+        assert f"Starting GCP Cloud Run deployment for evaluator '{args.id}'..." in captured.out
         assert f"Successfully built and pushed Docker image" in captured.out
         assert (
             f"Successfully deployed to Cloud Run. Service URL: {mock_gcp_tools['deploy_run'].return_value}"
@@ -341,9 +288,7 @@ class TestDeployCommandGCPMode:
         )
 
     @patch("eval_protocol.cli_commands.deploy.get_config")
-    def test_deploy_gcp_mode_missing_args(
-        self, mock_get_config, mock_check_environment, capsys
-    ):
+    def test_deploy_gcp_mode_missing_args(self, mock_get_config, mock_check_environment, capsys):
         # Mock empty config to test missing project/region scenarios
         from eval_protocol.config import RewardKitConfig
 
@@ -359,10 +304,7 @@ class TestDeployCommandGCPMode:
         return_code = deploy_command(current_args)
         assert return_code == 1
         captured = capsys.readouterr()
-        assert (
-            "Error: --function-ref is required for GCP Cloud Run deployment."
-            in captured.out
-        )
+        assert "Error: --function-ref is required for GCP Cloud Run deployment." in captured.out
 
         # Test missing gcp_project
         temp_args_dict = args.__dict__.copy()
@@ -387,9 +329,7 @@ class TestDeployCommandGCPMode:
         "eval_protocol.cli_commands.deploy.ensure_artifact_registry_repo_exists",
         return_value=False,
     )
-    def test_deploy_gcp_mode_ensure_repo_fails(
-        self, mock_ensure_repo_fails, mock_check_environment, capsys
-    ):
+    def test_deploy_gcp_mode_ensure_repo_fails(self, mock_ensure_repo_fails, mock_check_environment, capsys):
         args = MockArgs(
             target="gcp-cloud-run",
             id="gcp-eval",
@@ -503,10 +443,7 @@ class TestDeployCommandGCPMode:
         return_code = deploy_command(args)
         assert return_code == 1
         captured = capsys.readouterr()
-        assert (
-            "Failed to deploy to Cloud Run or retrieve service URL. Aborting."
-            in captured.out
-        )
+        assert "Failed to deploy to Cloud Run or retrieve service URL. Aborting." in captured.out
 
     @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     @patch(
@@ -538,9 +475,7 @@ class TestDeployCommandGCPMode:
         assert return_code == 1
         captured = capsys.readouterr()
         # Updated error message to match common registration block
-        assert (
-            f"Error registering URL with Fireworks AI: {error_message}" in captured.out
-        )
+        assert f"Error registering URL with Fireworks AI: {error_message}" in captured.out
 
     @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     @patch(
@@ -564,9 +499,7 @@ class TestDeployCommandGCPMode:
             gcp_ar_repo="repo",
             gcp_auth_mode="api-key",
         )
-        mock_create_evaluation_final_step.side_effect = Exception(
-            "Unexpected registration issue"
-        )
+        mock_create_evaluation_final_step.side_effect = Exception("Unexpected registration issue")
         return_code = deploy_command(args)
         assert return_code == 1
         captured = capsys.readouterr()

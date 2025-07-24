@@ -37,13 +37,9 @@ class MCPConnectionManager:
                     await session._exit_stack.aclose()
                 except asyncio.CancelledError:
                     # Handle cancellation gracefully (especially important for Python 3.12)
-                    logger.debug(
-                        f"Session {session.session_id} reinit close was cancelled"
-                    )
+                    logger.debug(f"Session {session.session_id} reinit close was cancelled")
                 except Exception as e:
-                    logger.warning(
-                        f"Error closing existing session {session.session_id} during reinit: {e}"
-                    )
+                    logger.warning(f"Error closing existing session {session.session_id} during reinit: {e}")
                 finally:
                     session._exit_stack = None
             session._mcp_session = None
@@ -51,9 +47,7 @@ class MCPConnectionManager:
         exit_stack = AsyncExitStack()
 
         client_info = None
-        if session.seed is not None or (
-            session.dataset_row and session.dataset_row.environment_context
-        ):
+        if session.seed is not None or (session.dataset_row and session.dataset_row.environment_context):
             from mcp.types import Implementation
 
             client_info = Implementation(name="reward-kit", version="1.0.0", _extra={})
@@ -123,9 +117,7 @@ class MCPConnectionManager:
             tool_schema = {
                 "name": tool.name,
                 "description": tool.description,
-                "input_schema": (
-                    tool.inputSchema if hasattr(tool, "inputSchema") else {}
-                ),
+                "input_schema": (tool.inputSchema if hasattr(tool, "inputSchema") else {}),
             }
             tool_schemas.append(tool_schema)
 
@@ -161,12 +153,7 @@ class MCPConnectionManager:
                 # Query initial state endpoint
                 try:
                     # Use shorter timeout for playback mode
-                    timeout = (
-                        3.0
-                        if hasattr(session, "_is_playback_mode")
-                        and session._is_playback_mode
-                        else 5.0
-                    )
+                    timeout = 3.0 if hasattr(session, "_is_playback_mode") and session._is_playback_mode else 5.0
                     async with httpx.AsyncClient(timeout=timeout) as client:
                         initial_state_response = await client.get(
                             f"{base_url}/control/initial_state",
@@ -183,9 +170,7 @@ class MCPConnectionManager:
                                 f"Control plane initial state endpoint returned {initial_state_response.status_code}"
                             )
                 except httpx.TimeoutException:
-                    logger.warning(
-                        f"Control plane initial state endpoint timed out after {timeout}s"
-                    )
+                    logger.warning(f"Control plane initial state endpoint timed out after {timeout}s")
                 except Exception as e:
                     logger.warning(f"Failed to query initial state endpoint: {e}")
 
@@ -194,12 +179,8 @@ class MCPConnectionManager:
 
         # Fallback to MCP resource if control plane endpoint fails (backward compatibility)
         if initial_observation is None:
-            logger.debug(
-                f"Session {session.session_id}: Falling back to MCP resource for initial state"
-            )
-            initial_observation = await self._get_initial_state_from_mcp_resource(
-                session
-            )
+            logger.debug(f"Session {session.session_id}: Falling back to MCP resource for initial state")
+            initial_observation = await self._get_initial_state_from_mcp_resource(session)
 
         # Ensure we have some observation
         if initial_observation is None:
@@ -221,30 +202,18 @@ class MCPConnectionManager:
 
         try:
             # List available resources - this is where initial state should come from
-            logger.debug(
-                f"Session {session.session_id}: Discovering MCP resources for initial state..."
-            )
+            logger.debug(f"Session {session.session_id}: Discovering MCP resources for initial state...")
             resources_response = await mcp_session.list_resources()
-            resources = (
-                resources_response.resources
-                if hasattr(resources_response, "resources")
-                else []
-            )
-            logger.debug(
-                f"Session {session.session_id}: Found {len(resources)} MCP resources"
-            )
+            resources = resources_response.resources if hasattr(resources_response, "resources") else []
+            logger.debug(f"Session {session.session_id}: Found {len(resources)} MCP resources")
             for resource in resources:
-                logger.debug(
-                    f"Session {session.session_id}: Resource: {resource.name} | URI: {resource.uri}"
-                )
+                logger.debug(f"Session {session.session_id}: Resource: {resource.name} | URI: {resource.uri}")
 
             # Try to identify initial state resource based on common patterns
             initial_state_resource = None
             for resource in resources:
                 resource_name_lower = resource.name.lower()
-                resource_uri_lower = str(
-                    resource.uri
-                ).lower()  # Convert AnyUrl to string first
+                resource_uri_lower = str(resource.uri).lower()  # Convert AnyUrl to string first
                 if any(
                     keyword in resource_name_lower or keyword in resource_uri_lower
                     for keyword in ["initial", "state", "observation", "start"]
@@ -261,9 +230,7 @@ class MCPConnectionManager:
                     f"Session {session.session_id}: Reading initial state from resource: {initial_state_resource.uri}"
                 )
 
-                resource_content = await mcp_session.read_resource(
-                    initial_state_resource.uri
-                )
+                resource_content = await mcp_session.read_resource(initial_state_resource.uri)
 
                 # Handle the new ResourceContents format
                 if hasattr(resource_content, "text"):
@@ -289,12 +256,8 @@ class MCPConnectionManager:
                     else:
                         initial_observation = {"observation": str(resource_content)}
                 else:
-                    logger.warning(
-                        f"Session {session.session_id}: Resource content is empty or unrecognized format"
-                    )
-                    logger.warning(
-                        f"Session {session.session_id}: Unexpected resource format"
-                    )
+                    logger.warning(f"Session {session.session_id}: Resource content is empty or unrecognized format")
+                    logger.warning(f"Session {session.session_id}: Unexpected resource format")
                     initial_state_resource = None  # Fall back to other options
             else:
                 logger.warning(
@@ -310,9 +273,7 @@ class MCPConnectionManager:
                         f"Session {session.session_id}: About to call mcp_session.read_resource with fallback URI: {first_resource.uri}"
                     )
 
-                    resource_content = await mcp_session.read_resource(
-                        first_resource.uri
-                    )
+                    resource_content = await mcp_session.read_resource(first_resource.uri)
 
                     logger.debug(
                         f"Session {session.session_id}: fallback read_resource returned type: {type(resource_content)}"
@@ -345,28 +306,20 @@ class MCPConnectionManager:
                         else:
                             initial_observation = {"observation": str(content)}
                     else:
-                        logger.warning(
-                            f"Session {session.session_id}: Fallback resource has unexpected format"
-                        )
+                        logger.warning(f"Session {session.session_id}: Fallback resource has unexpected format")
                         initial_observation = {"observation": str(resource_content)}
                 else:
-                    logger.debug(
-                        f"Session {session.session_id}: No resources available from MCP server"
-                    )
+                    logger.debug(f"Session {session.session_id}: No resources available from MCP server")
 
         except Exception as e:
             # If resources are not available, fall back to a default observation
             # This maintains backward compatibility with servers that don't expose resources
-            logger.warning(
-                f"Session {session.session_id}: Failed to read initial state from MCP resources: {e}"
-            )
+            logger.warning(f"Session {session.session_id}: Failed to read initial state from MCP resources: {e}")
             logger.warning(f"Session {session.session_id}: Exception type: {type(e)}")
             logger.warning(f"Session {session.session_id}: Exception args: {e.args}")
             import traceback
 
-            logger.warning(
-                f"Session {session.session_id}: Full traceback: {traceback.format_exc()}"
-            )
+            logger.warning(f"Session {session.session_id}: Full traceback: {traceback.format_exc()}")
             initial_observation = {
                 "observation": "initial_state",
                 "message": "Session established",
@@ -374,9 +327,7 @@ class MCPConnectionManager:
 
         return initial_observation
 
-    async def call_tool(
-        self, session: MCPSession, tool_name: str, arguments: Dict
-    ) -> Tuple[Any, float, bool, Dict]:
+    async def call_tool(self, session: MCPSession, tool_name: str, arguments: Dict) -> Tuple[Any, float, bool, Dict]:
         """
         Execute a tool call via MCP protocol with control plane separation.
 
@@ -407,9 +358,7 @@ class MCPConnectionManager:
             if hasattr(content, "text"):
                 # Fix: Handle empty or invalid JSON responses gracefully
                 if not content.text or content.text.strip() == "":
-                    logger.warning(
-                        f"Session {session.session_id}: Empty tool response from {tool_name}"
-                    )
+                    logger.warning(f"Session {session.session_id}: Empty tool response from {tool_name}")
                     observation = {
                         "observation": "empty_response",
                         "session_id": session.session_id,
@@ -435,9 +384,7 @@ class MCPConnectionManager:
                 }
         else:
             # Handle completely empty tool result
-            logger.warning(
-                f"Session {session.session_id}: Tool {tool_name} returned empty result"
-            )
+            logger.warning(f"Session {session.session_id}: Tool {tool_name} returned empty result")
             observation = {
                 "observation": "no_response",
                 "session_id": session.session_id,
@@ -474,17 +421,11 @@ class MCPConnectionManager:
                         if reward_response.status_code == 200:
                             reward_data = reward_response.json()
                             reward = reward_data.get("reward", 0.0)
-                            control_plane_info["reward_source"] = (
-                                "control_plane_endpoint"
-                            )
+                            control_plane_info["reward_source"] = "control_plane_endpoint"
                         else:
-                            logger.warning(
-                                f"Control plane reward endpoint returned {reward_response.status_code}"
-                            )
+                            logger.warning(f"Control plane reward endpoint returned {reward_response.status_code}")
                 except httpx.TimeoutException:
-                    logger.warning(
-                        f"Control plane reward endpoint timed out after {timeout}s"
-                    )
+                    logger.warning(f"Control plane reward endpoint timed out after {timeout}s")
                 except Exception as e:
                     logger.warning(f"Failed to query reward endpoint: {e}")
 
@@ -501,17 +442,11 @@ class MCPConnectionManager:
                             status_data = status_response.json()
                             terminated = status_data.get("terminated", False)
                             truncated = status_data.get("truncated", False)
-                            control_plane_info["status_source"] = (
-                                "control_plane_endpoint"
-                            )
+                            control_plane_info["status_source"] = "control_plane_endpoint"
                         else:
-                            logger.warning(
-                                f"Control plane status endpoint returned {status_response.status_code}"
-                            )
+                            logger.warning(f"Control plane status endpoint returned {status_response.status_code}")
                 except httpx.TimeoutException:
-                    logger.warning(
-                        f"Control plane status endpoint timed out after {timeout}s"
-                    )
+                    logger.warning(f"Control plane status endpoint timed out after {timeout}s")
                 except Exception as e:
                     logger.warning(f"Failed to query status endpoint: {e}")
 

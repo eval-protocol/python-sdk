@@ -18,9 +18,9 @@ from ..resource_abc import ForkableResource
 
 class BFCLSimAPIResource(ForkableResource):
     CLASS_FILE_PATH_MAPPING = {
-            "GorillaFileSystem": "eval_protocol.agent.resources.bfcl_envs.gorilla_file_system",
-    "MathAPI": "eval_protocol.agent.resources.bfcl_envs.math_api",
-    "TwitterAPI": "eval_protocol.agent.resources.bfcl_envs.posting_api",
+        "GorillaFileSystem": "eval_protocol.agent.resources.bfcl_envs.gorilla_file_system",
+        "MathAPI": "eval_protocol.agent.resources.bfcl_envs.math_api",
+        "TwitterAPI": "eval_protocol.agent.resources.bfcl_envs.posting_api",
         # Add these back when implemented:
         # "MessageAPI": "reward_kit.agent.resources.bfcl_envs.message_api",
         # "TicketAPI": "reward_kit.agent.resources.bfcl_envs.ticket_api",
@@ -46,9 +46,7 @@ class BFCLSimAPIResource(ForkableResource):
             if BFCL_TYPES_AVAILABLE and isinstance(item_value, BFCLFile):
                 serialized_contents[item_name] = self._serialize_bfcl_file(item_value)
             elif BFCL_TYPES_AVAILABLE and isinstance(item_value, BFCLDirectory):
-                serialized_contents[item_name] = self._serialize_bfcl_directory(
-                    item_value
-                )
+                serialized_contents[item_name] = self._serialize_bfcl_directory(item_value)
             else:
                 # Fallback for other types if any, or if BFCL types weren't imported
                 try:
@@ -65,9 +63,7 @@ class BFCLSimAPIResource(ForkableResource):
 
     def __init__(self, env_instances: Optional[Dict[str, Any]] = None):
         self._env_instances = env_instances if env_instances is not None else {}
-        self._initial_config: Dict[str, Any] = (
-            {}
-        )  # To store initial configuration for forking
+        self._initial_config: Dict[str, Any] = {}  # To store initial configuration for forking
 
     async def setup(self, config: Dict[str, Any]) -> None:
         """Initializes the resource with a given configuration."""
@@ -143,9 +139,7 @@ class BFCLSimAPIResource(ForkableResource):
         # This needs to be defined based on what the agent should observe from the BFCL envs.
         # It might be a summary of the environment state or specific attributes.
         # For now, return a placeholder or a simple representation.
-        observation = (
-            self.get_comparable_state()
-        )  # Return comparable state as observation for now
+        observation = self.get_comparable_state()  # Return comparable state as observation for now
         return observation
 
     async def get_tools_spec(self) -> List[Dict[str, Any]]:
@@ -157,9 +151,7 @@ class BFCLSimAPIResource(ForkableResource):
         tool_specs = []
         for instance in self._env_instances.values():
             # Inspect methods of the instance
-            for name, method in inspect.getmembers(
-                instance, predicate=inspect.ismethod
-            ):
+            for name, method in inspect.getmembers(instance, predicate=inspect.ismethod):
                 if not name.startswith("_"):  # Exclude private methods
                     # Infer schema from method signature
                     try:
@@ -196,9 +188,7 @@ class BFCLSimAPIResource(ForkableResource):
                 for attr_name, value in vars(instance).items():
                     if not attr_name.startswith("_") and attr_name != "root":
                         if BFCL_TYPES_AVAILABLE and isinstance(value, BFCLDirectory):
-                            instance_state[attr_name] = self._serialize_bfcl_directory(
-                                value
-                            )
+                            instance_state[attr_name] = self._serialize_bfcl_directory(value)
                         elif BFCL_TYPES_AVAILABLE and isinstance(value, BFCLFile):
                             instance_state[attr_name] = self._serialize_bfcl_file(value)
                         else:
@@ -214,9 +204,7 @@ class BFCLSimAPIResource(ForkableResource):
                     if not attr_name.startswith("_"):
                         # Check if value is an instance of BFCLDirectory or BFCLFile first
                         if BFCL_TYPES_AVAILABLE and isinstance(value, BFCLDirectory):
-                            instance_state[attr_name] = self._serialize_bfcl_directory(
-                                value
-                            )
+                            instance_state[attr_name] = self._serialize_bfcl_directory(value)
                         elif BFCL_TYPES_AVAILABLE and isinstance(value, BFCLFile):
                             instance_state[attr_name] = self._serialize_bfcl_file(value)
                         else:
@@ -240,9 +228,7 @@ class BFCLSimAPIResource(ForkableResource):
                         try:
                             setattr(instance, attr_name, value)
                         except Exception as e:
-                            print(
-                                f"Could not set attribute {attr_name} on {instance.__class__.__name__}: {e}"
-                            )
+                            print(f"Could not set attribute {attr_name} on {instance.__class__.__name__}: {e}")
 
     def _infer_schema_from_method(self, method: Any) -> Dict[str, Any]:
         """Helper to infer tool schema from a method signature."""
@@ -275,33 +261,19 @@ class BFCLSimAPIResource(ForkableResource):
 
             if param_type_annotation != inspect.Parameter.empty:
                 # Handle Optional types like Optional[str]
-                if (
-                    hasattr(param_type_annotation, "__origin__")
-                    and param_type_annotation.__origin__ is Union
-                ):
+                if hasattr(param_type_annotation, "__origin__") and param_type_annotation.__origin__ is Union:
                     # Get the first non-None type from Union for Optional[T]
-                    union_args = [
-                        arg
-                        for arg in param_type_annotation.__args__
-                        if arg is not type(None)
-                    ]
+                    union_args = [arg for arg in param_type_annotation.__args__ if arg is not type(None)]
                     if union_args:
                         actual_type = union_args[0]
                         json_type = type_mapping.get(actual_type, "string")
                         # Handle List[str] etc.
-                        if hasattr(
-                            actual_type, "__origin__"
-                        ) and actual_type.__origin__ in [list, List]:
+                        if hasattr(actual_type, "__origin__") and actual_type.__origin__ in [list, List]:
                             json_type = "array"
                             # Try to infer item type for List[T]
-                            if (
-                                hasattr(actual_type, "__args__")
-                                and actual_type.__args__
-                            ):
+                            if hasattr(actual_type, "__args__") and actual_type.__args__:
                                 item_type_annotation = actual_type.__args__[0]
-                                item_json_type = type_mapping.get(
-                                    item_type_annotation, "string"
-                                )
+                                item_json_type = type_mapping.get(item_type_annotation, "string")
                                 schema["parameters"]["properties"][name] = {
                                     "type": "array",
                                     "items": {"type": item_json_type},
@@ -316,18 +288,11 @@ class BFCLSimAPIResource(ForkableResource):
                             continue  # Skip default property assignment below
                     else:  # Should not happen for valid Optional[T]
                         json_type = "string"
-                elif hasattr(
-                    param_type_annotation, "__origin__"
-                ) and param_type_annotation.__origin__ in [list, List]:
+                elif hasattr(param_type_annotation, "__origin__") and param_type_annotation.__origin__ in [list, List]:
                     json_type = "array"
-                    if (
-                        hasattr(param_type_annotation, "__args__")
-                        and param_type_annotation.__args__
-                    ):
+                    if hasattr(param_type_annotation, "__args__") and param_type_annotation.__args__:
                         item_type_annotation = param_type_annotation.__args__[0]
-                        item_json_type = type_mapping.get(
-                            item_type_annotation, "string"
-                        )
+                        item_json_type = type_mapping.get(item_type_annotation, "string")
                         schema["parameters"]["properties"][name] = {
                             "type": "array",
                             "items": {"type": item_json_type},

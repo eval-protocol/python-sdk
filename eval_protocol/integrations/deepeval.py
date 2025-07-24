@@ -62,9 +62,7 @@ def adapt_metric(metric: Any):
                     elif param.value == "context":
                         case_kwargs["context"] = kwargs.get("context")
                     elif param.value == "retrieval_context":
-                        case_kwargs["retrieval_context"] = kwargs.get(
-                            "retrieval_context"
-                        )
+                        case_kwargs["retrieval_context"] = kwargs.get("retrieval_context")
                     elif param.value == "tools_called":
                         case_kwargs["tools_called"] = kwargs.get("tools_called")
                     elif param.value == "expected_tools":
@@ -102,9 +100,7 @@ def adapt_metric(metric: Any):
         score = float(metric.score or 0.0)
         reason = getattr(metric, "reason", None)
         name = _metric_name(metric)
-        metrics = {
-            name: MetricResult(score=score, reason=reason or "", is_score_valid=True)
-        }
+        metrics = {name: MetricResult(score=score, reason=reason or "", is_score_valid=True)}
         return EvaluateResult(score=score, reason=reason, metrics=metrics)
 
     return wrapped

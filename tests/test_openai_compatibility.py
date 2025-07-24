@@ -51,23 +51,15 @@ class OpenAICompatibilityTest(unittest.TestCase):
                     "not_empty": MetricResult(
                         success=success,
                         score=1.0 if success else 0.0,
-                        reason=(
-                            "Response is not empty"
-                            if success
-                            else "Response is empty or not from assistant"
-                        ),
+                        reason=("Response is not empty" if success else "Response is empty or not from assistant"),
                     )
                 },
             )
 
         # Test with OpenAI message types
-        system_message = ChatCompletionSystemMessageParam(
-            role="system", content="You are a helpful assistant."
-        )
+        system_message = ChatCompletionSystemMessageParam(role="system", content="You are a helpful assistant.")
         user_message = ChatCompletionUserMessageParam(role="user", content="Hello!")
-        assistant_message = ChatCompletionAssistantMessageParam(
-            role="assistant", content="Hi there!"
-        )
+        assistant_message = ChatCompletionAssistantMessageParam(role="assistant", content="Hi there!")
 
         # Convert to dict for the decorated function
         messages_dict = [
@@ -83,9 +75,7 @@ class OpenAICompatibilityTest(unittest.TestCase):
         self.assertIn("metrics", result)
         self.assertIn("not_empty", result["metrics"])
         self.assertEqual(result["metrics"]["not_empty"]["score"], 1.0)
-        self.assertEqual(
-            result["metrics"]["not_empty"]["reason"], "Response is not empty"
-        )
+        self.assertEqual(result["metrics"]["not_empty"]["reason"], "Response is not empty")
 
 
 if __name__ == "__main__":

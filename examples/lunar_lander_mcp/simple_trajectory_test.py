@@ -34,9 +34,7 @@ async def test_lunar_lander_direct():
 
     print(f"🚀 Starting server: {' '.join(cmd)}")
 
-    process = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-    )
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
     # Wait for server to start
     time.sleep(3)
@@ -95,9 +93,7 @@ async def test_lunar_lander_direct():
                     print(f"🎮 Step {i+1}: {action}")
 
                     # Call lander_action tool
-                    result = await session.call_tool(
-                        "lander_action", {"action": action}
-                    )
+                    result = await session.call_tool("lander_action", {"action": action})
 
                     print(f"📊 Tool result type: {type(result.content)}")
 
@@ -106,50 +102,35 @@ async def test_lunar_lander_direct():
                             if hasattr(content, "text"):
                                 try:
                                     response_data = json.loads(content.text)
-                                    print(
-                                        f"📊 Response keys: {list(response_data.keys())}"
-                                    )
+                                    print(f"📊 Response keys: {list(response_data.keys())}")
 
                                     # Save step summary
                                     step_summary = {
                                         "step": i + 1,
                                         "action": action,
                                         "reward": response_data.get("reward", 0),
-                                        "terminated": response_data.get(
-                                            "terminated", False
-                                        ),
-                                        "status": response_data.get(
-                                            "status", "Unknown"
-                                        ),
+                                        "terminated": response_data.get("terminated", False),
+                                        "status": response_data.get("status", "Unknown"),
                                     }
 
-                                    with open(
-                                        output_dir / f"step_{i+1:03d}_summary.json", "w"
-                                    ) as f:
+                                    with open(output_dir / f"step_{i+1:03d}_summary.json", "w") as f:
                                         json.dump(step_summary, f, indent=2)
 
                                     # Save rendered frame if available
                                     if "rendered_frame" in response_data:
                                         frame_data = response_data["rendered_frame"]
-                                        if frame_data and frame_data.startswith(
-                                            "data:image/png;base64,"
-                                        ):
+                                        if frame_data and frame_data.startswith("data:image/png;base64,"):
                                             image_data = frame_data.split(",")[1]
                                             image_bytes = base64.b64decode(image_data)
 
-                                            frame_path = (
-                                                output_dir
-                                                / f"step_{i+1:03d}_{action.lower()}.png"
-                                            )
+                                            frame_path = output_dir / f"step_{i+1:03d}_{action.lower()}.png"
                                             with open(frame_path, "wb") as f:
                                                 f.write(image_bytes)
                                             print(f"  💾 Saved frame: {frame_path}")
                                         else:
                                             print(f"  ⚠️  No rendered frame in response")
                                     else:
-                                        print(
-                                            f"  ⚠️  No rendered_frame field in response"
-                                        )
+                                        print(f"  ⚠️  No rendered_frame field in response")
 
                                 except json.JSONDecodeError as e:
                                     print(f"  ❌ Could not parse response as JSON: {e}")

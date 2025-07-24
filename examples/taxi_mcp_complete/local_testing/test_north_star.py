@@ -27,9 +27,7 @@ async def test_north_star_interface():
         import eval_protocol as rk
 
         # Load dataset with environment configuration and prompts
-        dataset = load_jsonl(
-            "/home/bchen/home/reward-kit/examples/taxi_mcp_complete/shared_data/taxi_rollouts.jsonl"
-        )
+        dataset = load_jsonl("/home/bchen/home/reward-kit/examples/taxi_mcp_complete/shared_data/taxi_rollouts.jsonl")
         # Use only first 3 for faster testing
         dataset = dataset[:3]
         print(f"📊 Loaded dataset with {len(dataset)} rows")
@@ -54,14 +52,10 @@ async def test_north_star_interface():
             max_tokens=16384,  # Increased from default 4096 for more thinking space
             max_tools_per_turn=1,
         )
-        print(
-            f"✅ Policy created in {'playback' if policy.is_playback_mode() else 'live'} mode"
-        )
+        print(f"✅ Policy created in {'playback' if policy.is_playback_mode() else 'live'} mode")
 
         # Create environments
-        envs = rk.make(
-            "http://localhost:8000/mcp/", dataset=dataset, model_id=policy.model_id
-        )
+        envs = rk.make("http://localhost:8000/mcp/", dataset=dataset, model_id=policy.model_id)
         print("✅ MCP environments created successfully")
 
         # Run rollout - same API for both modes!
@@ -70,9 +64,7 @@ async def test_north_star_interface():
             envs,
             policy=policy,
             steps=25,  # Taxi typically needs more steps than FrozenLake
-            openai_format_log_file=(
-                "clean_openai_format.jsonl" if recording_mode else None
-            ),
+            openai_format_log_file=("clean_openai_format.jsonl" if recording_mode else None),
         )
         duration = time.time() - start_time
         print(f"✅ Completed {len(trajectories)} trajectories in {duration:.2f}s")
@@ -84,9 +76,7 @@ async def test_north_star_interface():
         else:
             # Assume ~90s for recording time for speedup calculation (taxi is more complex)
             estimated_recording_time = 90.0
-            speedup = (
-                estimated_recording_time / duration if duration > 0 else float("inf")
-            )
+            speedup = estimated_recording_time / duration if duration > 0 else float("inf")
             print(f"⚡ Playback speedup: ~{speedup:.0f}x faster than recording")
 
             # Load and compare with recorded data if available
@@ -109,18 +99,14 @@ async def test_north_star_interface():
             fickle_passenger = env_context.get("fickle_passenger", False)
             status = "SUCCESS" if traj.total_reward > 0 else "FAILED"
 
-            print(
-                f"  Taxi Environment {i} (seed: {seed}, rain: {is_raining}, fickle: {fickle_passenger}): {status}"
-            )
+            print(f"  Taxi Environment {i} (seed: {seed}, rain: {is_raining}, fickle: {fickle_passenger}): {status}")
             print(f"    Steps: {traj.steps}, Reward: {traj.total_reward}")
 
         if recording_mode:
             print("\n🏆 Recording phase completed successfully!")
             print("📝 Files created:")
             print(f"   - {playback_file}: Recorded trajectory data for playback")
-            print(
-                "   - clean_openai_format.jsonl: Clean OpenAI format for SFT training"
-            )
+            print("   - clean_openai_format.jsonl: Clean OpenAI format for SFT training")
         else:
             print("\n🏆 Playback phase completed successfully!")
             print(f"⚡ Demonstrated {speedup:.0f}x speedup over live execution")

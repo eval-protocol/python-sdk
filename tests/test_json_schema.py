@@ -209,8 +209,7 @@ class TestJsonSchemaReward:
         assert result["metrics"]["schema_similarity"]["score"] < 0.7
         assert (
             result["metrics"]["schema_similarity"]["reason"] is not None
-            and "Matching properties"
-            in result["metrics"]["schema_similarity"]["reason"]
+            and "Matching properties" in result["metrics"]["schema_similarity"]["reason"]
         )
 
     def test_json_schema_reward_with_json_string(self):
@@ -297,10 +296,7 @@ class TestJsonSchemaReward:
         # Attribute access
         assert result.score == 0.0
         assert "error" in result.metrics
-        assert (
-            result.metrics["error"].reason is not None
-            and "Invalid JSON content" in result.metrics["error"].reason
-        )
+        assert result.metrics["error"].reason is not None and "Invalid JSON content" in result.metrics["error"].reason
         # Dictionary access
         assert result["score"] == 0.0
         assert "error" in result["metrics"]
@@ -319,7 +315,9 @@ class TestJsonSchemaReward:
         mock_response = MagicMock()
         mock_choice = MagicMock()
         mock_message = MagicMock()
-        mock_message.content = "SCORE: 0.85\nEXPLANATION: This is a good JSON structure that matches the expected schema."
+        mock_message.content = (
+            "SCORE: 0.85\nEXPLANATION: This is a good JSON structure that matches the expected schema."
+        )
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
         mock_client.chat.completions.create.return_value = mock_response
@@ -362,9 +360,7 @@ class TestJsonSchemaReward:
         mock_client.chat.completions.create.assert_called_once()
         call_args = mock_client.chat.completions.create.call_args[1]
         assert "messages" in call_args
-        assert any(
-            "John Doe" in str(msg.get("content", "")) for msg in call_args["messages"]
-        )
+        assert any("John Doe" in str(msg.get("content", "")) for msg in call_args["messages"])
 
     def test_json_schema_reward_with_llm_judge_custom_weights(self):
         """Test JSON schema reward with LLM judge using custom weights."""
@@ -376,9 +372,7 @@ class TestJsonSchemaReward:
             mock_response = MagicMock()
             mock_choice = MagicMock()
             mock_message = MagicMock()
-            mock_message.content = (
-                "SCORE: 0.60\nEXPLANATION: This JSON is acceptable but has some issues."
-            )
+            mock_message.content = "SCORE: 0.60\nEXPLANATION: This JSON is acceptable but has some issues."
             mock_choice.message = mock_message
             mock_response.choices = [mock_choice]
             mock_client.chat.completions.create.return_value = mock_response
@@ -416,20 +410,16 @@ class TestJsonSchemaReward:
             # Expected final score ≈ 0.3*1.0 + 0.7*0.60 ≈ 0.72
             assert 0.7 < result.score < 0.75
             assert (
-                result.metrics["weights"].reason is not None
-                and "0.30" in result.metrics["weights"].reason
+                result.metrics["weights"].reason is not None and "0.30" in result.metrics["weights"].reason
             )  # Schema weight
             assert (
-                result.metrics["weights"].reason is not None
-                and "0.70" in result.metrics["weights"].reason
+                result.metrics["weights"].reason is not None and "0.70" in result.metrics["weights"].reason
             )  # LLM weight
             # Dictionary access
             assert 0.7 < result["score"] < 0.75
             assert (
-                result["metrics"]["weights"]["reason"] is not None
-                and "0.30" in result["metrics"]["weights"]["reason"]
+                result["metrics"]["weights"]["reason"] is not None and "0.30" in result["metrics"]["weights"]["reason"]
             )
             assert (
-                result["metrics"]["weights"]["reason"] is not None
-                and "0.70" in result["metrics"]["weights"]["reason"]
+                result["metrics"]["weights"]["reason"] is not None and "0.70" in result["metrics"]["weights"]["reason"]
             )

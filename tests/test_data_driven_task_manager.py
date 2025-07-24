@@ -164,13 +164,9 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
 
         # Mock the orchestrator execution
         with (
-            patch.object(
-                self.task_manager, "_start_resource_server", return_value=8080
-            ),
+            patch.object(self.task_manager, "_start_resource_server", return_value=8080),
             patch.object(self.task_manager, "_stop_resource_server"),
-            patch(
-                "eval_protocol.agent.task_manager.Orchestrator"
-            ) as mock_orchestrator_class,
+            patch("eval_protocol.agent.task_manager.Orchestrator") as mock_orchestrator_class,
         ):
 
             # Set up mock orchestrator
@@ -206,13 +202,9 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
         rollouts_per_sample = 3
 
         with (
-            patch.object(
-                self.task_manager, "_start_resource_server", return_value=8080
-            ),
+            patch.object(self.task_manager, "_start_resource_server", return_value=8080),
             patch.object(self.task_manager, "_stop_resource_server"),
-            patch(
-                "eval_protocol.agent.task_manager.Orchestrator"
-            ) as mock_orchestrator_class,
+            patch("eval_protocol.agent.task_manager.Orchestrator") as mock_orchestrator_class,
         ):
 
             # Set up mock orchestrator to return different scores for each rollout
@@ -229,9 +221,7 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
             mock_orchestrator_class.return_value = mock_orchestrator
 
             # Create task definition
-            task_def = self.create_test_task_definition(
-                num_rollouts_per_sample=rollouts_per_sample
-            )
+            task_def = self.create_test_task_definition(num_rollouts_per_sample=rollouts_per_sample)
             self.task_manager.register_task("test_task", task_def)
 
             # Execute data-driven rollouts
@@ -256,13 +246,9 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
         samples = [{"id": "sample1", "seed": 42}, {"id": "sample2", "seed": 123}]
 
         with (
-            patch.object(
-                self.task_manager, "_start_resource_server", return_value=8080
-            ),
+            patch.object(self.task_manager, "_start_resource_server", return_value=8080),
             patch.object(self.task_manager, "_stop_resource_server"),
-            patch(
-                "eval_protocol.agent.task_manager.Orchestrator"
-            ) as mock_orchestrator_class,
+            patch("eval_protocol.agent.task_manager.Orchestrator") as mock_orchestrator_class,
         ):
 
             # Set up mock orchestrator with one success and one failure
@@ -317,13 +303,9 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
             return {"score": 1.0, "reason": "Success"}
 
         with (
-            patch.object(
-                self.task_manager, "_start_resource_server", return_value=8080
-            ),
+            patch.object(self.task_manager, "_start_resource_server", return_value=8080),
             patch.object(self.task_manager, "_stop_resource_server"),
-            patch(
-                "eval_protocol.agent.task_manager.Orchestrator"
-            ) as mock_orchestrator_class,
+            patch("eval_protocol.agent.task_manager.Orchestrator") as mock_orchestrator_class,
         ):
 
             mock_orchestrator = AsyncMock()
@@ -361,9 +343,7 @@ class TestTaskExecutionFlow(TestDataDrivenTaskManager):
 
         try:
             # Create data-driven task
-            data_driven_task = self.create_test_task_definition(
-                dataset_path=dataset_path, num_rollouts_per_sample=2
-            )
+            data_driven_task = self.create_test_task_definition(dataset_path=dataset_path, num_rollouts_per_sample=2)
 
             # Create traditional task
             traditional_task = self.create_test_task_definition()  # No dataset_path
@@ -372,21 +352,15 @@ class TestTaskExecutionFlow(TestDataDrivenTaskManager):
             self.task_manager.register_task("traditional", traditional_task)
 
             with (
-                patch.object(
-                    self.task_manager, "_execute_data_driven_rollouts"
-                ) as mock_data_driven,
-                patch.object(
-                    self.task_manager, "_execute_batch_rollouts"
-                ) as mock_traditional,
+                patch.object(self.task_manager, "_execute_data_driven_rollouts") as mock_data_driven,
+                patch.object(self.task_manager, "_execute_batch_rollouts") as mock_traditional,
             ):
 
                 mock_data_driven.return_value = [{"score": 1.0}]
                 mock_traditional.return_value = [{"score": 0.5}]
 
                 # Execute both tasks
-                results = await self.task_manager.execute_tasks(
-                    ["data_driven", "traditional"], max_concurrency=2
-                )
+                results = await self.task_manager.execute_tasks(["data_driven", "traditional"], max_concurrency=2)
 
                 # Verify correct execution methods were called
                 mock_data_driven.assert_called_once()
@@ -406,9 +380,7 @@ class TestTaskExecutionFlow(TestDataDrivenTaskManager):
         empty_dataset_path = self.create_test_dataset([])
 
         try:
-            task_def = self.create_test_task_definition(
-                dataset_path=empty_dataset_path, num_rollouts_per_sample=1
-            )
+            task_def = self.create_test_task_definition(dataset_path=empty_dataset_path, num_rollouts_per_sample=1)
             self.task_manager.register_task("empty_dataset_task", task_def)
 
             results = await self.task_manager.execute_tasks(["empty_dataset_task"])

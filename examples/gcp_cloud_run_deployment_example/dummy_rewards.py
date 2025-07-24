@@ -21,11 +21,7 @@ def hello_world_reward(
         score=0.75,
         reason="This is a dummy reward from hello_world_reward.",
         is_score_valid=True,
-        metrics={
-            "dummy_metric": MetricResult(
-                score=1.0, is_score_valid=True, reason="Dummy metric always passes."
-            )
-        },
+        metrics={"dummy_metric": MetricResult(score=1.0, is_score_valid=True, reason="Dummy metric always passes.")},
     )
 
 

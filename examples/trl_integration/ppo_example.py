@@ -37,9 +37,7 @@ try:
 
     HAS_TRL = True
 except ImportError:
-    print(
-        "TRL or related packages not installed. Install with: pip install 'reward-kit[trl]'"
-    )
+    print("TRL or related packages not installed. Install with: pip install 'reward-kit[trl]'")
     HAS_TRL = False
 
 
@@ -47,9 +45,7 @@ except ImportError:
 @reward_function
 def helpfulness_reward(
     messages: List[Dict[str, Any]],
-    ground_truth: Optional[
-        List[Dict[str, Any]]
-    ] = None,  # Changed from original_messages
+    ground_truth: Optional[List[Dict[str, Any]]] = None,  # Changed from original_messages
     **kwargs,
 ) -> EvaluateResult:
     """
@@ -70,11 +66,7 @@ def helpfulness_reward(
             score=0.0,
             reason="No messages provided",
             is_score_valid=False,
-            metrics={
-                "helpfulness": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No messages provided"
-                )
-            },
+            metrics={"helpfulness": MetricResult(score=0.0, is_score_valid=False, reason="No messages provided")},
         )
 
     # Extract response text
@@ -92,11 +84,7 @@ def helpfulness_reward(
             score=0.0,
             reason="No assistant response found",
             is_score_valid=False,
-            metrics={
-                "helpfulness": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No assistant response"
-                )
-            },
+            metrics={"helpfulness": MetricResult(score=0.0, is_score_valid=False, reason="No assistant response")},
         )
 
     text = content if content is not None else ""
@@ -112,9 +100,7 @@ def helpfulness_reward(
     elif word_count <= 200:
         length_score = 1.0  # Ideal length
     else:
-        length_score = (
-            1.0 - (word_count - 200) * 0.002
-        )  # Gradually decrease for verbosity
+        length_score = 1.0 - (word_count - 200) * 0.002  # Gradually decrease for verbosity
         length_score = max(0.3, length_score)  # Don't go below 0.3
 
     # Check for helpful phrases (simple keyword heuristic)
@@ -132,9 +118,7 @@ def helpfulness_reward(
         "result",
     ]
 
-    helpful_count = sum(
-        1 for phrase in helpful_phrases if phrase.lower() in text.lower()
-    )
+    helpful_count = sum(1 for phrase in helpful_phrases if phrase.lower() in text.lower())
     helpfulness_score = min(1.0, helpful_count / 5)  # Normalize to 0-1
 
     # Combine scores (70% length, 30% helpful phrases)
@@ -178,9 +162,7 @@ def prepare_dataset_for_ppo(dataset_name, split="train", max_samples=None):
         Dataset in PPO-compatible format
     """
     if not HAS_TRL:
-        print(
-            "TRL or related packages not installed. Install with: pip install 'reward-kit[trl]'"
-        )
+        print("TRL or related packages not installed. Install with: pip install 'reward-kit[trl]'")
         return None
 
     # Load dataset
@@ -213,9 +195,7 @@ def train_with_ppo_example():
     Example of training with PPO using a reward-kit reward function.
     """
     if not HAS_TRL:
-        print(
-            "TRL or related packages not installed. Install with: pip install 'reward-kit[trl]'"
-        )
+        print("TRL or related packages not installed. Install with: pip install 'reward-kit[trl]'")
         return
 
     print("Setting up PPO training with a reward-kit reward function...")
@@ -280,9 +260,7 @@ def train_with_ppo_example():
         # Generate responses and compute rewards
         for _ in range(1):  # In real training, you'd do more iterations
             # Generate model responses
-            query_tensors = ppo_trainer.prepare_sample(
-                dataset["query"], truncation=True, max_length=256
-            )
+            query_tensors = ppo_trainer.prepare_sample(dataset["query"], truncation=True, max_length=256)
             response_tensors = respond_to_batch(
                 ppo_trainer.model,
                 query_tensors,
@@ -291,9 +269,7 @@ def train_with_ppo_example():
             )
 
             # Decode responses and format for reward function
-            response_strings = [
-                ppo_trainer.tokenizer.decode(r.squeeze()) for r in response_tensors
-            ]
+            response_strings = [ppo_trainer.tokenizer.decode(r.squeeze()) for r in response_tensors]
             # The 'prompts' for the reward function are the original query strings from the dataset
             # Assuming `dataset["query"]` is accessible and corresponds to the batch.
             # For simplicity in this loop, let's assume `batch_queries` is a list of strings.
@@ -323,13 +299,9 @@ def train_with_ppo_example():
             # Let's assume we have `batch_query_strings` available.
 
             # Placeholder for actual batch query strings
-            batch_query_strings = dataset["query"][
-                : len(response_strings)
-            ]  # Example: align with number of responses
+            batch_query_strings = dataset["query"][: len(response_strings)]  # Example: align with number of responses
 
-            rewards = adapted_helpfulness_reward_fn(
-                batch_query_strings, response_strings
-            )
+            rewards = adapted_helpfulness_reward_fn(batch_query_strings, response_strings)
 
             # Run PPO step
             stats = ppo_trainer.step(query_tensors, response_tensors, rewards)
@@ -337,12 +309,8 @@ def train_with_ppo_example():
             print(f"Rewards: {rewards}")
             print(f"Stats: {stats}")
 
-    print(
-        "\nExample completed successfully. In a real scenario, the PPO training would now run."
-    )
-    print(
-        "This example shows how a reward-kit reward function can be adapted for TRL's PPO trainer."
-    )
+    print("\nExample completed successfully. In a real scenario, the PPO training would now run.")
+    print("This example shows how a reward-kit reward function can be adapted for TRL's PPO trainer.")
 
     # Show how the reward function would be called
     print("\nReward function test on sample data:")
@@ -354,21 +322,15 @@ def train_with_ppo_example():
         },
     ]
 
-    reward_result_obj = helpfulness_reward(
-        sample_messages
-    )  # helpfulness_reward returns an EvaluateResult object
-    print(
-        f"Helpfulness reward score: {reward_result_obj.score} - {reward_result_obj.get('reason')}"
-    )
+    reward_result_obj = helpfulness_reward(sample_messages)  # helpfulness_reward returns an EvaluateResult object
+    print(f"Helpfulness reward score: {reward_result_obj.score} - {reward_result_obj.get('reason')}")
 
     # Show how the adapter formats for TRL
     # The new adapter expects prompts=List[str], completions=List[str]
     sample_user_prompt = sample_messages[0]["content"]
     sample_assistant_completion = sample_messages[1]["content"]
 
-    adapted_reward_score_list = adapted_helpfulness_reward_fn(
-        [sample_user_prompt], [sample_assistant_completion]
-    )
+    adapted_reward_score_list = adapted_helpfulness_reward_fn([sample_user_prompt], [sample_assistant_completion])
     print(f"TRL adapter converted reward (score list): {adapted_reward_score_list}")
 
 

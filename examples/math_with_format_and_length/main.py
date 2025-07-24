@@ -39,16 +39,10 @@ def evaluate(
 ) -> EvaluateResult:
     """Evaluate math reasoning with format and length considerations."""
     assistant_message = messages[-1]
-    text = (
-        assistant_message["content"]
-        if isinstance(assistant_message, dict)
-        else assistant_message.content or ""
-    )
+    text = assistant_message["content"] if isinstance(assistant_message, dict) else assistant_message.content or ""
 
     # Accuracy using built-in math reward
-    accuracy_result = math_reward(
-        messages=messages, ground_truth=ground_truth, **kwargs
-    )
+    accuracy_result = math_reward(messages=messages, ground_truth=ground_truth, **kwargs)
     accuracy_score = accuracy_result.score
 
     # Format compliance
@@ -70,9 +64,7 @@ def evaluate(
     combined_score = (accuracy_score + format_score + length_score) / 3.0
 
     metrics = {
-        "accuracy_reward": MetricResult(
-            score=accuracy_score, reason=accuracy_result.reason, is_score_valid=True
-        ),
+        "accuracy_reward": MetricResult(score=accuracy_score, reason=accuracy_result.reason, is_score_valid=True),
         "format_reward": MetricResult(
             score=format_score,
             reason="correct format" if format_correct else "incorrect format",

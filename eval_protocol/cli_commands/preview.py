@@ -42,9 +42,7 @@ def preview_command(args):
 
     # Ensure either samples or huggingface_dataset is provided (still needed for remote_url)
     if not args.samples and not args.huggingface_dataset:
-        print(
-            "Error: Either sample file (--samples) or HuggingFace dataset (--huggingface-dataset) is required."
-        )
+        print("Error: Either sample file (--samples) or HuggingFace dataset (--huggingface-dataset) is required.")
         return 1
 
     # If using samples file, verify it exists
@@ -66,13 +64,8 @@ def preview_command(args):
         print(f"Previewing against remote URL: {args.remote_url}")
 
         # Ensure the remote URL is a valid base URL
-        if not (
-            args.remote_url.startswith("http://")
-            or args.remote_url.startswith("https://")
-        ):
-            print(
-                f"Error: Invalid --remote-url '{args.remote_url}'. Must start with http:// or https://"
-            )
+        if not (args.remote_url.startswith("http://") or args.remote_url.startswith("https://")):
+            print(f"Error: Invalid --remote-url '{args.remote_url}'. Must start with http:// or https://")
             return 1
 
         evaluate_endpoint = f"{args.remote_url.rstrip('/')}/evaluate"
@@ -81,9 +74,7 @@ def preview_command(args):
         try:
             if args.samples:
                 # Assuming load_samples_from_file yields dicts with "messages" and optional "ground_truth"
-                samples_iterator = load_samples_from_file(
-                    args.samples, args.max_samples
-                )
+                samples_iterator = load_samples_from_file(args.samples, args.max_samples)
             elif args.huggingface_dataset:
                 # Assuming load_samples_from_huggingface yields dicts with "messages" and optional "ground_truth"
                 samples_iterator = load_samples_from_huggingface(
@@ -109,11 +100,7 @@ def preview_command(args):
             messages_payload = sample_data.get("messages", [])
             ground_truth_payload = sample_data.get("ground_truth")
             # Allow passing other sample fields as kwargs to the reward function
-            sample_kwargs = {
-                k: v
-                for k, v in sample_data.items()
-                if k not in ["messages", "ground_truth"]
-            }
+            sample_kwargs = {k: v for k, v in sample_data.items() if k not in ["messages", "ground_truth"]}
 
             processed_messages = []
             for msg_item in messages_payload:
@@ -153,9 +140,7 @@ def preview_command(args):
                 evaluate_result = EvaluateResult(**result_json)
 
                 print(f"  Score: {evaluate_result.score}")
-                print(
-                    f"  Reason: {evaluate_result.reason if evaluate_result.reason else 'N/A'}"
-                )
+                print(f"  Reason: {evaluate_result.reason if evaluate_result.reason else 'N/A'}")
                 print(f"  Is Valid: {evaluate_result.is_score_valid}")
                 if evaluate_result.metrics:
                     for k, v_metric in evaluate_result.metrics.items():
@@ -174,9 +159,7 @@ def preview_command(args):
             print("--- End Sample ---")
 
         if results_count == 0:
-            print(
-                "No samples were processed. Check sample source or loading functions."
-            )
+            print("No samples were processed. Check sample source or loading functions.")
         return 0
 
     else:

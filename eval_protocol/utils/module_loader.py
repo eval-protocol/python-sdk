@@ -19,12 +19,8 @@ def load_function(import_path: str) -> Callable[..., Any]:
         module = importlib.import_module(module_path)
         func = getattr(module, function_name)
         if not callable(func):
-            raise AttributeError(
-                f"'{function_name}' in module '{module_path}' is not callable."
-            )
-        logger.info(
-            f"Successfully loaded function '{function_name}' from '{module_path}'."
-        )
+            raise AttributeError(f"'{function_name}' in module '{module_path}' is not callable.")
+        logger.info(f"Successfully loaded function '{function_name}' from '{module_path}'.")
         return func
     except ImportError as e:
         logger.error(f"Failed to import module from path '{import_path}': {e}")
@@ -33,9 +29,7 @@ def load_function(import_path: str) -> Callable[..., Any]:
         logger.error(f"Failed to find or access function in path '{import_path}': {e}")
         raise
     except Exception as e:
-        logger.error(
-            f"An unexpected error occurred while loading function from '{import_path}': {e}"
-        )
+        logger.error(f"An unexpected error occurred while loading function from '{import_path}': {e}")
         raise
 
 

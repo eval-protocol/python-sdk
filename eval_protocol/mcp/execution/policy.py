@@ -97,7 +97,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         # Use the preserved tool_call_id directly
         if tool_call.tool_call_id is None:
             raise ValueError("Tool call ID is required for tool response recording")
-        
+
         tool_message = {
             "role": "tool",
             "tool_call_id": tool_call.tool_call_id,
@@ -115,7 +115,9 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
 
         conversation_history.append(tool_message)
 
-    def log_conversation_state_for_playback(self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]):
+    def log_conversation_state_for_playback(
+        self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]
+    ):
         """
         Log the current conversation state in the format required for playback.
 
@@ -164,9 +166,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         logger.debug(
             f"Environment {env_index} - Converted {len(tool_schemas)} MCP tools to {len(llm_tools)} LLM tools"
         )
-        logger.debug(
-            f"Environment {env_index} - Conversation length: {len(conversation_history)} messages"
-        )
+        logger.debug(f"Environment {env_index} - Conversation length: {len(conversation_history)} messages")
 
         try:
             # Make API call with conversation history
@@ -195,26 +195,24 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
 
         if message.get("tool_calls") and len(message["tool_calls"]) > 0:
             tool_calls = message["tool_calls"]
-            
+
             # Handle multiple tool calls - create MCPToolCall for each
             mcp_tool_calls = []
             for tool_call in tool_calls:
                 mcp_tool_call = MCPToolCall(
                     tool_name=tool_call["function"]["name"],
                     arguments=json.loads(tool_call["function"]["arguments"]),
-                    tool_call_id=tool_call["id"]
+                    tool_call_id=tool_call["id"],
                 )
                 mcp_tool_calls.append(mcp_tool_call)
-            
+
             if self.max_tools_per_turn:
-                mcp_tool_calls = mcp_tool_calls[:self.max_tools_per_turn]
-            
+                mcp_tool_calls = mcp_tool_calls[: self.max_tools_per_turn]
+
             return mcp_tool_calls
         else:
             # No tool calls in response - this is normal when episode ends or LLM provides only text
-            logger.info(
-                f"No tool calls in response for env {env_index}, message content: {message.get('content')}"
-            )
+            logger.info(f"No tool calls in response for env {env_index}, message content: {message.get('content')}")
             return [
                 MCPToolCall(
                     tool_name="_no_tool_call",
@@ -223,6 +221,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
                     },
                 )
             ]
+
 
 class FireworksPolicy(LLMBasePolicy):
     """
@@ -288,30 +287,23 @@ class FireworksPolicy(LLMBasePolicy):
                     deployment_type=self.deployment_type,
                     temperature=self.temperature,
                 )
-                logger.info(
-                    f"✅ Initialized Fireworks LLM: {self.model_id} ({self.deployment_type})"
-                )
+                logger.info(f"✅ Initialized Fireworks LLM: {self.model_id} ({self.deployment_type})")
             except Exception as e:
-                raise RuntimeError(
-                    f"Failed to initialize Fireworks LLM '{self.model_id}': {e}"
-                )
+                raise RuntimeError(f"Failed to initialize Fireworks LLM '{self.model_id}': {e}")
             # Create dedicated executor for non-blocking LLM calls
             self.llm_executor = ThreadPoolExecutor(
                 max_workers=16,  # Allow up to 16 concurrent LLM API calls
-                thread_name_prefix="fireworks-api"
+                thread_name_prefix="fireworks-api",
             )
         else:
             # In playback mode, skip expensive LLM initialization
             self.llm = None
-            logger.info(
-                f"🎬 Playback mode: Skipping Fireworks LLM initialization for performance"
-            )
+            logger.info(f"🎬 Playback mode: Skipping Fireworks LLM initialization for performance")
 
     def __del__(self):
         """Clean up executor on garbage collection."""
-        if hasattr(self, 'llm_executor'):
+        if hasattr(self, "llm_executor"):
             self.llm_executor.shutdown(wait=False)
-
 
     def _clean_messages_for_api(self, messages: List[Dict]) -> List[Dict]:
         """
@@ -354,9 +346,7 @@ class FireworksPolicy(LLMBasePolicy):
         }
 
         loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None, lambda: self.llm.chat.completions.create(**current_request)
-        )
+        response = await loop.run_in_executor(None, lambda: self.llm.chat.completions.create(**current_request))
 
         # Convert Fireworks response to standard format
         return {
@@ -401,9 +391,7 @@ class FireworksPolicy(LLMBasePolicy):
                 "type": "function",
                 "function": {
                     "name": mcp_tool["name"],
-                    "description": mcp_tool.get(
-                        "description", f"Execute {mcp_tool['name']} action"
-                    ),
+                    "description": mcp_tool.get("description", f"Execute {mcp_tool['name']} action"),
                     "parameters": mcp_tool.get(
                         "input_schema",
                         {"type": "object", "properties": {}, "required": []},
@@ -451,8 +439,7 @@ class OpenAIPolicy(LLMBasePolicy):
                 OPENAI_AVAILABLE = True
             except ImportError:
                 raise ImportError(
-                    "The 'openai' package is required for OpenAIPolicy. "
-                    "Please install it with 'pip install openai'"
+                    "The 'openai' package is required for OpenAIPolicy. " "Please install it with 'pip install openai'"
                 )
 
             # Verify authentication
@@ -466,19 +453,13 @@ class OpenAIPolicy(LLMBasePolicy):
             # Initialize the OpenAI client
             try:
                 self.client = AsyncOpenAI(api_key=api_key)
-                logger.info(
-                    f"✅ Initialized OpenAI client: {self.model_id}"
-                )
+                logger.info(f"✅ Initialized OpenAI client: {self.model_id}")
             except Exception as e:
-                raise RuntimeError(
-                    f"Failed to initialize OpenAI client for '{self.model_id}': {e}"
-                )
+                raise RuntimeError(f"Failed to initialize OpenAI client for '{self.model_id}': {e}")
         else:
             # In playback mode, skip expensive client initialization
             self.client = None
-            logger.info(
-                f"🎬 Playback mode: Skipping OpenAI client initialization for performance"
-            )
+            logger.info(f"🎬 Playback mode: Skipping OpenAI client initialization for performance")
 
     def _clean_messages_for_api(self, messages: List[Dict]) -> List[Dict]:
         """
@@ -570,9 +551,7 @@ class OpenAIPolicy(LLMBasePolicy):
                 "type": "function",
                 "function": {
                     "name": mcp_tool["name"],
-                    "description": mcp_tool.get(
-                        "description", f"Execute {mcp_tool['name']} action"
-                    ),
+                    "description": mcp_tool.get("description", f"Execute {mcp_tool['name']} action"),
                     "parameters": mcp_tool.get(
                         "input_schema",
                         {"type": "object", "properties": {}, "required": []},

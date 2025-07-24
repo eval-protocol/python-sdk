@@ -46,9 +46,7 @@ class TestExtractNumbers:
         assert extract_numbers(text_no_or) == []
 
         text_with_or = "The answer is \\boxed{x^2+1 \\text{ or } y=0}."
-        expected_with_or = [
-            ("\\boxed{x^2+1 \\text{ or } y=0}", "x^2+1 \\text{ or } y=0")
-        ]
+        expected_with_or = [("\\boxed{x^2+1 \\text{ or } y=0}", "x^2+1 \\text{ or } y=0")]
         assert extract_numbers(text_with_or) == expected_with_or
 
     def test_P1_multiple_boxed_expressions(self):
@@ -63,16 +61,12 @@ class TestExtractNumbers:
     # --- PRIORITY 2: GSM8K-style (#### ...) ---
     def test_P2_gsm8k_simple_number(self):
         text = "The final answer is #### 123."  # Input with period
-        expected = [
-            ("#### 123", 123.0)
-        ]  # Regex for num content won't include trailing period in m.group(0)
+        expected = [("#### 123", 123.0)]  # Regex for num content won't include trailing period in m.group(0)
         assert extract_numbers(text) == expected
 
     def test_P2_gsm8k_with_commas_and_decimal(self):
         text = "The final answer is #### 1,234.56."  # Input with period
-        expected = [
-            ("#### 1,234.56", 1234.56)
-        ]  # Expect m.group(0) to be "#### 1,234.56"
+        expected = [("#### 1,234.56", 1234.56)]  # Expect m.group(0) to be "#### 1,234.56"
         assert extract_numbers(text) == expected
 
     def test_P2_gsm8k_negative_number(self):
@@ -326,8 +320,7 @@ class TestMathReward:
         # assert result.score == 0.0 # Duplicate line removed
         assert (
             result.reason is not None
-            and "Could not extract answers from original message (ground truth)"
-            in result.reason
+            and "Could not extract answers from original message (ground truth)" in result.reason
         )
 
     def test_type_mismatch_mcq_vs_number(self):
@@ -345,9 +338,7 @@ class TestMathReward:
         assistant_message = Message(role="assistant", content="Pi is \\boxed{3.14}.")
         messages_arg = user_messages + [assistant_message]
         ground_truth_arg = "Pi is \\boxed{3.14159}."
-        result = math_reward(
-            messages=messages_arg, ground_truth=ground_truth_arg, tolerance=0.01
-        )
+        result = math_reward(messages=messages_arg, ground_truth=ground_truth_arg, tolerance=0.01)
         assert isinstance(result, EvaluateResult)
         assert result.score == 1.0
         # assert result.score == 1.0 # Corrected access
@@ -373,8 +364,7 @@ class TestMathReward:
         # The reason should be about the original message (ground_truth) if it's unparseable
         assert (
             result.reason is not None
-            and "Could not extract answers from original message (ground truth)"
-            in result.reason
+            and "Could not extract answers from original message (ground truth)" in result.reason
         )
 
     def test_no_answer_in_generated(self):
@@ -386,35 +376,25 @@ class TestMathReward:
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.0
         # assert result.score == 0.0 # Duplicate line removed
-        assert (
-            result.reason is not None
-            and "Could not extract answers from generated message" in result.reason
-        )
+        assert result.reason is not None and "Could not extract answers from generated message" in result.reason
 
     def test_no_answer_in_original_when_gen_is_unparseable(
         self,
     ):  # Renamed to avoid conflict and be more descriptive
         user_messages = self._get_prompt() or []
-        assistant_message = Message(
-            role="assistant", content="I don't know."
-        )  # Gen unparseable
+        assistant_message = Message(role="assistant", content="I don't know.")  # Gen unparseable
         messages_arg = user_messages + [assistant_message]
         ground_truth_arg = "Answer is \\boxed{1}."  # GT parseable
         result = math_reward(messages=messages_arg, ground_truth=ground_truth_arg)
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.0
-        assert (
-            result.reason is not None
-            and "Could not extract answers from generated message" in result.reason
-        )
+        assert result.reason is not None and "Could not extract answers from generated message" in result.reason
 
     def test_unparseable_ground_truth(
         self,
     ):  # Renamed from the second test_no_answer_in_original
         user_messages = self._get_prompt() or []
-        assistant_message = Message(
-            role="assistant", content="Answer is \\boxed{1}."
-        )  # Gen parseable
+        assistant_message = Message(role="assistant", content="Answer is \\boxed{1}.")  # Gen parseable
         messages_arg = user_messages + [assistant_message]
         ground_truth_arg = "What is it?"  # GT unparseable
         result = math_reward(messages=messages_arg, ground_truth=ground_truth_arg)
@@ -423,25 +403,20 @@ class TestMathReward:
         # assert result.score == 0.0 # Duplicate line removed
         assert (
             result.reason is not None
-            and "Could not extract answers from original message (ground truth)"
-            in result.reason
+            and "Could not extract answers from original message (ground truth)" in result.reason
         )
 
     # --- Strictness Penalty Tests ---
     def test_penalty_unboxed_or_issue1(self):
         user_messages = self._get_prompt() or []
-        assistant_message = Message(
-            role="assistant", content="The answer is $1/2 \\text{ or } 1$."
-        )
+        assistant_message = Message(role="assistant", content="The answer is $1/2 \\text{ or } 1$.")
         messages_arg = user_messages + [assistant_message]
         ground_truth_arg = "The answer is $\\boxed{1/2}$."
         result = math_reward(messages=messages_arg, ground_truth=ground_truth_arg)
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.0
         # assert result.score == 0.0 # Duplicate line removed
-        assert result.reason is not None and result.reason.startswith(
-            "Strictness fail (Issue #1"
-        )
+        assert result.reason is not None and result.reason.startswith("Strictness fail (Issue #1")
         assert (
             result.metrics["strictness_penalty_unboxed_or"].reason
             == "Generated answer offers multiple numeric alternatives with an unboxed 'or' in the raw response."
@@ -449,9 +424,7 @@ class TestMathReward:
 
     def test_no_penalty_if_gen_is_single_boxed_or_expr(self):
         user_messages = self._get_prompt() or []
-        assistant_message = Message(
-            role="assistant", content="The answer is $\\boxed{1/2 \\text{ or } 1}$."
-        )
+        assistant_message = Message(role="assistant", content="The answer is $\\boxed{1/2 \\text{ or } 1}$.")
         messages_arg = user_messages + [assistant_message]
         ground_truth_arg = "The answer is $\\boxed{1/2 \\text{ or } 1}$."
         result = math_reward(messages=messages_arg, ground_truth=ground_truth_arg)
@@ -472,9 +445,7 @@ class TestMathReward:
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.0
         # assert result.score == 0.0 # Duplicate line removed
-        assert result.reason is not None and result.reason.startswith(
-            "Strictness fail (Issue #2"
-        )
+        assert result.reason is not None and result.reason.startswith("Strictness fail (Issue #2")
         assert (
             result.metrics["strictness_penalty_ambiguity"].reason
             == "Ground truth is specific (one answer), but generated answer is ambiguous (multiple answers extracted, even after potential leniency)."
@@ -483,12 +454,12 @@ class TestMathReward:
     def test_issue_false_mcq_match_on_v_B(self):
         user_content_str = "## Task B-1.3.\n\nA ship traveling along a river has covered $24 \\mathrm{~km}$ upstream and $28 \\mathrm{~km}$ downstream. For this journey, it took half an hour less than for traveling $30 \\mathrm{~km}$ upstream and $21 \\mathrm{~km}$ downstream, or half an hour more than for traveling $15 \\mathrm{~km}$ upstream and $42 \\mathrm{~km}$ downstream, assuming that both the ship and the river move uniformly.\n\nDetermine the speed of the ship in still water and the speed of the river."
         assistant_content_generated_str = "## Solution.\n\nLet $t$ be the time required for the boat to travel $24 \\mathrm{~km}$ upstream and $28 \\mathrm{~km}$ downstream, $v_{R}$ the speed of the river, and $v_{B}$ the speed of the boat. When the boat is traveling upstream, its speed is $v_{B}-v_{R}$, and when it is traveling downstream, its speed is $v_{B}+v_{R}$.\n\nSince $t=\\frac{s}{v}$, from the given data, we obtain the following system of equations:\n\n$\\left\\{\\begin{array}{l}t=\\frac{24}{v_{B}-v_{R}}+\\frac{28}{v_{B}+v_{R}} \\\\ t+0.5=\\frac{30}{v_{B}-v_{R}}+\\frac{21}{v_{B}+v_{R}} \\\\ t-0.5=\\frac{15}{v_{B}-v_{R}}+\\frac{42}{v_{B}+v_{R}}\\end{array}\\right.$\n\nBy introducing new variables $x=\\frac{3}{v_{B}-v_{R}}, y=\\frac{7}{v_{B}+v_{R}}$, the system transforms into:\n\n$\\left\\{\\begin{array}{l}t=8 x+4 y \\\\ t+0.5=10 x+3 y \\\\ t-0.5=5 x+6 y\\end{array}\\right.$\n\nSubstituting $t$ from the first equation into the remaining two, we get:\n\n$\\left\\{\\begin{array}{l}8 x+4 y+0.5=10 x+3 y \\\\ 8 x+4 y-0.5=5 x+6 y\\end{array}\\right.$\n\n$\\left\\{\\begin{array}{l}2 x-y=0.5 \\\\ 3 x-2 y=0.5\\end{array}\\right.$\n\nThe solution to the last system is (0.5, 0.5). Then we have:\n\n$\\frac{3}{v_{B}-v_{R}}=0.5$, hence, $v_{B}-v_{R}=6 \\mathrm{~and}$\n\n$\\frac{7}{v_{B}+v_{R}}=0.5$, hence, $v_{B}+v_{R}=14$.\n\nThe speed of the river is $v_{R}=4 \\mathrm{~km} / \\mathrm{h}$, and the speed of the boat is $v_{B}=10 \\mathrm{~km} / \\mathrm{h}$.\n\n## Note:\n\nBy substituting $x=\\frac{1}{v_{B}-v_{R}}, y=\\frac{1}{v_{B}+v_{R}} \\mathrm{~and}$ following the same procedure, the initial system transforms into the system $\\left\\{\\begin{array}{l}6 x-7 y=0.5 \\\\ 9 x-14 y=0.5\\end{array}\\right.$\n\nThe solution to this system is $\\left(\\frac{1}{6}, \\frac{1}{14}\\right)$."
-        ground_truth_arg = "The speed of the river is $v_R=4 \\mathrm{km/h}$, and the speed of the boat is $v_B=10 \\mathrm{km/h}$."
+        ground_truth_arg = (
+            "The speed of the river is $v_R=4 \\mathrm{km/h}$, and the speed of the boat is $v_B=10 \\mathrm{km/h}$."
+        )
 
         user_message = Message(role="user", content=user_content_str)
-        assistant_message = Message(
-            role="assistant", content=assistant_content_generated_str
-        )
+        assistant_message = Message(role="assistant", content=assistant_content_generated_str)
         messages_arg = [user_message, assistant_message]
 
         result = math_reward(messages=messages_arg, ground_truth=ground_truth_arg)
@@ -498,14 +469,9 @@ class TestMathReward:
         assert "'B'" not in extracted_gen_reason
         assert "'B'" not in extracted_orig_reason
         assert result.score == 0.0
-        assert (
-            result.reason is not None
-            and "Strictness fail (Conflicting Answers)" in result.reason
-        )
+        assert result.reason is not None and "Strictness fail (Conflicting Answers)" in result.reason
         assert result.reason is not None and (
-            ("0.5" in result.reason)
-            or ("6.0" in result.reason)
-            or ("14.0" in result.reason)
+            ("0.5" in result.reason) or ("6.0" in result.reason) or ("14.0" in result.reason)
         )
 
     def test_no_penalty_ambiguity_if_gt_is_also_ambiguous(self):
@@ -519,19 +485,17 @@ class TestMathReward:
         result = math_reward(messages=messages_arg, ground_truth=ground_truth_arg)
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.0
+        assert result.reason is not None and "Strictness fail (Conflicting Answers)" in result.reason
         assert (
             result.reason is not None
-            and "Strictness fail (Conflicting Answers)" in result.reason
-        )
-        assert (
-            result.reason is not None
-            and "includes other distinct numerical values not matching any original answer: [3.0]"
-            in result.reason
+            and "includes other distinct numerical values not matching any original answer: [3.0]" in result.reason
         )
 
     def test_issue3_scenario_correct_handling(self):
         user_messages = self._get_prompt() or []
-        ground_truth_arg = "The speed of the river is $v_R=4 \\mathrm{km/h}$, and the speed of the boat is $v_B=10 \\mathrm{km/h}$."
+        ground_truth_arg = (
+            "The speed of the river is $v_R=4 \\mathrm{km/h}$, and the speed of the boat is $v_B=10 \\mathrm{km/h}$."
+        )
         response_content_str = "Let $x=\\frac{3}{v_{B}-v_{R}}, y=\\frac{7}{v_{B}+v_{R}}$. The solution to the last system is (0.5, 0.5). Then $v_R=4 \\mathrm{km} / \\mathrm{h}$, and $v_B=10 \\mathrm{km} / \\mathrm{h}$."
         assistant_message = Message(role="assistant", content=response_content_str)
         messages_arg = user_messages + [assistant_message]
@@ -539,28 +503,19 @@ class TestMathReward:
         result = math_reward(messages=messages_arg, ground_truth=ground_truth_arg)
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.0
-        assert (
-            result.reason is not None
-            and "Strictness fail (Conflicting Answers)" in result.reason
-        )
+        assert result.reason is not None and "Strictness fail (Conflicting Answers)" in result.reason
         assert result.reason is not None and (
-            ("0.5" in result.reason)
-            or ("3.0" in result.reason)
-            or ("7.0" in result.reason)
+            ("0.5" in result.reason) or ("3.0" in result.reason) or ("7.0" in result.reason)
         )
 
     def test_require_units_basic_functionality(self):
         user_messages = self._get_prompt() or []
         ground_truth_arg = "Answer is \\boxed{10 km}."
 
-        assistant_message_match_units = Message(
-            role="assistant", content="Answer is \\boxed{10 km}."
-        )
+        assistant_message_match_units = Message(role="assistant", content="Answer is \\boxed{10 km}.")
         messages_match_units_arg = user_messages + [assistant_message_match_units]
 
-        assistant_message_no_units = Message(
-            role="assistant", content="Answer is \\boxed{10}."
-        )
+        assistant_message_no_units = Message(role="assistant", content="Answer is \\boxed{10}.")
         messages_no_units_arg = user_messages + [assistant_message_no_units]
 
         result_match = math_reward(
@@ -570,9 +525,7 @@ class TestMathReward:
         )
         assert isinstance(result_match, EvaluateResult)
         assert result_match.score == 1.0
-        assert result_match.reason is None or (
-            "Unit presence mismatch" not in result_match.reason
-        )
+        assert result_match.reason is None or ("Unit presence mismatch" not in result_match.reason)
 
         result_no_unit = math_reward(
             messages=messages_no_units_arg,
@@ -581,7 +534,4 @@ class TestMathReward:
         )
         assert isinstance(result_no_unit, EvaluateResult)
         assert result_no_unit.score == 0.0
-        assert (
-            result_no_unit.reason is not None
-            and "Unit presence mismatch" in result_no_unit.reason
-        )
+        assert result_no_unit.reason is not None and "Unit presence mismatch" in result_no_unit.reason

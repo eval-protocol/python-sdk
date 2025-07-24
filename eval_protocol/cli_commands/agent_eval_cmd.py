@@ -47,9 +47,7 @@ def agent_eval_command(args):
     task_manager = TaskManager()
 
     if not args.task_def:
-        logger.error(
-            "Error: --task-def (path to task definition YAML file or directory) is required."
-        )
+        logger.error("Error: --task-def (path to task definition YAML file or directory) is required.")
         return 1
 
     task_def_path = Path(args.task_def)
@@ -64,13 +62,9 @@ def agent_eval_command(args):
             logger.error(f"Failed to load task definition from {task_def_path}")
             return 1
     elif task_def_path.is_dir():
-        registered_task_ids = task_manager.register_tasks_from_directory(
-            str(task_def_path)
-        )
+        registered_task_ids = task_manager.register_tasks_from_directory(str(task_def_path))
         if not registered_task_ids:
-            logger.error(
-                f"No valid task definitions found in directory: {task_def_path}"
-            )
+            logger.error(f"No valid task definitions found in directory: {task_def_path}")
             return 1
     else:
         logger.error(f"Task definition path not found or invalid: {task_def_path}")
@@ -92,13 +86,9 @@ def agent_eval_command(args):
 
             tasks_to_run = registered_task_ids
             if filter_tasks:
-                tasks_to_run = [
-                    tid for tid in registered_task_ids if tid in filter_tasks
-                ]
+                tasks_to_run = [tid for tid in registered_task_ids if tid in filter_tasks]
                 if not tasks_to_run:
-                    logger.warning(
-                        f"No tasks match the specified filter: {filter_tasks}"
-                    )
+                    logger.warning(f"No tasks match the specified filter: {filter_tasks}")
                     return
 
             try:
@@ -122,17 +112,11 @@ def agent_eval_command(args):
                         )
                         logger.info(f"  - Success rate: {result['success_rate']:.2%}")
                         logger.info(f"  - Average score: {result['avg_score']:.4f}")
-                        logger.info(
-                            f"  - Standard deviation: {result.get('std_dev', 0.0):.4f}"
-                        )
-                        logger.info(
-                            f"  - Score range: {result['min_score']:.4f} - {result['max_score']:.4f}"
-                        )
+                        logger.info(f"  - Standard deviation: {result.get('std_dev', 0.0):.4f}")
+                        logger.info(f"  - Score range: {result['min_score']:.4f} - {result['max_score']:.4f}")
                         if "aggregated_metrics" in result:
                             logger.info(f"  - Aggregated metrics:")
-                            for metric_name, metric_data in result[
-                                "aggregated_metrics"
-                            ].items():
+                            for metric_name, metric_data in result["aggregated_metrics"].items():
                                 logger.info(
                                     f"    * {metric_name}: avg={metric_data['avg_score']:.4f}, range={metric_data['min_score']:.4f}-{metric_data['max_score']:.4f}"
                                 )
@@ -140,17 +124,11 @@ def agent_eval_command(args):
                         # Log path to detailed results file
                         if result.get("timestamp"):
                             timestamp = (
-                                result["timestamp"]
-                                .replace(":", "")
-                                .replace("-", "")
-                                .replace("T", "_")
-                                .split(".")[0]
+                                result["timestamp"].replace(":", "").replace("-", "").replace("T", "_").split(".")[0]
                             )
                             # Use the trajectory filename format that matches TaskManager
                             trajectory_file = f"trajectory_{task_id}_{timestamp}.jsonl"
-                            logger.info(
-                                f"  - Trajectory data saved to: {trajectory_file}"
-                            )
+                            logger.info(f"  - Trajectory data saved to: {trajectory_file}")
                     elif isinstance(result, dict) and "score" in result:
                         logger.info(f"Task '{task_id}' score: {result['score']}")
                     else:
@@ -204,9 +182,7 @@ def bfcl_eval_command(args):
                 logger.error(f"Failed to load task from {task_path}")
                 return 1
         else:
-            registered_task_ids = task_manager.register_tasks_from_directory(
-                str(task_dir)
-            )
+            registered_task_ids = task_manager.register_tasks_from_directory(str(task_dir))
             if not registered_task_ids:
                 logger.error(f"No valid BFCL tasks found in directory: {task_dir}")
                 return 1
@@ -239,13 +215,9 @@ def bfcl_eval_command(args):
 
                         # More detailed results for BFCL
                         if "format_score" in result:
-                            logger.info(
-                                f"Task '{task_id}' format score: {result['format_score']}"
-                            )
+                            logger.info(f"Task '{task_id}' format score: {result['format_score']}")
                         if "state_match" in result:
-                            logger.info(
-                                f"Task '{task_id}' state match: {result['state_match']}"
-                            )
+                            logger.info(f"Task '{task_id}' state match: {result['state_match']}")
                     else:
                         logger.info(f"Task '{task_id}' completed with result: {result}")
 

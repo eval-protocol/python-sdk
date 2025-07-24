@@ -58,11 +58,7 @@ This function takes two numbers as input and returns their sum.""",
     # If we get a sandbox error, consider the test successful if it contains expected errors
     if result.score == 0.0 and "execution_result" in result.metrics:
         error_msg = result.metrics["execution_result"].reason
-        if (
-            "sandbox timeout" in error_msg
-            or "sandbox was not found" in error_msg
-            or "Invalid API key" in error_msg
-        ):
+        if "sandbox timeout" in error_msg or "sandbox was not found" in error_msg or "Invalid API key" in error_msg:
             pytest.skip(f"Skipping due to E2B connection issue: {error_msg}")
         # Also check for error in main result reason
         if result.reason and "Invalid API key" in result.reason:

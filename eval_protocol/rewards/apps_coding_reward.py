@@ -22,26 +22,18 @@ def _extract_python_code(response_content: str) -> Optional[str]:
     It also attempts to remove <think>...</think> blocks first.
     """
     # Attempt to remove <think>...</think> blocks first
-    cleaned_content = re.sub(
-        r"<think>[\s\S]*?</think>", "", response_content, flags=re.IGNORECASE
-    ).strip()
-    if (
-        cleaned_content != response_content.strip()
-    ):  # Log if <think> block was actually removed
+    cleaned_content = re.sub(r"<think>[\s\S]*?</think>", "", response_content, flags=re.IGNORECASE).strip()
+    if cleaned_content != response_content.strip():  # Log if <think> block was actually removed
         logger.debug(
             "Removed <think>...</think> block(s). Content after removal (stripped): "
             + repr(cleaned_content[:200])
             + "..."
         )
         if not cleaned_content:  # If stripping results in empty string
-            logger.warning(
-                "Content became empty after removing <think> block and stripping."
-            )
+            logger.warning("Content became empty after removing <think> block and stripping.")
             return None
     else:  # No <think> block found or removing it resulted in the same stripped string
-        cleaned_content = (
-            response_content.strip()
-        )  # Ensure we work with stripped content if no <think> block
+        cleaned_content = response_content.strip()  # Ensure we work with stripped content if no <think> block
 
     # Try to find ```python ... ``` in the cleaned content
     match = re.search(r"```python\s*(.*?)\s*```", cleaned_content, re.DOTALL)
@@ -72,9 +64,7 @@ def _extract_python_code(response_content: str) -> Optional[str]:
 
 
 @reward_function
-def evaluate_apps_solution(
-    messages: List[Message], ground_truth: Optional[str], **kwargs
-) -> EvaluateResult:
+def evaluate_apps_solution(messages: List[Message], ground_truth: Optional[str], **kwargs) -> EvaluateResult:
     """
     Evaluates a code solution for the APPS dataset.
     Extracts Python code from the last message and checks for basic Python code parsability.
@@ -104,9 +94,7 @@ def evaluate_apps_solution(
                 f"Code extraction resulted in empty solution. Raw content was: '{raw_solution_content[:200]}...'"
             )
         else:
-            logger.warning(
-                "Code extraction resulted in empty solution. Raw content was empty."
-            )
+            logger.warning("Code extraction resulted in empty solution. Raw content was empty.")
         return EvaluateResult(
             score=0.0,
             metrics={
@@ -172,11 +160,7 @@ def evaluate_apps_solution(
             },
         )
 
-    if (
-        not isinstance(in_outs, dict)
-        or "inputs" not in in_outs
-        or "outputs" not in in_outs
-    ):
+    if not isinstance(in_outs, dict) or "inputs" not in in_outs or "outputs" not in in_outs:
         logger.error(
             f"Parsed ground_truth is not in the expected format (dict with 'inputs' and 'outputs'). Parsed: {str(in_outs)[:200]}"
         )
@@ -195,9 +179,7 @@ def evaluate_apps_solution(
     # Log the parsed in_outs and specifically check for fn_name
     fn_name_from_gt = in_outs.get("fn_name")
     if not fn_name_from_gt:
-        logger.warning(
-            "fn_name not found in ground_truth dict, will rely on system prompt for main() or full script."
-        )
+        logger.warning("fn_name not found in ground_truth dict, will rely on system prompt for main() or full script.")
         # fn_name_from_gt will remain None, forcing testing_util to use standard_input path.
     logger.info(
         f"Using fn_name from ground_truth (if present): {fn_name_from_gt}. Parsed in_outs (first 500 chars of dump): {json.dumps(in_outs)[:500]}"
@@ -205,9 +187,7 @@ def evaluate_apps_solution(
 
     # Default timeout for check_correctness, can be made configurable via kwargs if needed
     timeout = kwargs.get("execution_timeout", 10)
-    debug_execution = (
-        True  # For now, enable debug prints from check_correctness/run_test
-    )
+    debug_execution = True  # For now, enable debug prints from check_correctness/run_test
 
     # Construct the wrapper script
     # Standard imports often used in competitive programming / APPS
@@ -264,13 +244,9 @@ sys.setrecursionlimit(6*10**5)
         # as our system prompt now asks for a main() that handles IO.
         # The generated code itself should be a runnable script.
         del in_outs_for_check["fn_name"]
-        logger.info(
-            f"Removed 'fn_name' from in_outs for check_correctness to use standard_input path."
-        )
+        logger.info(f"Removed 'fn_name' from in_outs for check_correctness to use standard_input path.")
 
-    final_code_to_execute = (
-        code_solution  # The model's full response (after extraction)
-    )
+    final_code_to_execute = code_solution  # The model's full response (after extraction)
 
     try:
         results_list, exec_metadata_list = check_correctness(
@@ -284,9 +260,7 @@ sys.setrecursionlimit(6*10**5)
         if not results_list:  # Should not happen if check_correctness returns properly
             reason_msg = "Execution utility returned no results."
             logger.error(reason_msg)
-            metrics["execution_error"] = MetricResult(
-                score=0.0, reason=reason_msg, is_score_valid=False
-            )
+            metrics["execution_error"] = MetricResult(score=0.0, reason=reason_msg, is_score_valid=False)
         else:
             # Check for error codes (-1 for runtime/timeout, -2 for compilation error)
             # These error codes are per test case as per testing_util.py's results.append()
@@ -296,9 +270,7 @@ sys.setrecursionlimit(6*10**5)
             actual_results = results_list  # results_list from check_correctness is already the list of actual outcomes
 
             num_tests = len(actual_results)
-            if (
-                num_tests == 0
-            ):  # Should ideally not happen if in_outs['inputs'] is non-empty
+            if num_tests == 0:  # Should ideally not happen if in_outs['inputs'] is non-empty
                 reason_msg = "No test cases were effectively run or reported by execution utility."
                 logger.warning(reason_msg)
                 # Score remains 0.0
@@ -308,9 +280,7 @@ sys.setrecursionlimit(6*10**5)
                 reason_msg = f"Passed {passed_count}/{num_tests} test cases."
                 logger.info(f"Execution result: {reason_msg}")
 
-            metrics["pass_rate"] = MetricResult(
-                score=score, reason=f"{passed_count}/{num_tests}"
-            )
+            metrics["pass_rate"] = MetricResult(score=score, reason=f"{passed_count}/{num_tests}")
             metrics["raw_results"] = MetricResult(
                 score=0.0, reason=json.dumps(actual_results), is_score_valid=False
             )  # Store raw results
@@ -332,19 +302,14 @@ sys.setrecursionlimit(6*10**5)
                     reason=json.dumps(exec_metadata_list[0]),
                     is_score_valid=False,
                 )
-            elif (
-                exec_metadata_list
-            ):  # It's not a global error, but there's metadata (e.g., for Wrong Answer)
+            elif exec_metadata_list:  # It's not a global error, but there's metadata (e.g., for Wrong Answer)
                 metrics["execution_metadata"] = MetricResult(
                     score=0.0,
                     reason=json.dumps(exec_metadata_list),
                     is_score_valid=False,
                 )
                 # If it's a "Wrong Answer" and score is 0, enhance the reason_msg
-                if (
-                    score == 0.0
-                    and exec_metadata_list[0].get("error_message") == "Wrong Answer"
-                ):
+                if score == 0.0 and exec_metadata_list[0].get("error_message") == "Wrong Answer":
                     first_fail_meta = exec_metadata_list[0]
                     reason_msg += (
                         f". First fail details: Inputs: {first_fail_meta.get('inputs', 'N/A')}, "
@@ -354,21 +319,13 @@ sys.setrecursionlimit(6*10**5)
 
         # If score is 0 and there was an error in metadata, reflect it in reason_msg
         # This condition might be redundant now due to the above, or could be a fallback.
-        if (
-            score == 0.0
-            and metrics.get("execution_error_details")
-            and "Execution Error" not in reason_msg
-        ):
+        if score == 0.0 and metrics.get("execution_error_details") and "Execution Error" not in reason_msg:
             pass  # reason_msg might already be updated by global error or Wrong Answer details.
 
     except Exception as e:
         score = 0.0  # Ensure score is 0 on any unexpected error in this block
-        reason_msg = (
-            f"Error during code execution or result processing: {type(e).__name__}: {e}"
-        )
+        reason_msg = f"Error during code execution or result processing: {type(e).__name__}: {e}"
         logger.error(reason_msg, exc_info=True)
-        metrics["evaluation_error"] = MetricResult(
-            score=0.0, reason=reason_msg, is_score_valid=False
-        )
+        metrics["evaluation_error"] = MetricResult(score=0.0, reason=reason_msg, is_score_valid=False)
 
     return EvaluateResult(score=score, metrics=metrics, reason=reason_msg)

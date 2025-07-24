@@ -87,9 +87,7 @@ from eval_protocol.rewards.apps_coding_reward import (
 def test_extract_python_code(response_content: str, expected_code: Optional[str]):
     extracted = _extract_python_code(response_content)
     if expected_code is None:
-        assert (
-            extracted is None or extracted == ""
-        )  # Allow empty string if think block was everything
+        assert extracted is None or extracted == ""  # Allow empty string if think block was everything
     else:
         assert extracted == expected_code
 
@@ -102,15 +100,11 @@ def test_evaluate_apps_solution_parsable_code():
         Message(role="user", content="prompt"),
         Message(role="assistant", content="```python\ndef foo():\n  return 42\n```"),
     ]
-    result = evaluate_apps_solution(
-        messages=messages, ground_truth='{"inputs": [], "outputs": []}'
-    )
+    result = evaluate_apps_solution(messages=messages, ground_truth='{"inputs": [], "outputs": []}')
     # With empty inputs/outputs, 0 tests are run by check_correctness.
     # The score becomes 0.0, and reason "Passed 0/0 test cases."
     assert result.score == 0.0
-    assert (
-        result.reason == "Execution utility returned no results."
-    )  # Corrected assertion
+    assert result.reason == "Execution utility returned no results."  # Corrected assertion
     # The "parsability" metric is not set in this path by the current evaluate_apps_solution logic.
     # If it were, it would be 1.0. For now, we remove this assertion or adapt if parsability metric is re-introduced.
     # assert "parsability" not in result.metrics # Or check its specific value if it's expected
@@ -121,9 +115,7 @@ def test_evaluate_apps_solution_non_parsable_code():
         Message(role="user", content="prompt"),
         Message(role="assistant", content="def foo():\n  return 42 oops"),
     ]
-    result = evaluate_apps_solution(
-        messages=messages, ground_truth='{"inputs": [], "outputs": []}'
-    )
+    result = evaluate_apps_solution(messages=messages, ground_truth='{"inputs": [], "outputs": []}')
     assert result.score == 0.0
     assert result.reason and "Execution Error: SyntaxError" in result.reason
     # The "parsability" metric is not set directly for syntax errors caught by check_correctness.
@@ -141,15 +133,11 @@ def test_evaluate_apps_solution_empty_code_after_extraction():
         Message(role="assistant", content="<think>This is all I have.</think>"),
     ]
     # If code_solution is None, it returns early. ground_truth doesn't matter here.
-    result = evaluate_apps_solution(
-        messages=messages, ground_truth='{"inputs": [], "outputs": []}'
-    )
+    result = evaluate_apps_solution(messages=messages, ground_truth='{"inputs": [], "outputs": []}')
     assert result.score == 0.0
     assert result.reason == "The provided code solution was empty after extraction."
     assert result.metrics["parsability"].score == 0.0
-    assert (
-        result.metrics["parsability"].reason == "Empty code solution after extraction."
-    )
+    assert result.metrics["parsability"].reason == "Empty code solution after extraction."
 
 
 def test_evaluate_apps_solution_no_messages():
@@ -168,9 +156,7 @@ def test_evaluate_apps_solution_empty_assistant_message_content():
     assert result.score == 0.0
     assert result.reason == "The provided code solution was empty after extraction."
     assert result.metrics["parsability"].score == 0.0
-    assert (
-        result.metrics["parsability"].reason == "Empty code solution after extraction."
-    )
+    assert result.metrics["parsability"].reason == "Empty code solution after extraction."
 
 
 def test_evaluate_apps_solution_refusal_message():
@@ -179,9 +165,7 @@ def test_evaluate_apps_solution_refusal_message():
         Message(role="user", content="prompt"),
         Message(role="assistant", content=refusal_text),
     ]
-    result = evaluate_apps_solution(
-        messages=messages, ground_truth='{"inputs": [], "outputs": []}'
-    )
+    result = evaluate_apps_solution(messages=messages, ground_truth='{"inputs": [], "outputs": []}')
     assert result.score == 0.0
     assert result.reason and "Execution Error: SyntaxError" in result.reason
     # Similar to above, check execution_error_details for the SyntaxError

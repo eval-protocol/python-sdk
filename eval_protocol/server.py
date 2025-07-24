@@ -70,9 +70,7 @@ class RewardServer:
         """Load the reward function from the provided path."""
         try:
             if ":" not in self.func_path:
-                raise ValueError(
-                    f"Invalid func_path format: {self.func_path}, expected 'module.path:function_name'"
-                )
+                raise ValueError(f"Invalid func_path format: {self.func_path}, expected 'module.path:function_name'")
 
             module_path, func_name = self.func_path.split(":", 1)
             module = importlib.import_module(module_path)
@@ -81,9 +79,7 @@ class RewardServer:
             logger.info(f"Loaded reward function {func_name} from {module_path}")
             return func
         except (ImportError, AttributeError) as e:
-            raise ImportError(
-                f"Failed to load function from path {self.func_path}: {str(e)}"
-            )
+            raise ImportError(f"Failed to load function from path {self.func_path}: {str(e)}")
 
     def _setup_routes(self):
         """Set up the API routes."""
@@ -116,9 +112,7 @@ class RewardServer:
                 ground_truth_data = request.ground_truth
                 if ground_truth_data is None:
                     # This default applies if ground_truth is expected to be a list of messages for context
-                    ground_truth_data = (
-                        request.messages[:-1] if request.messages else []
-                    )
+                    ground_truth_data = request.messages[:-1] if request.messages else []
 
                 # Call the reward function
                 result = self.reward_func(
@@ -132,23 +126,15 @@ class RewardServer:
                 # which returns a dictionary.
                 if isinstance(result, dict) and "score" in result:
                     return result
-                elif isinstance(
-                    result, EvaluateResult
-                ):  # Should not happen if func is from new decorator
-                    logger.warning(
-                        "Reward function returned EvaluateResult object directly to server; expected dict."
-                    )
+                elif isinstance(result, EvaluateResult):  # Should not happen if func is from new decorator
+                    logger.warning("Reward function returned EvaluateResult object directly to server; expected dict.")
                     return result.model_dump()
                 elif isinstance(result, tuple) and len(result) == 2:  # Legacy tuple
-                    logger.warning(
-                        "Reward function returned legacy tuple format to server."
-                    )
+                    logger.warning("Reward function returned legacy tuple format to server.")
                     score, components = result
                     return {"score": score, "metrics": components}
                 else:
-                    raise TypeError(
-                        f"Invalid return type from reward function after decoration: {type(result)}"
-                    )
+                    raise TypeError(f"Invalid return type from reward function after decoration: {type(result)}")
 
             except Exception as e:
                 logger.error(f"Error processing reward request: {str(e)}")
@@ -243,16 +229,10 @@ def create_app(reward_func: Callable[..., EvaluateResult]) -> FastAPI:
             if isinstance(request_data.ground_truth, str):
                 ground_truth_data = request_data.ground_truth
             elif isinstance(request_data.ground_truth, list):
-                ground_truth_data = [
-                    msg.model_dump() for msg in request_data.ground_truth
-                ]
+                ground_truth_data = [msg.model_dump() for msg in request_data.ground_truth]
 
             # Extract kwargs from any extra fields
-            kwargs = {
-                k: v
-                for k, v in request_data.model_dump().items()
-                if k not in ["messages", "ground_truth"]
-            }
+            kwargs = {k: v for k, v in request_data.model_dump().items() if k not in ["messages", "ground_truth"]}
 
             # Set default for ground_truth if not provided and expected as list
             if ground_truth_data is None:
@@ -260,32 +240,24 @@ def create_app(reward_func: Callable[..., EvaluateResult]) -> FastAPI:
                 ground_truth_data = messages[:-1] if messages else []
 
             # Call the reward function
-            result = reward_func(
-                messages=messages, ground_truth=ground_truth_data, **kwargs
-            )
+            result = reward_func(messages=messages, ground_truth=ground_truth_data, **kwargs)
 
             # Handle different return types
             # The reward_func is expected to be decorated by the new @reward_function,
             # which returns a dictionary.
             if isinstance(result, dict) and "score" in result:
                 return result
-            elif isinstance(
-                result, EvaluateResult
-            ):  # Should not happen if func is from new decorator
+            elif isinstance(result, EvaluateResult):  # Should not happen if func is from new decorator
                 logger.warning(
                     "Reward function passed to create_app returned EvaluateResult object directly; expected dict after decoration."
                 )
                 return result.model_dump()
             elif isinstance(result, tuple) and len(result) == 2:  # Legacy tuple
-                logger.warning(
-                    "Reward function passed to create_app returned legacy tuple format."
-                )
+                logger.warning("Reward function passed to create_app returned legacy tuple format.")
                 score, components = result
                 return {"score": score, "metrics": components}
             else:
-                raise TypeError(
-                    f"Invalid return type from reward function after decoration: {type(result)}"
-                )
+                raise TypeError(f"Invalid return type from reward function after decoration: {type(result)}")
 
         except Exception as e:
             logger.error(f"Error processing reward request: {str(e)}")

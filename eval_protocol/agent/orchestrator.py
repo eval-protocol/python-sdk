@@ -71,24 +71,18 @@ class Orchestrator:
         self.reward_function: Optional[Callable[..., Any]] = None
         self.logger = logging.getLogger(f"Orchestrator.{self.task_definition.name}")
         self.logger.setLevel(logging.DEBUG)  # Ensure debug logs are processed
-        self.logger.info(
-            f"Orchestrator initialized for task: {self.task_definition.name}"
-        )
+        self.logger.info(f"Orchestrator initialized for task: {self.task_definition.name}")
         self._openai_client: Optional[AsyncOpenAI] = None
 
     def _initialize_openai_client(self):
         """Initializes the AsyncOpenAI client if available and not already initialized."""
         if not OPENAI_AVAILABLE:
-            self.logger.warning(
-                "OpenAI library not available. Cannot use OpenAI models."
-            )
+            self.logger.warning("OpenAI library not available. Cannot use OpenAI models.")
             return
         if self._openai_client is None:
             # Consider adding error handling for missing API key
             try:
-                self._openai_client = AsyncOpenAI(
-                    api_key=os.environ.get("OPENAI_API_KEY")
-                )
+                self._openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
                 self.logger.info("AsyncOpenAI client initialized.")
             except Exception as e:
                 self.logger.error(f"Failed to initialize AsyncOpenAI client: {e}")
@@ -97,9 +91,7 @@ class Orchestrator:
     def _initialize_fireworks_client(self):
         """Initializes the Fireworks client using OpenAI-compatible interface."""
         if not OPENAI_AVAILABLE:
-            self.logger.warning(
-                "OpenAI library not available. Cannot use Fireworks models."
-            )
+            self.logger.warning("OpenAI library not available. Cannot use Fireworks models.")
             return
         if self._openai_client is None:
             try:
@@ -112,9 +104,7 @@ class Orchestrator:
                 self.logger.error(f"Failed to initialize Fireworks client: {e}")
                 self._openai_client = None
 
-    def _validate_conversation_messages(
-        self, conversation_messages: List[Dict[str, Any]]
-    ) -> None:
+    def _validate_conversation_messages(self, conversation_messages: List[Dict[str, Any]]) -> None:
         """
         Validate and fix conversation messages to ensure OpenAI API compliance.
 
@@ -129,17 +119,11 @@ class Orchestrator:
                 # Check if previous message is assistant with tool_calls
                 if i == 0:
                     # Tool message at start - this is always invalid
-                    self.logger.error(
-                        f"Found orphaned tool message at start of conversation: {msg}"
-                    )
-                    raise ValueError(
-                        "Tool message cannot be the first message in conversation"
-                    )
+                    self.logger.error(f"Found orphaned tool message at start of conversation: {msg}")
+                    raise ValueError("Tool message cannot be the first message in conversation")
 
                 prev_msg = conversation_messages[i - 1]
-                if prev_msg.get("role") != "assistant" or not prev_msg.get(
-                    "tool_calls"
-                ):
+                if prev_msg.get("role") != "assistant" or not prev_msg.get("tool_calls"):
                     # Found orphaned tool message - log and remove it
                     self.logger.warning(
                         f"Found orphaned tool message without preceding assistant tool_calls at index {i}: {msg}"
@@ -163,9 +147,7 @@ class Orchestrator:
                 # For attributes that are or contain callable objects
                 attr = getattr(module, function_name)
                 if callable(attr):
-                    self.logger.info(
-                        f"Successfully loaded function '{function_name}' from module '{module_path}'."
-                    )
+                    self.logger.info(f"Successfully loaded function '{function_name}' from module '{module_path}'.")
                     return attr
                 # For module-level objects that might wrap callable functions
                 elif hasattr(attr, "__call__"):
@@ -174,13 +156,9 @@ class Orchestrator:
                     )
                     return attr.__call__
                 else:
-                    self.logger.error(
-                        f"Loaded attribute '{function_name}' from '{module_path}' is not callable."
-                    )
+                    self.logger.error(f"Loaded attribute '{function_name}' from '{module_path}' is not callable.")
             else:
-                self.logger.error(
-                    f"Attribute '{function_name}' not found in module '{module_path}'."
-                )
+                self.logger.error(f"Attribute '{function_name}' not found in module '{module_path}'.")
             return None
         except (ImportError, AttributeError, ValueError) as e:
             self.logger.error(f"Failed to load function from '{full_path}': {e}")
@@ -189,82 +167,49 @@ class Orchestrator:
     async def _load_task_components(self) -> bool:
         if self.task_definition.tools_module_path:
             try:
-                self.tools_module = importlib.import_module(
-                    self.task_definition.tools_module_path
-                )
-                self.logger.info(
-                    f"Successfully loaded tools module: {self.task_definition.tools_module_path}"
-                )
+                self.tools_module = importlib.import_module(self.task_definition.tools_module_path)
+                self.logger.info(f"Successfully loaded tools module: {self.task_definition.tools_module_path}")
             except ImportError as e:
-                self.logger.error(
-                    f"Failed to import tools module '{self.task_definition.tools_module_path}': {e}"
-                )
+                self.logger.error(f"Failed to import tools module '{self.task_definition.tools_module_path}': {e}")
                 return False
         else:
-            self.logger.info(
-                "No 'tools_module_path' specified. Tools may only come from resource.get_tools_spec()."
-            )
+            self.logger.info("No 'tools_module_path' specified. Tools may only come from resource.get_tools_spec().")
 
         # Load reward function
         if self.task_definition.reward_function_path:
             try:
                 # First try direct import
-                self.reward_function = self._load_module_and_function(
-                    self.task_definition.reward_function_path
-                )
+                self.reward_function = self._load_module_and_function(self.task_definition.reward_function_path)
 
                 if not self.reward_function:
                     # If that failed, check if we need to import from eval_protocol.rewards
                     if "." not in self.task_definition.reward_function_path:
                         # Try importing from rewards directly as a fallback
                         fallback_path = f"eval_protocol.rewards.{self.task_definition.reward_function_path}"
-                        self.logger.info(
-                            f"Attempting fallback import from: {fallback_path}"
-                        )
-                        self.reward_function = self._load_module_and_function(
-                            fallback_path
-                        )
+                        self.logger.info(f"Attempting fallback import from: {fallback_path}")
+                        self.reward_function = self._load_module_and_function(fallback_path)
 
                     # If still no function, try importing from __init__ exports
                     if (
                         not self.reward_function
-                        and "eval_protocol.rewards"
-                        in self.task_definition.reward_function_path
+                        and "eval_protocol.rewards" in self.task_definition.reward_function_path
                     ):
                         # Extract the function name from the path
-                        func_name = self.task_definition.reward_function_path.split(
-                            "."
-                        )[-1]
-                        self.logger.debug(
-                            f"Attempting to get function by name: {func_name}"
-                        )
+                        func_name = self.task_definition.reward_function_path.split(".")[-1]
+                        self.logger.debug(f"Attempting to get function by name: {func_name}")
                         try:
                             import eval_protocol.rewards
 
-                            self.logger.debug(
-                                f"Available in rewards module: {dir(eval_protocol.rewards)}"
-                            )
+                            self.logger.debug(f"Available in rewards module: {dir(eval_protocol.rewards)}")
                             if hasattr(eval_protocol.rewards, func_name):
-                                self.reward_function = getattr(
-                                    eval_protocol.rewards, func_name
-                                )
-                                self.logger.info(
-                                    f"Found reward function {func_name} in eval_protocol.rewards"
-                                )
-                                self.logger.debug(
-                                    f"Loaded function type: {type(self.reward_function)}"
-                                )
-                                self.logger.debug(
-                                    f"Is callable: {callable(self.reward_function)}"
-                                )
+                                self.reward_function = getattr(eval_protocol.rewards, func_name)
+                                self.logger.info(f"Found reward function {func_name} in eval_protocol.rewards")
+                                self.logger.debug(f"Loaded function type: {type(self.reward_function)}")
+                                self.logger.debug(f"Is callable: {callable(self.reward_function)}")
                             else:
-                                self.logger.error(
-                                    f"Function {func_name} not found in eval_protocol.rewards"
-                                )
+                                self.logger.error(f"Function {func_name} not found in eval_protocol.rewards")
                         except (ImportError, AttributeError) as e:
-                            self.logger.error(
-                                f"Error importing from rewards module: {e}"
-                            )
+                            self.logger.error(f"Error importing from rewards module: {e}")
 
                 if self.reward_function:
                     self.logger.info(
@@ -315,18 +260,14 @@ class Orchestrator:
         resource_type = self.task_definition.resource_type
         base_config = self.task_definition.base_resource_config
 
-        self.logger.info(
-            f"Attempting to set up base resource of type '{resource_type}'..."
-        )
+        self.logger.info(f"Attempting to set up base resource of type '{resource_type}'...")
         try:
             ResourceClass = self._get_resource_class(resource_type)
             self.base_resource = ResourceClass()
             await self.base_resource.setup(base_config)
             self.logger.info(f"Base resource '{resource_type}' setup complete.")
         except ValueError as e_val:
-            self.logger.error(
-                f"Could not get resource class '{resource_type}'. {e_val}"
-            )
+            self.logger.error(f"Could not get resource class '{resource_type}'. {e_val}")
             self.base_resource = None
         except Exception as e_setup:
             self.logger.error(
@@ -335,15 +276,11 @@ class Orchestrator:
             )
             self.base_resource = None
 
-    async def _get_available_tools(
-        self, episode_resource: ForkableResource
-    ) -> Dict[str, Callable[..., Any]]:
+    async def _get_available_tools(self, episode_resource: ForkableResource) -> Dict[str, Callable[..., Any]]:
         available_tools: Dict[str, Callable[..., Any]] = {}
         if episode_resource:
             resource_tool_specs = await episode_resource.get_tools_spec()
-            self.logger.debug(
-                f"Raw tool specs from resource.get_tools_spec(): {resource_tool_specs}"
-            )
+            self.logger.debug(f"Raw tool specs from resource.get_tools_spec(): {resource_tool_specs}")
             for tool_spec in resource_tool_specs:
                 # Corrected logic based on BFCLSimAPIResource._infer_schema_from_method output
                 tool_name = tool_spec.get("name")
@@ -355,22 +292,16 @@ class Orchestrator:
                         bound_resource=episode_resource,
                     ):
                         # Ensure params are passed correctly to step
-                        return await bound_resource.step(
-                            action_name=bound_tool_name, action_params=params
-                        )
+                        return await bound_resource.step(action_name=bound_tool_name, action_params=params)
 
                     available_tools[tool_name] = resource_tool_adapter
                     self.logger.debug(f"Added tool '{tool_name}' from resource spec.")
                 else:
-                    self.logger.warning(
-                        f"Skipping resource tool spec due to missing 'name': {tool_spec}"
-                    )
+                    self.logger.warning(f"Skipping resource tool spec due to missing 'name': {tool_spec}")
 
         # Check for tools defined using ToolRegistry (more common pattern)
         if self.tools_module:
-            self.logger.debug(
-                f"Inspecting tools_module: {self.tools_module} (type: {type(self.tools_module)})"
-            )
+            self.logger.debug(f"Inspecting tools_module: {self.tools_module} (type: {type(self.tools_module)})")
 
             # First, try to find a ToolRegistry instance
             registry_instances = []
@@ -393,14 +324,10 @@ class Orchestrator:
                 for tool_name, tool_func in registry_tools.items():
                     # Create an adapter that will pass the resource to the tool
                     def create_tool_adapter(tool_func):
-                        async def adapter(
-                            params: Dict[str, Any], bound_resource=episode_resource
-                        ):
+                        async def adapter(params: Dict[str, Any], bound_resource=episode_resource):
                             # Handle both sync and async functions
                             if asyncio.iscoroutinefunction(tool_func):
-                                result = await tool_func(
-                                    resource=bound_resource, **params
-                                )
+                                result = await tool_func(resource=bound_resource, **params)
                             else:
                                 result = tool_func(resource=bound_resource, **params)
                             return result
@@ -408,33 +335,23 @@ class Orchestrator:
                         return adapter
 
                     available_tools[tool_name] = create_tool_adapter(tool_func)
-                    self.logger.debug(
-                        f"Added tool '{tool_name}' from registry {registry_name}"
-                    )
+                    self.logger.debug(f"Added tool '{tool_name}' from registry {registry_name}")
 
                 # If we found and used a registry, we're done
                 if available_tools:
-                    self.logger.info(
-                        f"Found {len(available_tools)} tools from ToolRegistry"
-                    )
+                    self.logger.info(f"Found {len(available_tools)} tools from ToolRegistry")
                     self.logger.debug(f"Tool names: {list(available_tools.keys())}")
 
             # If no registry tools were found, fall back to module inspection
             if not available_tools:
-                self.logger.debug(
-                    "No ToolRegistry found or no tools in registry. Falling back to module inspection."
-                )
+                self.logger.debug("No ToolRegistry found or no tools in registry. Falling back to module inspection.")
 
                 members_to_inspect = []
                 if inspect.ismodule(self.tools_module):
-                    self.logger.debug(
-                        "tools_module is a module. Using inspect.getmembers."
-                    )
+                    self.logger.debug("tools_module is a module. Using inspect.getmembers.")
                     members_to_inspect = inspect.getmembers(self.tools_module)
                 elif hasattr(self.tools_module, "__dict__"):
-                    self.logger.debug(
-                        "tools_module is an object with __dict__. Iterating __dict__.items()."
-                    )
+                    self.logger.debug("tools_module is an object with __dict__. Iterating __dict__.items().")
                     members_to_inspect = self.tools_module.__dict__.items()
                 else:
                     self.logger.debug("Falling back to inspect.getmembers.")
@@ -445,25 +362,17 @@ class Orchestrator:
                         f"Found member in tools_module: '{name}', type: {type(member)}, callable: {callable(member)}"
                     )
                     if name.startswith("_") or not callable(member):
-                        self.logger.debug(
-                            f"Skipping member '{name}' (startswith_ or not callable)."
-                        )
+                        self.logger.debug(f"Skipping member '{name}' (startswith_ or not callable).")
                         continue
 
                     # Check if it's a sync or async function
                     is_async = asyncio.iscoroutinefunction(member)
-                    self.logger.debug(
-                        f"Member '{name}' is {'async' if is_async else 'sync'} function."
-                    )
+                    self.logger.debug(f"Member '{name}' is {'async' if is_async else 'sync'} function.")
 
                     try:
                         sig = inspect.signature(member)
                         resource_param_name = next(
-                            (
-                                pname
-                                for pname in ["resource", "db_resource"]
-                                if pname in sig.parameters
-                            ),
+                            (pname for pname in ["resource", "db_resource"] if pname in sig.parameters),
                             None,
                         )
 
@@ -483,23 +392,17 @@ class Orchestrator:
                                     return bound_tool_func(**tool_kwargs)
 
                             available_tools[name] = module_tool_adapter
-                            self.logger.debug(
-                                f"Added tool '{name}' from tools_module directly."
-                            )
+                            self.logger.debug(f"Added tool '{name}' from tools_module directly.")
                         else:
                             self.logger.debug(
                                 f"Skipping module tool '{name}': no 'resource' or 'db_resource' parameter in signature '{sig}'."
                             )
                     except ValueError as e_sig:
-                        self.logger.debug(
-                            f"Skipping module tool '{name}': could not get signature. Error: {e_sig}"
-                        )
+                        self.logger.debug(f"Skipping module tool '{name}': could not get signature. Error: {e_sig}")
         self.logger.info(f"Combined available tools: {list(available_tools.keys())}")
         return available_tools
 
-    async def execute_task_poc(
-        self, sample_data: Optional[Dict[str, Any]] = None
-    ) -> Optional[Dict[str, Any]]:
+    async def execute_task_poc(self, sample_data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         if not await self._load_task_components():
             self.logger.error("Failed to load task components.")
             return None
@@ -512,18 +415,14 @@ class Orchestrator:
             self.logger.error("Reward function not loaded.")
             return None  # Should be caught by _load_task_components
 
-        self.logger.info(
-            f"Starting execution for task '{self.task_definition.name}'..."
-        )
+        self.logger.info(f"Starting execution for task '{self.task_definition.name}'...")
         episode_resource: Optional[ForkableResource] = None
         evaluation_result: Optional[Dict[str, Any]] = None
 
         all_user_turns_successful_function_calls: List[List[Dict[str, Any]]] = (
             []
         )  # Track successful calls for reward fn, list of lists (per user turn)
-        conversation_messages: List[Dict[str, Any]] = (
-            []
-        )  # Use dicts for API compatibility
+        conversation_messages: List[Dict[str, Any]] = []  # Use dicts for API compatibility
 
         # --- Agent Model Setup ---
         agent_model_name = os.environ.get("MODEL_AGENT")
@@ -535,18 +434,12 @@ class Orchestrator:
             if not self._openai_client:
                 self.logger.error("OpenAI client failed to initialize. Cannot proceed.")
                 return None
-            agent_model_name = agent_model_name.split("openai/", 1)[
-                1
-            ]  # Get actual model name
+            agent_model_name = agent_model_name.split("openai/", 1)[1]  # Get actual model name
             self.logger.info(f"Using OpenAI model: {agent_model_name}")
-        elif agent_model_name.startswith("fireworks/") or agent_model_name.startswith(
-            "accounts/fireworks"
-        ):
+        elif agent_model_name.startswith("fireworks/") or agent_model_name.startswith("accounts/fireworks"):
             self._initialize_fireworks_client()
             if not self._openai_client:
-                self.logger.error(
-                    "Fireworks client failed to initialize. Cannot proceed."
-                )
+                self.logger.error("Fireworks client failed to initialize. Cannot proceed.")
                 return None
             # Remove prefix if it exists
             if agent_model_name.startswith("fireworks/"):
@@ -555,9 +448,7 @@ class Orchestrator:
             self.logger.info(f"Using Fireworks model: {agent_model_name}")
         else:
             # Placeholder for other model providers if needed in the future
-            self.logger.error(
-                f"Unsupported model provider for MODEL_AGENT: {agent_model_name}"
-            )
+            self.logger.error(f"Unsupported model provider for MODEL_AGENT: {agent_model_name}")
             return None
 
         try:
@@ -576,15 +467,11 @@ class Orchestrator:
 
             self.logger.info("Forking base resource for episode...")
             episode_resource = await self.base_resource.fork()
-            self.logger.info(
-                f"Episode resource forked: {type(episode_resource).__name__}"
-            )
+            self.logger.info(f"Episode resource forked: {type(episode_resource).__name__}")
 
             # Initialize the episode resource with sample data if provided
             if sample_data:
-                self.logger.info(
-                    f"Initializing episode resource with sample data: {sample_data}"
-                )
+                self.logger.info(f"Initializing episode resource with sample data: {sample_data}")
                 if hasattr(episode_resource, "initialize"):
                     await episode_resource.initialize(**sample_data)
                 else:
@@ -596,12 +483,8 @@ class Orchestrator:
             initial_state_description = None
             if hasattr(episode_resource, "get_initial_state_description"):
                 try:
-                    initial_state_description = (
-                        await episode_resource.get_initial_state_description()
-                    )
-                    self.logger.info(
-                        "Retrieved initial state description for first prompt"
-                    )
+                    initial_state_description = await episode_resource.get_initial_state_description()
+                    self.logger.info("Retrieved initial state description for first prompt")
                 except Exception as e:
                     self.logger.warning(f"Failed to get initial state description: {e}")
 
@@ -615,39 +498,29 @@ class Orchestrator:
                         # Ensure it's a dict and has a role, content can be complex
                         user_turns_from_task.append(msg_data)
                     elif isinstance(msg_data, Message) and msg_data.role == "user":
-                        user_turns_from_task.append(
-                            msg_data.model_dump(exclude_none=True)
-                        )
+                        user_turns_from_task.append(msg_data.model_dump(exclude_none=True))
                     else:
                         self.logger.warning(
                             f"Skipping non-user message or invalid message type in task definition's messages: {msg_data}"
                         )
 
             if not user_turns_from_task:
-                self.logger.error(
-                    "No user turns found in task definition's messages. Cannot proceed."
-                )
+                self.logger.error("No user turns found in task definition's messages. Cannot proceed.")
                 return None
 
             # --- Interaction Loop ---
             # Loop through the user turns defined in the task or up to poc_max_turns
             num_defined_user_turns = len(user_turns_from_task)
-            max_interaction_turns = min(
-                self.task_definition.poc_max_turns, num_defined_user_turns
-            )
+            max_interaction_turns = min(self.task_definition.poc_max_turns, num_defined_user_turns)
 
             current_user_turn_index = 0
 
-            for turn_num in range(
-                1, max_interaction_turns + 1
-            ):  # Outer loop for user turns
+            for turn_num in range(1, max_interaction_turns + 1):  # Outer loop for user turns
                 self.logger.info(
                     f"--- User Turn {turn_num}/{max_interaction_turns} (Overall Index {current_user_turn_index + 1}/{num_defined_user_turns}) ---"
                 )
 
-                current_user_turn_accumulated_successful_calls: List[Dict[str, Any]] = (
-                    []
-                )
+                current_user_turn_accumulated_successful_calls: List[Dict[str, Any]] = []
 
                 # Add the current user turn's message(s) to the conversation history
                 if current_user_turn_index < num_defined_user_turns:
@@ -658,13 +531,9 @@ class Orchestrator:
                     # Inject initial state into first user message
                     if current_user_turn_index == 0 and initial_state_description:
                         original_content = current_user_turn_message.get("content", "")
-                        enhanced_content = (
-                            f"{original_content}\n\n{initial_state_description}"
-                        )
+                        enhanced_content = f"{original_content}\n\n{initial_state_description}"
                         current_user_turn_message["content"] = enhanced_content
-                        self.logger.info(
-                            "Injected initial state into first user prompt"
-                        )
+                        self.logger.info("Injected initial state into first user prompt")
 
                     # The user message content might be a string or a list of content blocks (e.g. for multi-modal)
                     # For BFCL, it's a string that might represent a JSON list of user messages for that turn.
@@ -672,9 +541,7 @@ class Orchestrator:
                     try:
                         # Attempt to parse content if it's a string that looks like a JSON list
                         if isinstance(current_user_turn_message.get("content"), str):
-                            parsed_content = json.loads(
-                                current_user_turn_message["content"]
-                            )
+                            parsed_content = json.loads(current_user_turn_message["content"])
                             if isinstance(parsed_content, list):
                                 for sub_msg_dict in parsed_content:
                                     if (
@@ -697,16 +564,12 @@ class Orchestrator:
                                 conversation_messages.append(current_user_turn_message)
                         else:  # Content is not a string or already a complex object
                             conversation_messages.append(current_user_turn_message)
-                    except (
-                        json.JSONDecodeError
-                    ):  # Content is a string but not valid JSON
+                    except json.JSONDecodeError:  # Content is a string but not valid JSON
                         conversation_messages.append(current_user_turn_message)
 
                     current_user_turn_index += 1
                 else:
-                    self.logger.info(
-                        "No more user turns defined by task. Ending interaction."
-                    )
+                    self.logger.info("No more user turns defined by task. Ending interaction.")
                     break  # Break outer loop if no more user messages from task def
 
                 # 1. Get available tools for this user turn (can be dynamic based on resource state)
@@ -729,16 +592,12 @@ class Orchestrator:
                                     function={
                                         "name": spec["name"],
                                         "description": spec.get("description", ""),
-                                        "parameters": spec[
-                                            "parameters"
-                                        ],  # Assuming this matches OpenAI schema
+                                        "parameters": spec["parameters"],  # Assuming this matches OpenAI schema
                                     },
                                 )
                             )
                         else:
-                            self.logger.warning(
-                                f"Skipping tool spec due to missing name/parameters: {spec}"
-                            )
+                            self.logger.warning(f"Skipping tool spec due to missing name/parameters: {spec}")
 
                     # Now add tools from the registry
                     if (
@@ -759,13 +618,9 @@ class Orchestrator:
                                 )
                             )
                 else:
-                    self.logger.warning(
-                        "OpenAI not available, cannot format tools for API."
-                    )
+                    self.logger.warning("OpenAI not available, cannot format tools for API.")
 
-                if (
-                    not available_tools_adapters and not openai_tools
-                ):  # If no tools can be formed or executed
+                if not available_tools_adapters and not openai_tools:  # If no tools can be formed or executed
                     self.logger.info(
                         "No tools available from resource or module for this turn. Agent cannot make tool calls."
                     )
@@ -799,14 +654,10 @@ class Orchestrator:
                             temperature=0.0,
                         )
                         response_message = response.choices[0].message
-                        self.logger.debug(
-                            f"OpenAI response message: {response_message}"
-                        )
+                        self.logger.debug(f"OpenAI response message: {response_message}")
 
                     except Exception as e_openai:
-                        self.logger.error(
-                            f"Error calling OpenAI API: {e_openai}", exc_info=True
-                        )
+                        self.logger.error(f"Error calling OpenAI API: {e_openai}", exc_info=True)
                         # Break inner loop on API error, then outer loop will decide to continue or break.
                         # For now, let's break the outer loop as well to prevent cascading errors.
                         # TODO: Consider more nuanced error handling for outer loop.
@@ -821,31 +672,23 @@ class Orchestrator:
 
                     # 3. Process LLM Response
                     # Append assistant's response (content and tool calls) to history
-                    conversation_messages.append(
-                        response_message.model_dump(exclude_none=True)
-                    )
+                    conversation_messages.append(response_message.model_dump(exclude_none=True))
 
                     tool_calls = response_message.tool_calls
                     if tool_calls:
-                        self.logger.info(
-                            f"Assistant requested {len(tool_calls)} tool calls in this step."
-                        )
+                        self.logger.info(f"Assistant requested {len(tool_calls)} tool calls in this step.")
                         current_llm_response_successful_calls: List[Dict[str, Any]] = []
                         for tool_call in tool_calls:
                             function_name = tool_call.function.name
                             function_args_str = tool_call.function.arguments
-                            self.logger.info(
-                                f"Attempting tool call: {function_name}({function_args_str})"
-                            )
+                            self.logger.info(f"Attempting tool call: {function_name}({function_args_str})")
 
                             tool_adapter = available_tools_adapters.get(function_name)
                             if tool_adapter:
                                 try:
                                     function_args = json.loads(function_args_str)
                                     print("show function args: ", function_args)
-                                    function_response = await tool_adapter(
-                                        function_args
-                                    )
+                                    function_response = await tool_adapter(function_args)
                                     self.logger.info(
                                         f"Tool '{function_name}' result: {str(function_response)[:200]}..."
                                     )
@@ -872,9 +715,7 @@ class Orchestrator:
                                             "tool_call_id": tool_call.id,
                                             "role": "tool",
                                             "name": function_name,
-                                            "content": json.dumps(
-                                                {"error": "Invalid JSON arguments"}
-                                            ),
+                                            "content": json.dumps({"error": "Invalid JSON arguments"}),
                                         }
                                     )
                                 except Exception as e_tool_exec:
@@ -887,11 +728,7 @@ class Orchestrator:
                                             "tool_call_id": tool_call.id,
                                             "role": "tool",
                                             "name": function_name,
-                                            "content": json.dumps(
-                                                {
-                                                    "error": f"Execution failed: {e_tool_exec}"
-                                                }
-                                            ),
+                                            "content": json.dumps({"error": f"Execution failed: {e_tool_exec}"}),
                                         }
                                     )
                             else:
@@ -903,9 +740,7 @@ class Orchestrator:
                                         "tool_call_id": tool_call.id,
                                         "role": "tool",
                                         "name": function_name,
-                                        "content": json.dumps(
-                                            {"error": "Tool not found"}
-                                        ),
+                                        "content": json.dumps({"error": "Tool not found"}),
                                     }
                                 )
 
@@ -915,9 +750,7 @@ class Orchestrator:
                             )
 
                         # If tool calls were made, continue the inner loop for the LLM to react to tool results.
-                        if (
-                            not openai_tools and not available_tools_adapters
-                        ):  # No tools were ever available
+                        if not openai_tools and not available_tools_adapters:  # No tools were ever available
                             self.logger.info(
                                 "No tools were available, but LLM hallucinated tool calls. Breaking inner loop."
                             )
@@ -935,9 +768,7 @@ class Orchestrator:
                 # End of inner while loop for multi-step tool use
 
                 if current_user_turn_accumulated_successful_calls:
-                    all_user_turns_successful_function_calls.append(
-                        current_user_turn_accumulated_successful_calls
-                    )
+                    all_user_turns_successful_function_calls.append(current_user_turn_accumulated_successful_calls)
             # End of outer for loop for user turns
 
             # --- Evaluation ---
@@ -957,9 +788,7 @@ class Orchestrator:
 
             # Check if episode_resource is SQLResource for final_state_query
             # from .resources import SQLResource # Would be needed here for isinstance
-            if (
-                eval_criteria and eval_criteria.final_state_query
-            ):  # and isinstance(episode_resource, SQLResource):
+            if eval_criteria and eval_criteria.final_state_query:  # and isinstance(episode_resource, SQLResource):
                 if hasattr(episode_resource, "step"):  # Generic check
                     query_res_step = await episode_resource.step(
                         "fetch_val_sql", {"query": eval_criteria.final_state_query}
@@ -968,21 +797,15 @@ class Orchestrator:
                         outcome = query_res_step.get("result")
                         if eval_criteria.expected_query_result_transform:
                             try:
-                                transform_func = eval(
-                                    eval_criteria.expected_query_result_transform
-                                )
+                                transform_func = eval(eval_criteria.expected_query_result_transform)
                                 task_achieved = bool(transform_func(outcome))
                             except Exception as e_tf:
                                 self.logger.error(f"Error applying transform: {e_tf}")
                         else:
                             task_achieved = bool(outcome)
-                        self.logger.info(
-                            f"Final state query outcome: {outcome}, Task achieved: {task_achieved}"
-                        )
+                        self.logger.info(f"Final state query outcome: {outcome}, Task achieved: {task_achieved}")
                     else:
-                        self.logger.error(
-                            f"Failed to execute final_state_query: {query_res_step.get('message')}"
-                        )
+                        self.logger.error(f"Failed to execute final_state_query: {query_res_step.get('message')}")
 
             # TODO: Re-evaluate how task_achieved should be determined without PoC logic
             # Maybe based on final observation, specific tool calls, or reward function logic itself?
@@ -1001,12 +824,8 @@ class Orchestrator:
             ground_truth_for_reward = None
             if eval_criteria:
                 ground_truth_for_reward = {
-                    "function_calls": getattr(
-                        eval_criteria, "ground_truth_function_calls", None
-                    ),
-                    "comparable_state": getattr(
-                        eval_criteria, "ground_truth_comparable_state", None
-                    ),
+                    "function_calls": getattr(eval_criteria, "ground_truth_function_calls", None),
+                    "comparable_state": getattr(eval_criteria, "ground_truth_comparable_state", None),
                 }
 
             # Prepare state dictionary for reward function
@@ -1032,9 +851,7 @@ class Orchestrator:
             self.logger.info(f"=== CALLING REWARD FUNCTION DEBUG ===")
             self.logger.info(f"Reward function type: {type(self.reward_function)}")
             self.logger.info(f"Eval args keys: {list(eval_args.keys())}")
-            self.logger.info(
-                f"Task achieved: {eval_args.get('task_achieved', 'NOT_SET')}"
-            )
+            self.logger.info(f"Task achieved: {eval_args.get('task_achieved', 'NOT_SET')}")
             self.logger.info(f"Messages count: {len(eval_args.get('messages', []))}")
             evaluation_result = self.reward_function(**eval_args)
             self.logger.info(f"=== REWARD FUNCTION RESULT ===")
@@ -1055,9 +872,7 @@ class Orchestrator:
             }
 
         except Exception as e_lifecycle:
-            self.logger.error(
-                f"Exception during task lifecycle: {e_lifecycle}", exc_info=True
-            )
+            self.logger.error(f"Exception during task lifecycle: {e_lifecycle}", exc_info=True)
             return {
                 "evaluation_result": {"error": str(e_lifecycle)},
                 "reward_function_inputs": None,

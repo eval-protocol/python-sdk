@@ -53,20 +53,14 @@ def evaluate(
             if isinstance(parsed_fs_tree, list):  # Ensure it's a list after parsing
                 actual_root_items = parsed_fs_tree
             else:
-                print(
-                    f"Warning: Parsed directory_tree output is not a list: {type(parsed_fs_tree)}"
-                )
+                print(f"Warning: Parsed directory_tree output is not a list: {type(parsed_fs_tree)}")
         except json.JSONDecodeError as e:
             print(f"Warning: Failed to parse JSON from directory_tree output: {e}")
             actual_root_items = []  # Default to empty list on error
-    elif isinstance(
-        raw_state_capture, list
-    ):  # If it's already a parsed list (e.g. from older direct passing)
+    elif isinstance(raw_state_capture, list):  # If it's already a parsed list (e.g. from older direct passing)
         actual_root_items = raw_state_capture
     else:
-        print(
-            f"Warning: final_filesystem_state is not in expected format. Type: {type(raw_state_capture)}"
-        )
+        print(f"Warning: final_filesystem_state is not in expected format. Type: {type(raw_state_capture)}")
 
     current_task_description = task_description if task_description is not None else ""
 
@@ -74,9 +68,7 @@ def evaluate(
     expected_state = parse_ground_truth(ground_truth)
 
     # Compare actual vs expected filesystem state
-    filesystem_score = calculate_filesystem_match_score(
-        actual_root_items, expected_state
-    )
+    filesystem_score = calculate_filesystem_match_score(actual_root_items, expected_state)
 
     # Analyze the conversation for task completion indicators
     completion_score = analyze_task_completion(completion, current_task_description)
@@ -90,10 +82,7 @@ def evaluate(
         # If fs match is not perfect, weigh it with completion.
         # If list operation, completion score is less critical than actual list content.
         # Let's make fs_score dominant for now if it's not 0.
-        if (
-            expected_state.get("expected_operations") == ["list"]
-            and filesystem_score > 0
-        ):
+        if expected_state.get("expected_operations") == ["list"] and filesystem_score > 0:
             final_score = filesystem_score  # For list, fs_score is primary
         else:
             final_score = min(filesystem_score * 0.7 + completion_score * 0.3, 1.0)
@@ -148,9 +137,7 @@ def parse_ground_truth(ground_truth: str) -> Dict[str, Any]:
     return {"expected_operations": []}
 
 
-def calculate_filesystem_match_score(
-    actual_root_items: List[Dict], expected_state: Dict
-) -> float:
+def calculate_filesystem_match_score(actual_root_items: List[Dict], expected_state: Dict) -> float:
     """
     Calculate how well the actual filesystem state matches expectations.
     actual_root_items is a list of dicts representing items in /data.
@@ -170,9 +157,7 @@ def calculate_filesystem_match_score(
     return 0.0
 
 
-def find_node_by_path(
-    root_items: List[Dict], relative_path_parts: List[str]
-) -> Optional[Dict]:
+def find_node_by_path(root_items: List[Dict], relative_path_parts: List[str]) -> Optional[Dict]:
     """Helper to find a node (file or dir) by its relative path parts from root_items."""
     current_level_items = root_items
     node = None
@@ -202,9 +187,7 @@ def find_node_by_path(
 
 def check_move_operation(actual_root_items: List[Dict], expected_state: Dict) -> float:
     """Check if file was moved correctly. target_location is relative to /data."""
-    target_location_rel = expected_state.get(
-        "target_location", ""
-    )  # e.g., "target_dir/file_to_move.txt"
+    target_location_rel = expected_state.get("target_location", "")  # e.g., "target_dir/file_to_move.txt"
 
     target_path_parts = [part for part in target_location_rel.split("/") if part]
 
@@ -223,16 +206,12 @@ def check_move_operation(actual_root_items: List[Dict], expected_state: Dict) ->
 
 def check_list_operation(actual_root_items: List[Dict], expected_state: Dict) -> float:
     """Check if directory listing is correct. path_to_list is absolute from container root."""
-    path_to_list_abs = expected_state.get(
-        "path_to_list", ""
-    )  # e.g., "/data/source_dir"
+    path_to_list_abs = expected_state.get("path_to_list", "")  # e.g., "/data/source_dir"
 
     # Convert absolute path to list of parts relative to /data
     # e.g., "/data/source_dir" -> ["source_dir"]
     # e.g., "/data" -> [] (listing root of /data)
-    relative_path_parts = [
-        part for part in path_to_list_abs.split("/") if part and part != "data"
-    ]
+    relative_path_parts = [part for part in path_to_list_abs.split("/") if part and part != "data"]
 
     listed_dir_node = None
     if not relative_path_parts:
@@ -253,16 +232,10 @@ def check_list_operation(actual_root_items: List[Dict], expected_state: Dict) ->
     if not listed_dir_node or listed_dir_node.get("type") != "directory":
         return 0.0
 
-    actual_files = [
-        child.get("name")
-        for child in listed_dir_node.get("children", [])
-        if child.get("type") == "file"
-    ]
+    actual_files = [child.get("name") for child in listed_dir_node.get("children", []) if child.get("type") == "file"]
     expected_files = expected_state.get("expected_files", [])
 
-    if (
-        not expected_files
-    ):  # If ground truth doesn't specify files, any successful list is 1.0
+    if not expected_files:  # If ground truth doesn't specify files, any successful list is 1.0
         return 1.0
 
     match_count = 0
@@ -274,9 +247,7 @@ def check_list_operation(actual_root_items: List[Dict], expected_state: Dict) ->
     return score
 
 
-def check_create_operation(
-    actual_root_items: List[Dict], expected_state: Dict
-) -> float:
+def check_create_operation(actual_root_items: List[Dict], expected_state: Dict) -> float:
     """Check if file was created. target_file is relative to /data."""
     target_filename_rel = expected_state.get("target_file", "")  # e.g., "report.txt"
     # expected_content = expected_state.get("expected_content", "") # Content check not possible with directory_tree

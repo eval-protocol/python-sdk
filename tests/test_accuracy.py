@@ -38,9 +38,7 @@ class TestAccuracyReward(unittest.TestCase):
             {"role": "assistant", "content": content},
         ]
 
-        result = accuracy_reward(
-            messages=messages, ground_truth=[{"role": "assistant", "content": "4"}]
-        )
+        result = accuracy_reward(messages=messages, ground_truth=[{"role": "assistant", "content": "4"}])
 
         # Check for exact match (score = 1.0)
         self.assertIsInstance(result, EvaluateResult)
@@ -114,9 +112,7 @@ class TestAccuracyReward(unittest.TestCase):
 
         # For this test, we explicitly provide the ground truth
         # to avoid relying on extraction from the context
-        result = accuracy_reward(
-            messages=messages, ground_truth=[{"role": "assistant", "content": "4"}]
-        )
+        result = accuracy_reward(messages=messages, ground_truth=[{"role": "assistant", "content": "4"}])
 
         self.assertIsInstance(result, EvaluateResult)
         # Attribute access
@@ -140,9 +136,7 @@ class TestAccuracyReward(unittest.TestCase):
             {"role": "assistant", "content": content},
         ]
 
-        result = accuracy_reward(
-            messages=messages, ground_truth=[{"role": "assistant", "content": "3.5"}]
-        )
+        result = accuracy_reward(messages=messages, ground_truth=[{"role": "assistant", "content": "3.5"}])
 
         # Check for low score
         self.assertIsInstance(result, EvaluateResult)
@@ -204,9 +198,7 @@ class TestAccuracyReward(unittest.TestCase):
             {"role": "assistant", "content": content},
         ]
 
-        result = accuracy_reward(
-            messages=messages, ground_truth=[{"role": "assistant", "content": "Paris"}]
-        )
+        result = accuracy_reward(messages=messages, ground_truth=[{"role": "assistant", "content": "Paris"}])
 
         self.assertIsInstance(result, EvaluateResult)
         # Attribute access
@@ -234,14 +226,10 @@ class TestAccuracyReward(unittest.TestCase):
         ]
 
         # Test for x = 4
-        result1 = accuracy_reward(
-            messages=messages, ground_truth=[{"role": "assistant", "content": "4"}]
-        )
+        result1 = accuracy_reward(messages=messages, ground_truth=[{"role": "assistant", "content": "4"}])
 
         # Test for x = -1
-        result2 = accuracy_reward(
-            messages=messages, ground_truth=[{"role": "assistant", "content": "-1"}]
-        )
+        result2 = accuracy_reward(messages=messages, ground_truth=[{"role": "assistant", "content": "-1"}])
 
         self.assertIsInstance(result1, EvaluateResult)
         self.assertIsInstance(result2, EvaluateResult)
@@ -249,8 +237,7 @@ class TestAccuracyReward(unittest.TestCase):
         # Attribute access
         # Either 4 or -1 should be found and matched
         self.assertTrue(
-            result1.metrics["answer_accuracy"].is_score_valid
-            or result2.metrics["answer_accuracy"].is_score_valid
+            result1.metrics["answer_accuracy"].is_score_valid or result2.metrics["answer_accuracy"].is_score_valid
         )
         # Dictionary access
         self.assertTrue(
@@ -294,9 +281,7 @@ class TestAccuracyReward(unittest.TestCase):
         self.assertEqual(result_no_content_gt.score, 0.0)
         self.assertIsNotNone(result_no_content_gt.reason)
         assert result_no_content_gt.reason is not None  # for mypy
-        self.assertIn(
-            "has no content", result_no_content_gt.reason
-        )  # Or similar message from function
+        self.assertIn("has no content", result_no_content_gt.reason)  # Or similar message from function
         self.assertFalse(result_no_content_gt.metrics["accuracy"].is_score_valid)
 
         # Test case 4: ground_truth is a list with a message that has None content
@@ -322,9 +307,7 @@ class TestAccuracyReward(unittest.TestCase):
             {"role": "assistant", "content": content},
         ]
 
-        result = accuracy_reward(
-            messages=messages, ground_truth=[{"role": "assistant", "content": "4"}]
-        )
+        result = accuracy_reward(messages=messages, ground_truth=[{"role": "assistant", "content": "4"}])
 
         self.assertIsInstance(result, EvaluateResult)
         # Answer extraction should fail

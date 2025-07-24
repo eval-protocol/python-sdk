@@ -24,9 +24,7 @@ class TestKwargsValidation:
             return EvaluateResult(
                 score=0.8,
                 reason="Test with kwargs",
-                metrics={
-                    "test": MetricResult(score=0.8, is_score_valid=True, reason="Valid")
-                },
+                metrics={"test": MetricResult(score=0.8, is_score_valid=True, reason="Valid")},
             )
 
         # Test that the function works properly
@@ -45,9 +43,7 @@ class TestKwargsValidation:
         ):
 
             @reward_function
-            def invalid_func_no_kwargs(
-                messages: List[Dict[str, str]], ground_truth: Any = None
-            ) -> EvaluateResult:
+            def invalid_func_no_kwargs(messages: List[Dict[str, str]], ground_truth: Any = None) -> EvaluateResult:
                 """An invalid function that doesn't accept **kwargs."""
                 return EvaluateResult(score=0.5, reason="Test")
 
@@ -61,7 +57,7 @@ class TestKwargsValidation:
 
             @reward_function(mode="batch")
             def invalid_batch_func(
-                rollouts_messages: List[List[Dict[str, str]]]
+                rollouts_messages: List[List[Dict[str, str]]],
             ) -> List[EvaluateResult]:
                 """An invalid batch function that doesn't accept **kwargs."""
                 return [EvaluateResult(score=0.5, reason="Test")]
@@ -97,16 +93,12 @@ class TestKwargsValidation:
             return EvaluateResult(
                 score=0.7,
                 reason=f"Test with specific_param={specific_param}",
-                metrics={
-                    "test": MetricResult(score=0.7, is_score_valid=True, reason="Valid")
-                },
+                metrics={"test": MetricResult(score=0.7, is_score_valid=True, reason="Valid")},
             )
 
         # Test that the function works properly
         messages = [{"role": "user", "content": "Hello"}]
-        result = func_with_both(
-            messages=messages, specific_param="custom", extra_param="test"
-        )
+        result = func_with_both(messages=messages, specific_param="custom", extra_param="test")
 
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.7
@@ -122,9 +114,7 @@ class TestKwargsValidation:
             return EvaluateResult(
                 score=0.6,
                 reason="Test with args and kwargs",
-                metrics={
-                    "test": MetricResult(score=0.6, is_score_valid=True, reason="Valid")
-                },
+                metrics={"test": MetricResult(score=0.6, is_score_valid=True, reason="Valid")},
             )
 
         # Test that the function works properly
@@ -141,7 +131,7 @@ class TestKwargsValidation:
 
             @reward_function
             def my_specific_function_name(
-                messages: List[Dict[str, str]]
+                messages: List[Dict[str, str]],
             ) -> EvaluateResult:
                 return EvaluateResult(score=0.5, reason="Test")
 
@@ -154,9 +144,7 @@ class TestKwargsValidation:
         """Test that a valid function can actually use the kwargs passed to it."""
 
         @reward_function
-        def func_using_kwargs(
-            messages: List[Dict[str, str]], ground_truth: Any = None, **kwargs
-        ) -> EvaluateResult:
+        def func_using_kwargs(messages: List[Dict[str, str]], ground_truth: Any = None, **kwargs) -> EvaluateResult:
             """Function that uses kwargs in its logic."""
             custom_score = kwargs.get("custom_score", 0.5)
             custom_reason = kwargs.get("custom_reason", "Default reason")

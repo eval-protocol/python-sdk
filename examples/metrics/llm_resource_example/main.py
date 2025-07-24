@@ -145,11 +145,7 @@ REASON: Your explanation here
         ),
         "has_content": MetricResult(
             score=1.0 if assistant_response.strip() else 0.0,
-            reason=(
-                "Response is not empty"
-                if assistant_response.strip()
-                else "Response is empty"
-            ),
+            reason=("Response is not empty" if assistant_response.strip() else "Response is empty"),
             is_score_valid=True,
         ),
     }

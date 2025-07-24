@@ -129,9 +129,7 @@ This is my reasoning process.
         # Use a custom regex pattern
         custom_regex = r"^\[REASONING\].*?\[/REASONING\].*?\[RESULT\].*?\[/RESULT\]$"
 
-        result = format_reward(
-            messages=messages, ground_truth=None, format_regex=custom_regex
-        )
+        result = format_reward(messages=messages, ground_truth=None, format_regex=custom_regex)
 
         self.assertIsInstance(result, EvaluateResult)
         # Check the score is 1.0 for correct custom format
@@ -203,9 +201,7 @@ Thanks for asking!"""
         ]
 
         # Exact match should fail
-        result_exact = format_reward(
-            messages=messages, ground_truth=None, require_exact_match=True
-        )
+        result_exact = format_reward(messages=messages, ground_truth=None, require_exact_match=True)
         self.assertIsInstance(result_exact, EvaluateResult)
         # Attribute access
         self.assertEqual(result_exact.score, 0.0)

@@ -19,21 +19,15 @@ logger = logging.getLogger(__name__)
 # This happens when the module is imported.
 # We use override=False (default) so that existing environment variables
 # (e.g., set in the shell) are NOT overridden by .env files.
-ENV_DEV_PATH = find_dotenv(
-    filename=".env.dev", raise_error_if_not_found=False, usecwd=True
-)
+ENV_DEV_PATH = find_dotenv(filename=".env.dev", raise_error_if_not_found=False, usecwd=True)
 if ENV_DEV_PATH:
     load_dotenv(dotenv_path=ENV_DEV_PATH, override=False)
-    logger.info(
-        f"reward_kit.platform_api: Loaded environment variables from: {ENV_DEV_PATH}"
-    )
+    logger.info(f"reward_kit.platform_api: Loaded environment variables from: {ENV_DEV_PATH}")
 else:
     ENV_PATH = find_dotenv(filename=".env", raise_error_if_not_found=False, usecwd=True)
     if ENV_PATH:
         load_dotenv(dotenv_path=ENV_PATH, override=False)
-        logger.info(
-            f"reward_kit.platform_api: Loaded environment variables from: {ENV_PATH}"
-        )
+        logger.info(f"reward_kit.platform_api: Loaded environment variables from: {ENV_PATH}")
     else:
         logger.info(
             "reward_kit.platform_api: No .env.dev or .env file found. "
@@ -85,9 +79,7 @@ def create_or_update_fireworks_secret(
     resolved_account_id = account_id  # Must be provided
 
     if not all([resolved_api_key, resolved_api_base, resolved_account_id]):
-        logger.error(
-            "Missing Fireworks API key, base URL, or account ID for creating/updating secret."
-        )
+        logger.error("Missing Fireworks API key, base URL, or account ID for creating/updating secret.")
         return False
 
     headers = {
@@ -114,17 +106,13 @@ def create_or_update_fireworks_secret(
         elif response.status_code == 404:
             logger.info(f"Secret '{key_name}' does not exist. Will attempt to create.")
             secret_exists = False
-        elif (
-            response.status_code == 500
-        ):  # As per user feedback, 500 on GET might mean not found
+        elif response.status_code == 500:  # As per user feedback, 500 on GET might mean not found
             logger.warning(
                 f"Received 500 error when checking for secret '{key_name}'. Assuming it does not exist and will attempt to create. Response: {response.text}"
             )
             secret_exists = False
         else:
-            logger.error(
-                f"Error checking for secret '{key_name}': {response.status_code} - {response.text}"
-            )
+            logger.error(f"Error checking for secret '{key_name}': {response.status_code} - {response.text}")
             return False
     except requests.exceptions.RequestException as e:
         logger.error(f"Request exception while checking for secret '{key_name}': {e}")
@@ -142,34 +130,24 @@ def create_or_update_fireworks_secret(
             logger.warning(
                 f"Could not transform key_name '{key_name}' to valid starting uppercase for payload. Using default 'REWARD_KIT_SECRET'."
             )
-            payload_key_name = (
-                "REWARD_KIT_SECRET"  # Fallback, though unlikely needed with .upper()
-            )
+            payload_key_name = "REWARD_KIT_SECRET"  # Fallback, though unlikely needed with .upper()
 
         payload = {"keyName": payload_key_name, "value": secret_value}
         try:
             logger.debug(f"PATCH payload for '{key_name}': {payload}")
-            response = requests.patch(
-                patch_url, headers=headers, json=payload, timeout=30
-            )
+            response = requests.patch(patch_url, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
-            logger.info(
-                f"Successfully updated secret '{key_name}' on Fireworks platform."
-            )
+            logger.info(f"Successfully updated secret '{key_name}' on Fireworks platform.")
             return True
         except requests.exceptions.HTTPError as e:
-            logger.error(
-                f"HTTP error updating secret '{key_name}': {e.response.status_code} - {e.response.text}"
-            )
+            logger.error(f"HTTP error updating secret '{key_name}': {e.response.status_code} - {e.response.text}")
             return False
         except requests.exceptions.RequestException as e:
             logger.error(f"Request exception updating secret '{key_name}': {e}")
             return False
     else:
         # Create new secret (POST)
-        post_url = (
-            f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets"
-        )
+        post_url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets"
         # Body for POST is gatewaySecret. 'name' field in payload is tricky.
         # Let's assume for POST, the 'name' in payload can be omitted or is the key_name.
         # The API should ideally use 'keyName' from URL or a specific 'secretId' in payload for creation if 'name' is server-assigned.
@@ -177,7 +155,9 @@ def create_or_update_fireworks_secret(
         # Let's try with 'name' being the 'key_name' for the payload, as the full path is not known yet.
         # This might need adjustment based on actual API behavior.
         # Construct the full 'name' path for the POST payload as per Swagger's title for 'name'
-        full_resource_name_for_payload = f"accounts/{resolved_account_id}/secrets/{key_name}"  # Path uses lowercase-hyphenated key_name
+        full_resource_name_for_payload = (
+            f"accounts/{resolved_account_id}/secrets/{key_name}"  # Path uses lowercase-hyphenated key_name
+        )
 
         # Transform key_name for payload "keyName" field: uppercase and underscores
         payload_key_name = key_name.upper().replace("-", "_")
@@ -194,18 +174,14 @@ def create_or_update_fireworks_secret(
         }
         try:
             logger.debug(f"POST payload for '{key_name}': {payload}")
-            response = requests.post(
-                post_url, headers=headers, json=payload, timeout=30
-            )
+            response = requests.post(post_url, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
             logger.info(
                 f"Successfully created secret '{key_name}' on Fireworks platform. Full name: {response.json().get('name')}"
             )
             return True
         except requests.exceptions.HTTPError as e:
-            logger.error(
-                f"HTTP error creating secret '{key_name}': {e.response.status_code} - {e.response.text}"
-            )
+            logger.error(f"HTTP error creating secret '{key_name}': {e.response.status_code} - {e.response.text}")
             # If error is due to 'name' field, this log will show it.
             return False
         except requests.exceptions.RequestException as e:
@@ -229,9 +205,7 @@ def get_fireworks_secret(
     resolved_account_id = account_id
 
     if not all([resolved_api_key, resolved_api_base, resolved_account_id]):
-        logger.error(
-            "Missing Fireworks API key, base URL, or account ID for getting secret."
-        )
+        logger.error("Missing Fireworks API key, base URL, or account ID for getting secret.")
         return None
 
     headers = {"Authorization": f"Bearer {resolved_api_key}"}
@@ -246,9 +220,7 @@ def get_fireworks_secret(
             logger.info(f"Secret '{key_name}' not found.")
             return None
         else:
-            logger.error(
-                f"Error getting secret '{key_name}': {response.status_code} - {response.text}"
-            )
+            logger.error(f"Error getting secret '{key_name}': {response.status_code} - {response.text}")
             return None
     except requests.exceptions.RequestException as e:
         logger.error(f"Request exception while getting secret '{key_name}': {e}")
@@ -269,9 +241,7 @@ def delete_fireworks_secret(
     resolved_account_id = account_id
 
     if not all([resolved_api_key, resolved_api_base, resolved_account_id]):
-        logger.error(
-            "Missing Fireworks API key, base URL, or account ID for deleting secret."
-        )
+        logger.error("Missing Fireworks API key, base URL, or account ID for deleting secret.")
         return False
 
     headers = {"Authorization": f"Bearer {resolved_api_key}"}
@@ -279,9 +249,7 @@ def delete_fireworks_secret(
 
     try:
         response = requests.delete(url, headers=headers, timeout=30)
-        if (
-            response.status_code == 200 or response.status_code == 204
-        ):  # 204 No Content is also success for DELETE
+        if response.status_code == 200 or response.status_code == 204:  # 204 No Content is also success for DELETE
             logger.info(f"Successfully deleted secret '{key_name}'.")
             return True
         elif response.status_code == 404:
@@ -295,9 +263,7 @@ def delete_fireworks_secret(
             )
             return True  # Consider deletion successful if it results in non-existence
         else:
-            logger.error(
-                f"Error deleting secret '{key_name}': {response.status_code} - {response.text}"
-            )
+            logger.error(f"Error deleting secret '{key_name}': {response.status_code} - {response.text}")
             return False
     except requests.exceptions.RequestException as e:
         logger.error(f"Request exception while deleting secret '{key_name}': {e}")
@@ -321,14 +287,10 @@ if __name__ == "__main__":
     # FIREWORKS_API_BASE="https://api.fireworks.ai" # or your dev/staging endpoint
 
     test_account_id = get_fireworks_account_id()
-    test_api_key = (
-        get_fireworks_api_key()
-    )  # Not passed directly, functions will resolve
+    test_api_key = get_fireworks_api_key()  # Not passed directly, functions will resolve
     test_api_base = get_fireworks_api_base()
 
-    logger.info(
-        f"Attempting to use the following configuration for testing Fireworks secrets API:"
-    )
+    logger.info(f"Attempting to use the following configuration for testing Fireworks secrets API:")
     logger.info(f"  Resolved FIREWORKS_ACCOUNT_ID: {test_account_id}")
     logger.info(f"  Resolved FIREWORKS_API_BASE: {test_api_base}")
     logger.info(
@@ -347,33 +309,21 @@ if __name__ == "__main__":
     test_secret_value = "test_secret_value_12345"
     updated_secret_value = "updated_secret_value_67890"
 
-    logger.info(
-        f"--- Testing Fireworks Secret Management for account: {test_account_id} ---"
-    )
+    logger.info(f"--- Testing Fireworks Secret Management for account: {test_account_id} ---")
 
     # 1. Ensure it doesn't exist initially (or delete if it does from a previous failed run)
-    logger.info(
-        f"\n[Test Step 0] Attempting to delete '{test_secret_key_name}' if it exists (cleanup)..."
-    )
+    logger.info(f"\n[Test Step 0] Attempting to delete '{test_secret_key_name}' if it exists (cleanup)...")
     delete_fireworks_secret(test_account_id, test_secret_key_name)
     retrieved = get_fireworks_secret(test_account_id, test_secret_key_name)
     if retrieved is None:
-        logger.info(
-            f"Confirmed secret '{test_secret_key_name}' does not exist before creation test."
-        )
+        logger.info(f"Confirmed secret '{test_secret_key_name}' does not exist before creation test.")
     else:
-        logger.error(
-            f"Secret '{test_secret_key_name}' still exists after cleanup attempt. Manual check needed."
-        )
+        logger.error(f"Secret '{test_secret_key_name}' still exists after cleanup attempt. Manual check needed.")
         # sys.exit(1) # Optional: make it fatal
 
     # 2. Create secret
-    logger.info(
-        f"\n[Test Step 1] Creating secret '{test_secret_key_name}' with value '{test_secret_value}'..."
-    )
-    success_create = create_or_update_fireworks_secret(
-        test_account_id, test_secret_key_name, test_secret_value
-    )
+    logger.info(f"\n[Test Step 1] Creating secret '{test_secret_key_name}' with value '{test_secret_value}'...")
+    success_create = create_or_update_fireworks_secret(test_account_id, test_secret_key_name, test_secret_value)
     logger.info(f"Create operation success: {success_create}")
 
     # 3. Get secret (to verify creation, though value won't be returned)
@@ -384,21 +334,13 @@ if __name__ == "__main__":
         # Assert against the transformed keyName that's expected in the payload/response body
         expected_payload_key_name = test_secret_key_name.upper().replace("-", "_")
         assert retrieved_after_create.get("keyName") == expected_payload_key_name
-        assert (
-            retrieved_after_create.get("value") == test_secret_value
-        )  # Also check value if returned
+        assert retrieved_after_create.get("value") == test_secret_value  # Also check value if returned
     else:
-        logger.error(
-            f"Failed to retrieve secret '{test_secret_key_name}' after creation."
-        )
+        logger.error(f"Failed to retrieve secret '{test_secret_key_name}' after creation.")
 
     # 4. Update secret
-    logger.info(
-        f"\n[Test Step 3] Updating secret '{test_secret_key_name}' with value '{updated_secret_value}'..."
-    )
-    success_update = create_or_update_fireworks_secret(
-        test_account_id, test_secret_key_name, updated_secret_value
-    )
+    logger.info(f"\n[Test Step 3] Updating secret '{test_secret_key_name}' with value '{updated_secret_value}'...")
+    success_update = create_or_update_fireworks_secret(test_account_id, test_secret_key_name, updated_secret_value)
     logger.info(f"Update operation success: {success_update}")
     # (Getting again won't show the value, so we assume PATCH worked if it returned True)
 
@@ -408,17 +350,11 @@ if __name__ == "__main__":
     logger.info(f"Delete operation success: {success_delete}")
 
     # 6. Get secret (to verify deletion)
-    logger.info(
-        f"\n[Test Step 5] Getting secret '{test_secret_key_name}' again to confirm deletion..."
-    )
+    logger.info(f"\n[Test Step 5] Getting secret '{test_secret_key_name}' again to confirm deletion...")
     retrieved_after_delete = get_fireworks_secret(test_account_id, test_secret_key_name)
     if retrieved_after_delete is None:
-        logger.info(
-            f"Secret '{test_secret_key_name}' successfully confirmed as deleted."
-        )
+        logger.info(f"Secret '{test_secret_key_name}' successfully confirmed as deleted.")
     else:
-        logger.error(
-            f"Secret '{test_secret_key_name}' still exists after delete operation: {retrieved_after_delete}"
-        )
+        logger.error(f"Secret '{test_secret_key_name}' still exists after delete operation: {retrieved_after_delete}")
 
     logger.info("\n--- Test script finished ---")

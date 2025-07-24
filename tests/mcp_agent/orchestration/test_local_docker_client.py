@@ -63,9 +63,7 @@ MOCK_STDIO_FILESYSTEM_CONFIG = BackendServerConfig(
 
 
 @pytest_asyncio.fixture(scope="function")
-async def local_docker_orchestrator() -> (
-    AsyncGenerator[LocalDockerOrchestrationClient, None]
-):
+async def local_docker_orchestrator() -> AsyncGenerator[LocalDockerOrchestrationClient, None]:
     """Fixture to provide an initialized LocalDockerOrchestrationClient."""
     # A minimal AppConfig is needed by the orchestrator
     app_cfg = AppConfig(
@@ -74,9 +72,7 @@ async def local_docker_orchestrator() -> (
     )
     orchestrator = LocalDockerOrchestrationClient(app_config=app_cfg)
     # Patch docker.from_env for the duration of this fixture
-    with patch(
-        "eval_protocol.mcp_agent.orchestration.local_docker_client.docker.from_env"
-    ) as mock_docker_from_env:
+    with patch("eval_protocol.mcp_agent.orchestration.local_docker_client.docker.from_env") as mock_docker_from_env:
         mock_docker_client = MagicMock(spec=docker.DockerClient)
         mock_docker_client.ping = MagicMock(return_value=True)
 
@@ -125,11 +121,7 @@ async def test_provision_deprovision_http_instance(
     # Simulate port bindings from container.attrs
     mock_container.attrs = {
         "NetworkSettings": {
-            "Ports": {
-                f"{MOCK_HTTP_BACKEND_CONFIG.container_port}/tcp": [
-                    {"HostIp": "0.0.0.0", "HostPort": "12345"}
-                ]
-            }
+            "Ports": {f"{MOCK_HTTP_BACKEND_CONFIG.container_port}/tcp": [{"HostIp": "0.0.0.0", "HostPort": "12345"}]}
         }
     }
     mock_container.reload = MagicMock()
@@ -155,9 +147,7 @@ async def test_provision_deprovision_http_instance(
     with patch.object(
         local_docker_orchestrator, "http_client", new_callable=AsyncMock
     ) as mock_orchestrator_http_client:
-        mock_orchestrator_http_client.post = AsyncMock(
-            return_value=mock_http_post_response
-        )
+        mock_orchestrator_http_client.post = AsyncMock(return_value=mock_http_post_response)
         # If list_tools for HTTP also uses this client (it should use mcp.client.streamable_http), that needs separate mocking or handling.
         # For now, list_tools_on_instance for HTTP uses streamablehttp_client, which is harder to mock here directly.
         # Let's assume list_tools for HTTP will be tested in an integration manner or its http calls mocked differently.
@@ -172,25 +162,15 @@ async def test_provision_deprovision_http_instance(
         ) as mock_streamablehttp_client_func:
 
             # Configure the mock Async Context Manager (ACM) that mock_streamablehttp_client_func will return
-            mock_acm_instance = (
-                AsyncMock()
-            )  # This object needs __aenter__ and __aexit__
+            mock_acm_instance = AsyncMock()  # This object needs __aenter__ and __aexit__
 
             # What __aenter__ of the ACM should yield: a tuple of (read_stream, write_stream, get_id_func)
-            mock_read_stream = (
-                AsyncMock()
-            )  # spec=ObjectReceiveStream if imported from anyio.abc
-            mock_write_stream = (
-                AsyncMock()
-            )  # spec=ObjectSendStream if imported from anyio.abc
-            mock_get_id_func = MagicMock(
-                return_value="mock_transport_session_id_for_list_tools"
-            )
+            mock_read_stream = AsyncMock()  # spec=ObjectReceiveStream if imported from anyio.abc
+            mock_write_stream = AsyncMock()  # spec=ObjectSendStream if imported from anyio.abc
+            mock_get_id_func = MagicMock(return_value="mock_transport_session_id_for_list_tools")
             streams_tuple = (mock_read_stream, mock_write_stream, mock_get_id_func)
             mock_acm_instance.__aenter__.return_value = streams_tuple
-            mock_acm_instance.__aexit__ = AsyncMock(
-                return_value=None
-            )  # Ensure __aexit__ is an awaitable mock
+            mock_acm_instance.__aexit__ = AsyncMock(return_value=None)  # Ensure __aexit__ is an awaitable mock
 
             mock_streamablehttp_client_func.return_value = mock_acm_instance
 
@@ -207,39 +187,25 @@ async def test_provision_deprovision_http_instance(
                 # This is the mock for the ClientSession *instance*
                 mock_cs_instance = AsyncMock(spec=ClientSession)
                 mock_cs_instance.initialize = AsyncMock()  # Mock the initialize call
-                mock_cs_instance.list_tools = AsyncMock(
-                    return_value=mock_mcp_list_tools_result
-                )
+                mock_cs_instance.list_tools = AsyncMock(return_value=mock_mcp_list_tools_result)
 
-                MockedClientSessionInSUT.return_value = (
-                    mock_cs_instance  # When ClientSession() is called in SUT
-                )
+                MockedClientSessionInSUT.return_value = mock_cs_instance  # When ClientSession() is called in SUT
 
                 try:
-                    logger.info(
-                        f"Attempting to provision {num_instances} HTTP instance(s) for session {session_id}"
-                    )
-                    provisioned_instances = (
-                        await local_docker_orchestrator.provision_instances(
-                            backend_config=MOCK_HTTP_BACKEND_CONFIG,
-                            num_instances=num_instances,
-                            session_id=session_id,
-                        )
+                    logger.info(f"Attempting to provision {num_instances} HTTP instance(s) for session {session_id}")
+                    provisioned_instances = await local_docker_orchestrator.provision_instances(
+                        backend_config=MOCK_HTTP_BACKEND_CONFIG,
+                        num_instances=num_instances,
+                        session_id=session_id,
                     )
                     assert len(provisioned_instances) == num_instances
                     instance_info = provisioned_instances[0]
-                    assert (
-                        instance_info.backend_name_ref
-                        == MOCK_HTTP_BACKEND_CONFIG.backend_name_ref
-                    )
+                    assert instance_info.backend_name_ref == MOCK_HTTP_BACKEND_CONFIG.backend_name_ref
                     assert instance_info.mcp_transport == "http"
                     assert (
                         instance_info.mcp_endpoint_url == "http://localhost:12345/mcp"
                     )  # Based on mock_container.attrs
-                    assert (
-                        instance_info.internal_instance_details["container_id"]
-                        == "mock_container_id_http"
-                    )
+                    assert instance_info.internal_instance_details["container_id"] == "mock_container_id_http"
                     assert instance_info.internal_instance_details["host_port"] == 12345
 
                     logger.info(
@@ -249,31 +215,21 @@ async def test_provision_deprovision_http_instance(
                     mock_container.reload.assert_called()  # provision_instances calls reload
 
                     # Test list_tools on the provisioned HTTP instance
-                    logger.info(
-                        f"Attempting to list tools on HTTP instance: {instance_info.instance_id}"
-                    )
-                    list_tools_result = (
-                        await local_docker_orchestrator.list_tools_on_instance(
-                            instance_info
-                        )
-                    )
+                    logger.info(f"Attempting to list tools on HTTP instance: {instance_info.instance_id}")
+                    list_tools_result = await local_docker_orchestrator.list_tools_on_instance(instance_info)
                     assert isinstance(list_tools_result, mcp_types.ListToolsResult)
                     assert len(list_tools_result.tools) > 0
                     assert list_tools_result.tools[0].name == "ping"
                     logger.info(
                         f"Successfully listed {len(list_tools_result.tools)} tools: {[t.name for t in list_tools_result.tools]}"
                     )
-                    mock_streamablehttp_client_func.assert_called_with(
-                        base_url="http://localhost:12345/mcp"
-                    )
+                    mock_streamablehttp_client_func.assert_called_with(base_url="http://localhost:12345/mcp")
                     MockedClientSessionInSUT.assert_called_once()  # Check ClientSession was instantiated
                     mock_cs_instance.initialize.assert_called_once()  # Check initialize was called
                     mock_cs_instance.list_tools.assert_called_once()  # Check list_tools was called
 
                     # Test a tool call (e.g., ping)
-                    logger.info(
-                        f"Attempting to call 'ping' on HTTP instance: {instance_info.instance_id}"
-                    )
+                    logger.info(f"Attempting to call 'ping' on HTTP instance: {instance_info.instance_id}")
                     ping_result = await local_docker_orchestrator.call_tool_on_instance(
                         instance=instance_info,
                         tool_name="ping",
@@ -282,9 +238,7 @@ async def test_provision_deprovision_http_instance(
                     assert isinstance(ping_result, dict)
                     assert ping_result.get("status") == "pong"
                     # This server_id comes from the mock_http_post_response.json()
-                    assert (
-                        ping_result.get("server_id") == "mock_http_server_id_from_test"
-                    )
+                    assert ping_result.get("server_id") == "mock_http_server_id_from_test"
                     logger.info(f"Successfully called 'ping', response: {ping_result}")
                     # Assert that the orchestrator's http_client.post was called for the tool call
                     mock_orchestrator_http_client.post.assert_any_call(
@@ -294,12 +248,8 @@ async def test_provision_deprovision_http_instance(
 
                 finally:
                     if provisioned_instances:
-                        logger.info(
-                            f"Attempting to deprovision {len(provisioned_instances)} HTTP instance(s)"
-                        )
-                        await local_docker_orchestrator.deprovision_instances(
-                            provisioned_instances
-                        )
+                        logger.info(f"Attempting to deprovision {len(provisioned_instances)} HTTP instance(s)")
+                        await local_docker_orchestrator.deprovision_instances(provisioned_instances)
                         logger.info("Deprovisioning complete.")
                         mock_container.stop.assert_called_once()
                         mock_container.remove.assert_called_once()
@@ -340,17 +290,10 @@ async def test_provision_deprovision_stdio_instance(
         )
         assert len(provisioned_instances) == num_instances
         instance_info = provisioned_instances[0]
-        assert (
-            instance_info.backend_name_ref
-            == stdio_fs_config_with_template.backend_name_ref
-        )
+        assert instance_info.backend_name_ref == stdio_fs_config_with_template.backend_name_ref
         assert instance_info.mcp_transport == "stdio"
-        assert (
-            instance_info.mcp_endpoint_url is None
-        )  # Stdio instances don't have an HTTP endpoint URL
-        assert (
-            "container_name" in instance_info.internal_instance_details
-        )  # Changed from container_id for stdio
+        assert instance_info.mcp_endpoint_url is None  # Stdio instances don't have an HTTP endpoint URL
+        assert "container_name" in instance_info.internal_instance_details  # Changed from container_id for stdio
         # For stdio, host_port is not applicable
         assert (
             "instance_host_data_path" in instance_info.internal_instance_details
@@ -361,12 +304,8 @@ async def test_provision_deprovision_stdio_instance(
         )
 
         # Test list_tools on the provisioned stdio instance
-        logger.info(
-            f"Attempting to list tools on stdio instance: {instance_info.instance_id}"
-        )
-        list_tools_result = await local_docker_orchestrator.list_tools_on_instance(
-            instance_info
-        )
+        logger.info(f"Attempting to list tools on stdio instance: {instance_info.instance_id}")
+        list_tools_result = await local_docker_orchestrator.list_tools_on_instance(instance_info)
         assert isinstance(list_tools_result, mcp_types.ListToolsResult)
         assert len(list_tools_result.tools) > 0  # mcp/filesystem should have tools
         logger.info(
@@ -388,15 +327,11 @@ async def test_provision_deprovision_stdio_instance(
         assert len(read_content_list) == 1
         assert read_content_list[0].get("type") == "text"
         assert read_content_list[0].get("text") == test_file_content
-        logger.info(
-            f"Successfully called 'read_file' via stdio, content matches template."
-        )
+        logger.info(f"Successfully called 'read_file' via stdio, content matches template.")
 
     finally:
         if provisioned_instances:
-            logger.info(
-                f"Attempting to deprovision {len(provisioned_instances)} stdio instance(s)"
-            )
+            logger.info(f"Attempting to deprovision {len(provisioned_instances)} stdio instance(s)")
             await local_docker_orchestrator.deprovision_instances(provisioned_instances)
             logger.info("Stdio deprovisioning complete.")
         # tmp_path fixture handles cleanup of template_host_dir

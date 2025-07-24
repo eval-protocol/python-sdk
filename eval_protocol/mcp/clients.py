@@ -22,9 +22,7 @@ class IntermediaryMCPClient:
     def __init__(self, intermediary_server_url: str):
         if not intermediary_server_url:
             raise ValueError("intermediary_server_url must be provided.")
-        self.server_url = intermediary_server_url.rstrip(
-            "/"
-        )  # Should be like http://localhost:8001/mcp
+        self.server_url = intermediary_server_url.rstrip("/")  # Should be like http://localhost:8001/mcp
 
         self._exit_stack: Optional[AsyncExitStack] = None
         self._mcp_session: Optional[ClientSession] = None
@@ -37,26 +35,18 @@ class IntermediaryMCPClient:
 
         self._exit_stack = AsyncExitStack()
         try:
-            logger.debug(
-                f"Attempting to connect to Intermediary MCP server at {self.server_url}"
-            )
-            read_stream, write_stream, http_session_info = (
-                await self._exit_stack.enter_async_context(
-                    streamablehttp_client(self.server_url)
-                )
+            logger.debug(f"Attempting to connect to Intermediary MCP server at {self.server_url}")
+            read_stream, write_stream, http_session_info = await self._exit_stack.enter_async_context(
+                streamablehttp_client(self.server_url)
             )
             # http_session_info might contain the underlying aiohttp session if needed, and mcp_session_id
             # logger.debug(f"Streamable HTTP transport established. HTTP session info: {http_session_info}")
 
             self._mcp_session = await self._exit_stack.enter_async_context(
-                ClientSession(
-                    read_stream, write_stream, client_info=DEFAULT_CLIENT_INFO
-                )
+                ClientSession(read_stream, write_stream, client_info=DEFAULT_CLIENT_INFO)
             )
             await self._mcp_session.initialize()
-            logger.info(
-                f"IntermediaryMCPClient connected and MCP session initialized with {self.server_url}"
-            )
+            logger.info(f"IntermediaryMCPClient connected and MCP session initialized with {self.server_url}")
         except Exception as e:
             if self._exit_stack:  # pragma: no cover
                 await self._exit_stack.aclose()
@@ -71,15 +61,11 @@ class IntermediaryMCPClient:
     async def close(self):
         """Closes the MCP session and underlying transport."""
         if self._exit_stack:
-            logger.debug(
-                f"Closing IntermediaryMCPClient connection to {self.server_url}"
-            )
+            logger.debug(f"Closing IntermediaryMCPClient connection to {self.server_url}")
             await self._exit_stack.aclose()
             self._exit_stack = None
             self._mcp_session = None
-            logger.info(
-                f"IntermediaryMCPClient connection to {self.server_url} closed."
-            )
+            logger.info(f"IntermediaryMCPClient connection to {self.server_url} closed.")
 
     async def _ensure_connected(self):
         # ClientSession doesn't have a public is_closed.
@@ -93,9 +79,7 @@ class IntermediaryMCPClient:
         if not self._mcp_session:
             raise RuntimeError("Failed to establish or re-establish MCP session.")
 
-    async def _call_intermediary_tool(
-        self, tool_name: str, tool_args_payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _call_intermediary_tool(self, tool_name: str, tool_args_payload: Dict[str, Any]) -> Dict[str, Any]:
         """
         Helper to make a raw tool call to the intermediary server and parse the result.
         The tool_args_payload is the "arguments" field for the intermediary's tool.
@@ -104,29 +88,15 @@ class IntermediaryMCPClient:
         if not self._mcp_session:  # For type checker
             raise RuntimeError("MCP session not available after ensure_connected.")
 
-        logger.debug(
-            f"Calling intermediary tool '{tool_name}' with payload: {tool_args_payload}"
-        )
+        logger.debug(f"Calling intermediary tool '{tool_name}' with payload: {tool_args_payload}")
 
-        mcp_response: mcp_types.CallToolResult = await self._mcp_session.call_tool(
-            tool_name, tool_args_payload
-        )
+        mcp_response: mcp_types.CallToolResult = await self._mcp_session.call_tool(tool_name, tool_args_payload)
 
-        logger.debug(
-            f"Raw MCP response from intermediary for '{tool_name}': {mcp_response}"
-        )
+        logger.debug(f"Raw MCP response from intermediary for '{tool_name}': {mcp_response}")
 
-        if (
-            mcp_response.isError
-            or not mcp_response.content
-            or not hasattr(mcp_response.content[0], "text")
-        ):
+        if mcp_response.isError or not mcp_response.content or not hasattr(mcp_response.content[0], "text"):
             error_message = f"Tool call '{tool_name}' to intermediary failed."
-            if (
-                mcp_response.isError
-                and mcp_response.content
-                and hasattr(mcp_response.content[0], "text")
-            ):
+            if mcp_response.isError and mcp_response.content and hasattr(mcp_response.content[0], "text"):
                 error_message += f" Details: {mcp_response.content[0].text}"
             elif mcp_response.isError:
                 error_message += " No detailed error message in content."
@@ -135,30 +105,22 @@ class IntermediaryMCPClient:
                 if mcp_response.content and hasattr(mcp_response.content[0], "text"):
                     parsed_error = json.loads(mcp_response.content[0].text)
                     if isinstance(parsed_error, dict) and "error" in parsed_error:
-                        raise RuntimeError(
-                            f"{error_message} Nested error: {parsed_error['error']}"
-                        )
+                        raise RuntimeError(f"{error_message} Nested error: {parsed_error['error']}")
             except (json.JSONDecodeError, TypeError):
                 pass
             raise RuntimeError(error_message)
 
         try:
             parsed_result = json.loads(mcp_response.content[0].text)
-            logger.debug(
-                f"Parsed JSON result from intermediary for '{tool_name}': {parsed_result}"
-            )
+            logger.debug(f"Parsed JSON result from intermediary for '{tool_name}': {parsed_result}")
             return parsed_result
         except json.JSONDecodeError as e:
             logger.error(
                 f"Failed to parse JSON from intermediary's tool '{tool_name}' response content: {mcp_response.content[0].text}. Error: {e}"
             )
-            raise RuntimeError(
-                f"Failed to parse JSON response from intermediary tool '{tool_name}'."
-            )
+            raise RuntimeError(f"Failed to parse JSON response from intermediary tool '{tool_name}'.")
 
-    async def initialize_session(
-        self, backend_requests: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    async def initialize_session(self, backend_requests: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Initializes a session with the IntermediaryServer, requesting backend instances.
         """

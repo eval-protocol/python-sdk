@@ -47,14 +47,10 @@ def _temp_run(
     # Temporarily disable stdout/stderr redirection to see debug prints from run_test
     # sys.stdout = open(os.devnull, "w")
     # sys.stderr = open(os.devnull, "w")
-    print(
-        f"[_temp_run] Executing run_test for sample. Debug prints from run_test should be visible."
-    )
+    print(f"[_temp_run] Executing run_test for sample. Debug prints from run_test should be visible.")
 
     try:
-        res, metadata = run_test(
-            in_outs=sample, test=generation, debug=debug, timeout=timeout
-        )
+        res, metadata = run_test(in_outs=sample, test=generation, debug=debug, timeout=timeout)
         result_list.append(res)
         metadata_list.append(metadata)
     except Exception:
@@ -64,12 +60,8 @@ def _temp_run(
         num_inputs = len(sample.get("inputs", []))
         tb_str = traceback.format_exc()
         print(f"[_temp_run] Exception caught: {tb_str}")
-        result_list.append(
-            [-1] * num_inputs if num_inputs > 0 else [-1]
-        )  # Mark all as error
-        metadata_list.append(
-            {"error": "Exception in _temp_run/run_test", "traceback": tb_str}
-        )
+        result_list.append([-1] * num_inputs if num_inputs > 0 else [-1])  # Mark all as error
+        metadata_list.append({"error": "Exception in _temp_run/run_test", "traceback": tb_str})
     finally:
         # Restore stdout/stderr
         # if sys.stdout is not original_stdout and hasattr(sys.stdout, 'close'): # Check if it was replaced and closable
@@ -99,11 +91,7 @@ def check_correctness(
         - A list of results (e.g., booleans for pass/fail, or error codes).
         - A list of metadata dictionaries corresponding to each result.
     """
-    if (
-        not in_outs
-        or "inputs" not in in_outs
-        or not isinstance(in_outs["inputs"], list)
-    ):
+    if not in_outs or "inputs" not in in_outs or not isinstance(in_outs["inputs"], list):
         # Handle cases where in_outs might be None or malformed early
         return [-1], [{"error": "Invalid or missing in_outs structure"}]
 
@@ -116,9 +104,7 @@ def check_correctness(
         args=(in_outs, generation, debug, result_proxy, metadata_proxy, timeout),
     )
     process.start()
-    process.join(
-        timeout=timeout + 1
-    )  # Join with a slightly longer timeout for the process itself
+    process.join(timeout=timeout + 1)  # Join with a slightly longer timeout for the process itself
 
     if process.is_alive():
         process.kill()  # Force kill if still alive after timeout
@@ -126,13 +112,9 @@ def check_correctness(
 
     # Convert proxy lists to regular lists for return
     # Ensure that if the process was killed, we have some default error state.
-    if (
-        not result_proxy
-    ):  # If result_proxy is empty (e.g., process killed before appending)
+    if not result_proxy:  # If result_proxy is empty (e.g., process killed before appending)
         num_inputs = len(in_outs.get("inputs", []))
-        final_results = (
-            [-1] * num_inputs if num_inputs > 0 else [-1]
-        )  # Mark all as error
+        final_results = [-1] * num_inputs if num_inputs > 0 else [-1]  # Mark all as error
         final_metadata = (
             [
                 {
@@ -147,9 +129,7 @@ def check_correctness(
         if debug:
             print("Global timeout or process killed before results could be appended.")
     else:
-        final_results = list(result_proxy)[
-            0
-        ]  # Expecting run_test to return a list of results for the inputs
+        final_results = list(result_proxy)[0]  # Expecting run_test to return a list of results for the inputs
         final_metadata = list(metadata_proxy)  # This should be a list of dicts
 
     # Ensure metadata_list has a corresponding entry for each input if it was a single dict from run_test

@@ -53,10 +53,7 @@ def run_evaluation_command_logic(cfg: DictConfig) -> None:
             errors = [r for r in all_results if "error" in r and r["error"]]
             # Consider a result successful for summary if it has a score and no critical error string
             successful_evals = [
-                r
-                for r in all_results
-                if r.get("evaluation_score") is not None
-                and not ("error" in r and r["error"])
+                r for r in all_results if r.get("evaluation_score") is not None and not ("error" in r and r["error"])
             ]
 
             num_errors = len(errors)
@@ -102,9 +99,7 @@ def run_evaluation_command_logic(cfg: DictConfig) -> None:
                     for i in range(len(bins) - 1):
                         # Ensure bin upper bound is displayed correctly as 1.0 for the last bin
                         upper_bin_display = 1.0 if bins[i + 1] > 1.0 else bins[i + 1]
-                        summary_lines.append(
-                            f"  [{bins[i]:.1f} - {upper_bin_display:.1f}): {score_counts[i]}"
-                        )
+                        summary_lines.append(f"  [{bins[i]:.1f} - {upper_bin_display:.1f}): {score_counts[i]}")
 
             if num_errors > 0:
                 summary_lines.append("\nError details (first 5):")
@@ -133,55 +128,35 @@ def run_evaluation_command_logic(cfg: DictConfig) -> None:
             logger.error(
                 "HINT: This error suggests your dataset config has 'final_columns' which conflicts with the datasets library."
             )
-            logger.error(
-                "SOLUTION: Remove 'final_columns' from your dataset config or use the simplified config."
-            )
+            logger.error("SOLUTION: Remove 'final_columns' from your dataset config or use the simplified config.")
         elif "user_query" in error_msg and "missing" in error_msg.lower():
             logger.error("HINT: Your data is missing the 'user_query' column.")
-            logger.error(
-                "SOLUTION: Run 'reward-kit validate-data --file your_data.jsonl' to check data schema."
-            )
+            logger.error("SOLUTION: Run 'reward-kit validate-data --file your_data.jsonl' to check data schema.")
         elif "import" in error_msg.lower() or "module" in error_msg.lower():
             logger.error("HINT: Cannot import your reward function module.")
-            logger.error(
-                "SOLUTION: Ensure your reward function file is in the current directory."
-            )
+            logger.error("SOLUTION: Ensure your reward function file is in the current directory.")
         elif "config" in error_msg.lower() and "not found" in error_msg.lower():
             logger.error("HINT: Configuration file not found.")
-            logger.error(
-                "SOLUTION: Ensure your config file is in ./conf/ directory or use --config-path."
-            )
+            logger.error("SOLUTION: Ensure your config file is in ./conf/ directory or use --config-path.")
 
         sys.exit(1)  # Exit with error code for critical failures
     except Exception as e:
         error_msg = str(e)
-        logger.error(
-            f"An unexpected error occurred during the evaluation pipeline: {e}"
-        )
+        logger.error(f"An unexpected error occurred during the evaluation pipeline: {e}")
 
         # Provide helpful suggestions for common issues
         if "unexpected keyword argument" in error_msg:
-            logger.error(
-                "HINT: This suggests a configuration parameter is being passed incorrectly."
-            )
-            logger.error(
-                "SOLUTION: Check your dataset config for extra parameters like 'final_columns'."
-            )
+            logger.error("HINT: This suggests a configuration parameter is being passed incorrectly.")
+            logger.error("SOLUTION: Check your dataset config for extra parameters like 'final_columns'.")
         elif "No module named" in error_msg:
             logger.error("HINT: Cannot find Python module for reward function.")
-            logger.error(
-                "SOLUTION: Ensure your reward function file is in the current directory."
-            )
+            logger.error("SOLUTION: Ensure your reward function file is in the current directory.")
         elif "not enough values to unpack" in error_msg:
             logger.error("HINT: Data format mismatch.")
-            logger.error(
-                "SOLUTION: Run 'reward-kit validate-data --file your_data.jsonl' to check data format."
-            )
+            logger.error("SOLUTION: Run 'reward-kit validate-data --file your_data.jsonl' to check data format.")
 
         logger.error("For more help, try:")
-        logger.error(
-            "1. Run 'reward-kit validate-data --file your_data.jsonl' to check data"
-        )
+        logger.error("1. Run 'reward-kit validate-data --file your_data.jsonl' to check data")
         logger.error("2. Use the simplified config: --config-name simple_uipath_eval")
         logger.error("3. Check that all files are in the correct locations")
 
@@ -203,14 +178,10 @@ import os  # Ensure os is imported for path manipulation
 _RUN_EVAL_CMD_DIR = os.path.dirname(os.path.abspath(__file__))
 # Default config_path for @hydra.main, relative to this file.
 # Points to the project's top-level 'conf' directory.
-_DEFAULT_HYDRA_CONFIG_PATH = os.path.abspath(
-    os.path.join(_RUN_EVAL_CMD_DIR, "..", "..", "conf")
-)
+_DEFAULT_HYDRA_CONFIG_PATH = os.path.abspath(os.path.join(_RUN_EVAL_CMD_DIR, "..", "..", "conf"))
 
 
-@hydra.main(
-    config_path=_DEFAULT_HYDRA_CONFIG_PATH, config_name=None, version_base="1.3"
-)
+@hydra.main(config_path=_DEFAULT_HYDRA_CONFIG_PATH, config_name=None, version_base="1.3")
 def hydra_cli_entry_point(cfg: DictConfig) -> None:
     # config_path and config_name from CLI will override the defaults in the decorator.
     # If --config-name is not provided via CLI, Hydra would look for a default config

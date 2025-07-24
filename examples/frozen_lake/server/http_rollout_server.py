@@ -98,9 +98,7 @@ if __name__ == "__main__":
     import uvicorn
 
     parser = argparse.ArgumentParser(description="Frozen Lake HTTP Rollout Server")
-    parser.add_argument(
-        "--port", type=int, default=8080, help="Port to run the server on"
-    )
+    parser.add_argument("--port", type=int, default=8080, help="Port to run the server on")
     args = parser.parse_args()
 
     uvicorn.run(app, host="0.0.0.0", port=args.port)

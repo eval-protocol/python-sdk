@@ -45,10 +45,8 @@ class ModelClient(ABC):
         self,
         messages: List[Dict[str, str]],
         session: aiohttp.ClientSession,
-        tools: Optional[
-            List[Dict[str, Any]]
-        ] = None,  # For OpenAI-style tool definitions
-        **kwargs: Any  # For additional model-specific parameters
+        tools: Optional[List[Dict[str, Any]]] = None,  # For OpenAI-style tool definitions
+        **kwargs: Any,  # For additional model-specific parameters
     ) -> GenerationResult:
         """
         Generates a response from the model.

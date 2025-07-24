@@ -60,9 +60,7 @@ class TestLanguageConsistencyReward(unittest.TestCase):
         assistant_message_dict = {"role": "assistant", "content": content}
         messages_arg = [prompt_message_dict, assistant_message_dict]
 
-        result = language_consistency_reward(
-            messages=messages_arg, ground_truth=None, target_language="es"
-        )
+        result = language_consistency_reward(messages=messages_arg, ground_truth=None, target_language="es")
 
         self.assertIsInstance(result, EvaluateResult)
         # Should be high score for consistent Spanish
@@ -89,9 +87,7 @@ class TestLanguageConsistencyReward(unittest.TestCase):
         messages_arg = [prompt_message_dict, assistant_message_dict]
 
         # Test with English as target
-        result_en = language_consistency_reward(
-            messages=messages_arg, ground_truth=None, target_language="en"
-        )
+        result_en = language_consistency_reward(messages=messages_arg, ground_truth=None, target_language="en")
 
         self.assertIsInstance(result_en, EvaluateResult)
         # Should be medium score for inconsistent English
@@ -147,9 +143,7 @@ class TestLanguageConsistencyReward(unittest.TestCase):
         assistant_message_dict = {"role": "assistant", "content": content_zh}
         messages_arg = [prompt_message_dict, assistant_message_dict]
 
-        result = language_consistency_reward(
-            messages=messages_arg, ground_truth=None, target_language="zh"
-        )
+        result = language_consistency_reward(messages=messages_arg, ground_truth=None, target_language="zh")
 
         self.assertIsInstance(result, EvaluateResult)
         # Should be high score for consistent Chinese
@@ -164,9 +158,7 @@ class TestLanguageConsistencyReward(unittest.TestCase):
         assistant_message_dict = {"role": "assistant", "content": ""}
         messages_arg = [prompt_message_dict, assistant_message_dict]
 
-        result = language_consistency_reward(
-            messages=messages_arg, ground_truth=None, target_language="en"
-        )
+        result = language_consistency_reward(messages=messages_arg, ground_truth=None, target_language="en")
 
         self.assertIsInstance(result, EvaluateResult)
         # Should give zero score for no content
@@ -195,9 +187,7 @@ class TestLanguageConsistencyReward(unittest.TestCase):
         assistant_message_dict = {"role": "assistant", "content": content}
         messages_arg = [prompt_message_dict, assistant_message_dict]
 
-        result = language_consistency_reward(
-            messages=messages_arg, ground_truth=None, target_language="en"
-        )
+        result = language_consistency_reward(messages=messages_arg, ground_truth=None, target_language="en")
 
         self.assertIsInstance(result, EvaluateResult)
         # Should be high score for consistent English, even with code
@@ -207,9 +197,7 @@ class TestLanguageConsistencyReward(unittest.TestCase):
     def test_detect_dominant_language(self):
         """Test the dominant language detection function."""
         # Test English
-        en_text = (
-            "The quick brown fox jumps over the lazy dog with a lot of English words"
-        )
+        en_text = "The quick brown fox jumps over the lazy dog with a lot of English words"
         lang_en, conf_en = detect_dominant_language(en_text)
         self.assertEqual(lang_en, "en")
         self.assertGreaterEqual(conf_en, 0.5)

@@ -54,22 +54,13 @@ def test_dataset_format():
         data = json.loads(line)
 
     assert "user_query" in data, "Dataset missing 'user_query' field"
-    assert (
-        "ground_truth_for_eval" in data
-    ), "Dataset missing 'ground_truth_for_eval' field"
+    assert "ground_truth_for_eval" in data, "Dataset missing 'ground_truth_for_eval' field"
     # Specific checks for this example's dataset content
+    assert "file_to_move.txt" in data["user_query"], "User query doesn't mention target file"
+    assert "/data/source_dir/" in data["user_query"], "User query doesn't mention source directory"
+    assert "/data/target_dir/" in data["user_query"], "User query doesn't mention target directory"
     assert (
-        "file_to_move.txt" in data["user_query"]
-    ), "User query doesn't mention target file"
-    assert (
-        "/data/source_dir/" in data["user_query"]
-    ), "User query doesn't mention source directory"
-    assert (
-        "/data/target_dir/" in data["user_query"]
-    ), "User query doesn't mention target directory"
-    assert (
-        "move /data/source_dir/file_to_move.txt to /data/target_dir/file_to_move.txt"
-        in data["ground_truth_for_eval"]
+        "move /data/source_dir/file_to_move.txt to /data/target_dir/file_to_move.txt" in data["ground_truth_for_eval"]
     )
 
     print("✓ Dataset format is correct")
@@ -83,9 +74,7 @@ def test_reward_function_import():
     from examples.mcp_agent_filesystem_rl import main as filesystem_rl_main
     from eval_protocol.models import EvaluateResult
 
-    assert hasattr(
-        filesystem_rl_main, "evaluate"
-    ), "Reward function 'evaluate' not found in main.py"
+    assert hasattr(filesystem_rl_main, "evaluate"), "Reward function 'evaluate' not found in main.py"
 
     # Test with mock data
     # The 'evaluate' function expects: messages, ground_truth, final_filesystem_state, task_description
@@ -96,9 +85,7 @@ def test_reward_function_import():
         ),
         Message(role="assistant", content="Okay, I will move the file."),
     ]
-    mock_ground_truth = (
-        "move file_to_move.txt to target_dir"  # Matched to main.py's parse_ground_truth
-    )
+    mock_ground_truth = "move file_to_move.txt to target_dir"  # Matched to main.py's parse_ground_truth
 
     # Mock a final_filesystem_state that indicates success for the move operation
     # This structure should match what the 'directory_tree' tool (or similar) would output,
@@ -137,9 +124,7 @@ def test_reward_function_import():
         task_description="Test move success",
     )
 
-    assert isinstance(
-        result_success, EvaluateResult
-    ), "evaluate function did not return an EvaluateResult"
+    assert isinstance(result_success, EvaluateResult), "evaluate function did not return an EvaluateResult"
     # Based on main.py logic, a perfect move should result in score 1.0
     assert (
         result_success.score == 1.0
@@ -186,23 +171,15 @@ def test_config_file():
         config = yaml.safe_load(f)
 
     assert "generation" in config, "Config missing 'generation' field"
-    assert (
-        "model_name" in config["generation"]
-    ), "Config missing 'generation.model_name' field"
+    assert "model_name" in config["generation"], "Config missing 'generation.model_name' field"
     assert "dataset" in config, "Config missing 'dataset' field"
-    assert (
-        "reward" in config
-    ), "Config missing 'reward' field"  # Changed from reward_function
-    assert (
-        "agent" in config
-    ), "Config missing 'agent' field"  # Changed from agent_config
+    assert "reward" in config, "Config missing 'reward' field"  # Changed from reward_function
+    assert "agent" in config, "Config missing 'agent' field"  # Changed from agent_config
 
     # Check agent config specifics
     agent_config = config["agent"]
     assert agent_config["type"] == "mcp_agent", "Agent type should be 'mcp_agent'"
-    assert (
-        "mcp_backend_ref" in agent_config
-    ), "Agent config missing 'mcp_backend_ref'"  # Key name changed
+    assert "mcp_backend_ref" in agent_config, "Agent config missing 'mcp_backend_ref'"  # Key name changed
 
     print("✓ Config file is valid")
 

@@ -15,9 +15,10 @@ def convert_raw_to_transformed_jsonl(input_file_path, output_file_path):
     - "test_cases": a list of parsed {"input": "...", "expected_output": "..."} objects
     """
     try:
-        with open(input_file_path, "r", encoding="utf-8") as infile, open(
-            output_file_path, "w", encoding="utf-8"
-        ) as outfile:
+        with (
+            open(input_file_path, "r", encoding="utf-8") as infile,
+            open(output_file_path, "w", encoding="utf-8") as outfile,
+        ):
             for line_number, line in enumerate(infile, 1):
                 try:
                     raw_data = json.loads(line.strip())
@@ -31,27 +32,19 @@ def convert_raw_to_transformed_jsonl(input_file_path, output_file_path):
                                 break
 
                     if user_prompt_content is None:
-                        print(
-                            f"Warning: Could not find user prompt in line {line_number}. Skipping."
-                        )
+                        print(f"Warning: Could not find user prompt in line {line_number}. Skipping.")
                         continue
 
                     # Extract and parse ground_truth
-                    ground_truth_str = raw_data.get("reward_model", {}).get(
-                        "ground_truth"
-                    )
+                    ground_truth_str = raw_data.get("reward_model", {}).get("ground_truth")
                     if ground_truth_str is None:
-                        print(
-                            f"Warning: Could not find ground_truth in line {line_number}. Skipping."
-                        )
+                        print(f"Warning: Could not find ground_truth in line {line_number}. Skipping.")
                         continue
 
                     try:
                         test_cases = json.loads(ground_truth_str)
                     except json.JSONDecodeError as e:
-                        print(
-                            f"Warning: Could not parse ground_truth JSON in line {line_number}: {e}. Skipping."
-                        )
+                        print(f"Warning: Could not parse ground_truth JSON in line {line_number}: {e}. Skipping.")
                         continue
 
                     transformed_data = {
@@ -74,13 +67,9 @@ def convert_raw_to_transformed_jsonl(input_file_path, output_file_path):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Convert raw TRL dataset to transformed JSONL format."
-    )
+    parser = argparse.ArgumentParser(description="Convert raw TRL dataset to transformed JSONL format.")
     parser.add_argument("input_file", help="Path to the input raw JSONL file.")
-    parser.add_argument(
-        "output_file", help="Path to the output transformed JSONL file."
-    )
+    parser.add_argument("output_file", help="Path to the output transformed JSONL file.")
 
     args = parser.parse_args()
 

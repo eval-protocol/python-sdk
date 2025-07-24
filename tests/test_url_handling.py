@@ -56,9 +56,7 @@ async def test_post_request_is_preserved_on_307_redirect(httpserver):
     )
 
     # The final endpoint must receive a POST request after the redirect
-    httpserver.expect_request("/mcp/", method="POST").respond_with_json(
-        {"status": "ok"}
-    )
+    httpserver.expect_request("/mcp/", method="POST").respond_with_json({"status": "ok"})
 
     redirecting_url = httpserver.url_for("/mcp-old")
 

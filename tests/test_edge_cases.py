@@ -24,9 +24,7 @@ class TestEdgeCases:
             """Function that expects non-empty messages."""
             if not messages or not ground_truth:  # Changed
                 raise ValueError("Messages cannot be empty")
-            return EvaluateResult(
-                score=0.5, reason="Test reason", metrics={}
-            )  # Changed
+            return EvaluateResult(score=0.5, reason="Test reason", metrics={})  # Changed
 
         reward_fn = RewardFunction(func=reward_func, mode="local")
 
@@ -52,9 +50,7 @@ class TestEdgeCases:
             for msg in messages + ground_truth:  # Changed
                 if "role" not in msg or "content" not in msg:
                     raise ValueError("Invalid message structure")
-            return EvaluateResult(
-                score=0.5, reason="Test reason", metrics={}
-            )  # Changed
+            return EvaluateResult(score=0.5, reason="Test reason", metrics={})  # Changed
 
         reward_fn = RewardFunction(func=reward_func, mode="local")
 
@@ -74,18 +70,14 @@ class TestEdgeCases:
 
     def test_remote_error_handling(self):
         """Test error handling in remote mode."""
-        with patch.object(
-            reward_function_module_obj, "requests"
-        ) as mock_requests_module:
+        with patch.object(reward_function_module_obj, "requests") as mock_requests_module:
             # Mock the response to simulate an error
             mock_response = MagicMock()
             mock_response.status_code = 500
             mock_response.text = "Internal Server Error"
             mock_requests_module.post.return_value = mock_response
 
-            reward_fn = RewardFunction(
-                endpoint="https://example.com/reward", mode="remote"
-            )
+            reward_fn = RewardFunction(endpoint="https://example.com/reward", mode="remote")
 
             # Should raise an exception due to server error
             with pytest.raises(Exception):
@@ -109,9 +101,7 @@ class TestEdgeCases:
                     success=length_score == 1.0,
                 )
             }
-            return EvaluateResult(
-                score=0.5, reason="Large message processed", metrics=metrics
-            )  # Changed
+            return EvaluateResult(score=0.5, reason="Large message processed", metrics=metrics)  # Changed
 
         reward_fn = RewardFunction(func=reward_func, mode="local")
 
@@ -145,9 +135,7 @@ class TestEdgeCases:
                     success=True,  # Assuming success for this metric
                 )
             }
-            return EvaluateResult(
-                score=0.5, reason="Unicode message processed", metrics=metrics
-            )  # Changed
+            return EvaluateResult(score=0.5, reason="Unicode message processed", metrics=metrics)  # Changed
 
         reward_fn = RewardFunction(func=reward_func, mode="local")
 
@@ -159,9 +147,7 @@ class TestEdgeCases:
                 {"role": "user", "content": "Greet me in different languages"},
                 {"role": "assistant", "content": unicode_message},
             ],
-            ground_truth=[  # Changed
-                {"role": "user", "content": "Greet me in different languages"}
-            ],
+            ground_truth=[{"role": "user", "content": "Greet me in different languages"}],  # Changed
         )
 
         assert result.score == 0.5

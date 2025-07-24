@@ -94,9 +94,7 @@ class TestCliArgParsing:
         assert parsed.command == "deploy"
         assert parsed.id == "my-eval"
         assert parsed.remote_url == "http://example.com/deploy-eval"
-        assert (
-            parsed.metrics_folders is None
-        )  # Not required, should be None if not given
+        assert parsed.metrics_folders is None  # Not required, should be None if not given
 
     def test_deploy_with_remote_url_and_metrics_folders(self):
         """Metrics folders should be accepted by argparse but logic in command might ignore/warn."""
@@ -147,9 +145,7 @@ class TestCliArgParsing:
     # General verbose flag
     def test_verbose_flag(self):
         # Global flags like -v or --verbose should typically come before the subcommand
-        parsed_verbose_short, _ = parse_args(
-            ["-v", "preview", "--samples", "s.jsonl", "--metrics-folders", "m=p"]
-        )
+        parsed_verbose_short, _ = parse_args(["-v", "preview", "--samples", "s.jsonl", "--metrics-folders", "m=p"])
         assert parsed_verbose_short.verbose is True
 
         parsed_verbose_long, _ = parse_args(
@@ -157,7 +153,5 @@ class TestCliArgParsing:
         )
         assert parsed_verbose_long.verbose is True
 
-        parsed_not_verbose, _ = parse_args(
-            ["preview", "--samples", "s.jsonl", "--metrics-folders", "m=p"]
-        )
+        parsed_not_verbose, _ = parse_args(["preview", "--samples", "s.jsonl", "--metrics-folders", "m=p"])
         assert parsed_not_verbose.verbose is False

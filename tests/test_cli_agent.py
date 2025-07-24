@@ -52,14 +52,10 @@ class TestAgentEvalCommand:
             return_value=TaskDefinitionModel(**MINIMAL_TASK_DEF_CONTENT_DICT)
         )
         mock_task_manager.register_task.return_value = "task1"
-        mock_task_manager.execute_tasks = AsyncMock(
-            return_value={"task1": {"score": 1.0}}
-        )
+        mock_task_manager.execute_tasks = AsyncMock(return_value={"task1": {"score": 1.0}})
         mock_task_manager.cleanup = AsyncMock()
 
-        args = argparse.Namespace(
-            task_def="dummy_task.yaml", verbose=False, debug=False
-        )
+        args = argparse.Namespace(task_def="dummy_task.yaml", verbose=False, debug=False)
 
         # Run the command
         result = agent_eval_command(args)
@@ -76,9 +72,7 @@ class TestAgentEvalCommand:
     @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
     @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
     @patch("eval_protocol.cli_commands.agent_eval_cmd.yaml", None)
-    def test_agent_eval_success_json_no_yaml_lib(
-        self, MockPath, MockTaskManager, caplog
-    ):
+    def test_agent_eval_success_json_no_yaml_lib(self, MockPath, MockTaskManager, caplog):
         # Setup Path mock
         mock_path_instance = Mock()
         MockPath.return_value = mock_path_instance
@@ -93,9 +87,7 @@ class TestAgentEvalCommand:
             return_value=TaskDefinitionModel(**MINIMAL_TASK_DEF_CONTENT_DICT)
         )
         mock_task_manager.register_task.return_value = "task1"
-        mock_task_manager.execute_tasks = AsyncMock(
-            return_value={"task1": {"score": 1.0}}
-        )
+        mock_task_manager.execute_tasks = AsyncMock(return_value={"task1": {"score": 1.0}})
         mock_task_manager.cleanup = AsyncMock()
 
         args = argparse.Namespace(task_def="dummy_task.json")
@@ -110,16 +102,11 @@ class TestAgentEvalCommand:
         args = argparse.Namespace(task_def=None)
         result = agent_eval_command(args)
         assert result == 1
-        assert (
-            "Error: --task-def (path to task definition YAML file or directory) is required."
-            in caplog.text
-        )
+        assert "Error: --task-def (path to task definition YAML file or directory) is required." in caplog.text
 
     @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
     @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
-    def test_agent_eval_task_def_file_not_found(
-        self, MockPath, MockTaskManager, caplog
-    ):
+    def test_agent_eval_task_def_file_not_found(self, MockPath, MockTaskManager, caplog):
         # Setup path mock
         mock_path_instance = Mock()
         MockPath.return_value = mock_path_instance
@@ -157,9 +144,7 @@ class TestAgentEvalCommand:
 
     @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
     @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
-    def test_agent_eval_pydantic_validation_error(
-        self, MockPath, MockTaskManager, caplog
-    ):
+    def test_agent_eval_pydantic_validation_error(self, MockPath, MockTaskManager, caplog):
         # Setup path mock
         mock_path_instance = Mock()
         MockPath.return_value = mock_path_instance
@@ -180,9 +165,7 @@ class TestAgentEvalCommand:
 
     @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
     @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
-    def test_agent_eval_orchestrator_instantiation_fails(
-        self, MockPath, MockTaskManager, caplog
-    ):
+    def test_agent_eval_orchestrator_instantiation_fails(self, MockPath, MockTaskManager, caplog):
         # Setup path mock to fail in a way that matches error message
         mock_path_instance = Mock()
         MockPath.return_value = mock_path_instance
@@ -203,9 +186,7 @@ class TestAgentEvalCommand:
 
     @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
     @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
-    def test_agent_eval_orchestrator_execution_fails(
-        self, MockPath, MockTaskManager, caplog
-    ):
+    def test_agent_eval_orchestrator_execution_fails(self, MockPath, MockTaskManager, caplog):
         # Setup path mock
         mock_path_instance = Mock()
         MockPath.return_value = mock_path_instance

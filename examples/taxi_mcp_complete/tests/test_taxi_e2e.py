@@ -145,9 +145,7 @@ def recording_file():
 
 
 @pytest.mark.asyncio
-async def test_production_server_record_and_replay(
-    production_server, taxi_dataset, recording_file
-):
+async def test_production_server_record_and_replay(production_server, taxi_dataset, recording_file):
     """Test production server with record and replay functionality."""
 
     # === RECORDING PHASE ===
@@ -167,9 +165,7 @@ async def test_production_server_record_and_replay(
     assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
     # Create environments
-    envs = rk.make(
-        "http://localhost:9500/mcp/", dataset=taxi_dataset, model_id=policy.model_id
-    )
+    envs = rk.make("http://localhost:9500/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
 
     # Record trajectories (Taxi typically needs more steps)
     start_time = time.time()
@@ -181,9 +177,7 @@ async def test_production_server_record_and_replay(
     )
     recording_duration = time.time() - start_time
 
-    assert len(trajectories) == len(
-        taxi_dataset
-    ), "Should have trajectory for each dataset entry"
+    assert len(trajectories) == len(taxi_dataset), "Should have trajectory for each dataset entry"
     assert os.path.exists(recording_file), "Recording file should be created"
 
     print(f"✅ Recorded {len(trajectories)} trajectories in {recording_duration:.2f}s")
@@ -210,25 +204,15 @@ async def test_production_server_record_and_replay(
 
     # Run playback
     start_time = time.time()
-    playback_trajectories = await rk.rollout(
-        playback_envs, policy=playback_policy, steps=25
-    )
+    playback_trajectories = await rk.rollout(playback_envs, policy=playback_policy, steps=25)
     playback_duration = time.time() - start_time
 
-    assert len(playback_trajectories) == len(
-        trajectories
-    ), "Playback should have same number of trajectories"
+    assert len(playback_trajectories) == len(trajectories), "Playback should have same number of trajectories"
 
     # Calculate speedup
-    speedup = (
-        recording_duration / playback_duration
-        if playback_duration > 0
-        else float("inf")
-    )
+    speedup = recording_duration / playback_duration if playback_duration > 0 else float("inf")
 
-    print(
-        f"✅ Played back {len(playback_trajectories)} trajectories in {playback_duration:.2f}s"
-    )
+    print(f"✅ Played back {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
     print(f"⚡ Speedup: {speedup:.1f}x faster than recording")
 
     # Validate performance - playback should be significantly faster
@@ -240,9 +224,7 @@ async def test_production_server_record_and_replay(
 
 
 @pytest.mark.asyncio
-async def test_simulation_server_record_and_replay(
-    simulation_server, taxi_dataset, recording_file
-):
+async def test_simulation_server_record_and_replay(simulation_server, taxi_dataset, recording_file):
     """Test simulation server with record and replay functionality."""
 
     # === RECORDING PHASE ===
@@ -260,23 +242,17 @@ async def test_simulation_server_record_and_replay(
     )
 
     # Create environments pointing to simulation server
-    envs = rk.make(
-        "http://localhost:9501/mcp/", dataset=taxi_dataset, model_id=policy.model_id
-    )
+    envs = rk.make("http://localhost:9501/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
 
     # Record trajectories
     start_time = time.time()
     trajectories = await rk.rollout(envs, policy=policy, steps=25)
     recording_duration = time.time() - start_time
 
-    assert len(trajectories) == len(
-        taxi_dataset
-    ), "Should have trajectory for each dataset entry"
+    assert len(trajectories) == len(taxi_dataset), "Should have trajectory for each dataset entry"
     assert os.path.exists(recording_file), "Recording file should be created"
 
-    print(
-        f"✅ Simulation recorded {len(trajectories)} trajectories in {recording_duration:.2f}s"
-    )
+    print(f"✅ Simulation recorded {len(trajectories)} trajectories in {recording_duration:.2f}s")
 
     # === PLAYBACK PHASE ===
     print("\n🎬 === TAXI SIMULATION PLAYBACK PHASE ===")
@@ -298,29 +274,17 @@ async def test_simulation_server_record_and_replay(
 
     # Run playback
     start_time = time.time()
-    playback_trajectories = await rk.rollout(
-        playback_envs, policy=playback_policy, steps=25
-    )
+    playback_trajectories = await rk.rollout(playback_envs, policy=playback_policy, steps=25)
     playback_duration = time.time() - start_time
 
-    assert len(playback_trajectories) == len(
-        trajectories
-    ), "Playback should have same number of trajectories"
+    assert len(playback_trajectories) == len(trajectories), "Playback should have same number of trajectories"
 
-    speedup = (
-        recording_duration / playback_duration
-        if playback_duration > 0
-        else float("inf")
-    )
-    print(
-        f"✅ Simulation played back {len(playback_trajectories)} trajectories in {playback_duration:.2f}s"
-    )
+    speedup = recording_duration / playback_duration if playback_duration > 0 else float("inf")
+    print(f"✅ Simulation played back {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
     print(f"⚡ Simulation speedup: {speedup:.1f}x faster than recording")
 
     # Validate performance
-    assert (
-        speedup > 10
-    ), f"Simulation playback should be at least 10x faster, got {speedup:.1f}x"
+    assert speedup > 10, f"Simulation playback should be at least 10x faster, got {speedup:.1f}x"
 
     # Clean up environment variable
     if "REWARD_KIT_PLAYBACK_FILE" in os.environ:

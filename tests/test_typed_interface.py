@@ -20,9 +20,7 @@ def test_typed_interface_basic():
         return EvaluateResult(
             score=0.8,
             reason="Overall test reason",
-            metrics={
-                "test": MetricResult(success=True, score=0.8, reason="Test reason")
-            },
+            metrics={"test": MetricResult(success=True, score=0.8, reason="Test reason")},
         )
 
     # Test with valid messages
@@ -52,9 +50,7 @@ def test_typed_interface_basic():
     assert "test" in result["metrics"]
     metric_test_dict_access = result["metrics"]["test"]  # This is a MetricResult object
     assert isinstance(metric_test_dict_access, MetricResult)
-    assert (
-        metric_test_dict_access["is_score_valid"] is True
-    )  # MetricResult also has __getitem__
+    assert metric_test_dict_access["is_score_valid"] is True  # MetricResult also has __getitem__
     assert metric_test_dict_access["score"] == 0.8
     assert metric_test_dict_access["reason"] == "Test reason"
 
@@ -194,9 +190,7 @@ def test_typed_interface_model_dump():
             score=0.8,
             reason="Overall test reason",
             error="Sample error message",
-            metrics={
-                "test": MetricResult(success=True, score=0.8, reason="Test reason")
-            },
+            metrics={"test": MetricResult(success=True, score=0.8, reason="Test reason")},
         )
 
     valid_messages = [
@@ -238,9 +232,7 @@ def test_async_reward_function():
     @reward_function
     async def async_evaluator(messages: List[Message], **kwargs) -> EvaluateResult:
         """Sample async evaluator that returns a hardcoded result."""
-        return EvaluateResult(
-            score=0.8, reason="Overall test reason", is_score_valid=True
-        )
+        return EvaluateResult(score=0.8, reason="Overall test reason", is_score_valid=True)
 
     async def _test_async_reward_function():
         messages = [
@@ -259,9 +251,7 @@ def test_async_reward_function():
 def test_reward_function_decorator_attributes():
     """Test that the reward_function decorator sets attributes correctly."""
 
-    @reward_function(
-        mode="batch", requirements=["requests", "numpy"], concurrency=10, timeout=10
-    )
+    @reward_function(mode="batch", requirements=["requests", "numpy"], concurrency=10, timeout=10)
     def sample_evaluator(messages: List[Message], **kwargs) -> EvaluateResult:
         """Sample evaluator that returns a hardcoded result."""
         return EvaluateResult(score=0.8, reason="Overall test reason", metrics={})

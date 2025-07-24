@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 class StaticPolicy(PlaybackPolicyBase):
     """
     Static policy that follows a predetermined action sequence.
-    
+
     Can be configured for different environments with custom tool names and actions.
     """
 
@@ -37,7 +37,7 @@ class StaticPolicy(PlaybackPolicyBase):
         tool_name: str,
         action_sequence: Optional[List[str]] = None,
         available_actions: Optional[List[str]] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize static policy with recording/playback support.
@@ -53,12 +53,12 @@ class StaticPolicy(PlaybackPolicyBase):
 
         self.tool_name = tool_name
         self.available_actions = available_actions or []
-        
+
         # Set default action sequence if not provided
         if action_sequence is None:
             if self.available_actions:
                 # Use first few actions as default sequence
-                self.action_sequence = self.available_actions[:min(6, len(self.available_actions))]
+                self.action_sequence = self.available_actions[: min(6, len(self.available_actions))]
             else:
                 self.action_sequence = ["DEFAULT_ACTION"]
         else:
@@ -120,10 +120,7 @@ class StaticPolicy(PlaybackPolicyBase):
         # Find the most recent assistant message with tool calls to get the correct call_id
         call_id = None
         for i in range(len(conversation_history) - 1, -1, -1):
-            if (
-                conversation_history[i]["role"] == "assistant"
-                and "tool_calls" in conversation_history[i]
-            ):
+            if conversation_history[i]["role"] == "assistant" and "tool_calls" in conversation_history[i]:
                 # Find the tool call that matches our tool_name
                 for tc in conversation_history[i]["tool_calls"]:
                     if tc["function"]["name"] == tool_call.tool_name:
@@ -153,7 +150,9 @@ class StaticPolicy(PlaybackPolicyBase):
 
         conversation_history.append(tool_message)
 
-    def log_conversation_state_for_playback(self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]):
+    def log_conversation_state_for_playback(
+        self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]
+    ):
         """
         Log the current conversation state in the format required for playback.
 
@@ -195,7 +194,7 @@ class RandomPolicy(PlaybackPolicyBase):
         tool_name: str,
         available_actions: List[str],
         seed: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize random policy with recording/playback support.
@@ -255,10 +254,7 @@ class RandomPolicy(PlaybackPolicyBase):
         # Find the most recent assistant message with tool calls
         call_id = None
         for i in range(len(conversation_history) - 1, -1, -1):
-            if (
-                conversation_history[i]["role"] == "assistant"
-                and "tool_calls" in conversation_history[i]
-            ):
+            if conversation_history[i]["role"] == "assistant" and "tool_calls" in conversation_history[i]:
                 for tc in conversation_history[i]["tool_calls"]:
                     if tc["function"]["name"] == tool_call.tool_name:
                         call_id = tc["id"]
@@ -286,7 +282,9 @@ class RandomPolicy(PlaybackPolicyBase):
 
         conversation_history.append(tool_message)
 
-    def log_conversation_state_for_playback(self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]):
+    def log_conversation_state_for_playback(
+        self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]
+    ):
         """Log the current conversation state for playback recording."""
         playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
         if not playback_file:

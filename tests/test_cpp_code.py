@@ -524,9 +524,7 @@ class TestExecuteCppCode:
         ):
             # Call function with a synchronous wrapper
             async def run_test():
-                return await execute_cpp_code(
-                    code=SAMPLE_C_CODE, language="c", stdin="10 15"
-                )
+                return await execute_cpp_code(code=SAMPLE_C_CODE, language="c", stdin="10 15")
 
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -578,9 +576,7 @@ This program reads two integers and outputs their sum.
         ground_truth_arg = "42"  # This is the expected_output_str
 
         # Call the function - should use our mocked get_event_loop() and run_until_complete()
-        result = _ioi_cpp_code_reward_impl(
-            messages=messages_arg, ground_truth=ground_truth_arg, language="cpp"
-        )
+        result = _ioi_cpp_code_reward_impl(messages=messages_arg, ground_truth=ground_truth_arg, language="cpp")
 
         # Check result - execution should have succeeded with perfect match
         assert isinstance(result, EvaluateResult)
@@ -627,9 +623,7 @@ This program reads two integers and outputs their sum.
         ground_truth_arg = "42"  # This is the expected_output_str
 
         # Call the function - should use our mocked get_event_loop() and run_until_complete()
-        result = _ioi_cpp_code_reward_impl(
-            messages=messages_arg, ground_truth=ground_truth_arg, language="cpp"
-        )
+        result = _ioi_cpp_code_reward_impl(messages=messages_arg, ground_truth=ground_truth_arg, language="cpp")
 
         # Check result - should have partial match
         assert isinstance(result, EvaluateResult)
@@ -679,9 +673,7 @@ int main() {
         ground_truth_arg = "42"  # This is the expected_output_str
 
         # Call the function - should use our mocked get_event_loop() and run_until_complete()
-        result = _ioi_cpp_code_reward_impl(
-            messages=messages_arg, ground_truth=ground_truth_arg, language="cpp"
-        )
+        result = _ioi_cpp_code_reward_impl(messages=messages_arg, ground_truth=ground_truth_arg, language="cpp")
 
         # Check result - execution should have failed
         assert isinstance(result, EvaluateResult)
@@ -738,9 +730,7 @@ This program reads two integers and outputs their sum.
         ground_truth_arg = test_cases_data  # This is the test_cases
 
         # Call the function - should use our mocked get_event_loop() and run_until_complete()
-        result = _ioi_cpp_code_reward_impl(
-            messages=messages_arg, ground_truth=ground_truth_arg, language="cpp"
-        )
+        result = _ioi_cpp_code_reward_impl(messages=messages_arg, ground_truth=ground_truth_arg, language="cpp")
 
         # Check result
         assert isinstance(result, EvaluateResult)
@@ -763,16 +753,10 @@ class TestBinaryCppCodeReward:
     def test_binary_pass(self, mock_reward_impl):
         # Set up mock response
         mock_metrics = {
-            "execution_result": MetricResult(
-                score=1.0, reason="Code executed successfully", success=True
-            ),
-            "output_match": MetricResult(
-                score=1.0, reason="Perfect match", success=True
-            ),
+            "execution_result": MetricResult(score=1.0, reason="Code executed successfully", success=True),
+            "output_match": MetricResult(score=1.0, reason="Perfect match", success=True),
         }
-        mock_reward_impl.return_value = EvaluateResult(
-            score=1.0, reason="Binary pass", metrics=mock_metrics
-        )
+        mock_reward_impl.return_value = EvaluateResult(score=1.0, reason="Binary pass", metrics=mock_metrics)
 
         messages = [
             {
@@ -794,9 +778,7 @@ class TestBinaryCppCodeReward:
         ground_truth_arg = "25"  # This is the expected_output_str
 
         # Call function
-        result = binary_cpp_code_reward(
-            messages=messages_arg, ground_truth=ground_truth_arg, language="cpp"
-        )
+        result = binary_cpp_code_reward(messages=messages_arg, ground_truth=ground_truth_arg, language="cpp")
 
         # Check result
         assert isinstance(result, EvaluateResult)
@@ -809,12 +791,8 @@ class TestBinaryCppCodeReward:
     def test_binary_fail(self, mock_reward_impl):
         # Set up mock response
         mock_metrics = {
-            "execution_result": MetricResult(
-                score=1.0, reason="Code executed successfully", success=True
-            ),
-            "output_match": MetricResult(
-                score=0.8, reason="Close match", success=False
-            ),
+            "execution_result": MetricResult(score=1.0, reason="Code executed successfully", success=True),
+            "output_match": MetricResult(score=0.8, reason="Close match", success=False),
         }
         mock_reward_impl.return_value = EvaluateResult(
             score=0.8, reason="Binary fail due to partial match", metrics=mock_metrics

@@ -119,7 +119,7 @@ def make(
                     system_prompt=row["system_prompt"],
                     user_prompt_template=row["user_prompt_template"],
                     environment_context=environment_context,
-                    user_simulation=row["user_simulation"] if "user_simulation" in row else None,
+                    user_simulation=(row["user_simulation"] if "user_simulation" in row else None),
                 )
             else:
                 dataset_row = row  # Assume it's already a DatasetRow
@@ -186,7 +186,7 @@ async def rollout(
 ) -> List[Trajectory]:
     """
     Execute general rollouts using tool calling interface with automatic record/playback.
-    
+
     Uses concurrent execution with semaphore-based concurrency control for efficiency.
 
     This works with ANY MCP environment because:
@@ -267,20 +267,14 @@ async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:
                 )
             else:
                 results["failed"] += 1
-                results["results"].append(
-                    {"seed": seed, "status": "failed", "error": "empty_trajectory"}
-                )
+                results["results"].append({"seed": seed, "status": "failed", "error": "empty_trajectory"})
 
         except Exception as e:
             results["failed"] += 1
-            results["results"].append(
-                {"seed": seed, "status": "failed", "error": str(e)}
-            )
+            results["results"].append({"seed": seed, "status": "failed", "error": str(e)})
 
     success_rate = results["successful"] / results["total_tests"] * 100
-    print(
-        f"✅ Test complete: {results['successful']}/{results['total_tests']} successful ({success_rate:.1f}%)"
-    )
+    print(f"✅ Test complete: {results['successful']}/{results['total_tests']} successful ({success_rate:.1f}%)")
 
     return results
 

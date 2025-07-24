@@ -26,14 +26,10 @@ class TestPackaging(unittest.TestCase):
         import uuid
 
         unique_id = str(uuid.uuid4()).replace("-", "")[:8]
-        cls.DUMMY_REWARD_MODULE_NAME = (
-            f"dummy_test_reward_module_for_packaging_{unique_id}"
-        )
+        cls.DUMMY_REWARD_MODULE_NAME = f"dummy_test_reward_module_for_packaging_{unique_id}"
         cls.DUMMY_REWARD_MODULE_FILENAME = f"{cls.DUMMY_REWARD_MODULE_NAME}.py"
         cls.DUMMY_REWARD_FUNCTION_NAME = "my_dummy_reward_func"
-        cls.DUMMY_FUNCTION_REF = (
-            f"{cls.DUMMY_REWARD_MODULE_NAME}.{cls.DUMMY_REWARD_FUNCTION_NAME}"
-        )
+        cls.DUMMY_FUNCTION_REF = f"{cls.DUMMY_REWARD_MODULE_NAME}.{cls.DUMMY_REWARD_FUNCTION_NAME}"
 
         cls.DUMMY_REWARD_MODULE_CONTENT = f"""
 from eval_protocol.typed_interface import reward_function
@@ -79,15 +75,11 @@ def {cls.DUMMY_REWARD_FUNCTION_NAME}(messages, ground_truth=None):
         self.assertIsNotNone(dockerfile)
         self.assertIn(f"FROM python:{DEFAULT_PYTHON_VERSION}-slim", dockerfile)
         self.assertIn("COPY . .", dockerfile)
-        self.assertIn(
-            "RUN pip install --no-cache-dir .", dockerfile
-        )  # Installs eval_protocol
+        self.assertIn("RUN pip install --no-cache-dir .", dockerfile)  # Installs eval_protocol
 
         # Check for inline requirements installation
         # Need to handle potential shell escaping in the echo command
-        escaped_requirements = requirements_content.replace("\\", "\\\\").replace(
-            "'", "'\\''"
-        )
+        escaped_requirements = requirements_content.replace("\\", "\\\\").replace("'", "'\\''")
         self.assertIn(
             f"RUN echo '{escaped_requirements}' > /app/generated_requirements.txt",
             dockerfile,
@@ -117,14 +109,10 @@ def {cls.DUMMY_REWARD_FUNCTION_NAME}(messages, ground_truth=None):
         dockerfile = generate_dockerfile_content(function_ref=self.DUMMY_FUNCTION_REF)
         self.assertIsNotNone(dockerfile)
         self.assertNotIn("generated_requirements.txt", dockerfile)
-        self.assertNotIn(
-            "-r my_custom_requirements.txt", dockerfile
-        )  # Assuming this is specific enough
+        self.assertNotIn("-r my_custom_requirements.txt", dockerfile)  # Assuming this is specific enough
 
     def test_generate_dockerfile_unresolvable_function_ref(self):
-        dockerfile = generate_dockerfile_content(
-            function_ref="non_existent_module.bad_func"
-        )
+        dockerfile = generate_dockerfile_content(function_ref="non_existent_module.bad_func")
         self.assertIsNone(dockerfile)
 
 

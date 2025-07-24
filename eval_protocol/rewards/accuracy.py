@@ -90,9 +90,7 @@ def extract_math_expression(text: str) -> str:
 
                     # Handle pi symbols in the answer
                     if "π" in result or "pi" in result.lower():
-                        result = (
-                            result.replace("π", "").replace("Pi", "").replace("pi", "")
-                        )
+                        result = result.replace("π", "").replace("Pi", "").replace("pi", "")
                         try:
                             # If it's just a coefficient of pi, convert to decimal
                             if result.strip() in ("", "1"):
@@ -111,11 +109,7 @@ def extract_math_expression(text: str) -> str:
     lines = text.strip().split("\n")
     for i in range(min(3, len(lines))):  # Check last 3 lines
         last_line = lines[-(i + 1)].strip()
-        if (
-            "answer" in last_line.lower()
-            or "result" in last_line.lower()
-            or "solution" in last_line.lower()
-        ):
+        if "answer" in last_line.lower() or "result" in last_line.lower() or "solution" in last_line.lower():
             # Extract numbers from the last line
             numbers = re.findall(r"[-+]?\d+(?:\.\d+)?", last_line)
             if numbers:
@@ -216,12 +210,8 @@ def compare_math_expressions(pred: str, gt: str) -> float:
         pred_float = float(pred_clean)
         gt_float = float(gt_clean)
         abs_diff = abs(pred_float - gt_float)
-        pred_str_decimal_part = (
-            str(pred_float).split(".")[1] if "." in str(pred_float) else ""
-        )
-        gt_str_decimal_part = (
-            str(gt_float).split(".")[1] if "." in str(gt_float) else ""
-        )
+        pred_str_decimal_part = str(pred_float).split(".")[1] if "." in str(pred_float) else ""
+        gt_str_decimal_part = str(gt_float).split(".")[1] if "." in str(gt_float) else ""
 
         if (
             len(pred_str_decimal_part) >= 2
@@ -230,10 +220,7 @@ def compare_math_expressions(pred: str, gt: str) -> float:
         ):
             if abs_diff < 0.01:
                 return 1.0
-            if (
-                max(abs(gt_float), 0.001) > 0
-                and abs_diff / max(abs(gt_float), 0.001) < 0.05
-            ):
+            if max(abs(gt_float), 0.001) > 0 and abs_diff / max(abs(gt_float), 0.001) < 0.05:
                 return 0.9
     except (ValueError, ZeroDivisionError, IndexError):
         pass
@@ -341,19 +328,12 @@ def accuracy_reward(
         return EvaluateResult(
             score=0.0,
             reason="No messages provided.",
-            metrics={
-                "accuracy": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No messages provided."
-                )
-            },
+            metrics={"accuracy": MetricResult(score=0.0, is_score_valid=False, reason="No messages provided.")},
         )
 
     model_last_message = messages[-1]
     if isinstance(model_last_message, Message):
-        if (
-            model_last_message.role == "assistant"
-            and model_last_message.content is not None
-        ):
+        if model_last_message.role == "assistant" and model_last_message.content is not None:
             model_response_text = model_last_message.content
         else:
             return EvaluateResult(
@@ -368,10 +348,7 @@ def accuracy_reward(
                 },
             )
     elif isinstance(model_last_message, dict):
-        if (
-            model_last_message.get("role") == "assistant"
-            and model_last_message.get("content") is not None
-        ):
+        if model_last_message.get("role") == "assistant" and model_last_message.get("content") is not None:
             model_response_text = model_last_message.get("content", "")
         else:
             return EvaluateResult(
@@ -389,11 +366,7 @@ def accuracy_reward(
         return EvaluateResult(
             score=0.0,
             reason=f"Unexpected type for last message: {type(model_last_message)}.",
-            metrics={
-                "accuracy": MetricResult(
-                    score=0.0, is_score_valid=False, reason="Invalid message type."
-                )
-            },
+            metrics={"accuracy": MetricResult(score=0.0, is_score_valid=False, reason="Invalid message type.")},
         )
 
     ground_truth_comparison_text = ""
@@ -445,18 +418,10 @@ def accuracy_reward(
         return EvaluateResult(
             score=0.0,
             reason=f"Unexpected type for first GT message: {type(first_gt_message)}.",
-            metrics={
-                "accuracy": MetricResult(
-                    score=0.0, is_score_valid=False, reason="Invalid GT message type."
-                )
-            },
+            metrics={"accuracy": MetricResult(score=0.0, is_score_valid=False, reason="Invalid GT message type.")},
         )
 
-    extracted_answer = (
-        extract_fn(model_response_text)
-        if extract_fn
-        else extract_math_expression(model_response_text)
-    )
+    extracted_answer = extract_fn(model_response_text) if extract_fn else extract_math_expression(model_response_text)
     if (
         not extracted_answer
         and model_response_text
@@ -478,11 +443,7 @@ def accuracy_reward(
         "answer_extraction": MetricResult(
             score=1.0 if has_extracted else 0.0,
             is_score_valid=has_extracted,
-            reason=(
-                f"Extracted answer: '{extracted_answer}'"
-                if has_extracted
-                else "Failed to extract answer"
-            ),
+            reason=(f"Extracted answer: '{extracted_answer}'" if has_extracted else "Failed to extract answer"),
         ),
         "answer_accuracy": MetricResult(
             score=similarity_score,

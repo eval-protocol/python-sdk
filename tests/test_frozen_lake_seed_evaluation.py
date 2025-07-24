@@ -146,9 +146,7 @@ class TestSeedBasedMapGeneration:
                 0,
                 0,
             ), f"Start position should be (0,0) for seed {seed}"
-            assert (
-                game.goal_pos is not None
-            ), f"Goal position should exist for seed {seed}"
+            assert game.goal_pos is not None, f"Goal position should exist for seed {seed}"
 
             game.close()
 
@@ -351,9 +349,7 @@ class TestHttpRolloutResourceInitialization:
         await resource.initialize(**sample_data)
 
         # Verify POST was called with correct parameters
-        mock_client.post.assert_called_once_with(
-            "http://localhost:8080/start_episode", json=sample_data
-        )
+        mock_client.post.assert_called_once_with("http://localhost:8080/start_episode", json=sample_data)
 
     async def test_initialize_without_kwargs(self):
         """Test that initialize method works without kwargs."""
@@ -419,9 +415,7 @@ class TestOrchestratorSampleDataPassing:
                 await episode_resource.initialize(**sample_data)
             return {"score": 1.0}
 
-        with patch.object(
-            orchestrator, "execute_task_poc", side_effect=mock_execute_task_poc
-        ):
+        with patch.object(orchestrator, "execute_task_poc", side_effect=mock_execute_task_poc):
             sample_data = {"seed": 42, "test_param": "value"}
             await orchestrator.execute_task_poc(sample_data=sample_data)
 
@@ -459,9 +453,7 @@ class TestOrchestratorSampleDataPassing:
                 await episode_resource.initialize(**sample_data)
             return {"score": 1.0}
 
-        with patch.object(
-            orchestrator, "execute_task_poc", side_effect=mock_execute_task_poc
-        ):
+        with patch.object(orchestrator, "execute_task_poc", side_effect=mock_execute_task_poc):
             await orchestrator.execute_task_poc(sample_data=None)
 
             # Verify that episode resource was not initialized (no sample_data)
@@ -494,23 +486,17 @@ class TestEndToEndDataDrivenEvaluation:
             }
 
             task_manager = TaskManager()
-            task_manager.register_task(
-                "test_task", TaskDefinitionModel(**task_def_dict)
-            )
+            task_manager.register_task("test_task", TaskDefinitionModel(**task_def_dict))
 
             # Mock the orchestrator execution
-            with patch.object(
-                task_manager, "_execute_data_driven_rollouts"
-            ) as mock_execute:
+            with patch.object(task_manager, "_execute_data_driven_rollouts") as mock_execute:
                 mock_execute.return_value = [
                     {"score": 1.0, "sample_data": {"id": "run_001", "seed": 42}},
                     {"score": 0.0, "sample_data": {"id": "run_002", "seed": 123}},
                 ]
 
                 # Execute tasks
-                results = await task_manager.execute_tasks(
-                    ["test_task"], max_concurrency=1
-                )
+                results = await task_manager.execute_tasks(["test_task"], max_concurrency=1)
 
                 # Verify data-driven execution was called
                 mock_execute.assert_called_once()
@@ -548,9 +534,7 @@ class TestEndToEndDataDrivenEvaluation:
                 # Each sample should have id and seed
                 assert "id" in sample, f"Sample {i+1} missing 'id' field"
                 assert "seed" in sample, f"Sample {i+1} missing 'seed' field"
-                assert isinstance(
-                    sample["seed"], int
-                ), f"Sample {i+1} seed should be integer"
+                assert isinstance(sample["seed"], int), f"Sample {i+1} seed should be integer"
 
 
 if __name__ == "__main__":

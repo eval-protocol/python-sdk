@@ -39,6 +39,4 @@ def evaluate(
     # In a real scenario, you might add preprocessing, custom logic, or
     # combine multiple reward functions here
 
-    return evaluate_apps_solution(
-        messages=messages, ground_truth=ground_truth, **kwargs
-    )
+    return evaluate_apps_solution(messages=messages, ground_truth=ground_truth, **kwargs)

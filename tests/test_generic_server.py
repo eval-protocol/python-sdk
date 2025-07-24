@@ -40,9 +40,7 @@ class TestLoadRewardFunction:
         with pytest.raises(ImportError):  # Or ModuleNotFoundError for Python 3.6+
             load_reward_function(import_string)
         assert generic_server._LOADED_REWARD_FUNCTION is None
-        assert (
-            generic_server._REWARD_FUNCTION_NAME == "Error loading"
-        )  # As set in except block
+        assert generic_server._REWARD_FUNCTION_NAME == "Error loading"  # As set in except block
 
     def test_load_function_not_found(self):
         """Test loading a non-existent function from an existing module."""
@@ -130,9 +128,7 @@ class TestServerEndpoints:
         }
 
     def test_evaluate_endpoint_no_function_loaded(self):
-        request_payload = EvaluationRequest(
-            messages=[{"role": "user", "content": "test"}]
-        )
+        request_payload = EvaluationRequest(messages=[{"role": "user", "content": "test"}])
         response = self.client.post("/evaluate", json=request_payload.model_dump())
         assert response.status_code == 500
         assert response.json() == {"detail": "Reward function not loaded."}
@@ -143,9 +139,7 @@ class TestServerEndpoints:
             {"role": "user", "content": "hello"},
             {"role": "assistant", "content": "world"},
         ]
-        request_payload = EvaluationRequest(
-            messages=messages, ground_truth="success", kwargs={"extra_param": 123}
-        )
+        request_payload = EvaluationRequest(messages=messages, ground_truth="success", kwargs={"extra_param": 123})
         response = self.client.post("/evaluate", json=request_payload.model_dump())
         assert response.status_code == 200
         result_data = response.json()
@@ -171,17 +165,11 @@ class TestServerEndpoints:
         assert "messages" in response.json()["detail"][0]["loc"]
 
     def test_evaluate_endpoint_reward_function_raises_error(self):
-        load_reward_function(
-            "tests.dummy_module_for_server_test.dummy_reward_func_error"
-        )
-        request_payload = EvaluationRequest(
-            messages=[{"role": "user", "content": "test"}]
-        )
+        load_reward_function("tests.dummy_module_for_server_test.dummy_reward_func_error")
+        request_payload = EvaluationRequest(messages=[{"role": "user", "content": "test"}])
         response = self.client.post("/evaluate", json=request_payload.model_dump())
         assert response.status_code == 500
-        assert (
-            "Intentional error in dummy_reward_func_error" in response.json()["detail"]
-        )
+        assert "Intentional error in dummy_reward_func_error" in response.json()["detail"]
 
     def test_evaluate_endpoint_function_returns_invalid_type(self):
         """
@@ -189,21 +177,14 @@ class TestServerEndpoints:
         but returns a type that is not EvaluateResult.
         This uses a function NOT decorated with @reward_function.
         """
-        load_reward_function(
-            "tests.dummy_module_for_server_test.dummy_accepts_args_returns_string"
-        )
-        request_payload = EvaluationRequest(
-            messages=[{"role": "user", "content": "test"}]
-        )
+        load_reward_function("tests.dummy_module_for_server_test.dummy_accepts_args_returns_string")
+        request_payload = EvaluationRequest(messages=[{"role": "user", "content": "test"}])
         response = self.client.post("/evaluate", json=request_payload.model_dump())
 
         assert response.status_code == 200
         result_data = response.json()
         assert result_data["score"] == 0.0
-        assert (
-            result_data["reason"]
-            == "Invalid return type from reward function, check server logs."
-        )
+        assert result_data["reason"] == "Invalid return type from reward function, check server logs."
         assert result_data["is_score_valid"] is False
         assert result_data["metrics"] == {}
 
@@ -212,12 +193,8 @@ class TestServerEndpoints:
         Tests a @reward_function decorated function that returns a dict which
         the decorator should coerce into an EvaluateResult.
         """
-        load_reward_function(
-            "tests.dummy_module_for_server_test.dummy_reward_func_invalid_return"
-        )
-        request_payload = EvaluationRequest(
-            messages=[{"role": "user", "content": "test"}]
-        )
+        load_reward_function("tests.dummy_module_for_server_test.dummy_reward_func_invalid_return")
+        request_payload = EvaluationRequest(messages=[{"role": "user", "content": "test"}])
         response = self.client.post("/evaluate", json=request_payload.model_dump())
 
         assert response.status_code == 200

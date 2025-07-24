@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class ExecutionManager:
     """
     Unified manager that handles both MCP session lifecycle and rollout execution.
-    
+
     Combines the functionality of SessionManager and RolloutManager for better
     organization and reduced complexity.
     """
@@ -46,9 +46,7 @@ class ExecutionManager:
         Args:
             sessions: List of MCPSessions to initialize
         """
-        tasks = [
-            self.connection_manager.initialize_session(session) for session in sessions
-        ]
+        tasks = [self.connection_manager.initialize_session(session) for session in sessions]
         await asyncio.gather(*tasks)
 
     async def close_sessions(self, sessions: List[MCPSession]) -> None:
@@ -58,10 +56,7 @@ class ExecutionManager:
         Args:
             sessions: List of MCPSessions to close
         """
-        tasks = [
-            asyncio.create_task(self.connection_manager.close_session(session))
-            for session in sessions
-        ]
+        tasks = [asyncio.create_task(self.connection_manager.close_session(session)) for session in sessions]
 
         if tasks:
             try:
@@ -69,9 +64,7 @@ class ExecutionManager:
                 await asyncio.gather(*tasks, return_exceptions=True)
             except asyncio.CancelledError:
                 # Handle cancellation gracefully (especially important for Python 3.12)
-                logger.debug(
-                    "Close operation was cancelled, but sessions are marked as closed"
-                )
+                logger.debug("Close operation was cancelled, but sessions are marked as closed")
 
     async def execute_rollouts(
         self,
@@ -125,9 +118,7 @@ class ExecutionManager:
             # Clear the file at start
             with open(openai_format_log_file, "w") as f:
                 pass
-            openai_logger = lambda data: self._log_openai_entry(
-                openai_format_log_file, data
-            )
+            openai_logger = lambda data: self._log_openai_entry(openai_format_log_file, data)
 
         logger.info(f"🧵 Starting {envs.n} rollouts with max {max_concurrent_rollouts} concurrent threads...")
 
@@ -138,11 +129,17 @@ class ExecutionManager:
                 executor.submit(
                     lambda idx=i: asyncio.run(
                         self._execute_rollout(
-                            envs, policy, idx, steps, openai_logger, 
-                            recording_mode, playback_mode, start_time
+                            envs,
+                            policy,
+                            idx,
+                            steps,
+                            openai_logger,
+                            recording_mode,
+                            playback_mode,
+                            start_time,
                         )
                     )
-                ): i 
+                ): i
                 for i in range(envs.n)
             }
 
@@ -154,9 +151,9 @@ class ExecutionManager:
                 results[rollout_idx] = trajectory
 
                 completed_count += 1
-        
+
         trajectories = [results[i] for i in range(envs.n)]
-        
+
         # Calculate durations
         total_duration = time.time() - start_time
         for trajectory in trajectories:
@@ -170,14 +167,11 @@ class ExecutionManager:
         terminated_by_control_plane = sum(
             1
             for traj in trajectories
-            if traj.control_plane_summary.get("termination_reason")
-            == "control_plane_signal"
+            if traj.control_plane_summary.get("termination_reason") == "control_plane_signal"
         )
 
         logger.info(f"📊 Rollout complete: {successful}/{len(trajectories)} reached goal")
-        logger.info(
-            f"🎛️  Control plane terminations: {terminated_by_control_plane}/{len(trajectories)}"
-        )
+        logger.info(f"🎛️  Control plane terminations: {terminated_by_control_plane}/{len(trajectories)}")
         logger.info(f"⏱️  Total duration: {total_duration:.2f}s")
         logger.info(f"🧵 Used {max_concurrent_rollouts} concurrent threads")
 
@@ -204,12 +198,12 @@ class ExecutionManager:
     ) -> Trajectory:
         """
         Execute a single rollout for one environment (async version for thread execution).
-        
+
         This method runs within a thread's event loop and handles all async operations.
         """
         session = envs.sessions[rollout_idx]
         dataset_row = envs.dataset_rows[rollout_idx]
-        
+
         # Initialize trajectory
         trajectory = Trajectory(
             session=session,
@@ -228,30 +222,30 @@ class ExecutionManager:
 
         current_observation, tool_schema = await envs.reset(session)
         system_prompt = dataset_row.system_prompt
-        
+
         # Record initial observation
-        trajectory.observations.append(current_observation)        
-        
+        trajectory.observations.append(current_observation)
+
         # Create user simulator for this rollout if configured in dataset
         user_simulator = None
         user_simulator_state = None
-        
+
         # If user simulation is enabled, initial message is from the simulated user
-        if dataset_row.user_simulation and dataset_row.user_simulation.get("enabled", False):            
+        if dataset_row.user_simulation and dataset_row.user_simulation.get("enabled", False):
             user_simulator = UserSimulator(
                 instructions=dataset_row.user_simulation.get("system_prompt"),
                 llm=dataset_row.user_simulation.get("llm", "gpt-4.1"),
-                llm_args=dataset_row.user_simulation.get("llm_args", {"temperature": 0.7})
+                llm_args=dataset_row.user_simulation.get("llm_args", {"temperature": 0.7}),
             )
 
             # Get initial messages in tau2-bench format for user simulator
             user_simulator_state = user_simulator.get_init_state()
             user_message, user_simulator_state = user_simulator.generate_next_message(
-                AssistantMessage(role="assistant", content="Hi! How can I help you today?"), 
-                user_simulator_state
+                AssistantMessage(role="assistant", content="Hi! How can I help you today?"),
+                user_simulator_state,
             )
             current_observation = user_message.content if user_message.content else ""
-        
+
         user_prompt = envs.format_user_prompt(rollout_idx, current_observation)
         conversation_history = [
             {"role": "system", "content": system_prompt},
@@ -274,11 +268,13 @@ class ExecutionManager:
             if user_simulator and user_simulator_state:
                 # Get user simulator messages and find the last assistant message
                 user_simulator_messages = self._get_user_simulator_messages(conversation_history)
-                
+
                 # Last message was agent, simulated user response
                 if user_simulator_messages and isinstance(user_simulator_messages[-1], AssistantMessage):
                     # Generate user response using the simulator
-                    user_message, user_simulator_state = user_simulator.generate_next_message(user_simulator_messages[-1], user_simulator_state)
+                    user_message, user_simulator_state = user_simulator.generate_next_message(
+                        user_simulator_messages[-1], user_simulator_state
+                    )
                     user_content = user_message.content if user_message.content else ""
 
                     user_prompt = envs.format_user_prompt(rollout_idx, user_content)
@@ -288,7 +284,7 @@ class ExecutionManager:
                     if UserSimulator.is_stop(user_message):
                         trajectory.terminated = True
                         trajectory.termination_reason = TerminationReason.USER_STOP
-            
+
             # In each turn: keep looping until assistant is ready to provide final response
             while not turn_completed and not trajectory.terminated:
                 tool_calls = await policy(tool_schema, rollout_idx, conversation_history)
@@ -312,16 +308,22 @@ class ExecutionManager:
                     tool_response = envs.format_tool_response(observation)
 
                     policy.add_tool_response(
-                        rollout_idx, tool_call, tool_response, conversation_history, reward, rollout_end, info
+                        rollout_idx,
+                        tool_call,
+                        tool_response,
+                        conversation_history,
+                        reward,
+                        rollout_end,
+                        info,
                     )
 
                     # Update trajectory with both data and control plane information
                     trajectory.observations.append(observation)
-                    
+
                     # Record action (tool call)
                     action_str = f"{tool_call.tool_name}({tool_call.arguments})"
                     trajectory.actions.append(action_str)
-                    
+
                     # Record control plane (reward/termination)
                     trajectory.rewards.append(reward)
                     trajectory.total_reward += reward
@@ -340,7 +342,7 @@ class ExecutionManager:
                             "num_tool_calls": 1,
                         }
                         trajectory.control_plane_steps.append(control_plane_step)
-                        
+
                         # Log conversation state for playback if in recording mode
                         if recording_mode:
                             policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
@@ -366,7 +368,7 @@ class ExecutionManager:
                 # Enhanced trajectory recording with control plane info
                 # Create summary of all tool calls executed in this step
                 tool_calls_summary = [f"{tc.tool_name}({tc.arguments})" for tc in tool_calls]
-                
+
                 control_plane_step = {
                     "step": step - 1,
                     "reward": reward,
@@ -376,7 +378,7 @@ class ExecutionManager:
                     "num_tool_calls": len(tool_calls),
                 }
                 trajectory.control_plane_steps.append(control_plane_step)
-                
+
                 # Log conversation state for playback if in recording mode
                 if recording_mode:
                     policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
@@ -414,7 +416,9 @@ class ExecutionManager:
                             }
                         )
 
-                logger.info(f"🏁 Rollout {rollout_idx} terminated at step {step} (reward: {trajectory.total_reward}) in thread {threading.current_thread().name}")
+                logger.info(
+                    f"🏁 Rollout {rollout_idx} terminated at step {step} (reward: {trajectory.total_reward}) in thread {threading.current_thread().name}"
+                )
                 break
 
             # Progress logging
@@ -427,7 +431,9 @@ class ExecutionManager:
 
         trajectory.conversation_history = conversation_history
 
-        logger.info(f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}")
+        logger.info(
+            f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}"
+        )
         return trajectory
 
     async def _get_control_plane_status(self, session) -> Optional[Dict[str, Any]]:
@@ -471,36 +477,32 @@ class ExecutionManager:
                     return None
 
         except asyncio.TimeoutError:
-            logger.debug(
-                f"Control plane query timed out for session {session.session_id[:16]}"
-            )
+            logger.debug(f"Control plane query timed out for session {session.session_id[:16]}")
             return None
         except Exception as e:
-            logger.debug(
-                f"Control plane query failed for session {session.session_id[:16]}: {e}"
-            )
+            logger.debug(f"Control plane query failed for session {session.session_id[:16]}: {e}")
             return None
 
     def _log_openai_entry(self, log_file: str, data: Dict[str, Any]):
         """Helper function to log OpenAI format entries."""
         with open(log_file, "a") as f:
-            f.write(json.dumps(data) + "\n") 
+            f.write(json.dumps(data) + "\n")
 
     def _get_user_simulator_messages(self, conversation_history: List[Dict[str, Any]]) -> List:
         """
         Filter conversation history for user simulator and convert to tau2-bench format.
         """
         tau2_messages = []
-        
+
         for message in conversation_history:
             role = message.get("role")
             content = message.get("content", "")
-            
+
             if role == "assistant":
                 if "tool_calls" not in message or not message.get("tool_calls"):
                     tau2_messages.append(AssistantMessage(role="assistant", content=content))
-                
+
             elif role == "user":
                 tau2_messages.append(UserMessage(role="user", content=content))
-                
+
         return tau2_messages

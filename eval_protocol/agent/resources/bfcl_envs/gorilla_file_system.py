@@ -62,15 +62,9 @@ class GorillaFileSystem:
                 loaded_dir: Optional[Directory] = None
                 root_config = config["root"]
                 if isinstance(root_config, dict) and "type" in root_config:
-                    loaded_dir = self._load_directory_from_config(
-                        "workspace", None, root_config
-                    )
-                elif isinstance(
-                    root_config, dict
-                ):  # Assuming if not 'type', it's the other YAML format
-                    loaded_dir = self._load_directory_from_yaml_config(
-                        "workspace", None, root_config
-                    )
+                    loaded_dir = self._load_directory_from_config("workspace", None, root_config)
+                elif isinstance(root_config, dict):  # Assuming if not 'type', it's the other YAML format
+                    loaded_dir = self._load_directory_from_yaml_config("workspace", None, root_config)
 
                 if loaded_dir:  # Check if loading returned a Directory
                     self.root = loaded_dir
@@ -85,9 +79,7 @@ class GorillaFileSystem:
         if "long_context" in config:
             self.long_context = config.get("long_context", False)
 
-    def _load_directory_from_config(
-        self, name: str, parent: Optional[Directory], config: Dict
-    ) -> Optional[Directory]:
+    def _load_directory_from_config(self, name: str, parent: Optional[Directory], config: Dict) -> Optional[Directory]:
         """Create a directory structure from configuration."""
         if config.get("type") == "directory":
             directory = Directory(name=name, parent=parent)
@@ -95,9 +87,7 @@ class GorillaFileSystem:
             for item_name, item_config in config.get("contents", {}).items():
                 item_type = item_config.get("type")
                 if item_type == "directory":
-                    loaded_item = self._load_directory_from_config(
-                        item_name, directory, item_config
-                    )
+                    loaded_item = self._load_directory_from_config(item_name, directory, item_config)
                     if loaded_item:
                         contents[item_name] = loaded_item
                 elif item_type == "file":
@@ -110,9 +100,7 @@ class GorillaFileSystem:
             return directory
         return None
 
-    def _load_directory_from_yaml_config(
-        self, name: str, parent: Optional[Directory], config: Dict
-    ) -> Directory:
+    def _load_directory_from_yaml_config(self, name: str, parent: Optional[Directory], config: Dict) -> Directory:
         """Create a directory structure from YAML configuration format."""
         directory = Directory(name=name, parent=parent)
         contents: Dict[str, Union[File, Directory]] = {}
@@ -125,12 +113,8 @@ class GorillaFileSystem:
         for item_name, item_config in config_contents.items():
             if isinstance(item_config, dict):
                 if "contents" in item_config:  # Heuristic for directory
-                    loaded_subdir = self._load_directory_from_yaml_config(
-                        item_name, directory, item_config
-                    )
-                    if (
-                        loaded_subdir
-                    ):  # Ensure it's not None, though current impl always returns Directory
+                    loaded_subdir = self._load_directory_from_yaml_config(item_name, directory, item_config)
+                    if loaded_subdir:  # Ensure it's not None, though current impl always returns Directory
                         contents[item_name] = loaded_subdir
                 elif "content" in item_config:  # Heuristic for file
                     contents[item_name] = File(
@@ -139,9 +123,7 @@ class GorillaFileSystem:
                         parent=directory,
                     )
                 elif item_config.get("type") == "directory":
-                    loaded_subdir = self._load_directory_from_yaml_config(
-                        item_name, directory, item_config
-                    )
+                    loaded_subdir = self._load_directory_from_yaml_config(item_name, directory, item_config)
                     if loaded_subdir:
                         contents[item_name] = loaded_subdir
                 elif item_config.get("type") == "file":
@@ -202,9 +184,7 @@ class GorillaFileSystem:
                 "message": f"Directory {dir_name} already exists",
             }
 
-        self.current_dir.contents[dir_name] = Directory(
-            name=dir_name, parent=self.current_dir
-        )
+        self.current_dir.contents[dir_name] = Directory(name=dir_name, parent=self.current_dir)
         return {"status": "success", "message": f"Created directory {dir_name}"}
 
     def cat(self, file_name: str) -> Dict:
@@ -275,9 +255,7 @@ class GorillaFileSystem:
         lines = content.split("\n")
         sorted_lines = sorted(lines)
 
-        item.content = "\n".join(
-            sorted_lines
-        )  # item is File, assigning .content is safe
+        item.content = "\n".join(sorted_lines)  # item is File, assigning .content is safe
 
         return {"status": "success", "message": f"Sorted {file_name}"}
 
@@ -308,9 +286,7 @@ class GorillaFileSystem:
                 line1_val = lines1[i] if i < len(lines1) else None
                 line2_val = lines2[i] if i < len(lines2) else None
                 if line1_val != line2_val:
-                    differences.append(
-                        {"line": i + 1, "file1": line1_val, "file2": line2_val}
-                    )
+                    differences.append({"line": i + 1, "file1": line1_val, "file2": line2_val})
             return {
                 "status": "success",
                 "message": f"Found {len(differences)} differences",
@@ -333,24 +309,14 @@ class GorillaFileSystem:
         if (
             not path or path == "." or (path == "/" and not parts)
         ):  # Handle current dir or root for empty/special paths
-            return (
-                self.current_dir
-                if (not path.startswith("/")) and (path == "." or not path)
-                else self.root
-            )
+            return self.current_dir if (not path.startswith("/")) and (path == "." or not path) else self.root
 
         for i, part_name in enumerate(parts):
-            if (
-                current_node is None
-            ):  # Should not happen if logic is correct and current_node starts as Directory
+            if current_node is None:  # Should not happen if logic is correct and current_node starts as Directory
                 return None
 
-            if (
-                not part_name
-            ):  # Skip empty parts resulting from multiple slashes e.g. /dir1//file
-                if i == 0 and path.startswith(
-                    "/"
-                ):  # special case for absolute path like "//file"
+            if not part_name:  # Skip empty parts resulting from multiple slashes e.g. /dir1//file
+                if i == 0 and path.startswith("/"):  # special case for absolute path like "//file"
                     continue
                 elif i > 0:
                     continue

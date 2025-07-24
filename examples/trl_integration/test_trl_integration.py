@@ -34,10 +34,8 @@ from eval_protocol.rewards.length import length_reward
 @reward_function
 def _example_trl_reward_func(  # Renamed to avoid pytest collection
     messages: List[Dict[str, Any]],
-    ground_truth: Optional[
-        List[Dict[str, Any]]
-    ] = None,  # Changed from original_messages
-    **kwargs
+    ground_truth: Optional[List[Dict[str, Any]]] = None,  # Changed from original_messages
+    **kwargs,
 ) -> EvaluateResult:
     """Simple test reward that returns 1.0 if text contains 'good' and 0.0 otherwise."""
     if not messages or len(messages) == 0:
@@ -112,9 +110,7 @@ class TestTRLIntegration(unittest.TestCase):
         self.grpo_messages = [cat_grpo_messages, dog_no_format_messages]
 
         # Create reward functions
-        self.test_rf = RewardFunction(
-            func=_example_trl_reward_func
-        )  # Updated to new name
+        self.test_rf = RewardFunction(func=_example_trl_reward_func)  # Updated to new name
         self.length_rf = RewardFunction(func=length_reward)
         self.format_rf = RewardFunction(func=grpo_format_reward)
 
@@ -136,20 +132,14 @@ class TestTRLIntegration(unittest.TestCase):
 
     def test_combined_reward(self):
         """Test that combined rewards work correctly."""
-        combined = create_combined_reward(
-            reward_functions=[self.test_rf, self.length_rf], weights=[0.7, 0.3]
-        )
+        combined = create_combined_reward(reward_functions=[self.test_rf, self.length_rf], weights=[0.7, 0.3])
 
         # Prepare prompts and completions
         prompts_batch_combined = [hist[:-1] for hist in self.test_messages]
-        completions_batch_combined = [
-            hist[-1]["content"] for hist in self.test_messages
-        ]
+        completions_batch_combined = [hist[-1]["content"] for hist in self.test_messages]
 
         # Apply to test messages
-        rewards = combined(
-            prompts=prompts_batch_combined, completions=completions_batch_combined
-        )
+        rewards = combined(prompts=prompts_batch_combined, completions=completions_batch_combined)
 
         # Check results
         self.assertEqual(len(rewards), 2)
@@ -161,9 +151,7 @@ class TestTRLIntegration(unittest.TestCase):
         length_adapter = self.length_rf.get_trl_adapter()
         prompts_batch_len = [hist[:-1] for hist in self.test_messages]
         completions_batch_len = [hist[-1]["content"] for hist in self.test_messages]
-        length_scores = length_adapter(
-            prompts=prompts_batch_len, completions=completions_batch_len
-        )
+        length_scores = length_adapter(prompts=prompts_batch_len, completions=completions_batch_len)
 
         # Calculate expected combined scores
         expected = [
@@ -184,9 +172,7 @@ class TestTRLIntegration(unittest.TestCase):
         grpo_completions_batch = [hist[-1]["content"] for hist in self.grpo_messages]
 
         # Apply to GRPO messages
-        rewards = format_adapter(
-            prompts=grpo_prompts_batch, completions=grpo_completions_batch
-        )
+        rewards = format_adapter(prompts=grpo_prompts_batch, completions=grpo_completions_batch)
 
         # Check results
         self.assertEqual(len(rewards), 2)
@@ -195,15 +181,11 @@ class TestTRLIntegration(unittest.TestCase):
 
     def test_create_grpo_reward(self):
         """Test the GRPO reward creator."""
-        grpo_reward = create_grpo_reward(
-            content_reward=self.test_rf, format_weight=0.4, content_weight=0.6
-        )
+        grpo_reward = create_grpo_reward(content_reward=self.test_rf, format_weight=0.4, content_weight=0.6)
 
         # Prepare prompts and completions for GRPO
         grpo_prompts_batch_creator = [hist[:-1] for hist in self.grpo_messages]
-        grpo_completions_batch_creator = [
-            hist[-1]["content"] for hist in self.grpo_messages
-        ]
+        grpo_completions_batch_creator = [hist[-1]["content"] for hist in self.grpo_messages]
 
         # Apply to GRPO messages
         rewards = grpo_reward(
@@ -216,26 +198,16 @@ class TestTRLIntegration(unittest.TestCase):
 
         # Calculate expected results
         grpo_prompts_batch_fmt = [hist[:-1] for hist in self.grpo_messages]
-        grpo_completions_batch_fmt = [
-            hist[-1]["content"] for hist in self.grpo_messages
-        ]
+        grpo_completions_batch_fmt = [hist[-1]["content"] for hist in self.grpo_messages]
 
         format_adapter = self.format_rf.get_trl_adapter()
-        format_scores = format_adapter(
-            prompts=grpo_prompts_batch_fmt, completions=grpo_completions_batch_fmt
-        )
+        format_scores = format_adapter(prompts=grpo_prompts_batch_fmt, completions=grpo_completions_batch_fmt)
 
-        grpo_prompts_batch_test = [
-            hist[:-1] for hist in self.grpo_messages
-        ]  # Can reuse if identical
-        grpo_completions_batch_test = [
-            hist[-1]["content"] for hist in self.grpo_messages
-        ]  # Can reuse
+        grpo_prompts_batch_test = [hist[:-1] for hist in self.grpo_messages]  # Can reuse if identical
+        grpo_completions_batch_test = [hist[-1]["content"] for hist in self.grpo_messages]  # Can reuse
 
         test_adapter = self.test_rf.get_trl_adapter()
-        test_scores = test_adapter(
-            prompts=grpo_prompts_batch_test, completions=grpo_completions_batch_test
-        )
+        test_scores = test_adapter(prompts=grpo_prompts_batch_test, completions=grpo_completions_batch_test)
 
         # Expected combined scores
         expected = [

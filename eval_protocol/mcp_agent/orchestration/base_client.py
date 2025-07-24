@@ -12,18 +12,12 @@ class ManagedInstanceInfo(BaseModel):
     Stores all necessary details to interact with a provisioned backend instance.
     """
 
-    instance_id: str = Field(
-        ..., description="Client-facing ID for this instance within a session."
-    )
-    backend_name_ref: str = Field(
-        ..., description="Reference name of the backend configuration used."
-    )
+    instance_id: str = Field(..., description="Client-facing ID for this instance within a session.")
+    backend_name_ref: str = Field(..., description="Reference name of the backend configuration used.")
     orchestration_mode: Literal["local_docker", "remote_http_api"] = Field(
         ..., description="Orchestration mode used for this instance."
     )
-    mcp_transport: Literal["http", "stdio"] = Field(
-        ..., description="MCP transport protocol used by this instance."
-    )
+    mcp_transport: Literal["http", "stdio"] = Field(..., description="MCP transport protocol used by this instance.")
     mcp_endpoint_url: Optional[str] = Field(
         None,
         description="The full MCP endpoint URL for this instance if using HTTP transport (e.g., 'http://localhost:12345/mcp'). None for stdio.",
@@ -111,9 +105,7 @@ class AbstractOrchestrationClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def list_tools_on_instance(
-        self, instance: ManagedInstanceInfo
-    ) -> mcp_types.ListToolsResult:
+    async def list_tools_on_instance(self, instance: ManagedInstanceInfo) -> mcp_types.ListToolsResult:
         """
         Lists all available tools on a given backend instance.
 

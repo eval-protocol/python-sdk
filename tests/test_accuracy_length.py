@@ -26,9 +26,7 @@ class TestCosineScaledAccuracyLengthReward(unittest.TestCase):
         ]
 
         gt_list = [{"role": "assistant", "content": "4"}]
-        result = cosine_scaled_accuracy_length_reward(
-            messages=messages, ground_truth=gt_list, max_length=50
-        )
+        result = cosine_scaled_accuracy_length_reward(messages=messages, ground_truth=gt_list, max_length=50)
 
         self.assertIsInstance(result, EvaluateResult)
         # Should get a high score for short correct answer
@@ -60,9 +58,7 @@ class TestCosineScaledAccuracyLengthReward(unittest.TestCase):
         ]
 
         gt_list = [{"role": "assistant", "content": "4"}]
-        result = cosine_scaled_accuracy_length_reward(
-            messages=messages, ground_truth=gt_list, max_length=50
-        )
+        result = cosine_scaled_accuracy_length_reward(messages=messages, ground_truth=gt_list, max_length=50)
 
         self.assertIsInstance(result, EvaluateResult)
         # Should get a medium score for correct but verbose answer
@@ -85,9 +81,7 @@ class TestCosineScaledAccuracyLengthReward(unittest.TestCase):
         ]
 
         gt_list = [{"role": "assistant", "content": "4"}]
-        result = cosine_scaled_accuracy_length_reward(
-            messages=messages, ground_truth=gt_list, max_length=50
-        )
+        result = cosine_scaled_accuracy_length_reward(messages=messages, ground_truth=gt_list, max_length=50)
 
         self.assertIsInstance(result, EvaluateResult)
         # Should get a low score for incorrect answer
@@ -120,9 +114,7 @@ class TestCosineScaledAccuracyLengthReward(unittest.TestCase):
         ]
 
         gt_list = [{"role": "assistant", "content": "4"}]
-        result = cosine_scaled_accuracy_length_reward(
-            messages=messages, ground_truth=gt_list, max_length=50
-        )
+        result = cosine_scaled_accuracy_length_reward(messages=messages, ground_truth=gt_list, max_length=50)
 
         self.assertIsInstance(result, EvaluateResult)
         # Should get a low score for incorrect verbose answer
@@ -165,9 +157,7 @@ class TestCosineScaledAccuracyLengthReward(unittest.TestCase):
             messages=messages_short, ground_truth=gt_list, max_length=50
         )
 
-        result_long = cosine_scaled_accuracy_length_reward(
-            messages=messages_long, ground_truth=gt_list, max_length=50
-        )
+        result_long = cosine_scaled_accuracy_length_reward(messages=messages_long, ground_truth=gt_list, max_length=50)
 
         self.assertIsInstance(result_short, EvaluateResult)
         self.assertIsInstance(result_long, EvaluateResult)
@@ -207,9 +197,7 @@ class TestCosineScaledAccuracyLengthReward(unittest.TestCase):
             messages=messages_short, ground_truth=gt_list, max_length=50
         )
 
-        result_long = cosine_scaled_accuracy_length_reward(
-            messages=messages_long, ground_truth=gt_list, max_length=50
-        )
+        result_long = cosine_scaled_accuracy_length_reward(messages=messages_long, ground_truth=gt_list, max_length=50)
 
         self.assertIsInstance(result_short, EvaluateResult)
         self.assertIsInstance(result_long, EvaluateResult)
@@ -231,9 +219,7 @@ class TestCosineScaledAccuracyLengthReward(unittest.TestCase):
 
         gt_list = [{"role": "assistant", "content": "4"}]
         # Default weights (accuracy_weight=0.7, length_weight=0.3)
-        result_default = cosine_scaled_accuracy_length_reward(
-            messages=messages, ground_truth=gt_list, max_length=50
-        )
+        result_default = cosine_scaled_accuracy_length_reward(messages=messages, ground_truth=gt_list, max_length=50)
 
         # Custom weights (accuracy_weight=0.9, length_weight=0.1)
         result_custom = cosine_scaled_accuracy_length_reward(
@@ -293,9 +279,7 @@ class TestCosineScaledAccuracyLengthReward(unittest.TestCase):
         # Attribute access
         self.assertGreater(result_long_correct.score, result_short_incorrect.score)
         # Dictionary access
-        self.assertGreater(
-            result_long_correct["score"], result_short_incorrect["score"]
-        )
+        self.assertGreater(result_long_correct["score"], result_short_incorrect["score"])
 
 
 if __name__ == "__main__":

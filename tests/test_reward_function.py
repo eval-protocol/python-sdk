@@ -19,11 +19,7 @@ def simple_reward_func(
     **kwargs,
 ) -> EvaluateResult:  # Changed
     """Example reward function for testing."""
-    metrics = {
-        "length": MetricResult(
-            score=0.5, reason="Length-based score", success=True
-        )  # Changed
-    }
+    metrics = {"length": MetricResult(score=0.5, reason="Length-based score", success=True)}  # Changed
     return EvaluateResult(score=0.5, reason="Simple reward", metrics=metrics)  # Changed
 
 
@@ -34,12 +30,8 @@ def decorated_reward_func(
     **kwargs,
 ) -> EvaluateResult:  # Changed
     """Example decorated reward function."""
-    metrics = {
-        "test": MetricResult(score=0.7, reason="Test score", success=True)
-    }  # Changed
-    return EvaluateResult(
-        score=0.7, reason="Decorated reward", metrics=metrics
-    )  # Changed
+    metrics = {"test": MetricResult(score=0.7, reason="Test score", success=True)}  # Changed
+    return EvaluateResult(score=0.7, reason="Decorated reward", metrics=metrics)  # Changed
 
 
 class TestRewardFunction:
@@ -47,16 +39,12 @@ class TestRewardFunction:
 
     def test_local_mode_function_path(self):
         """Test RewardFunction in local mode with function path."""
-        with patch.object(
-            reward_function_module_obj, "importlib"
-        ) as mock_importlib_module:
+        with patch.object(reward_function_module_obj, "importlib") as mock_importlib_module:
             mock_module = MagicMock()
             mock_module.simple_reward_func = simple_reward_func
             mock_importlib_module.import_module.return_value = mock_module
 
-            reward_fn = RewardFunction(
-                func_path="test_module.simple_reward_func", mode="local"
-            )
+            reward_fn = RewardFunction(func_path="test_module.simple_reward_func", mode="local")
 
             test_msgs = [
                 {"role": "user", "content": "Hello"},
@@ -86,9 +74,7 @@ class TestRewardFunction:
 
     def test_remote_mode(self):
         """Test RewardFunction in remote mode."""
-        with patch.object(
-            reward_function_module_obj, "requests"
-        ) as mock_requests_module:
+        with patch.object(reward_function_module_obj, "requests") as mock_requests_module:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {
@@ -104,9 +90,7 @@ class TestRewardFunction:
             }
             mock_requests_module.post.return_value = mock_response
 
-            reward_fn = RewardFunction(
-                endpoint="https://example.com/reward", mode="remote"
-            )
+            reward_fn = RewardFunction(endpoint="https://example.com/reward", mode="remote")
 
             test_msgs = [
                 {"role": "user", "content": "Hello"},
@@ -121,9 +105,7 @@ class TestRewardFunction:
 
     def test_fireworks_hosted_mode(self):
         """Test RewardFunction in fireworks_hosted mode."""
-        with patch.object(
-            reward_function_module_obj, "requests"
-        ) as mock_requests_module:
+        with patch.object(reward_function_module_obj, "requests") as mock_requests_module:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {
@@ -132,9 +114,7 @@ class TestRewardFunction:
             }
             mock_requests_module.post.return_value = mock_response
 
-            reward_fn = RewardFunction(
-                model_id="fireworks/test-model", mode="fireworks_hosted"
-            )
+            reward_fn = RewardFunction(model_id="fireworks/test-model", mode="fireworks_hosted")
 
             test_msgs = [
                 {"role": "user", "content": "Hello"},
@@ -212,9 +192,7 @@ class TestRewardFunctionDecorator:
         assert result["reason"] == "Decorated reward"
         assert result["metrics"] is not None
         assert "test" in result["metrics"]
-        metric_test_dict_access = result["metrics"][
-            "test"
-        ]  # This is a MetricResult object
+        metric_test_dict_access = result["metrics"]["test"]  # This is a MetricResult object
         assert isinstance(metric_test_dict_access, MetricResult)
         assert metric_test_dict_access["score"] == 0.7
         assert metric_test_dict_access["reason"] == "Test score"

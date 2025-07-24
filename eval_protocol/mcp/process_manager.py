@@ -36,9 +36,7 @@ class CondaServerProcessManager:
         self.requirements_path = requirements_path
         self.conda_base_env = conda_base_env
         self.port_range = port_range
-        self.processes: Dict[int, Tuple[subprocess.Popen, str]] = (
-            {}
-        )  # port -> (process, conda_env_name)
+        self.processes: Dict[int, Tuple[subprocess.Popen, str]] = {}  # port -> (process, conda_env_name)
         self.used_ports: set = set()  # Track used ports for better management
 
     def _create_conda_env(self, env_name: str):
@@ -108,18 +106,14 @@ class CondaServerProcessManager:
                     s.bind(("localhost", candidate_port))
                     # Port is available
                     self.used_ports.add(candidate_port)
-                    print(
-                        f"Allocated port {candidate_port} from range {min_port}-{max_port}"
-                    )
+                    print(f"Allocated port {candidate_port} from range {min_port}-{max_port}")
                     return candidate_port
             except OSError:
                 # Port is in use, try next one
                 continue
 
         # No available ports found
-        raise RuntimeError(
-            f"No available ports in range {min_port}-{max_port}. Used ports: {len(self.used_ports)}"
-        )
+        raise RuntimeError(f"No available ports in range {min_port}-{max_port}. Used ports: {len(self.used_ports)}")
 
     def start_server(self, seed: int) -> int:
         """Creates a new Conda env and starts a server instance within it."""
@@ -145,9 +139,7 @@ class CondaServerProcessManager:
             str(seed),
         ]
 
-        process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
         self.processes[port] = (process, env_name)
         time.sleep(3)  # Give the server more time to start up after env creation
@@ -157,9 +149,7 @@ class CondaServerProcessManager:
         """Stops the server and removes its Conda environment."""
         if port in self.processes:
             process, env_name = self.processes[port]
-            print(
-                f"Stopping server on port {port} and cleaning up environment '{env_name}'"
-            )
+            print(f"Stopping server on port {port} and cleaning up environment '{env_name}'")
 
             process.terminate()
             try:

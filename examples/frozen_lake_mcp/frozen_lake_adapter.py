@@ -17,9 +17,7 @@ class FrozenLakeAdapter(EnvironmentAdapter):
 
     ACTION_NAMES = ["LEFT", "DOWN", "RIGHT", "UP"]
 
-    def create_environment(
-        self, config: Optional[Dict[str, Any]] = None
-    ) -> FrozenLakeEnv:
+    def create_environment(self, config: Optional[Dict[str, Any]] = None) -> FrozenLakeEnv:
         """
         Create FrozenLake environment.
 
@@ -40,27 +38,17 @@ class FrozenLakeAdapter(EnvironmentAdapter):
 
         # Generate random map if seed is provided
         seed = config.get("seed")
-        print(
-            f"🔍 FrozenLakeAdapter.create_environment: extracted seed: {seed} (type: {type(seed)})"
-        )
+        print(f"🔍 FrozenLakeAdapter.create_environment: extracted seed: {seed} (type: {type(seed)})")
         print(f"🔍 FrozenLakeAdapter.create_environment: grid_size: {grid_size}")
 
         if seed is not None:
-            print(
-                f"🔍 FrozenLakeAdapter.create_environment: Generating map with seed {seed}"
-            )
+            print(f"🔍 FrozenLakeAdapter.create_environment: Generating map with seed {seed}")
             desc = generate_random_map(size=grid_size, p=0.8, seed=seed)
-            print(
-                f"🔍 FrozenLakeAdapter.create_environment: Generated map desc: {desc}"
-            )
+            print(f"🔍 FrozenLakeAdapter.create_environment: Generated map desc: {desc}")
         else:
-            print(
-                f"🔍 FrozenLakeAdapter.create_environment: Generating map without seed"
-            )
+            print(f"🔍 FrozenLakeAdapter.create_environment: Generating map without seed")
             desc = generate_random_map(size=grid_size, p=0.8)
-            print(
-                f"🔍 FrozenLakeAdapter.create_environment: Generated map desc: {desc}"
-            )
+            print(f"🔍 FrozenLakeAdapter.create_environment: Generated map desc: {desc}")
 
         env = FrozenLakeEnv(desc=desc, is_slippery=False, render_mode="ansi")
         print(f"🔍 FrozenLakeAdapter.create_environment: Created FrozenLakeEnv")
@@ -79,31 +67,21 @@ class FrozenLakeAdapter(EnvironmentAdapter):
         Returns:
             Tuple of (environment, initial_observation, initial_info)
         """
-        print(
-            f"🔍 FrozenLakeAdapter.create_environment_with_seed: config: {config}, seed: {seed}"
-        )
+        print(f"🔍 FrozenLakeAdapter.create_environment_with_seed: config: {config}, seed: {seed}")
         config = config or {}
 
         # Add seed to config for environment creation
         env_config = {**config, "seed": seed}
-        print(
-            f"🔍 FrozenLakeAdapter.create_environment_with_seed: env_config: {env_config}"
-        )
+        print(f"🔍 FrozenLakeAdapter.create_environment_with_seed: env_config: {env_config}")
 
         env = self.create_environment(env_config)
-        print(
-            f"🔍 FrozenLakeAdapter.create_environment_with_seed: created env, calling reset with seed: {seed}"
-        )
+        print(f"🔍 FrozenLakeAdapter.create_environment_with_seed: created env, calling reset with seed: {seed}")
         obs, info = env.reset(seed=seed)
-        print(
-            f"🔍 FrozenLakeAdapter.create_environment_with_seed: reset returned obs: {obs}, info: {info}"
-        )
+        print(f"🔍 FrozenLakeAdapter.create_environment_with_seed: reset returned obs: {obs}, info: {info}")
 
         return env, obs, info
 
-    def reset_environment(
-        self, env: FrozenLakeEnv, seed: Optional[int] = None
-    ) -> Tuple[int, Dict[str, Any]]:
+    def reset_environment(self, env: FrozenLakeEnv, seed: Optional[int] = None) -> Tuple[int, Dict[str, Any]]:
         """
         Reset environment.
 
@@ -116,9 +94,7 @@ class FrozenLakeAdapter(EnvironmentAdapter):
         """
         return env.reset(seed=seed)
 
-    def step_environment(
-        self, env: FrozenLakeEnv, action: int
-    ) -> Tuple[int, float, bool, bool, Dict[str, Any]]:
+    def step_environment(self, env: FrozenLakeEnv, action: int) -> Tuple[int, float, bool, bool, Dict[str, Any]]:
         """
         Execute environment step.
 
@@ -156,9 +132,7 @@ class FrozenLakeAdapter(EnvironmentAdapter):
         """
         action_str = action_str.strip().upper()
         if action_str not in self.ACTION_NAMES:
-            raise ValueError(
-                f"Invalid action '{action_str}'. Valid actions: {self.ACTION_NAMES}"
-            )
+            raise ValueError(f"Invalid action '{action_str}'. Valid actions: {self.ACTION_NAMES}")
         return self.ACTION_NAMES.index(action_str)
 
     def format_observation(self, observation: int) -> int:

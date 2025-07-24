@@ -44,9 +44,7 @@ import subprocess
 # --- End-to-End Script Tests for Math Example ---
 class TestMathExampleEndToEndScripts:
 
-    BASE_MATH_EXAMPLE_PATH = os.path.join(
-        os.path.dirname(__file__), "../examples/math_example"
-    )
+    BASE_MATH_EXAMPLE_PATH = os.path.join(os.path.dirname(__file__), "../examples/math_example")
 
     def run_script(
         self, script_name: str, env_vars: dict = None, timeout_seconds: int = 180
@@ -63,9 +61,7 @@ class TestMathExampleEndToEndScripts:
 
         existing_pythonpath = current_env.get("PYTHONPATH")
         if existing_pythonpath:
-            current_env["PYTHONPATH"] = (
-                f"{project_root}{os.pathsep}{existing_pythonpath}"
-            )
+            current_env["PYTHONPATH"] = f"{project_root}{os.pathsep}{existing_pythonpath}"
         else:
             current_env["PYTHONPATH"] = project_root
 
@@ -206,9 +202,7 @@ class TestMathExampleEndToEndScripts:
 # --- End-to-End Script Tests for Math Example (OpenR1) ---
 class TestMathExampleOpenR1EndToEndScripts:
 
-    BASE_MATH_EXAMPLE_OPENR1_PATH = os.path.join(
-        os.path.dirname(__file__), "../examples/math_example_openr1"
-    )
+    BASE_MATH_EXAMPLE_OPENR1_PATH = os.path.join(os.path.dirname(__file__), "../examples/math_example_openr1")
 
     def run_script(
         self, script_name: str, env_vars: dict = None, timeout_seconds: int = 180
@@ -225,9 +219,7 @@ class TestMathExampleOpenR1EndToEndScripts:
 
         existing_pythonpath = current_env.get("PYTHONPATH")
         if existing_pythonpath:
-            current_env["PYTHONPATH"] = (
-                f"{project_root}{os.pathsep}{existing_pythonpath}"
-            )
+            current_env["PYTHONPATH"] = f"{project_root}{os.pathsep}{existing_pythonpath}"
         else:
             current_env["PYTHONPATH"] = project_root
 
@@ -242,9 +234,7 @@ class TestMathExampleOpenR1EndToEndScripts:
             env=current_env,
             timeout=timeout_seconds,
         )
-        print(
-            f"\n--- Output for {script_name} (OpenR1, timeout: {timeout_seconds}s) ---"
-        )
+        print(f"\n--- Output for {script_name} (OpenR1, timeout: {timeout_seconds}s) ---")
         print(f"STDOUT:\n{process.stdout}")
         if process.stderr:
             print(f"STDERR:\n{process.stderr}")

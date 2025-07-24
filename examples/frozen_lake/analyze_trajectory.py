@@ -68,9 +68,7 @@ def extract_agent_messages(log_content: str) -> List[Dict[str, Any]]:
             thinking = think_match.group(1)
 
             # Extract <think> tags
-            think_content_match = re.search(
-                r"<think>(.*?)</think>", thinking, re.DOTALL
-            )
+            think_content_match = re.search(r"<think>(.*?)</think>", thinking, re.DOTALL)
             if think_content_match:
                 thinking_content = think_content_match.group(1).strip()
             else:
@@ -81,9 +79,7 @@ def extract_agent_messages(log_content: str) -> List[Dict[str, Any]]:
         # Extract tool calls from the message
         tool_calls_match = re.search(r"tool_calls=\[(.*?)\]", message_str, re.DOTALL)
         if tool_calls_match:
-            messages.append(
-                {"type": "tool_calls", "content": tool_calls_match.group(1)}
-            )
+            messages.append({"type": "tool_calls", "content": tool_calls_match.group(1)})
 
     return messages
 
@@ -142,9 +138,7 @@ def create_trajectory_report(log_file: str) -> str:
     # Summary
     report.append(f"📊 SUMMARY:")
     report.append(f"• Total tool calls: {len(tool_calls)}")
-    report.append(
-        f"• Total reasoning steps: {len([m for m in agent_messages if m['type'] == 'thinking'])}"
-    )
+    report.append(f"• Total reasoning steps: {len([m for m in agent_messages if m['type'] == 'thinking'])}")
     report.append(f"• Game state changes: {len(game_states)}")
     report.append("")
 

@@ -40,9 +40,7 @@ class SimpleServerProcessManager:
         self.script_path = script_path
         self.python_executable = python_executable or sys.executable
         self.port_range = port_range
-        self.processes: Dict[int, Tuple[subprocess.Popen, str]] = (
-            {}
-        )  # port -> (process, instance_id)
+        self.processes: Dict[int, Tuple[subprocess.Popen, str]] = {}  # port -> (process, instance_id)
         self.used_ports: set = set()  # Track used ports for better management
 
     def find_free_port(self) -> int:
@@ -83,27 +81,21 @@ class SimpleServerProcessManager:
                     s.bind(("localhost", candidate_port))
                     # Port is available
                     self.used_ports.add(candidate_port)
-                    print(
-                        f"Allocated port {candidate_port} from range {min_port}-{max_port}"
-                    )
+                    print(f"Allocated port {candidate_port} from range {min_port}-{max_port}")
                     return candidate_port
             except OSError:
                 # Port is in use, try next one
                 continue
 
         # No available ports found
-        raise RuntimeError(
-            f"No available ports in range {min_port}-{max_port}. Used ports: {len(self.used_ports)}"
-        )
+        raise RuntimeError(f"No available ports in range {min_port}-{max_port}. Used ports: {len(self.used_ports)}")
 
     def start_server(self, seed: int) -> int:
         """Starts a server instance with the given seed."""
         port = self.find_free_port()
         instance_id = f"simple-server-{uuid.uuid4().hex[:8]}"
 
-        print(
-            f"Starting server instance '{instance_id}' on port {port} with seed {seed}"
-        )
+        print(f"Starting server instance '{instance_id}' on port {port} with seed {seed}")
 
         env = os.environ.copy()
         env["PORT"] = str(port)
@@ -134,9 +126,7 @@ class SimpleServerProcessManager:
             # Clean up failed process
             if port in self.processes:
                 del self.processes[port]
-            raise RuntimeError(
-                f"Server instance '{instance_id}' failed to start or become ready"
-            )
+            raise RuntimeError(f"Server instance '{instance_id}' failed to start or become ready")
 
         print(f"Server instance '{instance_id}' started successfully on port {port}")
         return port
@@ -186,9 +176,7 @@ class SimpleServerProcessManager:
             # Wait before next check
             time.sleep(0.5)
 
-        print(
-            f"Server instance '{instance_id}' failed to become ready within {timeout} seconds"
-        )
+        print(f"Server instance '{instance_id}' failed to become ready within {timeout} seconds")
         return False
 
     async def _check_mcp_health(self, port: int, instance_id: str) -> bool:
@@ -216,16 +204,11 @@ class SimpleServerProcessManager:
         except Exception as e:
             # Reduce verbosity - only show critical connection errors
             error_str = str(e).lower()
-            if any(
-                keyword in error_str
-                for keyword in ["connection", "refused", "timeout", "unreachable"]
-            ):
+            if any(keyword in error_str for keyword in ["connection", "refused", "timeout", "unreachable"]):
                 # Connection errors are normal during startup
                 return False
             else:
-                print(
-                    f"MCP health check error for instance '{instance_id}' on port {port}: {e}"
-                )
+                print(f"MCP health check error for instance '{instance_id}' on port {port}: {e}")
                 return False
 
     async def _do_health_check(self, server_url: str) -> bool:

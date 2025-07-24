@@ -359,9 +359,7 @@ class TestFunctionCalling:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "New York", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "New York", "unit": "celsius"}),
                     },
                 }
             ],
@@ -373,9 +371,7 @@ class TestFunctionCalling:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "New York", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "New York", "unit": "celsius"}),
                     },
                 }
             ],
@@ -396,10 +392,7 @@ class TestFunctionCalling:
         assert isinstance(result, EvaluateResult)
         assert result.score == 1.0
         assert isinstance(result.reason, str)
-        assert (
-            result.reason is not None
-            and "Exact tool match evaluation score: 1.0" in result.reason
-        )
+        assert result.reason is not None and "Exact tool match evaluation score: 1.0" in result.reason
 
     def test_schema_jaccard_reward_mismatch(self):
         """Test schema_jaccard_reward now delegates to exact_tool_match_reward - Mismatch."""
@@ -410,9 +403,7 @@ class TestFunctionCalling:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "New York", "unit": "fahrenheit"}
-                        ),
+                        "arguments": json.dumps({"location": "New York", "unit": "fahrenheit"}),
                     },  # Different unit
                 }
             ],
@@ -423,9 +414,7 @@ class TestFunctionCalling:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "New York", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "New York", "unit": "celsius"}),
                     },
                 }
             ]
@@ -444,10 +433,7 @@ class TestFunctionCalling:
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.0
         assert isinstance(result.reason, str)
-        assert (
-            result.reason is not None
-            and "Exact tool match evaluation score: 0.0" in result.reason
-        )
+        assert result.reason is not None and "Exact tool match evaluation score: 0.0" in result.reason
 
     def test_schema_jaccard_reward_wrong_function_name(self):
         """Test schema_jaccard_reward (delegating) with wrong function name."""
@@ -458,9 +444,7 @@ class TestFunctionCalling:
                     "type": "function",
                     "function": {
                         "name": "fetch_weather_data",
-                        "arguments": json.dumps(
-                            {"location": "New York", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "New York", "unit": "celsius"}),
                     },
                 }
             ],
@@ -471,9 +455,7 @@ class TestFunctionCalling:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "New York", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "New York", "unit": "celsius"}),
                     },
                 }
             ]
@@ -491,10 +473,7 @@ class TestFunctionCalling:
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.0
         assert isinstance(result.reason, str)
-        assert (
-            result.reason is not None
-            and "Exact tool match evaluation score: 0.0" in result.reason
-        )
+        assert result.reason is not None and "Exact tool match evaluation score: 0.0" in result.reason
 
     def test_nested_schema_exact_match(self):  # Renamed for clarity
         """Test exact_tool_match_reward (via schema_jaccard_reward) with nested objects."""
@@ -550,10 +529,7 @@ class TestFunctionCalling:
         assert isinstance(result, EvaluateResult)
         assert result.score == 1.0
         assert isinstance(result.reason, str)
-        assert (
-            result.reason is not None
-            and "Exact tool match evaluation score: 1.0" in result.reason
-        )
+        assert result.reason is not None and "Exact tool match evaluation score: 1.0" in result.reason
 
     # Remove @patch for OpenAI as llm_judge_reward now delegates
     def test_llm_judge_reward_delegation(self):  # Renamed and simplified
@@ -565,9 +541,7 @@ class TestFunctionCalling:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "New York", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "New York", "unit": "celsius"}),
                     },
                 }
             ],
@@ -578,9 +552,7 @@ class TestFunctionCalling:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "New York", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "New York", "unit": "celsius"}),
                     },
                 }
             ]
@@ -601,10 +573,7 @@ class TestFunctionCalling:
         assert isinstance(result, EvaluateResult)
         assert result.score == 1.0
         assert isinstance(result.reason, str)
-        assert (
-            result.reason is not None
-            and "Exact tool match evaluation score: 1.0" in result.reason
-        )
+        assert result.reason is not None and "Exact tool match evaluation score: 1.0" in result.reason
         # Ensure no LLM-specific metrics are present if the delegation is clean
         assert "llm_judge" not in result.metrics
 
@@ -618,9 +587,7 @@ class TestFunctionCalling:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "New York", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "New York", "unit": "celsius"}),
                     },
                 }
             ],
@@ -631,9 +598,7 @@ class TestFunctionCalling:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "New York", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "New York", "unit": "celsius"}),
                     },
                 }
             ]
@@ -654,10 +619,7 @@ class TestFunctionCalling:
         assert isinstance(result, EvaluateResult)
         assert result.score == 1.0
         assert isinstance(result.reason, str)
-        assert (
-            result.reason is not None
-            and "Exact tool match evaluation score: 1.0" in result.reason
-        )
+        assert result.reason is not None and "Exact tool match evaluation score: 1.0" in result.reason
         # Ensure no composite-specific metrics (like schema_score, llm_score, weights) are present
         assert "schema_score" not in result.metrics
         assert "llm_score" not in result.metrics
@@ -681,9 +643,7 @@ class TestExactToolMatchReward:
                         "type": "function",
                         "function": {
                             "name": "get_weather",
-                            "arguments": json.dumps(
-                                {"location": "London", "unit": "celsius"}
-                            ),
+                            "arguments": json.dumps({"location": "London", "unit": "celsius"}),
                         },
                     }
                 ],
@@ -695,19 +655,14 @@ class TestExactToolMatchReward:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "London", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "London", "unit": "celsius"}),
                     },
                 }
             ]
         }
         result = exact_tool_match_reward(messages=messages, ground_truth=ground_truth)
         assert result.score == 1.0
-        assert (
-            result.reason is not None
-            and "Exact tool match evaluation score: 1.0" in result.reason
-        )
+        assert result.reason is not None and "Exact tool match evaluation score: 1.0" in result.reason
 
     def test_perfect_match_multiple_calls_ordered(self):
         """Test perfect match with multiple tool calls in correct order."""
@@ -730,9 +685,7 @@ class TestExactToolMatchReward:
                         "type": "function",
                         "function": {
                             "name": "book_flight",
-                            "arguments": json.dumps(
-                                {"destination": "Paris", "date": "2024-12-01"}
-                            ),
+                            "arguments": json.dumps({"destination": "Paris", "date": "2024-12-01"}),
                         },
                     },
                 ],
@@ -751,9 +704,7 @@ class TestExactToolMatchReward:
                     "type": "function",
                     "function": {
                         "name": "book_flight",
-                        "arguments": json.dumps(
-                            {"destination": "Paris", "date": "2024-12-01"}
-                        ),
+                        "arguments": json.dumps({"destination": "Paris", "date": "2024-12-01"}),
                     },
                 },
             ]
@@ -775,9 +726,7 @@ class TestExactToolMatchReward:
                         "type": "function",
                         "function": {
                             "name": "book_flight",  # Called first
-                            "arguments": json.dumps(
-                                {"destination": "Paris", "date": "2024-12-01"}
-                            ),
+                            "arguments": json.dumps({"destination": "Paris", "date": "2024-12-01"}),
                         },
                     },
                     {
@@ -803,19 +752,14 @@ class TestExactToolMatchReward:
                     "type": "function",
                     "function": {
                         "name": "book_flight",
-                        "arguments": json.dumps(
-                            {"destination": "Paris", "date": "2024-12-01"}
-                        ),
+                        "arguments": json.dumps({"destination": "Paris", "date": "2024-12-01"}),
                     },
                 },
             ]
         }
         result = exact_tool_match_reward(messages=messages, ground_truth=ground_truth)
         assert result.score == 0.0
-        assert (
-            result.reason is not None
-            and "Exact tool match evaluation score: 0.0" in result.reason
-        )
+        assert result.reason is not None and "Exact tool match evaluation score: 0.0" in result.reason
 
     def test_mismatch_function_name(self):
         """Test mismatch in function name."""
@@ -828,9 +772,7 @@ class TestExactToolMatchReward:
                         "type": "function",
                         "function": {
                             "name": "fetch_weather_forecast",  # Wrong name
-                            "arguments": json.dumps(
-                                {"location": "London", "unit": "celsius"}
-                            ),
+                            "arguments": json.dumps({"location": "London", "unit": "celsius"}),
                         },
                     }
                 ],
@@ -842,9 +784,7 @@ class TestExactToolMatchReward:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "London", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "London", "unit": "celsius"}),
                     },
                 }
             ]
@@ -863,9 +803,7 @@ class TestExactToolMatchReward:
                         "type": "function",
                         "function": {
                             "name": "get_weather",
-                            "arguments": json.dumps(
-                                {"location": "London", "unit": "fahrenheit"}
-                            ),  # Wrong unit
+                            "arguments": json.dumps({"location": "London", "unit": "fahrenheit"}),  # Wrong unit
                         },
                     }
                 ],
@@ -877,9 +815,7 @@ class TestExactToolMatchReward:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "London", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "London", "unit": "celsius"}),
                     },
                 }
             ]
@@ -898,9 +834,7 @@ class TestExactToolMatchReward:
                         "type": "function",
                         "function": {
                             "name": "get_weather",
-                            "arguments": json.dumps(
-                                {"city": "London", "unit": "celsius"}
-                            ),  # Wrong arg name 'city'
+                            "arguments": json.dumps({"city": "London", "unit": "celsius"}),  # Wrong arg name 'city'
                         },
                     }
                 ],
@@ -912,9 +846,7 @@ class TestExactToolMatchReward:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "London", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "London", "unit": "celsius"}),
                     },
                 }
             ]
@@ -1064,9 +996,7 @@ class TestExactToolMatchReward:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "Berlin", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "Berlin", "unit": "celsius"}),
                     },
                 }
             ]
@@ -1089,9 +1019,7 @@ class TestExactToolMatchReward:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "Berlin", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "Berlin", "unit": "celsius"}),
                     },
                 }
             ]
@@ -1120,26 +1048,18 @@ class TestExactToolMatchReward:
                 ],
             },
         ]
-        result1 = exact_tool_match_reward(
-            messages=messages_with_calls, ground_truth=None
-        )
+        result1 = exact_tool_match_reward(messages=messages_with_calls, ground_truth=None)
         assert result1.score == 0.0
-        assert (
-            result1.reason is not None and "Ground truth not provided" in result1.reason
-        )
+        assert result1.reason is not None and "Ground truth not provided" in result1.reason
 
         # Case 2: Generation has no tool calls
         messages_without_calls = [
             {"role": "user", "content": "Query"},
             {"role": "assistant", "content": "No calls here."},
         ]
-        result2 = exact_tool_match_reward(
-            messages=messages_without_calls, ground_truth=None
-        )
+        result2 = exact_tool_match_reward(messages=messages_without_calls, ground_truth=None)
         assert result2.score == 1.0
-        assert (
-            result2.reason is not None and "Ground truth not provided" in result2.reason
-        )
+        assert result2.reason is not None and "Ground truth not provided" in result2.reason
 
     def test_ground_truth_missing_tool_calls_key(self):
         """Test with ground_truth dict missing the 'tool_calls' key."""
@@ -1193,9 +1113,7 @@ class TestExactToolMatchReward:
                 }
             ]
         }
-        result_diff = exact_tool_match_reward(
-            messages=messages, ground_truth=ground_truth_diff_string
-        )
+        result_diff = exact_tool_match_reward(messages=messages, ground_truth=ground_truth_diff_string)
         assert result_diff.score == 0.0
 
     def test_message_object_input(self):
@@ -1210,9 +1128,7 @@ class TestExactToolMatchReward:
                         "type": "function",
                         "function": {
                             "name": "get_weather",
-                            "arguments": json.dumps(
-                                {"location": "London", "unit": "celsius"}
-                            ),
+                            "arguments": json.dumps({"location": "London", "unit": "celsius"}),
                         },
                     }
                 ],
@@ -1227,9 +1143,7 @@ class TestExactToolMatchReward:
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "arguments": json.dumps(
-                            {"location": "London", "unit": "celsius"}
-                        ),
+                        "arguments": json.dumps({"location": "London", "unit": "celsius"}),
                     },
                 }
             ]

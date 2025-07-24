@@ -16,20 +16,14 @@ def mock_session():
     # Configure the mock response object that __aenter__ will return
     mock_response = AsyncMock(spec=aiohttp.ClientResponse)
     mock_response.status = 200
-    mock_response.json = AsyncMock(
-        return_value={"choices": [{"message": {"content": "Test response content"}}]}
-    )
-    mock_response.text = AsyncMock(
-        return_value='{"choices": [{"message": {"content": "Test response content"}}]}'
-    )
+    mock_response.json = AsyncMock(return_value={"choices": [{"message": {"content": "Test response content"}}]})
+    mock_response.text = AsyncMock(return_value='{"choices": [{"message": {"content": "Test response content"}}]}')
 
     # Configure session.post to be an AsyncMock that returns a context manager
     # The context manager itself is also an AsyncMock
     context_manager_mock = AsyncMock()
     context_manager_mock.__aenter__.return_value = mock_response
-    context_manager_mock.__aexit__.return_value = (
-        None  # Or AsyncMock(return_value=None)
-    )
+    context_manager_mock.__aexit__.return_value = None  # Or AsyncMock(return_value=None)
 
     session.post = AsyncMock(return_value=context_manager_mock)
     return session
@@ -144,12 +138,8 @@ async def test_fireworks_client_generate_default_params(mock_session: AsyncMock)
     # Verify optional parameters
     assert "top_p" in payload  # top_p is included by default
     assert payload["top_p"] == 0.95  # Default from ModelClient
-    assert (
-        "top_k" not in payload
-    )  # top_k is not included by default in payload by FireworksModelClient
-    assert (
-        "min_p" not in payload
-    )  # min_p is not included by default in payload by FireworksModelClient
+    assert "top_k" not in payload  # top_k is not included by default in payload by FireworksModelClient
+    assert "min_p" not in payload  # min_p is not included by default in payload by FireworksModelClient
     assert (
         "reasoning_effort" not in payload
     )  # reasoning_effort is not included by default in payload by FireworksModelClient

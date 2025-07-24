@@ -98,9 +98,7 @@ def mock_dataset():
 
 
 @pytest.mark.asyncio
-@patch(
-    "eval_protocol.execution.pipeline.FireworksModelClient", autospec=True
-)  # Mock at source of import
+@patch("eval_protocol.execution.pipeline.FireworksModelClient", autospec=True)  # Mock at source of import
 @patch("eval_protocol.execution.pipeline.ResponseCache", autospec=True)
 @patch("eval_protocol.execution.pipeline.load_reward_function")
 @patch("hydra.utils.instantiate")  # Mock hydra's instantiate for dataset loading
@@ -124,19 +122,13 @@ async def test_pipeline_passes_reasoning_effort_to_cache(
     mock_fireworks_instance.top_k = 10
     mock_fireworks_instance.min_p = 0.1
     mock_fireworks_instance.max_tokens = 50
-    mock_fireworks_instance.reasoning_effort = (
-        "test_re"  # Critical: ensure mock client has this
-    )
+    mock_fireworks_instance.reasoning_effort = "test_re"  # Critical: ensure mock client has this
     mock_fireworks_instance.generate = AsyncMock(
-        return_value=GenerationResult(
-            content="Generated via mock client"
-        )  # Return GenerationResult
+        return_value=GenerationResult(content="Generated via mock client")  # Return GenerationResult
     )
 
     mock_cache_instance = MockResponseCache.return_value
-    mock_cache_instance.get = MagicMock(
-        return_value=None
-    )  # Ensure cache miss to trigger put
+    mock_cache_instance.get = MagicMock(return_value=None)  # Ensure cache miss to trigger put
     mock_cache_instance.put = MagicMock()
 
     # Patch get_fireworks_api_key as it's called in pipeline init

@@ -30,9 +30,7 @@ def mock_reward_function():
     """Mock pointwise reward function for N-variant generation."""
 
     def mock_func(*args, **kwargs):
-        return EvaluateResult(
-            score=0.75, reason="Mock evaluation", is_score_valid=True, metrics={}
-        )
+        return EvaluateResult(score=0.75, reason="Mock evaluation", is_score_valid=True, metrics={})
 
     return mock_func
 

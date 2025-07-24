@@ -27,9 +27,7 @@ class TestRepetitionReward(unittest.TestCase):
         # Test unigrams (1-grams)
         unigrams, uni_count = get_ngrams(text, 1)
         self.assertEqual(uni_count, 8)  # 8 words
-        self.assertEqual(
-            len(set(unigrams)), 8
-        )  # All 8 words are unique in this example
+        self.assertEqual(len(set(unigrams)), 8)  # All 8 words are unique in this example
 
         # Test bigrams (2-grams)
         bigrams, bi_count = get_ngrams(text, 2)
@@ -54,9 +52,7 @@ class TestRepetitionReward(unittest.TestCase):
             {"role": "assistant", "content": content},
         ]
 
-        result = repetition_penalty_reward(
-            messages=messages, ground_truth=None, ngram_size=3
-        )
+        result = repetition_penalty_reward(messages=messages, ground_truth=None, ngram_size=3)
 
         self.assertIsInstance(result, EvaluateResult)
         # Should be high score (low penalty) for non-repetitive text
@@ -80,9 +76,7 @@ class TestRepetitionReward(unittest.TestCase):
             {"role": "assistant", "content": content},
         ]
 
-        result = repetition_penalty_reward(
-            messages=messages, ground_truth=None, ngram_size=3
-        )
+        result = repetition_penalty_reward(messages=messages, ground_truth=None, ngram_size=3)
 
         self.assertIsInstance(result, EvaluateResult)
         # Should be lower score (higher penalty) for repetitive text
@@ -137,14 +131,10 @@ class TestRepetitionReward(unittest.TestCase):
         ]
 
         # Test with unigrams (individual words)
-        result_1gram = repetition_penalty_reward(
-            messages=messages, ground_truth=None, ngram_size=1
-        )
+        result_1gram = repetition_penalty_reward(messages=messages, ground_truth=None, ngram_size=1)
 
         # Test with trigrams (three-word phrases)
-        result_3gram = repetition_penalty_reward(
-            messages=messages, ground_truth=None, ngram_size=3
-        )
+        result_3gram = repetition_penalty_reward(messages=messages, ground_truth=None, ngram_size=3)
 
         self.assertIsInstance(result_1gram, EvaluateResult)
         self.assertIsInstance(result_3gram, EvaluateResult)
@@ -168,14 +158,10 @@ class TestRepetitionReward(unittest.TestCase):
         ]
 
         # Test with lower max penalty
-        result_low = repetition_penalty_reward(
-            messages=messages, ground_truth=None, ngram_size=3, max_penalty=0.3
-        )
+        result_low = repetition_penalty_reward(messages=messages, ground_truth=None, ngram_size=3, max_penalty=0.3)
 
         # Test with higher max penalty
-        result_high = repetition_penalty_reward(
-            messages=messages, ground_truth=None, ngram_size=3, max_penalty=0.9
-        )
+        result_high = repetition_penalty_reward(messages=messages, ground_truth=None, ngram_size=3, max_penalty=0.9)
 
         self.assertIsInstance(result_low, EvaluateResult)
         self.assertIsInstance(result_high, EvaluateResult)
@@ -232,9 +218,7 @@ class TestRepetitionReward(unittest.TestCase):
         result_diverse = diversity_reward(messages=messages_diverse, ground_truth=None)
         self.assertIsInstance(result_diverse, EvaluateResult)
 
-        result_repetitive = diversity_reward(
-            messages=messages_repetitive, ground_truth=None
-        )
+        result_repetitive = diversity_reward(messages=messages_repetitive, ground_truth=None)
         self.assertIsInstance(result_repetitive, EvaluateResult)
 
         # Diverse content should score higher

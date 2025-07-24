@@ -137,9 +137,7 @@ class GymnasiumFrozenLakeGame:
         if isinstance(action, str):
             action_map = {"left": 0, "down": 1, "right": 2, "up": 3}
             if action.lower() not in action_map:
-                raise ValueError(
-                    f"Invalid action '{action}'. Must be one of: left, down, right, up"
-                )
+                raise ValueError(f"Invalid action '{action}'. Must be one of: left, down, right, up")
             numeric_action = action_map[action.lower()]
         else:
             numeric_action = action
@@ -244,9 +242,7 @@ class GymnasiumFrozenLakeGame:
             "ncol": int(self.ncol),  # Convert numpy int to Python int
             "action_space": self.get_action_space_info(),
             "observation_space": self.get_observation_space_info(),
-            "description": [
-                [cell.decode("utf-8") for cell in row] for row in self.desc
-            ],  # Convert to strings
+            "description": [[cell.decode("utf-8") for cell in row] for row in self.desc],  # Convert to strings
         }
 
 

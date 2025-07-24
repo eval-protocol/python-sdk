@@ -71,9 +71,7 @@ class TestLoadConfig:
 
         cfg = rk_config.load_config(str(config_file))
         assert isinstance(cfg, RewardKitConfig)
-        assert (
-            cfg.default_deployment_target == "fireworks"
-        )  # Should use Pydantic defaults
+        assert cfg.default_deployment_target == "fireworks"  # Should use Pydantic defaults
 
     def test_load_valid_full_config_file(self, tmp_path):
         """Test loading a valid config file with all sections."""
@@ -135,9 +133,7 @@ gcp_cloud_run:
     def test_load_malformed_yaml(self, tmp_path, capsys):
         """Test loading a file with invalid YAML syntax."""
         config_file = tmp_path / CONFIG_FILE_NAME
-        config_file.write_text(
-            "default_deployment_target: gcp-cloud-run\n  bad_indent: true"
-        )
+        config_file.write_text("default_deployment_target: gcp-cloud-run\n  bad_indent: true")
 
         cfg = rk_config.load_config(str(config_file))
         captured = capsys.readouterr()
@@ -167,9 +163,7 @@ gcp_cloud_run:
         config_file.write_text("default_deployment_target: local")
 
         # Patch find_config_file to control its result for this test
-        with patch(
-            "eval_protocol.config.find_config_file", return_value=str(config_file)
-        ) as mock_find:
+        with patch("eval_protocol.config.find_config_file", return_value=str(config_file)) as mock_find:
             cfg1 = rk_config.get_config()
             assert cfg1.default_deployment_target == "local"
             mock_find.assert_called_once()  # find_config_file should be called

@@ -87,25 +87,17 @@ def combined_int_check(val):
 
 def clean_traceback(error_traceback):
     file_start = error_traceback.find('File "<string>"')
-    if (
-        file_start == -1
-    ):  # Check if "<string>" is not found, common if exec is used directly
-        file_start = error_traceback.find(
-            'File "<dynamic_module>"'
-        )  # Fallback for our dynamic module name
+    if file_start == -1:  # Check if "<string>" is not found, common if exec is used directly
+        file_start = error_traceback.find('File "<dynamic_module>"')  # Fallback for our dynamic module name
 
     if file_start != -1:
-        error_traceback = (
-            "Traceback (most recent call last):\n  " + error_traceback[file_start:]
-        )
+        error_traceback = "Traceback (most recent call last):\n  " + error_traceback[file_start:]
     return error_traceback
 
 
 def _load_module_from_string(module_name, code_string):
     """Loads a Python module from a string using importlib."""
-    spec = importlib.util.spec_from_loader(
-        module_name, loader=None, origin="<generated_code>"
-    )
+    spec = importlib.util.spec_from_loader(module_name, loader=None, origin="<generated_code>")
     if spec is None:
         raise ImportError(f"Could not create spec for dynamic module '{module_name}'")
 
@@ -182,11 +174,7 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
                 if isinstance(last_block, ast.If):
                     condition = last_block.test
                     if ast.unparse(condition).strip() == "__name__ == '__main__'":
-                        test = (
-                            ast.unparse(astree.body[:-1])
-                            + "\n"
-                            + ast.unparse(last_block.body)
-                        )
+                        test = ast.unparse(astree.body[:-1]) + "\n" + ast.unparse(last_block.body)
             except Exception:
                 pass
 
@@ -199,17 +187,12 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
             except Exception as e:
                 # In case dedent fails (e.g. on empty or malformed string), use original
                 if debug:
-                    print(
-                        f"Warning: textwrap.dedent failed on model code: {e}. Using original code."
-                    )
+                    print(f"Warning: textwrap.dedent failed on model code: {e}. Using original code.")
                 dedented_test_code = test
 
             # Check if 'def main(' is in the dedented code and if 'main()' call is missing.
             main_defined = "def main(" in dedented_test_code
-            main_called_at_toplevel = (
-                re.search(r"^\s*main\s*\(\s*\)", dedented_test_code, re.MULTILINE)
-                is not None
-            )
+            main_called_at_toplevel = re.search(r"^\s*main\s*\(\s*\)", dedented_test_code, re.MULTILINE) is not None
             # Also consider if it's guarded by if __name__ == "__main__": which was removed by AST.
             # If the AST modification removed an if __name__ block that called main,
             # the original `test` string would be different from the AST-unparsed one.
@@ -224,12 +207,8 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
 
             for line in user_code_lines:
                 stripped_line = line.strip()
-                if stripped_line.startswith("from ") or stripped_line.startswith(
-                    "import "
-                ):
-                    sol += (
-                        stripped_line + "\n"
-                    )  # Add stripped import directly to sol module scope
+                if stripped_line.startswith("from ") or stripped_line.startswith("import "):
+                    sol += stripped_line + "\n"  # Add stripped import directly to sol module scope
                 else:
                     # Add original line from (potentially dedented) user code to be tab-indented
                     code_body_lines.append("\t" + line)
@@ -240,9 +219,7 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
                 # This is appended to be *inside* the `def code():` wrapper.
                 code_body_lines.append("\tmain()")
                 if debug:
-                    print(
-                        "Appended main() call as it was defined but not found called at top level."
-                    )
+                    print("Appended main() call as it was defined but not found called at top level.")
 
             # Construct the `def code():` wrapper string
             code_wrapper_str = "stdin = sys.stdin\nstdout = sys.stdout\ndef code():\n"
@@ -294,35 +271,22 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
                 "traceback": clean_traceback(error_traceback),
             }
 
-        for index, inputs_str in enumerate(
-            in_outs["inputs"]
-        ):  # Renamed inputs to inputs_str
+        for index, inputs_str in enumerate(in_outs["inputs"]):  # Renamed inputs to inputs_str
             raw_inputs = inputs_str
             raw_outputs = in_outs["outputs"][index]
 
-            current_inputs = (
-                []
-            )  # Variable to hold processed inputs for the current test case
+            current_inputs = []  # Variable to hold processed inputs for the current test case
 
             if which_type == CODE_TYPE.call_based:
                 # Assuming inputs_str is a string where each line is a separate JSON object for an argument
-                current_inputs = [
-                    json.loads(line) for line in inputs_str.split("\n") if line.strip()
-                ]
+                current_inputs = [json.loads(line) for line in inputs_str.split("\n") if line.strip()]
                 # Ensure in_outs["outputs"][index] is loaded if it's a string
                 if isinstance(in_outs["outputs"][index], str):
                     in_outs["outputs"][index] = json.loads(in_outs["outputs"][index])
 
-                truncate_line_size = (
-                    300 // (raw_inputs.count("\n") + 1)
-                    if raw_inputs.count("\n") > 0
-                    else 300
-                )
+                truncate_line_size = 300 // (raw_inputs.count("\n") + 1) if raw_inputs.count("\n") > 0 else 300
                 raw_inputs_truncated = "\n".join(
-                    [
-                        truncatefn(line, truncate_line_size)
-                        for line in raw_inputs.strip().split("\n")
-                    ]
+                    [truncatefn(line, truncate_line_size) for line in raw_inputs.strip().split("\n")]
                 )
                 raw_outputs_truncated = (
                     truncatefn(json.dumps(in_outs["outputs"][index]), 200)
@@ -338,16 +302,9 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
             # JSON forces dictionaries to have string keys; this undoes this (assuming a singleton list)
             # This part seems specific and might need careful handling if inputs are not always lists of dicts
             try:
-                if (
-                    which_type == CODE_TYPE.call_based
-                    and current_inputs
-                    and isinstance(current_inputs[0], dict)
-                ):
+                if which_type == CODE_TYPE.call_based and current_inputs and isinstance(current_inputs[0], dict):
                     current_inputs = [
-                        {
-                            int(k) if isinstance(k, str) and k.isdigit() else k: v
-                            for k, v in current_inputs[0].items()
-                        }
+                        {int(k) if isinstance(k, str) and k.isdigit() else k: v for k, v in current_inputs[0].items()}
                     ]
             except Exception:
                 pass  # Ignore if conversion fails, proceed with original
@@ -390,13 +347,8 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
                     # Comparison logic
                     tmp_result = output == in_outs["outputs"][index]
                     # Handle cases where expected output might be a list containing the actual output
-                    if (
-                        isinstance(in_outs["outputs"][index], list)
-                        and len(in_outs["outputs"][index]) == 1
-                    ):
-                        tmp_result = tmp_result or (
-                            output == in_outs["outputs"][index][0]
-                        )
+                    if isinstance(in_outs["outputs"][index], list) and len(in_outs["outputs"][index]) == 1:
+                        tmp_result = tmp_result or (output == in_outs["outputs"][index][0])
 
                     # Further comparison for list of tuples vs list of lists
                     try:
@@ -409,15 +361,9 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
                             and isinstance(in_outs["outputs"][index][0], list)
                         ):
                             output_list_of_lists = [list(x) for x in output]
-                            tmp_result = tmp_result or (
-                                output_list_of_lists == in_outs["outputs"][index]
-                            )
-                            if isinstance(
-                                in_outs["outputs"][index][0], list
-                            ):  # If expected is list of lists
-                                tmp_result = tmp_result or (
-                                    output_list_of_lists == in_outs["outputs"][index][0]
-                                )
+                            tmp_result = tmp_result or (output_list_of_lists == in_outs["outputs"][index])
+                            if isinstance(in_outs["outputs"][index][0], list):  # If expected is list of lists
+                                tmp_result = tmp_result or (output_list_of_lists == in_outs["outputs"][index][0])
 
                     except Exception:
                         pass
@@ -437,9 +383,7 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
                     error_traceback = traceback.format_exc()
                     faulthandler.disable()
                     if debug:
-                        print(
-                            f"Call-based runtime error or time limit exceeded error = {e}"
-                        )
+                        print(f"Call-based runtime error or time limit exceeded error = {e}")
                     results.append(-1)  # Indicate error
                     return results, {
                         "error": repr(e),
@@ -484,12 +428,8 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
 
                 # Comparison for standard input
                 # Normalize by splitting lines and stripping whitespace from each line
-                output_for_compare = [
-                    line.strip() for line in captured_output_str.splitlines()
-                ]
-                expected_for_compare = [
-                    line.strip() for line in ground_truth_str.splitlines()
-                ]
+                output_for_compare = [line.strip() for line in captured_output_str.splitlines()]
+                expected_for_compare = [line.strip() for line in ground_truth_str.splitlines()]
 
                 tmp_result = output_for_compare == expected_for_compare
 
@@ -547,9 +487,7 @@ def call_method(method, inputs_str_for_mock):  # Renamed inputs to avoid conflic
 
     @patch("builtins.open", mock_open(read_data=inputs_str_for_mock))
     @patch("sys.stdin", StringIO(inputs_str_for_mock))
-    @patch(
-        "sys.stdin.readline", lambda *args: next(inputs_line_iterator) + "\n"
-    )  # Add newline as readline expects
+    @patch("sys.stdin.readline", lambda *args: next(inputs_line_iterator) + "\n")  # Add newline as readline expects
     @patch(
         "sys.stdin.readlines",
         lambda *args: [line + "\n" for line in inputs_str_for_mock.split("\n")],
@@ -558,9 +496,7 @@ def call_method(method, inputs_str_for_mock):  # Renamed inputs to avoid conflic
     def _inner_call_method(_method_to_call):  # Renamed _method to avoid conflict
         try:
             return _method_to_call()
-        except (
-            SystemExit
-        ):  # Allow SystemExit to pass through, e.g. if code calls exit()
+        except SystemExit:  # Allow SystemExit to pass through, e.g. if code calls exit()
             pass
         finally:
             pass
@@ -585,19 +521,11 @@ def reliability_guard(maximum_memory_bytes=None):
 
         # Check if resource module has RLIMIT_AS, etc. (for cross-platform safety)
         if hasattr(resource, "RLIMIT_AS"):
-            resource.setrlimit(
-                resource.RLIMIT_AS, (maximum_memory_bytes, maximum_memory_bytes)
-            )
+            resource.setrlimit(resource.RLIMIT_AS, (maximum_memory_bytes, maximum_memory_bytes))
         if hasattr(resource, "RLIMIT_DATA"):
-            resource.setrlimit(
-                resource.RLIMIT_DATA, (maximum_memory_bytes, maximum_memory_bytes)
-            )
-        if platform.uname().system != "Darwin" and hasattr(
-            resource, "RLIMIT_STACK"
-        ):  # RLIMIT_STACK not on macOS
-            resource.setrlimit(
-                resource.RLIMIT_STACK, (maximum_memory_bytes, maximum_memory_bytes)
-            )
+            resource.setrlimit(resource.RLIMIT_DATA, (maximum_memory_bytes, maximum_memory_bytes))
+        if platform.uname().system != "Darwin" and hasattr(resource, "RLIMIT_STACK"):  # RLIMIT_STACK not on macOS
+            resource.setrlimit(resource.RLIMIT_STACK, (maximum_memory_bytes, maximum_memory_bytes))
 
     faulthandler.disable()  # This is fine
 

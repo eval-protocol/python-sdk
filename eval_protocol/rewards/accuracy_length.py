@@ -60,11 +60,7 @@ def cosine_scaled_accuracy_length_reward(
         return EvaluateResult(
             score=0.0,
             reason="No messages provided",
-            metrics={
-                "combined_reward": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No messages provided"
-                )
-            },
+            metrics={"combined_reward": MetricResult(score=0.0, is_score_valid=False, reason="No messages provided")},
         )
 
     response = messages[-1]
@@ -95,9 +91,7 @@ def cosine_scaled_accuracy_length_reward(
     # Ensure answer_accuracy metric exists, provide a default if not
     answer_accuracy_metric = accuracy_eval_result.metrics.get(
         "answer_accuracy",
-        MetricResult(
-            score=0.0, is_score_valid=False, reason="Accuracy metric not found"
-        ),
+        MetricResult(score=0.0, is_score_valid=False, reason="Accuracy metric not found"),
     )
     accuracy_success = answer_accuracy_metric.is_score_valid
     accuracy_reason = accuracy_eval_result.reason or "No reason from accuracy_reward"
@@ -138,8 +132,7 @@ def cosine_scaled_accuracy_length_reward(
     # Prepare detailed reason
     reward_type = "reward" if accuracy_success else "penalty"
     length_reason = (
-        f"Length-based {reward_type}: {token_count}/{max_length} tokens, "
-        f"cosine factor: {cosine_factor:.2f}"
+        f"Length-based {reward_type}: {token_count}/{max_length} tokens, " f"cosine factor: {cosine_factor:.2f}"
     )
 
     combined_reason = (

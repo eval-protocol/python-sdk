@@ -65,20 +65,14 @@ def load_and_prepare_dataset(raw_data_path: Path) -> Optional[Dataset]:
     )
 
     if hf_dataset is None:
-        logger.error(
-            f"Failed to load dataset from {raw_data_path} using reward-kit utilities."
-        )
+        logger.error(f"Failed to load dataset from {raw_data_path} using reward-kit utilities.")
         return None
 
     if len(hf_dataset) == 0:
-        logger.error(
-            f"No samples loaded from {raw_data_path}. Check dataset content and transform_fn."
-        )
+        logger.error(f"No samples loaded from {raw_data_path}. Check dataset content and transform_fn.")
         return None
 
-    logger.info(
-        f"Dataset loaded and prepared: {len(hf_dataset)} samples. Columns: {hf_dataset.column_names}"
-    )
+    logger.info(f"Dataset loaded and prepared: {len(hf_dataset)} samples. Columns: {hf_dataset.column_names}")
     return hf_dataset
 
 
@@ -117,9 +111,7 @@ def generate_for_comparison(model, tokenizer, prompt_text: str, device) -> str:
     try:
         with torch.no_grad():
             outputs = model.generate(**inputs, **generation_kwargs)
-        response_text = tokenizer.decode(
-            outputs[0, inputs.input_ids.shape[1] :], skip_special_tokens=True
-        )
+        response_text = tokenizer.decode(outputs[0, inputs.input_ids.shape[1] :], skip_special_tokens=True)
     except Exception as e:
         logger.error(f"Error during comparison generation: {e}")
         response_text = f"Error generating: {e}"
@@ -138,11 +130,7 @@ def main():
         model = AutoModelForCausalLM.from_pretrained(
             MODEL_NAME,
             torch_dtype=(
-                (
-                    torch.bfloat16
-                    if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
-                    else torch.float16
-                )
+                (torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16)
                 if torch.cuda.is_available()
                 else torch.float32
             ),
@@ -182,9 +170,7 @@ def main():
         model.print_trainable_parameters()
 
     except Exception as e:
-        logger.error(
-            f"Error loading model/tokenizer or configuring LoRA: {e}", exc_info=True
-        )
+        logger.error(f"Error loading model/tokenizer or configuring LoRA: {e}", exc_info=True)
         return
 
     # 2. Load and Prepare Dataset
@@ -236,16 +222,12 @@ def main():
 
     # Select a sample prompt for before/after comparison
     sample_prompt_for_comparison = (
-        train_dataset[0]["prompt"]
-        if len(train_dataset) > 0
-        else "Write a Python function to add two numbers."
+        train_dataset[0]["prompt"] if len(train_dataset) > 0 else "Write a Python function to add two numbers."
     )
 
     # Generate before training
     logger.info("\n--- Generating with model BEFORE training ---")
-    pre_train_response = generate_for_comparison(
-        model, tokenizer, sample_prompt_for_comparison, device
-    )
+    pre_train_response = generate_for_comparison(model, tokenizer, sample_prompt_for_comparison, device)
     logger.info(f"Prompt: {sample_prompt_for_comparison[:100]}...")
     logger.info(f"Response (before): {pre_train_response[:200]}...")
 
@@ -266,18 +248,14 @@ def main():
         logger.info("GRPO training completed.")
 
     except Exception as e:
-        logger.error(
-            f"Error during GRPOTrainer initialization or training: {e}", exc_info=True
-        )
+        logger.error(f"Error during GRPOTrainer initialization or training: {e}", exc_info=True)
         return
 
     # Generate after training
     logger.info("\n--- Generating with model AFTER training ---")
     # If using PEFT, ensure model is in eval mode or merged for inference if needed
     # model.eval() # Good practice, though generate might handle it
-    post_train_response = generate_for_comparison(
-        model, tokenizer, sample_prompt_for_comparison, device
-    )
+    post_train_response = generate_for_comparison(model, tokenizer, sample_prompt_for_comparison, device)
     logger.info(f"Prompt: {sample_prompt_for_comparison[:100]}...")
     logger.info(f"Response (after): {post_train_response[:200]}...")
 

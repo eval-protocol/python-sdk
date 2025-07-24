@@ -80,9 +80,7 @@ class TestFrozenLakeHttpServer:
         assert episode_id1 != episode_id2
 
         # Board layouts should be different (high probability with different seeds)
-        assert (
-            visual1 != visual2
-        ), "Different seeds should create different board layouts"
+        assert visual1 != visual2, "Different seeds should create different board layouts"
 
     def test_same_seed_creates_identical_episodes(self):
         """Test that same seed creates episodes with identical board layouts."""
@@ -123,9 +121,7 @@ class TestFrozenLakeHttpServer:
         episode_id = response.json()["episode_id"]
 
         # Take a step action
-        step_response = self.client.post(
-            "/step", json={"episode_id": episode_id, "action": "right"}
-        )
+        step_response = self.client.post("/step", json={"episode_id": episode_id, "action": "right"})
 
         assert step_response.status_code == 200
         step_data = step_response.json()
@@ -154,17 +150,13 @@ class TestFrozenLakeHttpServer:
         episode_id = response.json()["episode_id"]
 
         # Episode should be trackable via step endpoint
-        step_response = self.client.post(
-            "/step", json={"episode_id": episode_id, "action": "right"}
-        )
+        step_response = self.client.post("/step", json={"episode_id": episode_id, "action": "right"})
         assert step_response.status_code == 200
 
     def test_invalid_episode_id_handling(self):
         """Test handling of invalid episode IDs."""
         # Try to step with non-existent episode ID
-        response = self.client.post(
-            "/step", json={"episode_id": "non_existent_episode", "action": "right"}
-        )
+        response = self.client.post("/step", json={"episode_id": "non_existent_episode", "action": "right"})
 
         # Should return an error (400 or 404)
         assert response.status_code in [400, 404]
@@ -172,9 +164,7 @@ class TestFrozenLakeHttpServer:
     def test_server_configuration_with_slippery_environment(self):
         """Test that server is configured with slippery environment for seed demonstration."""
         # Mock the game creation to verify configuration
-        with patch(
-            "examples.frozen_lake.server.http_rollout_server.FrozenLakeGame"
-        ) as mock_game_class:
+        with patch("examples.frozen_lake.server.http_rollout_server.FrozenLakeGame") as mock_game_class:
             mock_game_instance = MagicMock()
             mock_game_instance.reset.return_value = {
                 "position": [0, 0],
@@ -215,9 +205,7 @@ class TestGymnasiumFrozenLakeIntegration:
 
         # All board layouts should be different
         unique_layouts = set(board_layouts)
-        assert len(unique_layouts) == len(
-            seeds
-        ), "Each seed should produce a unique board layout"
+        assert len(unique_layouts) == len(seeds), "Each seed should produce a unique board layout"
 
     def test_episode_state_consistency(self):
         """Test that episode state remains consistent within a single game."""
@@ -232,9 +220,7 @@ class TestGymnasiumFrozenLakeIntegration:
 
         # Take a few actions and verify board layout doesn't change
         for action in ["right", "down", "left"]:
-            step_response = client.post(
-                "/step", json={"episode_id": episode_id, "action": action}
-            )
+            step_response = client.post("/step", json={"episode_id": episode_id, "action": action})
             assert step_response.status_code == 200
 
             observation = step_response.json()["observation"]
@@ -247,17 +233,13 @@ class TestGymnasiumFrozenLakeIntegration:
             current_cells = current_visual.replace("[", "").replace("]", "")
 
             # The underlying board structure should be identical
-            assert len(initial_cells) == len(
-                current_cells
-            ), "Board size should remain constant"
+            assert len(initial_cells) == len(current_cells), "Board size should remain constant"
 
     def test_seed_parameter_propagation(self):
         """Test that seed parameter correctly propagates to the game engine."""
         # This test verifies the complete data flow from HTTP request to game creation
 
-        with patch(
-            "examples.frozen_lake.server.http_rollout_server.FrozenLakeGame"
-        ) as mock_game_class:
+        with patch("examples.frozen_lake.server.http_rollout_server.FrozenLakeGame") as mock_game_class:
             mock_game_instance = MagicMock()
             mock_game_instance.reset.return_value = {
                 "position": [0, 0],

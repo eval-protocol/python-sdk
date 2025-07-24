@@ -37,10 +37,6 @@ def clean_environment():
 
 def pytest_configure(config):
     """Configure pytest with custom markers."""
-    config.addinivalue_line(
-        "markers", "slow: marks tests as slow (may take more than 30 seconds)"
-    )
+    config.addinivalue_line("markers", "slow: marks tests as slow (may take more than 30 seconds)")
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
-    config.addinivalue_line(
-        "markers", "record_replay: marks tests that use record/replay functionality"
-    )
+    config.addinivalue_line("markers", "record_replay: marks tests that use record/replay functionality")

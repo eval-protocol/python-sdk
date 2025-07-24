@@ -71,8 +71,7 @@ class BlackjackMcp(McpGym):
             # Validate action
             if not action or not isinstance(action, str):
                 raise ValueError(
-                    f"Invalid action parameter: '{action}'. "
-                    f"Must be a non-empty string. Valid actions: STICK, HIT"
+                    f"Invalid action parameter: '{action}'. " f"Must be a non-empty string. Valid actions: STICK, HIT"
                 )
 
             action = action.strip().upper()
@@ -88,18 +87,13 @@ class BlackjackMcp(McpGym):
             session_data = self._get_or_create_session(ctx)
 
             # Execute environment step using base class method
-            observation_data = self._execute_session_environment_step(
-                session_id, action_int
-            )
+            observation_data = self._execute_session_environment_step(session_id, action_int)
             observation_data["action"] = action
 
             # Log move (no control plane data in logs)
-            print(
-                f"🎮 Session {session_id[:16]}...: {action} → state {session_data['obs']}"
-            )
+            print(f"🎮 Session {session_id[:16]}...: {action} → state {session_data['obs']}")
 
             return observation_data
-
 
     @staticmethod
     def format_observation(obs: Tuple[int, int, int], env: BlackjackEnv) -> Dict[str, int]:

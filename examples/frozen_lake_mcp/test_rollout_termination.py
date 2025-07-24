@@ -32,9 +32,7 @@ def run_rollout_test():
                 "num_episodes": 1,
             }
         ],
-        "models": [
-            {"name": "test-model", "provider": "openai", "model": "gpt-4o-mini"}
-        ],
+        "models": [{"name": "test-model", "provider": "openai", "model": "gpt-4o-mini"}],
         "rollout_config": {
             "max_concurrent_sessions": 1,
             "recording_enabled": True,
@@ -67,9 +65,7 @@ def run_rollout_test():
 
         print(f"Running command: {' '.join(cmd)}")
 
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=300  # 5 minute timeout
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)  # 5 minute timeout
 
         print("STDOUT:", result.stdout)
         if result.stderr:

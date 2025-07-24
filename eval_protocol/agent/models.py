@@ -13,9 +13,7 @@ class StepData(BaseModel):
     is defined to only operate on List[Message].
     """
 
-    system_step_index: int = Field(
-        description="System-generated index for the step within the episode/rollout."
-    )
+    system_step_index: int = Field(description="System-generated index for the step within the episode/rollout.")
 
     observation_data: Any = Field(
         description="Observation provided to the policy for this step. For flexibility; often List[Message] or a processed version."

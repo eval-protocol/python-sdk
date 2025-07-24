@@ -40,9 +40,7 @@ class UserSimulatorLLM:
         self.user_llm_config = user_llm_config
         self.task_instruction = task_instruction
         self.conversation_history: List[Dict[str, str]] = []
-        self.use_mock = (
-            not LLM_AVAILABLE or user_llm_config.get("model") == "mock-model"
-        )
+        self.use_mock = not LLM_AVAILABLE or user_llm_config.get("model") == "mock-model"
 
         if not LLM_AVAILABLE:
             logger.warning("litellm not available, using mock responses")
@@ -89,9 +87,7 @@ Remember: You are the user giving instructions to an AI agent with filesystem ca
         """
         # Add agent's utterance to history if provided
         if agent_utterance is not None:
-            self.conversation_history.append(
-                {"role": "assistant", "content": agent_utterance}
-            )
+            self.conversation_history.append({"role": "assistant", "content": agent_utterance})
 
         if self.use_mock:
             return await self._generate_mock_response(agent_utterance)
@@ -106,11 +102,7 @@ Remember: You are the user giving instructions to an AI agent with filesystem ca
                 messages=messages,
                 temperature=self.user_llm_config.get("temperature", 0.7),
                 max_tokens=self.user_llm_config.get("max_tokens", 150),
-                **{
-                    k: v
-                    for k, v in self.user_llm_config.items()
-                    if k not in ["model", "temperature", "max_tokens"]
-                },
+                **{k: v for k, v in self.user_llm_config.items() if k not in ["model", "temperature", "max_tokens"]},
             )
 
             user_reply = response.choices[0].message.content.strip()
@@ -126,13 +118,9 @@ Remember: You are the user giving instructions to an AI agent with filesystem ca
             # Fallback to mock
             return await self._generate_mock_response(agent_utterance)
 
-    async def _generate_mock_response(
-        self, agent_utterance: Optional[str] = None
-    ) -> str:
+    async def _generate_mock_response(self, agent_utterance: Optional[str] = None) -> str:
         """Generate mock user responses for testing."""
-        turn_count = len(
-            [msg for msg in self.conversation_history if msg["role"] == "user"]
-        )
+        turn_count = len([msg for msg in self.conversation_history if msg["role"] == "user"])
 
         if agent_utterance is None:
             # Initial query
@@ -152,10 +140,7 @@ Remember: You are the user giving instructions to an AI agent with filesystem ca
 
         elif turn_count == 1:
             # Second response
-            if (
-                "successfully" in agent_utterance.lower()
-                or "completed" in agent_utterance.lower()
-            ):
+            if "successfully" in agent_utterance.lower() or "completed" in agent_utterance.lower():
                 return "Thank you, that looks correct. ###TASK_SATISFIED###"
             else:
                 return "Sounds good, please continue."
@@ -183,9 +168,7 @@ class UserSimulatorScripted:
         self.scripted_turns = scripted_turns
         self.current_turn_index = 0
 
-        logger.info(
-            f"UserSimulatorScripted initialized with {len(scripted_turns)} turns"
-        )
+        logger.info(f"UserSimulatorScripted initialized with {len(scripted_turns)} turns")
 
     async def generate_response(self, agent_utterance: Optional[str] = None) -> str:
         """
@@ -205,9 +188,7 @@ class UserSimulatorScripted:
         if self.current_turn_index < len(self.scripted_turns):
             user_message = self.scripted_turns[self.current_turn_index]
             self.current_turn_index += 1
-            logger.debug(
-                f"Scripted user turn {self.current_turn_index}: {user_message}"
-            )
+            logger.debug(f"Scripted user turn {self.current_turn_index}: {user_message}")
             return user_message
         else:
             # No more scripted turns

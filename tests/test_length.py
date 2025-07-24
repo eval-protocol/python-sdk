@@ -36,9 +36,7 @@ class TestLengthReward(unittest.TestCase):
     def test_target_length(self):
         """Test reward calculation with target length."""
         content_short = "This is a short response."
-        content_target = (
-            "This is a response that has exactly the target length we are looking for."
-        )
+        content_target = "This is a response that has exactly the target length we are looking for."
         content_long = "This is a longer response that exceeds the target length by a significant margin and contains many more tokens than we would ideally want in a concise answer that gets to the point efficiently."
 
         target_length = count_tokens(content_target)
@@ -49,9 +47,7 @@ class TestLengthReward(unittest.TestCase):
             {"role": "assistant", "content": content_target},
         ]
 
-        result_target = length_reward(
-            messages=messages_target, ground_truth=None, target_length=target_length
-        )
+        result_target = length_reward(messages=messages_target, ground_truth=None, target_length=target_length)
 
         self.assertIsInstance(result_target, EvaluateResult)
         # Should be high score for matching target length
@@ -68,9 +64,7 @@ class TestLengthReward(unittest.TestCase):
             {"role": "assistant", "content": content_short},
         ]
 
-        result_short = length_reward(
-            messages=messages_short, ground_truth=None, target_length=target_length
-        )
+        result_short = length_reward(messages=messages_short, ground_truth=None, target_length=target_length)
 
         self.assertIsInstance(result_short, EvaluateResult)
         # Should be lower score for not matching target length
@@ -85,9 +79,7 @@ class TestLengthReward(unittest.TestCase):
             {"role": "assistant", "content": content_long},
         ]
 
-        result_long = length_reward(
-            messages=messages_long, ground_truth=None, target_length=target_length
-        )
+        result_long = length_reward(messages=messages_long, ground_truth=None, target_length=target_length)
 
         self.assertIsInstance(result_long, EvaluateResult)
         # Should be lower score for not matching target length
@@ -109,9 +101,7 @@ class TestLengthReward(unittest.TestCase):
             {"role": "assistant", "content": content_adequate},
         ]
 
-        result_adequate = length_reward(
-            messages=messages_adequate, ground_truth=None, min_length=min_length
-        )
+        result_adequate = length_reward(messages=messages_adequate, ground_truth=None, min_length=min_length)
 
         self.assertIsInstance(result_adequate, EvaluateResult)
         # Should be high score for meeting minimum length
@@ -128,9 +118,7 @@ class TestLengthReward(unittest.TestCase):
             {"role": "assistant", "content": content_short},
         ]
 
-        result_short = length_reward(
-            messages=messages_short, ground_truth=None, min_length=min_length
-        )
+        result_short = length_reward(messages=messages_short, ground_truth=None, min_length=min_length)
 
         self.assertIsInstance(result_short, EvaluateResult)
         # Should be lower score for not meeting minimum length
@@ -154,9 +142,7 @@ class TestLengthReward(unittest.TestCase):
             {"role": "assistant", "content": content_short},
         ]
 
-        result_short = length_reward(
-            messages=messages_short, ground_truth=None, max_length=max_length
-        )
+        result_short = length_reward(messages=messages_short, ground_truth=None, max_length=max_length)
 
         self.assertIsInstance(result_short, EvaluateResult)
         # Should be high score for staying within maximum length
@@ -173,9 +159,7 @@ class TestLengthReward(unittest.TestCase):
             {"role": "assistant", "content": content_long},
         ]
 
-        result_long = length_reward(
-            messages=messages_long, ground_truth=None, max_length=max_length
-        )
+        result_long = length_reward(messages=messages_long, ground_truth=None, max_length=max_length)
 
         self.assertIsInstance(result_long, EvaluateResult)
         # Should be lower score for exceeding maximum length
@@ -190,9 +174,7 @@ class TestLengthReward(unittest.TestCase):
         """Test reward calculation with both min and max length."""
         content_short = "Too short."
         content_good = "This response is just right."
-        content_long = (
-            "This response is too long with unnecessary details and verbosity."
-        )
+        content_long = "This response is too long with unnecessary details and verbosity."
 
         min_length = count_tokens(content_short) + 1
         max_length = count_tokens(content_long) - 1
@@ -350,18 +332,14 @@ class TestLengthReward(unittest.TestCase):
         # Attribute access
         self.assertGreater(result_long_incorrect.score, result_short_incorrect.score)
         # Dictionary access
-        self.assertGreater(
-            result_long_incorrect["score"], result_short_incorrect["score"]
-        )
+        self.assertGreater(result_long_incorrect["score"], result_short_incorrect["score"])
 
         # Correct answers should score higher than incorrect answers
         # Attribute access
         self.assertGreater(result_short_correct.score, result_short_incorrect.score)
         self.assertGreater(result_long_correct.score, result_long_incorrect.score)
         # Dictionary access
-        self.assertGreater(
-            result_short_correct["score"], result_short_incorrect["score"]
-        )
+        self.assertGreater(result_short_correct["score"], result_short_incorrect["score"])
         self.assertGreater(result_long_correct["score"], result_long_incorrect["score"])
 
     def test_correctness_parameter(self):

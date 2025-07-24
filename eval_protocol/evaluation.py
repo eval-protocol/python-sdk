@@ -64,9 +64,7 @@ def huggingface_dataset_to_jsonl(
     if not output_file:
         temp_dir = tempfile.gettempdir()
         dataset_basename = dataset_name.split("/")[-1]
-        output_file = os.path.join(
-            temp_dir, f"{dataset_basename}_{split}_{int(time.time())}.jsonl"
-        )
+        output_file = os.path.join(temp_dir, f"{dataset_basename}_{split}_{int(time.time())}.jsonl")
 
     os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
 
@@ -82,9 +80,7 @@ def huggingface_dataset_to_jsonl(
                 break
 
             if prompt_key not in item and "statement" not in item:
-                logger.debug(
-                    f"Skipping sample {i} due to missing prompt/statement key."
-                )
+                logger.debug(f"Skipping sample {i} due to missing prompt/statement key.")
                 continue
 
             prompt_text = item.get(prompt_key, item.get("statement", ""))
@@ -94,9 +90,7 @@ def huggingface_dataset_to_jsonl(
             )
 
             if not prompt_text or not response_text:
-                logger.debug(
-                    f"Skipping sample {i} due to missing prompt or response text."
-                )
+                logger.debug(f"Skipping sample {i} due to missing prompt or response text.")
                 continue
 
             messages = [
@@ -119,9 +113,7 @@ def huggingface_dataset_to_jsonl(
         if processed_samples == 0 and i == -1:
             logger.info(f"No samples converted to JSONL format: {output_file}")
         else:
-            logger.info(
-                f"Converted {processed_samples} samples to JSONL format: {output_file}"
-            )
+            logger.info(f"Converted {processed_samples} samples to JSONL format: {output_file}")
     return output_file
 
 
@@ -151,9 +143,7 @@ class EvaluatorPreviewResult:
             print(f"Sample {result_obj.index + 1}:")
             print(f"  Success: {result_obj.success}")
             print(f"  Score: {result_obj.score}")
-            if hasattr(result_obj, "per_metric_evals") and isinstance(
-                result_obj.per_metric_evals, dict
-            ):
+            if hasattr(result_obj, "per_metric_evals") and isinstance(result_obj.per_metric_evals, dict):
                 for metric, value in result_obj.per_metric_evals.items():
                     print(f"  {metric}: {value}")
             elif hasattr(result_obj, "per_metric_evals"):
@@ -177,9 +167,7 @@ class Evaluator:
         self.ts_mode_config = ts_mode_config
         self.reward_function_mode = reward_function_mode
         self.code_files = {}
-        self.metric_folders: Dict[str, Dict[str, Any]] = (
-            {}
-        )  # Changed to store path and requirements
+        self.metric_folders: Dict[str, Dict[str, Any]] = {}  # Changed to store path and requirements
         self.account_id = account_id
         self.api_key = api_key
         self.description = ""
@@ -230,9 +218,7 @@ class Evaluator:
 
                     # Check for main.py with evaluate function
                     if filename == "main.py" and "evaluate" not in content:
-                        raise ValueError(
-                            f"main.py in {folder_path} must contain an evaluate function"
-                        )
+                        raise ValueError(f"main.py in {folder_path} must contain an evaluate function")
 
         if "main.py" not in files:
             raise ValueError(f"main.py is required in {folder_path}")
@@ -251,9 +237,7 @@ class Evaluator:
             Dict mapping filenames to their contents
         """
         folder_path = os.path.abspath(folder_path)
-        files = self._load_python_files_from_folder(
-            folder_path
-        )  # Reads all .py files into a dict
+        files = self._load_python_files_from_folder(folder_path)  # Reads all .py files into a dict
         metric_requirements_list: Optional[List[str]] = None
 
         main_py_content = files.get("main.py")
@@ -273,29 +257,19 @@ class Evaluator:
                                         if isinstance(keyword.value, ast.List):
                                             reqs = []
                                             for elt in keyword.value.elts:
-                                                if isinstance(
-                                                    elt, ast.Constant
-                                                ) and isinstance(
+                                                if isinstance(elt, ast.Constant) and isinstance(
                                                     elt.value, str
                                                 ):  # Python 3.8+
                                                     reqs.append(elt.value)
-                                                elif isinstance(
-                                                    elt, ast.Str
-                                                ):  # Python < 3.8
+                                                elif isinstance(elt, ast.Str):  # Python < 3.8
                                                     reqs.append(elt.s)
                                             if reqs:
                                                 metric_requirements_list = reqs
-                                        elif isinstance(
-                                            keyword.value, ast.Constant
-                                        ) and isinstance(
+                                        elif isinstance(keyword.value, ast.Constant) and isinstance(
                                             keyword.value.value, str
                                         ):  # Python 3.8+ (single req string)
-                                            metric_requirements_list = [
-                                                keyword.value.value
-                                            ]
-                                        elif isinstance(
-                                            keyword.value, ast.Str
-                                        ):  # Python < 3.8 (single req string)
+                                            metric_requirements_list = [keyword.value.value]
+                                        elif isinstance(keyword.value, ast.Str):  # Python < 3.8 (single req string)
                                             metric_requirements_list = [keyword.value.s]
                                         break
                                 if metric_requirements_list:
@@ -306,13 +280,9 @@ class Evaluator:
                             )
                             break
             except SyntaxError as e:
-                logger.error(
-                    f"Syntax error parsing main.py for metric '{metric_name}' to find requirements: {e}"
-                )
+                logger.error(f"Syntax error parsing main.py for metric '{metric_name}' to find requirements: {e}")
             except Exception as e:
-                logger.error(
-                    f"Error parsing main.py AST for metric '{metric_name}': {e}"
-                )
+                logger.error(f"Error parsing main.py AST for metric '{metric_name}': {e}")
 
         self.metric_folders[metric_name] = {
             "path": folder_path,
@@ -322,9 +292,7 @@ class Evaluator:
         for filename, content in files.items():
             self.code_files[f"{metric_name}/{filename}"] = content
 
-        logger.info(
-            f"Loaded {len(files)} Python files for metric '{metric_name}' from {folder_path}"
-        )
+        logger.info(f"Loaded {len(files)} Python files for metric '{metric_name}' from {folder_path}")
         return files
 
     def load_multi_metrics_folder(self, folder_path):
@@ -341,10 +309,7 @@ class Evaluator:
         files = self._load_python_files_from_folder(folder_path)
 
         self.code_files = files
-        logger.info(
-            f"Loaded {len(files)} Python files from {folder_path} "
-            f"for multi-metrics evaluation"
-        )
+        logger.info(f"Loaded {len(files)} Python files from {folder_path} " f"for multi-metrics evaluation")
         return files
 
     def load_samples_from_jsonl(self, sample_file, max_samples=5):
@@ -368,18 +333,12 @@ class Evaluator:
 
     def preview(self, sample_file, max_samples=5):
         if not self.remote_url and not self.ts_mode_config and not self.code_files:
-            raise ValueError(
-                "No code files loaded. Load metric folder(s) or provide ts_mode_config/remote_url first."
-            )
+            raise ValueError("No code files loaded. Load metric folder(s) or provide ts_mode_config/remote_url first.")
 
         # If not remote and not ts_mode, then main.py check applies to loaded code_files
         if not self.remote_url and not self.ts_mode_config:
-            if "main.py" not in self.code_files and not any(
-                k.endswith("/main.py") for k in self.code_files
-            ):
-                raise ValueError(
-                    "No main.py found in loaded code files for folder-based evaluation."
-                )
+            if "main.py" not in self.code_files and not any(k.endswith("/main.py") for k in self.code_files):
+                raise ValueError("No main.py found in loaded code files for folder-based evaluation.")
 
         samples = self.load_samples_from_jsonl(sample_file, max_samples)
         if not samples:
@@ -390,9 +349,7 @@ class Evaluator:
         logger.debug(f"Preview using account_id: {account_id}")
 
         if not account_id or not auth_token:
-            logger.error(
-                "Authentication error: Missing Fireworks Account ID or API Key."
-            )
+            logger.error("Authentication error: Missing Fireworks Account ID or API Key.")
             raise ValueError("Missing Fireworks Account ID or API Key.")
 
         # Determine multiMetrics for payload based on ts_mode_config or original flag
@@ -428,9 +385,7 @@ class Evaluator:
             "Authorization": f"Bearer {auth_token}",
             "Content-Type": "application/json",
         }
-        logger.info(
-            f"Previewing evaluator using API endpoint: {url} with account: {account_id}"
-        )
+        logger.info(f"Previewing evaluator using API endpoint: {url} with account: {account_id}")
         logger.debug(f"Preview API Request URL: {url}")
         logger.debug(f"Preview API Request Headers: {json.dumps(headers, indent=2)}")
         logger.debug(f"Preview API Request Payload: {json.dumps(payload, indent=2)}")
@@ -471,12 +426,8 @@ class Evaluator:
                     for req_item in req_list_or_str:
                         if isinstance(req_item, str):
                             all_requirements_set.add(req_item.strip())
-                elif isinstance(
-                    req_list_or_str, str
-                ):  # Fallback if somehow a string is still passed
-                    items = [
-                        r.strip() for r in req_list_or_str.splitlines() if r.strip()
-                    ]
+                elif isinstance(req_list_or_str, str):  # Fallback if somehow a string is still passed
+                    items = [r.strip() for r in req_list_or_str.splitlines() if r.strip()]
                     for item in items:
                         all_requirements_set.add(item)
 
@@ -489,9 +440,7 @@ class Evaluator:
         # dynamic import logic to fetch requirements from its main 'evaluate' function.
         # This part is NOT YET IMPLEMENTED for multi_metrics folders.
 
-        if not all_requirements_set and hasattr(
-            self, "_loaded_multi_metric_requirements_str"
-        ):
+        if not all_requirements_set and hasattr(self, "_loaded_multi_metric_requirements_str"):
             # Fallback for multi_metrics if requirements were loaded differently (hypothetical)
             # This attribute doesn't exist yet, placeholder for future enhancement if needed.
             if self._loaded_multi_metric_requirements_str:  # type: ignore
@@ -524,20 +473,12 @@ class Evaluator:
                     ]
                 }
 
-                if (
-                    self.multi_metrics or self.ts_mode_config
-                ):  # ts_mode also implies a single set of results
+                if self.multi_metrics or self.ts_mode_config:  # ts_mode also implies a single set of results
                     per_metric_evals = {"quality": 0.8, "relevance": 0.7, "safety": 0.9}
                 else:
-                    per_metric_evals = {
-                        metric_name: 0.75 for metric_name in self.metric_folders
-                    }
+                    per_metric_evals = {metric_name: 0.75 for metric_name in self.metric_folders}
 
-                score = (
-                    sum(per_metric_evals.values()) / len(per_metric_evals)
-                    if per_metric_evals
-                    else 0.0
-                )
+                score = sum(per_metric_evals.values()) / len(per_metric_evals) if per_metric_evals else 0.0
                 preview_result.add_result(
                     sample_index=i,
                     success=True,
@@ -558,16 +499,12 @@ class Evaluator:
 
     def create(self, evaluator_id, display_name=None, description=None, force=False):
         if not self.remote_url and not self.ts_mode_config and not self.code_files:
-            raise ValueError(
-                "No code files loaded. Load metric folder(s) or provide ts_mode_config/remote_url first."
-            )
+            raise ValueError("No code files loaded. Load metric folder(s) or provide ts_mode_config/remote_url first.")
 
         account_id = self.account_id or get_fireworks_account_id()
         auth_token = self.api_key or get_fireworks_api_key()
         if not auth_token or not account_id:
-            logger.error(
-                "Authentication error: API credentials appear to be invalid or incomplete."
-            )
+            logger.error("Authentication error: API credentials appear to be invalid or incomplete.")
             raise ValueError("Invalid or missing API credentials.")
 
         self.display_name = display_name or evaluator_id
@@ -598,9 +535,7 @@ class Evaluator:
             "Authorization": f"Bearer {auth_token}",
             "Content-Type": "application/json",
         }
-        logger.info(
-            f"Creating evaluator '{evaluator_id}' for account '{account_id}'..."
-        )
+        logger.info(f"Creating evaluator '{evaluator_id}' for account '{account_id}'...")
 
         try:
             if force:
@@ -608,35 +543,23 @@ class Evaluator:
                 try:
                     check_response = requests.get(check_url, headers=headers)
                     if check_response.status_code == 200:
-                        logger.info(
-                            f"Evaluator '{evaluator_id}' already exists, deleting and recreating..."
-                        )
+                        logger.info(f"Evaluator '{evaluator_id}' already exists, deleting and recreating...")
                         delete_url = f"{base_url}/{evaluator_id}"
                         try:
-                            delete_response = requests.delete(
-                                delete_url, headers=headers
-                            )
+                            delete_response = requests.delete(delete_url, headers=headers)
                             if delete_response.status_code < 400:
-                                logger.info(
-                                    f"Successfully deleted evaluator '{evaluator_id}'"
-                                )
+                                logger.info(f"Successfully deleted evaluator '{evaluator_id}'")
                             else:
                                 logger.warning(
                                     f"Unable to delete evaluator '{evaluator_id}', status: {delete_response.status_code}"
                                 )
                         except Exception as e_del:
                             logger.warning(f"Error deleting evaluator: {str(e_del)}")
-                        response = requests.post(
-                            base_url, json=payload_data, headers=headers
-                        )
+                        response = requests.post(base_url, json=payload_data, headers=headers)
                     else:
-                        response = requests.post(
-                            base_url, json=payload_data, headers=headers
-                        )
+                        response = requests.post(base_url, json=payload_data, headers=headers)
                 except requests.exceptions.RequestException:
-                    response = requests.post(
-                        base_url, json=payload_data, headers=headers
-                    )
+                    response = requests.post(base_url, json=payload_data, headers=headers)
             else:
                 response = requests.post(base_url, json=payload_data, headers=headers)
 
@@ -703,12 +626,8 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
         elif self.ts_mode_config:
             python_code = self.ts_mode_config.get("python_code")
             file_name = self.ts_mode_config.get("file_name", "main.py")
-            criterion_name = self.ts_mode_config.get(
-                "criterion_name", "default_code_criterion"
-            )
-            description = self.ts_mode_config.get(
-                "description", "Python code execution"
-            )
+            criterion_name = self.ts_mode_config.get("criterion_name", "default_code_criterion")
+            description = self.ts_mode_config.get("description", "Python code execution")
             if not python_code:
                 raise ValueError("python_code is required in ts_mode_config")
             assertions.append(
@@ -747,9 +666,7 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
                 # Prioritize sending only main.py for the preview evaluator
                 main_py_key = f"{metric_name}/main.py"
                 if main_py_key in self.code_files:
-                    file_contents["main.py"] = self._update_evaluate_signature(
-                        self.code_files[main_py_key]
-                    )
+                    file_contents["main.py"] = self._update_evaluate_signature(self.code_files[main_py_key])
                 else:
                     # Fallback to sending all files if main.py isn't found directly under metric_name/ (should not happen with current loading logic)
                     # Or if a more complex structure was intended. For now, this path means an issue.
@@ -786,7 +703,9 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
         # Simple regex to match the old evaluate function signature
         old_pattern = r"def\s+evaluate\s*\(\s*entry\s*(?::\s*dict)?\s*\)"
         # Regex to match the signature we are changing from (original_messages)
-        current_signature_pattern = r"def\s+evaluate\s*\(\s*messages,\s*original_messages\s*=\s*None,\s*tools\s*=\s*None,\s*\*\*kwargs\s*\)"
+        current_signature_pattern = (
+            r"def\s+evaluate\s*\(\s*messages,\s*original_messages\s*=\s*None,\s*tools\s*=\s*None,\s*\*\*kwargs\s*\)"
+        )
         new_signature = "def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] = None, tools=None, **kwargs)"
 
         # Check if the old pattern (entry-based) exists
@@ -804,9 +723,7 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
 """
         # Check if the current signature (with original_messages) exists
         elif re.search(current_signature_pattern, content):
-            updated_content = re.sub(
-                current_signature_pattern, new_signature, content, count=1
-            )
+            updated_content = re.sub(current_signature_pattern, new_signature, content, count=1)
             # No specific compatibility layer needed here as it's a direct parameter rename
             compat_layer = ""  # No additional layer for this direct change
         else:
@@ -814,18 +731,12 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
             return content
 
         # Find the function body indent level if a change was made
-        if (
-            "updated_content" in locals() and compat_layer
-        ):  # Only add layer if it's defined
-            func_match = re.search(
-                r"def\s+evaluate.*?:\s*\n(\s+)", updated_content, re.DOTALL
-            )
+        if "updated_content" in locals() and compat_layer:  # Only add layer if it's defined
+            func_match = re.search(r"def\s+evaluate.*?:\s*\n(\s+)", updated_content, re.DOTALL)
             if func_match:
                 indent = func_match.group(1)
                 # Adjust indentation of compatibility layer
-                indented_compat_layer = "\n".join(
-                    indent + line for line in compat_layer.strip().split("\n")
-                )
+                indented_compat_layer = "\n".join(indent + line for line in compat_layer.strip().split("\n"))
 
                 # Insert compatibility layer after function definition
                 updated_content = re.sub(
@@ -843,9 +754,7 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
         # ... (implementation unchanged, but likely dead code)
         pass
 
-    def _get_code_from_files(
-        self, files
-    ):  # This method seems unused now, consider removal
+    def _get_code_from_files(self, files):  # This method seems unused now, consider removal
         # ... (implementation unchanged, but likely dead code)
         pass
 
@@ -883,9 +792,7 @@ def preview_evaluation(
 ):
     ts_mode_config = None
     if python_code_to_evaluate:
-        if (
-            metric_folders or folder
-        ):  # Removed multi_metrics from this check as it's handled by Evaluator init
+        if metric_folders or folder:  # Removed multi_metrics from this check as it's handled by Evaluator init
             raise ValueError(
                 "Cannot use python_code_to_evaluate with folder-based parameters (metric_folders, folder)."
             )
@@ -927,9 +834,7 @@ def preview_evaluation(
 
     if huggingface_dataset:
         if sample_file:
-            logger.warning(
-                "Both sample_file and huggingface_dataset specified. Using HuggingFace dataset."
-            )
+            logger.warning("Both sample_file and huggingface_dataset specified. Using HuggingFace dataset.")
         sample_file = huggingface_dataset_to_jsonl(
             dataset_name=huggingface_dataset,
             split=huggingface_split,
@@ -968,18 +873,14 @@ def preview_folder_evaluation(  # This function might become redundant or need t
     if has_main_py and not multi_metrics:
         py_files = list(Path(evaluator_folder).glob("*.py"))
         if len(py_files) > 1:
-            logger.info(
-                f"Auto-detecting multi-metrics mode based on folder structure for preview_folder_evaluation"
-            )
+            logger.info(f"Auto-detecting multi-metrics mode based on folder structure for preview_folder_evaluation")
             detected_multi_metrics = True
 
     # Call the unified preview_evaluation
     # This function doesn't directly support ts_mode_config, so python_code_to_evaluate is None
     return preview_evaluation(
         metric_folders=(
-            None
-            if detected_multi_metrics
-            else [f"{os.path.basename(evaluator_folder)}={evaluator_folder}"]
+            None if detected_multi_metrics else [f"{os.path.basename(evaluator_folder)}={evaluator_folder}"]
         ),  # Simplified for now
         multi_metrics=detected_multi_metrics,
         folder=evaluator_folder if detected_multi_metrics else None,
@@ -1019,9 +920,7 @@ def create_evaluation(
     ts_mode_config = None
     if python_code_to_evaluate:
         if metric_folders or folder:  # Removed multi_metrics from this check
-            raise ValueError(
-                "Cannot use python_code_to_evaluate with folder-based parameters."
-            )
+            raise ValueError("Cannot use python_code_to_evaluate with folder-based parameters.")
         ts_mode_config = {
             "python_code": python_code_to_evaluate,
             "file_name": python_file_name_for_code,
@@ -1051,9 +950,7 @@ def create_evaluation(
         logger.info(f"Configuring evaluator with direct Python code snippet (ts_mode).")
     elif multi_metrics:  # Folder-based multi_metrics
         if not folder:
-            raise ValueError(
-                "`folder` must be specified for folder-based multi_metrics mode."
-            )
+            raise ValueError("`folder` must be specified for folder-based multi_metrics mode.")
         evaluator.load_multi_metrics_folder(folder)
     else:  # Folder-based single/multiple metrics (non-multi_metrics structure)
         if not metric_folders:
@@ -1065,9 +962,7 @@ def create_evaluation(
             evaluator.load_metric_folder(metric_name, folder_path)
 
     if huggingface_dataset:
-        logger.info(
-            f"HuggingFace dataset specified: {huggingface_dataset} (currently for preview only)."
-        )
+        logger.info(f"HuggingFace dataset specified: {huggingface_dataset} (currently for preview only).")
 
     return evaluator.create(evaluator_id, display_name, description, force)
 
@@ -1086,9 +981,7 @@ def deploy_folder_evaluation(  # This function might become redundant or need to
     huggingface_prompt_key="prompt",
     remote_url: Optional[str] = None,
 ):
-    evaluator_folder_abs = (
-        os.path.abspath(evaluator_folder) if evaluator_folder else None
-    )
+    evaluator_folder_abs = os.path.abspath(evaluator_folder) if evaluator_folder else None
 
     # If remote_url is provided, evaluator_folder is less relevant for code loading
     # but might still be used for context/metadata if the function design implies it.
@@ -1112,16 +1005,10 @@ def deploy_folder_evaluation(  # This function might become redundant or need to
 
     if not remote_url and evaluator_folder_abs:
         has_main_py = os.path.exists(os.path.join(evaluator_folder_abs, "main.py"))
-        if (
-            has_main_py and not multi_metrics
-        ):  # If user says not multi_metrics, but main.py is at root
+        if has_main_py and not multi_metrics:  # If user says not multi_metrics, but main.py is at root
             py_files = list(Path(evaluator_folder_abs).glob("*.py"))
-            if (
-                len(py_files) > 1
-            ):  # Heuristic: if multiple .py files at root with main.py, likely multi-metric
-                logger.info(
-                    f"Auto-detecting multi-metrics mode for deploy_folder_evaluation."
-                )
+            if len(py_files) > 1:  # Heuristic: if multiple .py files at root with main.py, likely multi-metric
+                logger.info(f"Auto-detecting multi-metrics mode for deploy_folder_evaluation.")
                 detected_multi_metrics = True
 
         if detected_multi_metrics:
@@ -1129,15 +1016,11 @@ def deploy_folder_evaluation(  # This function might become redundant or need to
         else:  # Prepare metric_folders list
             metric_folders_for_loading = []
             if has_main_py:  # Single metric in the root folder
-                metric_folders_for_loading.append(
-                    f"{os.path.basename(evaluator_folder_abs)}={evaluator_folder_abs}"
-                )
+                metric_folders_for_loading.append(f"{os.path.basename(evaluator_folder_abs)}={evaluator_folder_abs}")
             else:  # Look for subdirectories
                 for item in os.listdir(evaluator_folder_abs):
                     item_path = os.path.join(evaluator_folder_abs, item)
-                    if os.path.isdir(item_path) and os.path.exists(
-                        os.path.join(item_path, "main.py")
-                    ):
+                    if os.path.isdir(item_path) and os.path.exists(os.path.join(item_path, "main.py")):
                         metric_folders_for_loading.append(f"{item}={item_path}")
                 if not metric_folders_for_loading:
                     raise ValueError(

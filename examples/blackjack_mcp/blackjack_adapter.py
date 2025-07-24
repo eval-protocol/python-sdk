@@ -17,9 +17,7 @@ class BlackjackAdapter(EnvironmentAdapter):
 
     ACTION_NAMES = ["STICK", "HIT"]
 
-    def create_environment(
-        self, config: Optional[Dict[str, Any]] = None
-    ) -> BlackjackEnv:
+    def create_environment(self, config: Optional[Dict[str, Any]] = None) -> BlackjackEnv:
         """
         Create Blackjack environment.
 
@@ -34,28 +32,20 @@ class BlackjackAdapter(EnvironmentAdapter):
         natural = config.get("natural")
         if natural is None:
             natural = False
-            print(
-                f"🔍 BlackjackAdapter.create_environment: natural is not set in the config, use False by default"
-            )
+            print(f"🔍 BlackjackAdapter.create_environment: natural is not set in the config, use False by default")
         if isinstance(natural, str):
             natural = natural.lower() == "true"
-            print(
-                f"🔍 BlackjackAdapter.create_environment: natural is a string, convert to boolean: {natural}"
-            )
+            print(f"🔍 BlackjackAdapter.create_environment: natural is a string, convert to boolean: {natural}")
         else:
             natural = bool(natural)
 
         sab = config.get("sab", False)
         if sab is None:
             sab = False
-            print(
-                f"🔍 BlackjackAdapter.create_environment: sab is not set in the config, use False by default"
-            )
+            print(f"🔍 BlackjackAdapter.create_environment: sab is not set in the config, use False by default")
         if isinstance(sab, str):
             sab = sab.lower() == "true"
-            print(
-                f"🔍 BlackjackAdapter.create_environment: sab is a string, convert to boolean: {sab}"
-            )
+            print(f"🔍 BlackjackAdapter.create_environment: sab is a string, convert to boolean: {sab}")
         else:
             sab = bool(sab)
 
@@ -76,31 +66,21 @@ class BlackjackAdapter(EnvironmentAdapter):
         Returns:
             Tuple of (environment, initial_observation, initial_info)
         """
-        print(
-            f"🔍 BlackjackAdapter.create_environment_with_seed: config: {config}, seed: {seed}"
-        )
+        print(f"🔍 BlackjackAdapter.create_environment_with_seed: config: {config}, seed: {seed}")
         config = config or {}
 
         # Add seed to config for environment creation
         env_config = {**config, "seed": seed}
-        print(
-            f"🔍 BlackjackAdapter.create_environment_with_seed: env_config: {env_config}"
-        )
+        print(f"🔍 BlackjackAdapter.create_environment_with_seed: env_config: {env_config}")
 
         env = self.create_environment(env_config)
-        print(
-            f"🔍 BlackjackAdapter.create_environment_with_seed: created env, calling reset with seed: {seed}"
-        )
+        print(f"🔍 BlackjackAdapter.create_environment_with_seed: created env, calling reset with seed: {seed}")
         obs, info = env.reset(seed=seed)
-        print(
-            f"🔍 BlackjackAdapter.create_environment_with_seed: reset returned obs: {obs}, info: {info}"
-        )
+        print(f"🔍 BlackjackAdapter.create_environment_with_seed: reset returned obs: {obs}, info: {info}")
 
         return env, obs, info
 
-    def reset_environment(
-        self, env: BlackjackEnv, seed: Optional[int] = None
-    ) -> Tuple[int, Dict[str, Any]]:
+    def reset_environment(self, env: BlackjackEnv, seed: Optional[int] = None) -> Tuple[int, Dict[str, Any]]:
         """
         Reset environment.
 
@@ -152,9 +132,7 @@ class BlackjackAdapter(EnvironmentAdapter):
         """
         action_str = action_str.strip().upper()
         if action_str not in self.ACTION_NAMES:
-            raise ValueError(
-                f"Invalid action '{action_str}'. Valid actions: {self.ACTION_NAMES}"
-            )
+            raise ValueError(f"Invalid action '{action_str}'. Valid actions: {self.ACTION_NAMES}")
         return self.ACTION_NAMES.index(action_str)
 
     def format_observation(self, observation: Tuple[int, int, int]) -> Dict[str, int]:

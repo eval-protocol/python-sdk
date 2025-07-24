@@ -10,13 +10,9 @@ CONFIG_FILE_NAME = "rewardkit.yaml"
 
 
 class GCPCloudRunConfig(BaseModel):
-    project_id: Optional[str] = (
-        None  # Default will be applied in deploy_command if not set
-    )
+    project_id: Optional[str] = None  # Default will be applied in deploy_command if not set
     region: Optional[str] = None  # Default will be applied in deploy_command if not set
-    artifact_registry_repository: Optional[str] = (
-        None  # Default will be applied in deploy_command
-    )
+    artifact_registry_repository: Optional[str] = None  # Default will be applied in deploy_command
     service_name_template: Optional[str] = "rewardeval-{evaluator_id}"
     default_auth_mode: Optional[Literal["api-key", "iam", "mtls-client-auth"]] = (
         "api-key"  # Default auth mode if using GCP target and not specified
@@ -27,16 +23,12 @@ class GCPCloudRunConfig(BaseModel):
 class AWSLambdaConfig(BaseModel):
     region: Optional[str] = None
     function_name_template: Optional[str] = "rewardeval-{evaluator_id}"
-    default_auth_mode: Optional[Literal["api-key", "iam", "mtls-client-auth"]] = (
-        "api-key"
-    )
+    default_auth_mode: Optional[Literal["api-key", "iam", "mtls-client-auth"]] = "api-key"
     secrets: Optional[Dict[str, str]] = {}  # Maps ENV_VAR_NAME to AWS Secret ARN
 
 
 class RewardKitConfig(BaseModel):
-    default_deployment_target: Optional[
-        Literal["gcp-cloud-run", "aws-lambda", "fireworks", "local"]
-    ] = "fireworks"
+    default_deployment_target: Optional[Literal["gcp-cloud-run", "aws-lambda", "fireworks", "local"]] = "fireworks"
     gcp_cloud_run: Optional[GCPCloudRunConfig] = GCPCloudRunConfig()
     aws_lambda: Optional[AWSLambdaConfig] = AWSLambdaConfig()
     evaluator_endpoint_keys: Optional[Dict[str, str]] = (
@@ -110,9 +102,7 @@ def load_config(config_path: Optional[str] = None) -> RewardKitConfig:
         print(f"Error parsing YAML from {config_path}: {e}")
         # Decide: raise error or return default? For now, return default and warn.
         _loaded_config = RewardKitConfig()
-        _config_file_path = (
-            config_path  # So it doesn't try to reload this broken file again
-        )
+        _config_file_path = config_path  # So it doesn't try to reload this broken file again
         return _loaded_config
     except ValidationError as e:
         print(f"Error validating configuration from {config_path}: {e}")
@@ -120,9 +110,7 @@ def load_config(config_path: Optional[str] = None) -> RewardKitConfig:
         _config_file_path = config_path
         return _loaded_config
     except Exception as e:
-        print(
-            f"An unexpected error occurred while loading configuration from {config_path}: {e}"
-        )
+        print(f"An unexpected error occurred while loading configuration from {config_path}: {e}")
         _loaded_config = RewardKitConfig()
         _config_file_path = config_path
         return _loaded_config

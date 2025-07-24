@@ -121,8 +121,7 @@ def evaluate(entry):
     # The "entry = {" line is no longer part of the compatibility layer for the old_pattern.
     # The compatibility layer now focuses on handling ground_truth.
     assert (
-        "if ground_truth is None: # Default ground_truth from messages if not provided"
-        in updated_code
+        "if ground_truth is None: # Default ground_truth from messages if not provided" in updated_code
     )  # Check for new compat layer logic
     new_code = """
 def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] = None, tools=None, **kwargs):
@@ -151,9 +150,7 @@ def test_evaluator_preview(mock_requests_post, monkeypatch):
                 "score": 0.5,
                 "reason": "Reason 1",
                 "perMetricEvals": {
-                    "test_metric": MetricResult(
-                        score=0.5, reason="Metric reason 1", is_score_valid=True
-                    ).model_dump()
+                    "test_metric": MetricResult(score=0.5, reason="Metric reason 1", is_score_valid=True).model_dump()
                 },
             },
             {
@@ -162,9 +159,7 @@ def test_evaluator_preview(mock_requests_post, monkeypatch):
                 "score": 0.8,
                 "reason": "Reason 2",
                 "perMetricEvals": {
-                    "test_metric": MetricResult(
-                        score=0.8, reason="Metric reason 2", is_score_valid=True
-                    ).model_dump()
+                    "test_metric": MetricResult(score=0.8, reason="Metric reason 2", is_score_valid=True).model_dump()
                 },
             },
         ],
@@ -174,9 +169,7 @@ def test_evaluator_preview(mock_requests_post, monkeypatch):
     monkeypatch.setenv("FIREWORKS_API_KEY", "test_preview_api_key")
     monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "test_preview_account")
     # Using a mock API base to prevent real calls
-    monkeypatch.setenv(
-        "FIREWORKS_API_BASE", "http://mock-api-server"
-    )  # Changed to avoid actual localhost call
+    monkeypatch.setenv("FIREWORKS_API_BASE", "http://mock-api-server")  # Changed to avoid actual localhost call
 
     # Mock requests.post for the preview call
     class MockResponsePreview:
@@ -190,9 +183,7 @@ def test_evaluator_preview(mock_requests_post, monkeypatch):
 
         def raise_for_status(self):
             if self.status_code != 200:
-                raise requests.exceptions.HTTPError(
-                    f"Mock API Error: {self.status_code}"
-                )
+                raise requests.exceptions.HTTPError(f"Mock API Error: {self.status_code}")
 
     def mock_post_preview(*args, **kwargs):
         expected_url_preview = "http://mock-api-server/v1/accounts/test_preview_account/evaluators:previewEvaluator"
@@ -234,9 +225,7 @@ def test_evaluator_preview(mock_requests_post, monkeypatch):
         assert preview_result.results[0].success is True
         assert hasattr(preview_result.results[0], "score")
         assert preview_result.results[0].score == 0.75
-        assert hasattr(
-            preview_result.results[0], "per_metric_evals"
-        )  # Attribute name in Python object
+        assert hasattr(preview_result.results[0], "per_metric_evals")  # Attribute name in Python object
         assert "test_metric" in preview_result.results[0].per_metric_evals
     finally:
         os.unlink(os.path.join(tmp_dir, "main.py"))
@@ -295,12 +284,12 @@ def test_preview_evaluation_helper(mock_requests_post, monkeypatch):
 
         def raise_for_status(self):
             if self.status_code != 200:
-                raise requests.exceptions.HTTPError(
-                    f"Mock API Error: {self.status_code}"
-                )
+                raise requests.exceptions.HTTPError(f"Mock API Error: {self.status_code}")
 
     def mock_post_helper_preview(*args, **kwargs):
-        expected_url_helper_preview = "http://mock-api-server-helper/v1/accounts/test_helper_account/evaluators:previewEvaluator"
+        expected_url_helper_preview = (
+            "http://mock-api-server-helper/v1/accounts/test_helper_account/evaluators:previewEvaluator"
+        )
         if args[0] == expected_url_helper_preview:
             return MockResponseHelperPreview(
                 {
@@ -397,10 +386,7 @@ def test_create_evaluation_helper(monkeypatch):
         )
         assert "evaluator" in api_response
         created_evaluator_data = api_response["evaluator"]
-        assert (
-            created_evaluator_data["name"]
-            == "accounts/test_account/evaluators/test-eval"
-        )
+        assert created_evaluator_data["name"] == "accounts/test_account/evaluators/test-eval"
         assert created_evaluator_data["displayName"] == "Test Evaluator"
         assert created_evaluator_data["description"] == "Test description"
     finally:

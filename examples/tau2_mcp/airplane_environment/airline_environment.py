@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 AIRLINE_DB_PATH = Path(__file__).parent / "db.json"
 
+
 class AirlineEnvironment:
     """
     Airline environment that integrates τ²-Bench simulation pattern
@@ -33,9 +34,9 @@ class AirlineEnvironment:
         self.airline_tools = AirlineTools(self.db)
 
     def reset(self, seed: Optional[int] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        """Reset the environment to initial state"""        
+        """Reset the environment to initial state"""
         return {}, {}
-    
+
     def step(self, action: Dict[str, Any]) -> Tuple[Dict[str, Any], float, bool, bool, Dict[str, Any]]:
         """
         Perform one step of the τ²-Bench simulation.
@@ -43,18 +44,17 @@ class AirlineEnvironment:
 
         action_name = action.get("action", "")
         parameters = action.get("parameters", {})
-        
+
         result = self._execute_airline_action(action_name, parameters)
 
         # In tau2-bench, if there's a simulated user, the agent cannot terminate the rollout, and there are no per step rewards.
-        
+
         return result, 0.0, False, False, {}
 
-    
     def _calculate_reward(self):
         """Calculate the reward for the entire conversation."""
         pass
-    
+
     def close(self):
         """Clean up environment resources"""
         pass
@@ -77,7 +77,7 @@ class AirlineEnvironment:
             "update_reservation_flights": self.airline_tools.update_reservation_flights,
             "update_reservation_passengers": self.airline_tools.update_reservation_passengers,
         }
-        
+
         if action_name in action_map:
             tool_method = action_map[action_name]
             # Call the tool method with parameters
@@ -86,6 +86,4 @@ class AirlineEnvironment:
             else:
                 return tool_method()
         else:
-            return {
-                "error": f"Unknown action: {action_name}"
-            }
+            return {"error": f"Unknown action: {action_name}"}

@@ -56,9 +56,7 @@ def create_combined_reward(
     # Create adapters for each reward function
     trl_adapters = [rf.get_trl_adapter() for rf in reward_functions]
 
-    def combined_adapter_for_trl(
-        prompts: List[List[Dict]], completions: List[str], **kwargs
-    ) -> List[float]:
+    def combined_adapter_for_trl(prompts: List[List[Dict]], completions: List[str], **kwargs) -> List[float]:
         """
         Combined adapter function that works with TRL.
         It now accepts prompts and completions separately.
@@ -68,9 +66,7 @@ def create_combined_reward(
         # Each adapter in trl_adapters expects (prompts, completions, **kwargs)
         for adapter_func in trl_adapters:
             # Pass the full batch of prompts and completions to each underlying adapter
-            individual_reward_scores = adapter_func(
-                prompts=prompts, completions=completions, **kwargs
-            )
+            individual_reward_scores = adapter_func(prompts=prompts, completions=completions, **kwargs)
             all_individual_scores.append(individual_reward_scores)
 
         if not all_individual_scores or not all_individual_scores[0]:
@@ -86,15 +82,11 @@ def create_combined_reward(
             weighted_sum_for_sample = 0.0
             for adapter_idx, individual_scores_list in enumerate(all_individual_scores):
                 if i < len(individual_scores_list):  # Check bounds
-                    weighted_sum_for_sample += (
-                        individual_scores_list[i] * weights[adapter_idx]
-                    )
+                    weighted_sum_for_sample += individual_scores_list[i] * weights[adapter_idx]
                 else:
                     # Handle potential mismatch in lengths of score lists from different adapters, though unlikely
                     # For robustness, could add a default score or raise an error
-                    weighted_sum_for_sample += (
-                        0.0  # Or some other default/error handling
-                    )
+                    weighted_sum_for_sample += 0.0  # Or some other default/error handling
             final_combined_scores.append(weighted_sum_for_sample)
 
         return final_combined_scores
@@ -105,9 +97,7 @@ def create_combined_reward(
 @reward_function
 def grpo_format_reward(
     messages: List[Dict[str, Any]],
-    ground_truth: Optional[
-        List[Dict[str, Any]]
-    ] = None,  # Changed from original_messages
+    ground_truth: Optional[List[Dict[str, Any]]] = None,  # Changed from original_messages
     think_tag: str = "<think>",
     answer_tag: str = "<answer>",
     **kwargs,
@@ -130,11 +120,7 @@ def grpo_format_reward(
             score=0.0,
             reason="No messages provided",
             is_score_valid=False,
-            metrics={
-                "format": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No messages provided"
-                )
-            },
+            metrics={"format": MetricResult(score=0.0, is_score_valid=False, reason="No messages provided")},
         )
 
     # Extract response text from last message (assistant's response)
@@ -144,22 +130,14 @@ def grpo_format_reward(
             score=0.0,
             reason="No assistant response found",
             is_score_valid=False,
-            metrics={
-                "format": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No assistant response"
-                )
-            },
+            metrics={"format": MetricResult(score=0.0, is_score_valid=False, reason="No assistant response")},
         )
 
     text = response.get("content", "")
 
     # Check for think/answer tags
-    think_pattern = (
-        f"{re.escape(think_tag)}(.*?){re.escape(think_tag.replace('<', '</'))}"
-    )
-    answer_pattern = (
-        f"{re.escape(answer_tag)}(.*?){re.escape(answer_tag.replace('<', '</'))}"
-    )
+    think_pattern = f"{re.escape(think_tag)}(.*?){re.escape(think_tag.replace('<', '</'))}"
+    answer_pattern = f"{re.escape(answer_tag)}(.*?){re.escape(answer_tag.replace('<', '</'))}"
 
     think_match = re.search(think_pattern, text, re.DOTALL)
     answer_match = re.search(answer_pattern, text, re.DOTALL)
@@ -210,9 +188,7 @@ def grpo_format_reward(
         ),
     }
 
-    return EvaluateResult(
-        score=score, reason=reason, metrics=metrics, is_score_valid=score > 0.0
-    )
+    return EvaluateResult(score=score, reason=reason, metrics=metrics, is_score_valid=score > 0.0)
 
 
 def create_grpo_reward(
@@ -236,9 +212,7 @@ def create_grpo_reward(
         A callable function compatible with GRPO
     """
     # Create format reward function
-    format_rf = RewardFunction(
-        func=grpo_format_reward, think_tag=think_tag, answer_tag=answer_tag
-    )
+    format_rf = RewardFunction(func=grpo_format_reward, think_tag=think_tag, answer_tag=answer_tag)
 
     # Combine rewards
     return create_combined_reward(
@@ -248,9 +222,7 @@ def create_grpo_reward(
     )
 
 
-def prepare_grpo_message_format(
-    text: str, system_prompt: Optional[str] = None
-) -> List[Dict[str, str]]:
+def prepare_grpo_message_format(text: str, system_prompt: Optional[str] = None) -> List[Dict[str, str]]:
     """
     Convert a text response to a message format for GRPO evaluation.
 
@@ -349,9 +321,7 @@ if __name__ == "__main__":
     format_rf = RewardFunction(func=grpo_format_reward)
 
     # Combine them
-    combined_reward = create_combined_reward(
-        reward_functions=[format_rf, length_rf], weights=[0.4, 0.6]
-    )
+    combined_reward = create_combined_reward(reward_functions=[format_rf, length_rf], weights=[0.4, 0.6])
 
     # Create a GRPO-style reward
     grpo_reward = create_grpo_reward(length_rf)

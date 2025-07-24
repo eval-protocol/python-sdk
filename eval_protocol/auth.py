@@ -54,9 +54,7 @@ def _get_credential_from_config_file(key_name: str) -> Optional[str]:
     # 1. Try simple key-value parsing first
     simple_creds = _parse_simple_auth_file(AUTH_INI_FILE)
     if key_name in simple_creds:
-        logger.debug(
-            f"Using {key_name} from simple key-value parsing of {AUTH_INI_FILE}."
-        )
+        logger.debug(f"Using {key_name} from simple key-value parsing of {AUTH_INI_FILE}.")
         return simple_creds[key_name]
 
     # 2. Fallback to configparser if not found via simple parsing or if simple parsing failed
@@ -70,34 +68,24 @@ def _get_credential_from_config_file(key_name: str) -> Optional[str]:
         if "fireworks" in config and config.has_option("fireworks", key_name):
             value_from_file = config.get("fireworks", key_name)
             if value_from_file:
-                logger.debug(
-                    f"Using {key_name} from [fireworks] section in {AUTH_INI_FILE}."
-                )
+                logger.debug(f"Using {key_name} from [fireworks] section in {AUTH_INI_FILE}.")
                 return value_from_file
 
         # Try default section (configparser might place items without section header here)
         if config.has_option(config.default_section, key_name):
             value_from_default = config.get(config.default_section, key_name)
             if value_from_default:
-                logger.debug(
-                    f"Using {key_name} from default section [{config.default_section}] in {AUTH_INI_FILE}."
-                )
+                logger.debug(f"Using {key_name} from default section [{config.default_section}] in {AUTH_INI_FILE}.")
                 return value_from_default
 
     except configparser.MissingSectionHeaderError:
         # This error implies the file is purely key-value, which simple parsing should have handled.
         # If simple parsing failed to get the key, then it's likely not there or malformed.
-        logger.debug(
-            f"{AUTH_INI_FILE} has no section headers, and simple parsing did not find {key_name}."
-        )
+        logger.debug(f"{AUTH_INI_FILE} has no section headers, and simple parsing did not find {key_name}.")
     except configparser.Error as e_config:
-        logger.warning(
-            f"Configparser error reading {AUTH_INI_FILE} for {key_name}: {e_config}"
-        )
+        logger.warning(f"Configparser error reading {AUTH_INI_FILE} for {key_name}: {e_config}")
     except Exception as e_general:
-        logger.warning(
-            f"Unexpected error reading {AUTH_INI_FILE} for {key_name}: {e_general}"
-        )
+        logger.warning(f"Unexpected error reading {AUTH_INI_FILE} for {key_name}: {e_general}")
 
     return None
 
@@ -164,7 +152,5 @@ def get_fireworks_api_base() -> str:
     if os.environ.get("FIREWORKS_API_BASE"):
         logger.debug("Using FIREWORKS_API_BASE from environment variable.")
     else:
-        logger.debug(
-            f"FIREWORKS_API_BASE not set in environment, defaulting to {api_base}."
-        )
+        logger.debug(f"FIREWORKS_API_BASE not set in environment, defaulting to {api_base}.")
     return api_base

@@ -62,9 +62,7 @@ def generate_sample_trajectory():
 
         # Parse and execute action
         action_int = adapter.parse_action(action)
-        obs, reward, terminated, truncated, info = adapter.step_environment(
-            env, action_int
-        )
+        obs, reward, terminated, truncated, info = adapter.step_environment(env, action_int)
 
         # Format observation
         formatted_obs = adapter.format_observation(obs)
@@ -112,9 +110,7 @@ def generate_sample_trajectory():
             {
                 "seed": 42,
                 "total_steps": len(trajectory_data),
-                "final_status": (
-                    trajectory_data[-1]["status"] if trajectory_data else "Unknown"
-                ),
+                "final_status": (trajectory_data[-1]["status"] if trajectory_data else "Unknown"),
                 "total_reward": sum(step["reward"] for step in trajectory_data),
                 "steps": trajectory_data,
             },

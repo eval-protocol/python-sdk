@@ -71,9 +71,7 @@ class MCPGymRolloutManager:
         """Initialize rollout manager."""
         self.logger = logging.getLogger(__name__)
 
-    async def rollout(
-        self, envs: List[McpGym], policy: SimplePolicy, steps: int = 20
-    ) -> List[Dict[str, Any]]:
+    async def rollout(self, envs: List[McpGym], policy: SimplePolicy, steps: int = 20) -> List[Dict[str, Any]]:
         """
         Execute rollouts using the north star interface.
 
@@ -85,9 +83,7 @@ class MCPGymRolloutManager:
         Returns:
             List of trajectory dictionaries
         """
-        self.logger.info(
-            f"Starting rollouts with {len(envs)} environments for {steps} steps"
-        )
+        self.logger.info(f"Starting rollouts with {len(envs)} environments for {steps} steps")
 
         trajectories = []
 
@@ -128,9 +124,7 @@ class MCPGymRolloutManager:
 
                 trajectory["total_reward"] += step_data.get("reward", 0.0)
 
-                self.logger.info(
-                    f"Step {step}: {action} -> reward={step_data.get('reward', 0.0)}"
-                )
+                self.logger.info(f"Step {step}: {action} -> reward={step_data.get('reward', 0.0)}")
 
                 # Check for episode termination
                 if step_data.get("terminated") or step_data.get("truncated"):
@@ -140,9 +134,7 @@ class MCPGymRolloutManager:
                     break
 
             trajectories.append(trajectory)
-            self.logger.info(
-                f"Rollout {i+1} completed: {trajectory['total_reward']} total reward"
-            )
+            self.logger.info(f"Rollout {i+1} completed: {trajectory['total_reward']} total reward")
 
         return trajectories
 
@@ -170,10 +162,7 @@ class MCPGymRolloutManager:
         total_reward = sum(traj["total_reward"] for traj in trajectories)
         avg_reward = total_reward / len(trajectories) if trajectories else 0
         success_rate = (
-            sum(1 for traj in trajectories if traj["total_reward"] > 0)
-            / len(trajectories)
-            if trajectories
-            else 0
+            sum(1 for traj in trajectories if traj["total_reward"] > 0) / len(trajectories) if trajectories else 0
         )
 
         print(f"\nOverall Statistics:")
@@ -192,9 +181,7 @@ class RewardKit:
     """
 
     @staticmethod
-    async def rollout(
-        envs: List[McpGym], policy: SimplePolicy, steps: int = 20
-    ) -> List[Dict[str, Any]]:
+    async def rollout(envs: List[McpGym], policy: SimplePolicy, steps: int = 20) -> List[Dict[str, Any]]:
         """
         Execute rollouts using north star interface.
 

@@ -16,9 +16,7 @@ logger = logging.getLogger(__name__)
 class ResponseCache:
     def __init__(self, cache_config: DictConfig):
         self.cache_config = cache_config
-        self.cache_dir = cache_config.get(
-            "cache_dir", ".reward_kit_cache/generated_responses"
-        )
+        self.cache_dir = cache_config.get("cache_dir", ".reward_kit_cache/generated_responses")
         # Resolve cache_dir relative to CWD if not an absolute path.
         # Consider making this configurable to be relative to project root or Hydra's original CWD.
         if not os.path.isabs(self.cache_dir):
@@ -28,9 +26,7 @@ class ResponseCache:
             os.makedirs(self.cache_dir, exist_ok=True)
             logger.info(f"Response cache directory: {self.cache_dir}")
         except OSError as e:
-            logger.error(
-                f"Failed to create cache directory {self.cache_dir}: {e}. Caching will be disabled."
-            )
+            logger.error(f"Failed to create cache directory {self.cache_dir}: {e}. Caching will be disabled.")
             self.cache_dir = None  # Disable caching if dir creation fails
 
     def _generate_key(
@@ -67,9 +63,7 @@ class ResponseCache:
         if not self.cache_dir:
             return None
 
-        if (
-            temperature != 0.0
-        ):  # Only cache deterministic (temp=0) generations by default
+        if temperature != 0.0:  # Only cache deterministic (temp=0) generations by default
             return None
 
         cache_key = self._generate_key(
@@ -92,18 +86,12 @@ class ResponseCache:
                     cached_data = json.load(f)
                     response = cached_data.get("assistant_response")
                     if response is not None:
-                        logger.debug(
-                            f"Cache hit for key {cache_key} (sample {sample_id})"
-                        )
+                        logger.debug(f"Cache hit for key {cache_key} (sample {sample_id})")
                         return response
                     else:
-                        logger.warning(
-                            f"Cache file {cache_file_path} for key {cache_key} is malformed."
-                        )
+                        logger.warning(f"Cache file {cache_file_path} for key {cache_key} is malformed.")
             except json.JSONDecodeError:
-                logger.warning(
-                    f"Error decoding JSON from cache file {cache_file_path} for key {cache_key}."
-                )
+                logger.warning(f"Error decoding JSON from cache file {cache_file_path} for key {cache_key}.")
             except Exception as e:
                 logger.warning(f"Error reading from cache file {cache_file_path}: {e}")
         else:

@@ -39,6 +39,4 @@ def evaluate_tool_calling(
     # In a real scenario, you might add preprocessing, custom logic, or
     # combine multiple reward functions here
 
-    return exact_tool_match_reward(
-        messages=messages, ground_truth=ground_truth, **kwargs
-    )
+    return exact_tool_match_reward(messages=messages, ground_truth=ground_truth, **kwargs)

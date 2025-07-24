@@ -82,9 +82,7 @@ class TestRewardProtocolImports:
             assert hasattr(eval_protocol, submodule)
             assert hasattr(eval_protocol, submodule)
             # The submodules should be the same object
-            assert getattr(eval_protocol, submodule) is getattr(
-                eval_protocol, submodule
-            )
+            assert getattr(eval_protocol, submodule) is getattr(eval_protocol, submodule)
 
     def test_star_import_works(self):
         """Test that star imports work for both packages."""
@@ -180,9 +178,7 @@ class TestRewardProtocolImports:
         ]
 
         for script in expected_scripts:
-            assert (
-                script in setup_content
-            ), f"Console script '{script}' not found in pyproject.toml"
+            assert script in setup_content, f"Console script '{script}' not found in pyproject.toml"
 
     def test_package_structure_in_setup(self):
         """Test that both packages are included in setup.py."""

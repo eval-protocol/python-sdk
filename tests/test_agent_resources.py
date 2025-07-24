@@ -52,9 +52,7 @@ class TestPythonStateResource:
         assert await forked_resource.get_observation() == initial_state
         assert forked_resource._state is not original_resource._state
         assert forked_resource._state["data"] is not original_resource._state["data"]
-        assert (
-            forked_resource._state["nested"] is not original_resource._state["nested"]
-        )
+        assert forked_resource._state["nested"] is not original_resource._state["nested"]
 
     async def test_fork_independent_state(self):
         config = {"initial_state": {"key": "original_value", "num": 1}}
@@ -70,9 +68,7 @@ class TestPythonStateResource:
         await original_resource.step("update_state", {"key": "new_original_value"})
         await original_resource.step("update_state", {"num": 0})
         assert (await forked_resource.get_observation())["key"] == "forked_value"
-        assert (await original_resource.get_observation())[
-            "key"
-        ] == "new_original_value"
+        assert (await original_resource.get_observation())["key"] == "new_original_value"
 
     async def test_checkpoint_and_restore(self):
         initial_config = {"initial_state": {"val": 42, "items": ["a", "b"]}}
@@ -87,9 +83,7 @@ class TestPythonStateResource:
         expected_state = {"val": 43, "items": ["a", "b"], "new_item": "c"}
         assert await resource2.get_observation() == expected_state
         assert await resource1.get_observation() == expected_state
-        with pytest.raises(
-            (pickle.UnpicklingError, TypeError, AttributeError, ValueError)
-        ):
+        with pytest.raises((pickle.UnpicklingError, TypeError, AttributeError, ValueError)):
             await resource2.restore(b"invalid pickle data")
 
     async def test_step_update_state(self):
@@ -180,15 +174,10 @@ class TestSQLResource:
         original_resource = SQLResource()
         try:
             await original_resource.setup(config)
-            await original_resource.step(
-                "execute_sql", {"query": "INSERT INTO data (val) VALUES ('initial')"}
-            )
+            await original_resource.step("execute_sql", {"query": "INSERT INTO data (val) VALUES ('initial')"})
             forked_resource = await original_resource.fork()
             try:
-                assert (
-                    forked_resource._db_path is not None
-                    and forked_resource._db_path.exists()
-                )
+                assert forked_resource._db_path is not None and forked_resource._db_path.exists()
                 res_fork = await forked_resource.step(
                     "execute_sql",
                     {"query": "SELECT val FROM data", "fetch_mode": "one"},
@@ -196,9 +185,7 @@ class TestSQLResource:
                 assert res_fork["val"] == "initial"
                 await forked_resource.step(
                     "execute_sql",
-                    {
-                        "query": "UPDATE data SET val = 'forked_changed' WHERE val = 'initial'"
-                    },
+                    {"query": "UPDATE data SET val = 'forked_changed' WHERE val = 'initial'"},
                 )
                 res_orig = await original_resource.step(
                     "execute_sql",
@@ -219,17 +206,13 @@ class TestSQLResource:
         res1 = SQLResource()
         try:
             await res1.setup(config)
-            await res1.step(
-                "execute_sql", {"query": "INSERT INTO log (msg) VALUES ('message1')"}
-            )
+            await res1.step("execute_sql", {"query": "INSERT INTO log (msg) VALUES ('message1')"})
             checkpoint_info = await res1.checkpoint()
             checkpoint_file = Path(checkpoint_info["checkpoint_path"])
             assert checkpoint_file.exists()
             res2 = SQLResource()
             try:
-                await res2.setup(
-                    {"db_type": "sqlite", "db_name": "chkpt_res2_init.sqlite"}
-                )
+                await res2.setup({"db_type": "sqlite", "db_name": "chkpt_res2_init.sqlite"})
                 await res2.restore(checkpoint_info)
                 count_res2 = await res2.step(
                     "execute_sql",
@@ -267,18 +250,11 @@ class TestFileSystemResource:
         resource = FileSystemResource()
         try:
             await resource.setup(config)
-            assert (
-                resource._managed_dir_path is not None
-                and resource._managed_dir_path.exists()
-            )
+            assert resource._managed_dir_path is not None and resource._managed_dir_path.exists()
             # Add assertion for mypy
             assert resource._managed_dir_path is not None
-            assert (
-                resource._managed_dir_path / "file1.txt"
-            ).read_text() == "Hello World"
-            assert (
-                resource._managed_dir_path / "subdir" / "file2.py"
-            ).read_text() == "print('Python code')"
+            assert (resource._managed_dir_path / "file1.txt").read_text() == "Hello World"
+            assert (resource._managed_dir_path / "subdir" / "file2.py").read_text() == "print('Python code')"
         finally:
             await resource.close()
 
@@ -289,23 +265,14 @@ class TestFileSystemResource:
             await original_resource.setup(config)
             forked_resource = await original_resource.fork()
             try:
-                assert (
-                    forked_resource._managed_dir_path is not None
-                    and forked_resource._managed_dir_path.exists()
-                )
+                assert forked_resource._managed_dir_path is not None and forked_resource._managed_dir_path.exists()
                 # Add assertion for mypy
                 assert forked_resource._managed_dir_path is not None
-                assert (
-                    forked_resource._managed_dir_path / "original.txt"
-                ).read_text() == "original content"
-                (forked_resource._managed_dir_path / "forked_new.txt").write_text(
-                    "forked specific"
-                )
+                assert (forked_resource._managed_dir_path / "original.txt").read_text() == "original content"
+                (forked_resource._managed_dir_path / "forked_new.txt").write_text("forked specific")
                 # Add assertion for mypy
                 assert original_resource._managed_dir_path is not None
-                assert not (
-                    original_resource._managed_dir_path / "forked_new.txt"
-                ).exists()
+                assert not (original_resource._managed_dir_path / "forked_new.txt").exists()
             finally:
                 await forked_resource.close()
         finally:
@@ -324,9 +291,7 @@ class TestFileSystemResource:
                 await res2.setup({"base_dir_name": "fs_res2_init"})
                 await res2.restore(checkpoint_info)
                 assert res2._managed_dir_path is not None  # Ensure for mypy
-                assert (
-                    res2._managed_dir_path / "data.txt"
-                ).read_text() == "checkpoint me"
+                assert (res2._managed_dir_path / "data.txt").read_text() == "checkpoint me"
             finally:
                 await res2.close()
             if checkpoint_archive.exists():
@@ -380,9 +345,7 @@ class TestDockerResource:
         await docker_resource.setup(config)
         assert docker_resource._container is not None
         # Docker SDK calls are blocking, wrap in to_thread for async tests
-        container_status = await asyncio.to_thread(
-            getattr, docker_resource._container, "status"
-        )
+        container_status = await asyncio.to_thread(getattr, docker_resource._container, "status")
         assert container_status == "running"
         result = await docker_resource.step("exec_command", {"command": "echo hello"})
         assert result["exit_code"] == 0 and "hello" in result["output"]
@@ -394,15 +357,11 @@ class TestDockerResource:
                 "docker_run_options": {"command": ["tail", "-f", "/dev/null"]},
             }
         )
-        await docker_resource.step(
-            "exec_command", {"command": "touch /tmp/original_file.txt"}
-        )
+        await docker_resource.step("exec_command", {"command": "touch /tmp/original_file.txt"})
         forked_resource = await docker_resource.fork()
         try:
             assert forked_resource._container is not None
-            res_fork = await forked_resource.step(
-                "exec_command", {"command": "ls /tmp/original_file.txt"}
-            )
+            res_fork = await forked_resource.step("exec_command", {"command": "ls /tmp/original_file.txt"})
             assert res_fork["exit_code"] == 0
         finally:
             await forked_resource.close()
@@ -414,20 +373,14 @@ class TestDockerResource:
         }
         await docker_resource.setup(config)
         create_file_command = "sh -c \"echo 'initial_data' > /data.txt\""
-        create_file_result = await docker_resource.step(
-            "exec_command", {"command": create_file_command}
-        )
+        create_file_result = await docker_resource.step("exec_command", {"command": create_file_command})
         assert (
             create_file_result["exit_code"] == 0
         ), f"Failed to create /data.txt with '{create_file_command}': {create_file_result['output']}"
 
         # Optionally, verify file content immediately after creation in the source container
-        verify_result = await docker_resource.step(
-            "exec_command", {"command": "cat /data.txt"}
-        )
-        assert (
-            verify_result["exit_code"] == 0
-        ), f"Failed to cat /data.txt after creation: {verify_result['output']}"
+        verify_result = await docker_resource.step("exec_command", {"command": "cat /data.txt"})
+        assert verify_result["exit_code"] == 0, f"Failed to cat /data.txt after creation: {verify_result['output']}"
         assert (
             "initial_data" in verify_result["output"]
         ), f"/data.txt content mismatch after creation: {verify_result['output']}"
@@ -438,9 +391,7 @@ class TestDockerResource:
         try:
             await restored_resource.setup(config)
             await restored_resource.restore(checkpoint_info)
-            result = await restored_resource.step(
-                "exec_command", {"command": "cat /data.txt"}
-            )
+            result = await restored_resource.step("exec_command", {"command": "cat /data.txt"})
             assert "initial_data" in result["output"]
         finally:
             await restored_resource.close()
@@ -450,21 +401,15 @@ class TestDockerResource:
             if checkpoint_image_id:
                 try:
                     # Check if it's the base image to avoid removing it if tests are re-run without pulling
-                    base_image_obj = await asyncio.to_thread(
-                        docker_resource._client.images.get, self.TEST_IMAGE
-                    )
+                    base_image_obj = await asyncio.to_thread(docker_resource._client.images.get, self.TEST_IMAGE)
                     if base_image_obj.id != checkpoint_image_id:
                         await asyncio.to_thread(
                             docker_resource._client.images.remove,
                             image=checkpoint_image_id,
                             force=True,
                         )
-                except (
-                    Exception
-                ) as e:  # Catch NotFound from get or APIError from remove
-                    print(
-                        f"Warning: failed to cleanup checkpoint image {checkpoint_image_id}: {e}"
-                    )
+                except Exception as e:  # Catch NotFound from get or APIError from remove
+                    print(f"Warning: failed to cleanup checkpoint image {checkpoint_image_id}: {e}")
 
     async def test_close_docker_resource(self, docker_resource: DockerResource):
         await docker_resource.setup(
@@ -473,13 +418,9 @@ class TestDockerResource:
                 "docker_run_options": {"command": ["tail", "-f", "/dev/null"]},
             }
         )
-        assert (
-            docker_resource._container is not None
-        )  # Ensure container exists before accessing id
+        assert docker_resource._container is not None  # Ensure container exists before accessing id
         container_id = docker_resource._container.id
         await docker_resource.close()
         assert docker_resource._container is None
         with pytest.raises(Exception):
-            await asyncio.to_thread(
-                docker_resource._client.containers.get, container_id
-            )
+            await asyncio.to_thread(docker_resource._client.containers.get, container_id)

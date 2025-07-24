@@ -53,9 +53,7 @@ def evaluate(
         assistant_response = assistant_message.content or ""
 
     # Evaluate numerical accuracy using built-in function
-    accuracy_result = math_reward(
-        messages=messages, ground_truth=ground_truth, **kwargs
-    )
+    accuracy_result = math_reward(messages=messages, ground_truth=ground_truth, **kwargs)
 
     # Evaluate format compliance (looking for <think>...</think><answer>...</answer> format)
     format_correct = check_think_answer_format(assistant_response)

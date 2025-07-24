@@ -70,9 +70,7 @@ class TaxiAdapter(EnvironmentAdapter):
         # Add action guidance
         if decoded["passenger_location"] == 4:
             # Passenger in taxi - need to dropoff
-            action_guidance = (
-                f"must dropoff passenger at {destination_symbol} ({destination_name})"
-            )
+            action_guidance = f"must dropoff passenger at {destination_symbol} ({destination_name})"
         else:
             # Passenger not in taxi - need to pickup
             action_guidance = "must pickup passenger"
@@ -115,15 +113,11 @@ class TaxiAdapter(EnvironmentAdapter):
 
         return env, obs, info
 
-    def reset_environment(
-        self, env: TaxiEnv, seed: Optional[int] = None
-    ) -> Tuple[int, Dict[str, Any]]:
+    def reset_environment(self, env: TaxiEnv, seed: Optional[int] = None) -> Tuple[int, Dict[str, Any]]:
         """Reset environment to initial state."""
         return env.reset(seed=seed)
 
-    def step_environment(
-        self, env: TaxiEnv, action: int
-    ) -> Tuple[int, float, bool, bool, Dict[str, Any]]:
+    def step_environment(self, env: TaxiEnv, action: int) -> Tuple[int, float, bool, bool, Dict[str, Any]]:
         """Execute environment step."""
         return env.step(action)
 
@@ -135,9 +129,7 @@ class TaxiAdapter(EnvironmentAdapter):
         """Parse action string to integer."""
         action_str = action_str.upper().strip()
         if action_str not in self.ACTION_NAMES:
-            raise ValueError(
-                f"Invalid action '{action_str}'. Must be one of {self.ACTION_NAMES}"
-            )
+            raise ValueError(f"Invalid action '{action_str}'. Must be one of {self.ACTION_NAMES}")
         return self.ACTION_NAMES.index(action_str)
 
     def format_observation(self, observation: int) -> int:
@@ -191,9 +183,7 @@ class TaxiAdapter(EnvironmentAdapter):
         for r, desc_row in enumerate(desc):
             line = ""
             for c, cell in enumerate(desc_row):
-                cell_char = (
-                    cell.decode("utf-8") if isinstance(cell, bytes) else str(cell)
-                )
+                cell_char = cell.decode("utf-8") if isinstance(cell, bytes) else str(cell)
 
                 # Show taxi position
                 if r == taxi_visual_row and c == taxi_visual_col:

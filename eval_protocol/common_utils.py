@@ -24,9 +24,7 @@ def load_jsonl(file_path: str) -> List[Dict[str, Any]]:
                 try:
                     data.append(json.loads(line.strip()))
                 except json.JSONDecodeError as e:
-                    logger.error(
-                        f"Error decoding JSON on line {i+1} in {file_path}: {e} - Line: '{line.strip()}'"
-                    )
+                    logger.error(f"Error decoding JSON on line {i+1} in {file_path}: {e} - Line: '{line.strip()}'")
                     # Optionally, re-raise, or return partial data, or handle as per desired strictness
                     # For now, we'll log and continue, returning successfully parsed lines.
     except FileNotFoundError:

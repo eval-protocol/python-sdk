@@ -207,9 +207,7 @@ class TestTagCountReward(unittest.TestCase):
         # Dictionary access
         self.assertEqual(result["score"], 1.0)
         self.assertEqual(result["metrics"]["overall"]["is_score_valid"], True)
-        self.assertIn(
-            "3 balanced 'step' tag(s)", result["metrics"]["tag_step"]["reason"]
-        )
+        self.assertIn("3 balanced 'step' tag(s)", result["metrics"]["tag_step"]["reason"])
 
     def test_no_messages(self):
         """Test behavior with empty messages list."""

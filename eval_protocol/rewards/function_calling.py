@@ -50,9 +50,7 @@ def match_function_call(
     name_match = function_name == expected_name
     name_score = 1.0 if name_match else 0.0
     name_reason = f"Function name {'matches' if name_match else 'does not match'}: expected '{expected_name}', got '{function_name}'"
-    metrics["function_name_match"] = MetricResult(
-        score=name_score, reason=name_reason, is_score_valid=name_match
-    )
+    metrics["function_name_match"] = MetricResult(score=name_score, reason=name_reason, is_score_valid=name_match)
 
     # 2. Arguments match
     expected_args = expected_call_schema.get("arguments", {})
@@ -75,40 +73,28 @@ def match_function_call(
             type_matched = True
             if expected_type == "string" and not isinstance(arg_value, str):
                 type_mismatches.append(arg_name)
-                arg_details.append(
-                    f"Type mismatch for {arg_name}: expected string, got {type(arg_value).__name__}"
-                )
+                arg_details.append(f"Type mismatch for {arg_name}: expected string, got {type(arg_value).__name__}")
                 type_matched = False
             elif expected_type == "number" and not isinstance(arg_value, (int, float)):
                 type_mismatches.append(arg_name)
-                arg_details.append(
-                    f"Type mismatch for {arg_name}: expected number, got {type(arg_value).__name__}"
-                )
+                arg_details.append(f"Type mismatch for {arg_name}: expected number, got {type(arg_value).__name__}")
                 type_matched = False
             elif expected_type == "boolean" and not isinstance(arg_value, bool):
                 type_mismatches.append(arg_name)
-                arg_details.append(
-                    f"Type mismatch for {arg_name}: expected boolean, got {type(arg_value).__name__}"
-                )
+                arg_details.append(f"Type mismatch for {arg_name}: expected boolean, got {type(arg_value).__name__}")
                 type_matched = False
             elif expected_type == "array" and not isinstance(arg_value, list):
                 type_mismatches.append(arg_name)
-                arg_details.append(
-                    f"Type mismatch for {arg_name}: expected array, got {type(arg_value).__name__}"
-                )
+                arg_details.append(f"Type mismatch for {arg_name}: expected array, got {type(arg_value).__name__}")
                 type_matched = False
             elif expected_type == "object" and not isinstance(arg_value, dict):
                 type_mismatches.append(arg_name)
-                arg_details.append(
-                    f"Type mismatch for {arg_name}: expected object, got {type(arg_value).__name__}"
-                )
+                arg_details.append(f"Type mismatch for {arg_name}: expected object, got {type(arg_value).__name__}")
                 type_matched = False
 
             if type_matched:
                 perfect_matches.append(arg_name)
-                arg_details.append(
-                    f"Argument {arg_name} matches expected type {expected_type}"
-                )
+                arg_details.append(f"Argument {arg_name} matches expected type {expected_type}")
 
     for arg_name in parsed_arguments:
         if arg_name not in expected_args:
@@ -130,18 +116,13 @@ def match_function_call(
             else:
                 correct_args = len(perfect_matches)
                 arg_score = correct_args / total_provided
-    elif (
-        argument_match_strictness == "permissive"
-        or argument_match_strictness == "flexible"
-    ):
+    elif argument_match_strictness == "permissive" or argument_match_strictness == "flexible":
         if missing_args or type_mismatches:
             arg_score = 0.0
         else:
             arg_score = 1.0
     else:
-        raise ValueError(
-            f"Invalid argument_match_strictness: {argument_match_strictness}"
-        )
+        raise ValueError(f"Invalid argument_match_strictness: {argument_match_strictness}")
 
     arg_reason = "\n".join(arg_details)
     metrics["arguments_match"] = MetricResult(
@@ -250,7 +231,7 @@ def normalize_schema(schema: Union[Dict[str, Any], str]) -> Dict[str, Any]:
 
 
 def maybe_deserialize_tool_call_arguments(
-    tool_calls: list[dict[str, Any]]
+    tool_calls: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """
     Deserializes the 'arguments' field (if it's a JSON string) within each tool call's 'function' object.
@@ -266,10 +247,7 @@ def maybe_deserialize_tool_call_arguments(
             continue
 
         function_details = tc_openai_format.get("function", {})
-        if (
-            not isinstance(function_details, dict)
-            or "arguments" not in function_details
-        ):
+        if not isinstance(function_details, dict) or "arguments" not in function_details:
             continue
 
         arguments_val = function_details["arguments"]
@@ -309,12 +287,8 @@ def compare_tool_calls(generated_tool_calls: list, gt_tool_calls: list) -> bool:
     if len(generated_tool_calls) != len(gt_tool_calls):
         return False
 
-    generated_tool_calls_serialized = [
-        json.dumps(item, sort_keys=True) for item in generated_tool_calls
-    ]
-    gt_tool_calls_serialized = [
-        json.dumps(item, sort_keys=True) for item in gt_tool_calls
-    ]
+    generated_tool_calls_serialized = [json.dumps(item, sort_keys=True) for item in generated_tool_calls]
+    gt_tool_calls_serialized = [json.dumps(item, sort_keys=True) for item in gt_tool_calls]
 
     return generated_tool_calls_serialized == gt_tool_calls_serialized
 
@@ -325,12 +299,8 @@ def eval_tool_call(generation: dict, ground_truth: dict) -> bool:
     else:
         expected_gt_tool_calls = ground_truth["tool_calls"]
 
-    deserialized_gt_openai_tool_calls = maybe_deserialize_tool_call_arguments(
-        expected_gt_tool_calls or []
-    )
-    ground_truth_simple_format = [
-        tc["function"] for tc in deserialized_gt_openai_tool_calls if "function" in tc
-    ]
+    deserialized_gt_openai_tool_calls = maybe_deserialize_tool_call_arguments(expected_gt_tool_calls or [])
+    ground_truth_simple_format = [tc["function"] for tc in deserialized_gt_openai_tool_calls if "function" in tc]
 
     generated_simple_format = []
     raw_generated_tool_calls = generation.get("tool_calls")
@@ -346,11 +316,7 @@ def eval_tool_call(generation: dict, ground_truth: dict) -> bool:
         deserialized_gen_openai_tool_calls = maybe_deserialize_tool_call_arguments(
             processed_gen_tool_calls_openai_format
         )
-        generated_simple_format = [
-            tc["function"]
-            for tc in deserialized_gen_openai_tool_calls
-            if "function" in tc
-        ]
+        generated_simple_format = [tc["function"] for tc in deserialized_gen_openai_tool_calls if "function" in tc]
     elif generation.get("content") and "<tool_call>" in generation["content"]:
         parsed_tool_calls_from_content_str = parse_tool_calls(generation["content"])
         temp_openai_formatted_list = []
@@ -374,14 +340,8 @@ def eval_tool_call(generation: dict, ground_truth: dict) -> bool:
                 )
 
         if temp_openai_formatted_list:
-            deserialized_calls_from_content = maybe_deserialize_tool_call_arguments(
-                temp_openai_formatted_list
-            )
-            generated_simple_format = [
-                tc["function"]
-                for tc in deserialized_calls_from_content
-                if "function" in tc
-            ]
+            deserialized_calls_from_content = maybe_deserialize_tool_call_arguments(temp_openai_formatted_list)
+            generated_simple_format = [tc["function"] for tc in deserialized_calls_from_content if "function" in tc]
 
     return compare_tool_calls(generated_simple_format, ground_truth_simple_format)
 
@@ -393,9 +353,7 @@ def exact_tool_match_reward(
     **kwargs,
 ) -> EvaluateResult:
     if not messages:
-        return EvaluateResult(
-            score=0.0, reason="No messages provided for evaluation.", metrics={}
-        )
+        return EvaluateResult(score=0.0, reason="No messages provided for evaluation.", metrics={})
 
     generation_message_obj = messages[-1]
     generation_dict: Dict[str, Any]
@@ -407,8 +365,7 @@ def exact_tool_match_reward(
         }
         if generation_message_obj.tool_calls:
             generation_dict["tool_calls"] = [
-                tc.model_dump() if hasattr(tc, "model_dump") else tc
-                for tc in generation_message_obj.tool_calls
+                tc.model_dump() if hasattr(tc, "model_dump") else tc for tc in generation_message_obj.tool_calls
             ]
     elif isinstance(generation_message_obj, dict):
         generation_dict = generation_message_obj
@@ -428,7 +385,9 @@ def exact_tool_match_reward(
                 has_generation_tool_calls = True
 
         score = 1.0 if not has_generation_tool_calls else 0.0
-        reason = "Ground truth not provided. Score based on absence (1.0) or presence (0.0) of tool calls in generation."
+        reason = (
+            "Ground truth not provided. Score based on absence (1.0) or presence (0.0) of tool calls in generation."
+        )
         return EvaluateResult(score=score, reason=reason, metrics={})
 
     if isinstance(ground_truth, str):
@@ -490,9 +449,7 @@ def schema_jaccard_reward(
         DeprecationWarning,
         stacklevel=2,
     )
-    return exact_tool_match_reward(
-        messages=messages, ground_truth=ground_truth, **kwargs
-    )
+    return exact_tool_match_reward(messages=messages, ground_truth=ground_truth, **kwargs)
 
 
 @reward_function
@@ -534,9 +491,7 @@ def llm_judge_reward(
         DeprecationWarning,
         stacklevel=2,
     )
-    return exact_tool_match_reward(
-        messages=messages, ground_truth=ground_truth, **kwargs
-    )
+    return exact_tool_match_reward(messages=messages, ground_truth=ground_truth, **kwargs)
 
 
 @reward_function
@@ -580,9 +535,7 @@ def composite_function_call_reward(
         DeprecationWarning,
         stacklevel=2,
     )
-    return exact_tool_match_reward(
-        messages=messages, ground_truth=ground_truth, **kwargs
-    )
+    return exact_tool_match_reward(messages=messages, ground_truth=ground_truth, **kwargs)
 
 
 # JSON schema reward functions have been moved to json_schema.py module

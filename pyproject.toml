@@ -92,3 +92,6 @@ versionfile_source = "eval_protocol/_version.py"
 versionfile_build = "eval_protocol/_version.py"
 tag_prefix = "v"
 parentdir_prefix = "reward-kit-"
+
+[tool.black]
+line-length = 119

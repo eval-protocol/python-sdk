@@ -94,9 +94,7 @@ class PythonStateResource(ForkableResource):
                 raise ValueError("Missing 'key' in action_params for 'get_value'")
             return self._state.get(key)
         else:
-            raise NotImplementedError(
-                f"Action '{action_name}' is not implemented for PythonStateResource."
-            )
+            raise NotImplementedError(f"Action '{action_name}' is not implemented for PythonStateResource.")
 
     async def get_observation(self) -> Dict[str, Any]:
         """

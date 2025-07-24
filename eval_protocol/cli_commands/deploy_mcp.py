@@ -65,9 +65,7 @@ def _generate_mcp_dockerfile_content(
     ]
 
     if additional_requirements:
-        requirements = base_requirements + [
-            req.strip() for req in additional_requirements.split("\n") if req.strip()
-        ]
+        requirements = base_requirements + [req.strip() for req in additional_requirements.split("\n") if req.strip()]
     else:
         requirements = base_requirements
 
@@ -134,9 +132,7 @@ def _deploy_mcp_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
 
     # Validate required arguments - either dockerfile or mcp-server-module must be provided
     if not args.dockerfile and not args.mcp_server_module:
-        print(
-            "Error: Either --dockerfile or --mcp-server-module is required for MCP server deployment."
-        )
+        print("Error: Either --dockerfile or --mcp-server-module is required for MCP server deployment.")
         return None
 
     # Resolve GCP configuration
@@ -144,9 +140,7 @@ def _deploy_mcp_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
     if not gcp_project_id and gcp_config_from_yaml:
         gcp_project_id = gcp_config_from_yaml.project_id
     if not gcp_project_id:
-        print(
-            "Error: GCP Project ID must be provided via --gcp-project or rewardkit.yaml."
-        )
+        print("Error: GCP Project ID must be provided via --gcp-project or rewardkit.yaml.")
         return None
 
     gcp_region = args.gcp_region
@@ -162,17 +156,13 @@ def _deploy_mcp_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
     if not gcp_ar_repo_name:
         gcp_ar_repo_name = "reward-kit-mcp-servers"
 
-    print(
-        f"Using GCP Project: {gcp_project_id}, Region: {gcp_region}, AR Repo: {gcp_ar_repo_name}"
-    )
+    print(f"Using GCP Project: {gcp_project_id}, Region: {gcp_region}, AR Repo: {gcp_ar_repo_name}")
 
     # Ensure Artifact Registry repository exists
     if not ensure_artifact_registry_repo_exists(
         project_id=gcp_project_id, region=gcp_region, repo_name=gcp_ar_repo_name
     ):
-        print(
-            f"Failed to ensure Artifact Registry repository '{gcp_ar_repo_name}' exists. Aborting."
-        )
+        print(f"Failed to ensure Artifact Registry repository '{gcp_ar_repo_name}' exists. Aborting.")
         return None
 
     # Determine Dockerfile content - use provided file or generate
@@ -250,9 +240,7 @@ def _deploy_mcp_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
     print(f"🔗 MCP Connection URL: {cloud_run_service_url}")
     print(f"📋 Service Name: {args.id}")
     deployment_method = (
-        "local Dockerfile"
-        if (hasattr(args, "dockerfile") and args.dockerfile)
-        else "auto-generated Dockerfile"
+        "local Dockerfile" if (hasattr(args, "dockerfile") and args.dockerfile) else "auto-generated Dockerfile"
     )
     print(f"🐳 Deployment Method: {deployment_method}")
     print()
@@ -271,9 +259,7 @@ def deploy_mcp_command(args):
 
     # Check environment (similar to existing deploy command)
     if not check_environment():
-        print(
-            "Environment check failed. Please resolve the issues above before deploying."
-        )
+        print("Environment check failed. Please resolve the issues above before deploying.")
         return False
 
     try:
@@ -284,9 +270,7 @@ def deploy_mcp_command(args):
             gcp_config_from_yaml = current_config.gcp_cloud_run
 
         # Deploy to GCP Cloud Run
-        service_url = _deploy_mcp_to_gcp_cloud_run(
-            args, current_config, gcp_config_from_yaml
-        )
+        service_url = _deploy_mcp_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml)
 
         if service_url:
             print(f"✅ MCP server '{args.id}' successfully deployed!")

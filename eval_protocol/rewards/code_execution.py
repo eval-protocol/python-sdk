@@ -68,9 +68,7 @@ def _target_func_for_execution(result_container, execute_func, args):
         )
 
 
-def extract_code_blocks(
-    text: str, language: Optional[str] = None
-) -> List[Dict[str, str]]:
+def extract_code_blocks(text: str, language: Optional[str] = None) -> List[Dict[str, str]]:
     """
     Extract code blocks from text.
 
@@ -93,9 +91,7 @@ def extract_code_blocks(
     verbose_regex_patterns = [
         re.compile(r"<think>.*?</think>", re.DOTALL),
         re.compile(r"<reasoning>.*?</reasoning>", re.DOTALL),
-        re.compile(
-            r"Thinking:\s*.*?(?=\n\S)", re.DOTALL
-        ),  # Matches "Thinking: ..." until a new non-whitespace line
+        re.compile(r"Thinking:\s*.*?(?=\n\S)", re.DOTALL),  # Matches "Thinking: ..." until a new non-whitespace line
         re.compile(r"^\s*Here's the Python code.*?\n", re.MULTILINE | re.IGNORECASE),
         re.compile(r"^\s*Okay, here is the code:.*?\n", re.MULTILINE | re.IGNORECASE),
     ]
@@ -112,9 +108,7 @@ def extract_code_blocks(
             cleaned_code_content = verbose_pattern.sub("", cleaned_code_content)
 
         if cleaned_code_content != original_code_content:
-            verbose_patterns_removed.append(
-                f"Verbose content removed from '{detected_lang}' block."
-            )
+            verbose_patterns_removed.append(f"Verbose content removed from '{detected_lang}' block.")
 
         block_info = {
             "language": detected_lang,
@@ -217,12 +211,8 @@ def local_code_execution_reward(
     elif language.lower() in ["javascript", "js"]:
         execution_result = execute_javascript_code(code, timeout)
     else:
-        metrics["error"] = MetricResult(
-            score=0.0, reason=f"Unsupported language: {language}", is_score_valid=False
-        )
-        return EvaluateResult(
-            score=0.0, reason=f"Unsupported language: {language}", metrics=metrics
-        )
+        metrics["error"] = MetricResult(score=0.0, reason=f"Unsupported language: {language}", is_score_valid=False)
+        return EvaluateResult(score=0.0, reason=f"Unsupported language: {language}", metrics=metrics)
 
     if execution_result["success"]:
         output = execution_result["output"]
@@ -235,15 +225,15 @@ def local_code_execution_reward(
 
         if expected_output_str:
             similarity = compare_outputs(output, expected_output_str)
-            match_reason = f"Output similarity: {similarity:.2f}\n\nExpected:\n{expected_output_str}\n\nActual:\n{output}"
+            match_reason = (
+                f"Output similarity: {similarity:.2f}\n\nExpected:\n{expected_output_str}\n\nActual:\n{output}"
+            )
 
             metrics["output_match"] = MetricResult(
                 score=similarity, reason=match_reason, is_score_valid=similarity == 1.0
             )
             final_reason = f"Execution successful. Output similarity: {similarity:.2f}."
-            return EvaluateResult(
-                score=similarity, reason=final_reason, metrics=metrics
-            )
+            return EvaluateResult(score=similarity, reason=final_reason, metrics=metrics)
 
         final_reason = "Execution successful. No expected output to compare."
         return EvaluateResult(score=1.0, reason=final_reason, metrics=metrics)
@@ -259,9 +249,7 @@ def local_code_execution_reward(
         return EvaluateResult(score=0.0, reason=final_reason, metrics=metrics)
 
 
-def _process_target_wrapper(
-    execute_func: Callable, args: Tuple, result_container: DictProxy
-):
+def _process_target_wrapper(execute_func: Callable, args: Tuple, result_container: DictProxy):
     try:
         result = execute_func(*args)
         result_container.update(result)
@@ -276,9 +264,7 @@ def _process_target_wrapper(
         )
 
 
-def _execute_code_in_process(
-    execute_func: Callable, args: Tuple, timeout: int = 5
-) -> Dict[str, Any]:
+def _execute_code_in_process(execute_func: Callable, args: Tuple, timeout: int = 5) -> Dict[str, Any]:
     """
     Execute code in a separate process with timeout and resource limits.
 
@@ -295,9 +281,7 @@ def _execute_code_in_process(
     manager = multiprocessing.Manager()
     result_dict = manager.dict()
 
-    process = multiprocessing.Process(
-        target=_process_target_wrapper, args=(execute_func, args, result_dict)
-    )
+    process = multiprocessing.Process(target=_process_target_wrapper, args=(execute_func, args, result_dict))
     process.start()
     process.join(timeout=timeout + 0.5)
 
@@ -381,9 +365,7 @@ def _execute_python_in_subprocess(code: str, timeout: int) -> Dict[str, Any]:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                preexec_fn=lambda: resource.setrlimit(
-                    resource.RLIMIT_CPU, (timeout, timeout + 1)
-                ),
+                preexec_fn=lambda: resource.setrlimit(resource.RLIMIT_CPU, (timeout, timeout + 1)),
             )
 
             stdout, stderr = process.communicate()
@@ -427,9 +409,7 @@ def execute_python_code(code: str, timeout: int = 5) -> Dict[str, Any]:
     Returns:
         Dictionary with execution results
     """
-    return _execute_code_in_process(
-        _execute_python_in_subprocess, args=(code, timeout), timeout=timeout
-    )
+    return _execute_code_in_process(_execute_python_in_subprocess, args=(code, timeout), timeout=timeout)
 
 
 def _execute_javascript_in_subprocess(code: str, timeout: int) -> Dict[str, Any]:
@@ -533,8 +513,7 @@ def _execute_javascript_in_subprocess(code: str, timeout: int) -> Dict[str, Any]
                 return {
                     "success": False,
                     "output": None,
-                    "error": stderr.strip()
-                    or f"JavaScript process exited with code {process.returncode}",
+                    "error": stderr.strip() or f"JavaScript process exited with code {process.returncode}",
                 }
         except TimeoutError as e:
             process.kill()
@@ -569,9 +548,7 @@ def execute_javascript_code(code: str, timeout: int = 5) -> Dict[str, Any]:
     Returns:
         Dictionary with execution results
     """
-    return _execute_code_in_process(
-        _execute_javascript_in_subprocess, args=(code, timeout), timeout=timeout
-    )
+    return _execute_code_in_process(_execute_javascript_in_subprocess, args=(code, timeout), timeout=timeout)
 
 
 def compare_outputs(actual: str, expected: str) -> float:
@@ -629,8 +606,7 @@ def compare_outputs(actual: str, expected: str) -> float:
 
             len_similarity = 1.0 - min(
                 1.0,
-                abs(len(actual_list) - len(expected_list))
-                / max(1, max(len(actual_list), len(expected_list))),
+                abs(len(actual_list) - len(expected_list)) / max(1, max(len(actual_list), len(expected_list))),
             )
 
             items_similarity = 0.0
@@ -656,8 +632,7 @@ def compare_outputs(actual: str, expected: str) -> float:
 
         len_similarity = 1.0 - min(
             1.0,
-            abs(len(actual_lines) - len(expected_lines))
-            / max(1, max(len(actual_lines), len(expected_lines))),
+            abs(len(actual_lines) - len(expected_lines)) / max(1, max(len(actual_lines), len(expected_lines))),
         )
 
         lines_similarity = 0.0
@@ -994,9 +969,7 @@ def e2b_code_execution_reward(
             is_score_valid=True,
         )
 
-    execution_result = execute_code_with_e2b(
-        code=code, language=language, timeout=timeout, api_key=api_key
-    )
+    execution_result = execute_code_with_e2b(code=code, language=language, timeout=timeout, api_key=api_key)
 
     if execution_result["success"]:
         output = execution_result["output"]
@@ -1009,17 +982,15 @@ def e2b_code_execution_reward(
 
         if expected_output_str:
             similarity = compare_outputs(output, expected_output_str)
-            match_reason = f"Output similarity: {similarity:.2f}\n\nExpected:\n{expected_output_str}\n\nActual:\n{output}"
+            match_reason = (
+                f"Output similarity: {similarity:.2f}\n\nExpected:\n{expected_output_str}\n\nActual:\n{output}"
+            )
 
             metrics["output_match"] = MetricResult(
                 score=similarity, reason=match_reason, is_score_valid=similarity == 1.0
             )
-            final_reason = (
-                f"E2B execution successful. Output similarity: {similarity:.2f}."
-            )
-            return EvaluateResult(
-                score=similarity, reason=final_reason, metrics=metrics
-            )
+            final_reason = f"E2B execution successful. Output similarity: {similarity:.2f}."
+            return EvaluateResult(score=similarity, reason=final_reason, metrics=metrics)
 
         final_reason = "E2B execution successful. No expected output to compare."
         return EvaluateResult(score=1.0, reason=final_reason, metrics=metrics)
@@ -1141,9 +1112,7 @@ def fractional_code_reward(
     metrics_strings["extracted_code"] = f"Extracted code:\n```{language}\n{code}\n```"
 
     if expected_output_str_from_gt and not test_cases_from_gt:
-        metrics_strings["expected_output"] = (
-            f"Expected output:\n{expected_output_str_from_gt}"
-        )
+        metrics_strings["expected_output"] = f"Expected output:\n{expected_output_str_from_gt}"
 
     if test_cases_from_gt:
         return _run_test_cases(
@@ -1170,9 +1139,7 @@ def fractional_code_reward(
                     )
                 },
             )
-        execution_result = execute_code_with_e2b(
-            code=code, language=language, timeout=timeout, api_key=api_key
-        )
+        execution_result = execute_code_with_e2b(code=code, language=language, timeout=timeout, api_key=api_key)
     else:
         if language.lower() == "python":
             execution_result = execute_python_code(code, timeout)
@@ -1180,9 +1147,7 @@ def fractional_code_reward(
             execution_result = execute_javascript_code(code, timeout)
         else:
             final_metrics_on_error: Dict[str, MetricResult] = {
-                k: MetricResult(
-                    score=0.0, reason=v, is_score_valid=(k == "extracted_code")
-                )
+                k: MetricResult(score=0.0, reason=v, is_score_valid=(k == "extracted_code"))
                 for k, v in metrics_strings.items()
             }
             final_metrics_on_error["error"] = MetricResult(
@@ -1201,8 +1166,7 @@ def fractional_code_reward(
             score=0.0,
             reason=v,
             is_score_valid=(
-                k == "extracted_code"
-                or (k == "expected_output" and expected_output_str_from_gt is not None)
+                k == "extracted_code" or (k == "expected_output" and expected_output_str_from_gt is not None)
             ),
         )
         for k, v in metrics_strings.items()
@@ -1218,19 +1182,17 @@ def fractional_code_reward(
 
         if expected_output_str_from_gt:
             similarity = compare_outputs(output, expected_output_str_from_gt)
-            match_reason = f"Output similarity: {similarity:.2f}\n\nExpected:\n{expected_output_str_from_gt}\n\nActual:\n{output}"
+            match_reason = (
+                f"Output similarity: {similarity:.2f}\n\nExpected:\n{expected_output_str_from_gt}\n\nActual:\n{output}"
+            )
             metric_results["output_match"] = MetricResult(
                 score=similarity, reason=match_reason, is_score_valid=similarity == 1.0
             )
             final_reason = f"Fractional code execution successful. Output similarity: {similarity:.2f}."
-            return EvaluateResult(
-                score=similarity, reason=final_reason, metrics=metric_results
-            )
+            return EvaluateResult(score=similarity, reason=final_reason, metrics=metric_results)
         else:
             final_reason = "Fractional code execution successful. No expected output string to compare."
-            return EvaluateResult(
-                score=1.0, reason=final_reason, metrics=metric_results
-            )
+            return EvaluateResult(score=1.0, reason=final_reason, metrics=metric_results)
     else:
         error = execution_result["error"]
         metric_results["execution_result"] = MetricResult(
@@ -1250,9 +1212,7 @@ def _run_test_cases(
     environment: str,
     api_key: Optional[str] = None,
     function_to_call: Optional[str] = None,
-    prompt_for_name_extraction: Optional[
-        str
-    ] = None,  # Not used yet, but for future use
+    prompt_for_name_extraction: Optional[str] = None,  # Not used yet, but for future use
     **kwargs: Any,  # Keep kwargs for flexibility, though function_to_call is now explicit
 ) -> EvaluateResult:  # Changed return type hint to match actual returns
     """
@@ -1279,19 +1239,13 @@ def _run_test_cases(
         return EvaluateResult(
             score=0.0,
             reason="No test cases provided",
-            metrics={
-                "error": MetricResult(
-                    score=0.0, reason="No test cases provided", is_score_valid=False
-                )
-            },
+            metrics={"error": MetricResult(score=0.0, reason="No test cases provided", is_score_valid=False)},
         )
 
     if language.lower() in ["python", "py"]:
         if function_to_call:
 
-            def prepare_test_code(
-                user_code: str, test_input_str: str, func_name: Optional[str]
-            ) -> str:
+            def prepare_test_code(user_code: str, test_input_str: str, func_name: Optional[str]) -> str:
                 import ast
                 import json
 
@@ -1305,11 +1259,7 @@ def _run_test_cases(
                                 return val
                         else:
                             try:
-                                if (
-                                    "." in stripped_val
-                                    or "e" in stripped_val.lower()
-                                    or "E" in stripped_val
-                                ):
+                                if "." in stripped_val or "e" in stripped_val.lower() or "E" in stripped_val:
                                     return float(stripped_val)
                                 else:
                                     return int(stripped_val)
@@ -1345,9 +1295,7 @@ def _run_test_cases(
                         for part_str in arg_parts:
                             try:
                                 val_from_part_ast = ast.literal_eval(part_str)
-                                parsed_args.append(
-                                    refine_evaluated_value(val_from_part_ast)
-                                )
+                                parsed_args.append(refine_evaluated_value(val_from_part_ast))
                             except (ValueError, SyntaxError):
                                 parsed_args.append(refine_evaluated_value(part_str))
 
@@ -1371,12 +1319,8 @@ except Exception as e:
 
         else:
 
-            def prepare_test_code(
-                user_code: str, test_input_str: str, func_name: Optional[str]
-            ) -> str:
-                escaped_test_input = json.dumps(test_input_str)[1:-1].replace(
-                    "'''", "'\\''\\''\\''"
-                )
+            def prepare_test_code(user_code: str, test_input_str: str, func_name: Optional[str]) -> str:
+                escaped_test_input = json.dumps(test_input_str)[1:-1].replace("'''", "'\\''\\''\\''")
                 return f"""import sys
 from io import StringIO
 
@@ -1399,9 +1343,7 @@ print(captured_stdout.getvalue(), end='')
     elif language.lower() in ["javascript", "js"]:
         if function_to_call:
 
-            def prepare_test_code(
-                user_code: str, test_input_str: str, func_name: Optional[str]
-            ) -> str:
+            def prepare_test_code(user_code: str, test_input_str: str, func_name: Optional[str]) -> str:
                 args_str = test_input_str.strip()
                 parsed_args_js = []
                 if args_str:
@@ -1409,8 +1351,7 @@ print(captured_stdout.getvalue(), end='')
                         if arg.isdigit() or (arg.startswith("-") and arg[1:].isdigit()):
                             parsed_args_js.append(arg)
                         elif "." in arg and all(
-                            c.isdigit() or c == "." or (i == 0 and c == "-")
-                            for i, c in enumerate(arg)
+                            c.isdigit() or c == "." or (i == 0 and c == "-") for i, c in enumerate(arg)
                         ):
                             try:
                                 float(arg)
@@ -1434,9 +1375,7 @@ try {{
 
         else:
 
-            def prepare_test_code(
-                user_code: str, test_input_str: str, func_name: Optional[str]
-            ) -> str:
+            def prepare_test_code(user_code: str, test_input_str: str, func_name: Optional[str]) -> str:
                 input_lines = test_input_str.strip().split("\n")
                 input_setup = "const inputs = " + json.dumps(input_lines) + ";\n"
                 input_setup += "let inputIndex = 0;\n"
@@ -1530,14 +1469,8 @@ process.stdout.write(output);
             normalized_output = normalize_output(output)
             normalized_expected = normalize_output(expected)
 
-            expected_repr = (
-                repr(expected)
-                if function_to_call and language.lower() in ["python", "py"]
-                else None
-            )
-            normalized_expected_repr = (
-                normalize_output(expected_repr) if expected_repr else None
-            )
+            expected_repr = repr(expected) if function_to_call and language.lower() in ["python", "py"] else None
+            normalized_expected_repr = normalize_output(expected_repr) if expected_repr else None
 
             is_pass = normalized_output == normalized_expected
             if not is_pass and normalized_expected_repr:
@@ -1582,13 +1515,9 @@ process.stdout.write(output);
         elif isinstance(value, MetricResult):
             final_metrics[key] = value
         elif isinstance(value, str):
-            final_metrics[key] = MetricResult(
-                score=0.0, reason=value, is_score_valid=False
-            )
+            final_metrics[key] = MetricResult(score=0.0, reason=value, is_score_valid=False)
 
-    return EvaluateResult(
-        score=score, reason=f"{passed}/{total} tests passed.", metrics=final_metrics
-    )
+    return EvaluateResult(score=score, reason=f"{passed}/{total} tests passed.", metrics=final_metrics)
 
 
 def reliability_guard(maximum_memory_bytes: Optional[int] = None) -> None:
@@ -1608,9 +1537,7 @@ def reliability_guard(maximum_memory_bytes: Optional[int] = None) -> None:
     """
     if maximum_memory_bytes is not None:
         if platform.uname().system != "Darwin":
-            resource.setrlimit(
-                resource.RLIMIT_AS, (maximum_memory_bytes, maximum_memory_bytes)
-            )
+            resource.setrlimit(resource.RLIMIT_AS, (maximum_memory_bytes, maximum_memory_bytes))
             resource.setrlimit(
                 resource.RLIMIT_DATA,
                 (maximum_memory_bytes, maximum_memory_bytes),

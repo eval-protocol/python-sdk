@@ -45,9 +45,7 @@ class DemoPolicy:
             else:
                 action = "right"  # Default action
 
-            tool_calls.append(
-                MCPToolCall(tool_name="lake_move", arguments={"action": action})
-            )
+            tool_calls.append(MCPToolCall(tool_name="lake_move", arguments={"action": action}))
 
         print(f"🎯 Policy step {self.step_count}: action={action}")
         self.step_count += 1
@@ -57,9 +55,7 @@ class DemoPolicy:
         """Mock method for conversation tracking."""
         if env_index not in self.conversation_histories:
             self.conversation_histories[env_index] = []
-        self.conversation_histories[env_index].append(
-            {"tool_call": tool_call, "response": response}
-        )
+        self.conversation_histories[env_index].append({"tool_call": tool_call, "response": response})
 
 
 async def demonstrate_control_plane_rollout():
@@ -96,22 +92,19 @@ async def demonstrate_control_plane_rollout():
     execution_manager = ExecutionManager()
 
     # Mock the vector environment to simulate control plane separation
-    with patch.object(GeneralMCPVectorEnv, "__init__", return_value=None), patch.object(
-        GeneralMCPVectorEnv, "reset"
-    ) as mock_reset, patch.object(
-        GeneralMCPVectorEnv, "step"
-    ) as mock_step, patch.object(
-        GeneralMCPVectorEnv, "close"
-    ) as mock_close:
+    with (
+        patch.object(GeneralMCPVectorEnv, "__init__", return_value=None),
+        patch.object(GeneralMCPVectorEnv, "reset") as mock_reset,
+        patch.object(GeneralMCPVectorEnv, "step") as mock_step,
+        patch.object(GeneralMCPVectorEnv, "close") as mock_close,
+    ):
 
         # Setup mock vector environment
         mock_env = GeneralMCPVectorEnv(sessions, dataset_rows)
         mock_env.sessions = sessions
         mock_env.dataset_rows = dataset_rows
         mock_env.n = 1
-        mock_env.user_prompt_formatter = lambda template, obs, context: template.format(
-            observation=obs
-        )
+        mock_env.user_prompt_formatter = lambda template, obs, context: template.format(observation=obs)
 
         print("🔧 Setting up mock environment with control plane separation...")
 
@@ -228,9 +221,7 @@ async def demonstrate_control_plane_rollout():
 
         def mock_step_side_effect(tool_calls):
             nonlocal step_call_count
-            print(
-                f"📡 MCP Tool Call {step_call_count + 1}: {tool_calls[0].tool_name}({tool_calls[0].arguments})"
-            )
+            print(f"📡 MCP Tool Call {step_call_count + 1}: {tool_calls[0].tool_name}({tool_calls[0].arguments})")
 
             if step_call_count < len(step_responses):
                 obs, reward, done, info = step_responses[step_call_count]
@@ -324,9 +315,7 @@ async def demonstrate_control_plane_rollout():
         print(f"  ✅ Control plane summary available: {has_control_plane_summary}")
 
         if has_control_plane_steps:
-            print(
-                f"  • Control plane step count: {len(trajectory.control_plane_steps)}"
-            )
+            print(f"  • Control plane step count: {len(trajectory.control_plane_steps)}")
             print(f"  • Sample control plane step: {trajectory.control_plane_steps[0]}")
 
         if has_control_plane_summary:
@@ -351,14 +340,8 @@ async def demonstrate_control_plane_rollout():
             },
             "control_plane": {
                 "rewards": trajectory.rewards,
-                "control_plane_steps": (
-                    trajectory.control_plane_steps if has_control_plane_steps else []
-                ),
-                "control_plane_summary": (
-                    trajectory.control_plane_summary
-                    if has_control_plane_summary
-                    else {}
-                ),
+                "control_plane_steps": (trajectory.control_plane_steps if has_control_plane_steps else []),
+                "control_plane_summary": (trajectory.control_plane_summary if has_control_plane_summary else {}),
             },
         }
 

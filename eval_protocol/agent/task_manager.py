@@ -84,9 +84,7 @@ class TaskManager:
         dir_path = Path(directory_path)
 
         if not dir_path.exists() or not dir_path.is_dir():
-            self.logger.error(
-                f"Directory not found or not a directory: {directory_path}"
-            )
+            self.logger.error(f"Directory not found or not a directory: {directory_path}")
             return task_ids
 
         for file_path in dir_path.glob("*.y*ml"):
@@ -172,14 +170,10 @@ class TaskManager:
                 pass
             time.sleep(1)
 
-        self.logger.error(
-            f"Server failed to become healthy at {health_url} within {timeout} seconds"
-        )
+        self.logger.error(f"Server failed to become healthy at {health_url} within {timeout} seconds")
         return False
 
-    def _start_resource_server(
-        self, task_id: str, task_def: TaskDefinitionModel
-    ) -> Optional[int]:
+    def _start_resource_server(self, task_id: str, task_def: TaskDefinitionModel) -> Optional[int]:
         """Start a resource server for a task and return the allocated port."""
         if not task_def.resource_server:
             return None
@@ -188,15 +182,11 @@ class TaskManager:
         port = self._find_free_port()
 
         # Replace {port} placeholder in start command
-        start_command = task_def.resource_server.start_command.replace(
-            "{port}", str(port)
-        )
+        start_command = task_def.resource_server.start_command.replace("{port}", str(port))
 
         # Start the server process
         try:
-            self.logger.info(
-                f"Starting resource server for task '{task_id}' on port {port}: {start_command}"
-            )
+            self.logger.info(f"Starting resource server for task '{task_id}' on port {port}: {start_command}")
             process = subprocess.Popen(
                 shlex.split(start_command),
                 shell=False,
@@ -211,13 +201,9 @@ class TaskManager:
             self.all_server_pids.add(process.pid)
 
             # Wait for server to become healthy
-            health_url = task_def.resource_server.health_check_url.replace(
-                "{port}", str(port)
-            )
+            health_url = task_def.resource_server.health_check_url.replace("{port}", str(port))
             if self._wait_for_server_health(health_url):
-                self.logger.info(
-                    f"Resource server for task '{task_id}' is ready on port {port}"
-                )
+                self.logger.info(f"Resource server for task '{task_id}' is ready on port {port}")
                 return port
             else:
                 # Server failed to start properly, clean up
@@ -225,9 +211,7 @@ class TaskManager:
                 return None
 
         except Exception as e:
-            self.logger.error(
-                f"Failed to start resource server for task '{task_id}': {e}"
-            )
+            self.logger.error(f"Failed to start resource server for task '{task_id}': {e}")
             return None
 
     def _stop_resource_server(self, task_id: str) -> None:
@@ -255,9 +239,7 @@ class TaskManager:
 
                 self.logger.info(f"Stopped resource server for task '{task_id}'")
             except Exception as e:
-                self.logger.error(
-                    f"Error stopping resource server for task '{task_id}': {e}"
-                )
+                self.logger.error(f"Error stopping resource server for task '{task_id}': {e}")
 
             del self.server_processes[task_id]
 
@@ -285,9 +267,7 @@ class TaskManager:
         if task_def.resource_server:
             allocated_port = self._start_resource_server(task_id, task_def)
             if allocated_port is None:
-                self.logger.error(
-                    f"Failed to start resource server for task '{task_id}'"
-                )
+                self.logger.error(f"Failed to start resource server for task '{task_id}'")
                 return False
 
         # Create a modified task definition with updated base_url if a server was started
@@ -297,19 +277,13 @@ class TaskManager:
             effective_task_def = deepcopy(task_def)
             if hasattr(effective_task_def.base_resource_config, "base_url"):
                 # Update existing base_url
-                effective_task_def.base_resource_config["base_url"] = (
-                    f"http://localhost:{allocated_port}"
-                )
+                effective_task_def.base_resource_config["base_url"] = f"http://localhost:{allocated_port}"
             elif "base_url" in effective_task_def.base_resource_config:
                 # Update base_url in dict
-                effective_task_def.base_resource_config["base_url"] = (
-                    f"http://localhost:{allocated_port}"
-                )
+                effective_task_def.base_resource_config["base_url"] = f"http://localhost:{allocated_port}"
             else:
                 # Add base_url if it doesn't exist
-                effective_task_def.base_resource_config["base_url"] = (
-                    f"http://localhost:{allocated_port}"
-                )
+                effective_task_def.base_resource_config["base_url"] = f"http://localhost:{allocated_port}"
 
         # Create an orchestrator for this specific task
         orchestrator = Orchestrator(task_definition=effective_task_def)
@@ -342,9 +316,7 @@ class TaskManager:
             return None
 
         if task_id not in self.orchestrators:
-            self.logger.info(
-                f"Task '{task_id}' orchestrator not initialized. Preparing task..."
-            )
+            self.logger.info(f"Task '{task_id}' orchestrator not initialized. Preparing task...")
             success = await self.prepare_task(task_id)
             if not success:
                 self.logger.error(f"Failed to prepare task '{task_id}'.")
@@ -380,9 +352,7 @@ class TaskManager:
         Returns:
             results: Dictionary mapping task IDs to execution results (aggregated if multiple rollouts)
         """
-        task_ids_to_execute = (
-            task_ids if task_ids is not None else list(self.tasks.keys())
-        )
+        task_ids_to_execute = task_ids if task_ids is not None else list(self.tasks.keys())
 
         # Validate task IDs
         valid_task_ids = [tid for tid in task_ids_to_execute if tid in self.tasks]
@@ -405,9 +375,7 @@ class TaskManager:
                 # Data-driven evaluation: load samples from dataset
                 samples = self._load_dataset_samples(task_def.dataset_path)
                 if not samples:
-                    results[task_id] = {
-                        "error": "Failed to load dataset or dataset is empty"
-                    }
+                    results[task_id] = {"error": "Failed to load dataset or dataset is empty"}
                     continue
 
                 self.logger.info(
@@ -418,11 +386,7 @@ class TaskManager:
                 )
             else:
                 # Traditional evaluation: fixed number of rollouts
-                num_rollouts = (
-                    num_rollouts_override
-                    if num_rollouts_override is not None
-                    else task_def.num_rollouts
-                )
+                num_rollouts = num_rollouts_override if num_rollouts_override is not None else task_def.num_rollouts
 
                 if num_rollouts == 1:
                     # Single rollout - existing behavior
@@ -433,12 +397,8 @@ class TaskManager:
                     continue
                 else:
                     # Multiple rollouts - batch execution
-                    self.logger.info(
-                        f"Executing {num_rollouts} rollouts for task '{task_id}'"
-                    )
-                    rollout_results = await self._execute_batch_rollouts(
-                        task_id, num_rollouts, max_concurrency
-                    )
+                    self.logger.info(f"Executing {num_rollouts} rollouts for task '{task_id}'")
+                    rollout_results = await self._execute_batch_rollouts(task_id, num_rollouts, max_concurrency)
 
             # Aggregate results (for both data-driven and traditional batch execution)
             if rollout_results:
@@ -447,14 +407,10 @@ class TaskManager:
 
                 # Always save detailed results to .jsonl file (including failed rollouts for analysis)
                 try:
-                    detailed_file_path = self._save_detailed_results(
-                        task_id, aggregated_result
-                    )
+                    detailed_file_path = self._save_detailed_results(task_id, aggregated_result)
                     self.logger.info(f"Detailed results saved to: {detailed_file_path}")
                 except Exception as e:
-                    self.logger.error(
-                        f"Failed to save detailed results for task '{task_id}': {e}"
-                    )
+                    self.logger.error(f"Failed to save detailed results for task '{task_id}': {e}")
             else:
                 results[task_id] = {"error": "All rollouts failed"}
 
@@ -489,33 +445,23 @@ class TaskManager:
                     # Start resource server if needed for this rollout
                     allocated_port = None
                     if task_def.resource_server:
-                        allocated_port = self._start_resource_server(
-                            rollout_task_id, task_def
-                        )
+                        allocated_port = self._start_resource_server(rollout_task_id, task_def)
                         if allocated_port is None:
                             self.logger.error(
                                 f"Failed to start resource server for rollout {rollout_index} of task '{task_id}'"
                             )
-                            return {
-                                "error": f"Failed to start resource server for rollout {rollout_index}"
-                            }
+                            return {"error": f"Failed to start resource server for rollout {rollout_index}"}
 
                     # Create effective task definition with updated base_url if needed
                     effective_task_def = task_def
                     if allocated_port is not None:
                         effective_task_def = deepcopy(task_def)
                         if hasattr(effective_task_def.base_resource_config, "base_url"):
-                            effective_task_def.base_resource_config["base_url"] = (
-                                f"http://localhost:{allocated_port}"
-                            )
+                            effective_task_def.base_resource_config["base_url"] = f"http://localhost:{allocated_port}"
                         elif "base_url" in effective_task_def.base_resource_config:
-                            effective_task_def.base_resource_config["base_url"] = (
-                                f"http://localhost:{allocated_port}"
-                            )
+                            effective_task_def.base_resource_config["base_url"] = f"http://localhost:{allocated_port}"
                         else:
-                            effective_task_def.base_resource_config["base_url"] = (
-                                f"http://localhost:{allocated_port}"
-                            )
+                            effective_task_def.base_resource_config["base_url"] = f"http://localhost:{allocated_port}"
 
                     # Create orchestrator for this rollout
                     orchestrator = Orchestrator(task_definition=effective_task_def)
@@ -556,20 +502,12 @@ class TaskManager:
                     if reward_function_inputs is not None and isinstance(result, dict):
                         result["reward_function_inputs"] = reward_function_inputs
 
-                    score = (
-                        result.get("score", "N/A")
-                        if isinstance(result, dict)
-                        else "N/A"
-                    )
-                    self.logger.info(
-                        f"Rollout {rollout_index} of task '{task_id}' completed with score: {score}"
-                    )
+                    score = result.get("score", "N/A") if isinstance(result, dict) else "N/A"
+                    self.logger.info(f"Rollout {rollout_index} of task '{task_id}' completed with score: {score}")
                     return result
 
                 except Exception as e:
-                    error_msg = (
-                        f"Error in rollout {rollout_index} of task '{task_id}': {e}"
-                    )
+                    error_msg = f"Error in rollout {rollout_index} of task '{task_id}': {e}"
                     self.logger.error(error_msg, exc_info=True)
 
                     # Capture server logs if available for debugging
@@ -578,13 +516,9 @@ class TaskManager:
                         try:
                             stdout, stderr = process.communicate(timeout=1)
                             if stdout:
-                                self.logger.error(
-                                    f"Server stdout for rollout {rollout_index}: {stdout.decode()}"
-                                )
+                                self.logger.error(f"Server stdout for rollout {rollout_index}: {stdout.decode()}")
                             if stderr:
-                                self.logger.error(
-                                    f"Server stderr for rollout {rollout_index}: {stderr.decode()}"
-                                )
+                                self.logger.error(f"Server stderr for rollout {rollout_index}: {stderr.decode()}")
                         except Exception:
                             pass  # Ignore errors in log capture
 
@@ -598,15 +532,11 @@ class TaskManager:
         rollout_results = await asyncio.gather(*rollout_tasks)
 
         # Log failed rollouts but return all results for comprehensive analysis
-        successful_results = [
-            r for r in rollout_results if not (isinstance(r, dict) and "error" in r)
-        ]
+        successful_results = [r for r in rollout_results if not (isinstance(r, dict) and "error" in r)]
         failed_count = len(rollout_results) - len(successful_results)
 
         if failed_count > 0:
-            self.logger.warning(
-                f"{failed_count} out of {num_rollouts} rollouts failed for task '{task_id}'"
-            )
+            self.logger.warning(f"{failed_count} out of {num_rollouts} rollouts failed for task '{task_id}'")
 
         # Return all results (successful and failed) for comprehensive logging
         return rollout_results
@@ -641,9 +571,7 @@ class TaskManager:
                         sample = json.loads(line)
                         samples.append(sample)
                     except json.JSONDecodeError as e:
-                        self.logger.error(
-                            f"Invalid JSON on line {line_num} in {dataset_path}: {e}"
-                        )
+                        self.logger.error(f"Invalid JSON on line {line_num} in {dataset_path}: {e}")
                         continue
 
             self.logger.info(f"Loaded {len(samples)} samples from {dataset_path}")
@@ -678,9 +606,7 @@ class TaskManager:
         # Create a semaphore to limit concurrency
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def execute_single_rollout(
-            sample_index: int, rollout_index: int, sample_data: Dict[str, Any]
-        ):
+        async def execute_single_rollout(sample_index: int, rollout_index: int, sample_data: Dict[str, Any]):
             """Execute a single rollout with sample data."""
             rollout_task_id = f"{task_id}_sample_{sample_index}_rollout_{rollout_index}"
 
@@ -689,9 +615,7 @@ class TaskManager:
                     # Start resource server if needed for this rollout
                     allocated_port = None
                     if task_def.resource_server:
-                        allocated_port = self._start_resource_server(
-                            rollout_task_id, task_def
-                        )
+                        allocated_port = self._start_resource_server(rollout_task_id, task_def)
                         if allocated_port is None:
                             self.logger.error(
                                 f"Failed to start resource server for rollout {rollout_index} of sample {sample_index} for task '{task_id}'"
@@ -706,26 +630,18 @@ class TaskManager:
                     if allocated_port is not None:
                         effective_task_def = deepcopy(task_def)
                         if hasattr(effective_task_def.base_resource_config, "base_url"):
-                            effective_task_def.base_resource_config["base_url"] = (
-                                f"http://localhost:{allocated_port}"
-                            )
+                            effective_task_def.base_resource_config["base_url"] = f"http://localhost:{allocated_port}"
                         elif "base_url" in effective_task_def.base_resource_config:
-                            effective_task_def.base_resource_config["base_url"] = (
-                                f"http://localhost:{allocated_port}"
-                            )
+                            effective_task_def.base_resource_config["base_url"] = f"http://localhost:{allocated_port}"
                         else:
-                            effective_task_def.base_resource_config["base_url"] = (
-                                f"http://localhost:{allocated_port}"
-                            )
+                            effective_task_def.base_resource_config["base_url"] = f"http://localhost:{allocated_port}"
 
                     # Create orchestrator for this rollout
                     orchestrator = Orchestrator(task_definition=effective_task_def)
 
                     # Setup and execute with sample data
                     await orchestrator.setup_base_resource()
-                    result = await orchestrator.execute_task_poc(
-                        sample_data=sample_data
-                    )
+                    result = await orchestrator.execute_task_poc(sample_data=sample_data)
 
                     # Cleanup orchestrator resources
                     if orchestrator.base_resource:
@@ -765,11 +681,7 @@ class TaskManager:
                         result["sample_index"] = sample_index
                         result["rollout_index"] = rollout_index
 
-                    score = (
-                        result.get("score", "N/A")
-                        if isinstance(result, dict)
-                        else "N/A"
-                    )
+                    score = result.get("score", "N/A") if isinstance(result, dict) else "N/A"
                     self.logger.info(
                         f"Completed rollout {rollout_index} for sample {sample_index} of task '{task_id}' with score: {score}"
                     )
@@ -820,9 +732,7 @@ class TaskManager:
 
         # Log summary statistics
         total_rollouts = len(all_rollout_results)
-        successful_results = [
-            r for r in all_rollout_results if not (isinstance(r, dict) and "error" in r)
-        ]
+        successful_results = [r for r in all_rollout_results if not (isinstance(r, dict) and "error" in r)]
         failed_count = total_rollouts - len(successful_results)
 
         if failed_count > 0:
@@ -839,9 +749,7 @@ class TaskManager:
         # Return all results (successful and failed) for comprehensive logging
         return all_rollout_results
 
-    def _aggregate_results(
-        self, rollout_results: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def _aggregate_results(self, rollout_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Aggregate results from multiple rollouts into a single summary.
 
@@ -982,9 +890,7 @@ class TaskManager:
                     eval_dir.mkdir(parents=True, exist_ok=True)
                     chosen_dir = eval_dir
                 except Exception as e:
-                    self.logger.warning(
-                        f"Failed to create evaluation_logs relative to task definition: {e}"
-                    )
+                    self.logger.warning(f"Failed to create evaluation_logs relative to task definition: {e}")
 
             if chosen_dir is None:
                 # Look for or create common evaluation log directories
@@ -1015,12 +921,8 @@ class TaskManager:
             self.logger.info(f"=== TRAJECTORY SAVE DEBUG START ===")
             self.logger.info(f"Saving trajectory data to: {output_path}")
             self.logger.info(f"Chosen directory: {chosen_dir}")
-            self.logger.info(
-                f"Individual results count: {len(aggregated_result.get('individual_results', []))}"
-            )
-            self.logger.info(
-                f"Output path parent directory exists: {output_path.parent.exists()}"
-            )
+            self.logger.info(f"Individual results count: {len(aggregated_result.get('individual_results', []))}")
+            self.logger.info(f"Output path parent directory exists: {output_path.parent.exists()}")
 
             # Ensure the directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1030,9 +932,7 @@ class TaskManager:
                 summary = {
                     "type": "summary",
                     "task_id": task_id,
-                    "timestamp": aggregated_result.get(
-                        "timestamp", datetime.now().isoformat()
-                    ),
+                    "timestamp": aggregated_result.get("timestamp", datetime.now().isoformat()),
                     "num_rollouts": aggregated_result["num_rollouts"],
                     "successful_rollouts": aggregated_result["successful_rollouts"],
                     "failed_rollouts": aggregated_result.get("failed_rollouts", 0),
@@ -1047,13 +947,9 @@ class TaskManager:
 
                 # Write individual results
                 individual_results = aggregated_result.get("individual_results", [])
-                self.logger.info(
-                    f"Processing {len(individual_results)} individual results"
-                )
+                self.logger.info(f"Processing {len(individual_results)} individual results")
                 for i, result in enumerate(individual_results):
-                    self.logger.info(
-                        f"Processing individual result {i}: {type(result)} - {len(str(result))} chars"
-                    )
+                    self.logger.info(f"Processing individual result {i}: {type(result)} - {len(str(result))} chars")
 
                     # Clean the result for JSON serialization
                     clean_result = {}
@@ -1062,17 +958,13 @@ class TaskManager:
                             # Clean the reward function inputs
                             clean_inputs = {}
                             for input_key, input_value in value.items():
-                                if input_key == "state" and isinstance(
-                                    input_value, dict
-                                ):
+                                if input_key == "state" and isinstance(input_value, dict):
                                     # Clean the state by removing non-serializable objects
                                     clean_state = {}
                                     for state_key, state_value in input_value.items():
                                         if state_key == "resource":
                                             # Replace resource object with a string representation
-                                            clean_state[state_key] = (
-                                                f"<{type(state_value).__name__}>"
-                                            )
+                                            clean_state[state_key] = f"<{type(state_value).__name__}>"
                                         else:
                                             clean_state[state_key] = state_value
                                     clean_inputs[input_key] = clean_state
@@ -1099,9 +991,7 @@ class TaskManager:
                 os.fsync(f.fileno())
 
             self.logger.info(f"Successfully saved trajectory data to: {output_path}")
-            self.logger.info(
-                f"Trajectory file size: {output_path.stat().st_size} bytes"
-            )
+            self.logger.info(f"Trajectory file size: {output_path.stat().st_size} bytes")
             self.logger.info(f"=== TRAJECTORY SAVE DEBUG END ===")
             return str(output_path)
 
@@ -1118,9 +1008,7 @@ class TaskManager:
             self.logger.info("No tracked server PIDs to clean up.")
             return
 
-        self.logger.info(
-            f"Performing robust cleanup of all {len(self.all_server_pids)} tracked server PIDs."
-        )
+        self.logger.info(f"Performing robust cleanup of all {len(self.all_server_pids)} tracked server PIDs.")
         # Iterate over a copy as the set will be modified
         for pid in list(self.all_server_pids):
             try:
@@ -1155,9 +1043,7 @@ class TaskManager:
         Args:
             task_ids: List of task IDs to clean up. If None, clean up all tasks.
         """
-        task_ids_to_cleanup = (
-            task_ids if task_ids is not None else list(self.orchestrators.keys())
-        )
+        task_ids_to_cleanup = task_ids if task_ids is not None else list(self.orchestrators.keys())
 
         for task_id in task_ids_to_cleanup:
             # Stop resource server if running
@@ -1171,9 +1057,7 @@ class TaskManager:
                         await orchestrator.base_resource.close()
                         self.logger.info(f"Cleaned up resources for task '{task_id}'.")
                     except Exception as e:
-                        self.logger.error(
-                            f"Error cleaning up resources for task '{task_id}': {e}"
-                        )
+                        self.logger.error(f"Error cleaning up resources for task '{task_id}': {e}")
                 del self.orchestrators[task_id]
 
         # Perform robust cleanup of any remaining orphaned processes

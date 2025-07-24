@@ -52,10 +52,25 @@ class MockPolicy:
         self.step_count += 1
         return tool_calls
 
-    def add_tool_response(self, env_index, tool_call, response, conversation_history, reward=0.0, done=False, info=None):
+    def add_tool_response(
+        self,
+        env_index,
+        tool_call,
+        response,
+        conversation_history,
+        reward=0.0,
+        done=False,
+        info=None,
+    ):
         """Mock method for conversation tracking."""
         conversation_history.append(
-            {"tool_call": tool_call, "response": response, "reward": reward, "done": done, "info": info}
+            {
+                "tool_call": tool_call,
+                "response": response,
+                "reward": reward,
+                "done": done,
+                "info": info,
+            }
         )
 
 
@@ -99,15 +114,13 @@ class TestRolloutControlPlaneIntegration:
         ]
 
         # Mock the vector environment to simulate control plane separation
-        with patch.object(
-            GeneralMCPVectorEnv, "__init__", return_value=None
-        ), patch.object(GeneralMCPVectorEnv, "reset") as mock_reset, patch.object(
-            GeneralMCPVectorEnv, "step"
-        ) as mock_step, patch.object(
-            GeneralMCPVectorEnv, "close"
-        ) as mock_close, patch.object(
-            GeneralMCPVectorEnv, "format_user_prompt"
-        ) as mock_format_user_prompt:
+        with (
+            patch.object(GeneralMCPVectorEnv, "__init__", return_value=None),
+            patch.object(GeneralMCPVectorEnv, "reset") as mock_reset,
+            patch.object(GeneralMCPVectorEnv, "step") as mock_step,
+            patch.object(GeneralMCPVectorEnv, "close") as mock_close,
+            patch.object(GeneralMCPVectorEnv, "format_user_prompt") as mock_format_user_prompt,
+        ):
 
             # Setup mock vector environment
             mock_env = GeneralMCPVectorEnv(sessions, dataset_rows)
@@ -129,7 +142,10 @@ class TestRolloutControlPlaneIntegration:
             step_responses = [
                 # Step 1: Move right, no reward, not terminated
                 (
-                    {"position": 1, "grid": "4x4 FrozenLake"},  # single observation (data plane only)
+                    {
+                        "position": 1,
+                        "grid": "4x4 FrozenLake",
+                    },  # single observation (data plane only)
                     0.0,  # single reward (from control plane)
                     False,  # single done (from control plane)
                     {
@@ -194,9 +210,7 @@ class TestRolloutControlPlaneIntegration:
             policy = MockPolicy(["right", "down", "right"])
 
             # Execute rollout
-            trajectories = await self.execution_manager.execute_rollouts(
-                mock_env, policy, steps=10
-            )
+            trajectories = await self.execution_manager.execute_rollouts(mock_env, policy, steps=10)
 
             # Validate results
             assert len(trajectories) == 1, "Should have one trajectory"
@@ -204,24 +218,18 @@ class TestRolloutControlPlaneIntegration:
 
             # Validate basic trajectory structure
             assert trajectory.steps == 3, f"Expected 3 steps, got {trajectory.steps}"
-            assert (
-                trajectory.total_reward == 1.0
-            ), f"Expected reward 1.0, got {trajectory.total_reward}"
+            assert trajectory.total_reward == 1.0, f"Expected reward 1.0, got {trajectory.total_reward}"
             assert trajectory.terminated == True, "Trajectory should be terminated"
 
             # Validate data plane information (observations)
-            assert (
-                len(trajectory.observations) == 4
-            ), "Should have 4 observations (initial + 3 steps)"
+            assert len(trajectory.observations) == 4, "Should have 4 observations (initial + 3 steps)"
             for obs in trajectory.observations:
                 # Data plane should only contain observations
                 assert "position" in obs, "Observation should contain position"
                 assert "grid" in obs, "Observation should contain grid"
                 # Data plane should NOT contain rewards or termination
                 assert "reward" not in obs, "Data plane should not contain reward"
-                assert (
-                    "terminated" not in obs
-                ), "Data plane should not contain termination"
+                assert "terminated" not in obs, "Data plane should not contain termination"
 
             # Validate control plane information
             assert len(trajectory.rewards) == 3, "Should have 3 reward values"
@@ -232,37 +240,21 @@ class TestRolloutControlPlaneIntegration:
             ], "Rewards should match control plane"
 
             # Validate enhanced control plane tracking
-            assert hasattr(
-                trajectory, "control_plane_steps"
-            ), "Should have control plane steps"
-            assert (
-                len(trajectory.control_plane_steps) == 3
-            ), "Should have 3 control plane steps"
+            assert hasattr(trajectory, "control_plane_steps"), "Should have control plane steps"
+            assert len(trajectory.control_plane_steps) == 3, "Should have 3 control plane steps"
 
             for i, cp_step in enumerate(trajectory.control_plane_steps):
                 assert "step" in cp_step, "Control plane step should have step number"
                 assert "reward" in cp_step, "Control plane step should have reward"
-                assert (
-                    "terminated" in cp_step
-                ), "Control plane step should have terminated status"
-                assert (
-                    "info" in cp_step
-                ), "Control plane step should have control plane info"
-                assert (
-                    "tool_calls" in cp_step
-                ), "Control plane step should have tool calls"
+                assert "terminated" in cp_step, "Control plane step should have terminated status"
+                assert "info" in cp_step, "Control plane step should have control plane info"
+                assert "tool_calls" in cp_step, "Control plane step should have tool calls"
 
             # Validate control plane summary
-            assert hasattr(
-                trajectory, "control_plane_summary"
-            ), "Should have control plane summary"
+            assert hasattr(trajectory, "control_plane_summary"), "Should have control plane summary"
             summary = trajectory.control_plane_summary
-            assert (
-                summary["total_reward"] == 1.0
-            ), "Summary should have correct total reward"
-            assert (
-                summary["termination_reason"] == "control_plane_signal"
-            ), "Should terminate via control plane"
+            assert summary["total_reward"] == 1.0, "Summary should have correct total reward"
+            assert summary["termination_reason"] == "control_plane_signal", "Should terminate via control plane"
             assert summary["final_step"] == 2, "Should record final step"
 
             # Validate policy interaction
@@ -352,9 +344,7 @@ class TestRolloutControlPlaneIntegration:
         assert len(trajectory.observations) == 2, "Should have 2 observations"
         assert len(trajectory.actions) == 2, "Should have 2 actions"
         assert len(trajectory.rewards) == 2, "Should have 2 rewards"
-        assert (
-            len(trajectory.control_plane_steps) == 2
-        ), "Should have 2 control plane steps"
+        assert len(trajectory.control_plane_steps) == 2, "Should have 2 control plane steps"
 
         # Validate data plane contains only observations
         for obs in trajectory.observations:
@@ -369,10 +359,7 @@ class TestRolloutControlPlaneIntegration:
 
         # Validate control plane summary
         assert trajectory.control_plane_summary["total_reward"] == 1.0
-        assert (
-            trajectory.control_plane_summary["termination_reason"]
-            == "control_plane_signal"
-        )
+        assert trajectory.control_plane_summary["termination_reason"] == "control_plane_signal"
         assert trajectory.control_plane_summary["final_step"] == 1
 
     @pytest.mark.asyncio
@@ -399,15 +386,13 @@ class TestRolloutControlPlaneIntegration:
             )
         ]
 
-        with patch.object(
-            GeneralMCPVectorEnv, "__init__", return_value=None
-        ), patch.object(GeneralMCPVectorEnv, "reset") as mock_reset, patch.object(
-            GeneralMCPVectorEnv, "step"
-        ) as mock_step, patch.object(
-            GeneralMCPVectorEnv, "close"
-        ) as mock_close, patch.object(
-            GeneralMCPVectorEnv, "format_user_prompt"
-        ) as mock_format_user_prompt:
+        with (
+            patch.object(GeneralMCPVectorEnv, "__init__", return_value=None),
+            patch.object(GeneralMCPVectorEnv, "reset") as mock_reset,
+            patch.object(GeneralMCPVectorEnv, "step") as mock_step,
+            patch.object(GeneralMCPVectorEnv, "close") as mock_close,
+            patch.object(GeneralMCPVectorEnv, "format_user_prompt") as mock_format_user_prompt,
+        ):
 
             mock_env = GeneralMCPVectorEnv(sessions, dataset_rows)
             mock_env.sessions = sessions
@@ -433,9 +418,7 @@ class TestRolloutControlPlaneIntegration:
 
             # Execute rollout with control plane failure
             policy = MockPolicy(["right"])
-            trajectories = await self.execution_manager.execute_rollouts(
-                mock_env, policy, steps=1
-            )
+            trajectories = await self.execution_manager.execute_rollouts(mock_env, policy, steps=1)
 
             # Should still work, but without control plane info
             assert len(trajectories) == 1
@@ -516,10 +499,7 @@ class TestRolloutControlPlaneIntegration:
 
                 assert loaded_data["session_id"] == "test"
                 assert len(loaded_data["control_plane_steps"]) == 1
-                assert (
-                    loaded_data["control_plane_summary"]["termination_reason"]
-                    == "control_plane_signal"
-                )
+                assert loaded_data["control_plane_summary"]["termination_reason"] == "control_plane_signal"
 
         # Clean up
         Path(f.name).unlink()

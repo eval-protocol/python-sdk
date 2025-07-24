@@ -36,11 +36,7 @@ def lean_prover_reward(
         return EvaluateResult(
             score=0.0,
             reason="Statement not provided in kwargs.",
-            metrics={
-                "error": MetricResult(
-                    score=0.0, is_score_valid=False, reason="Statement not provided."
-                )
-            },
+            metrics={"error": MetricResult(score=0.0, is_score_valid=False, reason="Statement not provided.")},
         )
 
     if (
@@ -150,20 +146,12 @@ def lean_prover_reward(
             "syntax": MetricResult(
                 score=float(has_theorem_def),
                 is_score_valid=has_theorem_def,
-                reason=(
-                    "Has valid theorem definition"
-                    if has_theorem_def
-                    else "Missing theorem definition"
-                ),
+                reason=("Has valid theorem definition" if has_theorem_def else "Missing theorem definition"),
             ),
             "completeness": MetricResult(
                 score=0.0 if has_sorry or has_admitted else 1.0,
                 is_score_valid=not (has_sorry or has_admitted),
-                reason=(
-                    "Incomplete proof (has sorry/admitted)"
-                    if has_sorry or has_admitted
-                    else "Complete proof"
-                ),
+                reason=("Incomplete proof (has sorry/admitted)" if has_sorry or has_admitted else "Complete proof"),
             ),
             "tactics": MetricResult(
                 score=min(1.0, tactics_count / 10),
@@ -176,11 +164,7 @@ def lean_prover_reward(
             metrics["expected_match"] = MetricResult(
                 score=1.0 if expected_match_bool else 0.0,
                 is_score_valid=expected_match_bool,
-                reason=(
-                    "Matches expected proof"
-                    if expected_match_bool
-                    else "Doesn't match expected proof"
-                ),
+                reason=("Matches expected proof" if expected_match_bool else "Doesn't match expected proof"),
             )
 
     return EvaluateResult(score=score, reason=reason, metrics=metrics)
@@ -213,11 +197,7 @@ def deepseek_prover_v2_reward(
         return EvaluateResult(
             score=0.0,
             reason="Statement not provided in kwargs for deepseek_prover_v2_reward.",
-            metrics={
-                "error": MetricResult(
-                    score=0.0, is_score_valid=False, reason="Statement not provided."
-                )
-            },
+            metrics={"error": MetricResult(score=0.0, is_score_valid=False, reason="Statement not provided.")},
         )
 
     lean_prover_kwargs_for_call = {
@@ -278,9 +258,7 @@ def deepseek_prover_v2_reward(
         else:
             final_score = base_score
 
-        subgoal_decomposition_score_normalized = (
-            subgoal_score / 0.3 if subgoal_score > 0 else 0.0
-        )
+        subgoal_decomposition_score_normalized = subgoal_score / 0.3 if subgoal_score > 0 else 0.0
         metrics["subgoal_decomposition"] = MetricResult(
             score=min(1.0, subgoal_decomposition_score_normalized),
             is_score_valid=subgoal_decomposition_score_normalized > 0.5,
@@ -404,9 +382,7 @@ def deepseek_huggingface_prover_benchmark(
             matched_ratio: float = 0.0
             for split in dataset.keys():
                 for item in dataset[split]:
-                    ratio = SequenceMatcher(
-                        None, statement.strip(), item.get("statement", "")
-                    ).ratio()
+                    ratio = SequenceMatcher(None, statement.strip(), item.get("statement", "")).ratio()
                     if ratio > best_ratio and ratio > 0.7:
                         best_ratio = ratio
                         matched_item = item
@@ -500,6 +476,4 @@ def deepseek_huggingface_prover_benchmark(
             ),
         )
 
-    return EvaluateResult(
-        score=result_score, reason=current_top_level_reason, metrics=combined_metrics
-    )
+    return EvaluateResult(score=result_score, reason=current_top_level_reason, metrics=combined_metrics)

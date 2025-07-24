@@ -12,9 +12,7 @@ This test validates that:
 import os
 import sys
 
-sys.path.append(
-    "/home/bchen/home/reward-kit/examples/frozen_lake_mcp_complete/mcp_server"
-)
+sys.path.append("/home/bchen/home/reward-kit/examples/frozen_lake_mcp_complete/mcp_server")
 sys.path.append("/home/bchen/home/reward-kit/examples/taxi_mcp_complete/mcp_server")
 
 
@@ -82,12 +80,8 @@ def test_taxi():
         # Test simulation server - switch to taxi directory
         import sys
 
-        sys.path.remove(
-            "/home/bchen/home/reward-kit/examples/frozen_lake_mcp_complete/mcp_server"
-        )
-        sys.path.append(
-            "/home/bchen/home/reward-kit/examples/taxi_mcp_complete/mcp_server"
-        )
+        sys.path.remove("/home/bchen/home/reward-kit/examples/frozen_lake_mcp_complete/mcp_server")
+        sys.path.append("/home/bchen/home/reward-kit/examples/taxi_mcp_complete/mcp_server")
         from simulation_server_new import TaxiSimServer
 
         os.environ["PORT"] = "8004"

@@ -32,9 +32,7 @@ def _parse_function_call(func_call_str: str):
         for kw in tree.body.keywords:
             args_dict[kw.arg] = ast.literal_eval(kw.value)
         for i, arg in enumerate(tree.body.args):
-            args_dict[f"pos_arg_{i}"] = ast.literal_eval(
-                arg
-            )  # Standardized positional arg key
+            args_dict[f"pos_arg_{i}"] = ast.literal_eval(arg)  # Standardized positional arg key
 
         json_obj = {"name": func_name, "args": args_dict}
         return json_obj
@@ -42,17 +40,13 @@ def _parse_function_call(func_call_str: str):
         raise ValueError(f"Error parsing function call string: {func_call_str}")
 
 
-def _are_function_calls_equivalent(
-    call1: Dict[str, Any], call2: Dict[str, Any]
-) -> bool:
+def _are_function_calls_equivalent(call1: Dict[str, Any], call2: Dict[str, Any]) -> bool:
     """
     Compares two parsed function call dictionaries for semantic equivalence.
     Special handling for 'sort' command arguments.
     """
     if not isinstance(call1, dict) or not isinstance(call2, dict):
-        logger.warning(
-            f"Invalid input to _are_function_calls_equivalent: call1={call1}, call2={call2}"
-        )
+        logger.warning(f"Invalid input to _are_function_calls_equivalent: call1={call1}, call2={call2}")
         return False
 
     name1 = call1.get("name")
@@ -65,9 +59,7 @@ def _are_function_calls_equivalent(
     args2 = call2.get("args", {})
 
     if not isinstance(args1, dict) or not isinstance(args2, dict):
-        logger.warning(
-            f"Invalid args in _are_function_calls_equivalent: args1={args1}, args2={args2}"
-        )
+        logger.warning(f"Invalid args in _are_function_calls_equivalent: args1={args1}, args2={args2}")
         return False  # Should be dicts
 
     if name1 == "sort":
@@ -93,9 +85,7 @@ def _are_function_calls_equivalent(
         return args1 == args2
 
 
-def _is_subsequence_unordered(
-    list1: List[Dict[str, Any]], list2: List[Dict[str, Any]]
-) -> tuple[bool, list]:
+def _is_subsequence_unordered(list1: List[Dict[str, Any]], list2: List[Dict[str, Any]]) -> tuple[bool, list]:
     """
     Checks if all elements of list1 are present in list2, using _are_function_calls_equivalent for comparison.
     Also returns the elements of list1 that are not present in list2.
@@ -124,9 +114,7 @@ def _is_subsequence_unordered(
     return is_subsequence, missing_elements
 
 
-def compare_comparable_states(
-    model_state: Dict[str, Any], gt_state: Dict[str, Any]
-) -> Tuple[bool, Dict[str, Any]]:
+def compare_comparable_states(model_state: Dict[str, Any], gt_state: Dict[str, Any]) -> Tuple[bool, Dict[str, Any]]:
     """
     Compares two comparable state dictionaries.
     Returns True if they match, False otherwise, and a dictionary of differences.
@@ -167,20 +155,12 @@ def bfcl_reward(
     """
     Evaluates agent performance on BFCL tasks based on state, function calls, and format.
     """
-    ground_truth_function_calls: Optional[List[List[str]]] = ground_truth.get(
-        "function_calls"
-    )
-    ground_truth_comparable_state: Optional[Dict[str, Any]] = ground_truth.get(
-        "comparable_state"
-    )
+    ground_truth_function_calls: Optional[List[List[str]]] = ground_truth.get("function_calls")
+    ground_truth_comparable_state: Optional[Dict[str, Any]] = ground_truth.get("comparable_state")
 
     # Log ground truth data received
-    logger.debug(
-        f"Ground truth function calls from input: {ground_truth_function_calls}"
-    )
-    logger.debug(
-        f"Ground truth comparable state from input: {ground_truth_comparable_state}"
-    )
+    logger.debug(f"Ground truth function calls from input: {ground_truth_function_calls}")
+    logger.debug(f"Ground truth comparable state from input: {ground_truth_comparable_state}")
 
     if ground_truth_function_calls is None or ground_truth_comparable_state is None:
         return EvaluateResult(
@@ -201,9 +181,7 @@ def bfcl_reward(
 
     # --- State Matches Check ---
     model_comparable_state = bfcl_resource.get_comparable_state()
-    state_match, state_diffs = compare_comparable_states(
-        model_comparable_state, ground_truth_comparable_state
-    )
+    state_match, state_diffs = compare_comparable_states(model_comparable_state, ground_truth_comparable_state)
 
     state_match_score = 0.5 if state_match else 0.0
 
@@ -211,14 +189,10 @@ def bfcl_reward(
     # model_successful_func_calls is List[List[Dict[str, Any]]], one inner list per user turn's accumulated calls
     model_successful_func_calls_per_turn = state.get("successful_func_calls", [])
 
-    num_func_matches_for_score = (
-        0  # Number of user turns where model's calls matched GT's calls for that turn
-    )
+    num_func_matches_for_score = 0  # Number of user turns where model's calls matched GT's calls for that turn
     func_match_score = 0.0
 
-    num_gt_turns_with_calls = (
-        len(ground_truth_function_calls) if ground_truth_function_calls else 0
-    )
+    num_gt_turns_with_calls = len(ground_truth_function_calls) if ground_truth_function_calls else 0
     num_model_turns_with_actual_calls = len(model_successful_func_calls_per_turn)
 
     # Iterate over GT turns to see if the model matched them
@@ -232,16 +206,9 @@ def bfcl_reward(
                 model_calls_for_this_turn = model_successful_func_calls_per_turn[i]
 
             try:
-                gt_calls_for_this_turn = [
-                    _parse_function_call(call_str)
-                    for call_str in gt_calls_str_for_this_turn
-                ]
-                logger.debug(
-                    f"GT calls for turn {i}: {json.dumps(gt_calls_for_this_turn)}"
-                )
-                logger.debug(
-                    f"Model calls for turn {i}: {json.dumps(model_calls_for_this_turn)}"
-                )
+                gt_calls_for_this_turn = [_parse_function_call(call_str) for call_str in gt_calls_str_for_this_turn]
+                logger.debug(f"GT calls for turn {i}: {json.dumps(gt_calls_for_this_turn)}")
+                logger.debug(f"Model calls for turn {i}: {json.dumps(model_calls_for_this_turn)}")
 
                 is_match_for_turn, missing_gt_calls = _is_subsequence_unordered(
                     gt_calls_for_this_turn, model_calls_for_this_turn
@@ -254,9 +221,7 @@ def bfcl_reward(
                         f"Turn {i} did NOT match. Missing GT calls in model's calls: {json.dumps(missing_gt_calls)}"
                     )
             except Exception as e:
-                logger.error(
-                    f"Error comparing function calls for GT turn index {i}: {e}"
-                )
+                logger.error(f"Error comparing function calls for GT turn index {i}: {e}")
 
         if (
             num_func_matches_for_score == num_gt_turns_with_calls
@@ -278,9 +243,7 @@ def bfcl_reward(
             func_match_score = 0.0
 
     reason_num_total_gt_turns_with_calls = (
-        num_gt_turns_with_calls
-        if num_gt_turns_with_calls > 0
-        else "0 (no GT calls expected)"
+        num_gt_turns_with_calls if num_gt_turns_with_calls > 0 else "0 (no GT calls expected)"
     )
 
     # --- Format Check (on model's response messages from the `messages` list) ---
@@ -326,9 +289,7 @@ def bfcl_reward(
             reason += f" State match failed."
             if state_diffs:
                 reason += f" Differences: {json.dumps(state_diffs)}"
-        if (
-            func_match_score < 0.5
-        ):  # Check against 0.5 as perfect score for this component
+        if func_match_score < 0.5:  # Check against 0.5 as perfect score for this component
             reason += f" Function call match failed ({num_func_matches_for_score}/{reason_num_total_gt_turns_with_calls} GT turns with calls matched)."
 
     # Add metrics
@@ -336,19 +297,16 @@ def bfcl_reward(
     metrics["state_match"] = MetricResult(
         score=state_match_score,
         is_score_valid=state_match_score == 0.5,
-        reason=f"State match: {state_match}"
-        + (f", Differences: {json.dumps(state_diffs)}" if state_diffs else ""),
+        reason=f"State match: {state_match}" + (f", Differences: {json.dumps(state_diffs)}" if state_diffs else ""),
     )
     metrics["function_call_match"] = MetricResult(
         score=func_match_score,
-        is_score_valid=func_match_score
-        == 0.5,  # Success if it gets the full 0.5 for this part
+        is_score_valid=func_match_score == 0.5,  # Success if it gets the full 0.5 for this part
         reason=f"{num_func_matches_for_score}/{reason_num_total_gt_turns_with_calls} GT turns with calls matched by model. Model made calls in {num_model_turns_with_actual_calls} turn(s).",
     )
     metrics["format_check"] = MetricResult(
         score=format_score,
-        is_score_valid=format_score
-        == 0.2,  # Success if it gets the full 0.2 for format
+        is_score_valid=format_score == 0.2,  # Success if it gets the full 0.2 for format
         reason=f"{valid_assistant_messages}/{total_assistant_messages} assistant messages had correct format.",
     )
 

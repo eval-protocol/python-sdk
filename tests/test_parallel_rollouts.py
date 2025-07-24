@@ -27,9 +27,7 @@ async def test_seed_handling_and_type_compatibility():
     try:
         return await asyncio.wait_for(_run_test(), timeout=60.0)
     except asyncio.TimeoutError:
-        pytest.skip(
-            "Test timed out after 60 seconds - this may be a CI environment issue"
-        )
+        pytest.skip("Test timed out after 60 seconds - this may be a CI environment issue")
 
 
 async def _test_seed_handling_and_type_compatibility_impl():
@@ -37,9 +35,7 @@ async def _test_seed_handling_and_type_compatibility_impl():
     import subprocess
     import time
 
-    server_script = (
-        Path(__file__).parent.parent / "examples" / "frozen_lake_mcp" / "server.py"
-    )
+    server_script = Path(__file__).parent.parent / "examples" / "frozen_lake_mcp" / "server.py"
     venv_python = Path(__file__).parent.parent / ".venv" / "bin" / "python"
 
     # Check if the venv python exists, otherwise use system python
@@ -88,9 +84,7 @@ async def _test_seed_handling_and_type_compatibility_impl():
                             print(f"✅ Server ready after {attempt + 1} attempts")
                             break
                 except Exception as http_error:
-                    print(
-                        f"Port open but HTTP failed (attempt {attempt + 1}): {http_error}"
-                    )
+                    print(f"Port open but HTTP failed (attempt {attempt + 1}): {http_error}")
         except (socket.error, ConnectionRefusedError, OSError):
             # Port not yet open
             pass
@@ -123,7 +117,9 @@ async def _test_seed_handling_and_type_compatibility_impl():
         # 2. Create dataset with different seeds to test seed propagation
         test_seeds = [42, 123]  # Reduced to 2 seeds for faster testing
         system_prompt = "You are playing FrozenLake. Use the lake_move tool with actions LEFT, DOWN, RIGHT, UP to navigate the grid."
-        user_prompt_template = "Initial game state grid: {grid_layout}\\n\\nYour current position: {position}\\n\\nChoose your next move."
+        user_prompt_template = (
+            "Initial game state grid: {grid_layout}\\n\\nYour current position: {position}\\n\\nChoose your next move."
+        )
 
         dataset = []
         for i, seed in enumerate(test_seeds):
@@ -145,9 +141,7 @@ async def _test_seed_handling_and_type_compatibility_impl():
         envs = rk.make("http://127.0.0.1:8001/mcp/", dataset=dataset)
 
         # Verify we have the right number of environments
-        assert len(envs.sessions) == len(
-            test_seeds
-        ), f"Expected {len(test_seeds)} sessions, got {len(envs.sessions)}"
+        assert len(envs.sessions) == len(test_seeds), f"Expected {len(test_seeds)} sessions, got {len(envs.sessions)}"
 
         # 4. Test resource reading and seed propagation with extensive retry logic
         # This tests both the type compatibility fix and seed handling
@@ -179,9 +173,7 @@ async def _test_seed_handling_and_type_compatibility_impl():
                 Exception,
             ) as e:
                 last_error = e
-                print(
-                    f"Reset attempt {attempt + 1} failed with {type(e).__name__}: {e}"
-                )
+                print(f"Reset attempt {attempt + 1} failed with {type(e).__name__}: {e}")
                 if attempt < max_reset_retries - 1:
                     await asyncio.sleep(3)  # Wait before retry
 
@@ -216,24 +208,18 @@ async def _test_seed_handling_and_type_compatibility_impl():
                 initial_states.append(str(initial_obs))
 
         # Verify we got different initial states (the core bug we fixed)
-        assert len(initial_states) == len(
-            test_seeds
-        ), "Should have initial states for all seeds"
+        assert len(initial_states) == len(test_seeds), "Should have initial states for all seeds"
 
         # Check that seeds 42 and 123 produce different grids (they should based on our predefined maps)
         unique_states = set(initial_states)
-        assert (
-            len(unique_states) > 1
-        ), f"Seeds 42 and 123 should produce different grid layouts. Got: {initial_states}"
+        assert len(unique_states) > 1, f"Seeds 42 and 123 should produce different grid layouts. Got: {initial_states}"
 
         print("✅ Seed handling and type compatibility test passed!")
         print(f"   - Tested {len(test_seeds)} different seeds")
         print(f"   - Generated {len(unique_states)} unique grid layouts")
         print(f"   - Grid layouts: {initial_states}")
         print("   - ✅ Resource type compatibility: Server returned proper JSON")
-        print(
-            "   - ✅ Seed propagation: Different seeds produced different environments"
-        )
+        print("   - ✅ Seed propagation: Different seeds produced different environments")
 
     except Exception as e:
         print(f"❌ Test failed: {e}")
@@ -361,9 +347,7 @@ async def test_mcp_resource_type_compatibility():
     map3 = generate_random_map(size=4, p=0.8, seed=999)
 
     # Verify they are different (the main bug we fixed)
-    assert (
-        map1 != map2 or map1 != map3
-    ), f"Different seeds should produce different maps. Got: {map1}, {map2}, {map3}"
+    assert map1 != map2 or map1 != map3, f"Different seeds should produce different maps. Got: {map1}, {map2}, {map3}"
 
     # Test that the same seed produces the same map (deterministic)
     map1_repeat = generate_random_map(size=4, p=0.8, seed=42)

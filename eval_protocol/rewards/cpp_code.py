@@ -132,9 +132,7 @@ class PistonClient:
         ) as response:
             if response.status != 200:
                 error_text = await response.text()
-                raise PistonError(
-                    f"Error executing code: {response.status} - {error_text}"
-                )
+                raise PistonError(f"Error executing code: {response.status} - {error_text}")
 
             result = await response.json()
 
@@ -154,9 +152,7 @@ def get_piston_client(endpoint: Optional[str] = None) -> PistonClient:
     Returns:
         PistonClient instance
     """
-    piston_endpoint = endpoint or os.environ.get(
-        "PISTON_ENDPOINT", "https://emkc.org/api/v2/piston"
-    )
+    piston_endpoint = endpoint or os.environ.get("PISTON_ENDPOINT", "https://emkc.org/api/v2/piston")
     assert isinstance(piston_endpoint, str)
     return PistonClient(base_endpoint=piston_endpoint)
 
@@ -317,9 +313,7 @@ async def execute_cpp_code(
             else:
                 return {
                     "success": False,
-                    "output": (
-                        result["run"]["stdout"] if result["run"]["stdout"] else None
-                    ),
+                    "output": (result["run"]["stdout"] if result["run"]["stdout"] else None),
                     "error": f"Runtime error (exit code {result['run']['code']}): {result['run']['stderr']}",
                 }
 
@@ -397,19 +391,13 @@ def compare_outputs(actual: str, expected: str) -> float:
             if actual_lines[i] == expected_lines[i]:
                 line_similarities.append(1.0)
             else:
-                line_similarities.append(
-                    string_similarity(actual_lines[i], expected_lines[i])
-                )
+                line_similarities.append(string_similarity(actual_lines[i], expected_lines[i]))
 
         total_weight = sum(1 / (i + 1) for i in range(common_len))
-        weighted_sum = sum(
-            (1 / (i + 1)) * sim for i, sim in enumerate(line_similarities)
-        )
+        weighted_sum = sum((1 / (i + 1)) * sim for i, sim in enumerate(line_similarities))
         similarity = weighted_sum / total_weight if total_weight > 0 else 0.0
 
-        length_penalty = min(len(actual_lines), len(expected_lines)) / max(
-            len(actual_lines), len(expected_lines)
-        )
+        length_penalty = min(len(actual_lines), len(expected_lines)) / max(len(actual_lines), len(expected_lines))
 
         return similarity * length_penalty
 
@@ -524,9 +512,7 @@ async def run_cpp_test_cases(
                 test_result.status = "WA"
             test_result.feedback = f"Similarity: {similarity:.2f}"
         else:
-            test_result.status = (
-                "CE" if "Compilation error" in execution_result["error"] else "RE"
-            )
+            test_result.status = "CE" if "Compilation error" in execution_result["error"] else "RE"
             test_result.feedback = execution_result["error"]
             test_result.score = 0.0
 
@@ -753,7 +739,9 @@ def _ioi_cpp_code_reward_impl(
             )
 
             similarity = compare_outputs(output, expected_output_str_from_gt)
-            match_reason = f"Output similarity: {similarity:.2f}\n\nExpected:\n{expected_output_str_from_gt}\n\nActual:\n{output}"
+            match_reason = (
+                f"Output similarity: {similarity:.2f}\n\nExpected:\n{expected_output_str_from_gt}\n\nActual:\n{output}"
+            )
             final_reason += f" Output similarity: {similarity:.2f}."
 
             metrics["output_match"] = MetricResult(
@@ -762,9 +750,7 @@ def _ioi_cpp_code_reward_impl(
                 reason=match_reason,
             )
 
-            return EvaluateResult(
-                score=similarity, reason=final_reason, metrics=metrics
-            )
+            return EvaluateResult(score=similarity, reason=final_reason, metrics=metrics)
         else:
             error = execution_result["error"]
             final_reason = f"Code execution failed: {error}"
@@ -791,9 +777,7 @@ def _ioi_cpp_code_reward_impl(
 
         if execution_result["success"]:
             output = execution_result["output"]
-            final_reason = (
-                "Code executed successfully (no expected output for comparison)."
-            )
+            final_reason = "Code executed successfully (no expected output for comparison)."
 
             metrics["execution_result"] = MetricResult(
                 score=1.0,

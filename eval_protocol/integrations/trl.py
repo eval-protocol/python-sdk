@@ -14,12 +14,8 @@ def create_trl_adapter(
     reward_fn: Callable,
     dataset_to_reward_kwargs_map: Dict[str, str],
     static_reward_kwargs: Optional[Dict[str, Any]] = None,
-    user_message_fn: Optional[
-        Callable[[Any], str]
-    ] = None,  # Function to construct user message content
-    assistant_message_fn: Optional[
-        Callable[[Any], str]
-    ] = None,  # Function to construct assistant message content
+    user_message_fn: Optional[Callable[[Any], str]] = None,  # Function to construct user message content
+    assistant_message_fn: Optional[Callable[[Any], str]] = None,  # Function to construct assistant message content
 ) -> Callable[[List[Any], List[str]], List[float]]:
     """
     Creates an adapter function compatible with TRL trainers (e.g., GRPOTrainer, PPOTrainer)
@@ -119,11 +115,7 @@ def create_trl_adapter(
             # If user_message_fn is provided, it's responsible for converting current_prompt_item to string content.
             # If not, and current_prompt_item is not a string, this might error or behave unexpectedly.
             # Default behavior: assume current_prompt_item is a string if user_message_fn is None.
-            user_content = (
-                user_message_fn(current_prompt_item)
-                if user_message_fn
-                else str(current_prompt_item)
-            )
+            user_content = user_message_fn(current_prompt_item) if user_message_fn else str(current_prompt_item)
 
             # Default extraction for assistant_content if current_completion is not a simple string
             final_assistant_str_content = ""
@@ -166,9 +158,7 @@ def create_trl_adapter(
                 # reward_fn is expected to be decorated with @reward_function,
                 # so it handles Message object creation internally if dicts are passed,
                 # and returns a dict.
-                reward_output_dict: Dict[str, Any] = reward_fn(
-                    messages=messages_for_reward, **final_reward_fn_kwargs
-                )
+                reward_output_dict: Dict[str, Any] = reward_fn(messages=messages_for_reward, **final_reward_fn_kwargs)
 
                 score = reward_output_dict.get("score")
                 if score is None:

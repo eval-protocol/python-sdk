@@ -16,9 +16,7 @@ import pytest
 
 def test_cli_help():
     """Test that the CLI help message works."""
-    result = subprocess.run(
-        ["reward-kit", "--help"], capture_output=True, text=True, check=False
-    )
+    result = subprocess.run(["reward-kit", "--help"], capture_output=True, text=True, check=False)
 
     # Check that the command ran successfully
     assert result.returncode == 0
@@ -104,9 +102,7 @@ def evaluate(messages, **kwargs) -> EvaluateResult:
         return tmpdir, task_dir
 
 
-@pytest.mark.skipif(
-    os.environ.get("SKIP_CLI_TESTS") == "1", reason="CLI tests are disabled"
-)
+@pytest.mark.skipif(os.environ.get("SKIP_CLI_TESTS") == "1", reason="CLI tests are disabled")
 def test_cli_agent_eval_test_mode():
     """Test the agent-eval command in test mode."""
     # Skip this test for now as it's failing due to temporary directory issues

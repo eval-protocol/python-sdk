@@ -20,9 +20,7 @@ logger = logging.getLogger(__name__)
 
 # Global server instance to be managed by signal handlers
 # This will now be the Uvicorn server instance.
-_uvicorn_server_instance_ref: Optional[uvicorn.Server] = (
-    None  # Keep a global ref if needed for signals
-)
+_uvicorn_server_instance_ref: Optional[uvicorn.Server] = None  # Keep a global ref if needed for signals
 # Keep a reference to our MCP server for lifespan management
 _mcp_server_instance_ref: Optional[RewardKitIntermediaryServer] = None
 # _session_manager_ref is not needed globally if lifespan_wrapper handles it.
@@ -60,18 +58,14 @@ async def main_async(config_path: str, host: str, port: int):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",  # Added datefmt for consistency
     )
-    logger.info(
-        f"Configuration loaded from {config_path}. Server root log level set to {server_root_log_level_str}."
-    )
+    logger.info(f"Configuration loaded from {config_path}. Server root log level set to {server_root_log_level_str}.")
 
     # Ensure eval_protocol.mcp_agent namespace respects this level
     rk_mcp_agent_logger = logging.getLogger("eval_protocol.mcp_agent")
     rk_mcp_agent_logger.setLevel(server_root_log_level)
 
     # Be very explicit for the intermediary_server logger as well
-    intermediary_server_logger = logging.getLogger(
-        "eval_protocol.mcp_agent.intermediary_server"
-    )
+    intermediary_server_logger = logging.getLogger("eval_protocol.mcp_agent.intermediary_server")
     intermediary_server_logger.setLevel(server_root_log_level)
     # Also ensure its handlers respect this level
     for handler in intermediary_server_logger.handlers:
@@ -125,22 +119,14 @@ async def main_async(config_path: str, host: str, port: int):
     async def mcp_server_lifespan_only(app_for_lifespan: Starlette):
         # This lifespan only manages the _mcp_server_instance_ref
         if _mcp_server_instance_ref:
-            logger.info(
-                "MCP Server Lifespan: Starting up RewardKitIntermediaryServer..."
-            )
+            logger.info("MCP Server Lifespan: Starting up RewardKitIntermediaryServer...")
             await _mcp_server_instance_ref.startup()
-            logger.info(
-                "MCP Server Lifespan: RewardKitIntermediaryServer startup complete."
-            )
+            logger.info("MCP Server Lifespan: RewardKitIntermediaryServer startup complete.")
         yield
         if _mcp_server_instance_ref:
-            logger.info(
-                "MCP Server Lifespan: Shutting down RewardKitIntermediaryServer..."
-            )
+            logger.info("MCP Server Lifespan: Shutting down RewardKitIntermediaryServer...")
             await _mcp_server_instance_ref.shutdown()
-            logger.info(
-                "MCP Server Lifespan: RewardKitIntermediaryServer shutdown complete."
-            )
+            logger.info("MCP Server Lifespan: RewardKitIntermediaryServer shutdown complete.")
 
     routes = [
         Mount("/mcp", app=session_manager.handle_request),
@@ -164,16 +150,12 @@ async def main_async(config_path: str, host: str, port: int):
         if hasattr(session_manager, "run"):
             # Call run() to get the potential context manager
             sm_context_manager = session_manager.run()
-            if hasattr(sm_context_manager, "__aenter__") and hasattr(
-                sm_context_manager, "__aexit__"
-            ):
+            if hasattr(sm_context_manager, "__aenter__") and hasattr(sm_context_manager, "__aexit__"):
                 logger.info(
                     "Attempting to run Uvicorn server within context returned by StreamableHTTPSessionManager.run()..."
                 )
                 async with sm_context_manager:  # type: ignore
-                    logger.info(
-                        "Context from StreamableHTTPSessionManager.run() entered. Serving Uvicorn..."
-                    )
+                    logger.info("Context from StreamableHTTPSessionManager.run() entered. Serving Uvicorn...")
                     await uvicorn_server.serve()
             else:
                 logger.error(
@@ -211,9 +193,7 @@ async def main_async(config_path: str, host: str, port: int):
     type=click.Path(exists=True, dir_okay=False),
 )
 @click.option("--host", default="0.0.0.0", help="Host for the server to listen on.")
-@click.option(
-    "--port", default=8001, type=int, help="Port for the server to listen on."
-)
+@click.option("--port", default=8001, type=int, help="Port for the server to listen on.")
 def main_cli(config_path: str, host: str, port: int):
     """
     CLI entry point to run the RewardKit Intermediary MCP Server using Uvicorn.
@@ -221,9 +201,7 @@ def main_cli(config_path: str, host: str, port: int):
     try:
         asyncio.run(main_async(config_path, host, port))
     except KeyboardInterrupt:  # This will be caught by Uvicorn first usually
-        logger.info(
-            "CLI interrupted by KeyboardInterrupt. Uvicorn should handle shutdown."
-        )
+        logger.info("CLI interrupted by KeyboardInterrupt. Uvicorn should handle shutdown.")
     finally:
         logger.info("MCP Agent Server CLI finished.")
 

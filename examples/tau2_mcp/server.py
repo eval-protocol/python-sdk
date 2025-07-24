@@ -30,12 +30,8 @@ def main():
         default="streamable-http",
         help="Transport protocol to use",
     )
-    parser.add_argument(
-        "--port", type=int, default=8000, help="Port for HTTP transport"
-    )
-    parser.add_argument(
-        "--seed", type=int, default=None, help="Seed for the environment"
-    )
+    parser.add_argument("--port", type=int, default=8000, help="Port for HTTP transport")
+    parser.add_argument("--seed", type=int, default=None, help="Seed for the environment")
 
     args = parser.parse_args()
 
@@ -55,4 +51,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

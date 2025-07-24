@@ -141,9 +141,7 @@ class TestBatchEvaluation:
                         # Reached goal!
                         episode["done"] = True
                         episode["won"] = True
-                        message = (
-                            "Congratulations! You reached the goal! You win! Success!"
-                        )
+                        message = "Congratulations! You reached the goal! You win! Success!"
                     elif cell == "H":
                         # Fell in hole
                         episode["done"] = True
@@ -329,35 +327,21 @@ class TestBatchEvaluation:
 
         def smart_move_generator(**kwargs):
             messages = kwargs.get("messages", [])
-            move_count = sum(
-                1
-                for msg in messages
-                if msg.get("role") == "assistant" and msg.get("tool_calls")
-            )
+            move_count = sum(1 for msg in messages if msg.get("role") == "assistant" and msg.get("tool_calls"))
 
             rollout_counter[0] += 1
             if rollout_counter[0] <= 6:  # First rollout wins
-                action = (
-                    winning_sequence[move_count]
-                    if move_count < len(winning_sequence)
-                    else "right"
-                )
+                action = winning_sequence[move_count] if move_count < len(winning_sequence) else "right"
             else:  # Second rollout makes mistake
                 action = (
                     "right"
                     if move_count == 4
-                    else (
-                        winning_sequence[move_count]
-                        if move_count < len(winning_sequence)
-                        else "right"
-                    )
+                    else (winning_sequence[move_count] if move_count < len(winning_sequence) else "right")
                 )
 
             return create_tool_call_response(action, f"call_{move_count}")
 
-        mock_openai_client.chat.completions.create = AsyncMock(
-            side_effect=smart_move_generator
-        )
+        mock_openai_client.chat.completions.create = AsyncMock(side_effect=smart_move_generator)
 
         # Mock Fireworks API response (backup)
         mock_response = AsyncMock()
@@ -396,9 +380,7 @@ class TestBatchEvaluation:
         assert task_def is not None, "Failed to load task definition"
 
         # Override for traditional batch evaluation (not data-driven)
-        task_def.dataset_path = (
-            None  # Remove dataset path to use traditional evaluation
-        )
+        task_def.dataset_path = None  # Remove dataset path to use traditional evaluation
         task_def.num_rollouts = 2
 
         task_id = task_manager.register_task(task_def)
@@ -414,12 +396,8 @@ class TestBatchEvaluation:
         try:
             # Mock server process management
             with (
-                patch.object(
-                    task_manager, "_start_resource_server", return_value=12345
-                ),
-                patch.object(
-                    task_manager, "_wait_for_server_health", return_value=True
-                ),
+                patch.object(task_manager, "_start_resource_server", return_value=12345),
+                patch.object(task_manager, "_wait_for_server_health", return_value=True),
             ):
 
                 # Execute the task with batch evaluation
@@ -441,9 +419,7 @@ class TestBatchEvaluation:
 
             # Should be aggregated results
             assert isinstance(result, dict)
-            assert result.get(
-                "aggregated", False
-            ), "Results should be aggregated for batch evaluation"
+            assert result.get("aggregated", False), "Results should be aggregated for batch evaluation"
 
             # Validate aggregated result structure
             required_keys = [
@@ -519,9 +495,7 @@ class TestBatchEvaluation:
         mock_completion = AsyncMock()
         mock_completion.choices = [Mock(message=mock_message)]
         mock_completion.usage = Mock(total_tokens=15)
-        mock_openai_client.chat.completions.create = AsyncMock(
-            return_value=mock_completion
-        )
+        mock_openai_client.chat.completions.create = AsyncMock(return_value=mock_completion)
 
         # Mock HTTP rollout server responses
         mock_httpx_response = Mock()
@@ -547,9 +521,7 @@ class TestBatchEvaluation:
             },
         ]
         response_iter = iter(responses * 10)
-        mock_httpx_response.json.side_effect = lambda: next(
-            response_iter, responses[-1]
-        )
+        mock_httpx_response.json.side_effect = lambda: next(response_iter, responses[-1])
         mock_httpx_post.return_value = mock_httpx_response
 
         # Mock health check
@@ -588,12 +560,8 @@ class TestBatchEvaluation:
         try:
             # Mock server process management
             with (
-                patch.object(
-                    task_manager, "_start_resource_server", return_value=12346
-                ),
-                patch.object(
-                    task_manager, "_wait_for_server_health", return_value=True
-                ),
+                patch.object(task_manager, "_start_resource_server", return_value=12346),
+                patch.object(task_manager, "_wait_for_server_health", return_value=True),
             ):
 
                 # Execute the task with batch evaluation
@@ -615,9 +583,7 @@ class TestBatchEvaluation:
 
             # Should be aggregated results
             assert isinstance(result, dict)
-            assert result.get(
-                "aggregated", False
-            ), "Results should be aggregated for batch evaluation"
+            assert result.get("aggregated", False), "Results should be aggregated for batch evaluation"
 
             # Validate aggregated result structure
             required_keys = [
@@ -703,9 +669,7 @@ class TestBatchEvaluation:
         mock_completion = AsyncMock()
         mock_completion.choices = [Mock(message=mock_message)]
         mock_completion.usage = Mock(total_tokens=8)
-        mock_openai_client.chat.completions.create = AsyncMock(
-            return_value=mock_completion
-        )
+        mock_openai_client.chat.completions.create = AsyncMock(return_value=mock_completion)
 
         # Mock Fireworks API response (backup)
         mock_response = AsyncMock()
@@ -733,9 +697,7 @@ class TestBatchEvaluation:
             {"position": [3, 3], "done": True, "won": True, "message": "CLI Win!"},
         ]
         response_iter = iter(responses * 5)
-        mock_httpx_response.json.side_effect = lambda: next(
-            response_iter, responses[-1]
-        )
+        mock_httpx_response.json.side_effect = lambda: next(response_iter, responses[-1])
         mock_httpx_post.return_value = mock_httpx_response
 
         # Mock health check
@@ -773,9 +735,7 @@ class TestBatchEvaluation:
     @patch("subprocess.Popen")
     @patch("httpx.Client.post")
     @patch("requests.get")
-    def test_cli_batch_evaluation_openai(
-        self, mock_requests_get, mock_httpx_post, mock_subprocess_popen, mock_openai
-    ):
+    def test_cli_batch_evaluation_openai(self, mock_requests_get, mock_httpx_post, mock_subprocess_popen, mock_openai):
         """Test batch evaluation through CLI command with OpenAI."""
         # Mock OpenAI client
         mock_openai_client = AsyncMock()
@@ -808,9 +768,7 @@ class TestBatchEvaluation:
         mock_completion = AsyncMock()
         mock_completion.choices = [Mock(message=mock_message)]
         mock_completion.usage = Mock(total_tokens=10)
-        mock_openai_client.chat.completions.create = AsyncMock(
-            return_value=mock_completion
-        )
+        mock_openai_client.chat.completions.create = AsyncMock(return_value=mock_completion)
 
         # Mock HTTP rollout responses
         mock_httpx_response = Mock()
@@ -832,9 +790,7 @@ class TestBatchEvaluation:
             },
         ]
         response_iter = iter(responses * 5)
-        mock_httpx_response.json.side_effect = lambda: next(
-            response_iter, responses[-1]
-        )
+        mock_httpx_response.json.side_effect = lambda: next(response_iter, responses[-1])
         mock_httpx_post.return_value = mock_httpx_response
 
         # Mock health check
@@ -938,35 +894,21 @@ class TestBatchEvaluation:
 
         def smart_move_generator(**kwargs):
             messages = kwargs.get("messages", [])
-            move_count = sum(
-                1
-                for msg in messages
-                if msg.get("role") == "assistant" and msg.get("tool_calls")
-            )
+            move_count = sum(1 for msg in messages if msg.get("role") == "assistant" and msg.get("tool_calls"))
 
             rollout_counter[0] += 1
             if rollout_counter[0] <= 6:  # First rollout wins
-                action = (
-                    winning_sequence[move_count]
-                    if move_count < len(winning_sequence)
-                    else "right"
-                )
+                action = winning_sequence[move_count] if move_count < len(winning_sequence) else "right"
             else:  # Second/third rollout makes mistake
                 action = (
                     "right"
                     if move_count == 4
-                    else (
-                        winning_sequence[move_count]
-                        if move_count < len(winning_sequence)
-                        else "right"
-                    )
+                    else (winning_sequence[move_count] if move_count < len(winning_sequence) else "right")
                 )
 
             return create_tool_call_response(action, f"call_{move_count}")
 
-        mock_openai_client.chat.completions.create = AsyncMock(
-            side_effect=smart_move_generator
-        )
+        mock_openai_client.chat.completions.create = AsyncMock(side_effect=smart_move_generator)
 
         # Mock Fireworks API response (backup)
         mock_response = AsyncMock()
@@ -1019,12 +961,8 @@ class TestBatchEvaluation:
         try:
             # Mock server process management
             with (
-                patch.object(
-                    task_manager, "_start_resource_server", return_value=12347
-                ),
-                patch.object(
-                    task_manager, "_wait_for_server_health", return_value=True
-                ),
+                patch.object(task_manager, "_start_resource_server", return_value=12347),
+                patch.object(task_manager, "_wait_for_server_health", return_value=True),
             ):
 
                 # Execute with parallel enabled
@@ -1107,35 +1045,21 @@ class TestBatchEvaluation:
 
         def smart_move_generator(**kwargs):
             messages = kwargs.get("messages", [])
-            move_count = sum(
-                1
-                for msg in messages
-                if msg.get("role") == "assistant" and msg.get("tool_calls")
-            )
+            move_count = sum(1 for msg in messages if msg.get("role") == "assistant" and msg.get("tool_calls"))
 
             rollout_counter[0] += 1
             if rollout_counter[0] <= 6:  # First rollout wins
-                action = (
-                    winning_sequence[move_count]
-                    if move_count < len(winning_sequence)
-                    else "right"
-                )
+                action = winning_sequence[move_count] if move_count < len(winning_sequence) else "right"
             else:  # Second rollout makes mistake
                 action = (
                     "right"
                     if move_count == 4
-                    else (
-                        winning_sequence[move_count]
-                        if move_count < len(winning_sequence)
-                        else "right"
-                    )
+                    else (winning_sequence[move_count] if move_count < len(winning_sequence) else "right")
                 )
 
             return create_tool_call_response(action, f"call_{move_count}")
 
-        mock_openai_client.chat.completions.create = AsyncMock(
-            side_effect=smart_move_generator
-        )
+        mock_openai_client.chat.completions.create = AsyncMock(side_effect=smart_move_generator)
 
         # Mock API responses (backup)
         mock_response = AsyncMock()
@@ -1181,18 +1105,12 @@ class TestBatchEvaluation:
         try:
             # Mock server process management
             with (
-                patch.object(
-                    task_manager, "_start_resource_server", return_value=12348
-                ),
-                patch.object(
-                    task_manager, "_wait_for_server_health", return_value=True
-                ),
+                patch.object(task_manager, "_start_resource_server", return_value=12348),
+                patch.object(task_manager, "_wait_for_server_health", return_value=True),
             ):
 
                 # Execute task
-                results = await task_manager.execute_tasks(
-                    task_ids=[task_id], num_rollouts_override=2
-                )
+                results = await task_manager.execute_tasks(task_ids=[task_id], num_rollouts_override=2)
 
             # Task should complete successfully
             assert task_id in results

@@ -19,9 +19,7 @@ from eval_protocol.rewards.code_execution import e2b_code_execution_reward
 
 def main():
     # Parse command line arguments
-    parser = argparse.ArgumentParser(
-        description="E2B JavaScript execution reward example"
-    )
+    parser = argparse.ArgumentParser(description="E2B JavaScript execution reward example")
     parser.add_argument(
         "--api-key",
         help="E2B API key (or set E2B_API_KEY environment variable)",
@@ -32,9 +30,7 @@ def main():
     api_key = args.api_key or os.environ.get("E2B_API_KEY")
 
     if not api_key:
-        print(
-            "E2B API key is required. Please provide it via --api-key or set the E2B_API_KEY environment variable."
-        )
+        print("E2B API key is required. Please provide it via --api-key or set the E2B_API_KEY environment variable.")
         return
 
     # Example conversation with a JavaScript coding task

@@ -60,15 +60,11 @@ class TestRLDataAligner:
         # System's collected StepData
         # RLRolloutWorker should populate step_info with 'assistant_turn_index'
         step_data_list = [
-            self.create_mock_step_data(
-                system_step_index=0, assistant_turn_index=0, content="Action 1"
-            ),
+            self.create_mock_step_data(system_step_index=0, assistant_turn_index=0, content="Action 1"),
             self.create_mock_step_data(
                 system_step_index=1, assistant_turn_index="intermediate_tool_step"
             ),  # No user reward for this
-            self.create_mock_step_data(
-                system_step_index=2, assistant_turn_index="turn_1", content="Action 2"
-            ),
+            self.create_mock_step_data(system_step_index=2, assistant_turn_index="turn_1", content="Action 2"),
             self.create_mock_step_data(
                 system_step_index=3, assistant_turn_index=2, content="Action 3"
             ),  # No user reward for this
@@ -83,21 +79,15 @@ class TestRLDataAligner:
         assert len(aligned_step_data) == 4
         # Check base_rewards
         assert aligned_step_data[0].base_reward == 0.25  # Matched step_index 0
-        assert (
-            aligned_step_data[1].base_reward is None
-        )  # No matching step_index "intermediate_tool_step"
+        assert aligned_step_data[1].base_reward is None  # No matching step_index "intermediate_tool_step"
         assert aligned_step_data[2].base_reward == 0.75  # Matched step_index "turn_1"
-        assert (
-            aligned_step_data[3].base_reward is None
-        )  # No StepOutput for step_index 2
+        assert aligned_step_data[3].base_reward is None  # No StepOutput for step_index 2
 
     def test_align_single_rollout_no_step_outputs(self):
         aligner = RLDataAligner()
         rollout_id = "rollout2"
         user_eval_result = EvaluateResult(score=0.9, reason="Overall score only")
-        step_data_list = [
-            self.create_mock_step_data(system_step_index=0, assistant_turn_index=0)
-        ]
+        step_data_list = [self.create_mock_step_data(system_step_index=0, assistant_turn_index=0)]
 
         aligned_step_data = aligner.align_data_for_rl_processing(
             current_eval_result=user_eval_result,
@@ -110,9 +100,7 @@ class TestRLDataAligner:
         aligner = RLDataAligner()
         rollout_id = "rollout3"
         user_eval_result = EvaluateResult(score=0.7, step_outputs=[])  # Empty list
-        step_data_list = [
-            self.create_mock_step_data(system_step_index=0, assistant_turn_index=0)
-        ]
+        step_data_list = [self.create_mock_step_data(system_step_index=0, assistant_turn_index=0)]
 
         aligned_step_data = aligner.align_data_for_rl_processing(
             current_eval_result=user_eval_result,
@@ -129,9 +117,7 @@ class TestRLDataAligner:
             score=0.5,
             step_outputs=[StepOutput(step_index="non_existent_turn", base_reward=1.0)],
         )
-        step_data_list = [
-            self.create_mock_step_data(system_step_index=0, assistant_turn_index=0)
-        ]
+        step_data_list = [self.create_mock_step_data(system_step_index=0, assistant_turn_index=0)]
         aligned_step_data = aligner.align_data_for_rl_processing(
             current_eval_result=user_eval_result,
             current_step_data_list=step_data_list,
@@ -143,9 +129,7 @@ class TestRLDataAligner:
         """Test when StepData.step_info is missing the 'assistant_turn_index' key."""
         aligner = RLDataAligner()
         rollout_id = "rollout5"
-        user_eval_result = EvaluateResult(
-            score=0.5, step_outputs=[StepOutput(step_index=0, base_reward=1.0)]
-        )
+        user_eval_result = EvaluateResult(score=0.5, step_outputs=[StepOutput(step_index=0, base_reward=1.0)])
         # Create StepData *without* 'assistant_turn_index' in step_info
         step_data_list = [
             StepData(
@@ -166,13 +150,9 @@ class TestRLDataAligner:
     def test_align_preserves_other_step_data_fields(self):
         aligner = RLDataAligner()
         rollout_id = "rollout6"
-        user_eval_result = EvaluateResult(
-            score=0.8, step_outputs=[StepOutput(step_index=0, base_reward=0.99)]
-        )
+        user_eval_result = EvaluateResult(score=0.8, step_outputs=[StepOutput(step_index=0, base_reward=0.99)])
 
-        original_step_data = self.create_mock_step_data(
-            system_step_index=0, assistant_turn_index=0
-        )
+        original_step_data = self.create_mock_step_data(system_step_index=0, assistant_turn_index=0)
         original_step_data.policy_logprobs = {"logp": -0.1}
         original_step_data.policy_value_estimate = 0.5
         original_step_data.advantage = -0.05  # Should remain untouched by this aligner
@@ -187,6 +167,4 @@ class TestRLDataAligner:
         assert aligned_step_data[0].base_reward == 0.99
         assert aligned_step_data[0].policy_logprobs == {"logp": -0.1}
         assert aligned_step_data[0].policy_value_estimate == 0.5
-        assert (
-            aligned_step_data[0].advantage == -0.05
-        )  # Ensure unrelated fields are not wiped
+        assert aligned_step_data[0].advantage == -0.05  # Ensure unrelated fields are not wiped

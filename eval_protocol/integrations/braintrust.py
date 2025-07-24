@@ -18,19 +18,13 @@ def scorer_to_reward_fn(
     """Wrap a Braintrust scorer as a Reward Kit reward function."""
 
     @reward_function
-    def reward_fn(
-        messages: List[Message], ground_truth: Optional[List[Message]] = None, **kwargs
-    ) -> EvaluateResult:
-        input_val = (
-            messages_to_input(messages) if messages_to_input else messages[0].content
-        )
+    def reward_fn(messages: List[Message], ground_truth: Optional[List[Message]] = None, **kwargs) -> EvaluateResult:
+        input_val = messages_to_input(messages) if messages_to_input else messages[0].content
         output_val = messages[-1].content
         expected_val = None
         if ground_truth:
             expected_val = (
-                ground_truth_to_expected(ground_truth)
-                if ground_truth_to_expected
-                else ground_truth[-1].content
+                ground_truth_to_expected(ground_truth) if ground_truth_to_expected else ground_truth[-1].content
             )
         score = scorer(input_val, output_val, expected_val)
         return EvaluateResult(score=score)

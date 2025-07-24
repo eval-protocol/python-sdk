@@ -38,9 +38,7 @@ def run_batch_evaluation(
 
     # Verify it's a batch mode function
     if not hasattr(reward_function, "_reward_function_mode"):
-        logger.warning(
-            f"Reward function {reward_function_path} doesn't have mode metadata. Assuming batch mode."
-        )
+        logger.warning(f"Reward function {reward_function_path} doesn't have mode metadata. Assuming batch mode.")
     elif getattr(reward_function, "_reward_function_mode") != "batch":
         raise ValueError(
             f"Reward function {reward_function_path} is not configured for batch mode. Expected mode='batch'."
@@ -63,9 +61,7 @@ def run_batch_evaluation(
                         continue
 
                     if not rollouts_messages or not isinstance(rollouts_messages, list):
-                        logger.error(
-                            f"Line {line_num}: Missing or invalid rollouts_messages"
-                        )
+                        logger.error(f"Line {line_num}: Missing or invalid rollouts_messages")
                         continue
 
                     # Prepare kwargs for the batch reward function
@@ -84,15 +80,11 @@ def run_batch_evaluation(
 
                     # Call the batch reward function
                     try:
-                        batch_results = reward_function(
-                            rollouts_messages=rollouts_messages, **batch_kwargs
-                        )
+                        batch_results = reward_function(rollouts_messages=rollouts_messages, **batch_kwargs)
 
                         # Validate results
                         if not isinstance(batch_results, list):
-                            raise ValueError(
-                                f"Batch reward function must return a list, got {type(batch_results)}"
-                            )
+                            raise ValueError(f"Batch reward function must return a list, got {type(batch_results)}")
 
                         if len(batch_results) != len(rollouts_messages):
                             raise ValueError(
@@ -101,17 +93,11 @@ def run_batch_evaluation(
                             )
 
                         # Create result entries
-                        response_ids = data.get(
-                            "response_ids", list(range(len(rollouts_messages)))
-                        )
+                        response_ids = data.get("response_ids", list(range(len(rollouts_messages))))
 
-                        for i, (response_id, eval_result) in enumerate(
-                            zip(response_ids, batch_results)
-                        ):
+                        for i, (response_id, eval_result) in enumerate(zip(response_ids, batch_results)):
                             if not isinstance(eval_result, EvaluateResult):
-                                logger.error(
-                                    f"Result {i} is not an EvaluateResult: {type(eval_result)}"
-                                )
+                                logger.error(f"Result {i} is not an EvaluateResult: {type(eval_result)}")
                                 continue
 
                             result_entry = {
@@ -122,31 +108,20 @@ def run_batch_evaluation(
                                 "evaluation_reason": eval_result.reason,
                                 "is_score_valid": eval_result.is_score_valid,
                                 "evaluation_metrics": (
-                                    {
-                                        k: v.model_dump()
-                                        for k, v in eval_result.metrics.items()
-                                    }
+                                    {k: v.model_dump() for k, v in eval_result.metrics.items()}
                                     if eval_result.metrics
                                     else {}
                                 ),
                                 # Include original metadata
-                                **{
-                                    k: v
-                                    for k, v in data.items()
-                                    if k not in excluded_fields
-                                },
+                                **{k: v for k, v in data.items() if k not in excluded_fields},
                             }
 
                             results.append(result_entry)
 
                     except Exception as e:
-                        logger.error(
-                            f"Error calling batch reward function for request {request_id}: {e}"
-                        )
+                        logger.error(f"Error calling batch reward function for request {request_id}: {e}")
                         # Create error entries for each expected result
-                        response_ids = data.get(
-                            "response_ids", list(range(len(rollouts_messages)))
-                        )
+                        response_ids = data.get("response_ids", list(range(len(rollouts_messages))))
                         for i, response_id in enumerate(response_ids):
                             error_entry = {
                                 "request_id": request_id,
@@ -173,9 +148,7 @@ def run_batch_evaluation(
         for result in results:
             f.write(json.dumps(result) + "\n")
 
-    logger.info(
-        f"Batch evaluation completed. {len(results)} results written to {output_path}"
-    )
+    logger.info(f"Batch evaluation completed. {len(results)} results written to {output_path}")
     return results
 
 
@@ -217,9 +190,7 @@ def create_sample_batch_reward_function():
         response_lengths = [len(response) for response in assistant_responses]
         max_length = max(response_lengths) if response_lengths else 1
 
-        for i, (response, length) in enumerate(
-            zip(assistant_responses, response_lengths)
-        ):
+        for i, (response, length) in enumerate(zip(assistant_responses, response_lengths)):
             # Normalize score based on length (0.1 to 1.0)
             base_score = 0.1 + 0.9 * (length / max_length)
 

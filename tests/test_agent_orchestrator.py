@@ -48,9 +48,7 @@ def minimal_task_def() -> TaskDefinitionModel:
 class TestOrchestratorInitialization:
     """Tests for Orchestrator initialization."""
 
-    def test_orchestrator_initialization_success(
-        self, minimal_task_def: TaskDefinitionModel
-    ):
+    def test_orchestrator_initialization_success(self, minimal_task_def: TaskDefinitionModel):
         orchestrator = Orchestrator(task_definition=minimal_task_def)
         assert orchestrator.task_definition == minimal_task_def
         assert orchestrator.base_resource is None
@@ -74,19 +72,14 @@ class TestOrchestratorComponentLoading:
     """Tests for _load_task_components method of Orchestrator."""
 
     @patch("importlib.import_module")
-    async def test_load_task_components_success(
-        self, mock_import_module, minimal_task_def
-    ):
+    async def test_load_task_components_success(self, mock_import_module, minimal_task_def):
         mock_tools_mod = MagicMock()
         mock_reward_func = MagicMock(return_value=0.5)
 
         def import_side_effect(module_path):
             if module_path == minimal_task_def.tools_module_path:
                 return mock_tools_mod
-            elif (
-                module_path
-                == str(minimal_task_def.reward_function_path).rsplit(".", 1)[0]
-            ):
+            elif module_path == str(minimal_task_def.reward_function_path).rsplit(".", 1)[0]:
                 reward_module = MagicMock()
                 setattr(
                     reward_module,
@@ -105,17 +98,13 @@ class TestOrchestratorComponentLoading:
         assert orchestrator.reward_function == mock_reward_func
 
     @patch("importlib.import_module")
-    async def test_load_task_components_no_tools_module(
-        self, mock_import_module, minimal_task_def
-    ):
+    async def test_load_task_components_no_tools_module(self, mock_import_module, minimal_task_def):
         task_dict = get_minimal_task_def_dict()
         task_dict["tools_module_path"] = None
         task_def_no_tools = TaskDefinitionModel(**task_dict)
 
         mock_reward_func = MagicMock(return_value=0.5)
-        reward_module_path, reward_func_name = str(
-            task_def_no_tools.reward_function_path
-        ).rsplit(".", 1)
+        reward_module_path, reward_func_name = str(task_def_no_tools.reward_function_path).rsplit(".", 1)
 
         def import_side_effect(module_path):
             if module_path == reward_module_path:
@@ -136,9 +125,7 @@ class TestOrchestratorComponentLoading:
         "importlib.import_module",
         side_effect=ImportError("Test Import Error for tools"),
     )
-    async def test_load_task_components_tools_module_import_error(
-        self, mock_import_module, minimal_task_def
-    ):
+    async def test_load_task_components_tools_module_import_error(self, mock_import_module, minimal_task_def):
         orchestrator = Orchestrator(task_definition=minimal_task_def)
         result = await orchestrator._load_task_components()
         assert result is False
@@ -146,18 +133,13 @@ class TestOrchestratorComponentLoading:
         assert orchestrator.reward_function is None
 
     @patch("importlib.import_module")
-    async def test_load_task_components_reward_func_import_error(
-        self, mock_import_module, minimal_task_def
-    ):
+    async def test_load_task_components_reward_func_import_error(self, mock_import_module, minimal_task_def):
         mock_tools_mod = MagicMock()
 
         def import_side_effect(module_path):
             if module_path == minimal_task_def.tools_module_path:
                 return mock_tools_mod
-            elif (
-                module_path
-                == str(minimal_task_def.reward_function_path).rsplit(".", 1)[0]
-            ):
+            elif module_path == str(minimal_task_def.reward_function_path).rsplit(".", 1)[0]:
                 raise ImportError("Test Import Error for reward module")
             raise ValueError(f"Unexpected module path: {module_path}")
 
@@ -168,21 +150,15 @@ class TestOrchestratorComponentLoading:
         assert orchestrator.reward_function is None
 
     @patch("importlib.import_module")
-    async def test_load_task_components_reward_func_attribute_error(
-        self, mock_import_module, minimal_task_def
-    ):
+    async def test_load_task_components_reward_func_attribute_error(self, mock_import_module, minimal_task_def):
         mock_tools_mod = MagicMock()
-        reward_module_path, reward_func_name = str(
-            minimal_task_def.reward_function_path
-        ).rsplit(".", 1)
+        reward_module_path, reward_func_name = str(minimal_task_def.reward_function_path).rsplit(".", 1)
 
         def import_side_effect(module_path):
             if module_path == minimal_task_def.tools_module_path:
                 return mock_tools_mod
             elif module_path == reward_module_path:
-                reward_module = MagicMock(
-                    spec=[]
-                )  # Empty spec will cause AttributeError
+                reward_module = MagicMock(spec=[])  # Empty spec will cause AttributeError
                 return reward_module
             raise ValueError(f"Unexpected module path: {module_path}")
 
@@ -193,19 +169,14 @@ class TestOrchestratorComponentLoading:
         assert orchestrator.reward_function is None
 
     @patch("importlib.import_module")
-    async def test_load_task_components_reward_func_not_callable(
-        self, mock_import_module, minimal_task_def
-    ):
+    async def test_load_task_components_reward_func_not_callable(self, mock_import_module, minimal_task_def):
         mock_tools_mod = MagicMock()
         mock_reward_attr = "not_a_function"
 
         def import_side_effect(module_path):
             if module_path == minimal_task_def.tools_module_path:
                 return mock_tools_mod
-            elif (
-                module_path
-                == str(minimal_task_def.reward_function_path).rsplit(".", 1)[0]
-            ):
+            elif module_path == str(minimal_task_def.reward_function_path).rsplit(".", 1)[0]:
                 reward_module = MagicMock()
                 setattr(
                     reward_module,
@@ -221,14 +192,10 @@ class TestOrchestratorComponentLoading:
         assert result is False
         assert orchestrator.reward_function is None
 
-    async def test_load_task_components_empty_reward_path(
-        self, minimal_task_def, caplog
-    ):
+    async def test_load_task_components_empty_reward_path(self, minimal_task_def, caplog):
         task_dict_empty_reward = get_minimal_task_def_dict()
         task_dict_empty_reward["reward_function_path"] = ""
-        task_dict_empty_reward["tools_module_path"] = (
-            None  # Ensure tools module loading doesn't fail first
-        )
+        task_dict_empty_reward["tools_module_path"] = None  # Ensure tools module loading doesn't fail first
         task_def_empty_reward = TaskDefinitionModel(**task_dict_empty_reward)
         orchestrator = Orchestrator(task_definition=task_def_empty_reward)
         result = await orchestrator._load_task_components()
@@ -243,31 +210,22 @@ class TestOrchestratorResourceSetup:
 
     def test_get_resource_class_known_types(self, minimal_task_def):
         orchestrator = Orchestrator(task_definition=minimal_task_def)
-        assert (
-            orchestrator._get_resource_class("PythonStateResource")
-            == PythonStateResource
-        )
+        assert orchestrator._get_resource_class("PythonStateResource") == PythonStateResource
         assert orchestrator._get_resource_class("SQLResource") == SQLResource
-        assert (
-            orchestrator._get_resource_class("FileSystemResource") == FileSystemResource
-        )
+        assert orchestrator._get_resource_class("FileSystemResource") == FileSystemResource
         assert (
             orchestrator._get_resource_class("DockerResource") == DockerResource
         )  # Returns dummy if SDK not available
 
     def test_get_resource_class_unknown_type(self, minimal_task_def):
         orchestrator = Orchestrator(task_definition=minimal_task_def)
-        with pytest.raises(
-            ValueError, match="Resource class 'UnknownResource' not found"
-        ):
+        with pytest.raises(ValueError, match="Resource class 'UnknownResource' not found"):
             orchestrator._get_resource_class("UnknownResource")
 
     async def test_setup_base_resource_success(self, minimal_task_def):
         MockResourceClass = MagicMock()
         mock_resource_instance = MockResourceClass.return_value
-        mock_resource_instance.setup = AsyncMock(
-            return_value=None
-        )  # ForkableResource.setup is async
+        mock_resource_instance.setup = AsyncMock(return_value=None)  # ForkableResource.setup is async
 
         orchestrator = Orchestrator(task_definition=minimal_task_def)
         with patch.object(
@@ -277,9 +235,7 @@ class TestOrchestratorResourceSetup:
 
         mock_get_resource_method.assert_called_once_with(minimal_task_def.resource_type)
         MockResourceClass.assert_called_once()
-        mock_resource_instance.setup.assert_awaited_once_with(
-            minimal_task_def.base_resource_config
-        )
+        mock_resource_instance.setup.assert_awaited_once_with(minimal_task_def.base_resource_config)
         assert orchestrator.base_resource == mock_resource_instance
 
     async def test_setup_base_resource_get_class_fails(self, minimal_task_def, caplog):
@@ -291,24 +247,15 @@ class TestOrchestratorResourceSetup:
         assert orchestrator.base_resource is None
         assert "Could not get resource class 'NonExistentResource'" in caplog.text
 
-    async def test_setup_base_resource_resource_setup_method_fails(
-        self, minimal_task_def, caplog
-    ):
+    async def test_setup_base_resource_resource_setup_method_fails(self, minimal_task_def, caplog):
         MockResourceClass = MagicMock()
         mock_resource_instance = MockResourceClass.return_value
-        mock_resource_instance.setup = AsyncMock(
-            side_effect=RuntimeError("Resource setup failed")
-        )
+        mock_resource_instance.setup = AsyncMock(side_effect=RuntimeError("Resource setup failed"))
         orchestrator = Orchestrator(task_definition=minimal_task_def)
-        with patch.object(
-            orchestrator, "_get_resource_class", return_value=MockResourceClass
-        ):
+        with patch.object(orchestrator, "_get_resource_class", return_value=MockResourceClass):
             await orchestrator.setup_base_resource()
         assert orchestrator.base_resource is None
-        assert (
-            f"Failed to setup base resource '{minimal_task_def.resource_type}'"
-            in caplog.text
-        )
+        assert f"Failed to setup base resource '{minimal_task_def.resource_type}'" in caplog.text
         assert "Resource setup failed" in caplog.text
 
 
@@ -321,9 +268,7 @@ class TestOrchestratorToolDiscovery:
         resource.step = AsyncMock(return_value={"status": "ok from resource_step"})
         return resource
 
-    async def test_tools_from_resource_only(
-        self, minimal_task_def, mock_episode_resource
-    ):
+    async def test_tools_from_resource_only(self, minimal_task_def, mock_episode_resource):
         pytest.skip("Revisit later")
         resource_tool_spec = [
             {
@@ -331,21 +276,15 @@ class TestOrchestratorToolDiscovery:
                 "function": {"name": "resource_tool_1", "description": "Res tool 1"},
             },
         ]
-        mock_episode_resource.get_tools_spec = AsyncMock(
-            return_value=resource_tool_spec
-        )  # Ensure it's AsyncMock
+        mock_episode_resource.get_tools_spec = AsyncMock(return_value=resource_tool_spec)  # Ensure it's AsyncMock
         orchestrator = Orchestrator(task_definition=minimal_task_def)
         orchestrator.tools_module = None
         available_tools = await orchestrator._get_available_tools(mock_episode_resource)
         assert "resource_tool_1" in available_tools
         await available_tools["resource_tool_1"]({})
-        mock_episode_resource.step.assert_awaited_once_with(
-            action_name="resource_tool_1", action_params={}
-        )
+        mock_episode_resource.step.assert_awaited_once_with(action_name="resource_tool_1", action_params={})
 
-    async def test_tools_from_module_only(
-        self, minimal_task_def, mock_episode_resource
-    ):
+    async def test_tools_from_module_only(self, minimal_task_def, mock_episode_resource):
         # Create a mock module with a test tool function
         mock_tools_module = types.ModuleType("test_mock_module_tool_1")
 
@@ -374,9 +313,7 @@ class TestOrchestratorToolDiscovery:
 
         # Since we're using our own adapter, not testing the mock directly anymore
 
-    async def test_tools_from_both_sources_module_overwrites(
-        self, minimal_task_def, mock_episode_resource
-    ):
+    async def test_tools_from_both_sources_module_overwrites(self, minimal_task_def, mock_episode_resource):
         # Create resource tool specs that include a common_tool
         resource_tool_spec = [
             {
@@ -384,9 +321,7 @@ class TestOrchestratorToolDiscovery:
                 "function": {"name": "common_tool", "description": "Resource version"},
             }
         ]
-        mock_episode_resource.get_tools_spec = AsyncMock(
-            return_value=resource_tool_spec
-        )
+        mock_episode_resource.get_tools_spec = AsyncMock(return_value=resource_tool_spec)
 
         # Create a module with a tool of the same name
         mock_tools_module = types.ModuleType("test_mock_module_common_tool")
@@ -418,9 +353,7 @@ class TestOrchestratorToolDiscovery:
         mock_common_tool.assert_awaited_once()
 
     async def test_no_tools_available(self, minimal_task_def, mock_episode_resource):
-        mock_episode_resource.get_tools_spec = AsyncMock(
-            return_value=[]
-        )  # Ensure AsyncMock
+        mock_episode_resource.get_tools_spec = AsyncMock(return_value=[])  # Ensure AsyncMock
         orchestrator = Orchestrator(task_definition=minimal_task_def)
         orchestrator.tools_module = None
         available_tools = await orchestrator._get_available_tools(mock_episode_resource)
@@ -473,9 +406,7 @@ class TestOrchestratorExecutionFlow:
         # skip this test for now
         pytest.skip("Revisit later")
 
-        mock_load_components.return_value = (
-            True  # Ensure _load_task_components is skipped and returns True
-        )
+        mock_load_components.return_value = True  # Ensure _load_task_components is skipped and returns True
 
         # Simplify task_def for this test to avoid final_state_query logic for now
         task_dict_simple = get_minimal_task_def_dict()
@@ -492,17 +423,13 @@ class TestOrchestratorExecutionFlow:
         simple_task_def.name = "Generic Task Test"
         simple_task_def.poc_max_turns = 1
 
-        mock_get_resource_class.return_value = MagicMock(
-            return_value=mock_base_resource
-        )
+        mock_get_resource_class.return_value = MagicMock(return_value=mock_base_resource)
         mock_reward_func = MagicMock(return_value={"score": 1.0, "reason": "success"})
 
         orchestrator = Orchestrator(task_definition=simple_task_def)
         # Manually set components because _load_task_components is mocked
         orchestrator.reward_function = mock_reward_func
-        orchestrator.tools_module = (
-            None  # Explicitly no tools module for this test's PoC logic
-        )
+        orchestrator.tools_module = None  # Explicitly no tools module for this test's PoC logic
 
         result = await orchestrator.execute_task_poc()
         assert result == {"score": 1.0, "reason": "success"}
@@ -518,13 +445,9 @@ class TestOrchestratorExecutionFlow:
         }
         mock_reward_func.assert_called_once_with(**expected_eval_args)
 
-    async def test_execute_task_poc_load_components_fails(
-        self, minimal_task_def, caplog
-    ):
+    async def test_execute_task_poc_load_components_fails(self, minimal_task_def, caplog):
         orchestrator = Orchestrator(task_definition=minimal_task_def)
-        with patch.object(
-            orchestrator, "_load_task_components", new=AsyncMock(return_value=False)
-        ):
+        with patch.object(orchestrator, "_load_task_components", new=AsyncMock(return_value=False)):
             result = await orchestrator.execute_task_poc()
         assert result is None
         assert "Failed to load task components" in caplog.text
@@ -533,17 +456,13 @@ class TestOrchestratorExecutionFlow:
         "eval_protocol.agent.orchestrator.Orchestrator._load_task_components",
         new_callable=AsyncMock,
     )
-    async def test_execute_task_poc_setup_base_resource_fails(
-        self, mock_load_components, minimal_task_def, caplog
-    ):
+    async def test_execute_task_poc_setup_base_resource_fails(self, mock_load_components, minimal_task_def, caplog):
         mock_load_components.return_value = True  # Ensure component loading succeeds
 
         orchestrator = Orchestrator(task_definition=minimal_task_def)
         # Manually set components as _load_task_components is mocked
         orchestrator.reward_function = MagicMock()
-        orchestrator.tools_module = (
-            None  # Assuming no specific tools module needed for this failure path focus
-        )
+        orchestrator.tools_module = None  # Assuming no specific tools module needed for this failure path focus
 
         async def mock_setup_fail_effect():
             orchestrator.base_resource = None
@@ -555,9 +474,7 @@ class TestOrchestratorExecutionFlow:
         ):
             result = await orchestrator.execute_task_poc()
         assert result is None
-        assert (
-            "Base resource setup failed or not performed" in caplog.text
-        )  # Check this exact message
+        assert "Base resource setup failed or not performed" in caplog.text  # Check this exact message
 
     @patch("eval_protocol.agent.orchestrator.Orchestrator._get_resource_class")
     @patch(
@@ -575,18 +492,12 @@ class TestOrchestratorExecutionFlow:
     ):
         pytest.skip("Revisit later")
         mock_load_components.return_value = True  # Ensure component loading succeeds
-        mock_get_resource_class.return_value = MagicMock(
-            return_value=mock_base_resource
-        )
-        mock_episode_resource_instance.step = AsyncMock(
-            side_effect=RuntimeError("Tool failed")
-        )
+        mock_get_resource_class.return_value = MagicMock(return_value=mock_base_resource)
+        mock_episode_resource_instance.step = AsyncMock(side_effect=RuntimeError("Tool failed"))
         orchestrator = Orchestrator(task_definition=minimal_task_def)
         orchestrator.reward_function = MagicMock(return_value={"score": 0.0})
         orchestrator.tools_module = None
-        orchestrator.task_definition.name = (
-            "Tool Exception Test"  # Avoid flight task logic
-        )
+        orchestrator.task_definition.name = "Tool Exception Test"  # Avoid flight task logic
         # Simplify task_def to avoid final_state_query logic
         orchestrator.task_definition.evaluation_criteria = None
 

@@ -145,9 +145,7 @@ class SimulationServerBase(ABC):
                         }
                         stable_str = json.dumps(stable_data, sort_keys=True)
                         session_id = hashlib.md5(stable_str.encode()).hexdigest()
-                        logger.debug(
-                            f"Generated stable session_id from client_info: {session_id}"
-                        )
+                        logger.debug(f"Generated stable session_id from client_info: {session_id}")
                         return session_id
 
         # Fallback for testing or other scenarios
@@ -179,9 +177,7 @@ class SimulationServerBase(ABC):
                             if extra_data and isinstance(extra_data, dict):
                                 # Extract seed from client info
                                 seed = extra_data.get("seed")
-                                logger.info(
-                                    f"🎯 Extracted seed from client_info: {seed}"
-                                )
+                                logger.info(f"🎯 Extracted seed from client_info: {seed}")
                                 # Update config with any additional options
                                 if "config" in extra_data:
                                     config.update(extra_data["config"])
@@ -191,9 +187,7 @@ class SimulationServerBase(ABC):
                 if hasattr(self, "create_environment_with_seed") and callable(
                     getattr(self, "create_environment_with_seed")
                 ):
-                    env, obs, info = self.create_environment_with_seed(
-                        config, seed=seed
-                    )
+                    env, obs, info = self.create_environment_with_seed(config, seed=seed)
                 else:
                     env = self.create_environment(config)
                     obs, info = self.reset_environment(env, seed=seed)
@@ -209,9 +203,7 @@ class SimulationServerBase(ABC):
                     "total_reward": 0.0,
                     "last_used": time.time(),
                 }
-                logger.info(
-                    f"🆕 Simulation session created: {session_id[:16]}... (seed={seed})"
-                )
+                logger.info(f"🆕 Simulation session created: {session_id[:16]}... (seed={seed})")
 
             self.session_environments[session_id]["last_used"] = time.time()
             return self.session_environments[session_id]
@@ -242,21 +234,15 @@ class SimulationServerBase(ABC):
 
                     # Check if the tool function is async or sync
                     if inspect.iscoroutinefunction(tool_func):
-                        result = await tool_func(
-                            ctx=ctx, session_state=session_state, **arguments
-                        )
+                        result = await tool_func(ctx=ctx, session_state=session_state, **arguments)
                     else:
                         # For sync functions, call them directly
-                        result = tool_func(
-                            ctx=ctx, session_state=session_state, **arguments
-                        )
+                        result = tool_func(ctx=ctx, session_state=session_state, **arguments)
 
                     # Return list of ContentBlock for low-level server
                     from mcp.types import TextContent
 
-                    result_str = (
-                        json.dumps(result) if not isinstance(result, str) else result
-                    )
+                    result_str = json.dumps(result) if not isinstance(result, str) else result
                     return [TextContent(type="text", text=result_str)]
                 else:
                     raise ValueError(f"Unknown tool: {name}")
@@ -311,17 +297,13 @@ class SimulationServerBase(ABC):
                     # Convert URI to string for pattern matching
                     uri_str = str(uri)
                     # Simple pattern matching - could be enhanced for complex patterns
-                    if uri_str == resource_uri_pattern or uri_str.endswith(
-                        resource_uri_pattern
-                    ):
+                    if uri_str == resource_uri_pattern or uri_str.endswith(resource_uri_pattern):
                         # Create session state for this resource call
                         session_state = self._get_or_create_session_env(ctx)
 
                         # Check if the resource function is async or sync
                         if inspect.iscoroutinefunction(resource_func):
-                            result = await resource_func(
-                                ctx=ctx, session_state=session_state
-                            )
+                            result = await resource_func(ctx=ctx, session_state=session_state)
                         else:
                             # For sync functions, call them directly
                             result = resource_func(ctx=ctx, session_state=session_state)
@@ -378,16 +360,12 @@ class SimulationServerBase(ABC):
         pass
 
     @abstractmethod
-    def reset_environment(
-        self, env: Any, seed: Optional[int] = None
-    ) -> Tuple[Any, Dict[str, Any]]:
+    def reset_environment(self, env: Any, seed: Optional[int] = None) -> Tuple[Any, Dict[str, Any]]:
         """Reset environment to initial state."""
         pass
 
     @abstractmethod
-    def step_environment(
-        self, env: Any, action: Any
-    ) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
+    def step_environment(self, env: Any, action: Any) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
         """Execute step in environment."""
         pass
 
@@ -434,18 +412,14 @@ class SimulationServerBase(ABC):
         )
 
         # ASGI handler for streamable HTTP connections
-        async def handle_streamable_http(
-            scope: Scope, receive: Receive, send: Send
-        ) -> None:
+        async def handle_streamable_http(scope: Scope, receive: Receive, send: Send) -> None:
             await session_manager.handle_request(scope, receive, send)
 
         @contextlib.asynccontextmanager
         async def lifespan(app: Starlette) -> AsyncIterator[None]:
             """Context manager for managing session manager lifecycle."""
             async with session_manager.run():
-                logger.info(
-                    f"🚀 {self.server_name} started with StreamableHTTP session manager!"
-                )
+                logger.info(f"🚀 {self.server_name} started with StreamableHTTP session manager!")
                 try:
                     yield
                 finally:
@@ -461,9 +435,7 @@ class SimulationServerBase(ABC):
                                 try:
                                     self.close_environment(env)
                                 except Exception as e:
-                                    logger.warning(
-                                        f"⚠️ Error closing environment in session {session_id}: {e}"
-                                    )
+                                    logger.warning(f"⚠️ Error closing environment in session {session_id}: {e}")
                         self.session_environments.clear()
                     logger.info("✅ Simulation server shutdown complete")
 

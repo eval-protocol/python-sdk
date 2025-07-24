@@ -18,9 +18,7 @@ def sample_reward_function(
     # The @reward_function decorator from typed_interface.py ensures 'messages'
     # are List[Message] Pydantic objects when this function is called.
     last_message_obj = messages[-1]
-    last_message_content = (
-        last_message_obj.content if last_message_obj.content is not None else ""
-    )
+    last_message_content = last_message_obj.content if last_message_obj.content is not None else ""
     metrics = {}
 
     # Check message length
@@ -32,18 +30,11 @@ def sample_reward_function(
     )
 
     # Check for keywords
-    has_helpful_keywords = any(
-        keyword in last_message_content.lower()
-        for keyword in ["help", "assist", "support"]
-    )
+    has_helpful_keywords = any(keyword in last_message_content.lower() for keyword in ["help", "assist", "support"])
     keyword_score = 0.8 if has_helpful_keywords else 0.2
     metrics["keywords"] = MetricResult(  # Changed
         score=keyword_score,
-        reason=(
-            "Contains helpful keywords"
-            if has_helpful_keywords
-            else "Missing helpful keywords"
-        ),
+        reason=("Contains helpful keywords" if has_helpful_keywords else "Missing helpful keywords"),
         success=has_helpful_keywords,
     )
 
@@ -51,9 +42,7 @@ def sample_reward_function(
     final_score = 0.7 * keyword_score + 0.3 * length_score
     final_reason = "Overall score based on keyword presence and message length."
 
-    return EvaluateResult(
-        score=final_score, reason=final_reason, metrics=metrics
-    )  # Changed
+    return EvaluateResult(score=final_score, reason=final_reason, metrics=metrics)  # Changed
 
 
 class TestIntegration:

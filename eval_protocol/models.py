@@ -39,9 +39,7 @@ class MetricResult(BaseModel):
     reason: str
 
     def __getitem__(self, key: str) -> Any:
-        if (
-            key in self.__fields__
-        ):  # Changed to __fields__ for Pydantic v1 compatibility
+        if key in self.__fields__:  # Changed to __fields__ for Pydantic v1 compatibility
             value = getattr(self, key)
             return value
         raise KeyError(f"'{key}'")
@@ -57,14 +55,10 @@ class MetricResult(BaseModel):
 
     def values(self):
         # For consistency with __getitem__ returning raw attribute values (including nested models)
-        return [
-            getattr(self, key) for key in self.__fields__.keys()
-        ]  # Changed to __fields__
+        return [getattr(self, key) for key in self.__fields__.keys()]  # Changed to __fields__
 
     def items(self):
-        return [
-            (key, getattr(self, key)) for key in self.__fields__.keys()
-        ]  # Changed to __fields__
+        return [(key, getattr(self, key)) for key in self.__fields__.keys()]  # Changed to __fields__
 
     def __iter__(self):
         return iter(self.__fields__.keys())  # Changed to __fields__
@@ -78,9 +72,7 @@ class StepOutput(BaseModel):
     step_index: Union[int, str] = Field(
         description="User-defined index for the step (e.g., assistant message index, turn number). This is used by the system to map this output to the internal StepData."
     )
-    base_reward: float = Field(
-        description="Base reward calculated by the user's reward function for this step."
-    )
+    base_reward: float = Field(description="Base reward calculated by the user's reward function for this step.")
     metrics: Dict[str, Any] = Field(
         default_factory=dict,
         description="Optional dictionary of custom metrics for this step.",
@@ -106,15 +98,9 @@ class EvaluateResult(BaseModel):
         error (Optional[str]): Optional error message if evaluation failed.
     """
 
-    score: float = Field(
-        ..., description="The overall evaluation score, typically between 0.0 and 1.0."
-    )
-    is_score_valid: bool = Field(
-        default=True, description="Whether the overall score is valid."
-    )
-    reason: Optional[str] = Field(
-        default=None, description="Optional explanation for the overall score."
-    )
+    score: float = Field(..., description="The overall evaluation score, typically between 0.0 and 1.0.")
+    is_score_valid: bool = Field(default=True, description="Whether the overall score is valid.")
+    reason: Optional[str] = Field(default=None, description="Optional explanation for the overall score.")
     metrics: Dict[str, MetricResult] = Field(
         default_factory=dict,
         description="Dictionary of component metrics for detailed breakdown.",
@@ -152,14 +138,10 @@ class EvaluateResult(BaseModel):
 
     def values(self):
         # For consistency with __getitem__ returning raw attribute values
-        return [
-            getattr(self, key) for key in self.__fields__.keys()
-        ]  # Changed to __fields__
+        return [getattr(self, key) for key in self.__fields__.keys()]  # Changed to __fields__
 
     def items(self):
-        return [
-            (key, getattr(self, key)) for key in self.__fields__.keys()
-        ]  # Changed to __fields__
+        return [(key, getattr(self, key)) for key in self.__fields__.keys()]  # Changed to __fields__
 
     def __iter__(self):
         return iter(self.__fields__.keys())  # Changed to __fields__
@@ -218,9 +200,7 @@ class TaskDefinitionModel(BaseModel):
     """
 
     name: str = Field(description="Unique name for the task.")
-    description: Optional[str] = Field(
-        default=None, description="A brief description of the task."
-    )
+    description: Optional[str] = Field(default=None, description="A brief description of the task.")
 
     resource_type: str = Field(
         description="The type of ForkableResource to use (e.g., 'SQLResource', 'PythonStateResource', 'FileSystemResource', 'DockerResource')."
@@ -251,11 +231,9 @@ class TaskDefinitionModel(BaseModel):
         default=None,
         description="The initial prompt or message to start the agent interaction. Deprecated if 'messages' field is used for multi-turn.",
     )
-    messages: Optional[List[Dict[str, Any]]] = (
-        Field(  # Explicit field for initial/multi-turn messages
-            default=None,
-            description="A list of messages to start the conversation, can represent multiple user turns for sequential processing.",
-        )
+    messages: Optional[List[Dict[str, Any]]] = Field(  # Explicit field for initial/multi-turn messages
+        default=None,
+        description="A list of messages to start the conversation, can represent multiple user turns for sequential processing.",
     )
 
     # PoC / Task specific parameters

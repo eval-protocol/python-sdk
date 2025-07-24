@@ -46,9 +46,7 @@ try:
         )
         from openai.types.completion_usage import CompletionUsage
     except ImportError:
-        print(
-            "Warning: Failed to import some openai.types. Mock will use dicts instead of Pydantic models."
-        )
+        print("Warning: Failed to import some openai.types. Mock will use dicts instead of Pydantic models.")
         # DEEPEVAL_AVAILABLE remains True; mock will adapt.
         pass
 
@@ -69,9 +67,7 @@ except ImportError:
         pass  # type: ignore
 
     class LLMTestCase:  # type: ignore
-        def __init__(
-            self, input: str = "", actual_output: str = "", expected_output: str = ""
-        ) -> None:
+        def __init__(self, input: str = "", actual_output: str = "", expected_output: str = "") -> None:
             pass
 
     class LLMTestCaseParams:  # type: ignore
@@ -237,16 +233,10 @@ class TestDeepevalIntegration(unittest.TestCase):
                 "completion_tokens": 10,
                 "total_tokens": 20,
             }
-            if (
-                openai_types_available
-            ):  # Construct Pydantic models if types were imported
-                usage_obj = CompletionUsage(
-                    prompt_tokens=10, completion_tokens=10, total_tokens=20
-                )
+            if openai_types_available:  # Construct Pydantic models if types were imported
+                usage_obj = CompletionUsage(prompt_tokens=10, completion_tokens=10, total_tokens=20)
                 if mock_call_count == 1:
-                    response_content_json = json.dumps(
-                        {"steps": ["Mocked: Response is relevant."]}
-                    )
+                    response_content_json = json.dumps({"steps": ["Mocked: Response is relevant."]})
                     choice = OpenAIChoice(
                         index=0,
                         message=ChatCompletionMessage(
@@ -268,11 +258,7 @@ class TestDeepevalIntegration(unittest.TestCase):
                 elif mock_call_count == 2:
                     # Provide logprobs with high probability for high score
                     mock_logprobs = OpenAIChoiceLogprobs(
-                        content=[
-                            ChatCompletionTokenLogprob(
-                                token="10", logprob=0.0, bytes=None, top_logprobs=[]
-                            )
-                        ]
+                        content=[ChatCompletionTokenLogprob(token="10", logprob=0.0, bytes=None, top_logprobs=[])]
                     )
                     mock_score_reason_json = json.dumps(
                         {
@@ -300,9 +286,7 @@ class TestDeepevalIntegration(unittest.TestCase):
                     )
             else:  # Fallback to SimpleNamespace if Pydantic types are not available
                 if mock_call_count == 1:
-                    response_content_json = json.dumps(
-                        {"steps": ["Mocked: Response is relevant."]}
-                    )
+                    response_content_json = json.dumps({"steps": ["Mocked: Response is relevant."]})
                     return SimpleNamespace(
                         id="chatcmpl-mock-steps",
                         object="chat.completion",
@@ -325,11 +309,7 @@ class TestDeepevalIntegration(unittest.TestCase):
                 elif mock_call_count == 2:
                     # Provide logprobs with high probability for high score
                     mock_logprobs = SimpleNamespace(
-                        content=[
-                            SimpleNamespace(
-                                token="10", logprob=0.0, bytes=None, top_logprobs=[]
-                            )
-                        ]
+                        content=[SimpleNamespace(token="10", logprob=0.0, bytes=None, top_logprobs=[])]
                     )
                     mock_score_reason_json = json.dumps(
                         {
@@ -370,14 +350,10 @@ class TestDeepevalIntegration(unittest.TestCase):
             ]
             result = wrapped_metric(messages=messages_data)
 
-        self.assertEqual(
-            mock_call_count, 2, "Expected two calls to mocked LLM endpoint."
-        )
+        self.assertEqual(mock_call_count, 2, "Expected two calls to mocked LLM endpoint.")
         self.assertIsInstance(result, EvaluateResult)
         self.assertIsNotNone(result.score, "GEval score should not be None")
-        self.assertEqual(
-            result.score, 1.0, f"GEval score {result.score} was not 1.0 with mock."
-        )
+        self.assertEqual(result.score, 1.0, f"GEval score {result.score} was not 1.0 with mock.")
         expected_metric_key = f"{geval_metric.name} ({geval_metric.__class__.__name__})"  # type: ignore
         self.assertIn(expected_metric_key, result.metrics, f"Constructed metric key '{expected_metric_key}' not found. Keys: {list(result.metrics.keys())}")  # type: ignore
         self.assertIsNotNone(result.metrics[expected_metric_key].reason)  # type: ignore

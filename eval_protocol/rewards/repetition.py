@@ -12,9 +12,7 @@ from ..models import EvaluateResult, Message, MetricResult
 from ..typed_interface import reward_function
 
 
-def get_ngrams(
-    text: str, n: int, language: str = "en"
-) -> Tuple[List[Tuple[str, ...]], int]:
+def get_ngrams(text: str, n: int, language: str = "en") -> Tuple[List[Tuple[str, ...]], int]:
     """
     Extract n-grams from text based on language.
 
@@ -78,11 +76,7 @@ def repetition_penalty_reward(
         return EvaluateResult(
             score=0.0,
             reason="No messages provided",
-            metrics={
-                "repetition": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No messages provided"
-                )
-            },
+            metrics={"repetition": MetricResult(score=0.0, is_score_valid=False, reason="No messages provided")},
         )
 
     response = messages[-1]
@@ -187,9 +181,7 @@ def repetition_penalty_reward(
         ),
     }
 
-    return EvaluateResult(
-        score=score, reason=reason, metrics=metrics, is_score_valid=score > 0.0
-    )
+    return EvaluateResult(score=score, reason=reason, metrics=metrics, is_score_valid=score > 0.0)
 
 
 @reward_function
@@ -225,11 +217,7 @@ def diversity_reward(
         return EvaluateResult(
             score=0.0,
             reason="No messages provided",
-            metrics={
-                "diversity": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No messages provided"
-                )
-            },
+            metrics={"diversity": MetricResult(score=0.0, is_score_valid=False, reason="No messages provided")},
         )
 
     response = messages[-1]
@@ -303,13 +291,9 @@ def diversity_reward(
             weights.extend([missing_weight] * (len(ngram_sizes) - len(weights)))
 
     total_weight = sum(weights)
-    if (
-        total_weight != 1.0 and total_weight > 0
-    ):  # Avoid division by zero if total_weight is 0
+    if total_weight != 1.0 and total_weight > 0:  # Avoid division by zero if total_weight is 0
         weights = [w / total_weight for w in weights]
-    elif (
-        total_weight == 0 and len(weights) > 0
-    ):  # If all weights are zero, distribute equally
+    elif total_weight == 0 and len(weights) > 0:  # If all weights are zero, distribute equally
         weights = [1.0 / len(weights)] * len(weights)
 
     diversity_scores = {}

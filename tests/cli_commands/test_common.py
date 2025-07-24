@@ -102,9 +102,7 @@ def test_load_samples_from_file_max_samples(tmp_path, sample_jsonl_content_valid
 
 def test_load_samples_from_file_file_not_found(caplog):
     with caplog.at_level(logging.ERROR):
-        samples = list(
-            common.load_samples_from_file("non_existent_file.jsonl", max_samples=10)
-        )
+        samples = list(common.load_samples_from_file("non_existent_file.jsonl", max_samples=10))
     assert len(samples) == 0
     assert "Sample file not found: non_existent_file.jsonl" in caplog.text
 
@@ -127,9 +125,7 @@ def test_load_samples_from_file_empty_file(tmp_path):
     with patch("eval_protocol.cli_commands.common.logger.info") as mock_info:
         samples = list(common.load_samples_from_file(str(file_path), max_samples=10))
         assert len(samples) == 0
-        mock_info.assert_called_once_with(
-            f"No valid samples loaded from {str(file_path)} after processing 0 lines."
-        )
+        mock_info.assert_called_once_with(f"No valid samples loaded from {str(file_path)} after processing 0 lines.")
 
 
 def test_load_samples_from_file_skip_empty_lines(tmp_path):
@@ -230,11 +226,7 @@ def test_load_samples_from_hf_max_samples(mock_load_dataset, mock_hf_dataset_dat
     mock_iterable_ds = MagicMock(spec=IterableDataset)
     mock_iterable_ds.__iter__.return_value = iter(mock_hf_dataset_data)
     mock_load_dataset.return_value = mock_iterable_ds
-    samples = list(
-        common.load_samples_from_huggingface(
-            "d", "s", "prompt_col", "response_col", None, 1
-        )
-    )
+    samples = list(common.load_samples_from_huggingface("d", "s", "prompt_col", "response_col", None, 1))
     assert len(samples) == 1
 
 
@@ -242,9 +234,7 @@ def test_load_samples_from_hf_max_samples(mock_load_dataset, mock_hf_dataset_dat
 @patch("datasets.load_dataset")
 def test_load_samples_from_hf_key_not_found_in_record(mock_load_dataset, caplog):
     mock_iterable_ds = MagicMock(spec=IterableDataset)
-    mock_iterable_ds.__iter__.return_value = iter(
-        [{"prompt_col": "P1", "response_col": "R1"}]
-    )
+    mock_iterable_ds.__iter__.return_value = iter([{"prompt_col": "P1", "response_col": "R1"}])
     mock_load_dataset.return_value = mock_iterable_ds
     with caplog.at_level(logging.WARNING):
         samples = list(
@@ -292,17 +282,12 @@ def test_load_samples_from_hf_import_component_error(
     This relies on the manage_pyarrow_registration fixture to prevent ArrowKeyError from patching.
     """
     with caplog.at_level(logging.ERROR):
-        samples = list(
-            common.load_samples_from_huggingface("d", "s", "p", "r", None, 1)
-        )
+        samples = list(common.load_samples_from_huggingface("d", "s", "p", "r", None, 1))
 
     assert len(samples) == 0
     # This scenario (mocked load_dataset raising ImportError) is caught by the generic Exception handler
     # around the load_dataset call, not the initial 'from datasets import...' ImportError.
-    assert (
-        "Error loading HuggingFace dataset 'd' (split: s): Simulated ImportError for load_dataset"
-        in caplog.text
-    )
+    assert "Error loading HuggingFace dataset 'd' (split: s): Simulated ImportError for load_dataset" in caplog.text
     # mock_ds_iter_dataset is the mock for 'datasets.load_dataset' due to decorator order.
     assert mock_ds_iter_dataset.called  # Check that the patched load_dataset was called
 
@@ -312,8 +297,6 @@ def test_load_samples_from_hf_import_component_error(
 def test_load_samples_from_hf_dataset_load_exception(mock_load_dataset, caplog):
     mock_load_dataset.side_effect = Exception("Network error or dataset not found")
     with caplog.at_level(logging.ERROR):
-        samples = list(
-            common.load_samples_from_huggingface("d", "s", "p", "r", None, 1)
-        )
+        samples = list(common.load_samples_from_huggingface("d", "s", "p", "r", None, 1))
     assert len(samples) == 0
     assert "Error loading HuggingFace dataset" in caplog.text

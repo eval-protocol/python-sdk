@@ -41,11 +41,7 @@ def tag_count_reward(
         return EvaluateResult(
             score=0.0,
             reason="No messages provided",
-            metrics={
-                "tag_count": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No messages provided"
-                )
-            },
+            metrics={"tag_count": MetricResult(score=0.0, is_score_valid=False, reason="No messages provided")},
         )
 
     response = messages[-1]
@@ -77,11 +73,7 @@ def tag_count_reward(
         closing_count = len(re.findall(closing_pattern, text))
 
         if require_balanced:
-            is_found = (
-                opening_count > 0
-                and closing_count > 0
-                and opening_count == closing_count
-            )
+            is_found = opening_count > 0 and closing_count > 0 and opening_count == closing_count
         else:
             is_found = opening_count > 0 or closing_count > 0
 
@@ -91,19 +83,11 @@ def tag_count_reward(
             found_tags.add(tag)
             total_found += 1
 
-        if (
-            require_balanced
-            and not is_balanced
-            and (opening_count > 0 or closing_count > 0)
-        ):
+        if require_balanced and not is_balanced and (opening_count > 0 or closing_count > 0):
             mismatched_tags.add(tag)
 
         if require_balanced:
-            tag_score = (
-                1.0
-                if (opening_count > 0 and closing_count > 0 and is_balanced)
-                else 0.0
-            )
+            tag_score = 1.0 if (opening_count > 0 and closing_count > 0 and is_balanced) else 0.0
             tag_success = opening_count > 0 and closing_count > 0 and is_balanced
         else:
             has_tags = opening_count > 0 or closing_count > 0
@@ -122,25 +106,15 @@ def tag_count_reward(
         penalty = len(mismatched_tags) * score_per_tag
         total_score = max(0.0, total_score - penalty)
 
-    success = len(found_tags) == len(required_tags) and (
-        not require_balanced or not mismatched_tags
-    )
+    success = len(found_tags) == len(required_tags) and (not require_balanced or not mismatched_tags)
 
-    reason = _get_overall_reason(
-        required_tags, found_tags, mismatched_tags, require_balanced
-    )
-    tag_metrics["overall"] = MetricResult(
-        score=total_score, is_score_valid=success, reason=reason
-    )
+    reason = _get_overall_reason(required_tags, found_tags, mismatched_tags, require_balanced)
+    tag_metrics["overall"] = MetricResult(score=total_score, is_score_valid=success, reason=reason)
 
-    return EvaluateResult(
-        score=total_score, reason=reason, metrics=tag_metrics, is_score_valid=success
-    )
+    return EvaluateResult(score=total_score, reason=reason, metrics=tag_metrics, is_score_valid=success)
 
 
-def _get_tag_reason(
-    tag: str, opening_count: int, closing_count: int, require_balanced: bool
-) -> str:
+def _get_tag_reason(tag: str, opening_count: int, closing_count: int, require_balanced: bool) -> str:
     """Generate a descriptive reason for a tag's evaluation."""
     if opening_count == 0 and closing_count == 0:
         return f"Tag '{tag}' not found in response"
@@ -152,15 +126,9 @@ def _get_tag_reason(
         return f"Found {opening_count} balanced '{tag}' tag(s)"
     else:
         if require_balanced:
-            return (
-                f"Unbalanced tags: {opening_count} opening vs "
-                f"{closing_count} closing '{tag}' tags"
-            )
+            return f"Unbalanced tags: {opening_count} opening vs " f"{closing_count} closing '{tag}' tags"
         else:
-            return (
-                f"Found '{tag}' tags (unbalanced: {opening_count} opening, "
-                f"{closing_count} closing)"
-            )
+            return f"Found '{tag}' tags (unbalanced: {opening_count} opening, " f"{closing_count} closing)"
 
 
 def _get_overall_reason(
@@ -181,9 +149,7 @@ def _get_overall_reason(
     reason_parts = []
 
     if found_tags:
-        reason_parts.append(
-            f"Found {len(found_tags)}/{len(required_tags)} required tags"
-        )
+        reason_parts.append(f"Found {len(found_tags)}/{len(required_tags)} required tags")
 
     if missing_tags:
         tags_str = ", ".join([f"'{tag}'" for tag in missing_tags])

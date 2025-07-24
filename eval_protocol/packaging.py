@@ -36,9 +36,7 @@ def _resolve_module_path_and_name(function_ref: str) -> Optional[Tuple[Path, str
     path_in_cwd_dir = Path(os.getcwd()) / potential_path_str
     path_in_cwd_file = Path(os.getcwd()) / f"{potential_path_str}.py"
 
-    if (
-        path_in_cwd_dir.is_dir() and (path_in_cwd_dir / "__init__.py").exists()
-    ):  # It's a package
+    if path_in_cwd_dir.is_dir() and (path_in_cwd_dir / "__init__.py").exists():  # It's a package
         return path_in_cwd_dir, potential_path_str, potential_path_str
     elif path_in_cwd_file.is_file():  # It's a module .py file
         return path_in_cwd_file, potential_path_str, f"{potential_path_str}.py"
@@ -71,9 +69,7 @@ def generate_dockerfile_content(
     python_version: str = DEFAULT_PYTHON_VERSION,
     reward_kit_install_source: str = "reward-kit",  # e.g., "reward-kit", "reward-kit[dev]", or path to local wheel/sdist
     user_requirements_path: Optional[str] = None,  # Path relative to CWD or absolute
-    inline_requirements_content: Optional[
-        str
-    ] = None,  # Direct content for requirements.txt
+    inline_requirements_content: Optional[str] = None,  # Direct content for requirements.txt
     service_port: int = 8080,
 ) -> Optional[str]:
     """
@@ -147,9 +143,7 @@ def generate_dockerfile_content(
     # Handle inline requirements content, if provided
     if inline_requirements_content and inline_requirements_content.strip():
         # Escape backslashes and quotes for the echo command
-        escaped_requirements = inline_requirements_content.replace(
-            "\\", "\\\\"
-        ).replace("'", "'\\''")
+        escaped_requirements = inline_requirements_content.replace("\\", "\\\\").replace("'", "'\\''")
         dockerfile_lines.extend(
             [
                 "# Create and install dependencies from inline requirements content",
@@ -218,9 +212,7 @@ if __name__ == "__main__":
     os.remove(user_reqs_name)
 
     print("\n--- Example 3: Unresolvable function ref ---")
-    dockerfile_content_bad = generate_dockerfile_content(
-        function_ref="non_existent_module.some_func"
-    )
+    dockerfile_content_bad = generate_dockerfile_content(function_ref="non_existent_module.some_func")
     if dockerfile_content_bad:
         print(dockerfile_content_bad)
     else:

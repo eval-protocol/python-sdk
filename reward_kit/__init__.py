@@ -15,10 +15,9 @@ import sys
 
 # Issue a deprecation warning when reward_kit is imported
 warnings.warn(
-    "reward_kit is deprecated and will be removed in a future version. "
-    "Please import from eval_protocol instead.",
+    "reward_kit is deprecated and will be removed in a future version. " "Please import from eval_protocol instead.",
     DeprecationWarning,
-    stacklevel=2
+    stacklevel=2,
 )
 
 # Import and re-export everything from eval_protocol
@@ -99,13 +98,11 @@ for _name in _SUBMODULES:
 
 # Mirror all nested submodules from eval_protocol so that imports like
 # "from reward_kit.rewards.math import something" continue to work
-for finder, mod_name, _ in pkgutil.walk_packages(
-    eval_protocol.__path__, eval_protocol.__name__ + "."
-):
+for finder, mod_name, _ in pkgutil.walk_packages(eval_protocol.__path__, eval_protocol.__name__ + "."):
     try:
         module = importlib.import_module(mod_name)
         alias_name = f"{__name__}{mod_name[len('eval_protocol'):]}"
         sys.modules.setdefault(alias_name, module)
     except Exception:
         # If a module fails to import, skip it. These are optional extras.
-        pass 
+        pass

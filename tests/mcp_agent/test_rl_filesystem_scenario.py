@@ -7,9 +7,7 @@ from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 # Configure basic logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 INTERMEDIARY_SERVER_URL = "http://localhost:8001/mcp"
@@ -53,9 +51,7 @@ async def call_tool_on_intermediary(
         raise ValueError(error_message)
 
     parsed_result = json.loads(result.content[0].text)
-    logger.info(
-        f"Parsed result from intermediary for '{backend_tool_name}': {parsed_result}"
-    )
+    logger.info(f"Parsed result from intermediary for '{backend_tool_name}': {parsed_result}")
 
     # Check if the backend tool call itself resulted in an error
     if isinstance(parsed_result, dict) and parsed_result.get("isError"):
@@ -65,16 +61,11 @@ async def call_tool_on_intermediary(
             and isinstance(parsed_result["content"], list)
             and len(parsed_result["content"]) > 0
         ):
-            if (
-                isinstance(parsed_result["content"][0], dict)
-                and "text" in parsed_result["content"][0]
-            ):
+            if isinstance(parsed_result["content"][0], dict) and "text" in parsed_result["content"][0]:
                 backend_error_message = parsed_result["content"][0]["text"]
             else:
                 backend_error_message = str(parsed_result["content"][0])  # fallback
-        raise ValueError(
-            f"Backend tool '{backend_tool_name}' failed: {backend_error_message}"
-        )
+        raise ValueError(f"Backend tool '{backend_tool_name}' failed: {backend_error_message}")
 
     return parsed_result
 
@@ -85,17 +76,11 @@ async def main():
 
     async with AsyncExitStack() as stack:
         try:
-            logger.info(
-                f"Connecting to Intermediary MCP server at {INTERMEDIARY_SERVER_URL}"
-            )
-            transport_tuple = await stack.enter_async_context(
-                streamablehttp_client(INTERMEDIARY_SERVER_URL)
-            )
+            logger.info(f"Connecting to Intermediary MCP server at {INTERMEDIARY_SERVER_URL}")
+            transport_tuple = await stack.enter_async_context(streamablehttp_client(INTERMEDIARY_SERVER_URL))
             read_stream, write_stream, _ = transport_tuple
 
-            mcp_client_session = await stack.enter_async_context(
-                ClientSession(read_stream, write_stream)
-            )
+            mcp_client_session = await stack.enter_async_context(ClientSession(read_stream, write_stream))
             await mcp_client_session.initialize()
             logger.info("ClientSession to Intermediary Server handshake successful.")
 
@@ -114,9 +99,7 @@ async def main():
             logger.info(
                 f"Calling 'initialize_session' on Intermediary for {num_fs_instances} instances: {init_payload}"
             )
-            init_result_raw = await mcp_client_session.call_tool(
-                "initialize_session", init_payload
-            )
+            init_result_raw = await mcp_client_session.call_tool("initialize_session", init_payload)
             if init_result_raw.isError or not init_result_raw.content:
                 raise ValueError(
                     f"initialize_session failed: {getattr(init_result_raw.content[0], 'text', 'Unknown error') if init_result_raw.content else 'No content'}"
@@ -127,9 +110,7 @@ async def main():
 
             rk_session_id = init_result.get("rk_session_id")
             if not rk_session_id:
-                raise ValueError(
-                    "rk_session_id not found in initialize_session response."
-                )
+                raise ValueError("rk_session_id not found in initialize_session response.")
 
             fs_instances = []
             for backend_res in init_result.get("initialized_backends", []):
@@ -137,24 +118,16 @@ async def main():
                     fs_instances.extend(backend_res.get("instances", []))
 
             if len(fs_instances) != num_fs_instances:
-                raise ValueError(
-                    f"Expected {num_fs_instances} filesystem_test instances, got {len(fs_instances)}"
-                )
+                raise ValueError(f"Expected {num_fs_instances} filesystem_test instances, got {len(fs_instances)}")
 
-            logger.info(
-                f"Successfully initialized {len(fs_instances)} filesystem instances."
-            )
+            logger.info(f"Successfully initialized {len(fs_instances)} filesystem instances.")
 
             for i, instance_info in enumerate(fs_instances):
                 fs_instance_id = instance_info.get("instance_id")
                 if not fs_instance_id:
-                    raise ValueError(
-                        f"Instance ID not found for filesystem instance #{i}"
-                    )
+                    raise ValueError(f"Instance ID not found for filesystem instance #{i}")
 
-                logger.info(
-                    f"\n--- Testing Filesystem Instance #{i+1} (ID: {fs_instance_id}) ---"
-                )
+                logger.info(f"\n--- Testing Filesystem Instance #{i+1} (ID: {fs_instance_id}) ---")
 
                 # --- Verify Initial State ---
                 logger.info(f"[{fs_instance_id}] Verifying initial state...")
@@ -171,11 +144,7 @@ async def main():
                 # The actual file content is nested: result -> 'content' (list) -> first item -> 'text'
                 actual_content_list = file_content_result_wrapper.get("content")
                 actual_content_text = None
-                if (
-                    actual_content_list
-                    and len(actual_content_list) > 0
-                    and isinstance(actual_content_list[0], dict)
-                ):
+                if actual_content_list and len(actual_content_list) > 0 and isinstance(actual_content_list[0], dict):
                     actual_content_text = actual_content_list[0].get("text")
 
                 if actual_content_text is None:
@@ -200,13 +169,10 @@ async def main():
                     "list_directory",
                     list_target_args,
                 )
-                target_dir_listing_str = (
-                    target_dir_list.get("content")[0].get("text", "").strip()
-                )
+                target_dir_listing_str = target_dir_list.get("content")[0].get("text", "").strip()
 
                 is_target_initially_correct = (
-                    target_dir_listing_str == ""
-                    or target_dir_listing_str == "[FILE] .gitkeep"
+                    target_dir_listing_str == "" or target_dir_listing_str == "[FILE] .gitkeep"
                 )
                 if not is_target_initially_correct:
                     raise ValueError(
@@ -217,9 +183,7 @@ async def main():
                 )
 
                 # --- Simulate Agent Action: Move the file ---
-                logger.info(
-                    f"[{fs_instance_id}] Simulating agent action: moving file..."
-                )
+                logger.info(f"[{fs_instance_id}] Simulating agent action: moving file...")
                 move_file_args = {
                     "source": "/data/source_dir/file_to_move.txt",
                     "destination": "/data/target_dir/file_to_move.txt",
@@ -247,9 +211,7 @@ async def main():
                     "read_file",
                     read_moved_file_args,
                 )
-                moved_actual_content_list = moved_file_content_result_wrapper.get(
-                    "content"
-                )
+                moved_actual_content_list = moved_file_content_result_wrapper.get("content")
                 moved_actual_content_text = None
                 if (
                     moved_actual_content_list
@@ -267,9 +229,7 @@ async def main():
                     raise ValueError(
                         f"[{fs_instance_id}] Moved file content mismatch. Expected: '{EXPECTED_FILE_CONTENT}', Got: '{moved_actual_content_text.strip()}'"
                     )
-                logger.info(
-                    f"[{fs_instance_id}] File successfully moved to target_dir and content verified."
-                )
+                logger.info(f"[{fs_instance_id}] File successfully moved to target_dir and content verified.")
 
                 list_source_args = {"path": "/data/source_dir"}
                 source_dir_list_result = await call_tool_on_intermediary(
@@ -281,17 +241,13 @@ async def main():
                     "list_directory",
                     list_source_args,
                 )
-                source_dir_listing_str = (
-                    source_dir_list_result.get("content")[0].get("text", "").strip()
-                )
+                source_dir_listing_str = source_dir_list_result.get("content")[0].get("text", "").strip()
 
                 if "file_to_move.txt" in source_dir_listing_str:
                     raise ValueError(
                         f"[{fs_instance_id}] File 'file_to_move.txt' still present in source_dir after move. Listing: '{source_dir_listing_str}'"
                     )
-                logger.info(
-                    f"[{fs_instance_id}] File successfully removed from source_dir."
-                )
+                logger.info(f"[{fs_instance_id}] File successfully removed from source_dir.")
                 logger.info(f"--- Test for Instance ID {fs_instance_id} PASSED ---")
 
             logger.info("All RL Filesystem Scenario Instances Test PASSED!")

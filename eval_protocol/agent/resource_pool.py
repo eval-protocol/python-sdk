@@ -18,15 +18,9 @@ class ResourcePool:
 
     def __init__(self):
         """Initialize an empty resource pool."""
-        self.resources: Dict[str, ForkableResource] = (
-            {}
-        )  # resource_id -> resource instance
-        self.resource_tasks: Dict[str, Set[str]] = (
-            {}
-        )  # resource_id -> set of task_ids using it
-        self.task_resources: Dict[str, Set[str]] = (
-            {}
-        )  # task_id -> set of resource_ids used by it
+        self.resources: Dict[str, ForkableResource] = {}  # resource_id -> resource instance
+        self.resource_tasks: Dict[str, Set[str]] = {}  # resource_id -> set of task_ids using it
+        self.task_resources: Dict[str, Set[str]] = {}  # task_id -> set of resource_ids used by it
         self.logger = logging.getLogger("ResourcePool")
 
     async def create_resource(
@@ -49,9 +43,7 @@ class ResourcePool:
             The created resource or None if creation fails
         """
         if resource_id in self.resources:
-            self.logger.warning(
-                f"Resource '{resource_id}' already exists in the pool. Returning existing instance."
-            )
+            self.logger.warning(f"Resource '{resource_id}' already exists in the pool. Returning existing instance.")
             if task_id:
                 self._associate_task_with_resource(task_id, resource_id)
             return self.resources[resource_id]
@@ -66,9 +58,7 @@ class ResourcePool:
             if task_id:
                 self._associate_task_with_resource(task_id, resource_id)
 
-            self.logger.info(
-                f"Created resource '{resource_id}' of type {resource_type.__name__}"
-            )
+            self.logger.info(f"Created resource '{resource_id}' of type {resource_type.__name__}")
             return resource
         except Exception as e:
             self.logger.error(f"Failed to create resource '{resource_id}': {e}")
@@ -95,9 +85,7 @@ class ResourcePool:
             resource_id: The resource identifier
         """
         if resource_id not in self.resources:
-            self.logger.warning(
-                f"Cannot associate task '{task_id}' with non-existent resource '{resource_id}'."
-            )
+            self.logger.warning(f"Cannot associate task '{task_id}' with non-existent resource '{resource_id}'.")
             return
 
         # Add task to resource's task set
@@ -112,9 +100,7 @@ class ResourcePool:
 
         self.logger.debug(f"Associated task '{task_id}' with resource '{resource_id}'.")
 
-    async def fork_resource_for_task(
-        self, resource_id: str, task_id: str
-    ) -> Optional[ForkableResource]:
+    async def fork_resource_for_task(self, resource_id: str, task_id: str) -> Optional[ForkableResource]:
         """
         Fork a resource for a specific task.
 
@@ -137,9 +123,7 @@ class ResourcePool:
             self.logger.debug(f"Forked resource '{resource_id}' for task '{task_id}'.")
             return forked_resource
         except Exception as e:
-            self.logger.error(
-                f"Failed to fork resource '{resource_id}' for task '{task_id}': {e}"
-            )
+            self.logger.error(f"Failed to fork resource '{resource_id}' for task '{task_id}': {e}")
             return None
 
     async def cleanup_task_resources(self, task_id: str) -> None:

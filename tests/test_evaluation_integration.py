@@ -139,17 +139,11 @@ def test_integration_single_metric(mock_env_variables, mock_requests_post):
         assert "api.fireworks.ai/v1/accounts/test_account/evaluators" in url
         if "evaluator" in payload:  # Dev API
             assert "evaluatorId" in payload and payload["evaluatorId"] == "test-eval"
-            assert (
-                "criteria" in payload["evaluator"]
-                and len(payload["evaluator"]["criteria"]) > 0
-            )
+            assert "criteria" in payload["evaluator"] and len(payload["evaluator"]["criteria"]) > 0
             assert payload["evaluator"]["criteria"][0]["type"] == "CODE_SNIPPETS"
         else:  # Prod API
             assert "evaluationId" in payload and payload["evaluationId"] == "test-eval"
-            assert (
-                "assertions" in payload["evaluation"]
-                and len(payload["evaluation"]["assertions"]) > 0
-            )
+            assert "assertions" in payload["evaluation"] and len(payload["evaluation"]["assertions"]) > 0
             assert payload["evaluation"]["assertions"][0]["assertionType"] == "CODE"
     finally:
         os.unlink(os.path.join(tmp_dir, "main.py"))
@@ -161,9 +155,7 @@ def test_integration_multi_metrics(mock_env_variables, mock_requests_post):
     tmp_dir = create_test_folder()
     sample_file = create_sample_file()
     try:
-        preview_result = preview_evaluation(
-            multi_metrics=True, folder=tmp_dir, sample_file=sample_file, max_samples=2
-        )
+        preview_result = preview_evaluation(multi_metrics=True, folder=tmp_dir, sample_file=sample_file, max_samples=2)
         assert preview_result.total_samples == 2
         assert len(preview_result.results) == 2
         assert hasattr(preview_result.results[0], "per_metric_evals")
@@ -198,9 +190,7 @@ def test_integration_multi_metrics(mock_env_variables, mock_requests_post):
 
 
 @patch("sys.exit")
-def test_integration_cli_commands(
-    mock_sys_exit, mock_env_variables, mock_requests_post
-):  # Corrected parameter name
+def test_integration_cli_commands(mock_sys_exit, mock_env_variables, mock_requests_post):  # Corrected parameter name
     from eval_protocol.cli import deploy_command, preview_command
 
     mock_sys_exit.side_effect = lambda code=0: None
@@ -209,9 +199,7 @@ def test_integration_cli_commands(
     sample_file = create_sample_file()
     try:
         # Test preview command
-        with patch(
-            "eval_protocol.cli_commands.preview.preview_evaluation"
-        ) as mock_preview_eval_func:
+        with patch("eval_protocol.cli_commands.preview.preview_evaluation") as mock_preview_eval_func:
             mock_preview_result = MagicMock()
             mock_preview_result.display = MagicMock()
             mock_preview_eval_func.return_value = mock_preview_result
@@ -226,9 +214,7 @@ def test_integration_cli_commands(
             args.huggingface_key_map = None
             args.remote_url = None  # Explicitly set for local path
 
-            with patch(
-                "eval_protocol.cli_commands.preview.Path.exists", return_value=True
-            ):
+            with patch("eval_protocol.cli_commands.preview.Path.exists", return_value=True):
                 result = preview_command(args)
                 assert result == 0
                 mock_preview_eval_func.assert_called_once_with(
@@ -244,9 +230,7 @@ def test_integration_cli_commands(
                 mock_preview_result.display.assert_called_once()
 
         # Test deploy command
-        with patch(
-            "eval_protocol.cli_commands.deploy.create_evaluation"
-        ) as mock_create_eval_func:
+        with patch("eval_protocol.cli_commands.deploy.create_evaluation") as mock_create_eval_func:
             mock_create_eval_func.return_value = {
                 "name": "accounts/test_account/evaluators/test-eval",
                 "displayName": "Test Evaluator",

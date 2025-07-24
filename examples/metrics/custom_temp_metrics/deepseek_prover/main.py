@@ -2,9 +2,7 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
-)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 from examples.basic_reward import combined_reward
 
 # Assuming combined_reward from basic_reward.py expects messages as List[Message]

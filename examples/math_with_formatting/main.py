@@ -62,9 +62,7 @@ def evaluate(
         accuracy_reason = "Format requirement not met, accuracy set to 0"
     else:
         # Evaluate numerical accuracy using built-in function
-        accuracy_result = math_reward(
-            messages=messages, ground_truth=ground_truth, **kwargs
-        )
+        accuracy_result = math_reward(messages=messages, ground_truth=ground_truth, **kwargs)
         accuracy_score = accuracy_result.score
         accuracy_reason = f"Numerical accuracy: {accuracy_result.reason}"
 

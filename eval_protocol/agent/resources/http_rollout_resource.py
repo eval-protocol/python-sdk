@@ -272,9 +272,7 @@ class HttpRolloutResource(ForkableResource):
 
             if isinstance(action, str):
                 if action.lower() not in action_map:
-                    raise ValueError(
-                        f"Invalid action '{action}'. Must be one of: left, down, right, up"
-                    )
+                    raise ValueError(f"Invalid action '{action}'. Must be one of: left, down, right, up")
                 numeric_action = action_map[action.lower()]
             else:
                 # Backward compatibility with numeric actions
@@ -306,9 +304,7 @@ class HttpRolloutResource(ForkableResource):
                 response_content.append(f"Visual State:\n{visual}")
 
             # Add structured data
-            response_content.append(
-                f"Position: {observation.get('position', 'unknown')}"
-            )
+            response_content.append(f"Position: {observation.get('position', 'unknown')}")
             response_content.append(f"Done: {step_result.get('is_done', False)}")
 
             if step_result.get("is_done", False):

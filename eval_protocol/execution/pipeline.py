@@ -39,16 +39,12 @@ class EvaluationPipeline:
             api_key = get_fireworks_api_key()
             if not api_key:
                 logger.error("Fireworks API key not found, but generation is enabled.")
-                raise ValueError(
-                    "API key required for Fireworks model client when generation is enabled."
-                )
+                raise ValueError("API key required for Fireworks model client when generation is enabled.")
             self.model_client = FireworksModelClient(
                 client_config=self.cfg.generation,
                 api_key=api_key,
             )
-            logger.info(
-                f"Initialized FireworksModelClient for model: {self.cfg.generation.model_name}"
-            )
+            logger.info(f"Initialized FireworksModelClient for model: {self.cfg.generation.model_name}")
 
         self.cache = ResponseCache(self.cfg.generation.cache)
         logger.info("ResponseCache initialized.")
@@ -58,19 +54,13 @@ class EvaluationPipeline:
 
         # Install requirements if specified by the decorator
         if hasattr(self.reward_function, "_reward_function_requirements"):
-            requirements = getattr(
-                self.reward_function, "_reward_function_requirements"
-            )
+            requirements = getattr(self.reward_function, "_reward_function_requirements")
             if isinstance(requirements, list) and requirements:
-                logger.info(
-                    f"Found requirements for reward function {self.cfg.reward.function_path}: {requirements}"
-                )
+                logger.info(f"Found requirements for reward function {self.cfg.reward.function_path}: {requirements}")
                 try:
                     # Assuming install_requirements uses the current environment's pip by default
                     install_requirements(requirements_list=requirements)
-                    logger.info(
-                        f"Successfully processed requirements for {self.cfg.reward.function_path}."
-                    )
+                    logger.info(f"Successfully processed requirements for {self.cfg.reward.function_path}.")
                 except Exception as e:
                     logger.error(
                         f"Failed to install requirements for {self.cfg.reward.function_path}: {e}",
@@ -87,27 +77,17 @@ class EvaluationPipeline:
         self.mcp_intermediary_client: Optional[IntermediaryMCPClient] = None
         if self.cfg.get("agent") and self.cfg.agent.get("type") == "mcp_agent":
             if not self.cfg.agent.get("intermediary_server_url"):
-                raise ValueError(
-                    "agent.intermediary_server_url must be configured for mcp_agent type."
-                )
-            logger.info(
-                f"Pipeline configured for mcp_agent. IntermediaryMCPClient will be initialized in run()."
-            )
+                raise ValueError("agent.intermediary_server_url must be configured for mcp_agent type.")
+            logger.info(f"Pipeline configured for mcp_agent. IntermediaryMCPClient will be initialized in run().")
 
-    async def _discover_tools_for_sample(
-        self, sample_id: str, mcp_backend_ref: str
-    ) -> List[Dict[str, Any]]:
+    async def _discover_tools_for_sample(self, sample_id: str, mcp_backend_ref: str) -> List[Dict[str, Any]]:
         """Discover available tools from MCP backend for a sample."""
         discovered_tools = []
         rk_session_id = None
 
         try:
-            backend_requests = [
-                {"backend_name_ref": mcp_backend_ref, "num_instances": 1}
-            ]
-            init_response = await self.mcp_intermediary_client.initialize_session(
-                backend_requests
-            )
+            backend_requests = [{"backend_name_ref": mcp_backend_ref, "num_instances": 1}]
+            init_response = await self.mcp_intermediary_client.initialize_session(backend_requests)
 
             if init_response.get("error"):
                 raise RuntimeError(
@@ -118,9 +98,7 @@ class EvaluationPipeline:
             initialized_backends = init_response.get("initialized_backends", [])
 
             if not rk_session_id or not initialized_backends:
-                raise RuntimeError(
-                    f"Malformed init response for tool discovery: {init_response}"
-                )
+                raise RuntimeError(f"Malformed init response for tool discovery: {init_response}")
 
             for backend_info in initialized_backends:
                 current_backend_name_ref = backend_info.get("backend_name_ref")
@@ -131,22 +109,16 @@ class EvaluationPipeline:
                     current_instance_id = inst_info_dict.get("instance_id")
                     if not current_instance_id:
                         continue
-                    list_tools_result = (
-                        await self.mcp_intermediary_client.list_backend_tools(
-                            rk_session_id=rk_session_id,
-                            instance_id=current_instance_id,
-                            backend_name_ref=current_backend_name_ref,
-                        )
+                    list_tools_result = await self.mcp_intermediary_client.list_backend_tools(
+                        rk_session_id=rk_session_id,
+                        instance_id=current_instance_id,
+                        backend_name_ref=current_backend_name_ref,
                     )
                     if list_tools_result and list_tools_result.tools:
                         for tool_obj in list_tools_result.tools:
-                            discovered_tools.append(
-                                tool_obj.model_dump(exclude_none=True)
-                            )
+                            discovered_tools.append(tool_obj.model_dump(exclude_none=True))
 
-            logger.info(
-                f"Sample {sample_id}: Discovered {len(discovered_tools)} tools."
-            )
+            logger.info(f"Sample {sample_id}: Discovered {len(discovered_tools)} tools.")
 
         except Exception as e_tool_discovery:
             logger.error(
@@ -156,9 +128,7 @@ class EvaluationPipeline:
             discovered_tools = []
         finally:
             if rk_session_id and self.mcp_intermediary_client:
-                logger.info(
-                    f"Sample {sample_id}: Cleaning up tool discovery session '{rk_session_id}'."
-                )
+                logger.info(f"Sample {sample_id}: Cleaning up tool discovery session '{rk_session_id}'.")
                 try:
                     await self.mcp_intermediary_client.cleanup_session(rk_session_id)
                 except Exception as e_cl:
@@ -205,12 +175,8 @@ class EvaluationPipeline:
 
                 if variant_result is not None:
                     # Add variant metadata for batch evaluation compatibility
-                    variant_result["request_id"] = (
-                        sample_id  # Original sample ID for grouping
-                    )
-                    variant_result["response_id"] = (
-                        variant_idx  # Variant index within the request
-                    )
+                    variant_result["request_id"] = sample_id  # Original sample ID for grouping
+                    variant_result["response_id"] = variant_idx  # Variant index within the request
                     results.append(variant_result)
 
             except Exception as e:
@@ -244,9 +210,7 @@ class EvaluationPipeline:
         """Execute standard LLM generation without agent capabilities."""
         current_messages_for_rollout = []
         if system_prompt_content:
-            current_messages_for_rollout.append(
-                {"role": "system", "content": system_prompt_content}
-            )
+            current_messages_for_rollout.append({"role": "system", "content": system_prompt_content})
         current_messages_for_rollout.append({"role": "user", "content": user_query})
 
         generation_output_std = await self.model_client.generate(
@@ -257,9 +221,7 @@ class EvaluationPipeline:
         final_assistant_output_for_log = generation_output_std.content
 
         if not final_assistant_output_for_log:
-            logger.warning(
-                f"Sample {sample_id}: Standard generation resulted in no content."
-            )
+            logger.warning(f"Sample {sample_id}: Standard generation resulted in no content.")
             final_assistant_output_for_log = "LLM provided no content."
 
         # Cache standard generation if applicable
@@ -308,18 +270,12 @@ class EvaluationPipeline:
         # Initial messages for the rollout
         current_messages_for_rollout = []
         if system_prompt_content:
-            current_messages_for_rollout.append(
-                {"role": "system", "content": system_prompt_content}
-            )
+            current_messages_for_rollout.append({"role": "system", "content": system_prompt_content})
         current_messages_for_rollout.append({"role": "user", "content": user_query})
 
         try:
-            backend_requests = [
-                {"backend_name_ref": mcp_backend_ref, "num_instances": 1}
-            ]
-            init_response = await self.mcp_intermediary_client.initialize_session(
-                backend_requests
-            )
+            backend_requests = [{"backend_name_ref": mcp_backend_ref, "num_instances": 1}]
+            init_response = await self.mcp_intermediary_client.initialize_session(backend_requests)
             if init_response.get("error"):
                 raise RuntimeError(
                     f"Main MCP session init failed: {init_response.get('error_details', init_response['error'])}"
@@ -331,17 +287,11 @@ class EvaluationPipeline:
             if not rk_session_id or not initialized_backends:
                 raise RuntimeError(f"Malformed main MCP init response: {init_response}")
             for be_info in initialized_backends:
-                if be_info.get("backend_name_ref") == mcp_backend_ref and be_info.get(
-                    "instances"
-                ):
-                    primary_instance_id_for_agent_actions = be_info["instances"][0].get(
-                        "instance_id"
-                    )
+                if be_info.get("backend_name_ref") == mcp_backend_ref and be_info.get("instances"):
+                    primary_instance_id_for_agent_actions = be_info["instances"][0].get("instance_id")
                     break
             if not primary_instance_id_for_agent_actions:
-                raise RuntimeError(
-                    f"Primary instance ID for agent actions not found for {mcp_backend_ref}"
-                )
+                raise RuntimeError(f"Primary instance ID for agent actions not found for {mcp_backend_ref}")
 
             logger.info(
                 f"Sample {sample_id}: Main MCP session for agent execution. rk_session_id='{rk_session_id}', instance='{primary_instance_id_for_agent_actions}'."
@@ -368,9 +318,7 @@ class EvaluationPipeline:
                         tc.model_dump() for tc in generation_output_turn.tool_calls
                     ]
                     current_messages_for_rollout.append(assistant_msg_for_history)
-                    final_assistant_output_for_log = json.dumps(
-                        assistant_msg_for_history["tool_calls"]
-                    )
+                    final_assistant_output_for_log = json.dumps(assistant_msg_for_history["tool_calls"])
 
                     for tool_call in generation_output_turn.tool_calls:
                         tool_name = tool_call.function.name
@@ -382,14 +330,12 @@ class EvaluationPipeline:
                             if not isinstance(tool_args_dict, dict):
                                 raise ValueError("Args not dict")
 
-                            exec_result = (
-                                await self.mcp_intermediary_client.call_backend_tool(
-                                    rk_session_id=rk_session_id,
-                                    instance_id=primary_instance_id_for_agent_actions,
-                                    backend_name_ref=mcp_backend_ref,
-                                    tool_name=tool_name,
-                                    tool_args=tool_args_dict,
-                                )
+                            exec_result = await self.mcp_intermediary_client.call_backend_tool(
+                                rk_session_id=rk_session_id,
+                                instance_id=primary_instance_id_for_agent_actions,
+                                backend_name_ref=mcp_backend_ref,
+                                tool_name=tool_name,
+                                tool_args=tool_args_dict,
                             )
                             tool_result_content_str = json.dumps(exec_result)
                             all_executed_tool_calls_for_sample.append(
@@ -407,9 +353,7 @@ class EvaluationPipeline:
                             )
                             error_payload = {"error": str(e_tool_exec)}
                             if isinstance(e_tool_exec, json.JSONDecodeError):
-                                error_payload["detail"] = (
-                                    "Failed to parse arguments string from LLM."
-                                )
+                                error_payload["detail"] = "Failed to parse arguments string from LLM."
                             tool_result_content_str = json.dumps(error_payload)
                             all_executed_tool_calls_for_sample.append(
                                 {
@@ -430,26 +374,20 @@ class EvaluationPipeline:
                         )
 
                     if turn_num == max_rollout_turns - 1:
-                        logger.warning(
-                            f"Sample {sample_id}: Max rollout turns reached after tool call(s)."
-                        )
+                        logger.warning(f"Sample {sample_id}: Max rollout turns reached after tool call(s).")
 
                 elif generation_output_turn.content:
                     final_llm_text_response = generation_output_turn.content
                     assistant_msg_for_history["content"] = final_llm_text_response
                     current_messages_for_rollout.append(assistant_msg_for_history)
                     final_assistant_output_for_log = final_llm_text_response
-                    logger.info(
-                        f"Sample {sample_id}, Turn {turn_num+1}: LLM responded with text. Ending rollout."
-                    )
+                    logger.info(f"Sample {sample_id}, Turn {turn_num+1}: LLM responded with text. Ending rollout.")
                     break
                 else:
                     logger.warning(
                         f"Sample {sample_id}, Turn {turn_num+1}: LLM provided no content or tool calls. Ending rollout."
                     )
-                    final_llm_text_response = (
-                        "LLM provided no actionable response in this turn."
-                    )
+                    final_llm_text_response = "LLM provided no actionable response in this turn."
                     assistant_msg_for_history["content"] = final_llm_text_response
                     current_messages_for_rollout.append(assistant_msg_for_history)
                     final_assistant_output_for_log = final_llm_text_response
@@ -460,24 +398,18 @@ class EvaluationPipeline:
                 and not all_executed_tool_calls_for_sample
                 and not final_assistant_output_for_log
             ):
-                final_assistant_output_for_log = (
-                    "Agent did not produce text or tool calls within max turns."
-                )
+                final_assistant_output_for_log = "Agent did not produce text or tool calls within max turns."
 
             # State Capture
             state_capture_tool = self.cfg.agent.get("state_capture_tool")
             if state_capture_tool:
-                state_capture_args = dict(
-                    self.cfg.agent.get("state_capture_args", OmegaConf.create({}))
-                )
-                final_filesystem_state_from_mcp = (
-                    await self.mcp_intermediary_client.call_backend_tool(
-                        rk_session_id=rk_session_id,
-                        instance_id=primary_instance_id_for_agent_actions,
-                        backend_name_ref=mcp_backend_ref,
-                        tool_name=state_capture_tool,
-                        tool_args=state_capture_args,
-                    )
+                state_capture_args = dict(self.cfg.agent.get("state_capture_args", OmegaConf.create({})))
+                final_filesystem_state_from_mcp = await self.mcp_intermediary_client.call_backend_tool(
+                    rk_session_id=rk_session_id,
+                    instance_id=primary_instance_id_for_agent_actions,
+                    backend_name_ref=mcp_backend_ref,
+                    tool_name=state_capture_tool,
+                    tool_args=state_capture_args,
                 )
 
             return {
@@ -504,16 +436,12 @@ class EvaluationPipeline:
     async def _process_single_sample(
         self,
         sample: Dict[str, Any],
-        http_session: Optional[
-            aiohttp.ClientSession
-        ],  # For model_client, not mcp_client
+        http_session: Optional[aiohttp.ClientSession],  # For model_client, not mcp_client
         original_index: Optional[int] = None,
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """Main entry point for processing a single sample, handling N-variant generation."""
         sample_id_fallback = (
-            f"idx_{original_index}"
-            if original_index is not None
-            else "unknown_id_" + os.urandom(4).hex()
+            f"idx_{original_index}" if original_index is not None else "unknown_id_" + os.urandom(4).hex()
         )
         sample_id = sample.get("id", sample_id_fallback)
         user_query = sample.get("user_query")
@@ -548,15 +476,11 @@ class EvaluationPipeline:
     async def _process_single_sample_internal(
         self,
         sample: Dict[str, Any],
-        http_session: Optional[
-            aiohttp.ClientSession
-        ],  # For model_client, not mcp_client
+        http_session: Optional[aiohttp.ClientSession],  # For model_client, not mcp_client
         original_index: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         sample_id_fallback = (
-            f"idx_{original_index}"
-            if original_index is not None
-            else "unknown_id_" + os.urandom(4).hex()
+            f"idx_{original_index}" if original_index is not None else "unknown_id_" + os.urandom(4).hex()
         )
         sample_id = sample.get("id", sample_id_fallback)
         user_query = sample.get("user_query")
@@ -565,9 +489,7 @@ class EvaluationPipeline:
 
         # Check if we have either the generation format (user_query + ground_truth)
         # or the evaluation format (existing messages)
-        has_generation_format = (
-            user_query is not None and ground_truth_for_eval is not None
-        )
+        has_generation_format = user_query is not None and ground_truth_for_eval is not None
         has_evaluation_format = existing_messages is not None
 
         if not has_generation_format and not has_evaluation_format:
@@ -576,9 +498,7 @@ class EvaluationPipeline:
             )
             return None
 
-        original_system_prompt = sample.get("system_prompt") or self.cfg.get(
-            "system_prompt"
-        )
+        original_system_prompt = sample.get("system_prompt") or self.cfg.get("system_prompt")
         discovered_tools_for_llm_prompt: List[Dict[str, Any]] = []
         openai_formatted_tools: Optional[List[Dict[str, Any]]] = None
 
@@ -590,20 +510,14 @@ class EvaluationPipeline:
         if self.mcp_intermediary_client and self.cfg.agent.type == "mcp_agent":
             mcp_backend_ref_for_tools = self.cfg.agent.get("mcp_backend_ref")
             if not mcp_backend_ref_for_tools:
-                raise ValueError(
-                    "agent.mcp_backend_ref must be configured for mcp_agent tool discovery."
-                )
+                raise ValueError("agent.mcp_backend_ref must be configured for mcp_agent tool discovery.")
             discovered_tools_for_llm_prompt = await self._discover_tools_for_sample(
                 sample_id, mcp_backend_ref_for_tools
             )
 
         # --- Construct System Prompt and Format Tools for LLM ---
         system_prompt_content = original_system_prompt
-        if (
-            self.mcp_intermediary_client
-            and self.cfg.agent.type == "mcp_agent"
-            and discovered_tools_for_llm_prompt
-        ):
+        if self.mcp_intermediary_client and self.cfg.agent.type == "mcp_agent" and discovered_tools_for_llm_prompt:
             openai_formatted_tools = []
             for mcp_tool_dict in discovered_tools_for_llm_prompt:
                 input_schema = mcp_tool_dict.get("inputSchema", {})
@@ -618,7 +532,9 @@ class EvaluationPipeline:
                     }
                 )
             if original_system_prompt:
-                system_prompt_content = f"{original_system_prompt}\n\nYou have access to tools. Use them if appropriate."
+                system_prompt_content = (
+                    f"{original_system_prompt}\n\nYou have access to tools. Use them if appropriate."
+                )
             else:
                 system_prompt_content = "You are a helpful assistant with access to tools. Use them if appropriate."
 
@@ -664,17 +580,13 @@ class EvaluationPipeline:
                     "full_conversation_history": existing_messages,  # Store original messages
                 }
             else:
-                logger.warning(
-                    f"Sample {sample_id}: Evaluation mode requires generation.enabled=false"
-                )
+                logger.warning(f"Sample {sample_id}: Evaluation mode requires generation.enabled=false")
                 return None
 
         # Generation mode: Initial messages for the main rollout (or single generation if not agent)
         current_messages_for_rollout: List[Dict[str, Any]] = []
         if system_prompt_content:
-            current_messages_for_rollout.append(
-                {"role": "system", "content": system_prompt_content}
-            )
+            current_messages_for_rollout.append({"role": "system", "content": system_prompt_content})
         current_messages_for_rollout.append({"role": "user", "content": user_query})
 
         # --- LLM Generation / Agent Rollout ---
@@ -682,14 +594,12 @@ class EvaluationPipeline:
             # ... (existing logic for disabled generation, using assistant_response_content from sample or cache) ...
             # This part needs to ensure final_assistant_output_for_log is set.
             # For brevity, assuming this part correctly sets final_assistant_output_for_log if generation is disabled.
-            assistant_response_col_name = self.cfg.dataset.get(
-                "column_mapping", {}
-            ).get("assistant_response_column", "assistant_response")
+            assistant_response_col_name = self.cfg.dataset.get("column_mapping", {}).get(
+                "assistant_response_column", "assistant_response"
+            )
             final_assistant_output_for_log = sample.get(assistant_response_col_name)
             # ... (rest of the non-generation logic)
-            if (
-                not final_assistant_output_for_log
-            ):  # Try cache if generation disabled and no direct column
+            if not final_assistant_output_for_log:  # Try cache if generation disabled and no direct column
                 gen_cfg = self.cfg.generation
                 final_assistant_output_for_log = self.cache.get(
                     sample_id=sample_id,
@@ -706,9 +616,7 @@ class EvaluationPipeline:
                     "evaluation_score": 0.0,
                 }
 
-        elif (
-            not self.model_client or not http_session
-        ):  # Generation enabled but client/session missing
+        elif not self.model_client or not http_session:  # Generation enabled but client/session missing
             return {
                 "id": sample_id,
                 "error": "Generation client/session not configured",
@@ -755,14 +663,11 @@ class EvaluationPipeline:
                 "ground_truth_for_eval": ground_truth_for_eval,
                 "discovered_tools": discovered_tools_for_llm_prompt,
                 "executed_tool_calls": all_executed_tool_calls_for_sample,
-                "final_mcp_state_captured": final_filesystem_state_from_mcp
-                or "Not captured",
+                "final_mcp_state_captured": final_filesystem_state_from_mcp or "Not captured",
                 "evaluation_score": eval_result_obj.score,
                 "evaluation_reason": eval_result_obj.reason,
                 "evaluation_metrics": (
-                    {k: v.model_dump() for k, v in eval_result_obj.metrics.items()}
-                    if eval_result_obj.metrics
-                    else {}
+                    {k: v.model_dump() for k, v in eval_result_obj.metrics.items()} if eval_result_obj.metrics else {}
                 ),
             }
 
@@ -804,9 +709,7 @@ class EvaluationPipeline:
                 "evaluation_score": eval_result_obj.score,
                 "evaluation_reason": eval_result_obj.reason,
                 "evaluation_metrics": (
-                    {k: v.model_dump() for k, v in eval_result_obj.metrics.items()}
-                    if eval_result_obj.metrics
-                    else {}
+                    {k: v.model_dump() for k, v in eval_result_obj.metrics.items()} if eval_result_obj.metrics else {}
                 ),
             }
 
@@ -829,14 +732,10 @@ class EvaluationPipeline:
                 if split_name in prompt_dataset:
                     prompt_dataset = prompt_dataset[split_name]
                 else:
-                    logger.error(
-                        f"Split '{split_name}' not found. Available: {list(prompt_dataset.keys())}"
-                    )
+                    logger.error(f"Split '{split_name}' not found. Available: {list(prompt_dataset.keys())}")
                     return []
             elif not isinstance(prompt_dataset, Dataset):
-                logger.error(
-                    f"Loaded dataset is not a Hugging Face Dataset. Type: {type(prompt_dataset)}"
-                )
+                logger.error(f"Loaded dataset is not a Hugging Face Dataset. Type: {type(prompt_dataset)}")
                 return []
 
             dataset_source = getattr(
@@ -851,12 +750,9 @@ class EvaluationPipeline:
                 final_cause = final_cause.__cause__
             if (
                 isinstance(final_cause, ValueError)
-                and str(final_cause)
-                == "Invalid pattern: '**' can only be an entire path component"
+                and str(final_cause) == "Invalid pattern: '**' can only be an entire path component"
             ):
-                base_dataset_config_name = prompt_dataset_config.get(
-                    "base_dataset", "UnknownBaseDatasetConfig"
-                )
+                base_dataset_config_name = prompt_dataset_config.get("base_dataset", "UnknownBaseDatasetConfig")
                 dataset_display_name = base_dataset_config_name
                 helpful_message = (
                     f"Failed to load the base dataset specified as '{dataset_display_name}' in your derived dataset configuration. "
@@ -889,9 +785,7 @@ class EvaluationPipeline:
 
         logger.info(f"Processing {samples_to_process_count} samples.")
 
-        http_session_for_model_client: Optional[aiohttp.ClientSession] = (
-            None  # Renamed for clarity
-        )
+        http_session_for_model_client: Optional[aiohttp.ClientSession] = None  # Renamed for clarity
         if self.cfg.generation.enabled and self.model_client:
             http_session_for_model_client = aiohttp.ClientSession()
 
@@ -899,32 +793,22 @@ class EvaluationPipeline:
             self.mcp_intermediary_client = IntermediaryMCPClient(
                 intermediary_server_url=self.cfg.agent.intermediary_server_url
             )
-            logger.info(
-                f"Created IntermediaryMCPClient instance with URL: {self.cfg.agent.intermediary_server_url}"
-            )
+            logger.info(f"Created IntermediaryMCPClient instance with URL: {self.cfg.agent.intermediary_server_url}")
 
         async def execute_tasks():
             tasks = []
             # http_session_for_model_client is managed outside this async def now
 
-            max_concurrent = self.cfg.generation.api_params.get(
-                "max_concurrent_requests", 5
-            )
+            max_concurrent = self.cfg.generation.api_params.get("max_concurrent_requests", 5)
             if not isinstance(max_concurrent, int) or max_concurrent <= 0:
-                logger.warning(
-                    f"Invalid max_concurrent_requests value ({max_concurrent}), defaulting to 5."
-                )
+                logger.warning(f"Invalid max_concurrent_requests value ({max_concurrent}), defaulting to 5.")
                 max_concurrent = 5
             semaphore = asyncio.Semaphore(max_concurrent)
 
-            async def process_with_semaphore_wrapper(
-                sample_idx: int, sample_data: Dict[str, Any]
-            ):
+            async def process_with_semaphore_wrapper(sample_idx: int, sample_data: Dict[str, Any]):
                 prelim_sample_id = sample_data.get("id", f"idx_{sample_idx}")
                 async with semaphore:
-                    logger.info(
-                        f"Concurrency slot acquired for sample '{prelim_sample_id}', attempting to process."
-                    )
+                    logger.info(f"Concurrency slot acquired for sample '{prelim_sample_id}', attempting to process.")
                     return await self._process_single_sample(
                         sample_data,
                         http_session_for_model_client,
@@ -934,23 +818,14 @@ class EvaluationPipeline:
             for i in range(samples_to_process_count):
                 tasks.append(process_with_semaphore_wrapper(i, prompt_dataset[i]))
 
-            batch_size_for_logging = self.cfg.logging_params.get(
-                "batch_log_interval", 10
-            )
-            if (
-                not isinstance(batch_size_for_logging, int)
-                or batch_size_for_logging <= 0
-            ):
-                logger.warning(
-                    f"Invalid batch_log_interval ({batch_size_for_logging}), defaulting to 10."
-                )
+            batch_size_for_logging = self.cfg.logging_params.get("batch_log_interval", 10)
+            if not isinstance(batch_size_for_logging, int) or batch_size_for_logging <= 0:
+                logger.warning(f"Invalid batch_log_interval ({batch_size_for_logging}), defaulting to 10.")
                 batch_size_for_logging = 10
 
             for i_outer in range(0, len(tasks), batch_size_for_logging):
                 batch_tasks = tasks[i_outer : i_outer + batch_size_for_logging]
-                batch_results_values = await asyncio.gather(
-                    *batch_tasks, return_exceptions=True
-                )
+                batch_results_values = await asyncio.gather(*batch_tasks, return_exceptions=True)
                 for res_idx, res_or_exc in enumerate(batch_results_values):
                     if isinstance(res_or_exc, Exception):
                         logger.error(
@@ -959,9 +834,7 @@ class EvaluationPipeline:
                         )
                         all_results.append(
                             {
-                                "id": prompt_dataset[i_outer + res_idx].get(
-                                    "id", "unknown"
-                                ),
+                                "id": prompt_dataset[i_outer + res_idx].get("id", "unknown"),
                                 "error": str(res_or_exc),
                             }
                         )
@@ -984,35 +857,25 @@ class EvaluationPipeline:
         finally:
             if http_session_for_model_client:
                 await http_session_for_model_client.close()
-                logger.debug(
-                    "Closed aiohttp.ClientSession for model_client in main run() finally block."
-                )
+                logger.debug("Closed aiohttp.ClientSession for model_client in main run() finally block.")
 
         output_file_path = self.cfg.output.get("results_file", None)
         if output_file_path:
             if not os.path.isabs(output_file_path) and self.cfg.hydra_output_dir:
-                output_file_path = os.path.join(
-                    self.cfg.hydra_output_dir, output_file_path
-                )
+                output_file_path = os.path.join(self.cfg.hydra_output_dir, output_file_path)
             try:
                 os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
                 with open(output_file_path, "w", encoding="utf-8") as f:
                     for result_item in all_results:
                         f.write(json.dumps(result_item) + "\n")
-                logger.info(
-                    f"Detailed results saved to: {os.path.abspath(output_file_path)}"
-                )
+                logger.info(f"Detailed results saved to: {os.path.abspath(output_file_path)}")
             except Exception as e:
                 logger.error(f"Failed to save results to {output_file_path}: {e}")
 
-        preview_pairs_file_path = self.cfg.output.get(
-            "preview_pairs_file", "preview_input_output_pairs.jsonl"
-        )
+        preview_pairs_file_path = self.cfg.output.get("preview_pairs_file", "preview_input_output_pairs.jsonl")
         if preview_pairs_file_path:
             if not os.path.isabs(preview_pairs_file_path) and self.cfg.hydra_output_dir:
-                preview_pairs_file_path = os.path.join(
-                    self.cfg.hydra_output_dir, preview_pairs_file_path
-                )
+                preview_pairs_file_path = os.path.join(self.cfg.hydra_output_dir, preview_pairs_file_path)
             preview_data_to_save = []
             for result_item in all_results:
                 # Use full_conversation_history if available, otherwise construct from system/user/assistant
@@ -1027,12 +890,8 @@ class EvaluationPipeline:
                 else:  # Construct basic messages for non-agent or simple agent cases
                     messages_to_save = []
                     if result_item.get("system_prompt"):
-                        messages_to_save.append(
-                            {"role": "system", "content": result_item["system_prompt"]}
-                        )
-                    messages_to_save.append(
-                        {"role": "user", "content": result_item["user_query"]}
-                    )
+                        messages_to_save.append({"role": "system", "content": result_item["system_prompt"]})
+                    messages_to_save.append({"role": "user", "content": result_item["user_query"]})
                     messages_to_save.append(
                         {
                             "role": "assistant",
@@ -1053,13 +912,9 @@ class EvaluationPipeline:
                     with open(preview_pairs_file_path, "w", encoding="utf-8") as f:
                         for item in preview_data_to_save:
                             f.write(json.dumps(item) + "\n")
-                    logger.info(
-                        f"Input/output pairs for preview saved to: {os.path.abspath(preview_pairs_file_path)}"
-                    )
+                    logger.info(f"Input/output pairs for preview saved to: {os.path.abspath(preview_pairs_file_path)}")
                 except Exception as e:
-                    logger.error(
-                        f"Failed to save preview pairs to {preview_pairs_file_path}: {e}"
-                    )
+                    logger.error(f"Failed to save preview pairs to {preview_pairs_file_path}: {e}")
 
         logger.info("Evaluation pipeline run finished.")
         return all_results

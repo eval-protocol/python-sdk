@@ -28,21 +28,15 @@ class AirlineMcp(McpGym):
             "domain": "airline",
             "max_turns": 20,
         }
-        
-        self.adapter = EnvironmentAdapter(
-            env_class=AirlineEnvironment,
-            default_config=default_config
-        )
-        
+
+        self.adapter = EnvironmentAdapter(env_class=AirlineEnvironment, default_config=default_config)
+
         super().__init__("airline", self.adapter, seed)
 
     def _register_tools(self):
         """Register airline-specific MCP tools matching τ²-Bench schemas"""
 
-        @self.mcp.tool(
-            name="book_reservation",
-            description="Book a reservation."
-        )
+        @self.mcp.tool(name="book_reservation", description="Book a reservation.")
         def book_reservation(
             user_id: str,
             origin: str,
@@ -55,12 +49,12 @@ class AirlineMcp(McpGym):
             total_baggages: int,
             nonfree_baggages: int,
             insurance: str,  # "yes" or "no"
-            ctx: Context
+            ctx: Context,
         ) -> Dict[str, Any]:
             """Book a new reservation with all details"""
             session_id = self._get_session_id(ctx)
             session_data = self._get_or_create_session(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
                 {
@@ -76,104 +70,86 @@ class AirlineMcp(McpGym):
                         "payment_methods": payment_methods,
                         "total_baggages": total_baggages,
                         "nonfree_baggages": nonfree_baggages,
-                        "insurance": insurance
-                    }
-                }
+                        "insurance": insurance,
+                    },
+                },
             )
 
         @self.mcp.tool(
             name="calculate",
-            description="Calculate the result of a mathematical expression."
+            description="Calculate the result of a mathematical expression.",
         )
         def calculate(expression: str, ctx: Context) -> Dict[str, Any]:
             """Calculate mathematical expressions"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
-                {
-                    "action": "calculate",
-                    "parameters": {"expression": expression}
-                }
+                {"action": "calculate", "parameters": {"expression": expression}},
             )
 
-        @self.mcp.tool(
-            name="cancel_reservation",
-            description="Cancel the whole reservation."
-        )
+        @self.mcp.tool(name="cancel_reservation", description="Cancel the whole reservation.")
         def cancel_reservation(reservation_id: str, ctx: Context) -> Dict[str, Any]:
             """Cancel a reservation"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
                 {
                     "action": "cancel_reservation",
-                    "parameters": {"reservation_id": reservation_id}
-                }
+                    "parameters": {"reservation_id": reservation_id},
+                },
             )
 
         @self.mcp.tool(
             name="get_reservation_details",
-            description="Get the details of a reservation."
+            description="Get the details of a reservation.",
         )
         def get_reservation_details(reservation_id: str, ctx: Context) -> Dict[str, Any]:
             """Get reservation details"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
                 {
                     "action": "get_reservation_details",
-                    "parameters": {"reservation_id": reservation_id}
-                }
+                    "parameters": {"reservation_id": reservation_id},
+                },
             )
 
         @self.mcp.tool(
             name="get_user_details",
-            description="Get the details of a user, including their reservations."
+            description="Get the details of a user, including their reservations.",
         )
         def get_user_details(user_id: str, ctx: Context) -> Dict[str, Any]:
             """Get user details"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
-                {
-                    "action": "get_user_details",
-                    "parameters": {"user_id": user_id}
-                }
+                {"action": "get_user_details", "parameters": {"user_id": user_id}},
             )
 
         @self.mcp.tool(
             name="list_all_airports",
-            description="Returns a list of all available airports."
+            description="Returns a list of all available airports.",
         )
         def list_all_airports(ctx: Context) -> Dict[str, Any]:
             """List all available airports"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
-                session_id,
-                {
-                    "action": "list_all_airports",
-                    "parameters": {}
-                }
+                session_id, {"action": "list_all_airports", "parameters": {}}
             )
 
         @self.mcp.tool(
             name="search_direct_flight",
-            description="Search for direct flights between two cities on a specific date."
+            description="Search for direct flights between two cities on a specific date.",
         )
-        def search_direct_flight(
-            origin: str,
-            destination: str,
-            date: str,
-            ctx: Context
-        ) -> Dict[str, Any]:
+        def search_direct_flight(origin: str, destination: str, date: str, ctx: Context) -> Dict[str, Any]:
             """Search for direct flights"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
                 {
@@ -181,24 +157,19 @@ class AirlineMcp(McpGym):
                     "parameters": {
                         "origin": origin,
                         "destination": destination,
-                        "date": date
-                    }
-                }
+                        "date": date,
+                    },
+                },
             )
 
         @self.mcp.tool(
             name="search_onestop_flight",
-            description="Search for one-stop flights between two cities on a specific date."
+            description="Search for one-stop flights between two cities on a specific date.",
         )
-        def search_onestop_flight(
-            origin: str,
-            destination: str,
-            date: str,
-            ctx: Context
-        ) -> Dict[str, Any]:
+        def search_onestop_flight(origin: str, destination: str, date: str, ctx: Context) -> Dict[str, Any]:
             """Search for one-stop flights"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
                 {
@@ -206,64 +177,57 @@ class AirlineMcp(McpGym):
                     "parameters": {
                         "origin": origin,
                         "destination": destination,
-                        "date": date
-                    }
-                }
+                        "date": date,
+                    },
+                },
             )
 
         @self.mcp.tool(
             name="send_certificate",
-            description="Send a certificate to a user. Be careful!"
+            description="Send a certificate to a user. Be careful!",
         )
-        def send_certificate(
-            user_id: str,
-            amount: int,
-            ctx: Context
-        ) -> Dict[str, Any]:
+        def send_certificate(user_id: str, amount: int, ctx: Context) -> Dict[str, Any]:
             """Send a certificate to a user"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
                 {
                     "action": "send_certificate",
-                    "parameters": {
-                        "user_id": user_id,
-                        "amount": amount
-                    }
-                }
+                    "parameters": {"user_id": user_id, "amount": amount},
+                },
             )
 
         @self.mcp.tool(
             name="transfer_to_human_agents",
-            description="Transfer the user to a human agent, with a summary of the user's issue."
+            description="Transfer the user to a human agent, with a summary of the user's issue.",
         )
         def transfer_to_human_agents(summary: str, ctx: Context) -> Dict[str, Any]:
             """Transfer to human agent"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
                 {
                     "action": "transfer_to_human_agents",
-                    "parameters": {"summary": summary}
-                }
+                    "parameters": {"summary": summary},
+                },
             )
 
         @self.mcp.tool(
             name="update_reservation_baggages",
-            description="Update the baggage information of a reservation."
+            description="Update the baggage information of a reservation.",
         )
         def update_reservation_baggages(
             reservation_id: str,
             total_baggages: int,
             nonfree_baggages: int,
             payment_id: str,
-            ctx: Context
+            ctx: Context,
         ) -> Dict[str, Any]:
             """Update reservation baggage information"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
                 {
@@ -272,25 +236,25 @@ class AirlineMcp(McpGym):
                         "reservation_id": reservation_id,
                         "total_baggages": total_baggages,
                         "nonfree_baggages": nonfree_baggages,
-                        "payment_id": payment_id
-                    }
-                }
+                        "payment_id": payment_id,
+                    },
+                },
             )
 
         @self.mcp.tool(
             name="update_reservation_flights",
-            description="Update the flight information of a reservation."
+            description="Update the flight information of a reservation.",
         )
         def update_reservation_flights(
             reservation_id: str,
             cabin: str,
             flights: List[Dict[str, Any]],
             payment_id: str,
-            ctx: Context
+            ctx: Context,
         ) -> Dict[str, Any]:
             """Update reservation flight information"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
                 {
@@ -299,55 +263,43 @@ class AirlineMcp(McpGym):
                         "reservation_id": reservation_id,
                         "cabin": cabin,
                         "flights": flights,
-                        "payment_id": payment_id
-                    }
-                }
+                        "payment_id": payment_id,
+                    },
+                },
             )
 
         @self.mcp.tool(
             name="update_reservation_passengers",
-            description="Update the passenger information of a reservation."
+            description="Update the passenger information of a reservation.",
         )
         def update_reservation_passengers(
-            reservation_id: str,
-            passengers: List[Dict[str, Any]],
-            ctx: Context
+            reservation_id: str, passengers: List[Dict[str, Any]], ctx: Context
         ) -> Dict[str, Any]:
             """Update reservation passenger information"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
                 {
                     "action": "update_reservation_passengers",
                     "parameters": {
                         "reservation_id": reservation_id,
-                        "passengers": passengers
-                    }
-                }
+                        "passengers": passengers,
+                    },
+                },
             )
 
-        @self.mcp.tool(
-            name="get_flight_status",
-            description="Get the status of a flight."
-        )
-        def get_flight_status(
-            flight_number: str,
-            date: str,
-            ctx: Context
-        ) -> Dict[str, Any]:
+        @self.mcp.tool(name="get_flight_status", description="Get the status of a flight.")
+        def get_flight_status(flight_number: str, date: str, ctx: Context) -> Dict[str, Any]:
             """Get flight status"""
             session_id = self._get_session_id(ctx)
-            
+
             return self._execute_session_environment_step(
                 session_id,
                 {
                     "action": "get_flight_status",
-                    "parameters": {
-                        "flight_number": flight_number,
-                        "date": date
-                    }
-                }
+                    "parameters": {"flight_number": flight_number, "date": date},
+                },
             )
 
     @staticmethod

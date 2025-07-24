@@ -64,9 +64,7 @@ class FireworksModelClient(ModelClient):
     def __init__(self, client_config: DictConfig, api_key: str):
         super().__init__(client_config)
         self.api_key = api_key
-        self.api_base = client_config.get(
-            "api_base", "https://api.fireworks.ai/inference/v1"
-        )
+        self.api_base = client_config.get("api_base", "https://api.fireworks.ai/inference/v1")
         # TODO: Initialize rate limiter, retry policy from client_config.api_params
 
     async def generate(
@@ -104,18 +102,14 @@ class FireworksModelClient(ModelClient):
 
         debug_payload_log = json.loads(json.dumps(payload))
         if "messages" in debug_payload_log and debug_payload_log["messages"]:
-            if debug_payload_log["messages"][-1].get(
-                "content"
-            ):  # Check if content exists
+            if debug_payload_log["messages"][-1].get("content"):  # Check if content exists
                 debug_payload_log["messages"][-1]["content"] = (
                     str(debug_payload_log["messages"][-1]["content"])[:50] + "..."
                 )
         logger.debug(f"Calling Fireworks API: {url}, Payload: {debug_payload_log}")
 
         try:
-            for attempt in range(
-                self.client_config.get("api_params", {}).get("max_retries", 3) + 1
-            ):
+            for attempt in range(self.client_config.get("api_params", {}).get("max_retries", 3) + 1):
                 async with session.post(url, json=payload, headers=headers) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -128,9 +122,7 @@ class FireworksModelClient(ModelClient):
                                 tool_calls_data = message["tool_calls"]
                                 parsed_tool_calls = []
                                 for tc_data in tool_calls_data:
-                                    if tc_data.get(
-                                        "type"
-                                    ) == "function" and tc_data.get("function"):
+                                    if tc_data.get("type") == "function" and tc_data.get("function"):
                                         parsed_tool_calls.append(
                                             ToolCall(
                                                 id=tc_data.get(
@@ -139,19 +131,13 @@ class FireworksModelClient(ModelClient):
                                                 type="function",
                                                 function=ToolCallFunction(
                                                     name=tc_data["function"]["name"],
-                                                    arguments=tc_data["function"][
-                                                        "arguments"
-                                                    ],
+                                                    arguments=tc_data["function"]["arguments"],
                                                 ),
                                             )
                                         )
                                 if parsed_tool_calls:
-                                    logger.debug(
-                                        f"Parsed native tool_calls: {parsed_tool_calls}"
-                                    )
-                                    return GenerationResult(
-                                        tool_calls=parsed_tool_calls
-                                    )
+                                    logger.debug(f"Parsed native tool_calls: {parsed_tool_calls}")
+                                    return GenerationResult(tool_calls=parsed_tool_calls)
 
                             # 2. If no native tool_calls, check if content is a JSON string representing a tool call
                             # This handles the case where the LLM puts the tool call JSON into the content field.
@@ -174,18 +160,9 @@ class FireworksModelClient(ModelClient):
                                         data_to_check = [potential_tool_call_data]
 
                                     for item in data_to_check:
-                                        if (
-                                            isinstance(item, dict)
-                                            and item.get("type") == "function"
-                                        ):
-                                            func_details = item.get(
-                                                "function"
-                                            )  # OpenAI style
-                                            if (
-                                                func_details
-                                                and "name" in func_details
-                                                and "arguments" in func_details
-                                            ):
+                                        if isinstance(item, dict) and item.get("type") == "function":
+                                            func_details = item.get("function")  # OpenAI style
+                                            if func_details and "name" in func_details and "arguments" in func_details:
                                                 parsed_tool_calls_from_content.append(
                                                     ToolCall(
                                                         id=item.get(
@@ -195,9 +172,7 @@ class FireworksModelClient(ModelClient):
                                                         type="function",
                                                         function=ToolCallFunction(
                                                             name=func_details["name"],
-                                                            arguments=func_details[
-                                                                "arguments"
-                                                            ],
+                                                            arguments=func_details["arguments"],
                                                         ),
                                                     )
                                                 )
@@ -208,9 +183,7 @@ class FireworksModelClient(ModelClient):
                                             # Here, `parameters` is an object. We need to dump it to string for `ToolCallFunction.arguments`.
                                             llm_name = item.get("name")
                                             llm_params = item.get("parameters")
-                                            if llm_name and isinstance(
-                                                llm_params, dict
-                                            ):
+                                            if llm_name and isinstance(llm_params, dict):
                                                 parsed_tool_calls_from_content.append(
                                                     ToolCall(
                                                         id=item.get(
@@ -220,9 +193,7 @@ class FireworksModelClient(ModelClient):
                                                         type="function",
                                                         function=ToolCallFunction(
                                                             name=llm_name,
-                                                            arguments=json.dumps(
-                                                                llm_params
-                                                            ),
+                                                            arguments=json.dumps(llm_params),
                                                         ),
                                                     )
                                                 )
@@ -232,9 +203,7 @@ class FireworksModelClient(ModelClient):
                                         logger.debug(
                                             f"Parsed tool_calls from content field: {parsed_tool_calls_from_content}"
                                         )
-                                        return GenerationResult(
-                                            tool_calls=parsed_tool_calls_from_content
-                                        )
+                                        return GenerationResult(tool_calls=parsed_tool_calls_from_content)
 
                                     # If JSON but not a recognized tool call, it's just JSON content
                                     logger.debug(
@@ -244,29 +213,21 @@ class FireworksModelClient(ModelClient):
 
                                 except json.JSONDecodeError:
                                     # Content is not JSON, so it's a regular text response
-                                    logger.debug(
-                                        "Content is not JSON. Treating as text."
-                                    )
+                                    logger.debug("Content is not JSON. Treating as text.")
                                     return GenerationResult(content=content_str.strip())
 
                         # If neither tool_calls nor parsable content that looks like a tool call
-                        logger.warning(
-                            f"Fireworks API response malformed or no actionable content/tool_calls: {data}"
-                        )
+                        logger.warning(f"Fireworks API response malformed or no actionable content/tool_calls: {data}")
                         return GenerationResult()
 
                     # ... (rest of the error handling as before) ...
                     elif response.status == 429:  # Rate limit
                         retry_after = int(response.headers.get("Retry-After", "5"))
-                        logger.warning(
-                            f"Rate limited. Retrying after {retry_after}s (attempt {attempt+1})."
-                        )
+                        logger.warning(f"Rate limited. Retrying after {retry_after}s (attempt {attempt+1}).")
                         await asyncio.sleep(retry_after)
                     elif response.status in [401, 403]:  # Auth errors
                         error_text = await response.text()
-                        logger.error(
-                            f"Fireworks API Auth Error ({response.status}): {error_text}"
-                        )
+                        logger.error(f"Fireworks API Auth Error ({response.status}): {error_text}")
                         return GenerationResult()  # Empty result on auth error
                     elif response.status >= 500:  # Server errors
                         logger.warning(
@@ -275,9 +236,7 @@ class FireworksModelClient(ModelClient):
                         await asyncio.sleep(2**attempt)
                     else:  # Other client errors
                         error_text = await response.text()
-                        logger.error(
-                            f"Fireworks API request failed ({response.status}): {error_text}"
-                        )
+                        logger.error(f"Fireworks API request failed ({response.status}): {error_text}")
                         return GenerationResult()  # Empty result
             logger.error("Max retries reached for Fireworks API call.")
             return GenerationResult()
@@ -285,7 +244,5 @@ class FireworksModelClient(ModelClient):
             logger.error(f"AIOHTTP client error: {e}")
             return GenerationResult()
         except Exception as e:
-            logger.error(
-                f"Unexpected error in FireworksModelClient: {e}", exc_info=True
-            )
+            logger.error(f"Unexpected error in FireworksModelClient: {e}", exc_info=True)
             return GenerationResult()

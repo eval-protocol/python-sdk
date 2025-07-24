@@ -122,9 +122,7 @@ def test_submodule_structure():
             if submodule in found_submodules:
                 print(f"  ✓ {submodule} imported")
             else:
-                print(
-                    f"  ⚠ {submodule} not explicitly imported (will be available via star import)"
-                )
+                print(f"  ⚠ {submodule} not explicitly imported (will be available via star import)")
 
         return True
 

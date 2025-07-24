@@ -36,9 +36,7 @@ class TestGCPTools(unittest.TestCase):
         self.assertTrue(success)
         self.assertEqual(stdout, "Success!")
         self.assertEqual(stderr, "")
-        mock_subprocess_run.assert_called_once_with(
-            ["gcloud", "info"], capture_output=True, text=True, check=False
-        )
+        mock_subprocess_run.assert_called_once_with(["gcloud", "info"], capture_output=True, text=True, check=False)
 
     @patch("eval_protocol.gcp_tools.subprocess.run")
     def test_run_gcloud_command_failure(self, mock_subprocess_run):
@@ -92,16 +90,12 @@ class TestGCPTools(unittest.TestCase):
         "eval_protocol.gcp_tools.os.remove"
     )  # os.path.exists mock removed as not directly used by SUT for this path
     @patch("builtins.open", new_callable=mock_open)
-    def test_build_and_push_docker_image_success(
-        self, mock_open_file, mock_os_remove, mock_run_gcloud, MockGCPPath
-    ):
+    def test_build_and_push_docker_image_success(self, mock_open_file, mock_os_remove, mock_run_gcloud, MockGCPPath):
 
         mock_path_instance = MockGCPPath.return_value
 
         mock_dockerfile_path_obj = MagicMock(spec=Path)
-        mock_dockerfile_path_obj.exists.return_value = (
-            True  # For the finally block check
-        )
+        mock_dockerfile_path_obj.exists.return_value = True  # For the finally block check
         # Make the mock object usable by open() and os.remove() by giving it a name attribute or ensuring it's Path-like
         # For open(), it will be passed directly. For os.remove(), it will be passed directly.
         # Let's ensure it has a proper string representation for logging if any, though not strictly needed for mocks.
@@ -153,9 +147,7 @@ class TestGCPTools(unittest.TestCase):
         mock_path_instance = MockGCPPath.return_value
 
         mock_dockerfile_path_obj = MagicMock(spec=Path)
-        mock_dockerfile_path_obj.exists.return_value = (
-            True  # For the finally block check
-        )
+        mock_dockerfile_path_obj.exists.return_value = True  # For the finally block check
         mock_dockerfile_path_obj.__str__.return_value = str(Path(".") / "Dockerfile")
         mock_path_instance.__truediv__.return_value = mock_dockerfile_path_obj
 
@@ -196,9 +188,7 @@ class TestGCPTools(unittest.TestCase):
             )
 
         self.assertFalse(result)
-        mock_logger_error.assert_called_once_with(
-            "GCP Project ID is required for Google Cloud Build."
-        )
+        mock_logger_error.assert_called_once_with("GCP Project ID is required for Google Cloud Build.")
 
     @patch("eval_protocol.gcp_tools.Path", autospec=True)
     @patch("builtins.open", new_callable=mock_open)
@@ -303,14 +293,10 @@ class TestGCPTools(unittest.TestCase):
             self.mock_project_id,
             self.mock_region,
             env_vars={"KEY": "VALUE"},
-            secrets_to_mount={
-                "MY_SECRET": f"projects/{self.mock_project_id}/secrets/my-secret-id/versions/latest"
-            },
+            secrets_to_mount={"MY_SECRET": f"projects/{self.mock_project_id}/secrets/my-secret-id/versions/latest"},
         )
 
-        self.assertEqual(
-            result_url, f"https://{self.mock_service_name}-mock-url.a.run.app"
-        )
+        self.assertEqual(result_url, f"https://{self.mock_service_name}-mock-url.a.run.app")
         self.assertEqual(mock_run_gcloud.call_count, 2)
         deploy_call_args = mock_run_gcloud.call_args_list[0][0][0]
         self.assertIn("--set-env-vars", deploy_call_args)
@@ -327,9 +313,7 @@ class TestGCPTools(unittest.TestCase):
                 gcp_region=self.mock_region,
             )
         self.assertIsNone(result_url)
-        mock_logger_error.assert_called_once_with(
-            "GCP Project ID is required for deploying to Cloud Run."
-        )
+        mock_logger_error.assert_called_once_with("GCP Project ID is required for deploying to Cloud Run.")
 
     def test_deploy_to_cloud_run_no_region(self):
         with patch.object(logger, "error") as mock_logger_error:
@@ -340,9 +324,7 @@ class TestGCPTools(unittest.TestCase):
                 gcp_region=None,  # Key
             )
         self.assertIsNone(result_url)
-        mock_logger_error.assert_called_once_with(
-            "GCP Region is required for deploying to Cloud Run."
-        )
+        mock_logger_error.assert_called_once_with("GCP Region is required for deploying to Cloud Run.")
 
     @patch("eval_protocol.gcp_tools._run_gcloud_command")
     def test_deploy_to_cloud_run_deploy_fails(self, mock_run_gcloud):
@@ -427,18 +409,14 @@ class TestGCPTools(unittest.TestCase):
         mock_run_gcloud.assert_called_once()  # Should fail on the first call
         mock_logger_error.assert_called_once()
         logged_error_message = mock_logger_error.call_args[0][0]
-        self.assertIn(
-            "An error occurred during Cloud Run deployment", logged_error_message
-        )
+        self.assertIn("An error occurred during Cloud Run deployment", logged_error_message)
         self.assertIn("gcloud exploded", logged_error_message)
 
     @patch("eval_protocol.gcp_tools._run_gcloud_command")
     def test_ensure_artifact_registry_repo_exists_already_exists(self, mock_run_gcloud):
         mock_run_gcloud.return_value = (True, "Repo exists", "")  # Describe success
 
-        result = ensure_artifact_registry_repo_exists(
-            self.mock_project_id, self.mock_region, self.mock_repo_name
-        )
+        result = ensure_artifact_registry_repo_exists(self.mock_project_id, self.mock_region, self.mock_repo_name)
         self.assertTrue(result)
         mock_run_gcloud.assert_called_once_with(
             [
@@ -461,9 +439,7 @@ class TestGCPTools(unittest.TestCase):
             (True, "Create success", ""),  # Create success
         ]
 
-        result = ensure_artifact_registry_repo_exists(
-            self.mock_project_id, self.mock_region, self.mock_repo_name
-        )
+        result = ensure_artifact_registry_repo_exists(self.mock_project_id, self.mock_region, self.mock_repo_name)
         self.assertTrue(result)
         self.assertEqual(mock_run_gcloud.call_count, 2)
         create_call_args = mock_run_gcloud.call_args_list[1][0][0]
@@ -474,9 +450,7 @@ class TestGCPTools(unittest.TestCase):
     def test_ensure_artifact_registry_repo_exists_exception(self, mock_run_gcloud):
         mock_run_gcloud.side_effect = Exception("Kaboom")
         with patch.object(logger, "error") as mock_logger_error:
-            result = ensure_artifact_registry_repo_exists(
-                self.mock_project_id, self.mock_region, self.mock_repo_name
-            )
+            result = ensure_artifact_registry_repo_exists(self.mock_project_id, self.mock_region, self.mock_repo_name)
         self.assertFalse(result)
         mock_run_gcloud.assert_called_once()  # Describe should be called
         mock_logger_error.assert_called_once_with(
@@ -491,9 +465,7 @@ class TestGCPTools(unittest.TestCase):
                 secret_value=self.mock_secret_value,
             )
         self.assertIsNone(result_version)
-        mock_logger_error.assert_called_once_with(
-            "GCP Project ID is required to manage secrets."
-        )
+        mock_logger_error.assert_called_once_with("GCP Project ID is required to manage secrets.")
 
     def test_ensure_gcp_secret_no_secret_id(self):
         with patch.object(logger, "error") as mock_logger_error:
@@ -503,9 +475,7 @@ class TestGCPTools(unittest.TestCase):
                 secret_value=self.mock_secret_value,
             )
         self.assertIsNone(result_version)
-        mock_logger_error.assert_called_once_with(
-            "Secret ID is required to manage secrets."
-        )
+        mock_logger_error.assert_called_once_with("Secret ID is required to manage secrets.")
 
     def test_ensure_gcp_secret_no_secret_value(self):
         with patch.object(logger, "error") as mock_logger_error:
@@ -515,9 +485,7 @@ class TestGCPTools(unittest.TestCase):
                 secret_value=None,
             )
         self.assertIsNone(result_version)
-        mock_logger_error.assert_called_once_with(
-            "Secret value is required to create or update a secret."
-        )
+        mock_logger_error.assert_called_once_with("Secret value is required to create or update a secret.")
 
     @patch("eval_protocol.gcp_tools._run_gcloud_command")
     @patch("eval_protocol.gcp_tools.tempfile.NamedTemporaryFile")
@@ -533,9 +501,7 @@ class TestGCPTools(unittest.TestCase):
         mock_temp_file_instance.write = MagicMock()
         mock_temp_file_instance.name = "mock_temp_file_path"
         # __enter__ should return the mock instance itself for context manager
-        mock_named_temp_file.return_value.__enter__.return_value = (
-            mock_temp_file_instance
-        )
+        mock_named_temp_file.return_value.__enter__.return_value = mock_temp_file_instance
 
         mock_run_gcloud.side_effect = [
             (False, "", "NOT_FOUND"),  # Describe secret fails (not found)
@@ -554,9 +520,7 @@ class TestGCPTools(unittest.TestCase):
         # mock_os_path_exists for os.remove(tmp_secret_file_path)
         mock_os_path_exists.return_value = True
 
-        result_secret_version = ensure_gcp_secret(
-            self.mock_project_id, self.mock_secret_id, self.mock_secret_value
-        )
+        result_secret_version = ensure_gcp_secret(self.mock_project_id, self.mock_secret_id, self.mock_secret_value)
 
         self.assertEqual(
             result_secret_version,
@@ -581,12 +545,8 @@ class TestGCPTools(unittest.TestCase):
         # Setup mock for NamedTemporaryFile
         mock_temp_file_instance = MagicMock()
         mock_temp_file_instance.write = MagicMock()
-        mock_temp_file_instance.name = (
-            "mock_temp_file_path_existing"  # Different name to avoid collision
-        )
-        mock_named_temp_file.return_value.__enter__.return_value = (
-            mock_temp_file_instance
-        )
+        mock_temp_file_instance.name = "mock_temp_file_path_existing"  # Different name to avoid collision
+        mock_named_temp_file.return_value.__enter__.return_value = mock_temp_file_instance
 
         mock_run_gcloud.side_effect = [
             (True, "Describe success", ""),  # Describe secret success (exists)
@@ -603,17 +563,13 @@ class TestGCPTools(unittest.TestCase):
         ]
         mock_os_path_exists.return_value = True  # For os.remove
 
-        result_secret_version = ensure_gcp_secret(
-            self.mock_project_id, self.mock_secret_id, self.mock_secret_value
-        )
+        result_secret_version = ensure_gcp_secret(self.mock_project_id, self.mock_secret_id, self.mock_secret_value)
 
         self.assertEqual(
             result_secret_version,
             f"projects/{self.mock_project_id}/secrets/{self.mock_secret_id}/versions/2",
         )
-        self.assertEqual(
-            mock_run_gcloud.call_count, 3
-        )  # Describe secret, Add version, Describe version
+        self.assertEqual(mock_run_gcloud.call_count, 3)  # Describe secret, Add version, Describe version
         mock_named_temp_file.assert_called_once_with(mode="w", delete=False)
         mock_temp_file_instance.write.assert_called_once_with(self.mock_secret_value)
         mock_os_remove.assert_called_once_with("mock_temp_file_path_existing")

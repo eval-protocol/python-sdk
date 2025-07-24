@@ -65,9 +65,7 @@ class LunarLanderMcp(McpGym):
             """
             # Validate parameter
             if not isinstance(action, str):
-                raise ValueError(
-                    f"Invalid action type: '{type(action)}'. Must be a string."
-                )
+                raise ValueError(f"Invalid action type: '{type(action)}'. Must be a string.")
 
             # Parse action using adapter
             try:
@@ -80,12 +78,9 @@ class LunarLanderMcp(McpGym):
             session_data = self._get_or_create_session(ctx)
 
             # Execute environment step using base class method
-            observation_data = self._execute_session_environment_step(
-                session_id, action_int
-            )
+            observation_data = self._execute_session_environment_step(session_id, action_int)
 
             return observation_data
-
 
     def format_observation(self, obs: Any, env: Any) -> Dict[str, Any]:
         """Format observation for MCP response (data plane only)."""
@@ -94,7 +89,7 @@ class LunarLanderMcp(McpGym):
 
         # Add rendered frame (this is part of data plane - visual observation)
         rendered_frame = self.adapter.render_frame(env)
-        
+
         if rendered_frame:
             formatted["image_url"] = {
                 "url": rendered_frame  # Note: OpenAI format allows data URI, i.e. data:image/png;base64,<base64_data>

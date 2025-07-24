@@ -7,9 +7,7 @@ class RemoteApiConfig(BaseModel):
     """Configuration for a remote orchestration API."""
 
     base_url: str = Field(..., description="Base URL of the remote orchestration API.")
-    create_instance_endpoint: str = Field(
-        "/instances", description="Endpoint to create a new instance."
-    )
+    create_instance_endpoint: str = Field("/instances", description="Endpoint to create a new instance.")
     delete_instance_endpoint_template: str = Field(
         "/instances/{remote_instance_id}",
         description="Template for the endpoint to delete an instance. {remote_instance_id} will be replaced.",
@@ -34,9 +32,9 @@ class BackendServerConfig(BaseModel):
         ...,
         description="Unique reference name for this backend configuration (e.g., 'workspace_fs', 'shared_fetch_service').",
     )
-    backend_type: Literal[
-        "filesystem", "duckdb", "memory", "everything", "fetch", "time"
-    ] = Field(..., description="The type of the backend server.")
+    backend_type: Literal["filesystem", "duckdb", "memory", "everything", "fetch", "time"] = Field(
+        ..., description="The type of the backend server."
+    )
     orchestration_mode: Literal["local_docker", "remote_http_api"] = Field(
         ..., description="How this backend server is orchestrated."
     )
@@ -65,9 +63,7 @@ class BackendServerConfig(BaseModel):
         None,
         description="Mount path inside the template container where 'template_data_path_host' will be mounted.",
     )
-    docker_run_args: Optional[List[str]] = Field(
-        None, description="Additional arguments for 'docker run'."
-    )
+    docker_run_args: Optional[List[str]] = Field(None, description="Additional arguments for 'docker run'.")
     startup_check_mcp_tool: Optional[Dict[str, Any]] = Field(
         None,
         description="An MCP tool call (e.g., {'tool_name': 'ping', 'arguments': {}}) to verify container startup.",
@@ -102,27 +98,19 @@ class BackendServerConfig(BaseModel):
     def model_post_init(self, __context: Any) -> None:
         if self.orchestration_mode == "local_docker":
             if not self.docker_image:
-                raise ValueError(
-                    "docker_image must be set for local_docker orchestration mode."
-                )
+                raise ValueError("docker_image must be set for local_docker orchestration mode.")
             # container_port is only required for http transport in local_docker mode
             if self.mcp_transport == "http" and not self.container_port:
-                raise ValueError(
-                    "container_port must be set for local_docker orchestration mode with http transport."
-                )
+                raise ValueError("container_port must be set for local_docker orchestration mode with http transport.")
         elif self.orchestration_mode == "remote_http_api":
             if not self.remote_resource_type_identifier:
-                raise ValueError(
-                    "remote_resource_type_identifier must be set for remote_http_api orchestration mode."
-                )
+                raise ValueError("remote_resource_type_identifier must be set for remote_http_api orchestration mode.")
             if not self.remote_api_config_ref and not self.remote_api_config_inline:
                 raise ValueError(
                     "Either remote_api_config_ref or remote_api_config_inline must be set for remote_http_api orchestration mode."
                 )
             if self.remote_api_config_ref and self.remote_api_config_inline:
-                raise ValueError(
-                    "Cannot set both remote_api_config_ref and remote_api_config_inline."
-                )
+                raise ValueError("Cannot set both remote_api_config_ref and remote_api_config_inline.")
 
 
 class AppConfig(BaseModel):
@@ -149,9 +137,7 @@ class AppConfig(BaseModel):
     class Config:
         extra = "forbid"
 
-    def get_remote_api_config(
-        self, backend_cfg: BackendServerConfig
-    ) -> Optional[RemoteApiConfig]:
+    def get_remote_api_config(self, backend_cfg: BackendServerConfig) -> Optional[RemoteApiConfig]:
         if backend_cfg.orchestration_mode != "remote_http_api":
             return None
         if backend_cfg.remote_api_config_inline:

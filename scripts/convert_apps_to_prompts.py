@@ -5,9 +5,7 @@ import logging
 from datasets import Dataset, DatasetDict, load_dataset
 
 # Configure basic logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -35,9 +33,7 @@ def convert_dataset_to_prompts(
         dataset_config_name: Specific configuration of the dataset if needed.
         max_samples: Maximum number of samples to convert.
     """
-    logger.info(
-        f"Starting dataset conversion: {dataset_name} (config: {dataset_config_name}, split: {split})"
-    )
+    logger.info(f"Starting dataset conversion: {dataset_name} (config: {dataset_config_name}, split: {split})")
     try:
         dataset = load_dataset(
             dataset_name,
@@ -46,26 +42,20 @@ def convert_dataset_to_prompts(
             streaming=False,
             trust_remote_code=True,
         )
-        logger.info(
-            f"Successfully loaded dataset. Total rows in split '{split}': {len(dataset)}"
-        )
+        logger.info(f"Successfully loaded dataset. Total rows in split '{split}': {len(dataset)}")
     except Exception as e:
         logger.error(f"Failed to load dataset '{dataset_name}': {e}")
         raise
 
     if not isinstance(dataset, (Dataset, DatasetDict)):  # Should be Dataset after split
-        logger.error(
-            f"Loaded dataset is not of expected type (Dataset). Got: {type(dataset)}"
-        )
+        logger.error(f"Loaded dataset is not of expected type (Dataset). Got: {type(dataset)}")
         raise TypeError("Loaded dataset is not of the expected type.")
 
     # Ensure specified columns exist
     required_columns = {id_column, query_column, ground_truth_column}
     missing_columns = required_columns - set(dataset.column_names)
     if missing_columns:
-        logger.error(
-            f"Dataset is missing required columns: {missing_columns}. Available: {dataset.column_names}"
-        )
+        logger.error(f"Dataset is missing required columns: {missing_columns}. Available: {dataset.column_names}")
         raise ValueError(f"Dataset missing columns: {missing_columns}")
 
     logger.info(f"Writing converted samples to {output_file}")
@@ -89,21 +79,15 @@ def convert_dataset_to_prompts(
                 if count % 1000 == 0:
                     logger.info(f"Processed {count} samples...")
             except KeyError as e:
-                logger.warning(
-                    f"Skipping sample {i} due to missing key: {e}. Data: {example}"
-                )
+                logger.warning(f"Skipping sample {i} due to missing key: {e}. Data: {example}")
             except Exception as e:
-                logger.warning(
-                    f"Skipping sample {i} due to error: {e}. Data: {example}"
-                )
+                logger.warning(f"Skipping sample {i} due to error: {e}. Data: {example}")
 
     logger.info(f"Successfully converted {count} samples to {output_file}.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Convert Hugging Face dataset to JSONL prompt format."
-    )
+    parser = argparse.ArgumentParser(description="Convert Hugging Face dataset to JSONL prompt format.")
     parser.add_argument(
         "--dataset_name",
         type=str,
@@ -122,9 +106,7 @@ if __name__ == "__main__":
         required=True,
         help="Path to save the output JSONL file.",
     )
-    parser.add_argument(
-        "--id_column", type=str, required=True, help="Name of the column for sample ID."
-    )
+    parser.add_argument("--id_column", type=str, required=True, help="Name of the column for sample ID.")
     parser.add_argument(
         "--query_column",
         type=str,

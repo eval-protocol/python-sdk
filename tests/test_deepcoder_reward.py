@@ -7,9 +7,7 @@ from eval_protocol.models import EvaluateResult, Message
 from eval_protocol.rewards import deepcoder_code_reward
 
 # Path to the transformed sample data
-TRANSFORMED_SAMPLE_DATA_PATH = (
-    "examples/trl_integration/data/deepcoder_mvp_transformed_sample.jsonl"
-)
+TRANSFORMED_SAMPLE_DATA_PATH = "examples/trl_integration/data/deepcoder_mvp_transformed_sample.jsonl"
 
 # Check if E2B API key is available for E2B tests
 E2B_API_KEY = os.environ.get("E2B_API_KEY")
@@ -27,9 +25,7 @@ class TestDeepCoderReward(unittest.TestCase):
                 for line in f:
                     cls.SAMPLES.append(json.loads(line.strip()))
         except FileNotFoundError:
-            print(
-                f"Warning: Test data file not found at {TRANSFORMED_SAMPLE_DATA_PATH}"
-            )
+            print(f"Warning: Test data file not found at {TRANSFORMED_SAMPLE_DATA_PATH}")
             # Allow tests to run but they might fail or be skipped if they depend on this data.
         except json.JSONDecodeError:
             print(f"Warning: Could not decode JSON from {TRANSFORMED_SAMPLE_DATA_PATH}")
@@ -85,9 +81,7 @@ class TestDeepCoderReward(unittest.TestCase):
         self.assertEqual(result.score, 0.0)
         if "test_results" in result.metrics and result.metrics["test_results"].reason:
             details = json.loads(result.metrics["test_results"].reason)
-            self.assertFalse(
-                details[0].get("passed")
-            )  # First test case (5 -> expected 6, actual 7) should fail
+            self.assertFalse(details[0].get("passed"))  # First test case (5 -> expected 6, actual 7) should fail
 
     def test_python_syntax_error_local(self):
         """Test Python code with a syntax error locally."""
@@ -138,12 +132,7 @@ class TestDeepCoderReward(unittest.TestCase):
         self.assertEqual(result.score, 0.0)
         if "test_results" in result.metrics and result.metrics["test_results"].reason:
             details = json.loads(result.metrics["test_results"].reason)
-            self.assertTrue(
-                any(
-                    tc.get("error") and "timed out" in str(tc.get("error")).lower()
-                    for tc in details
-                )
-            )
+            self.assertTrue(any(tc.get("error") and "timed out" in str(tc.get("error")).lower() for tc in details))
 
     def test_no_code_block(self):
         """Test when no code block is found in the assistant message."""
@@ -151,9 +140,7 @@ class TestDeepCoderReward(unittest.TestCase):
             self.skipTest("Test data not loaded.")
         sample = self.SAMPLES[0]
         prompt_message = Message(role="user", content=sample["prompt"])
-        assistant_message = Message(
-            role="assistant", content="I am not sure how to do that."
-        )
+        assistant_message = Message(role="assistant", content="I am not sure how to do that.")
         messages_arg = [prompt_message, assistant_message]
         ground_truth_arg = sample["test_cases"]
 
@@ -241,11 +228,7 @@ class TestDeepCoderReward(unittest.TestCase):
 
             if hasattr(result, "metrics") and "error" in result.metrics:
                 reason = result.metrics["error"].reason
-                if (
-                    "502 Bad Gateway" in reason
-                    or "sandbox timeout" in reason
-                    or "sandbox was not found" in reason
-                ):
+                if "502 Bad Gateway" in reason or "sandbox timeout" in reason or "sandbox was not found" in reason:
                     self.skipTest("Skipping due to E2B connection issues")
             elif hasattr(result, "reason") and isinstance(result.reason, str):
                 if (
@@ -259,10 +242,7 @@ class TestDeepCoderReward(unittest.TestCase):
             try:
                 self.assertEqual(result.score, 1.0)
                 self.assertIn("test_results", result.metrics)
-                if (
-                    "test_results" in result.metrics
-                    and result.metrics["test_results"].reason
-                ):
+                if "test_results" in result.metrics and result.metrics["test_results"].reason:
                     details = json.loads(result.metrics["test_results"].reason)
                     self.assertTrue(all(tc.get("passed") for tc in details))
             except AssertionError as ae:
@@ -271,25 +251,13 @@ class TestDeepCoderReward(unittest.TestCase):
                 print(f"result.reason: {result.reason}")
                 if hasattr(result, "metrics") and result.metrics:
                     print(f"result.metrics: {result.metrics}")
-                    if "test_results" in result.metrics and hasattr(
-                        result.metrics["test_results"], "reason"
-                    ):
-                        print(
-                            f"result.metrics['test_results'].reason: {result.metrics['test_results'].reason}"
-                        )
-                    if "error" in result.metrics and hasattr(
-                        result.metrics["error"], "reason"
-                    ):
-                        print(
-                            f"result.metrics['error'].reason: {result.metrics['error'].reason}"
-                        )
+                    if "test_results" in result.metrics and hasattr(result.metrics["test_results"], "reason"):
+                        print(f"result.metrics['test_results'].reason: {result.metrics['test_results'].reason}")
+                    if "error" in result.metrics and hasattr(result.metrics["error"], "reason"):
+                        print(f"result.metrics['error'].reason: {result.metrics['error'].reason}")
                 raise  # Re-raise the assertion error
         except Exception as e:
-            if (
-                "502 Bad Gateway" in str(e)
-                or "sandbox timeout" in str(e)
-                or "sandbox was not found" in str(e)
-            ):
+            if "502 Bad Gateway" in str(e) or "sandbox timeout" in str(e) or "sandbox was not found" in str(e):
                 self.skipTest(f"Skipping due to E2B connection issues: {e}")
             else:
                 raise
@@ -320,11 +288,7 @@ class TestDeepCoderReward(unittest.TestCase):
 
             if hasattr(result, "metrics") and "error" in result.metrics:
                 reason = result.metrics["error"].reason
-                if (
-                    "502 Bad Gateway" in reason
-                    or "sandbox timeout" in reason
-                    or "sandbox was not found" in reason
-                ):
+                if "502 Bad Gateway" in reason or "sandbox timeout" in reason or "sandbox was not found" in reason:
                     self.skipTest("Skipping due to E2B connection issues")
             elif hasattr(result, "reason") and isinstance(result.reason, str):
                 if (
@@ -337,11 +301,7 @@ class TestDeepCoderReward(unittest.TestCase):
             self.assertIsInstance(result, EvaluateResult)
             self.assertEqual(result.score, 0.0)
         except Exception as e:
-            if (
-                "502 Bad Gateway" in str(e)
-                or "sandbox timeout" in str(e)
-                or "sandbox was not found" in str(e)
-            ):
+            if "502 Bad Gateway" in str(e) or "sandbox timeout" in str(e) or "sandbox was not found" in str(e):
                 self.skipTest(f"Skipping due to E2B connection issues: {e}")
             else:
                 raise
@@ -349,9 +309,7 @@ class TestDeepCoderReward(unittest.TestCase):
     def test_empty_test_cases(self):
         """Test behavior with an empty list of test cases."""
         prompt_message = Message(role="user", content="Prompt")
-        assistant_message = Message(
-            role="assistant", content="```python\nprint('hello')\n```"
-        )
+        assistant_message = Message(role="assistant", content="```python\nprint('hello')\n```")
         messages_arg = [prompt_message, assistant_message]
         ground_truth_arg: List[Dict[str, Any]] = []  # Empty test cases
 

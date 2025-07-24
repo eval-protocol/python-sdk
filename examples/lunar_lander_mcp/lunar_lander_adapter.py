@@ -36,7 +36,7 @@ class LunarLanderAdapter(EnvironmentAdapter):
         env_config = self.get_default_config()
         if config:
             env_config.update(config)
-        
+
         env = LunarLander(**env_config)
         return env
 
@@ -48,17 +48,13 @@ class LunarLanderAdapter(EnvironmentAdapter):
         obs, info = env.reset(seed=seed)
         return env, obs, info
 
-    def reset_environment(
-        self, env: LunarLander, seed: Optional[int] = None
-    ) -> Tuple[Any, Dict[str, Any]]:
+    def reset_environment(self, env: LunarLander, seed: Optional[int] = None) -> Tuple[Any, Dict[str, Any]]:
         """Reset the environment."""
         if seed is not None:
             return env.reset(seed=seed)
         return env.reset()
 
-    def step_environment(
-        self, env: LunarLander, action: int
-    ) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
+    def step_environment(self, env: LunarLander, action: int) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
         """Execute one step in the environment."""
         return env.step(action)
 
@@ -70,7 +66,7 @@ class LunarLanderAdapter(EnvironmentAdapter):
         """Parse discrete action string to environment action integer."""
         if action not in self.action_map:
             raise ValueError(f"Invalid action '{action}'. Valid actions: {list(self.action_map.keys())}")
-        
+
         return self.action_map[action]
 
     def format_observation(self, obs: np.ndarray) -> Dict[str, Any]:
@@ -135,9 +131,7 @@ class LunarLanderAdapter(EnvironmentAdapter):
             print(f"Error rendering frame: {e}")
             return None
 
-    def is_successful_landing(
-        self, obs: np.ndarray, reward: float, terminated: bool
-    ) -> bool:
+    def is_successful_landing(self, obs: np.ndarray, reward: float, terminated: bool) -> bool:
         """Check if the landing was successful."""
         if not terminated:
             return False
@@ -148,9 +142,7 @@ class LunarLanderAdapter(EnvironmentAdapter):
 
         return reward > 0 and legs_contact
 
-    def get_landing_status(
-        self, obs: np.ndarray, reward: float, terminated: bool, truncated: bool
-    ) -> str:
+    def get_landing_status(self, obs: np.ndarray, reward: float, terminated: bool, truncated: bool) -> str:
         """Get a human-readable status of the landing attempt."""
         if not (terminated or truncated):
             return "🚀 Flying"
@@ -173,5 +165,5 @@ class LunarLanderAdapter(EnvironmentAdapter):
             "enable_wind": False,
             "wind_power": 15.0,
             "turbulence_power": 1.5,
-            "render_mode": "rgb_array"
+            "render_mode": "rgb_array",
         }

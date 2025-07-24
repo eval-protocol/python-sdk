@@ -75,13 +75,9 @@ async def test_multi_session():
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == len(
-            test_dataset
-        ), "Should have trajectory for each environment"
+        assert len(trajectories) == len(test_dataset), "Should have trajectory for each environment"
 
-        print(
-            f"✅ Multi-session test completed with {len(trajectories)} trajectories in {duration:.2f}s"
-        )
+        print(f"✅ Multi-session test completed with {len(trajectories)} trajectories in {duration:.2f}s")
 
         # Print trajectory summaries
         print("📊 Multi-Session Trajectory Summary:")
@@ -127,9 +123,7 @@ async def test_static_policy_only():
 
     # Test action generation
     for step in range(6):
-        actions = await policy.act(
-            observations=[None, None], tools_list=[[], []], env_indices=[0, 1]
-        )
+        actions = await policy.act(observations=[None, None], tools_list=[[], []], env_indices=[0, 1])
 
         assert len(actions) == 2, "Should generate action for each environment"
 
@@ -167,9 +161,7 @@ async def main():
         success_multi = await test_multi_session()
 
         if success_multi:
-            print(
-                "\n🎉 All tests passed! Multi-session functionality is working correctly."
-            )
+            print("\n🎉 All tests passed! Multi-session functionality is working correctly.")
         else:
             print("\n⚠️ Multi-session test failed, but static policy works.")
     else:

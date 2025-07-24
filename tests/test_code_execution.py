@@ -50,9 +50,7 @@ This will output `5`.
         messages_arg = [prompt_message_dict, assistant_message_dict]
         ground_truth_arg = "5"  # This is the expected_output_str
 
-        result = e2b_code_execution_reward(
-            messages=messages_arg, ground_truth=ground_truth_arg, language="python"
-        )
+        result = e2b_code_execution_reward(messages=messages_arg, ground_truth=ground_truth_arg, language="python")
 
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.0
@@ -229,10 +227,7 @@ class TestExecutePythonCode:
 
         assert result["success"] is False
         assert result["output"] is None
-        assert (
-            "timeout" in result["error"].lower()
-            or "timed out" in result["error"].lower()
-        )
+        assert "timeout" in result["error"].lower() or "timed out" in result["error"].lower()
 
 
 # Skip these tests if Node.js is not installed
@@ -254,9 +249,7 @@ class TestExecuteJavaScriptCode:
         assert result["success"] is False
         assert result["output"] is None
         # Our improved sandbox may return different error messages
-        assert (
-            "undefined" in result["error"].lower() or "error" in result["error"].lower()
-        )
+        assert "undefined" in result["error"].lower() or "error" in result["error"].lower()
 
     def test_javascript_execution_with_timeout(self):
         code = "setTimeout(() => { console.log('Done'); }, 10000);"
@@ -264,10 +257,7 @@ class TestExecuteJavaScriptCode:
 
         assert result["success"] is False
         assert result["output"] is None
-        assert (
-            "timeout" in result["error"].lower()
-            or "timed out" in result["error"].lower()
-        )
+        assert "timeout" in result["error"].lower() or "timed out" in result["error"].lower()
 
 
 class TestCompareOutputs:
@@ -348,9 +338,7 @@ This will output `5`.
         messages_arg = [prompt_message_dict, assistant_message_dict]
         ground_truth_arg = "5"  # This is the expected_output_str
 
-        result = local_code_execution_reward(
-            messages=messages_arg, ground_truth=ground_truth_arg, language="python"
-        )
+        result = local_code_execution_reward(messages=messages_arg, ground_truth=ground_truth_arg, language="python")
 
         assert isinstance(result, EvaluateResult)
         assert result.score == 1.0
@@ -407,17 +395,13 @@ class TestFractionalCodeRewardArgParsing:
             ),  # Multiple unquoted strings
         ],
     )
-    def test_python_function_arg_parsing(
-        self, test_input_str, expected_args_list, expected_kwargs_dict
-    ):
+    def test_python_function_arg_parsing(self, test_input_str, expected_args_list, expected_kwargs_dict):
         expected_return_val = {
             "args": expected_args_list,
             "kwargs": expected_kwargs_dict,
         }
 
-        test_cases = [
-            {"input": test_input_str, "expected_output": repr(expected_return_val)}
-        ]
+        test_cases = [{"input": test_input_str, "expected_output": repr(expected_return_val)}]
 
         # messages_arg combines prompt and assistant's code response
         messages_arg = [
@@ -436,12 +420,8 @@ class TestFractionalCodeRewardArgParsing:
             function_to_call="arg_collector",
         )
 
-        assert isinstance(
-            result, EvaluateResult
-        ), "Result should be an EvaluateResult object"
-        assert hasattr(
-            result, "score"
-        ), "Result object must contain a 'score' attribute"
+        assert isinstance(result, EvaluateResult), "Result should be an EvaluateResult object"
+        assert hasattr(result, "score"), "Result object must contain a 'score' attribute"
 
         # Detailed assertion for debugging if something fails
         # Attribute access for score
@@ -449,47 +429,33 @@ class TestFractionalCodeRewardArgParsing:
             print(f"Test failed for input: {test_input_str}")
             print(f"Expected return: {repr(expected_return_val)}")
             # Attribute access for metrics
-            test_results_metric_data = (
-                result.metrics.get("test_results") if result.metrics else None
-            )
+            test_results_metric_data = result.metrics.get("test_results") if result.metrics else None
             if test_results_metric_data:  # MetricResult object
                 try:
-                    actual_test_run_details_list = json.loads(
-                        test_results_metric_data.reason
-                    )
+                    actual_test_run_details_list = json.loads(test_results_metric_data.reason)
                     if (
                         actual_test_run_details_list
                         and isinstance(actual_test_run_details_list, list)
                         and len(actual_test_run_details_list) > 0
                     ):
                         first_test_detail = actual_test_run_details_list[0]
-                        print(
-                            f"Actual output from execution: {first_test_detail.get('actual_output')}"
-                        )
-                        print(
-                            f"Test result details: {first_test_detail.get('details')}"
-                        )
+                        print(f"Actual output from execution: {first_test_detail.get('actual_output')}")
+                        print(f"Test result details: {first_test_detail.get('details')}")
                     else:
-                        print(
-                            f"Test results reason content not as expected: {actual_test_run_details_list}"
-                        )
+                        print(f"Test results reason content not as expected: {actual_test_run_details_list}")
                 except json.JSONDecodeError:
                     # Accessing reason from MetricResult object
                     print(
                         f"Could not parse test_results metric reason (JSONDecodeError): {test_results_metric_data.reason}"
                     )
             else:
-                print(
-                    f"Full result (object): {result.model_dump()}"
-                )  # Dump object for full view
+                print(f"Full result (object): {result.model_dump()}")  # Dump object for full view
 
         assert result.score == 1.0, f"Test case for input '{test_input_str}' failed."
         # assert result['score'] == 1.0, f"Test case for input '{test_input_str}' failed (dictionary access)." # Use attribute access
 
         # Additionally, check the actual output if available in metrics
-        test_results_metric = (
-            result.metrics.get("test_results") if result.metrics else None
-        )
+        test_results_metric = result.metrics.get("test_results") if result.metrics else None
         if test_results_metric:  # MetricResult object
             try:
                 # The reason for test_results metric is a JSON string of the list of test results
@@ -499,9 +465,7 @@ class TestFractionalCodeRewardArgParsing:
                     and isinstance(actual_test_run_details_list, list)
                     and len(actual_test_run_details_list) > 0
                 ):
-                    actual_output_str = actual_test_run_details_list[0].get(
-                        "actual_output"
-                    )
+                    actual_output_str = actual_test_run_details_list[0].get("actual_output")
                     assert actual_output_str == repr(
                         expected_return_val
                     ), f"Actual output '{actual_output_str}' did not match expected '{repr(expected_return_val)}' for input '{test_input_str}'"
@@ -511,9 +475,7 @@ class TestFractionalCodeRewardArgParsing:
                     f"Could not parse test_results metric reason (JSONDecodeError) for input '{test_input_str}': {test_results_metric.reason}"
                 )
             except IndexError:
-                print(
-                    f"test_results metric reason list was empty for input '{test_input_str}'"
-                )
+                print(f"test_results metric reason list was empty for input '{test_input_str}'")
         # The 'execution_result' metric might not be present if tests pass but output mismatches,
         # as it's typically for code execution status itself, not output comparison.
         # The primary check is result.score == 1.0 and the actual_output comparison.
@@ -541,9 +503,7 @@ This will output `4`.
         messages_arg = [prompt_message_dict, assistant_message_dict]
         ground_truth_arg = "5"  # This is the expected_output_str
 
-        result = local_code_execution_reward(
-            messages=messages_arg, ground_truth=ground_truth_arg, language="python"
-        )
+        result = local_code_execution_reward(messages=messages_arg, ground_truth=ground_truth_arg, language="python")
 
         assert isinstance(result, EvaluateResult)
         assert result.score < 1.0
@@ -573,9 +533,7 @@ This will output `5`.
         messages_arg = [prompt_message_dict, assistant_message_dict]
         ground_truth_arg = "5"  # This is the expected_output_str
 
-        result = local_code_execution_reward(
-            messages=messages_arg, ground_truth=ground_truth_arg, language="python"
-        )
+        result = local_code_execution_reward(messages=messages_arg, ground_truth=ground_truth_arg, language="python")
 
         assert isinstance(result, EvaluateResult)
         assert result.score == 0.0

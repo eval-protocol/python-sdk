@@ -16,14 +16,14 @@ class EnvironmentAdapter:
 
     Users can either use this class directly by providing an env_class,
     or inherit from it to customize specific methods for their environment.
-    This provides a clean separation between the MCP protocol layer 
+    This provides a clean separation between the MCP protocol layer
     and the environment implementation.
     """
 
     def __init__(self, env_class: Any = None, default_config: Optional[Dict[str, Any]] = None):
         """
         Initialize the environment adapter.
-        
+
         Args:
             env_class: The environment class to instantiate (required for default implementation)
             default_config: Default configuration for environment creation
@@ -43,7 +43,7 @@ class EnvironmentAdapter:
         """
         if self.env_class is None:
             raise NotImplementedError("env_class must be provided or create_environment must be overridden")
-            
+
         env_config = self.get_default_config()
         if config:
             env_config.update(config)
@@ -51,7 +51,9 @@ class EnvironmentAdapter:
         env = self.env_class(config=env_config)
         return env
 
-    def create_environment_with_seed(self, config: Optional[Dict[str, Any]] = None, seed: Optional[int] = None) -> Tuple[Any, Any, Dict[str, Any]]:
+    def create_environment_with_seed(
+        self, config: Optional[Dict[str, Any]] = None, seed: Optional[int] = None
+    ) -> Tuple[Any, Any, Dict[str, Any]]:
         """
         Create and return a new environment instance with a specific seed.
         """
@@ -60,9 +62,7 @@ class EnvironmentAdapter:
 
         return env, obs, info
 
-    def reset_environment(
-        self, env: Any, seed: Optional[int] = None
-    ) -> Tuple[Any, Dict[str, Any]]:
+    def reset_environment(self, env: Any, seed: Optional[int] = None) -> Tuple[Any, Dict[str, Any]]:
         """
         Reset the environment to initial state.
 
@@ -75,9 +75,7 @@ class EnvironmentAdapter:
         """
         return env.reset(seed=seed)
 
-    def step_environment(
-        self, env: Any, action: Any
-    ) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
+    def step_environment(self, env: Any, action: Any) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
         """
         Execute one step in the environment.
 

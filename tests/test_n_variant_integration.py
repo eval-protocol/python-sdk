@@ -16,9 +16,7 @@ def mock_reward_function():
     def mock_func(*args, **kwargs):
         from eval_protocol.models import EvaluateResult
 
-        return EvaluateResult(
-            score=0.8, reason="Mock evaluation", is_score_valid=True, metrics={}
-        )
+        return EvaluateResult(score=0.8, reason="Mock evaluation", is_score_valid=True, metrics={})
 
     return mock_func
 
@@ -47,17 +45,13 @@ def pipeline_config():
 
 
 @pytest.mark.asyncio
-async def test_n_variant_generation_single_sample(
-    pipeline_config, mock_reward_function
-):
+async def test_n_variant_generation_single_sample(pipeline_config, mock_reward_function):
     """Test that N-variant generation creates multiple results for a single sample."""
 
     # Mock the model client
     mock_model_client = Mock()
     mock_model_client.generate = AsyncMock(
-        return_value=GenerationResult(
-            content="Test response variant", tool_calls=None, usage=None
-        )
+        return_value=GenerationResult(content="Test response variant", tool_calls=None, usage=None)
     )
     mock_model_client.temperature = 0.0
 
@@ -79,9 +73,7 @@ async def test_n_variant_generation_single_sample(
         }
 
         # Process the sample
-        result = await pipeline._process_single_sample(
-            sample=sample, http_session=mock_session, original_index=0
-        )
+        result = await pipeline._process_single_sample(sample=sample, http_session=mock_session, original_index=0)
 
         # Should return a list of 3 variants
         assert isinstance(result, list)
@@ -110,9 +102,7 @@ async def test_n_variant_generation_disabled(pipeline_config, mock_reward_functi
     # Mock the model client
     mock_model_client = Mock()
     mock_model_client.generate = AsyncMock(
-        return_value=GenerationResult(
-            content="Single response", tool_calls=None, usage=None
-        )
+        return_value=GenerationResult(content="Single response", tool_calls=None, usage=None)
     )
     mock_model_client.temperature = 0.0
 
@@ -134,9 +124,7 @@ async def test_n_variant_generation_disabled(pipeline_config, mock_reward_functi
         }
 
         # Process the sample
-        result = await pipeline._process_single_sample(
-            sample=sample, http_session=mock_session, original_index=0
-        )
+        result = await pipeline._process_single_sample(sample=sample, http_session=mock_session, original_index=0)
 
         # Should return a single dict (not a list)
         assert isinstance(result, dict)
@@ -149,9 +137,7 @@ async def test_n_variant_generation_disabled(pipeline_config, mock_reward_functi
 
 
 @pytest.mark.asyncio
-async def test_n_variant_generation_config_validation(
-    pipeline_config, mock_reward_function
-):
+async def test_n_variant_generation_config_validation(pipeline_config, mock_reward_function):
     """Test that invalid n values are handled gracefully."""
 
     # Test invalid n values
@@ -163,9 +149,7 @@ async def test_n_variant_generation_config_validation(
         # Mock the model client
         mock_model_client = Mock()
         mock_model_client.generate = AsyncMock(
-            return_value=GenerationResult(
-                content="Single response", tool_calls=None, usage=None
-            )
+            return_value=GenerationResult(content="Single response", tool_calls=None, usage=None)
         )
         mock_model_client.temperature = 0.0
 
@@ -187,9 +171,7 @@ async def test_n_variant_generation_config_validation(
             }
 
             # Process the sample - should default to n=1
-            result = await pipeline._process_single_sample(
-                sample=sample, http_session=mock_session, original_index=0
-            )
+            result = await pipeline._process_single_sample(sample=sample, http_session=mock_session, original_index=0)
 
             # Should return a single dict (fallback to n=1)
             assert isinstance(result, dict)

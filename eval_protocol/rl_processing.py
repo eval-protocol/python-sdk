@@ -49,8 +49,7 @@ class RLDataAligner:
         if current_eval_result.step_outputs:
             # Create a dictionary for quick lookup of user-defined step rewards
             user_step_rewards_map: Dict[Union[int, str], float] = {
-                step_out.step_index: step_out.base_reward
-                for step_out in current_eval_result.step_outputs
+                step_out.step_index: step_out.base_reward for step_out in current_eval_result.step_outputs
             }
 
             for s_data in current_step_data_list:
@@ -62,9 +61,7 @@ class RLDataAligner:
 
                 if user_defined_step_idx is not None:
                     if user_defined_step_idx in user_step_rewards_map:
-                        s_data.base_reward = user_step_rewards_map[
-                            user_defined_step_idx
-                        ]
+                        s_data.base_reward = user_step_rewards_map[user_defined_step_idx]
                     else:
                         # No base reward provided by user for this specific system step.
                         # s_data.base_reward remains None (or could be a default).

@@ -137,9 +137,7 @@ def test_math_example(temp_examples_dir, mock_env_variables):
     """Test the math_example main.py evaluate function."""
     math_example_main_path = os.path.join(temp_examples_dir, "math_example", "main.py")
     # Ensure the module name is unique if other examples also have main.py
-    math_module = load_module_from_path(
-        "math_example_main_test", math_example_main_path
-    )
+    math_module = load_module_from_path("math_example_main_test", math_example_main_path)
 
     # Test case 1: Correct answer and format
     messages_correct = [
@@ -151,9 +149,7 @@ def test_math_example(temp_examples_dir, mock_env_variables):
     ]
     ground_truth_correct = "The final answer is \\boxed{4}"
 
-    result_correct = math_module.evaluate(
-        messages=messages_correct, ground_truth=ground_truth_correct
-    )
+    result_correct = math_module.evaluate(messages=messages_correct, ground_truth=ground_truth_correct)
 
     assert result_correct["score"] == 1.0
     assert result_correct["is_score_valid"] is True
@@ -173,39 +169,29 @@ def test_math_example(temp_examples_dir, mock_env_variables):
         ),
     ]
     # Ground truth is still 4
-    result_incorrect_ans = math_module.evaluate(
-        messages=messages_incorrect_ans, ground_truth=ground_truth_correct
-    )
+    result_incorrect_ans = math_module.evaluate(messages=messages_incorrect_ans, ground_truth=ground_truth_correct)
 
     assert result_incorrect_ans["score"] == 0.0  # Accuracy is 0
     assert result_incorrect_ans["is_score_valid"] is True
     # Asserting extracted answers from the result object directly might fail due to EvaluateResult model structure
     assert result_incorrect_ans["metrics"]["accuracy_reward"]["score"] == 0.0
     assert result_incorrect_ans["metrics"]["accuracy_reward"]["is_score_valid"] is True
-    assert (
-        result_incorrect_ans["metrics"]["format_reward"]["score"] == 1.0
-    )  # Format is still good
+    assert result_incorrect_ans["metrics"]["format_reward"]["score"] == 1.0  # Format is still good
     assert result_incorrect_ans["metrics"]["format_reward"]["is_score_valid"] is True
 
     # Test case 3: Correct answer, incorrect format
     messages_incorrect_fmt = [
         Message(role="user", content="What is 2+2?"),
-        Message(
-            role="assistant", content="The answer is 4."
-        ),  # No <think>/<answer> tags, no \\boxed{}
+        Message(role="assistant", content="The answer is 4."),  # No <think>/<answer> tags, no \\boxed{}
     ]
-    result_incorrect_fmt = math_module.evaluate(
-        messages=messages_incorrect_fmt, ground_truth=ground_truth_correct
-    )
+    result_incorrect_fmt = math_module.evaluate(messages=messages_incorrect_fmt, ground_truth=ground_truth_correct)
 
     assert result_incorrect_fmt["score"] == 1.0  # Accuracy is 1.0
     assert result_incorrect_fmt["is_score_valid"] is True
     # Asserting extracted answers from the result object directly might fail
     assert result_incorrect_fmt["metrics"]["accuracy_reward"]["score"] == 1.0
     assert result_incorrect_fmt["metrics"]["accuracy_reward"]["is_score_valid"] is True
-    assert (
-        result_incorrect_fmt["metrics"]["format_reward"]["score"] == 0.0
-    )  # Format is bad
+    assert result_incorrect_fmt["metrics"]["format_reward"]["score"] == 0.0  # Format is bad
     assert result_incorrect_fmt["metrics"]["format_reward"]["is_score_valid"] is True
 
     # Test case 4: Completion cannot be parsed, ground truth can
@@ -229,17 +215,9 @@ def test_math_example(temp_examples_dir, mock_env_variables):
     # For now, focusing on the score and metrics that *are* part of EvaluateResult.
     # The fact that accuracy_reward is 0.0 when completion is unparseable implies internal logic is working.
     assert result_unparseable_completion["metrics"]["accuracy_reward"]["score"] == 0.0
-    assert (
-        result_unparseable_completion["metrics"]["accuracy_reward"]["is_score_valid"]
-        is True
-    )
-    assert (
-        result_unparseable_completion["metrics"]["format_reward"]["score"] == 1.0
-    )  # Format is correct
-    assert (
-        result_unparseable_completion["metrics"]["format_reward"]["is_score_valid"]
-        is True
-    )
+    assert result_unparseable_completion["metrics"]["accuracy_reward"]["is_score_valid"] is True
+    assert result_unparseable_completion["metrics"]["format_reward"]["score"] == 1.0  # Format is correct
+    assert result_unparseable_completion["metrics"]["format_reward"]["is_score_valid"] is True
 
     # Test case 5: Ground truth cannot be parsed
     messages_for_unparseable_gt = [
@@ -272,9 +250,7 @@ def test_math_example(temp_examples_dir, mock_env_variables):
     ]
     ground_truth_fraction_gt = "The final answer is \\boxed{0.5}"
 
-    result_fraction = math_module.evaluate(
-        messages=messages_fraction, ground_truth=ground_truth_fraction_gt
-    )
+    result_fraction = math_module.evaluate(messages=messages_fraction, ground_truth=ground_truth_fraction_gt)
 
     assert result_fraction["score"] == 1.0
     assert result_fraction["is_score_valid"] is True
@@ -285,9 +261,7 @@ def test_math_example(temp_examples_dir, mock_env_variables):
     # Test case 7: Completion with only <answer> tag (no <think> tag)
     messages_only_answer_tag = [
         Message(role="user", content="What is 3+3?"),
-        Message(
-            role="assistant", content="<answer>The final answer is \\boxed{6}</answer>"
-        ),
+        Message(role="assistant", content="<answer>The final answer is \\boxed{6}</answer>"),
     ]
     ground_truth_simple_gt = "The final answer is \\boxed{6}"
 
@@ -299,19 +273,13 @@ def test_math_example(temp_examples_dir, mock_env_variables):
     assert result_only_answer_tag["is_score_valid"] is True
     # Asserting extracted answers from the result object directly might fail
     assert result_only_answer_tag["metrics"]["accuracy_reward"]["score"] == 1.0
-    assert (
-        result_only_answer_tag["metrics"]["format_reward"]["score"] == 0.0
-    )  # Format is bad (missing <think>)
+    assert result_only_answer_tag["metrics"]["format_reward"]["score"] == 0.0  # Format is bad (missing <think>)
 
 
 def test_math_with_formatting_example(temp_examples_dir, mock_env_variables):
     """Test the math_with_formatting_example main.py evaluate function."""
-    math_format_example_main_path = os.path.join(
-        temp_examples_dir, "math_with_formatting", "main.py"
-    )
-    math_format_module = load_module_from_path(
-        "math_with_formatting_example_main_test", math_format_example_main_path
-    )
+    math_format_example_main_path = os.path.join(temp_examples_dir, "math_with_formatting", "main.py")
+    math_format_module = load_module_from_path("math_with_formatting_example_main_test", math_format_example_main_path)
 
     # Test case 1: Correct answer and correct format
     messages_correct_all = [
@@ -345,9 +313,7 @@ def test_math_with_formatting_example(temp_examples_dir, mock_env_variables):
         ground_truth=ground_truth_correct_all,
     )
 
-    assert (
-        result_incorrect_ans_correct_fmt["metrics"]["accuracy_reward"]["score"] == 0.0
-    )
+    assert result_incorrect_ans_correct_fmt["metrics"]["accuracy_reward"]["score"] == 0.0
     assert result_incorrect_ans_correct_fmt["metrics"]["format_reward"]["score"] == 1.0
     assert result_incorrect_ans_correct_fmt["score"] == 0.5  # (0.0 + 1.0) * 0.5
     assert result_incorrect_ans_correct_fmt["is_score_valid"] is True
@@ -364,9 +330,7 @@ def test_math_with_formatting_example(temp_examples_dir, mock_env_variables):
     )
 
     # Because format is incorrect, accuracy_reward_fn (with force_format_reward=True) returns 0 for accuracy
-    assert (
-        result_correct_ans_incorrect_fmt["metrics"]["accuracy_reward"]["score"] == 0.0
-    )
+    assert result_correct_ans_incorrect_fmt["metrics"]["accuracy_reward"]["score"] == 0.0
     assert result_correct_ans_incorrect_fmt["metrics"]["format_reward"]["score"] == 0.0
     assert result_correct_ans_incorrect_fmt["score"] == 0.0  # (0.0 + 0.0) * 0.5
     assert result_correct_ans_incorrect_fmt["is_score_valid"] is True
@@ -375,9 +339,7 @@ def test_math_with_formatting_example(temp_examples_dir, mock_env_variables):
     # Test case 4: Incorrect answer, incorrect format
     messages_incorrect_all = [
         Message(role="user", content="What is 5+5?"),
-        Message(
-            role="assistant", content="The answer is 11."
-        ),  # Missing tags, wrong answer
+        Message(role="assistant", content="The answer is 11."),  # Missing tags, wrong answer
     ]
     result_incorrect_all = math_format_module.evaluate(
         messages=messages_incorrect_all, ground_truth=ground_truth_correct_all
@@ -411,12 +373,8 @@ def test_math_with_formatting_example(temp_examples_dir, mock_env_variables):
 
 def test_math_with_format_and_length_example(temp_examples_dir, mock_env_variables):
     """Test the math_with_format_and_length example's evaluate function."""
-    example_main_path = os.path.join(
-        temp_examples_dir, "math_with_format_and_length", "main.py"
-    )
-    example_module = load_module_from_path(
-        "math_with_format_and_length_main_test", example_main_path
-    )
+    example_main_path = os.path.join(temp_examples_dir, "math_with_format_and_length", "main.py")
+    example_module = load_module_from_path("math_with_format_and_length_main_test", example_main_path)
 
     # Correct short answer with proper format
     messages_short_correct = [
@@ -426,9 +384,7 @@ def test_math_with_format_and_length_example(temp_examples_dir, mock_env_variabl
             content="<think>Adding two and two.</think><answer>4</answer>",
         ),
     ]
-    result_short_correct = example_module.evaluate(
-        messages=messages_short_correct, ground_truth="4", max_length=10
-    )
+    result_short_correct = example_module.evaluate(messages=messages_short_correct, ground_truth="4", max_length=10)
     assert result_short_correct["metrics"]["accuracy_reward"]["score"] == 1.0
     assert result_short_correct["metrics"]["format_reward"]["score"] == 1.0
     assert result_short_correct["metrics"]["length_reward"]["score"] > 0.8
@@ -443,9 +399,7 @@ def test_math_with_format_and_length_example(temp_examples_dir, mock_env_variabl
         Message(role="user", content="What is 2+2?"),
         Message(role="assistant", content=long_content),
     ]
-    result_long_correct = example_module.evaluate(
-        messages=messages_long_correct, ground_truth="4", max_length=10
-    )
+    result_long_correct = example_module.evaluate(messages=messages_long_correct, ground_truth="4", max_length=10)
     assert result_long_correct["metrics"]["accuracy_reward"]["score"] == 1.0
     assert result_long_correct["metrics"]["format_reward"]["score"] == 1.0
     assert result_long_correct["metrics"]["length_reward"]["score"] < 0.7
@@ -459,9 +413,7 @@ def test_math_with_format_and_length_example(temp_examples_dir, mock_env_variabl
             content="<think>Adding numbers.</think><answer>5</answer>",
         ),
     ]
-    result_incorrect = example_module.evaluate(
-        messages=messages_incorrect, ground_truth="4", max_length=10
-    )
+    result_incorrect = example_module.evaluate(messages=messages_incorrect, ground_truth="4", max_length=10)
     assert result_incorrect["metrics"]["accuracy_reward"]["score"] == 0.0
     assert result_incorrect["metrics"]["format_reward"]["score"] == 1.0
     assert result_incorrect["score"] < 0.5
@@ -471,9 +423,7 @@ def test_math_with_format_and_length_example(temp_examples_dir, mock_env_variabl
         Message(role="user", content="What is 2+2?"),
         Message(role="assistant", content="The answer is 4."),
     ]
-    result_bad_format = example_module.evaluate(
-        messages=messages_bad_format, ground_truth="4", max_length=10
-    )
+    result_bad_format = example_module.evaluate(messages=messages_bad_format, ground_truth="4", max_length=10)
     assert result_bad_format["metrics"]["accuracy_reward"]["score"] == 1.0
     assert result_bad_format["metrics"]["format_reward"]["score"] == 0.0
     assert result_bad_format["score"] < result_short_correct["score"]
@@ -520,13 +470,9 @@ def test_tool_calling_example(temp_examples_dir, mock_env_variables):
             },
         ],
     }
-    result_perfect = exact_tool_match_reward(
-        messages=messages_perfect, ground_truth=ground_truth_perfect
-    )
+    result_perfect = exact_tool_match_reward(messages=messages_perfect, ground_truth=ground_truth_perfect)
     assert result_perfect.score == 1.0
-    assert (
-        "Exact tool match evaluation score: 1.0" == result_perfect.reason
-    )  # Updated assertion
+    assert "Exact tool match evaluation score: 1.0" == result_perfect.reason  # Updated assertion
 
     # Scenario 2: Argument mismatch (different city)
     messages_arg_mismatch = [
@@ -619,9 +565,7 @@ def test_tool_calling_example(temp_examples_dir, mock_env_variables):
             },
         ],
     }
-    result_fewer_calls = exact_tool_match_reward(
-        messages=messages_fewer_calls, ground_truth=ground_truth_fewer_calls
-    )
+    result_fewer_calls = exact_tool_match_reward(messages=messages_fewer_calls, ground_truth=ground_truth_fewer_calls)
     assert result_fewer_calls.score == 0.0
     assert "Exact tool match evaluation score: 0.0" == result_fewer_calls.reason
 
@@ -657,9 +601,7 @@ def test_tool_calling_example(temp_examples_dir, mock_env_variables):
             }
         ],
     }
-    result_more_calls = exact_tool_match_reward(
-        messages=messages_more_calls, ground_truth=ground_truth_more_calls
-    )
+    result_more_calls = exact_tool_match_reward(messages=messages_more_calls, ground_truth=ground_truth_more_calls)
     assert result_more_calls.score == 0.0
     assert "Exact tool match evaluation score: 0.0" == result_more_calls.reason
 
@@ -763,9 +705,7 @@ def test_tool_calling_example(temp_examples_dir, mock_env_variables):
         messages=messages_no_calls_both, ground_truth=ground_truth_no_calls_both
     )
     assert result_no_calls_both.score == 1.0
-    assert (
-        "Exact tool match evaluation score: 1.0" == result_no_calls_both.reason
-    )  # Updated assertion
+    assert "Exact tool match evaluation score: 1.0" == result_no_calls_both.reason  # Updated assertion
 
     # Scenario 10: Arguments are JSON strings but with different spacing/order of keys
     # exact_tool_match_reward should ideally parse and compare the JSON objects for arguments.
@@ -799,12 +739,8 @@ def test_tool_calling_example(temp_examples_dir, mock_env_variables):
     result_json_spacing = exact_tool_match_reward(
         messages=messages_json_spacing, ground_truth=ground_truth_json_spacing
     )
-    assert (
-        result_json_spacing.score == 1.0
-    )  # Assuming JSON objects are compared semantically
-    assert (
-        "Exact tool match evaluation score: 1.0" == result_json_spacing.reason
-    )  # Updated assertion
+    assert result_json_spacing.score == 1.0  # Assuming JSON objects are compared semantically
+    assert "Exact tool match evaluation score: 1.0" == result_json_spacing.reason  # Updated assertion
 
     # Scenario 11: Invalid JSON in arguments (completion)
     messages_invalid_json_completion = [
@@ -839,10 +775,7 @@ def test_tool_calling_example(temp_examples_dir, mock_env_variables):
         ground_truth=ground_truth_invalid_json_completion,
     )
     assert result_invalid_json_completion.score == 0.0
-    assert (
-        "Exact tool match evaluation score: 0.0"
-        == result_invalid_json_completion.reason
-    )
+    assert "Exact tool match evaluation score: 0.0" == result_invalid_json_completion.reason
 
     # Scenario 12: Invalid JSON in arguments (ground_truth)
     messages_invalid_json_gt = [
@@ -922,9 +855,7 @@ def test_apps_coding_example(
 
     assert eval_result_correct_simple["score"] == 1.0
     assert eval_result_correct_simple["is_score_valid"] is True
-    assert (
-        "Passed 3/3 test cases." == eval_result_correct_simple["reason"]
-    )  # Updated assertion
+    assert "Passed 3/3 test cases." == eval_result_correct_simple["reason"]  # Updated assertion
     assert eval_result_correct_simple["metrics"]["pass_rate"]["score"] == 1.0
 
     # Scenario 2: Incorrect solution (e.g., subtracts instead of adds)
@@ -998,9 +929,7 @@ def test_apps_coding_example(
         ground_truth=ground_truth_stdin_str,  # Changed argument name
     )
     assert eval_result_stdin_correct["score"] == 1.0
-    assert (
-        "Passed 2/2 test cases." == eval_result_stdin_correct["reason"]
-    )  # Updated assertion (based on 2 inputs)
+    assert "Passed 2/2 test cases." == eval_result_stdin_correct["reason"]  # Updated assertion (based on 2 inputs)
     assert eval_result_stdin_correct["metrics"]["pass_rate"]["score"] == 1.0
 
     # Scenario 6: Stdin problem, incorrect output
@@ -1016,9 +945,7 @@ def test_apps_coding_example(
         ground_truth=ground_truth_stdin_str,  # Changed argument name
     )
     assert eval_result_stdin_incorrect["score"] == 0.0
-    assert (
-        "Passed 0/1 test cases." in eval_result_stdin_incorrect["reason"]
-    )  # Corrected based on actual output
+    assert "Passed 0/1 test cases." in eval_result_stdin_incorrect["reason"]  # Corrected based on actual output
     assert eval_result_stdin_incorrect["metrics"]["pass_rate"]["score"] == 0.0
 
     # Scenario 7: No valid Python code block found

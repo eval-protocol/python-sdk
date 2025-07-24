@@ -53,19 +53,13 @@ def evaluate(messages, *, state, ground_truth_comparable_state, **kwargs):
                     mismatches.append(f"Extra items in {key}: {extra}")
         elif expected_value != actual_value:
             matches = False
-            mismatches.append(
-                f"Value mismatch for {key}: expected {expected_value}, got {actual_value}"
-            )
+            mismatches.append(f"Value mismatch for {key}: expected {expected_value}, got {actual_value}")
 
     # Check for extra keys in the current state (not required to match)
 
     # Construct the reward output
     score = 1.0 if matches else 0.0
-    reason = (
-        "State matches ground truth"
-        if matches
-        else f"State differs from ground truth: {'; '.join(mismatches)}"
-    )
+    reason = "State matches ground truth" if matches else f"State differs from ground truth: {'; '.join(mismatches)}"
 
     metrics = {"state_match": MetricResult(score=float(matches), reason=reason)}
 

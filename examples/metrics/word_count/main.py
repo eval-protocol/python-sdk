@@ -6,9 +6,7 @@ from eval_protocol import EvaluateResult, Message, MetricResult, reward_function
 
 
 # https://pypi.org/project/haikus/
-@reward_function(
-    id="word_count", requirements=["haikus==0.3.8", "dummy-pip-package==1.0.0"]
-)
+@reward_function(id="word_count", requirements=["haikus==0.3.8", "dummy-pip-package==1.0.0"])
 def evaluate(messages: List[Message], **kwargs) -> EvaluateResult:
     """
     Evaluate a sample entry by counting words in the response and analyzing for haikus.
@@ -22,9 +20,7 @@ def evaluate(messages: List[Message], **kwargs) -> EvaluateResult:
         EvaluateResult with score and metrics information
     """
     if not messages:
-        return EvaluateResult(
-            score=0.0, reason="No messages found", is_score_valid=False
-        )
+        return EvaluateResult(score=0.0, reason="No messages found", is_score_valid=False)
 
     last_message = messages[-1]
     content = last_message.content if last_message and last_message.content else ""
@@ -37,9 +33,7 @@ def evaluate(messages: List[Message], **kwargs) -> EvaluateResult:
     haiku_lines = content.splitlines()
     haiku_analysis_data: Dict[str, Any] = {}  # To store raw haiku lib output
     haiku_metric_score = 0.0
-    haiku_metric_reason = (
-        "Content not suitable for haiku analysis (e.g., not 3 or 5 lines)."
-    )
+    haiku_metric_reason = "Content not suitable for haiku analysis (e.g., not 3 or 5 lines)."
     haiku_metric_valid = False
 
     if len(haiku_lines) in [3, 5]:  # Haikus are typically 3 or 5 phrases/lines

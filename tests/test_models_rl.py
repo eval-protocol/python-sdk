@@ -18,9 +18,7 @@ class TestRLDataStructures:
 
     def test_step_output_creation_valid(self):
         """Test valid creation of StepOutput."""
-        so = StepOutput(
-            step_index=0, base_reward=0.5, reason="Good step", metrics={"accuracy": 0.9}
-        )
+        so = StepOutput(step_index=0, base_reward=0.5, reason="Good step", metrics={"accuracy": 0.9})
         assert so.step_index == 0
         assert so.base_reward == 0.5
         assert so.reason == "Good step"
@@ -35,9 +33,7 @@ class TestRLDataStructures:
     def test_step_output_invalid_types(self):
         """Test StepOutput validation errors for incorrect types."""
         with pytest.raises(ValidationError):
-            StepOutput(
-                step_index="0", base_reward="not_a_float"
-            )  # base_reward should be float
+            StepOutput(step_index="0", base_reward="not_a_float")  # base_reward should be float
         with pytest.raises(ValidationError):
             StepOutput(step_index=None, base_reward=0.5)  # step_index is required
 
@@ -79,9 +75,7 @@ class TestRLDataStructures:
         with pytest.raises(ValidationError):
             EvaluateResult(score=0.5, step_outputs="not_a_list")
         with pytest.raises(ValidationError):
-            EvaluateResult(
-                score=0.5, step_outputs=[{"step_index": 0, "base_reward": "wrong_type"}]
-            )
+            EvaluateResult(score=0.5, step_outputs=[{"step_index": 0, "base_reward": "wrong_type"}])
 
     def test_step_data_creation_minimal(self):
         """Test minimal valid creation of StepData."""

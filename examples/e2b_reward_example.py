@@ -30,9 +30,7 @@ def main():
     api_key = args.api_key or os.environ.get("E2B_API_KEY")
 
     if not api_key:
-        print(
-            "E2B API key is required. Please provide it via --api-key or set the E2B_API_KEY environment variable."
-        )
+        print("E2B API key is required. Please provide it via --api-key or set the E2B_API_KEY environment variable.")
         return
 
     # Example conversation with a coding task

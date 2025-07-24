@@ -19,7 +19,12 @@ import eval_protocol as rk
 from eval_protocol import reward_function, EvaluateResult
 
 from tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
-from tau2.data_model.message import SystemMessage, AssistantMessage, UserMessage, ToolMessage
+from tau2.data_model.message import (
+    SystemMessage,
+    AssistantMessage,
+    UserMessage,
+    ToolMessage,
+)
 
 
 def _is_ci_mode():
@@ -61,14 +66,14 @@ class MCPServerManager:
 
         # Start server process
         cmd = ["python", self.server_script, "--port", str(self.port)]
-        
+
         # Setup log file with cleanup
         log_file_path = os.path.join(self.base_dir, f"server_output_{self.port}.log")
         if os.path.exists(log_file_path):
             os.remove(log_file_path)
-        
+
         log_file = open(log_file_path, "w")
-        
+
         self.process = subprocess.Popen(
             cmd,
             cwd=self.base_dir,
@@ -77,7 +82,7 @@ class MCPServerManager:
             stderr=log_file,
             text=True,
         )
-        
+
         # Store log file reference for cleanup
         self._log_file = log_file
         self._log_file_path = log_file_path
@@ -174,19 +179,16 @@ Known info: You are Noah Muller. Your user id is noah_muller_9847.
 """
 
 NL_ASSERTIONS = [
-        [
-            "Agent should refuse to proceed with the cancellation."
-        ],
-        [
-            "Agent should not approve the cancellation."
-        ],
-        [
-            "Agent should not offer compensation unless the user asks for it.",
-            "Agent should check that the flight was indeed delayed.",
-            "Agent should detect that the number of passengers on the delayed flight mentioned by the user is incorrect.",
-            "Agent should offer a certificate of $50."
-        ],
-    ]
+    ["Agent should refuse to proceed with the cancellation."],
+    ["Agent should not approve the cancellation."],
+    [
+        "Agent should not offer compensation unless the user asks for it.",
+        "Agent should check that the flight was indeed delayed.",
+        "Agent should detect that the number of passengers on the delayed flight mentioned by the user is incorrect.",
+        "Agent should offer a certificate of $50.",
+    ],
+]
+
 
 @pytest.fixture
 def multi_env_dataset():
@@ -201,7 +203,7 @@ def multi_env_dataset():
                 "enabled": True,
                 "llm": "gpt-4.1",
                 "system_prompt": USER_INSTRUCTIONS_AIRLINE1,
-            }
+            },
         },
         {
             "id": f"airline_task_2",
@@ -212,7 +214,7 @@ def multi_env_dataset():
                 "enabled": True,
                 "llm": "gpt-4.1",
                 "system_prompt": USER_INSTRUCTIONS_AIRLINE2,
-            }
+            },
         },
         {
             "id": f"airline_task_3",
@@ -223,7 +225,7 @@ def multi_env_dataset():
                 "enabled": True,
                 "llm": "gpt-4.1",
                 "system_prompt": USER_INSTRUCTIONS_AIRLINE3,
-            }
+            },
         },
     ]
 
@@ -239,9 +241,7 @@ def fireworks_multi_env_recording_file():
     yield str(recording_path)
 
     # Keep the file after test completion for review
-    print(
-        f"📁 OpenAIPolicy multi-environment trajectory preserved at: {recording_path}"
-    )
+    print(f"📁 OpenAIPolicy multi-environment trajectory preserved at: {recording_path}")
 
 
 async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]):
@@ -276,9 +276,7 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
 
     for env_idx in range(len(dataset)):
         if env_idx not in env_recordings:
-            print(
-                f"  ⚠️  Environment {env_idx}: No recordings found (likely terminated immediately)"
-            )
+            print(f"  ⚠️  Environment {env_idx}: No recordings found (likely terminated immediately)")
             continue
 
         first_entry = env_recordings[env_idx][0]
@@ -316,13 +314,9 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
             )
             print("   This may indicate configuration issues or identical initial states")
         else:
-            print(
-                f"✅ All {len(starting_states)} recorded environments have unique starting states"
-            )
+            print(f"✅ All {len(starting_states)} recorded environments have unique starting states")
     else:
-        print(
-            f"ℹ️  Only {len(starting_states)} environments recorded - cannot validate state uniqueness"
-        )
+        print(f"ℹ️  Only {len(starting_states)} environments recorded - cannot validate state uniqueness")
 
     # Validation 2: State progression within each environment
     print("\n🎮 Validating state progression...")
@@ -338,9 +332,7 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
                     tool_responses.append(msg["content"])
 
         if len(tool_responses) < 2:
-            print(
-                f"  Env {env_idx}: Only {len(tool_responses)} tool responses, skipping progression check"
-            )
+            print(f"  Env {env_idx}: Only {len(tool_responses)} tool responses, skipping progression check")
             continue
 
         # Parse reservation details from first two tool responses
@@ -362,7 +354,7 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
                 else:
                     # String content - parse as JSON
                     response_data = json.loads(response)
-                
+
                 # For airline, extract reservation details
                 if "reservation" in response_data:
                     reservation = response_data["reservation"]
@@ -370,7 +362,7 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
                         "booking_date": reservation.get("booking_date", "unknown"),
                         "flight_class": reservation.get("flight_class", "unknown"),
                         "travel_insurance": reservation.get("travel_insurance", "unknown"),
-                        "flight_cancelled": reservation.get("flight_cancelled", "unknown")
+                        "flight_cancelled": reservation.get("flight_cancelled", "unknown"),
                     }
                 else:
                     # Fallback for different response structure
@@ -378,22 +370,22 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
                         "booking_date": response_data.get("booking_date", "unknown"),
                         "flight_class": response_data.get("flight_class", "unknown"),
                         "travel_insurance": response_data.get("travel_insurance", "unknown"),
-                        "flight_cancelled": response_data.get("flight_cancelled", "unknown")
+                        "flight_cancelled": response_data.get("flight_cancelled", "unknown"),
                     }
-                
+
                 states.append(state_info)
                 print(f"    Step {i+1}: {state_info}")
             except (json.JSONDecodeError, TypeError) as e:
-                pytest.fail(
-                    f"❌ Invalid JSON in tool response {i+1} for env {env_idx}: {response}. Error: {e}"
-                )
+                pytest.fail(f"❌ Invalid JSON in tool response {i+1} for env {env_idx}: {response}. Error: {e}")
 
         # For airline, we expect state to remain consistent between steps (same reservation details)
         if len(states) >= 2:
             if states[0] == states[1]:
                 print(f"    ✅ Env {env_idx}: Consistent reservation details between steps")
             else:
-                print(f"    ⚠️  Env {env_idx}: Reservation details changed between steps - may indicate session state issues")
+                print(
+                    f"    ⚠️  Env {env_idx}: Reservation details changed between steps - may indicate session state issues"
+                )
 
     # Validation 3: Check for repeated states (simple but effective)
     print("\n🔄 Validating no repeated states...")
@@ -446,14 +438,14 @@ def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
                         else:
                             # String content - parse as JSON
                             tool_response = json.loads(content)
-                        
+
                         # For airline, we track reservation state
                         if "reservation" in tool_response:
                             reservation = tool_response["reservation"]
                             state_id = f"{reservation.get('booking_date', 'unknown')}_{reservation.get('flight_class', 'unknown')}"
                         else:
                             state_id = str(hash(str(content)))
-                        
+
                         if state_id is not None:
                             reservation_states.append((entry_num, state_id))
                     except (json.JSONDecodeError, TypeError):
@@ -476,9 +468,7 @@ def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
                 repeat_count += 1
             else:
                 if repeat_count > 1:
-                    repeated_sequences.append(
-                        (current_state, repeat_count, start_step)
-                    )
+                    repeated_sequences.append((current_state, repeat_count, start_step))
                 current_state = state
                 repeat_count = 1
                 start_step = step_num
@@ -491,9 +481,7 @@ def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
         if repeated_sequences:
             print(f"  ⚠️  Env {env_idx}: Found repeated state sequences:")
             for state, count, start in repeated_sequences:
-                print(
-                    f"    - State {state} repeated {count} times starting from step {start}"
-                )
+                print(f"    - State {state} repeated {count} times starting from step {start}")
 
             # For airline, repeated states are expected as reservation details don't change
             max_repeats = max(count for _, count, _ in repeated_sequences)
@@ -502,14 +490,11 @@ def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
                 print(
                     f"⚠️  WARNING: Env {env_idx}: State {longest_sequence[0]} repeated {longest_sequence[1]} times starting from step {longest_sequence[2]}."
                 )
-                print(
-                    f"    This might indicate session state or control plane termination issues."
-                )
+                print(f"    This might indicate session state or control plane termination issues.")
                 print(f"    All states: {[state for _, state in reservation_states]}")
         else:
-            print(
-                f"  ✅ Env {env_idx}: No repeated states detected - good state progression!"
-            )
+            print(f"  ✅ Env {env_idx}: No repeated states detected - good state progression!")
+
 
 def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
     """
@@ -539,32 +524,22 @@ def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
                         terminated_steps += 1
 
         if env_total_count > 0:
-            print(
-                f"  Env {env_idx}: {env_terminated_count}/{env_total_count} steps show terminated=True"
-            )
+            print(f"  Env {env_idx}: {env_terminated_count}/{env_total_count} steps show terminated=True")
 
     print(f"\n📊 Overall: {terminated_steps}/{total_steps} steps show terminated=True")
 
     # Note: Some environments may not be recorded if they terminate immediately
     missing_envs = len(dataset) - len(env_recordings)
     if missing_envs > 0:
-        print(
-            f"  ℹ️  {missing_envs} environments not recorded (likely terminated immediately)"
-        )
+        print(f"  ℹ️  {missing_envs} environments not recorded (likely terminated immediately)")
 
     if terminated_steps == 0:
-        print(
-            f"  ⚠️  Warning: No terminated=True found in metadata (may be expected for short runs)"
-        )
+        print(f"  ⚠️  Warning: No terminated=True found in metadata (may be expected for short runs)")
     else:
-        print(
-            f"  ✅ Found some termination signals - control plane appears to be working"
-        )
+        print(f"  ✅ Found some termination signals - control plane appears to be working")
 
 
-def _validate_no_tool_calls_after_termination(
-    env_recordings: Dict, dataset: List[Dict]
-):
+def _validate_no_tool_calls_after_termination(env_recordings: Dict, dataset: List[Dict]):
     """
     CRITICAL TEST: Check that no tool calls happen after an environment is terminated.
     """
@@ -591,9 +566,7 @@ def _validate_no_tool_calls_after_termination(
                         # First termination detected
                         termination_detected = True
                         termination_step = entry_idx
-                        print(
-                            f"  Env {env_idx}: Termination detected at step {termination_step}"
-                        )
+                        print(f"  Env {env_idx}: Termination detected at step {termination_step}")
                     elif termination_detected:
                         # Count steps after termination
                         steps_after_termination += 1
@@ -649,9 +622,7 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
 
         # For airline, allow non-terminated trajectories as conversations may be ongoing
         if total_steps >= 8 and not last_terminated:
-            print(
-                f"  ⚠️  Env {env_idx}: Trajectory has {total_steps} steps but final metadata shows terminated=False."
-            )
+            print(f"  ⚠️  Env {env_idx}: Trajectory has {total_steps} steps but final metadata shows terminated=False.")
             print(
                 f"    This might indicate: 1) Conversation still in progress, 2) Control plane sync issues, or 3) User still interacting"
             )
@@ -659,25 +630,19 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
         elif last_terminated:
             print(f"    ✅ Trajectory properly terminated")
         else:
-            print(
-                f"    ℹ️  Short trajectory ({total_steps} steps) - termination not required"
-            )
+            print(f"    ℹ️  Short trajectory ({total_steps} steps) - termination not required")
 
 
 @reward_function
-def airline_eval(
-    messages: List[Dict[str, Any]],
-    nl_assertions: List[str] = None,
-    **kwargs
-) -> EvaluateResult:
+def airline_eval(messages: List[Dict[str, Any]], nl_assertions: List[str] = None, **kwargs) -> EvaluateResult:
     """
     Evaluate airline conversation using tau2-bench NLAssertionsEvaluator.
-    
+
     Args:
         messages: Conversation between agent and customer
         nl_assertions: List of natural language assertions to evaluate
         **kwargs: Additional parameters
-        
+
     Returns:
         EvaluateResult with binary pass/fail and detailed assertion breakdown
     """
@@ -688,50 +653,46 @@ def airline_eval(
     # Convert messages to tau2-bench message objects based on role
     trajectory_objects = []
     for msg in messages:
-        role = msg['role']
-        content = msg['content']
-        
-        if role == 'system':
+        role = msg["role"]
+        content = msg["content"]
+
+        if role == "system":
             trajectory_objects.append(SystemMessage(role=role, content=content))
-        elif role == 'assistant':
+        elif role == "assistant":
             trajectory_objects.append(AssistantMessage(role=role, content=content))
-        elif role == 'user':
+        elif role == "user":
             trajectory_objects.append(UserMessage(role=role, content=content))
-        elif role == 'tool':
-            tool_id = msg.get('tool_call_id')
+        elif role == "tool":
+            tool_id = msg.get("tool_call_id")
             trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=content))
 
     # Use tau2-bench NLAssertionsEvaluator
     nl_assertions_checks = NLAssertionsEvaluator.evaluate_nl_assertions(
-        trajectory=trajectory_objects,
-        nl_assertions=nl_assertions
+        trajectory=trajectory_objects, nl_assertions=nl_assertions
     )
 
     all_expectations_met = all(result.met for result in nl_assertions_checks)
     reward = 1.0 if all_expectations_met else 0.0
-    
+
     # Build reason string
     if all_expectations_met:
         reason = f"All {len(nl_assertions)} natural language assertions passed"
     else:
-        failed_assertions = [
-            nl_assertions[i] for i, result in enumerate(nl_assertions_checks) 
-            if not result.met
-        ]
+        failed_assertions = [nl_assertions[i] for i, result in enumerate(nl_assertions_checks) if not result.met]
         reason = f"Failed assertions: {failed_assertions}"
-    
+
     return EvaluateResult(
         score=reward,
         reason=reason,
         metrics={},
     )
 
+
 # TODO: add rest of tests, but test_fireworks_multi_environment_sessions is the most important one.
 
+
 @pytest.mark.asyncio
-async def test_fireworks_multi_environment_sessions(
-    multi_env_dataset, fireworks_multi_env_recording_file
-):
+async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks_multi_env_recording_file):
     """Test multi-environment session handling with OpenAIPolicy."""
 
     print("\n🧪 === FIREWORKS MULTI-ENVIRONMENT SESSION TEST ===")
@@ -763,14 +724,10 @@ async def test_fireworks_multi_environment_sessions(
         # Run playback
         start_time = time.time()
         # TODO: figure out how user simulator works for playback
-        playback_trajectories = await rk.rollout(
-            playback_envs, policy=playback_policy, steps=15
-        )
+        playback_trajectories = await rk.rollout(playback_envs, policy=playback_policy, steps=15)
         playback_duration = time.time() - start_time
 
-        print(
-            f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s"
-        )
+        print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
 
         # Clean up environment variable
         if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
@@ -781,9 +738,7 @@ async def test_fireworks_multi_environment_sessions(
     # ALWAYS remove trajectory file first to avoid confusion
     if os.path.exists(fireworks_multi_env_recording_file):
         os.unlink(fireworks_multi_env_recording_file)
-        print(
-            f"🧹 Removed existing trajectory file: {fireworks_multi_env_recording_file}"
-        )
+        print(f"🧹 Removed existing trajectory file: {fireworks_multi_env_recording_file}")
 
     # Start server for this test
     server = _create_test_server(9700)
@@ -816,19 +771,13 @@ async def test_fireworks_multi_environment_sessions(
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == len(
-            multi_env_dataset
-        ), "Should have trajectory for each environment"
-        assert all(
-            traj.steps > 0 for traj in trajectories
-        ), "All trajectories should have steps"
+        assert len(trajectories) == len(multi_env_dataset), "Should have trajectory for each environment"
+        assert all(traj.steps > 0 for traj in trajectories), "All trajectories should have steps"
 
         print(
             f"✅ OpenAIPolicy multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s"
         )
-        print(
-            f"📁 OpenAIPolicy multi-environment recording saved to: {fireworks_multi_env_recording_file}"
-        )
+        print(f"📁 OpenAIPolicy multi-environment recording saved to: {fireworks_multi_env_recording_file}")
 
         # Print trajectory summaries
         print("📊 OpenAIPolicy Multi-Environment Trajectory Summary:")
@@ -840,38 +789,36 @@ async def test_fireworks_multi_environment_sessions(
                 f"  Trajectory {i} (domain: {domain}, seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
             )
             if hasattr(traj, "actions") and len(traj.actions) > 0:
-                print(
-                    f"    Actions: {traj.actions[:3]}{'...' if len(traj.actions) > 3 else ''}"
-                )
+                print(f"    Actions: {traj.actions[:3]}{'...' if len(traj.actions) > 3 else ''}")
 
         # Validate that different configurations produce different environments
         unique_rewards = set(traj.total_reward for traj in trajectories)
         print(f"📈 Unique rewards across environments: {unique_rewards}")
 
         # 🔍 CRITICAL VALIDATIONS
-        await _validate_recording_integrity(
-            fireworks_multi_env_recording_file, multi_env_dataset
-        )
+        await _validate_recording_integrity(fireworks_multi_env_recording_file, multi_env_dataset)
 
         # 🧪 TAU2 REWARD FUNCTION EVALUATION
         print(f"\n🎯 Evaluating {len(trajectories)} trajectories using conversation_history field")
-        
+
         for env_idx, trajectory in enumerate(trajectories):
             conversation_history = trajectory.conversation_history
             nl_assertions = NL_ASSERTIONS[env_idx]
-            
+
             print(f"\n🔍 Environment {env_idx} conversation history:")
             print(f"  Messages: {len(conversation_history)} total")
-            
+
             eval = airline_eval(conversation_history, nl_assertions)
-            
+
             # Print evaluation result details
             print(f"🎯 Evaluation Result for env {env_idx}:")
             print(f"  Score: {eval.score}")
             print(f"  Reason: {eval.reason}")
             print(f"  Metrics ({len(eval.metrics)} total):")
             for metric_name, metric_result in eval.metrics.items():
-                print(f"    {metric_name}: score={metric_result.score:.2f}, success={metric_result.is_score_valid}, reason='{metric_result.reason}'")
+                print(
+                    f"    {metric_name}: score={metric_result.score:.2f}, success={metric_result.is_score_valid}, reason='{metric_result.reason}'"
+                )
 
         # Clean up
         await envs.close()

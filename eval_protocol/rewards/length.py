@@ -75,11 +75,7 @@ def length_reward(
         return EvaluateResult(
             score=0.0,
             reason="No messages provided",
-            metrics={
-                "length": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No messages provided"
-                )
-            },
+            metrics={"length": MetricResult(score=0.0, is_score_valid=False, reason="No messages provided")},
         )
 
     response = messages[-1]
@@ -132,31 +128,24 @@ def length_reward(
     min_reward, max_reward = reward_range
 
     if target_length is not None:
-        normalized_diff = (
-            abs(token_count - target_length) / target_length
-            if target_length > 0
-            else 1.0
-        )
+        normalized_diff = abs(token_count - target_length) / target_length if target_length > 0 else 1.0
         if scaling == "cosine":
             progress = min(1.0, normalized_diff)
-            score = (
-                min_reward
-                + (max_reward - min_reward) * (1.0 + math.cos(progress * math.pi)) / 2.0
-            )
+            score = min_reward + (max_reward - min_reward) * (1.0 + math.cos(progress * math.pi)) / 2.0
         else:
             score = max(
                 min_reward,
                 max_reward - normalized_diff * (max_reward - min_reward),
             )
-        reason = f"Response length ({token_count} tokens) deviated by {normalized_diff:.2f} from target ({target_length})"
+        reason = (
+            f"Response length ({token_count} tokens) deviated by {normalized_diff:.2f} from target ({target_length})"
+        )
         success = normalized_diff < 0.2
     elif min_length is not None and max_length is not None:
         if token_count < min_length:
             progress = token_count / min_length
             if scaling == "cosine":
-                score = min_reward + (max_reward - min_reward) * (
-                    1.0 - math.cos(progress * math.pi / 2.0)
-                )
+                score = min_reward + (max_reward - min_reward) * (1.0 - math.cos(progress * math.pi / 2.0))
             else:
                 score = min_reward + (max_reward - min_reward) * progress
             reason = f"Response length ({token_count} tokens) is below minimum ({min_length})"
@@ -172,14 +161,10 @@ def length_reward(
             )
 
             if scaling == "cosine":
-                score = max_reward - (max_reward - min_reward) * (
-                    1.0 - math.cos(progress * math.pi / 2.0)
-                )
+                score = max_reward - (max_reward - min_reward) * (1.0 - math.cos(progress * math.pi / 2.0))
             else:
                 score = max_reward - (max_reward - min_reward) * progress
-            reason = (
-                f"Response length ({token_count} tokens) exceeds maximum ({max_length})"
-            )
+            reason = f"Response length ({token_count} tokens) exceeds maximum ({max_length})"
             success = False
         else:
             score = max_reward
@@ -189,9 +174,7 @@ def length_reward(
         if token_count < min_length:
             progress = token_count / min_length
             if scaling == "cosine":
-                score = min_reward + (max_reward - min_reward) * (
-                    1.0 - math.cos(progress * math.pi / 2.0)
-                )
+                score = min_reward + (max_reward - min_reward) * (1.0 - math.cos(progress * math.pi / 2.0))
             else:
                 score = min_reward + (max_reward - min_reward) * progress
             reason = f"Response length ({token_count} tokens) is below minimum ({min_length})"
@@ -208,14 +191,10 @@ def length_reward(
                 excess / max_length if max_length > 0 else (1.0 if excess > 0 else 0.0),
             )
             if scaling == "cosine":
-                score = max_reward - (max_reward - min_reward) * (
-                    1.0 - math.cos(progress * math.pi / 2.0)
-                )
+                score = max_reward - (max_reward - min_reward) * (1.0 - math.cos(progress * math.pi / 2.0))
             else:
                 score = max_reward - (max_reward - min_reward) * progress
-            reason = (
-                f"Response length ({token_count} tokens) exceeds maximum ({max_length})"
-            )
+            reason = f"Response length ({token_count} tokens) exceeds maximum ({max_length})"
             success = False
         else:
             score = max_reward
@@ -228,10 +207,7 @@ def length_reward(
         normalized_length = token_count / reference_length
         if scaling == "cosine":
             progress = min(1.0, normalized_length)
-            score = (
-                min_reward
-                + (max_reward - min_reward) * (1.0 + math.cos(progress * math.pi)) / 2.0
-            )
+            score = min_reward + (max_reward - min_reward) * (1.0 + math.cos(progress * math.pi)) / 2.0
         else:
             progress = min(1.0, normalized_length)
             score = max_reward - progress * (max_reward - min_reward)
@@ -300,11 +276,7 @@ def cosine_length_reward(
         return EvaluateResult(
             score=0.0,
             reason="No messages provided",
-            metrics={
-                "cosine_length": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No messages provided"
-                )
-            },
+            metrics={"cosine_length": MetricResult(score=0.0, is_score_valid=False, reason="No messages provided")},
         )
 
     response = messages[-1]

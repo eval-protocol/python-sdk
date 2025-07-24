@@ -117,14 +117,10 @@ def frozen_lake_reward(messages: List[Message], state=None, **kwargs) -> Evaluat
                     StepOutput(
                         step_index=step_index,
                         action=action,
-                        base_reward=(
-                            0.1 if action != "unknown" else 0.0
-                        ),  # Small reward for valid actions
+                        base_reward=(0.1 if action != "unknown" else 0.0),  # Small reward for valid actions
                         reason=f"Agent took action: {action}",
                     )
                 )
                 step_index += 1
 
-    return EvaluateResult(
-        score=score, reason=reason, metrics=metrics, step_outputs=step_outputs
-    )
+    return EvaluateResult(score=score, reason=reason, metrics=metrics, step_outputs=step_outputs)

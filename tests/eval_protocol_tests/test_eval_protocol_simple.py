@@ -14,9 +14,7 @@ def test_basic_imports():
     print("Testing basic imports...")
     try:
         # Add project root to path so we can import without installing
-        project_root = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "..", ".."
-        )
+        project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
         sys.path.insert(0, project_root)
 
         # Test importing both packages
@@ -74,17 +72,11 @@ def test_all_exports():
 
         if rk_all == rp_all:
             print("  ✓ __all__ exports match")
-            print(
-                f"  Common exports: {rk_all[:5]}..."
-                if len(rk_all) > 5
-                else f"  All exports: {rk_all}"
-            )
+            print(f"  Common exports: {rk_all[:5]}..." if len(rk_all) > 5 else f"  All exports: {rk_all}")
             return True
         else:
             print("  ✗ __all__ exports don't match")
-            print(
-                f"  Difference: {set(rk_all) - set(rp_all)} vs {set(rp_all) - set(rk_all)}"
-            )
+            print(f"  Difference: {set(rk_all) - set(rp_all)} vs {set(rp_all) - set(rk_all)}")
             return False
     except Exception as e:
         print(f"  ✗ __all__ export check failed: {e}")

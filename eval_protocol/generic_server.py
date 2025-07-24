@@ -12,9 +12,7 @@ from eval_protocol.models import EvaluateResult, Message
 
 # --- Request and Response Models ---
 class EvaluationRequest(BaseModel):
-    messages: List[
-        Dict[str, Any]
-    ]  # Could also be List[Message] if we enforce that model on input
+    messages: List[Dict[str, Any]]  # Could also be List[Message] if we enforce that model on input
     ground_truth: Optional[str] = None
     kwargs: Optional[Dict[str, Any]] = {}
 
@@ -40,9 +38,7 @@ async def verify_api_key(request: Request):
                 client_api_key = auth_header.split(" ", 1)[1]
 
         if not client_api_key:
-            raise HTTPException(
-                status_code=401, detail="API key required but not provided."
-            )
+            raise HTTPException(status_code=401, detail="API key required but not provided.")
         if client_api_key != EXPECTED_API_KEY:
             raise HTTPException(status_code=403, detail="Invalid API key.")
     return True  # Allow request if no key expected or if key is valid
@@ -56,9 +52,7 @@ app = FastAPI(
 )
 
 
-@app.post(
-    "/evaluate", response_model=EvaluateResult, dependencies=[Depends(verify_api_key)]
-)
+@app.post("/evaluate", response_model=EvaluateResult, dependencies=[Depends(verify_api_key)])
 async def evaluate_endpoint(request: EvaluationRequest):
     """
     Endpoint to evaluate a given set of messages using the loaded reward function.
@@ -94,24 +88,16 @@ async def evaluate_endpoint(request: EvaluationRequest):
             )
 
         return result
-    except (
-        ValidationError
-    ) as ve:  # Pydantic validation error from reward function's input/output
-        print(
-            f"Validation Error calling reward function '{_REWARD_FUNCTION_NAME}': {ve}"
-        )
+    except ValidationError as ve:  # Pydantic validation error from reward function's input/output
+        print(f"Validation Error calling reward function '{_REWARD_FUNCTION_NAME}': {ve}")
         raise HTTPException(
             status_code=422,
             detail=f"Input/Output validation error for reward function: {ve.errors()}",
         )
     except Exception as e:
-        print(
-            f"Error during evaluation with reward function '{_REWARD_FUNCTION_NAME}': {e}"
-        )
+        print(f"Error during evaluation with reward function '{_REWARD_FUNCTION_NAME}': {e}")
         # Consider logging the full traceback here
-        raise HTTPException(
-            status_code=500, detail=f"Internal server error during evaluation: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Internal server error during evaluation: {str(e)}")
 
 
 @app.get("/health")
@@ -146,17 +132,13 @@ def load_reward_function(import_string: str):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Run the Generic Reward Function Server."
-    )
+    parser = argparse.ArgumentParser(description="Run the Generic Reward Function Server.")
     parser.add_argument(
         "import_string",
         type=str,
         help="Import string for the reward function (e.g., 'my_package.my_module.my_reward_function')",
     )
-    parser.add_argument(
-        "--host", type=str, default="127.0.0.1", help="Host to bind the server to."
-    )
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind the server to.")
     parser.add_argument(
         "--port",
         type=int,
@@ -175,13 +157,9 @@ if __name__ == "__main__":
         exit(1)
 
     if not _LOADED_REWARD_FUNCTION:
-        print(
-            f"Reward function {_REWARD_FUNCTION_NAME} could not be loaded. Server will not start correctly."
-        )
+        print(f"Reward function {_REWARD_FUNCTION_NAME} could not be loaded. Server will not start correctly.")
         # Depending on desired behavior, could exit here or let it run and fail on /evaluate
         exit(1)
 
-    print(
-        f"Starting server for reward function: {args.import_string} on http://{args.host}:{args.port}"
-    )
+    print(f"Starting server for reward function: {args.import_string} on http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port)  # reload=args.reload for dev

@@ -56,30 +56,16 @@ def _is_coefficient(
     Checks if a number identified by match_obj in text_content is likely a coefficient.
     """
     unit_candidate = ""
-    if (
-        unit_group_idx is not None
-        and len(match_obj.groups()) >= unit_group_idx
-        and match_obj.group(unit_group_idx)
-    ):
+    if unit_group_idx is not None and len(match_obj.groups()) >= unit_group_idx and match_obj.group(unit_group_idx):
         unit_candidate = match_obj.group(unit_group_idx).strip()
 
-    if (
-        unit_candidate
-        and len(unit_candidate) == 1
-        and unit_candidate.lower() in _ALGEBRAIC_VARS_SET
-    ):
+    if unit_candidate and len(unit_candidate) == 1 and unit_candidate.lower() in _ALGEBRAIC_VARS_SET:
         return True
 
     idx_after_num_str = match_obj.end(num_group_idx)
 
-    if (
-        idx_after_num_str < len(text_content)
-        and text_content[idx_after_num_str].lower() in _ALGEBRAIC_VARS_SET
-    ):
-        if (
-            idx_after_num_str + 1 == len(text_content)
-            or not text_content[idx_after_num_str + 1].isalnum()
-        ):
+    if idx_after_num_str < len(text_content) and text_content[idx_after_num_str].lower() in _ALGEBRAIC_VARS_SET:
+        if idx_after_num_str + 1 == len(text_content) or not text_content[idx_after_num_str + 1].isalnum():
             return True
 
     if (
@@ -87,10 +73,7 @@ def _is_coefficient(
         and text_content[idx_after_num_str] == " "
         and text_content[idx_after_num_str + 1].lower() in _ALGEBRAIC_VARS_SET
     ):
-        if (
-            idx_after_num_str + 2 == len(text_content)
-            or not text_content[idx_after_num_str + 2].isalnum()
-        ):
+        if idx_after_num_str + 2 == len(text_content) or not text_content[idx_after_num_str + 2].isalnum():
             return True
     return False
 
@@ -112,9 +95,7 @@ def _extract_html_tag_answers(text: str) -> List[Tuple[str, Union[float, str]]]:
             html_tag_answers.append((raw, val))
             continue
 
-        m_frac = re.fullmatch(
-            r"\\frac\{(-?\d+(?:\.\d+)?)\}\{(-?\d+(?:\.\d+)?)\}", inner
-        )
+        m_frac = re.fullmatch(r"\\frac\{(-?\d+(?:\.\d+)?)\}\{(-?\d+(?:\.\d+)?)\}", inner)
         if m_frac:
             try:
                 num, den = float(m_frac.group(1)), float(m_frac.group(2))
@@ -167,9 +148,7 @@ def _extract_boxed_latex_answers(
             boxed_answers.append((original_boxed_expr, content.upper()))
             continue
 
-        m_latex_frac = re.fullmatch(
-            r"\\frac\{(-?\d+(?:\.\d+)?)\}\{(-?\d+(?:\.\d+)?)\}", content
-        )
+        m_latex_frac = re.fullmatch(r"\\frac\{(-?\d+(?:\.\d+)?)\}\{(-?\d+(?:\.\d+)?)\}", content)
         if m_latex_frac:
             try:
                 num = float(m_latex_frac.group(1))
@@ -196,9 +175,7 @@ def _extract_boxed_latex_answers(
 
     if found_any_boxed_expr and boxed_answers:
         if len(boxed_answers) > 1:
-            numeric_values_only = all(
-                isinstance(val, (float, int)) for _, val in boxed_answers
-            )
+            numeric_values_only = all(isinstance(val, (float, int)) for _, val in boxed_answers)
             if numeric_values_only and len(boxed_answers) > 1:
                 first_val_candidate = boxed_answers[0][1]
                 if isinstance(first_val_candidate, (float, int)):
@@ -206,9 +183,7 @@ def _extract_boxed_latex_answers(
                     all_other_values_identical = True
                     if len(boxed_answers) > 1:
                         all_other_values_identical = all(
-                            math.isclose(
-                                val, first_numeric_value, rel_tol=1e-9, abs_tol=1e-9
-                            )
+                            math.isclose(val, first_numeric_value, rel_tol=1e-9, abs_tol=1e-9)
                             for _, val in boxed_answers[1:]
                             if isinstance(val, (float, int))
                         )
@@ -273,24 +248,14 @@ def _extract_general_numeric_answers(text: str) -> List[Tuple[str, Union[float, 
     potential_general_matches: List[Dict[str, Any]] = []
 
     for latex_block_match in re.finditer(r"\$\$(.*?)\$\$|\$(.*?)\$", text, re.DOTALL):
-        content = (
-            latex_block_match.group(1)
-            if latex_block_match.group(1) is not None
-            else latex_block_match.group(2)
-        )
-        offset = (
-            latex_block_match.start(1)
-            if latex_block_match.group(1) is not None
-            else latex_block_match.start(2)
-        )
+        content = latex_block_match.group(1) if latex_block_match.group(1) is not None else latex_block_match.group(2)
+        offset = latex_block_match.start(1) if latex_block_match.group(1) is not None else latex_block_match.start(2)
         if not content:
             continue
         if content.strip().startswith("\\boxed{") and content.strip().endswith("}"):
             continue
 
-        for m_frac_latex in re.finditer(
-            r"\\frac\{(-?\d+(?:\.\d+)?)\}\{(-?\d+(?:\.\d+)?)\}", content
-        ):
+        for m_frac_latex in re.finditer(r"\\frac\{(-?\d+(?:\.\d+)?)\}\{(-?\d+(?:\.\d+)?)\}", content):
             try:
                 num, den = float(m_frac_latex.group(1)), float(m_frac_latex.group(2))
                 if den != 0:
@@ -308,9 +273,7 @@ def _extract_general_numeric_answers(text: str) -> List[Tuple[str, Union[float, 
             except (ValueError, ZeroDivisionError):
                 pass
 
-        for m_sci_latex in re.finditer(
-            r"(-?\d+(?:\.\d+)?)\s*\\times\s*10\^\{(.*?)\}", content
-        ):
+        for m_sci_latex in re.finditer(r"(-?\d+(?:\.\d+)?)\s*\\times\s*10\^\{(.*?)\}", content):
             try:
                 base, exp = float(m_sci_latex.group(1)), float(m_sci_latex.group(2))
                 potential_general_matches.append(
@@ -327,12 +290,8 @@ def _extract_general_numeric_answers(text: str) -> List[Tuple[str, Union[float, 
             except ValueError:
                 pass
 
-        for m_plain_latex in re.finditer(
-            r"(?<![a-zA-Z0-9_])(-?\d+(?:\.\d+)?)(?![a-zA-Z0-9_])", content
-        ):
-            if _is_coefficient(
-                text_content=content, match_obj=m_plain_latex, num_group_idx=1
-            ):
+        for m_plain_latex in re.finditer(r"(?<![a-zA-Z0-9_])(-?\d+(?:\.\d+)?)(?![a-zA-Z0-9_])", content):
+            if _is_coefficient(text_content=content, match_obj=m_plain_latex, num_group_idx=1):
                 continue
             try:
                 potential_general_matches.append(
@@ -351,9 +310,7 @@ def _extract_general_numeric_answers(text: str) -> List[Tuple[str, Union[float, 
 
     sci_pattern = r"(?<![a-zA-Z0-9_])(-?\d+\.?\d*[eE][-+]?\d+)(?:\s*([a-zA-Z%]+))?"
     for m in re.finditer(sci_pattern, text):
-        if _is_coefficient(
-            text_content=text, match_obj=m, num_group_idx=1, unit_group_idx=2
-        ):
+        if _is_coefficient(text_content=text, match_obj=m, num_group_idx=1, unit_group_idx=2):
             continue
         try:
             potential_general_matches.append(
@@ -369,9 +326,7 @@ def _extract_general_numeric_answers(text: str) -> List[Tuple[str, Union[float, 
 
     frac_pattern = r"(?<!\d/)(?<!\d)(?<!\.)(-?\d+)\s*/\s*(-?\d+)(?!\.\d)(?!\d*/)(?:\s+(?!(?:and|or)\b)([a-zA-Z%]+)\b)?"
     for m in re.finditer(frac_pattern, text):
-        if _is_coefficient(
-            text_content=text, match_obj=m, num_group_idx=1, unit_group_idx=3
-        ):
+        if _is_coefficient(text_content=text, match_obj=m, num_group_idx=1, unit_group_idx=3):
             continue
         try:
             num, den = float(m.group(1)), float(m.group(2))
@@ -393,13 +348,9 @@ def _extract_general_numeric_answers(text: str) -> List[Tuple[str, Union[float, 
         except (ValueError, ZeroDivisionError):
             pass
 
-    comma_num_pattern = (
-        r"(?<![a-zA-Z0-9_])(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)(?:\s*([a-zA-Z%]+))?"
-    )
+    comma_num_pattern = r"(?<![a-zA-Z0-9_])(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)(?:\s*([a-zA-Z%]+))?"
     for m in re.finditer(comma_num_pattern, text):
-        if _is_coefficient(
-            text_content=text, match_obj=m, num_group_idx=1, unit_group_idx=2
-        ):
+        if _is_coefficient(text_content=text, match_obj=m, num_group_idx=1, unit_group_idx=2):
             continue
         try:
             potential_general_matches.append(
@@ -413,13 +364,9 @@ def _extract_general_numeric_answers(text: str) -> List[Tuple[str, Union[float, 
         except ValueError:
             pass
 
-    decimal_pattern = (
-        r"(?<![a-zA-Z0-9_])(?<!,\d{3})(-?\d+\.\d+)(?!\d*[eE])(?:\s*([a-zA-Z%]+))?"
-    )
+    decimal_pattern = r"(?<![a-zA-Z0-9_])(?<!,\d{3})(-?\d+\.\d+)(?!\d*[eE])(?:\s*([a-zA-Z%]+))?"
     for m in re.finditer(decimal_pattern, text):
-        if _is_coefficient(
-            text_content=text, match_obj=m, num_group_idx=1, unit_group_idx=2
-        ):
+        if _is_coefficient(text_content=text, match_obj=m, num_group_idx=1, unit_group_idx=2):
             continue
         try:
             potential_general_matches.append(
@@ -433,11 +380,11 @@ def _extract_general_numeric_answers(text: str) -> List[Tuple[str, Union[float, 
         except ValueError:
             pass
 
-    integer_pattern = r"(?<![a-zA-Z0-9_])(?<!\d\.)(-?\d+)(?!\.\d)(?![eE][-+]?\d+)(?!,\d{3})(?!\s*/\s*\d+)(?:\s*([a-zA-Z%]+))?"
+    integer_pattern = (
+        r"(?<![a-zA-Z0-9_])(?<!\d\.)(-?\d+)(?!\.\d)(?![eE][-+]?\d+)(?!,\d{3})(?!\s*/\s*\d+)(?:\s*([a-zA-Z%]+))?"
+    )
     for m in re.finditer(integer_pattern, text):
-        if _is_coefficient(
-            text_content=text, match_obj=m, num_group_idx=1, unit_group_idx=2
-        ):
+        if _is_coefficient(text_content=text, match_obj=m, num_group_idx=1, unit_group_idx=2):
             continue
         try:
             potential_general_matches.append(
@@ -451,9 +398,7 @@ def _extract_general_numeric_answers(text: str) -> List[Tuple[str, Union[float, 
         except ValueError:
             pass
 
-    potential_general_matches.sort(
-        key=lambda x: (x["span"][0], -(x["span"][1] - x["span"][0]), x["type_priority"])
-    )
+    potential_general_matches.sort(key=lambda x: (x["span"][0], -(x["span"][1] - x["span"][0]), x["type_priority"]))
     filtered_general_answers: List[Tuple[str, Union[float, str]]] = []
     last_covered_end = -1
     for item in potential_general_matches:
@@ -476,9 +421,7 @@ def compare_numbers(
     relative_tolerance: float = 1e-5,
     absolute_tolerance: float = 1e-8,
 ) -> Tuple[bool, float]:
-    is_close = math.isclose(
-        expected, actual, rel_tol=relative_tolerance, abs_tol=absolute_tolerance
-    )
+    is_close = math.isclose(expected, actual, rel_tol=relative_tolerance, abs_tol=absolute_tolerance)
     if is_close:
         return True, 1.0
     try:
@@ -500,9 +443,7 @@ def _has_unit_text(full_extracted_text: str, numeric_value: float) -> bool:
         content_to_check = content_to_check[7:-1].strip()
 
     num_str_float = str(numeric_value)
-    num_str_int = (
-        str(int(numeric_value)) if numeric_value == int(numeric_value) else None
-    )
+    num_str_int = str(int(numeric_value)) if numeric_value == int(numeric_value) else None
     search_terms = [num_str_float]
     if num_str_int and num_str_int != num_str_float:
         search_terms.append(num_str_int)
@@ -513,11 +454,7 @@ def _has_unit_text(full_extracted_text: str, numeric_value: float) -> bool:
             suffix_start = found_at + len(term)
             if suffix_start < len(content_to_check):
                 suffix = content_to_check[suffix_start:].strip().split(" ")[0]
-                if (
-                    suffix
-                    and not suffix.replace(".", "", 1).isdigit()
-                    and suffix.lower() != "or"
-                ):
+                if suffix and not suffix.replace(".", "", 1).isdigit() and suffix.lower() != "or":
                     return True
     return False
 
@@ -531,22 +468,17 @@ def _check_unboxed_or_strictness(
     raw_extracted_numbers = extract_numbers(model_response_content)
     if (
         " or " in model_response_content.lower()
-        and sum(
-            1
-            for _, val_check in raw_extracted_numbers
-            if isinstance(val_check, (float, int))
-        )
-        > 1
+        and sum(1 for _, val_check in raw_extracted_numbers if isinstance(val_check, (float, int))) > 1
         and not (
             len(gen_answers_extracted) == 1
             and isinstance(gen_answers_extracted[0][1], str)
             and " or " in gen_answers_extracted[0][1].lower()
         )
     ):
-        specific_reason_detail = "Generated answer offers multiple numeric alternatives with an unboxed 'or' in the raw response."
-        full_reason = (
-            f"Strictness fail (Issue #1 - Unboxed 'or'): {specific_reason_detail}"
+        specific_reason_detail = (
+            "Generated answer offers multiple numeric alternatives with an unboxed 'or' in the raw response."
         )
+        full_reason = f"Strictness fail (Issue #1 - Unboxed 'or'): {specific_reason_detail}"
         metrics["strictness_penalty_unboxed_or"] = MetricResult(
             score=0.0, is_score_valid=False, reason=specific_reason_detail
         )
@@ -562,9 +494,7 @@ def _check_ambiguity_strictness(
     """Checks for ambiguity strictness violation."""
     if len(orig_answers_extracted) == 1 and len(gen_answers_extracted) > 1:
         specific_reason_detail = "Ground truth is specific (one answer), but generated answer is ambiguous (multiple answers extracted, even after potential leniency)."
-        full_reason = (
-            f"Strictness fail (Issue #2 - Ambiguity): {specific_reason_detail}"
-        )
+        full_reason = f"Strictness fail (Issue #2 - Ambiguity): {specific_reason_detail}"
         metrics["strictness_penalty_ambiguity"] = MetricResult(
             score=0.0, is_score_valid=False, reason=specific_reason_detail
         )
@@ -608,9 +538,7 @@ def _check_conflicting_answers_strictness(
                 conflicting_extra_numeric_values.append(gen_val)
 
         if conflicting_extra_numeric_values:
-            formatted_conflicting = ", ".join(
-                map(str, sorted(list(set(conflicting_extra_numeric_values))))
-            )
+            formatted_conflicting = ", ".join(map(str, sorted(list(set(conflicting_extra_numeric_values)))))
             specific_reason_detail = (
                 f"Generated answer, while containing a match for an original answer, "
                 f"also includes other distinct numerical values not matching any original answer: [{formatted_conflicting}]"
@@ -705,9 +633,7 @@ def math_reward(
     # --- DEMO Leniency Modification START ---
     is_single_orig_boxed_truth = False
     orig_boxed_value = None
-    if len(orig_answers_extracted) == 1 and orig_answers_extracted[0][0].startswith(
-        "\\boxed{"
-    ):
+    if len(orig_answers_extracted) == 1 and orig_answers_extracted[0][0].startswith("\\boxed{"):
         if isinstance(orig_answers_extracted[0][1], (float, int)):
             is_single_orig_boxed_truth = True
             orig_boxed_value = orig_answers_extracted[0][1]
@@ -732,15 +658,11 @@ def math_reward(
                     break
     # --- DEMO Leniency Modification END ---
 
-    unboxed_or_result = _check_unboxed_or_strictness(
-        model_response_content, gen_answers_extracted, metrics
-    )
+    unboxed_or_result = _check_unboxed_or_strictness(model_response_content, gen_answers_extracted, metrics)
     if unboxed_or_result:
         return unboxed_or_result
 
-    ambiguity_result = _check_ambiguity_strictness(
-        orig_answers_extracted, gen_answers_extracted, metrics
-    )
+    ambiguity_result = _check_ambiguity_strictness(orig_answers_extracted, gen_answers_extracted, metrics)
     if ambiguity_result:
         return ambiguity_result
 
@@ -754,9 +676,7 @@ def math_reward(
             current_match = False
             current_similarity = 0.0
             comparison_details = ""
-            if isinstance(orig_value, (float, int)) and isinstance(
-                gen_value, (float, int)
-            ):
+            if isinstance(orig_value, (float, int)) and isinstance(gen_value, (float, int)):
                 if require_units:
                     orig_has_unit = _has_unit_text(orig_text, float(orig_value))
                     gen_has_unit = _has_unit_text(gen_text, float(gen_value))
@@ -769,7 +689,9 @@ def math_reward(
                             tolerance,
                             absolute_tolerance,
                         )
-                        comparison_details = f"Numeric match: {'Yes' if current_match else 'No'}, Similarity: {current_similarity:.3f}"
+                        comparison_details = (
+                            f"Numeric match: {'Yes' if current_match else 'No'}, Similarity: {current_similarity:.3f}"
+                        )
                 else:
                     current_match, current_similarity = compare_numbers(
                         float(orig_value),
@@ -777,14 +699,20 @@ def math_reward(
                         tolerance,
                         absolute_tolerance,
                     )
-                    comparison_details = f"Numeric match: {'Yes' if current_match else 'No'}, Similarity: {current_similarity:.3f}"
+                    comparison_details = (
+                        f"Numeric match: {'Yes' if current_match else 'No'}, Similarity: {current_similarity:.3f}"
+                    )
             elif isinstance(orig_value, str) and isinstance(gen_value, str):
                 if orig_value.lower() == gen_value.lower():
                     current_match = True
                     current_similarity = 1.0
-                comparison_details = f"String match: {'Yes' if current_match else 'No'} (value: '{gen_value}' vs '{orig_value}')"
+                comparison_details = (
+                    f"String match: {'Yes' if current_match else 'No'} (value: '{gen_value}' vs '{orig_value}')"
+                )
             else:
-                comparison_details = f"Type mismatch: Gen({type(gen_value).__name__}) vs Orig({type(orig_value).__name__})"
+                comparison_details = (
+                    f"Type mismatch: Gen({type(gen_value).__name__}) vs Orig({type(orig_value).__name__})"
+                )
 
             if not first_comparison_details_for_no_match:
                 first_comparison_details_for_no_match = (
@@ -799,11 +727,7 @@ def math_reward(
                     f"Best match: Gen='{gen_text}' ({gen_value}) vs Orig='{orig_text}' ({orig_value}).\n"
                     f"{comparison_details}"
                 )
-            elif (
-                best_match_score == 0
-                and not match_found_flag
-                and current_similarity == 0
-            ):
+            elif best_match_score == 0 and not match_found_flag and current_similarity == 0:
                 best_match_reason = (
                     f"No score match: Gen='{gen_text}' ({gen_value}) vs Orig='{orig_text}' ({orig_value}).\n"
                     f"{comparison_details}"
@@ -817,19 +741,17 @@ def math_reward(
     ):
         best_match_reason = first_comparison_details_for_no_match
 
-    best_match_score, match_found_flag, best_match_reason = (
-        _check_conflicting_answers_strictness(
-            orig_answers_extracted,
-            gen_answers_extracted,
-            best_match_score,
-            match_found_flag,
-            is_single_orig_boxed_truth,
-            has_matching_gen_boxed_answer,
-            tolerance,
-            absolute_tolerance,
-            best_match_reason,
-            metrics,
-        )
+    best_match_score, match_found_flag, best_match_reason = _check_conflicting_answers_strictness(
+        orig_answers_extracted,
+        gen_answers_extracted,
+        best_match_score,
+        match_found_flag,
+        is_single_orig_boxed_truth,
+        has_matching_gen_boxed_answer,
+        tolerance,
+        absolute_tolerance,
+        best_match_reason,
+        metrics,
     )
 
     metrics["answer_comparison"] = MetricResult(
@@ -837,6 +759,4 @@ def math_reward(
         is_score_valid=match_found_flag and best_match_score > 0,
         reason=best_match_reason,
     )
-    return EvaluateResult(
-        score=best_match_score, reason=best_match_reason, metrics=metrics
-    )
+    return EvaluateResult(score=best_match_score, reason=best_match_reason, metrics=metrics)

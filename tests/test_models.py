@@ -30,9 +30,7 @@ def test_metric_result_serialization():
 
 def test_metric_result_deserialization():
     """Test deserializing MetricResult from JSON."""
-    json_str = (
-        '{"score": 0.9, "reason": "Test deserialization", "is_score_valid": true}'
-    )
+    json_str = '{"score": 0.9, "reason": "Test deserialization", "is_score_valid": true}'
     metric = MetricResult.model_validate_json(json_str)
     assert metric.score == 0.9
     assert metric.reason == "Test deserialization"
@@ -45,9 +43,7 @@ def test_evaluate_result_creation():
         "metric1": MetricResult(score=0.5, reason="Reason 1", is_score_valid=True),
         "metric2": MetricResult(score=0.7, reason="Reason 2", is_score_valid=True),
     }
-    result = EvaluateResult(
-        score=0.6, reason="Overall assessment", metrics=metrics, is_score_valid=True
-    )
+    result = EvaluateResult(score=0.6, reason="Overall assessment", metrics=metrics, is_score_valid=True)
     assert result.score == 0.6
     assert result.reason == "Overall assessment"
     assert len(result.metrics) == 2
@@ -63,9 +59,7 @@ def test_evaluate_result_serialization():
         "metric1": MetricResult(score=0.5, reason="Reason 1", is_score_valid=True),
         "metric2": MetricResult(score=0.7, reason="Reason 2", is_score_valid=True),
     }
-    result = EvaluateResult(
-        score=0.6, reason="Overall assessment", metrics=metrics, is_score_valid=True
-    )
+    result = EvaluateResult(score=0.6, reason="Overall assessment", metrics=metrics, is_score_valid=True)
     json_str = result.model_dump_json()
     data = json.loads(json_str)
     assert data["score"] == 0.6
@@ -98,9 +92,7 @@ def test_evaluate_result_deserialization():
 
 def test_empty_metrics_evaluate_result():
     """Test EvaluateResult with empty metrics dictionary."""
-    result = EvaluateResult(
-        score=1.0, reason="Perfect score", metrics={}, is_score_valid=True
-    )
+    result = EvaluateResult(score=1.0, reason="Perfect score", metrics={}, is_score_valid=True)
     assert result.score == 1.0
     assert result.reason == "Perfect score"
     assert result.metrics == {}
@@ -186,9 +178,7 @@ def test_evaluate_result_dict_access():
     assert result["error"] == "Test Error"
     assert result["metrics"] == metrics_dict  # Returns the dict of MetricResult objects
     assert result["metrics"]["metric1"] == metric1_obj
-    assert (
-        result["metrics"]["metric1"]["score"] == 0.5
-    )  # Accessing MetricResult via __getitem__
+    assert result["metrics"]["metric1"]["score"] == 0.5  # Accessing MetricResult via __getitem__
 
     with pytest.raises(KeyError):
         _ = result["invalid_key"]
@@ -262,9 +252,7 @@ def test_message_creation_requires_role():
     from pydantic import ValidationError  # Ensure ValidationError is imported
 
     # Test direct instantiation
-    with pytest.raises(
-        ValidationError, match="Field required"
-    ):  # Pydantic's typical error for missing field
+    with pytest.raises(ValidationError, match="Field required"):  # Pydantic's typical error for missing field
         Message(content="test content")
 
     # Test model_validate if it's intended to be a primary validation path

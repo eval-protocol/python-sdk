@@ -27,9 +27,7 @@ class TaxiSimServer(TaxiAdapter, SimulationServerBase):
         prod_server = TaxiProdServer()
 
         # Initialize simulation server
-        SimulationServerBase.__init__(
-            self, "Taxi-Simulation", production_server_app=prod_server.mcp
-        )
+        SimulationServerBase.__init__(self, "Taxi-Simulation", production_server_app=prod_server.mcp)
         TaxiAdapter.__init__(self)
 
     @simulation_tool
@@ -56,9 +54,7 @@ class TaxiSimServer(TaxiAdapter, SimulationServerBase):
 
         # Execute step
         env = session_state["env"]
-        obs, reward, terminated, truncated, info = self.step_environment(
-            env, action_int
-        )
+        obs, reward, terminated, truncated, info = self.step_environment(env, action_int)
 
         # Update session state
         session_state["steps"] += 1

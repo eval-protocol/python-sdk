@@ -40,9 +40,7 @@ class MockArgs:
 
 @pytest.fixture
 def mock_check_environment():
-    with patch(
-        "eval_protocol.cli_commands.preview.check_environment", return_value=True
-    ) as mock_check:
+    with patch("eval_protocol.cli_commands.preview.check_environment", return_value=True) as mock_check:
         yield mock_check
 
 
@@ -57,9 +55,7 @@ def create_temp_jsonl(tmp_path: Path, samples_data: list) -> str:
 class TestPreviewCommandRemoteUrl:
 
     @patch("requests.post")
-    def test_preview_remote_url_success_with_file(
-        self, mock_post, mock_check_environment, tmp_path, capsys
-    ):
+    def test_preview_remote_url_success_with_file(self, mock_post, mock_check_environment, tmp_path, capsys):
         mock_response = MagicMock()
         mock_response.status_code = 200
         sample_data_for_file = [
@@ -79,9 +75,7 @@ class TestPreviewCommandRemoteUrl:
             reason="Remote success",
             is_score_valid=True,
             metrics={
-                "accuracy": MetricResult(
-                    score=0.9, reason="High acc", is_score_valid=True
-                )
+                "accuracy": MetricResult(score=0.9, reason="High acc", is_score_valid=True)
             },  # This already has metrics
         ).model_dump()
         mock_response.json.return_value = eval_result_payload
@@ -101,23 +95,17 @@ class TestPreviewCommandRemoteUrl:
             ground_truth=sample_data_for_file[0]["ground_truth"],
             kwargs={"custom_kwarg": sample_data_for_file[0]["custom_kwarg"]},
         ).model_dump()
-        mock_post.assert_called_once_with(
-            expected_endpoint, json=expected_payload_sample1, timeout=30
-        )
+        mock_post.assert_called_once_with(expected_endpoint, json=expected_payload_sample1, timeout=30)
 
         captured = capsys.readouterr()
-        assert (
-            "Previewing against remote URL: http://fake-remote-eval.com" in captured.out
-        )
+        assert "Previewing against remote URL: http://fake-remote-eval.com" in captured.out
         assert "--- Sample 1 ---" in captured.out
         assert "Score: 0.8" in captured.out
 
     @pytest.mark.skipif(not DATASETS_AVAILABLE, reason="datasets library not installed")
     @patch("datasets.load_dataset")
     @patch("requests.post")
-    def test_preview_remote_url_success_with_hf(
-        self, mock_post, mock_hf_load_dataset, mock_check_environment, capsys
-    ):
+    def test_preview_remote_url_success_with_hf(self, mock_post, mock_hf_load_dataset, mock_check_environment, capsys):
         hf_sample_data = [
             {
                 "prompt": "HF User prompt",
@@ -132,9 +120,7 @@ class TestPreviewCommandRemoteUrl:
         mock_response = MagicMock()
         mock_response.status_code = 200
         # Corrected: Explicitly provide metrics={}
-        eval_result_payload = EvaluateResult(
-            score=0.7, reason="HF Remote success", metrics={}
-        ).model_dump()
+        eval_result_payload = EvaluateResult(score=0.7, reason="HF Remote success", metrics={}).model_dump()
         mock_response.json.return_value = eval_result_payload
         mock_post.return_value = mock_response
 
@@ -157,21 +143,15 @@ class TestPreviewCommandRemoteUrl:
             ground_truth="HF GT",
             kwargs={},
         ).model_dump()
-        mock_post.assert_called_once_with(
-            "http://fake-hf-eval.com/evaluate", json=expected_payload, timeout=30
-        )
+        mock_post.assert_called_once_with("http://fake-hf-eval.com/evaluate", json=expected_payload, timeout=30)
         captured = capsys.readouterr()
         assert "Score: 0.7" in captured.out
 
     @patch("requests.post")
-    def test_preview_remote_url_http_error(
-        self, mock_post, mock_check_environment, tmp_path, capsys
-    ):
+    def test_preview_remote_url_http_error(self, mock_post, mock_check_environment, tmp_path, capsys):
         sample_data = [{"messages": [{"role": "user", "content": "Test"}]}]
         temp_sample_file = create_temp_jsonl(tmp_path, sample_data)
-        mock_post.side_effect = requests.exceptions.HTTPError(
-            "403 Client Error: Forbidden for url"
-        )
+        mock_post.side_effect = requests.exceptions.HTTPError("403 Client Error: Forbidden for url")
 
         args = MockArgs(
             remote_url="http://fake-remote-eval.com",
@@ -185,9 +165,7 @@ class TestPreviewCommandRemoteUrl:
         assert "Error calling remote URL" in captured.out
         assert "403 Client Error: Forbidden for url" in captured.out
 
-    def test_preview_remote_url_invalid_url_format(
-        self, mock_check_environment, tmp_path, capsys
-    ):
+    def test_preview_remote_url_invalid_url_format(self, mock_check_environment, tmp_path, capsys):
         sample_data = [{"messages": [{"role": "user", "content": "Test"}]}]
         temp_sample_file = create_temp_jsonl(tmp_path, sample_data)
         args = MockArgs(remote_url="ftp://invalid-url.com", samples=temp_sample_file)
@@ -196,9 +174,7 @@ class TestPreviewCommandRemoteUrl:
         captured = capsys.readouterr()
         assert "Error: Invalid --remote-url 'ftp://invalid-url.com'" in captured.out
 
-    def test_preview_remote_url_no_samples_provided(
-        self, mock_check_environment, capsys
-    ):
+    def test_preview_remote_url_no_samples_provided(self, mock_check_environment, capsys):
         args = MockArgs(remote_url="http://fake-remote-eval.com")
         return_code = preview_command(args)
         assert return_code == 1
@@ -208,12 +184,8 @@ class TestPreviewCommandRemoteUrl:
             in captured.out
         )
 
-    def test_preview_remote_url_sample_file_not_found(
-        self, mock_check_environment, capsys
-    ):
-        args = MockArgs(
-            remote_url="http://fake-remote-eval.com", samples="non_existent.jsonl"
-        )
+    def test_preview_remote_url_sample_file_not_found(self, mock_check_environment, capsys):
+        args = MockArgs(remote_url="http://fake-remote-eval.com", samples="non_existent.jsonl")
         return_code = preview_command(args)
         assert return_code == 1
         captured = capsys.readouterr()
@@ -222,9 +194,7 @@ class TestPreviewCommandRemoteUrl:
 
 class TestPreviewCommandLocalMode:
     @patch("eval_protocol.cli_commands.preview.preview_evaluation")
-    def test_preview_local_mode_success(
-        self, mock_preview_eval, mock_check_environment, tmp_path, capsys
-    ):
+    def test_preview_local_mode_success(self, mock_preview_eval, mock_check_environment, tmp_path, capsys):
         sample_data = [{"messages": [{"role": "user", "content": "Test"}]}]
         temp_sample_file = create_temp_jsonl(tmp_path, sample_data)
 
@@ -238,9 +208,7 @@ class TestPreviewCommandLocalMode:
         mock_preview_eval.assert_called_once()
         mock_preview_result.display.assert_called_once()
 
-    def test_preview_local_mode_missing_metrics_folders(
-        self, mock_check_environment, tmp_path, capsys
-    ):
+    def test_preview_local_mode_missing_metrics_folders(self, mock_check_environment, tmp_path, capsys):
         sample_data = [{"messages": [{"role": "user", "content": "Test"}]}]
         temp_sample_file = create_temp_jsonl(tmp_path, sample_data)
         args = MockArgs(samples=temp_sample_file)
@@ -248,7 +216,4 @@ class TestPreviewCommandLocalMode:
         return_code = preview_command(args)
         assert return_code == 1
         captured = capsys.readouterr()
-        assert (
-            "Error: Either --remote-url or --metrics-folders must be specified."
-            in captured.out
-        )
+        assert "Error: Either --remote-url or --metrics-folders must be specified." in captured.out

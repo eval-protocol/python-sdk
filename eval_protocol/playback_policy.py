@@ -47,9 +47,7 @@ class PlaybackPolicyBase(ABC):
         # Environment variable override
         playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
         if playback_file and not self._is_playback:
-            logger.info(
-                f"🎬 Auto-enabling playback mode from environment variable: {playback_file}"
-            )
+            logger.info(f"🎬 Auto-enabling playback mode from environment variable: {playback_file}")
             self._playback_actions = self._load_trajectory_file(playback_file)
             self._is_playback = self._playback_actions is not None
 
@@ -58,9 +56,7 @@ class PlaybackPolicyBase(ABC):
             for env_index in self._playback_actions.keys():
                 self._playback_step_counters[env_index] = 0
 
-        logger.debug(
-            f"PlaybackPolicyBase initialized: playback_mode={self._is_playback}"
-        )
+        logger.debug(f"PlaybackPolicyBase initialized: playback_mode={self._is_playback}")
 
     @staticmethod
     def _load_trajectory_file(
@@ -99,9 +95,7 @@ class PlaybackPolicyBase(ABC):
 
                         # Validate required fields
                         if not isinstance(entry, dict):
-                            logger.warning(
-                                f"Line {line_num}: Entry is not a dictionary, skipping"
-                            )
+                            logger.warning(f"Line {line_num}: Entry is not a dictionary, skipping")
                             continue
 
                         env_index = entry.get("env_index")
@@ -122,9 +116,7 @@ class PlaybackPolicyBase(ABC):
                             playback_actions[env_key] = []
 
                         # Add step entry
-                        playback_actions[env_key].append(
-                            {"step": step, "messages": messages}
-                        )
+                        playback_actions[env_key].append({"step": step, "messages": messages})
 
                         valid_entries += 1
 
@@ -137,9 +129,7 @@ class PlaybackPolicyBase(ABC):
                 playback_actions[env_key].sort(key=lambda x: x["step"])
 
             if playback_actions:
-                logger.info(
-                    f"✅ Loaded {valid_entries} trajectory entries for {len(playback_actions)} environments"
-                )
+                logger.info(f"✅ Loaded {valid_entries} trajectory entries for {len(playback_actions)} environments")
                 return playback_actions
             else:
                 logger.warning(
@@ -179,15 +169,11 @@ class PlaybackPolicyBase(ABC):
             if action["step"] == current_step:
                 # Increment step counter for next call
                 self._playback_step_counters[str(env_index)] = current_step + 1
-                logger.debug(
-                    f"🎬 Environment {env_index}: Returning playback messages for step {current_step}"
-                )
+                logger.debug(f"🎬 Environment {env_index}: Returning playback messages for step {current_step}")
                 return action["messages"]
 
         # No more recorded actions available
-        logger.debug(
-            f"🎬 Environment {env_index}: No more playback data (step {current_step})"
-        )
+        logger.debug(f"🎬 Environment {env_index}: No more playback data (step {current_step})")
         return None
 
     def has_more_playback_data(self, env_index: int) -> bool:
@@ -254,7 +240,7 @@ class PlaybackPolicyBase(ABC):
         if self._is_playback:
             # In playback mode, get recorded messages
             messages = self._get_playback_messages(env_index)
-            
+
             if messages is None:
                 # No more recorded actions - signal early termination
                 return [
@@ -263,16 +249,14 @@ class PlaybackPolicyBase(ABC):
                         {"reason": "no_more_recorded_actions"},
                     )
                 ]
-            
+
             # Return the recorded tool call
             return self._extract_tool_call_from_messages(messages, env_index)
         else:
             # Live mode - generate tool call using provided conversation history
             return await self._generate_live_tool_calls(tool_schemas, env_index, conversation_history)
 
-    def _extract_tool_call_from_messages(
-        self, messages: List[Dict[str, Any]], env_index: int
-    ) -> List[MCPToolCall]:
+    def _extract_tool_call_from_messages(self, messages: List[Dict[str, Any]], env_index: int) -> List[MCPToolCall]:
         """
         Extract tool calls from recorded conversation messages.
 
@@ -309,15 +293,11 @@ class PlaybackPolicyBase(ABC):
 
                         mcp_tool_calls.append(MCPToolCall(tool_name, arguments, tool_call_id))
 
-                    logger.debug(
-                        f"🎬 Environment {env_index}: Extracted {len(mcp_tool_calls)} tool calls"
-                    )
+                    logger.debug(f"🎬 Environment {env_index}: Extracted {len(mcp_tool_calls)} tool calls")
                     return mcp_tool_calls
 
         # Fallback if no tool calls found
-        logger.warning(
-            f"🎬 Environment {env_index}: No tool calls found in messages, using unknown tool"
-        )
+        logger.warning(f"🎬 Environment {env_index}: No tool calls found in messages, using unknown tool")
         return [MCPToolCall("unknown", {})]
 
     def is_playback_mode(self) -> bool:
@@ -342,9 +322,7 @@ class PlaybackPolicyBase(ABC):
         progress = {
             "playback_mode": True,
             "environments": {},
-            "total_environments": (
-                len(self._playback_actions) if self._playback_actions else 0
-            ),
+            "total_environments": (len(self._playback_actions) if self._playback_actions else 0),
         }
 
         if self._playback_actions:
@@ -361,10 +339,12 @@ class PlaybackPolicyBase(ABC):
 
         return progress
 
-    def log_conversation_state_for_playback(self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]):
+    def log_conversation_state_for_playback(
+        self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]
+    ):
         """
         Log the current conversation state in the format required for playback.
-        
+
         Base implementation that subclasses can override with specific behavior.
         Expected format: {"env_index": 0, "step": 0, "messages": [{..}, {..}]}
 
@@ -387,10 +367,12 @@ class PlaybackPolicyBase(ABC):
         with open(playback_file, "a") as f:
             f.write(json.dumps(playback_entry) + "\n")
 
-    def log_conversation_state_for_playback(self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]):
+    def log_conversation_state_for_playback(
+        self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]
+    ):
         """
         Log the current conversation state in the format required for playback.
-        
+
         Base implementation that subclasses can override with specific behavior.
         Expected format: {"env_index": 0, "step": 0, "messages": [{..}, {..}]}
 

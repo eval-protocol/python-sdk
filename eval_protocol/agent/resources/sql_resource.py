@@ -37,9 +37,7 @@ class SQLResource(ForkableResource):
 
     def _get_db_connection(self) -> sqlite3.Connection:
         if not self._db_path:
-            raise ConnectionError(
-                "Database path not set. Call setup() or fork() first."
-            )
+            raise ConnectionError("Database path not set. Call setup() or fork() first.")
         # Set timeout to prevent indefinite hangs
         return sqlite3.connect(str(self._db_path), timeout=10)
 
@@ -100,9 +98,7 @@ class SQLResource(ForkableResource):
         If called on an already forked resource, it forks from its current state.
         """
         if not self._db_path or not self._db_path.exists():
-            raise RuntimeError(
-                "Cannot fork: original database does not exist or setup was not called."
-            )
+            raise RuntimeError("Cannot fork: original database does not exist or setup was not called.")
 
         forked_resource = SQLResource()
         forked_resource._config = self._config.copy()
@@ -152,9 +148,7 @@ class SQLResource(ForkableResource):
             self._db_path = self._temp_dir / f"restored_{uuid.uuid4().hex}.sqlite"
 
         shutil.copyfile(str(checkpoint_path), str(self._db_path))
-        self._base_db_path = (
-            self._db_path
-        )  # The restored state becomes the new base for future forks
+        self._base_db_path = self._db_path  # The restored state becomes the new base for future forks
 
     async def step(self, action_name: str, action_params: Dict[str, Any]) -> Any:
         """
@@ -171,9 +165,7 @@ class SQLResource(ForkableResource):
             Query result based on fetch_mode, or rowcount for DML.
         """
         if action_name != "execute_sql":
-            raise NotImplementedError(
-                f"Action '{action_name}' not supported by SQLResource."
-            )
+            raise NotImplementedError(f"Action '{action_name}' not supported by SQLResource.")
 
         query = action_params.get("query")
         if not query:
@@ -212,9 +204,7 @@ class SQLResource(ForkableResource):
         return {
             "db_type": "sqlite",
             "db_path": str(self._db_path) if self._db_path else None,
-            "status": (
-                "ready" if self._db_path and self._db_path.exists() else "uninitialized"
-            ),
+            "status": ("ready" if self._db_path and self._db_path.exists() else "uninitialized"),
         }
 
     async def get_tools_spec(self) -> List[Dict[str, Any]]:

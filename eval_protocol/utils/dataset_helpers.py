@@ -48,9 +48,7 @@ def load_jsonl_to_hf_dataset(
         or if an error occurs.
     """
     if not HAS_DATASETS_LIB:
-        print(
-            "The 'datasets' library is not installed. Please install it with 'pip install datasets'."
-        )
+        print("The 'datasets' library is not installed. Please install it with 'pip install datasets'.")
         return None
 
     processed_samples: List[Dict[str, Any]] = []
@@ -75,9 +73,7 @@ def load_jsonl_to_hf_dataset(
                     processed_samples.append(transformed_sample)
 
                 except json.JSONDecodeError as e:
-                    print(
-                        f"Warning: Skipping line {line_number} in {dataset_path} due to JSON decode error: {e}"
-                    )
+                    print(f"Warning: Skipping line {line_number} in {dataset_path} due to JSON decode error: {e}")
                 except Exception as e:
                     print(
                         f"Warning: Skipping line {line_number} in {dataset_path} due to error in transform_fn or filter_fn: {e}"

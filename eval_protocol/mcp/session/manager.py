@@ -15,6 +15,7 @@ from ..types import DatasetRow, MCPSession, MCPToolCall
 
 logger = logging.getLogger(__name__)
 
+
 # TODO: rename this file or the other manager.py
 class GeneralMCPVectorEnv:
     """
@@ -53,21 +54,17 @@ class GeneralMCPVectorEnv:
     async def reset(self, session: MCPSession) -> Tuple[Any, List[Dict]]:
         """
         Reset a single session - establish connection, get tools and initial state.
-        
+
         This is thread-safe and can be called from worker threads.
         """
         # Establish a persistent session for each environment.
         await self.execution_manager.connection_manager.initialize_session(session)
 
         # Get available tools from MCP server
-        tool_schemas = await self.execution_manager.connection_manager.discover_tools(
-            session
-        )
+        tool_schemas = await self.execution_manager.connection_manager.discover_tools(session)
 
         # PROPER MCP PATTERN: Get initial state from resources during session establishment
-        initial_observation = (
-            await self.execution_manager.connection_manager.get_initial_state(session)
-        )
+        initial_observation = await self.execution_manager.connection_manager.get_initial_state(session)
 
         # Update session state
         session.terminated = False
@@ -78,11 +75,11 @@ class GeneralMCPVectorEnv:
     async def step(self, env_index: int, tool_call: MCPToolCall) -> Tuple[Any, float, bool, Dict]:
         """
         Execute a tool call for a single environment.
-        
+
         Args:
             env_index: Index of the environment to step
             tool_call: Tool call to execute
-            
+
         Returns:
             observation: New observation after executing the tool call
             reward: Reward from the environment
@@ -91,9 +88,9 @@ class GeneralMCPVectorEnv:
         """
         if env_index >= self.n or env_index < 0:
             raise ValueError(f"Environment index {env_index} out of range [0, {self.n})")
-            
+
         session = self.sessions[env_index]
-        
+
         if session.terminated:
             return session.last_observation, 0.0, True, {}
 
@@ -107,10 +104,15 @@ class GeneralMCPVectorEnv:
         if tool_call.tool_name == "_no_tool_call":
             logger.info(f"🏁 Session {session.session_id}: No tool call generated, episode likely ended")
             session.terminated = True
-            return session.last_observation, 0.0, True, {
-                "no_tool_call": True,
-                "reason": tool_call.arguments.get("reason", "unknown"),
-            }
+            return (
+                session.last_observation,
+                0.0,
+                True,
+                {
+                    "no_tool_call": True,
+                    "reason": tool_call.arguments.get("reason", "unknown"),
+                },
+            )
 
         # Execute the tool call via MCP protocol
         observation, reward, done, info = await self.execution_manager.connection_manager.call_tool(
@@ -123,23 +125,22 @@ class GeneralMCPVectorEnv:
 
         return observation, reward, done, info
 
-
     def format_user_prompt(self, env_index: int, observation: Any) -> Union[str, List[Dict[str, Any]]]:
         """
         Format user prompt dynamically for a single environment based on current observation.
         """
         if env_index >= self.n or env_index < 0:
             raise ValueError(f"Environment index {env_index} out of range [0, {self.n})")
-            
+
         dataset_row = self.dataset_rows[env_index]
-        
+
         # Use the callback to format the prompt
         prompt = self.user_prompt_formatter(
-            dataset_row.user_prompt_template, 
-            observation, 
-            dataset_row.environment_context
+            dataset_row.user_prompt_template,
+            observation,
+            dataset_row.environment_context,
         )
-        
+
         return prompt
 
     def format_tool_response(self, obs: Any) -> Union[str, List[Dict[str, Any]]]:
@@ -155,20 +156,18 @@ class GeneralMCPVectorEnv:
             return [
                 {
                     "type": "text",
-                    "text": json.dumps(obs) if isinstance(obs, dict) else str(obs)
+                    "text": json.dumps(obs) if isinstance(obs, dict) else str(obs),
                 },
                 {
                     "type": "image_url",
                     "image_url": {
                         "url": image_url,
-                    }
-                }
+                    },
+                },
             ]
 
         else:
             return json.dumps(obs) if isinstance(obs, dict) else str(obs)
-
-
 
     def _default_formatter(self, template: str, obs: Any, context: Dict) -> Union[str, List[Dict[str, Any]]]:
         """
@@ -177,7 +176,7 @@ class GeneralMCPVectorEnv:
         Extracts meaningful display data from MCP observations.
         For FrozenLake: extracts grid_layout if available, otherwise uses raw observation.
         For visual environments: returns multimodal content with both text and images.
-        
+
         Returns:
             Either a string (text-only) or a dict (multimodal content)
         """
@@ -191,21 +190,17 @@ class GeneralMCPVectorEnv:
                 image_dict = obs["image_url"]
                 display_obs.pop("image_url")
             # For other structured observations, try to extract meaningful display
-            elif (
-                "observation" in obs
-                and obs["observation"] != "default_initial_state"
-            ):
+            elif "observation" in obs and obs["observation"] != "default_initial_state":
                 display_obs = obs["observation"]
             # If we still have default_initial_state, try to use position info
-            elif (
-                obs.get("observation") == "default_initial_state"
-                and "session_id" in obs
-            ):
+            elif obs.get("observation") == "default_initial_state" and "session_id" in obs:
                 # This is the fallback case - we should have gotten the proper initial state from MCP resources
-                display_obs = f"Initial game state (Session: {obs['session_id']})\nWaiting for grid data from server..."
+                display_obs = (
+                    f"Initial game state (Session: {obs['session_id']})\nWaiting for grid data from server..."
+                )
 
         formatted_prompt = template.format(observation=display_obs, **context)
-        
+
         # If we have image data, return multimodal content
         if image_dict:
             return [
@@ -216,9 +211,9 @@ class GeneralMCPVectorEnv:
                 {
                     "type": "image_url",
                     "image_url": image_dict,
-                }
+                },
             ]
-        
+
         return formatted_prompt
 
     async def close(self):

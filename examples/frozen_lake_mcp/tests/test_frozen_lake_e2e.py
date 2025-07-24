@@ -39,7 +39,7 @@ def create_frozen_lake_static_policy(action_sequence: Optional[List[str]] = None
         tool_name="lake_move",
         action_sequence=action_sequence or ["RIGHT", "RIGHT", "RIGHT", "DOWN", "DOWN", "DOWN"],
         available_actions=["LEFT", "DOWN", "RIGHT", "UP"],
-        **kwargs
+        **kwargs,
     )
 
 
@@ -49,7 +49,7 @@ def create_frozen_lake_random_policy(seed: Optional[int] = None, **kwargs) -> Ra
         tool_name="lake_move",
         available_actions=["LEFT", "DOWN", "RIGHT", "UP"],
         seed=seed,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -201,9 +201,7 @@ def conda_isolation_recording_file():
 
 
 @pytest.mark.asyncio
-async def test_production_server_record_and_replay(
-    production_server, frozen_lake_dataset, production_recording_file
-):
+async def test_production_server_record_and_replay(production_server, frozen_lake_dataset, production_recording_file):
     """Test production server with record and replay functionality."""
 
     # Check if we're in CI mode and have existing recording
@@ -233,14 +231,10 @@ async def test_production_server_record_and_replay(
 
         # Run playback
         start_time = time.time()
-        playback_trajectories = await rk.rollout(
-            playback_envs, policy=playback_policy, steps=8
-        )
+        playback_trajectories = await rk.rollout(playback_envs, policy=playback_policy, steps=8)
         playback_duration = time.time() - start_time
 
-        print(
-            f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s"
-        )
+        print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
 
         # Clean up environment variable
         if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
@@ -281,9 +275,7 @@ async def test_production_server_record_and_replay(
     )
     recording_duration = time.time() - start_time
 
-    assert len(trajectories) == len(
-        frozen_lake_dataset
-    ), "Should have trajectory for each dataset entry"
+    assert len(trajectories) == len(frozen_lake_dataset), "Should have trajectory for each dataset entry"
     assert os.path.exists(production_recording_file), "Recording file should be created"
 
     print(f"✅ Recorded {len(trajectories)} trajectories in {recording_duration:.2f}s")
@@ -298,9 +290,7 @@ async def test_production_server_record_and_replay(
             f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
         )
         if hasattr(traj, "actions") and len(traj.actions) > 0:
-            print(
-                f"    Actions: {traj.actions[:5]}{'...' if len(traj.actions) > 5 else ''}"
-            )
+            print(f"    Actions: {traj.actions[:5]}{'...' if len(traj.actions) > 5 else ''}")
 
     # Read and display first few recorded steps for verification
     print("🔍 Sample recorded steps (first 3):")
@@ -312,9 +302,7 @@ async def test_production_server_record_and_replay(
                 step_data = json.loads(line)
                 env_idx = step_data.get("env_index", "?")
                 step_num = step_data.get("step", "?")
-                print(
-                    f"    Step {step_num} (env {env_idx}): {len(step_data.get('messages', []))} messages"
-                )
+                print(f"    Step {step_num} (env {env_idx}): {len(step_data.get('messages', []))} messages")
     except Exception as e:
         print(f"    Could not read recording file for preview: {e}")
 
@@ -340,25 +328,15 @@ async def test_production_server_record_and_replay(
 
     # Run playback
     start_time = time.time()
-    playback_trajectories = await rk.rollout(
-        playback_envs, policy=playback_policy, steps=15
-    )
+    playback_trajectories = await rk.rollout(playback_envs, policy=playback_policy, steps=15)
     playback_duration = time.time() - start_time
 
-    assert len(playback_trajectories) == len(
-        trajectories
-    ), "Playback should have same number of trajectories"
+    assert len(playback_trajectories) == len(trajectories), "Playback should have same number of trajectories"
 
     # Calculate speedup
-    speedup = (
-        recording_duration / playback_duration
-        if playback_duration > 0
-        else float("inf")
-    )
+    speedup = recording_duration / playback_duration if playback_duration > 0 else float("inf")
 
-    print(
-        f"✅ Played back {len(playback_trajectories)} trajectories in {playback_duration:.2f}s"
-    )
+    print(f"✅ Played back {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
     print(f"⚡ Speedup: {speedup:.1f}x faster than recording")
 
     # Validate performance - playback should be significantly faster
@@ -448,9 +426,7 @@ async def test_frozen_lake_step_by_step(conda_isolation_recording_file):
     # Check if we're in CI mode and have existing recording
     is_ci = os.environ.get("CI", "").lower() in ["true", "1", "yes"]
     if is_ci and os.path.exists(conda_isolation_recording_file):
-        print(
-            "⚠️ CI mode: Skipping conda isolation test (requires live conda environments)"
-        )
+        print("⚠️ CI mode: Skipping conda isolation test (requires live conda environments)")
         pytest.skip("CI mode skips resource-intensive conda isolation tests")
 
     # Test with conda isolation (if CondaServerProcessManager is available)
@@ -511,12 +487,8 @@ async def test_frozen_lake_step_by_step(conda_isolation_recording_file):
         assert len(trajectories) == 1, "Should have one trajectory"
         assert len(trajectories[0].get("steps", [])) > 0, "Should have recorded steps"
 
-        print(
-            f"✅ Conda-isolated server test completed with {len(trajectories[0]['steps'])} steps in {duration:.2f}s"
-        )
-        print(
-            f"📁 Conda isolation recording saved to: {conda_isolation_recording_file}"
-        )
+        print(f"✅ Conda-isolated server test completed with {len(trajectories[0]['steps'])} steps in {duration:.2f}s")
+        print(f"📁 Conda isolation recording saved to: {conda_isolation_recording_file}")
 
         # Print trajectory summary
         traj = trajectories[0]
@@ -535,9 +507,7 @@ async def test_frozen_lake_step_by_step(conda_isolation_recording_file):
             del os.environ["REWARD_KIT_PLAYBACK_FILE"]
 
     except ImportError:
-        print(
-            "⚠️ CondaServerProcessManager not available, skipping conda isolation test"
-        )
+        print("⚠️ CondaServerProcessManager not available, skipping conda isolation test")
         pytest.skip("CondaServerProcessManager not available")
 
 
@@ -603,9 +573,7 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
         os.environ["REWARD_KIT_PLAYBACK_FILE"] = multi_env_recording_file
 
         # Create static policy for fast testing
-        policy = create_frozen_lake_static_policy(
-            action_sequence=["RIGHT", "RIGHT", "RIGHT", "DOWN", "DOWN", "DOWN"]
-        )
+        policy = create_frozen_lake_static_policy(action_sequence=["RIGHT", "RIGHT", "RIGHT", "DOWN", "DOWN", "DOWN"])
 
         # Create multiple environments
         envs = rk.make(
@@ -622,16 +590,10 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == len(
-            multi_env_dataset
-        ), "Should have trajectory for each environment"
-        assert all(
-            traj.steps > 0 for traj in trajectories
-        ), "All trajectories should have steps"
+        assert len(trajectories) == len(multi_env_dataset), "Should have trajectory for each environment"
+        assert all(traj.steps > 0 for traj in trajectories), "All trajectories should have steps"
 
-        print(
-            f"✅ Multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s"
-        )
+        print(f"✅ Multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s")
         print(f"📁 Multi-environment recording saved to: {multi_env_recording_file}")
 
         # Print trajectory summaries
@@ -692,9 +654,7 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
 
     for env_idx in range(len(dataset)):
         if env_idx not in env_recordings:
-            print(
-                f"  ⚠️  Environment {env_idx}: No recordings found (likely terminated immediately)"
-            )
+            print(f"  ⚠️  Environment {env_idx}: No recordings found (likely terminated immediately)")
             continue
 
         first_entry = env_recordings[env_idx][0]
@@ -729,18 +689,12 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
     if len(starting_grids) > 1:
         unique_grids = set(starting_grids)
         if len(unique_grids) < len(starting_grids):
-            print(
-                f"⚠️  Warning: Only {len(unique_grids)} unique grids for {len(starting_grids)} recorded environments"
-            )
+            print(f"⚠️  Warning: Only {len(unique_grids)} unique grids for {len(starting_grids)} recorded environments")
             print("   This may indicate seed issues or identical random maps")
         else:
-            print(
-                f"✅ All {len(starting_grids)} recorded environments have unique starting grids"
-            )
+            print(f"✅ All {len(starting_grids)} recorded environments have unique starting grids")
     else:
-        print(
-            f"ℹ️  Only {len(starting_grids)} environments recorded - cannot validate grid uniqueness"
-        )
+        print(f"ℹ️  Only {len(starting_grids)} environments recorded - cannot validate grid uniqueness")
 
     # Validation 2: State progression within each environment
     print("\n🎮 Validating state progression...")
@@ -756,9 +710,7 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
                     tool_responses.append(msg["content"])
 
         if len(tool_responses) < 2:
-            print(
-                f"  Env {env_idx}: Only {len(tool_responses)} tool responses, skipping progression check"
-            )
+            print(f"  Env {env_idx}: Only {len(tool_responses)} tool responses, skipping progression check")
             continue
 
         # Parse positions from first two tool responses
@@ -770,9 +722,7 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
                 positions.append(position)
                 print(f"    Step {i+1}: Position {position}")
             except json.JSONDecodeError:
-                pytest.fail(
-                    f"❌ Invalid JSON in tool response {i+1} for env {env_idx}: {response}"
-                )
+                pytest.fail(f"❌ Invalid JSON in tool response {i+1} for env {env_idx}: {response}")
 
         # TODO: come back to fix this later.
         # if len(positions) >= 2:
@@ -837,9 +787,7 @@ def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
                         continue
 
         if len(positions) < 2:
-            print(
-                f"  ℹ️  Env {env_idx}: Only {len(positions)} positions recorded, skipping repeated state check"
-            )
+            print(f"  ℹ️  Env {env_idx}: Only {len(positions)} positions recorded, skipping repeated state check")
             continue
 
         # Check for consecutive repeated positions
@@ -853,9 +801,7 @@ def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
                 repeat_count += 1
             else:
                 if repeat_count > 1:
-                    repeated_sequences.append(
-                        (current_position, repeat_count, start_step)
-                    )
+                    repeated_sequences.append((current_position, repeat_count, start_step))
                 current_position = position
                 repeat_count = 1
                 start_step = step_num
@@ -868,23 +814,17 @@ def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
         if repeated_sequences:
             print(f"  ⚠️  Env {env_idx}: Found repeated state sequences:")
             for pos, count, start in repeated_sequences:
-                print(
-                    f"    - Position {pos} repeated {count} times starting from step {start}"
-                )
+                print(f"    - Position {pos} repeated {count} times starting from step {start}")
 
             # CRITICAL ASSERTION: No position should repeat more than once
             # (one action, one result, move on - no getting stuck)
             max_repeats = max(count for _, count, _ in repeated_sequences)
-            if (
-                max_repeats > 5
-            ):  # Allow more repeats for LLM policies which might behave differently
+            if max_repeats > 5:  # Allow more repeats for LLM policies which might behave differently
                 longest_sequence = max(repeated_sequences, key=lambda x: x[1])
                 print(
                     f"⚠️  WARNING: Env {env_idx}: Position {longest_sequence[0]} repeated {longest_sequence[1]} times starting from step {longest_sequence[2]}."
                 )
-                print(
-                    f"    This might indicate session state or control plane termination issues."
-                )
+                print(f"    This might indicate session state or control plane termination issues.")
                 print(f"    All positions: {[pos for _, pos in positions]}")
                 # For FireworksPolicy, log but don't fail the test as LLM behavior can vary
                 # pytest.fail(
@@ -896,9 +836,7 @@ def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
                 #     f"All positions: {[pos for _, pos in positions]}"
                 # )
         else:
-            print(
-                f"  ✅ Env {env_idx}: No repeated states detected - good state progression!"
-            )
+            print(f"  ✅ Env {env_idx}: No repeated states detected - good state progression!")
 
 
 def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
@@ -932,18 +870,14 @@ def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
                         terminated_steps += 1
 
         if env_total_count > 0:
-            print(
-                f"  Env {env_idx}: {env_terminated_count}/{env_total_count} steps show terminated=True"
-            )
+            print(f"  Env {env_idx}: {env_terminated_count}/{env_total_count} steps show terminated=True")
 
     print(f"\n📊 Overall: {terminated_steps}/{total_steps} steps show terminated=True")
 
     # Note: Some environments may not be recorded if they terminate immediately
     missing_envs = len(dataset) - len(env_recordings)
     if missing_envs > 0:
-        print(
-            f"  ℹ️  {missing_envs} environments not recorded (likely terminated immediately)"
-        )
+        print(f"  ℹ️  {missing_envs} environments not recorded (likely terminated immediately)")
 
     # CRITICAL ASSERTION: If we have a reasonable number of steps and NO termination, that's a bug
     if total_steps >= 10 and terminated_steps == 0:
@@ -954,18 +888,12 @@ def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
             f"Expected: At least some episodes should terminate when agents reach goals or max steps."
         )
     elif terminated_steps == 0:
-        print(
-            f"  ⚠️  Warning: No terminated=True found in {total_steps} steps (may be expected for short runs)"
-        )
+        print(f"  ⚠️  Warning: No terminated=True found in {total_steps} steps (may be expected for short runs)")
     else:
-        print(
-            f"  ✅ Found some termination signals - control plane appears to be working"
-        )
+        print(f"  ✅ Found some termination signals - control plane appears to be working")
 
 
-def _validate_no_tool_calls_after_termination(
-    env_recordings: Dict, dataset: List[Dict]
-):
+def _validate_no_tool_calls_after_termination(env_recordings: Dict, dataset: List[Dict]):
     """
     CRITICAL TEST: Check that no tool calls happen after an environment is terminated.
 
@@ -995,9 +923,7 @@ def _validate_no_tool_calls_after_termination(
                         # First termination detected
                         termination_detected = True
                         termination_step = entry_idx
-                        print(
-                            f"  Env {env_idx}: Termination detected at step {termination_step}"
-                        )
+                        print(f"  Env {env_idx}: Termination detected at step {termination_step}")
                     elif termination_detected:
                         # Count steps after termination
                         steps_after_termination += 1
@@ -1071,9 +997,7 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
         elif last_terminated:
             print(f"    ✅ Trajectory properly terminated")
         else:
-            print(
-                f"    ℹ️  Short trajectory ({total_steps} steps) - termination not required"
-            )
+            print(f"    ℹ️  Short trajectory ({total_steps} steps) - termination not required")
 
 
 # Update the fixture to not remove the file
@@ -1102,15 +1026,11 @@ def fireworks_multi_env_recording_file():
     yield str(recording_path)
 
     # Keep the file after test completion for review
-    print(
-        f"📁 FireworksPolicy multi-environment trajectory preserved at: {recording_path}"
-    )
+    print(f"📁 FireworksPolicy multi-environment trajectory preserved at: {recording_path}")
 
 
 @pytest.mark.asyncio
-async def test_fireworks_multi_environment_sessions(
-    multi_env_dataset, fireworks_multi_env_recording_file
-):
+async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks_multi_env_recording_file):
     """Test multi-environment session handling with FireworksPolicy."""
 
     print("\n🧪 === FIREWORKS MULTI-ENVIRONMENT SESSION TEST ===")
@@ -1142,14 +1062,10 @@ async def test_fireworks_multi_environment_sessions(
 
         # Run playback
         start_time = time.time()
-        playback_trajectories = await rk.rollout(
-            playback_envs, policy=playback_policy, steps=8
-        )
+        playback_trajectories = await rk.rollout(playback_envs, policy=playback_policy, steps=8)
         playback_duration = time.time() - start_time
 
-        print(
-            f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s"
-        )
+        print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
 
         # Clean up environment variable
         if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
@@ -1160,9 +1076,7 @@ async def test_fireworks_multi_environment_sessions(
     # ALWAYS remove trajectory file first to avoid confusion
     if os.path.exists(fireworks_multi_env_recording_file):
         os.unlink(fireworks_multi_env_recording_file)
-        print(
-            f"🧹 Removed existing trajectory file: {fireworks_multi_env_recording_file}"
-        )
+        print(f"🧹 Removed existing trajectory file: {fireworks_multi_env_recording_file}")
 
     # Start server for this test
     server = _create_test_server(9700)
@@ -1196,19 +1110,13 @@ async def test_fireworks_multi_environment_sessions(
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == len(
-            multi_env_dataset
-        ), "Should have trajectory for each environment"
-        assert all(
-            traj.steps > 0 for traj in trajectories
-        ), "All trajectories should have steps"
+        assert len(trajectories) == len(multi_env_dataset), "Should have trajectory for each environment"
+        assert all(traj.steps > 0 for traj in trajectories), "All trajectories should have steps"
 
         print(
             f"✅ FireworksPolicy multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s"
         )
-        print(
-            f"📁 FireworksPolicy multi-environment recording saved to: {fireworks_multi_env_recording_file}"
-        )
+        print(f"📁 FireworksPolicy multi-environment recording saved to: {fireworks_multi_env_recording_file}")
 
         # Print trajectory summaries
         print("📊 FireworksPolicy Multi-Environment Trajectory Summary:")
@@ -1219,24 +1127,18 @@ async def test_fireworks_multi_environment_sessions(
                 f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
             )
             if hasattr(traj, "actions") and len(traj.actions) > 0:
-                print(
-                    f"    Actions: {traj.actions[:3]}{'...' if len(traj.actions) > 3 else ''}"
-                )
+                print(f"    Actions: {traj.actions[:3]}{'...' if len(traj.actions) > 3 else ''}")
 
         # Validate that different seeds produce different environments
         unique_rewards = set(traj.total_reward for traj in trajectories)
         print(f"📈 Unique rewards across environments: {unique_rewards}")
 
         # 🔍 CRITICAL VALIDATIONS
-        await _validate_recording_integrity(
-            fireworks_multi_env_recording_file, multi_env_dataset
-        )
+        await _validate_recording_integrity(fireworks_multi_env_recording_file, multi_env_dataset)
 
         # === PLAYBACK PHASE ===
         print("\n🎬 === FIREWORKS MULTI-ENVIRONMENT PLAYBACK PHASE ===")
-        print(
-            "ℹ️  Skipping playback phase for FireworksPolicy test - core functionality validated"
-        )
+        print("ℹ️  Skipping playback phase for FireworksPolicy test - core functionality validated")
 
         # TODO: Enable playback phase once infrastructure issues are resolved
         # The recording phase has successfully validated:
@@ -1329,9 +1231,7 @@ async def test_control_plane_state_querying(multi_env_dataset):
         # Validate results
         assert len(trajectories) == 2, "Should have 2 trajectories"
 
-        print(
-            f"✅ Control plane test completed with {len(trajectories)} trajectories in {duration:.2f}s"
-        )
+        print(f"✅ Control plane test completed with {len(trajectories)} trajectories in {duration:.2f}s")
 
         # Print trajectory summaries to verify different session behavior
         print("📊 Control Plane State Summary:")
@@ -1348,9 +1248,7 @@ async def test_control_plane_state_querying(multi_env_dataset):
         _stop_test_server(server)
 
 
-async def _run_playback_only(
-    recording_file: str, dataset: List[Dict], server_url: str, steps: int = 8
-):
+async def _run_playback_only(recording_file: str, dataset: List[Dict], server_url: str, steps: int = 8):
     """Run playback-only mode for CI testing."""
     print("\n🎬 === CI MODE: PLAYBACK ONLY ===")
 
@@ -1376,14 +1274,10 @@ async def _run_playback_only(
 
     # Run playback
     start_time = time.time()
-    playback_trajectories = await rk.rollout(
-        playback_envs, policy=playback_policy, steps=steps
-    )
+    playback_trajectories = await rk.rollout(playback_envs, policy=playback_policy, steps=steps)
     playback_duration = time.time() - start_time
 
-    print(
-        f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s"
-    )
+    print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
 
     _cleanup_playback_env()
 

@@ -42,22 +42,14 @@ def transform_codeparrot_apps_sample(example: Dict[str, Any]) -> Dict[str, Any]:
             # and are lists, as expected by apps_testing_util.py
             gt_dict["inputs"] = parsed_io.get("inputs", [])
             gt_dict["outputs"] = parsed_io.get("outputs", [])
-            if not isinstance(gt_dict["inputs"], list) or not isinstance(
-                gt_dict["outputs"], list
-            ):
+            if not isinstance(gt_dict["inputs"], list) or not isinstance(gt_dict["outputs"], list):
                 logger.warning(
                     f"Parsed input_output for problem_id {example.get('problem_id', 'Unknown')} "
                     f"does not contain 'inputs'/'outputs' as lists. IO: {input_output_str}"
                 )
                 # Fallback to empty lists if types are wrong to prevent downstream errors
-                gt_dict["inputs"] = (
-                    [] if not isinstance(gt_dict["inputs"], list) else gt_dict["inputs"]
-                )
-                gt_dict["outputs"] = (
-                    []
-                    if not isinstance(gt_dict["outputs"], list)
-                    else gt_dict["outputs"]
-                )
+                gt_dict["inputs"] = [] if not isinstance(gt_dict["inputs"], list) else gt_dict["inputs"]
+                gt_dict["outputs"] = [] if not isinstance(gt_dict["outputs"], list) else gt_dict["outputs"]
 
         except json.JSONDecodeError:
             logger.warning(
@@ -71,9 +63,7 @@ def transform_codeparrot_apps_sample(example: Dict[str, Any]) -> Dict[str, Any]:
         # If input_output field is missing or empty, provide empty lists
         gt_dict["inputs"] = []
         gt_dict["outputs"] = []
-        logger.warning(
-            f"Missing or empty input_output field for problem_id {example.get('problem_id', 'Unknown')}."
-        )
+        logger.warning(f"Missing or empty input_output field for problem_id {example.get('problem_id', 'Unknown')}.")
 
     example["transformed_ground_truth"] = json.dumps(gt_dict)
     return example
@@ -92,9 +82,7 @@ def load_jsonl_file(file_path: str) -> List[Dict[str, Any]]:
             try:
                 data.append(json.loads(line))
             except json.JSONDecodeError as e:
-                raise ValueError(
-                    f"Error decoding JSON in file {file_path}: {e} on line: {line.strip()}"
-                )
+                raise ValueError(f"Error decoding JSON in file {file_path}: {e} on line: {line.strip()}")
     return data
 
 
@@ -103,9 +91,7 @@ def load_and_process_dataset(
     path_or_name: str,
     split: Optional[str] = None,
     config_name: Optional[str] = None,
-    data_files: Optional[
-        Union[str, List[str], Dict[str, Union[str, List[str]]]]
-    ] = None,
+    data_files: Optional[Union[str, List[str], Dict[str, Union[str, List[str]]]]] = None,
     max_samples: Optional[int] = None,
     # column_mapping: Optional[Dict[str, str]] = None, # To be used for processing
     # preprocessing_steps: Optional[List[str]] = None, # To be implemented
@@ -160,9 +146,7 @@ def load_and_process_dataset(
 
     logger.info(f"Dataset description: {dataset_description}")
 
-    load_kwargs_for_hf.update(
-        kwargs
-    )  # Merge remaining kwargs (actual HF load_dataset params)
+    load_kwargs_for_hf.update(kwargs)  # Merge remaining kwargs (actual HF load_dataset params)
 
     if source_type == "huggingface":
         if config_name:  # config_name is a standard HF param
@@ -223,11 +207,7 @@ def load_and_process_dataset(
                     f"Split '{split}' not found in loaded jsonl DatasetDict. Available splits: {list(loaded_dataset.keys())}"
                 )
             loaded_dataset = loaded_dataset[split]
-        elif (
-            split
-            and not isinstance(loaded_dataset, DatasetDict)
-            and hf_split_param == split
-        ):
+        elif split and not isinstance(loaded_dataset, DatasetDict) and hf_split_param == split:
             pass
         elif not split and isinstance(loaded_dataset, DatasetDict):
             logger.info(
@@ -248,9 +228,7 @@ def load_and_process_dataset(
             "If you have a JSONL file from Fireworks, use source_type='jsonl'."
         )
     else:
-        raise ValueError(
-            f"Unsupported source_type: '{source_type}'. Must be 'huggingface', 'jsonl', or 'fireworks'."
-        )
+        raise ValueError(f"Unsupported source_type: '{source_type}'. Must be 'huggingface', 'jsonl', or 'fireworks'.")
 
     if max_samples is not None and max_samples > 0:
         if isinstance(loaded_dataset, Dataset):
@@ -259,19 +237,13 @@ def load_and_process_dataset(
         elif isinstance(loaded_dataset, DatasetDict):
             for s_name in loaded_dataset.keys():
                 if len(loaded_dataset[s_name]) > max_samples:
-                    loaded_dataset[s_name] = loaded_dataset[s_name].select(
-                        range(max_samples)
-                    )
-        elif isinstance(
-            loaded_dataset, list
-        ):  # Should not happen if always converting to HF Dataset
+                    loaded_dataset[s_name] = loaded_dataset[s_name].select(range(max_samples))
+        elif isinstance(loaded_dataset, list):  # Should not happen if always converting to HF Dataset
             if len(loaded_dataset) > max_samples:
                 loaded_dataset = loaded_dataset[:max_samples]
 
     # Apply column mapping if provided
-    if column_mapping_from_kwargs and isinstance(
-        loaded_dataset, (Dataset, DatasetDict)
-    ):
+    if column_mapping_from_kwargs and isinstance(loaded_dataset, (Dataset, DatasetDict)):
         logger.info(f"Applying column mapping: {column_mapping_from_kwargs}")
         # Note: Column mapping should happen *after* preprocessing if preprocessors add new columns
         # that are then mapped. Or, mapping happens first, and preprocessors use the new names.
@@ -281,9 +253,7 @@ def load_and_process_dataset(
         pass  # Deferred until after preprocessing
 
     # Apply preprocessing steps
-    if preprocessing_steps_from_kwargs and isinstance(
-        loaded_dataset, (Dataset, DatasetDict)
-    ):
+    if preprocessing_steps_from_kwargs and isinstance(loaded_dataset, (Dataset, DatasetDict)):
         logger.info(f"Applying preprocessing steps: {preprocessing_steps_from_kwargs}")
         for step_path in preprocessing_steps_from_kwargs:
             try:
@@ -300,12 +270,8 @@ def load_and_process_dataset(
                     loaded_dataset = loaded_dataset.map(preprocessor_func)
                 elif isinstance(loaded_dataset, DatasetDict):
                     for s_name in loaded_dataset.keys():
-                        logger.info(
-                            f"Applying preprocessor {func_name} to split '{s_name}'"
-                        )
-                        loaded_dataset[s_name] = loaded_dataset[s_name].map(
-                            preprocessor_func
-                        )
+                        logger.info(f"Applying preprocessor {func_name} to split '{s_name}'")
+                        loaded_dataset[s_name] = loaded_dataset[s_name].map(preprocessor_func)
                 logger.info(f"Successfully applied preprocessor: {step_path}")
             except Exception as e:
                 logger.error(
@@ -315,12 +281,8 @@ def load_and_process_dataset(
                 raise  # Re-raise to halt execution if a preprocessor fails
 
     # Apply column mapping (now after preprocessing)
-    if column_mapping_from_kwargs and isinstance(
-        loaded_dataset, (Dataset, DatasetDict)
-    ):
-        logger.info(
-            f"Applying column mapping (post-preprocessing): {column_mapping_from_kwargs}"
-        )
+    if column_mapping_from_kwargs and isinstance(loaded_dataset, (Dataset, DatasetDict)):
+        logger.info(f"Applying column mapping (post-preprocessing): {column_mapping_from_kwargs}")
         if isinstance(loaded_dataset, Dataset):
             # Filter out mappings where the old name is null/empty or doesn't exist
             # column_mapping_from_kwargs format: {new_name: old_name}
@@ -345,9 +307,7 @@ def load_and_process_dataset(
                 if final_mapping:
                     loaded_dataset = loaded_dataset.rename_columns(final_mapping)
                 else:
-                    logger.info(
-                        "Column mapping resulted in no columns to rename after validation."
-                    )
+                    logger.info("Column mapping resulted in no columns to rename after validation.")
             else:
                 logger.warning(
                     "Column mapping provided but resulted in no valid columns to rename (original columns not found or new names empty)."
@@ -364,10 +324,7 @@ def load_and_process_dataset(
                 if valid_mapping:
                     final_mapping = {}
                     for old_name, new_name in valid_mapping.items():
-                        if (
-                            new_name in current_split_dataset.column_names
-                            and new_name != old_name
-                        ):
+                        if new_name in current_split_dataset.column_names and new_name != old_name:
                             logger.warning(
                                 f"For split '{s_name}', attempting to map column '{old_name}' to '{new_name}', but '{new_name}' already exists and is not '{old_name}'. Skipping this specific rename for the split."
                             )
@@ -375,17 +332,13 @@ def load_and_process_dataset(
                             final_mapping[old_name] = new_name
 
                     if final_mapping:
-                        loaded_dataset[s_name] = current_split_dataset.rename_columns(
-                            final_mapping
-                        )
+                        loaded_dataset[s_name] = current_split_dataset.rename_columns(final_mapping)
                     else:
                         logger.info(
                             f"Column mapping for split '{s_name}' resulted in no columns to rename after validation."
                         )
                 else:
-                    logger.warning(
-                        f"Column mapping for split '{s_name}' resulted in no valid columns to rename."
-                    )
+                    logger.warning(f"Column mapping for split '{s_name}' resulted in no valid columns to rename.")
 
     return loaded_dataset
 
@@ -494,34 +447,22 @@ def load_derived_dataset(
                     base_cfg = compose(config_name=f"dataset/{base_dataset}")
                 except Exception:
                     # If that fails, try using the project root config directory
-                    config_dir = os.path.abspath(
-                        os.path.join(os.path.dirname(__file__), "../../conf")
-                    )
+                    config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../conf"))
                     if os.path.exists(config_dir):
-                        with initialize_config_dir(
-                            config_dir=config_dir, version_base="1.3"
-                        ):
+                        with initialize_config_dir(config_dir=config_dir, version_base="1.3"):
                             base_cfg = compose(config_name=f"dataset/{base_dataset}")
                     else:
-                        raise FileNotFoundError(
-                            f"Config directory not found: {config_dir}"
-                        )
+                        raise FileNotFoundError(f"Config directory not found: {config_dir}")
             else:
                 # Try to initialize with the project root config path
-                config_dir = os.path.abspath(
-                    os.path.join(os.path.dirname(__file__), "../../conf")
-                )
+                config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../conf"))
                 if os.path.exists(config_dir):
-                    with initialize_config_dir(
-                        config_dir=config_dir, version_base="1.3"
-                    ):
+                    with initialize_config_dir(config_dir=config_dir, version_base="1.3"):
                         base_cfg = compose(config_name=f"dataset/{base_dataset}")
                 else:
                     raise FileNotFoundError(f"Config directory not found: {config_dir}")
         except Exception as e:
-            raise ValueError(
-                f"Failed to load base dataset config '{base_dataset}': {e}"
-            )
+            raise ValueError(f"Failed to load base dataset config '{base_dataset}': {e}")
 
         # The compose() returns a config with nested 'dataset' key if it's a full config
         if "dataset" in base_cfg:
@@ -535,9 +476,7 @@ def load_derived_dataset(
         # Base dataset is already a config object
         base_loaded_dataset = instantiate(base_dataset)
     else:
-        raise ValueError(
-            f"base_dataset must be a string or DictConfig, got {type(base_dataset)}"
-        )
+        raise ValueError(f"base_dataset must be a string or DictConfig, got {type(base_dataset)}")
 
     # Ensure we have a Dataset (not DatasetDict)
     if isinstance(base_loaded_dataset, DatasetDict):

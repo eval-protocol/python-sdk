@@ -84,9 +84,7 @@ for row in dataset:
     # Parse JSON strings
     initial_config = json.loads(initial_config_str) if initial_config_str else {}
     ground_truth_function_calls = json.loads(answer_str) if answer_str else []
-    user_question_bank = (
-        json.loads(user_question_bank_str) if user_question_bank_str else []
-    )
+    user_question_bank = json.loads(user_question_bank_str) if user_question_bank_str else []
 
     # Construct the messages list for the YAML: sequence of user turns only.
     # The original BFCL prompt_messages usually has [system_prompt, first_user_message_dict]
@@ -97,10 +95,7 @@ for row in dataset:
     # and the second one is a user message.
     if isinstance(original_prompt_messages, list) and len(original_prompt_messages) > 1:
         first_user_message_candidate = original_prompt_messages[1]
-        if (
-            isinstance(first_user_message_candidate, dict)
-            and first_user_message_candidate.get("role") == "user"
-        ):
+        if isinstance(first_user_message_candidate, dict) and first_user_message_candidate.get("role") == "user":
             messages_for_yaml.append(first_user_message_candidate)
         else:
             # If the structure is different, log a warning and potentially add all non-system prompts
@@ -125,24 +120,18 @@ for row in dataset:
     for turn_message_list in user_question_bank:
         if isinstance(turn_message_list, list):
             for user_msg_dict in turn_message_list:
-                if (
-                    isinstance(user_msg_dict, dict)
-                    and user_msg_dict.get("role") == "user"
-                ):
+                if isinstance(user_msg_dict, dict) and user_msg_dict.get("role") == "user":
                     messages_for_yaml.append(user_msg_dict)
                 else:
                     print(
                         f"Warning: Skipping non-user message or invalid format in user_question_bank for task {task_id}: {user_msg_dict}"
                     )
         elif (
-            isinstance(turn_message_list, dict)
-            and turn_message_list.get("role") == "user"
+            isinstance(turn_message_list, dict) and turn_message_list.get("role") == "user"
         ):  # If a turn is a single message dict
             messages_for_yaml.append(turn_message_list)
         else:
-            print(
-                f"Warning: Unexpected item format in user_question_bank for task {task_id}: {turn_message_list}"
-            )
+            print(f"Warning: Unexpected item format in user_question_bank for task {task_id}: {turn_message_list}")
 
     # --- Generate Ground Truth Final State ---
     gt_env_instances = {}
@@ -186,37 +175,27 @@ for row in dataset:
 
                                 # Let's try a different approach: inspect the method signature and map positional args.
                                 sig = inspect.signature(tool_func)
-                                bound_args = sig.bind(
-                                    **tool_args
-                                )  # Try binding with extracted args
+                                bound_args = sig.bind(**tool_args)  # Try binding with extracted args
                                 bound_args.apply_defaults()  # Apply default values
 
                                 # Execute the tool call with bound arguments
                                 tool_func(*bound_args.args, **bound_args.kwargs)
 
                             except TypeError as e:
-                                print(
-                                    f"TypeError executing ground truth tool {tool_name} with args {tool_args}: {e}"
-                                )
+                                print(f"TypeError executing ground truth tool {tool_name} with args {tool_args}: {e}")
                                 pass
                             except Exception as e:
-                                print(
-                                    f"Error executing ground truth tool {tool_name} with args {tool_args}: {e}"
-                                )
+                                print(f"Error executing ground truth tool {tool_name} with args {tool_args}: {e}")
                                 pass
                             break
                     if not found_method:
-                        print(
-                            f"Ground truth tool {tool_name} not found in env instances."
-                        )
+                        print(f"Ground truth tool {tool_name} not found in env instances.")
 
                 except ValueError as e:  # Catch errors from _parse_function_call
                     print(f"Parsing error for ground truth call '{func_call_str}': {e}")
                     pass
                 except Exception as e:
-                    print(
-                        f"Unexpected error during ground truth call processing '{func_call_str}': {e}"
-                    )
+                    print(f"Unexpected error during ground truth call processing '{func_call_str}': {e}")
                     pass
 
     execute_gt_calls(gt_env_instances, ground_truth_function_calls)
@@ -256,6 +235,4 @@ for row in dataset:
 
     # print(f"Created task definition: {output_file}") # Suppress successful creation messages for clarity
 
-print(
-    "Dataset conversion complete (errors during ground truth execution logged above)."
-)
+print("Dataset conversion complete (errors during ground truth execution logged above).")

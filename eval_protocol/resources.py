@@ -53,21 +53,14 @@ class LLMResourceWrapper(ResourceWrapper):
     def setup(self) -> None:
         """Setup the LLM deployment."""
         if self._is_setup:
-            logger.debug(
-                f"LLM resource already setup for model: {self.llm_instance.model}"
-            )
+            logger.debug(f"LLM resource already setup for model: {self.llm_instance.model}")
             return
 
         try:
-            logger.debug(
-                f"Setting up LLM deployment for model: " f"{self.llm_instance.model}"
-            )
+            logger.debug(f"Setting up LLM deployment for model: " f"{self.llm_instance.model}")
 
             # For on-demand deployments, call apply()
-            if (
-                hasattr(self.llm_instance, "deployment_type")
-                and self.llm_instance.deployment_type == "on-demand"
-            ):
+            if hasattr(self.llm_instance, "deployment_type") and self.llm_instance.deployment_type == "on-demand":
                 logger.info("Applying on-demand LLM deployment...")
                 self.llm_instance.apply()
                 logger.info("On-demand LLM deployment applied successfully")
@@ -75,9 +68,7 @@ class LLMResourceWrapper(ResourceWrapper):
             self._client = self.llm_instance
             self._is_setup = True
 
-            logger.info(
-                f"LLM resource setup completed for model: " f"{self.llm_instance.model}"
-            )
+            logger.info(f"LLM resource setup completed for model: " f"{self.llm_instance.model}")
 
         except Exception as e:
             logger.error(f"Failed to setup LLM resource: {e}")

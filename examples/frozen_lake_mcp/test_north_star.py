@@ -26,10 +26,7 @@ def test_basic_functionality():
     # Test tool registration
     tools = env.get_tool_schemas()
     assert "lake_move" in tools
-    assert (
-        tools["lake_move"]["description"]
-        == "Move on the frozen lake. Actions: LEFT, DOWN, RIGHT, UP"
-    )
+    assert tools["lake_move"]["description"] == "Move on the frozen lake. Actions: LEFT, DOWN, RIGHT, UP"
     print("✓ Tool registration works")
 
     # Test tool calling

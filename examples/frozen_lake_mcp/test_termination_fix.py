@@ -31,9 +31,7 @@ async def test_control_plane_separation():
             streamablehttp_client(server_url, terminate_on_close=True)
         )
 
-        session = await exit_stack.enter_async_context(
-            ClientSession(read_stream, write_stream)
-        )
+        session = await exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
 
         await session.initialize()
 
@@ -42,12 +40,8 @@ async def test_control_plane_separation():
         resources = await session.list_resources()
         resource_uris = [r.uri for r in resources.resources]
 
-        assert (
-            "control://reward" in resource_uris
-        ), "control://reward resource not found"
-        assert (
-            "control://status" in resource_uris
-        ), "control://status resource not found"
+        assert "control://reward" in resource_uris, "control://reward resource not found"
+        assert "control://status" in resource_uris, "control://status resource not found"
         assert "control://info" in resource_uris, "control://info resource not found"
         print("✅ Control plane resources are available")
 
@@ -72,15 +66,9 @@ async def test_control_plane_separation():
                 assert "action" in content, "Data plane missing action"
 
                 # Verify data plane does NOT contain control plane data
-                assert (
-                    "reward" not in content
-                ), "Data plane contains reward (should be control plane)"
-                assert (
-                    "terminated" not in content
-                ), "Data plane contains terminated (should be control plane)"
-                assert (
-                    "done" not in content
-                ), "Data plane contains done (should be control plane)"
+                assert "reward" not in content, "Data plane contains reward (should be control plane)"
+                assert "terminated" not in content, "Data plane contains terminated (should be control plane)"
+                assert "done" not in content, "Data plane contains done (should be control plane)"
 
             # Query control plane resources
             reward_resource = await session.read_resource("control://reward")
@@ -96,12 +84,8 @@ async def test_control_plane_separation():
                 print("🏆 Episode terminated via control plane!")
 
                 # Verify we reached the goal
-                assert (
-                    content["position"] == 15
-                ), f"Expected position 15 (goal), got {content['position']}"
-                assert (
-                    reward_data["reward"] > 0
-                ), f"Expected positive reward, got {reward_data['reward']}"
+                assert content["position"] == 15, f"Expected position 15 (goal), got {content['position']}"
+                assert reward_data["reward"] > 0, f"Expected positive reward, got {reward_data['reward']}"
 
                 print("✅ Control plane separation working correctly!")
                 return True

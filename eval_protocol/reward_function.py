@@ -58,23 +58,17 @@ class RewardFunction:
 
         if mode == "local":
             if func is None and func_path is None:
-                raise ValueError(
-                    "Either 'func' or 'func_path' must be provided for local mode"
-                )
+                raise ValueError("Either 'func' or 'func_path' must be provided for local mode")
             if func_path and func is None:
                 self.func = self._load_function_from_path(func_path)
         elif mode == "remote":
             if endpoint is None and name is None:
-                raise ValueError(
-                    "Either 'endpoint' or 'name' must be provided for remote mode"
-                )
+                raise ValueError("Either 'endpoint' or 'name' must be provided for remote mode")
             if name and endpoint is None:
                 self.endpoint = f"https://api.fireworks.ai/v1/reward/{name}"
         elif mode == "fireworks_hosted":
             if model_id is None:
-                raise ValueError(
-                    "'model_id' must be provided for fireworks_hosted mode"
-                )
+                raise ValueError("'model_id' must be provided for fireworks_hosted mode")
             self.endpoint = f"https://api.fireworks.ai/v1/models/{model_id}/reward"
         else:
             raise ValueError(f"Invalid mode: {mode}")
@@ -93,9 +87,7 @@ class RewardFunction:
                 func = getattr(module, func_name)
                 return func
             except (ImportError, AttributeError) as e:
-                raise ImportError(
-                    f"Failed to load function from path {func_path}: {str(e)}"
-                )
+                raise ImportError(f"Failed to load function from path {func_path}: {str(e)}")
 
         # Try dot notation format: module.path.function_name
         # This assumes the last component is the function name
@@ -113,9 +105,7 @@ class RewardFunction:
             func = getattr(module, func_name)
             return func
         except (ImportError, AttributeError) as e:
-            raise ImportError(
-                f"Failed to load function from path {func_path}: {str(e)}"
-            )
+            raise ImportError(f"Failed to load function from path {func_path}: {str(e)}")
 
     def __call__(
         self,
@@ -166,9 +156,7 @@ class RewardFunction:
                     )
                     score, components = result
                     metrics = {
-                        k: MetricResult(
-                            score=v, reason=f"{k} score", is_score_valid=True
-                        )
+                        k: MetricResult(score=v, reason=f"{k} score", is_score_valid=True)
                         for k, v in components.items()
                     }
                     return EvaluateResult(score=score, metrics=metrics)
@@ -274,9 +262,7 @@ class RewardFunction:
             A callable function compatible with TRL's expected signature for reward functions.
         """
 
-        def adapter(
-            prompts: List[List[Dict]], completions: Optional[List[str]] = None, **kwargs
-        ) -> List[float]:
+        def adapter(prompts: List[List[Dict]], completions: Optional[List[str]] = None, **kwargs) -> List[float]:
             """
             Adapter function compatible with TRL's expected reward function signature.
             TRL typically expects: (prompts: List[str], completions: List[str], **kwargs: Any) -> List[float]
@@ -336,9 +322,7 @@ class RewardFunction:
                             and first_element.get("role") == "assistant"
                         ):
                             # Expected structure: completions[i] = [{'role': 'assistant', 'content': 'str_content'}]
-                            actual_completion_str = str(
-                                first_element.get("content", "")
-                            )
+                            actual_completion_str = str(first_element.get("content", ""))
                             logger.debug(
                                 f"Adapter: completions[{i}] is a list with an assistant message dict. Extracted content."
                             )
@@ -350,9 +334,7 @@ class RewardFunction:
                             )
                             actual_completion_str = str(first_element)
                     else:
-                        logger.warning(
-                            f"Adapter: completions[{i}] is an empty list. Using empty string for content."
-                        )
+                        logger.warning(f"Adapter: completions[{i}] is an empty list. Using empty string for content.")
                         actual_completion_str = ""
                 elif isinstance(completion_input, str):
                     actual_completion_str = completion_input
@@ -364,17 +346,13 @@ class RewardFunction:
                     )
                     actual_completion_str = str(completion_input)
 
-                messages = prompts[i] + [
-                    {"role": "assistant", "content": actual_completion_str}
-                ]
+                messages = prompts[i] + [{"role": "assistant", "content": actual_completion_str}]
 
                 # Prepare kwargs for the underlying reward function call for this specific sample
                 call_kwargs: Dict[str, Any] = {}  # Initialize with Any type for values
                 current_solution = solutions[i]
 
-                debug_solution_val_str = (
-                    str(current_solution) if current_solution is not None else "None"
-                )
+                debug_solution_val_str = str(current_solution) if current_solution is not None else "None"
                 logger.debug(
                     f"Adapter loop i={i}, type(current_solution)={type(current_solution)}, value='{debug_solution_val_str[:100]}...'"
                 )
@@ -403,9 +381,7 @@ class RewardFunction:
                     result = self(
                         messages=messages,
                         ground_truth=(
-                            call_kwargs.pop("solution")
-                            if "solution" in call_kwargs
-                            else None
+                            call_kwargs.pop("solution") if "solution" in call_kwargs else None
                         ),  # Pass solution as ground_truth if available
                         **call_kwargs,
                     )
@@ -413,9 +389,7 @@ class RewardFunction:
                     score = result.score
                     results.append(score)
                 except Exception as e:
-                    logger.error(
-                        f"Error processing sample {i} in TRL adapter: {str(e)}"
-                    )
+                    logger.error(f"Error processing sample {i} in TRL adapter: {str(e)}")
                     # Append a default low score (e.g., 0.0) on error
                     results.append(0.0)
 

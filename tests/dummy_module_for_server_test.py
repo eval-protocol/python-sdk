@@ -30,9 +30,7 @@ def dummy_reward_func(
         reason=reason,
         is_score_valid=True,
         metrics={
-            "dummy_metric": MetricResult(
-                score=0.75, is_score_valid=True, reason="A dummy metric"
-            )
+            "dummy_metric": MetricResult(score=0.75, is_score_valid=True, reason="A dummy metric")
         },  # Correctly use MetricResult
     )
 

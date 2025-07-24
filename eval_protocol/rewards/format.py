@@ -19,7 +19,7 @@ def format_reward(
     ground_truth: Optional[Union[List[Message], List[Dict[str, Any]]]] = None,
     format_regex: str = r"^<think>\n.*?</think>\n<answer>\n.*?</answer>$",
     require_exact_match: bool = True,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> EvaluateResult:
     """
     Reward function that validates if text follows a specific format pattern.
@@ -44,11 +44,7 @@ def format_reward(
         return EvaluateResult(
             score=0.0,
             reason="No messages provided",
-            metrics={
-                "format_check": MetricResult(
-                    score=0.0, is_score_valid=False, reason="No messages provided"
-                )
-            },
+            metrics={"format_check": MetricResult(score=0.0, is_score_valid=False, reason="No messages provided")},
             is_score_valid=False,
         )
 

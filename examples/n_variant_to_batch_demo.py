@@ -46,9 +46,7 @@ def demo_batch_reward(
     for i, response in enumerate(assistant_responses):
         length = len(response)
         has_details = "because" in response.lower() or "since" in response.lower()
-        has_examples = (
-            "example" in response.lower() or "for instance" in response.lower()
-        )
+        has_examples = "example" in response.lower() or "for instance" in response.lower()
 
         # Scoring components
         length_score = 0.2 + min(0.4, length / 200.0)
@@ -71,11 +69,7 @@ def demo_batch_reward(
                 ),
                 "explanation_quality": MetricResult(
                     score=1.0 if has_details else 0.0,
-                    reason=(
-                        "Contains explanation words"
-                        if has_details
-                        else "No explanation words found"
-                    ),
+                    reason=("Contains explanation words" if has_details else "No explanation words found"),
                     is_score_valid=True,
                 ),
             },
@@ -194,9 +188,7 @@ def run_demo():
 
         print(f"Transformed {len(batch_data)} requests:")
         for entry in batch_data:
-            print(
-                f"  - Request '{entry['request_id']}': {entry['num_variants']} variants"
-            )
+            print(f"  - Request '{entry['request_id']}': {entry['num_variants']} variants")
 
         # Step 3: Run batch evaluation
         print("\nStep 3: Running batch evaluation...")
@@ -226,9 +218,7 @@ def run_demo():
                 print(f"  Variant {result['response_id']}: Score={score:.3f}")
 
             best_variant = max(request_results, key=lambda x: x["evaluation_score"])
-            print(
-                f"  🏆 Best: Variant {best_variant['response_id']} (score: {best_variant['evaluation_score']:.3f})"
-            )
+            print(f"  🏆 Best: Variant {best_variant['response_id']} (score: {best_variant['evaluation_score']:.3f})")
 
 
 if __name__ == "__main__":

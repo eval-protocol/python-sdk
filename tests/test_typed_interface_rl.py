@@ -10,31 +10,23 @@ from eval_protocol.typed_interface import EvaluationMode, reward_function
 
 
 @reward_function(mode="pointwise")
-def pointwise_rl_rewards_func(
-    messages: List[Message], ground_truth: Any, **kwargs
-) -> EvaluateResult:
+def pointwise_rl_rewards_func(messages: List[Message], ground_truth: Any, **kwargs) -> EvaluateResult:
     """Returns EvaluateResult with step_outputs for RL."""
     steps = []
     for i, msg in enumerate(messages):
         if msg.role == "assistant":
-            steps.append(
-                StepOutput(step_index=i, base_reward=0.1 * i, reason=f"Step {i} reward")
-            )
+            steps.append(StepOutput(step_index=i, base_reward=0.1 * i, reason=f"Step {i} reward"))
     return EvaluateResult(score=0.5, step_outputs=steps, reason="Pointwise RL test")
 
 
 @reward_function(mode="pointwise")
-def pointwise_scoring_func(
-    messages: List[Message], ground_truth: Any, **kwargs
-) -> EvaluateResult:
+def pointwise_scoring_func(messages: List[Message], ground_truth: Any, **kwargs) -> EvaluateResult:
     """Returns EvaluateResult with only a score."""
     return EvaluateResult(score=0.8, reason="Pointwise scoring test")
 
 
 @reward_function(mode="batch")
-def batch_rl_rewards_func(
-    rollouts_messages: List[List[Message]], ground_truth: Any, **kwargs
-) -> List[EvaluateResult]:
+def batch_rl_rewards_func(rollouts_messages: List[List[Message]], ground_truth: Any, **kwargs) -> List[EvaluateResult]:
     """Returns List[EvaluateResult] with step_outputs for RL."""
     results = []
     for i, messages in enumerate(rollouts_messages):
@@ -48,39 +40,27 @@ def batch_rl_rewards_func(
                         reason=f"Rollout {i} Step {j}",
                     )
                 )
-        results.append(
-            EvaluateResult(
-                score=0.6 + (0.1 * i), step_outputs=steps, reason=f"Batch RL test {i}"
-            )
-        )
+        results.append(EvaluateResult(score=0.6 + (0.1 * i), step_outputs=steps, reason=f"Batch RL test {i}"))
     return results
 
 
 @reward_function(mode="batch")
-def batch_scoring_func(
-    rollouts_messages: List[List[Message]], ground_truth: Any, **kwargs
-) -> List[EvaluateResult]:
+def batch_scoring_func(rollouts_messages: List[List[Message]], ground_truth: Any, **kwargs) -> List[EvaluateResult]:
     """Returns List[EvaluateResult] with only scores."""
     results = []
     for i, messages in enumerate(rollouts_messages):
-        results.append(
-            EvaluateResult(score=0.9 - (0.1 * i), reason=f"Batch scoring test {i}")
-        )
+        results.append(EvaluateResult(score=0.9 - (0.1 * i), reason=f"Batch scoring test {i}"))
     return results
 
 
 @reward_function(mode="pointwise")
-def pointwise_invalid_output_func(
-    messages: List[Message], ground_truth: Any, **kwargs
-) -> Dict:
+def pointwise_invalid_output_func(messages: List[Message], ground_truth: Any, **kwargs) -> Dict:
     """Returns a dict, not an EvaluateResult."""
     return {"wrong_score_key": 0.5}  # Missing 'score'
 
 
 @reward_function(mode="batch")
-def batch_invalid_output_func(
-    rollouts_messages: List[List[Message]], ground_truth: Any, **kwargs
-) -> List[Dict]:
+def batch_invalid_output_func(rollouts_messages: List[List[Message]], ground_truth: Any, **kwargs) -> List[Dict]:
     """Returns a list of dicts, not EvaluateResult."""
     return [{"score_is_actually_string": "0.5"}]
 
@@ -114,9 +94,7 @@ class TestTypedInterfaceRL:
             Message(role="user", content="Hello"),
             Message(role="assistant", content="Hi"),
         ]
-        result = pointwise_rl_rewards_func(
-            messages=pydantic_messages, ground_truth=None
-        )
+        result = pointwise_rl_rewards_func(messages=pydantic_messages, ground_truth=None)
         assert isinstance(result, EvaluateResult)
         assert len(result.step_outputs) == 1
 
@@ -140,9 +118,7 @@ class TestTypedInterfaceRL:
             ],
         ]
         ground_truth = None
-        results = batch_rl_rewards_func(
-            rollouts_messages=raw_rollouts, ground_truth=ground_truth
-        )
+        results = batch_rl_rewards_func(rollouts_messages=raw_rollouts, ground_truth=ground_truth)
         assert isinstance(results, list)
         assert len(results) == 2
         assert isinstance(results[0], EvaluateResult)
@@ -165,9 +141,7 @@ class TestTypedInterfaceRL:
             [{"role": "user", "content": "R2"}],
         ]
         ground_truth = "gt"
-        results = batch_scoring_func(
-            rollouts_messages=raw_rollouts, ground_truth=ground_truth
-        )
+        results = batch_scoring_func(rollouts_messages=raw_rollouts, ground_truth=ground_truth)
         assert isinstance(results, list)
         assert len(results) == 2
         assert results[0].score == 0.9
@@ -176,9 +150,7 @@ class TestTypedInterfaceRL:
     def test_pointwise_invalid_message_type(self):
         """Test pointwise with invalid message item type."""
         raw_messages = [{"role": "user", "content": "Hello"}, "not_a_dict"]
-        with pytest.raises(
-            ValueError, match="Input 'messages' failed Pydantic validation"
-        ):
+        with pytest.raises(ValueError, match="Input 'messages' failed Pydantic validation"):
             pointwise_rl_rewards_func(messages=raw_messages, ground_truth=None)
 
     def test_batch_invalid_inner_message_type(self):
@@ -187,9 +159,7 @@ class TestTypedInterfaceRL:
             [{"role": "user", "content": "R1U1"}],
             [{"role": "user", "content": "R2U1"}, "not_a_dict_msg"],
         ]
-        with pytest.raises(
-            ValueError, match="Input 'rollouts_messages' failed Pydantic validation"
-        ):
+        with pytest.raises(ValueError, match="Input 'rollouts_messages' failed Pydantic validation"):
             batch_rl_rewards_func(rollouts_messages=raw_rollouts, ground_truth=None)
 
     def test_pointwise_invalid_output(self):
@@ -227,9 +197,7 @@ class TestTypedInterfaceRL:
         """Test ground_truth coercion for pointwise List[Message]."""
 
         @reward_function(mode="pointwise")
-        def gt_test_func(
-            messages: List[Message], ground_truth: List[Message], **kwargs
-        ):
+        def gt_test_func(messages: List[Message], ground_truth: List[Message], **kwargs):
             assert isinstance(ground_truth, list)
             assert all(isinstance(m, Message) for m in ground_truth)
             return EvaluateResult(score=1.0)
@@ -237,9 +205,7 @@ class TestTypedInterfaceRL:
         raw_gt = [{"role": "system", "content": "gt_message"}]
         gt_test_func(messages=[{"role": "user", "content": "hi"}], ground_truth=raw_gt)
 
-        with pytest.raises(
-            ValueError, match="Input 'ground_truth' failed Pydantic validation"
-        ):
+        with pytest.raises(ValueError, match="Input 'ground_truth' failed Pydantic validation"):
             gt_test_func(
                 messages=[{"role": "user", "content": "hi"}],
                 ground_truth=["not_a_message_dict"],

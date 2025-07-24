@@ -10,11 +10,7 @@ logger = logging.getLogger(__name__)
 
 def get_pip_executable(venv_pip_path: Optional[str] = None) -> List[str]:
     """Determines the pip executable command parts."""
-    if (
-        venv_pip_path
-        and os.path.exists(venv_pip_path)
-        and os.access(venv_pip_path, os.X_OK)
-    ):
+    if venv_pip_path and os.path.exists(venv_pip_path) and os.access(venv_pip_path, os.X_OK):
         logger.info(f"Using specified pip executable: {venv_pip_path}")
         return [venv_pip_path]
 
@@ -52,9 +48,7 @@ def install_requirements(
         logger.debug("No requirements provided to install.")
         return
 
-    unique_requirements = sorted(
-        list(set(req.strip() for req in requirements_list if req.strip()))
-    )
+    unique_requirements = sorted(list(set(req.strip() for req in requirements_list if req.strip())))
     if not unique_requirements:
         logger.debug("No unique, non-empty requirements to install after stripping.")
         return

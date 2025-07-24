@@ -523,9 +523,7 @@ def detect_dominant_language(text: str) -> Tuple[str, float]:
     dominant_lang = max(counts.items(), key=lambda x: x[1])
     confidence = dominant_lang[1] / total if total > 0 else 0.0
 
-    if (
-        dominant_lang[0] == "zh" and confidence > 0.5
-    ):  # Ensure we have a minimum confidence for Chinese
+    if dominant_lang[0] == "zh" and confidence > 0.5:  # Ensure we have a minimum confidence for Chinese
         confidence = 0.9
 
     return (dominant_lang[0], confidence)
@@ -594,9 +592,7 @@ def language_consistency_reward(
     elif not target_language and auto_detect:
         prompt_messages = messages[:-1]
         for msg in prompt_messages:
-            if (
-                isinstance(msg, Message) and msg.role == "user"
-            ):  # Decorator ensures msg is Message
+            if isinstance(msg, Message) and msg.role == "user":  # Decorator ensures msg is Message
                 content_text: str = msg.content if msg.content is not None else ""
                 if "in Spanish" in content_text:
                     target_language = "es"
@@ -612,11 +608,7 @@ def language_consistency_reward(
                     target_language = detected_lang
                     break
         if not target_language:
-            first_part = (
-                text_to_evaluate.split("\n\n")[0]
-                if "\n\n" in text_to_evaluate
-                else text_to_evaluate[:200]
-            )
+            first_part = text_to_evaluate.split("\n\n")[0] if "\n\n" in text_to_evaluate else text_to_evaluate[:200]
             target_language, _ = detect_dominant_language(first_part)
 
     if not target_language:
@@ -677,9 +669,7 @@ def language_consistency_reward(
     success = consistency_ratio >= min_consistency
 
     language_metrics = {}
-    for lang, count in sorted(
-        adjusted_lang_counts.items(), key=lambda x: x[1], reverse=True
-    )[:3]:
+    for lang, count in sorted(adjusted_lang_counts.items(), key=lambda x: x[1], reverse=True)[:3]:
         if count > 0:
             percentage = count / total_counted * 100
             language_metrics[f"{lang}_percentage"] = MetricResult(

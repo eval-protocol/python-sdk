@@ -49,17 +49,11 @@ class TestControlPlaneSeparation:
 
         # CRITICAL: Verify tool response contains NO control plane info
         assert "reward" not in tool_response, "Tool response should NOT contain reward"
-        assert (
-            "terminated" not in tool_response
-        ), "Tool response should NOT contain termination status"
-        assert (
-            "truncated" not in tool_response
-        ), "Tool response should NOT contain truncated status"
+        assert "terminated" not in tool_response, "Tool response should NOT contain termination status"
+        assert "truncated" not in tool_response, "Tool response should NOT contain truncated status"
 
         # Verify tool response contains ONLY data plane info
-        assert (
-            "position" in tool_response
-        ), "Tool response should contain position (data plane)"
+        assert "position" in tool_response, "Tool response should contain position (data plane)"
         assert "grid" in tool_response, "Tool response should contain grid (data plane)"
 
         # Verify control plane state was updated
@@ -138,34 +132,20 @@ class TestControlPlaneSeparation:
             tool_response = server._execute_environment_step(action_int)
 
             # Verify each tool response is clean (no control plane info)
-            assert (
-                "reward" not in tool_response
-            ), f"Move {i}: Tool response should NOT contain reward"
-            assert (
-                "terminated" not in tool_response
-            ), f"Move {i}: Tool response should NOT contain termination"
-            assert (
-                "truncated" not in tool_response
-            ), f"Move {i}: Tool response should NOT contain truncated"
+            assert "reward" not in tool_response, f"Move {i}: Tool response should NOT contain reward"
+            assert "terminated" not in tool_response, f"Move {i}: Tool response should NOT contain termination"
+            assert "truncated" not in tool_response, f"Move {i}: Tool response should NOT contain truncated"
 
             # Verify control plane state is updated
-            assert (
-                server.control_plane_state["step_count"] == i + 1
-            ), f"Move {i}: Step count should be {i + 1}"
+            assert server.control_plane_state["step_count"] == i + 1, f"Move {i}: Step count should be {i + 1}"
 
             # Verify data plane info is present
-            assert (
-                "position" in tool_response
-            ), f"Move {i}: Tool response should contain position"
-            assert (
-                "grid" in tool_response
-            ), f"Move {i}: Tool response should contain grid"
+            assert "position" in tool_response, f"Move {i}: Tool response should contain position"
+            assert "grid" in tool_response, f"Move {i}: Tool response should contain grid"
 
         # Verify final control plane state
         assert server.control_plane_state["step_count"] == len(moves)
-        assert (
-            server.control_plane_state["total_reward"] >= 0.0
-        )  # Should be accumulated
+        assert server.control_plane_state["total_reward"] >= 0.0  # Should be accumulated
 
         print("✅ Multiple moves control plane separation working correctly!")
         print(f"   Final step count: {server.control_plane_state['step_count']}")
@@ -202,15 +182,11 @@ class TestControlPlaneSeparation:
 
         # Verify data plane compliance
         for key in expected_data_plane_keys:
-            assert (
-                key in tool_response
-            ), f"Data plane key '{key}' should be in tool response"
+            assert key in tool_response, f"Data plane key '{key}' should be in tool response"
 
         # Verify control plane separation
         for key in forbidden_control_plane_keys:
-            assert (
-                key not in tool_response
-            ), f"Control plane key '{key}' should NOT be in tool response"
+            assert key not in tool_response, f"Control plane key '{key}' should NOT be in tool response"
 
         # Verify control plane contains the expected information
         status_data = {
@@ -228,9 +204,7 @@ class TestControlPlaneSeparation:
             "total_reward",
         }
         for key in expected_control_plane_keys:
-            assert (
-                key in status_data
-            ), f"Control plane key '{key}' should be in control plane data"
+            assert key in status_data, f"Control plane key '{key}' should be in control plane data"
 
         print("✅ Architecture compliance verified!")
         print(f"   Data plane keys: {list(tool_response.keys())}")
@@ -295,9 +269,7 @@ class TestControlPlaneSeparation:
 
         print("✅ Tool vs Resource separation working correctly!")
         print(f"   Tool provides: {list(tool_response.keys())}")
-        print(
-            f"   Resources provide: {list(set(reward_data.keys()) | set(status_data.keys()))}"
-        )
+        print(f"   Resources provide: {list(set(reward_data.keys()) | set(status_data.keys()))}")
         print(f"   Combined: {list(complete_info.keys())}")
 
 

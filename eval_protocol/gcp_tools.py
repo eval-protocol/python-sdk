@@ -9,9 +9,7 @@ from typing import Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 
-def _run_gcloud_command(
-    command: List[str], dry_run: bool = False
-) -> Tuple[bool, str, str]:
+def _run_gcloud_command(command: List[str], dry_run: bool = False) -> Tuple[bool, str, str]:
     """
     Helper to run a gcloud command.
     In a real scenario, this would interact with subprocess.
@@ -31,9 +29,7 @@ def _run_gcloud_command(
             check=False,  # Handle non-zero exit codes manually
         )
         if process.returncode == 0:
-            if (
-                process.stderr
-            ):  # gcloud sometimes prints informational messages to stderr on success
+            if process.stderr:  # gcloud sometimes prints informational messages to stderr on success
                 logger.info(f"Command successful with stderr output:\n{process.stderr}")
             return True, process.stdout.strip(), process.stderr.strip()
         else:
@@ -53,9 +49,7 @@ def build_and_push_docker_image(
     image_name_tag: str,  # e.g., gcr.io/my-project/my-reward-func:latest
     dockerfile_content: str,
     build_context_dir: str,  # Directory where Dockerfile and user code are (usually CWD)
-    gcp_project_id: Optional[
-        str
-    ] = None,  # Required if using gcloud builds submit without local Docker
+    gcp_project_id: Optional[str] = None,  # Required if using gcloud builds submit without local Docker
     dry_run: bool = False,
 ) -> bool:
     """
@@ -72,9 +66,7 @@ def build_and_push_docker_image(
     Returns:
         True if successful, False otherwise.
     """
-    logger.info(
-        f"Attempting to build and push Docker image using Google Cloud Build: {image_name_tag}"
-    )
+    logger.info(f"Attempting to build and push Docker image using Google Cloud Build: {image_name_tag}")
 
     if not gcp_project_id:
         logger.error("GCP Project ID is required for Google Cloud Build.")
@@ -103,15 +95,11 @@ def build_and_push_docker_image(
         success, stdout, stderr = _run_gcloud_command(build_cmd_gcloud, dry_run=dry_run)
 
         if not success:
-            logger.error(
-                f"Google Cloud Build failed. Stdout: {stdout}, Stderr: {stderr}"
-            )
+            logger.error(f"Google Cloud Build failed. Stdout: {stdout}, Stderr: {stderr}")
             return False
 
     except Exception as e:
-        logger.error(
-            f"An error occurred during Dockerfile creation or gcloud command preparation: {e}"
-        )
+        logger.error(f"An error occurred during Dockerfile creation or gcloud command preparation: {e}")
         return False
     finally:
         if dockerfile_path_in_context.exists():
@@ -186,9 +174,7 @@ def deploy_to_cloud_run(
         else:
             # For IAM based auth, would be --no-allow-unauthenticated and then set IAM policy
             deploy_cmd_list.append("--no-allow-unauthenticated")
-            logger.info(
-                "Note: --no-allow-unauthenticated set. Further IAM configuration might be needed."
-            )
+            logger.info("Note: --no-allow-unauthenticated set. Further IAM configuration might be needed.")
 
         if env_vars:
             env_vars_str = ",".join([f"{k}={v}" for k, v in env_vars.items()])
@@ -203,17 +189,10 @@ def deploy_to_cloud_run(
             for env_var_name, secret_manager_full_id in secrets_to_mount.items():
                 # Parse projects/PROJECT_ID/secrets/SECRET_ID/versions/VERSION
                 parts = secret_manager_full_id.split("/")
-                if (
-                    len(parts) == 6
-                    and parts[0] == "projects"
-                    and parts[2] == "secrets"
-                    and parts[4] == "versions"
-                ):
+                if len(parts) == 6 and parts[0] == "projects" and parts[2] == "secrets" and parts[4] == "versions":
                     secret_id = parts[3]
                     secret_version = parts[5]
-                    secrets_str_list.append(
-                        f"{env_var_name}={secret_id}:{secret_version}"
-                    )
+                    secrets_str_list.append(f"{env_var_name}={secret_id}:{secret_version}")
                 else:
                     logger.warning(
                         f"Invalid secret manager full ID format: {secret_manager_full_id}. Skipping secret mount for {env_var_name}."
@@ -252,32 +231,22 @@ def deploy_to_cloud_run(
             if url_success and url_stdout:
                 service_url = url_stdout.strip()
                 if not service_url.startswith("https://"):
-                    logger.error(
-                        f"Service URL is not valid (must be HTTPS): {service_url}"
-                    )
+                    logger.error(f"Service URL is not valid (must be HTTPS): {service_url}")
                     return None
-                logger.info(
-                    f"Successfully deployed service {service_name}. URL: {service_url}"
-                )
+                logger.info(f"Successfully deployed service {service_name}. URL: {service_url}")
                 return service_url
             else:
-                logger.error(
-                    f"Deployed service {service_name}, but failed to retrieve its URL. Stderr: {url_stderr}"
-                )
+                logger.error(f"Deployed service {service_name}, but failed to retrieve its URL. Stderr: {url_stderr}")
                 return None  # Consider deployment failed if URL cannot be retrieved
         else:
             logger.error(f"Failed to deploy service {service_name}. Stderr: {stderr}")
             return None
     except Exception as e:
-        logger.error(
-            f"An error occurred during Cloud Run deployment for service {service_name}: {e}"
-        )
+        logger.error(f"An error occurred during Cloud Run deployment for service {service_name}: {e}")
         return None
 
 
-def ensure_artifact_registry_repo_exists(
-    project_id: str, region: str, repo_name: str, dry_run: bool = False
-) -> bool:
+def ensure_artifact_registry_repo_exists(project_id: str, region: str, repo_name: str, dry_run: bool = False) -> bool:
     """
     Checks if an Artifact Registry repository exists, and creates it if it doesn't.
     """
@@ -306,12 +275,8 @@ def ensure_artifact_registry_repo_exists(
 
         # If describe failed, check if it's because the repo was not found
         # gcloud typically returns non-zero exit code and an error message to stderr for "not found"
-        if (
-            "NOT_FOUND" in stderr.upper() or "failed to find" in stderr.lower()
-        ):  # Heuristic check
-            logger.info(
-                f"Artifact Registry repository '{repo_name}' not found. Attempting to create it."
-            )
+        if "NOT_FOUND" in stderr.upper() or "failed to find" in stderr.lower():  # Heuristic check
+            logger.info(f"Artifact Registry repository '{repo_name}' not found. Attempting to create it.")
             create_cmd = [
                 "artifacts",
                 "repositories",
@@ -326,29 +291,19 @@ def ensure_artifact_registry_repo_exists(
                 "--description",
                 "Repository for reward-kit evaluators (auto-created by reward-kit CLI)",
             ]
-            create_success, create_stdout, create_stderr = _run_gcloud_command(
-                create_cmd, dry_run=dry_run
-            )
+            create_success, create_stdout, create_stderr = _run_gcloud_command(create_cmd, dry_run=dry_run)
             if create_success:
-                logger.info(
-                    f"Successfully created Artifact Registry repository '{repo_name}'."
-                )
+                logger.info(f"Successfully created Artifact Registry repository '{repo_name}'.")
                 return True
             else:
-                logger.error(
-                    f"Failed to create Artifact Registry repository '{repo_name}'. Stderr: {create_stderr}"
-                )
+                logger.error(f"Failed to create Artifact Registry repository '{repo_name}'. Stderr: {create_stderr}")
                 return False
         else:
             # Describe failed for a reason other than "not found"
-            logger.error(
-                f"Error describing Artifact Registry repository '{repo_name}'. Stderr: {stderr}"
-            )
+            logger.error(f"Error describing Artifact Registry repository '{repo_name}'. Stderr: {stderr}")
             return False
     except Exception as e:
-        logger.error(
-            f"An unexpected error occurred while ensuring Artifact Registry repository '{repo_name}': {e}"
-        )
+        logger.error(f"An unexpected error occurred while ensuring Artifact Registry repository '{repo_name}': {e}")
         return False
 
 
@@ -356,9 +311,7 @@ def ensure_gcp_secret(
     project_id: str,
     secret_id: str,
     secret_value: str,
-    region: Optional[
-        str
-    ] = None,  # For replication policy if needed, or if secrets are regional
+    region: Optional[str] = None,  # For replication policy if needed, or if secrets are regional
     labels: Optional[Dict[str, str]] = None,
     dry_run: bool = False,
 ) -> Optional[str]:
@@ -382,10 +335,7 @@ def ensure_gcp_secret(
     secret_exists, _, describe_stderr = _run_gcloud_command(describe_cmd, dry_run=False)
 
     if not secret_exists:
-        if (
-            "NOT_FOUND" in describe_stderr.upper()
-            or "failed to find" in describe_stderr.lower()
-        ):
+        if "NOT_FOUND" in describe_stderr.upper() or "failed to find" in describe_stderr.lower():
             logger.info(f"Secret '{secret_id}' not found. Attempting to create it.")
             create_cmd_list = [
                 "secrets",
@@ -407,21 +357,15 @@ def ensure_gcp_secret(
                 labels_str = ",".join([f"{k}={v}" for k, v in labels.items()])
                 create_cmd_list.extend(["--labels", labels_str])
 
-            create_success, _, create_stderr = _run_gcloud_command(
-                create_cmd_list, dry_run=dry_run
-            )
+            create_success, _, create_stderr = _run_gcloud_command(create_cmd_list, dry_run=dry_run)
             if not create_success:
-                logger.error(
-                    f"Failed to create secret '{secret_id}'. Stderr: {create_stderr}"
-                )
+                logger.error(f"Failed to create secret '{secret_id}'. Stderr: {create_stderr}")
                 return None
             logger.info(f"Successfully created secret '{secret_id}'.")
             secret_exists = True  # Now it exists
         else:
             # Describe failed for another reason
-            logger.error(
-                f"Error describing secret '{secret_id}'. Stderr: {describe_stderr}"
-            )
+            logger.error(f"Error describing secret '{secret_id}'. Stderr: {describe_stderr}")
             return None
 
     # Add a new version to the secret
@@ -441,26 +385,20 @@ def ensure_gcp_secret(
             "--data-file",
             tmp_secret_file_path,
         ]
-        version_success, version_stdout, version_stderr = _run_gcloud_command(
-            add_version_cmd, dry_run=dry_run
-        )
+        version_success, version_stdout, version_stderr = _run_gcloud_command(add_version_cmd, dry_run=dry_run)
 
         if tmp_secret_file_path and os.path.exists(tmp_secret_file_path):
             os.remove(tmp_secret_file_path)
 
         if not version_success:
-            logger.error(
-                f"Failed to add version to secret '{secret_id}'. Stderr: {version_stderr}"
-            )
+            logger.error(f"Failed to add version to secret '{secret_id}'. Stderr: {version_stderr}")
             return None
 
         # The stdout of 'versions add' usually contains the version name, but it's safer to describe.
         # Let's parse the version from the output if available, or describe to get the latest.
         # For simplicity, if dry_run, we can't get a real version.
         if dry_run:
-            logger.info(
-                f"Successfully added version to secret '{secret_id}' (dry run)."
-            )
+            logger.info(f"Successfully added version to secret '{secret_id}' (dry run).")
             return f"projects/{project_id}/secrets/{secret_id}/versions/latest-dry-run"
 
         # Get the full name of the newly added version
@@ -477,14 +415,10 @@ def ensure_gcp_secret(
             "--format",
             "value(name)",
         ]
-        desc_ver_success, desc_ver_stdout, desc_ver_stderr = _run_gcloud_command(
-            describe_version_cmd, dry_run=False
-        )
+        desc_ver_success, desc_ver_stdout, desc_ver_stderr = _run_gcloud_command(describe_version_cmd, dry_run=False)
         if desc_ver_success and desc_ver_stdout:
             secret_version_name = desc_ver_stdout.strip()
-            logger.info(
-                f"Successfully added version to secret '{secret_id}'. Version name: {secret_version_name}"
-            )
+            logger.info(f"Successfully added version to secret '{secret_id}'. Version name: {secret_version_name}")
             return secret_version_name
         else:
             logger.error(
@@ -527,9 +461,7 @@ if __name__ == "__main__":
         gcp_region="us-central1",
         allow_unauthenticated=True,
         env_vars={"MY_ENV_VAR": "my_value"},
-        secrets_to_mount={
-            "API_KEY_SECRET": "projects/my-test-project/secrets/my-api-key/versions/latest"
-        },
+        secrets_to_mount={"API_KEY_SECRET": "projects/my-test-project/secrets/my-api-key/versions/latest"},
         dry_run=True,
     )
 
@@ -549,6 +481,4 @@ if __name__ == "__main__":
         labels={"managed-by": "reward-kit-test"},
         dry_run=True,
     )
-    print(
-        "\nNote: These are placeholder executions. Real implementation requires gcloud CLI and Docker."
-    )
+    print("\nNote: These are placeholder executions. Real implementation requires gcloud CLI and Docker.")

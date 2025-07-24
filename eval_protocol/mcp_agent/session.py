@@ -32,9 +32,7 @@ class IntermediarySessionData:
     managed_backends: Dict[str, List[ManagedInstanceInfo]] = field(default_factory=dict)
     temporary_docker_images: Set[str] = field(default_factory=set)
 
-    def add_managed_instances(
-        self, backend_name_ref: str, instances: List[ManagedInstanceInfo]
-    ):
+    def add_managed_instances(self, backend_name_ref: str, instances: List[ManagedInstanceInfo]):
         """Adds a list of managed instances for a given backend reference."""
         if backend_name_ref not in self.managed_backends:
             self.managed_backends[backend_name_ref] = []
