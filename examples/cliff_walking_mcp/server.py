@@ -14,8 +14,8 @@ import os
 import sys
 from pathlib import Path
 
-# Add current directory to path so we can import local modules
-sys.path.insert(0, str(Path(__file__).parent))
+# Add root directory to path so we can import eval_protocol
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from cliff_walking_mcp import CliffWalkingMcp
 
