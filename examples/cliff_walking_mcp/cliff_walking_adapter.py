@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from gymnasium.envs.toy_text.cliffwalking import CliffWalkingEnv
 
-from reward_kit.mcp.adapter import EnvironmentAdapter
+from eval_protocol.mcp.adapter import EnvironmentAdapter
 
 
 class CliffWalkingAdapter(EnvironmentAdapter):
@@ -30,7 +30,7 @@ class CliffWalkingAdapter(EnvironmentAdapter):
             Cliff Walking environment instance
         """
         print(f"🔍 CliffWalkingAdapter.create_environment: config: {config}")
-        env = CliffWalkingEnv(render_mode="ansi")
+        env = CliffWalkingEnv(render_mode="ansi", is_slippery=False)
         print(f"🔍 CliffWalkingAdapter.create_environment: Created CliffWalkingEnv")
         return env
 
@@ -47,9 +47,7 @@ class CliffWalkingAdapter(EnvironmentAdapter):
         Returns:
             Tuple of (environment, initial_observation, initial_info)
         """
-        print(
-            f"🔍 CliffWalkingAdapter.create_environment_with_seed: seed: {seed}"
-        )
+        print(f"🔍 CliffWalkingAdapter.create_environment_with_seed: seed: {seed}")
         config = config or {}
 
         # Add seed to config for environment creation
@@ -140,19 +138,6 @@ class CliffWalkingAdapter(EnvironmentAdapter):
         """
         return int(observation)
 
-    def get_action_space_description(self) -> Dict[str, Any]:
-        """
-        Get action space description.
-
-        Returns:
-            Action space description dictionary
-        """
-        return {
-            "type": "discrete",
-            "actions": self.ACTION_NAMES,
-            "description": "Move actions: UP(0), RIGHT(1), DOWN(2), LEFT(3)",
-        }
-
     def get_default_config(self) -> Dict[str, Any]:
         """
         Get default configuration.
@@ -160,4 +145,6 @@ class CliffWalkingAdapter(EnvironmentAdapter):
         Returns:
             Default configuration dictionary
         """
-        return {}
+        return {
+            "is_slippery": False,
+        }

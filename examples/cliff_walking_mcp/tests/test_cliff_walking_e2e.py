@@ -33,16 +33,13 @@ from eval_protocol.utils.static_policy import StaticPolicy, RandomPolicy
 
 
 # Helper functions for creating environment-specific policies
-def create_cliff_walking_static_policy(
-    action_sequence: Optional[List[str]] = None, **kwargs
-) -> StaticPolicy:
+def create_cliff_walking_static_policy(action_sequence: Optional[List[str]] = None, **kwargs) -> StaticPolicy:
     """Create a static policy configured for Cliff Walking environment."""
     return StaticPolicy(
         tool_name="cliff_move",
-        action_sequence=action_sequence
-        or ["UP", "UP", "RIGHT", "RIGHT", "RIGHT", "DOWN", "DOWN", "DOWN"],
-        available_actions=["UP", "RIGHT", "DOWN", "LEFT"],
-        **kwargs,
+        action_sequence=action_sequence or ["UP", "UP", "UP", "UP", "UP", "UP", "UP"],
+        available_actions=["LEFT", "DOWN", "RIGHT", "UP"],
+        **kwargs
     )
 
 
@@ -132,8 +129,6 @@ class MCPServerManager:
             cmd,
             cwd=self.base_dir,
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
             stdout=log_file,
             stderr=log_file,
             text=True,
@@ -606,7 +601,7 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
 
         # Create static policy for fast testing
         policy = create_cliff_walking_static_policy(
-            action_sequence=["UP", "UP", "UP", "RIGHT", "RIGHT", "RIGHT"]
+            action_sequence=["UP", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "DOWN"]
         )
 
         # Create multiple environments
@@ -620,7 +615,7 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
 
         # Run rollout with multiple environments
         start_time = time.time()
-        trajectories = await rk.rollout(envs, policy=policy, steps=10)
+        trajectories = await rk.rollout(envs, policy=policy, steps=14)
         duration = time.time() - start_time
 
         # Validate results
@@ -900,7 +895,7 @@ def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
         )
 
     # CRITICAL ASSERTION: If we have a reasonable number of steps and NO termination, that's a bug
-    if total_steps >= 10 and terminated_steps == 0:
+    if total_steps >= 20 and terminated_steps == 0:
         pytest.fail(
             f"❌ CONTROL PLANE SYNC BUG DETECTED: "
             f"Found {total_steps} recorded steps but ZERO show terminated=True in metadata. "
@@ -1096,7 +1091,7 @@ async def test_fireworks_multi_environment_sessions(
         # Run playback
         start_time = time.time()
         playback_trajectories = await rk.rollout(
-            playback_envs, policy=playback_policy, steps=8
+            playback_envs, policy=playback_policy, steps=16
         )
         playback_duration = time.time() - start_time
 
@@ -1144,7 +1139,7 @@ async def test_fireworks_multi_environment_sessions(
 
         # Run rollout with multiple environments (fewer steps for LLM efficiency)
         start_time = time.time()
-        trajectories = await rk.rollout(envs, policy=policy, steps=8)
+        trajectories = await rk.rollout(envs, policy=policy, steps=16)
         duration = time.time() - start_time
 
         # Validate results

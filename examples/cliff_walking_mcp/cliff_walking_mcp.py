@@ -23,7 +23,7 @@ from cliff_walking_adapter import CliffWalkingAdapter
 from mcp.server.fastmcp import Context
 from gymnasium.envs.toy_text.cliffwalking import CliffWalkingEnv
 
-from reward_kit.mcp import McpGym
+from eval_protocol.mcp import McpGym
 
 
 class CliffWalkingMcp(McpGym):
