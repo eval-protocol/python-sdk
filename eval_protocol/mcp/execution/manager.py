@@ -6,6 +6,7 @@ Combines the functionality of SessionManager and RolloutManager.
 """
 
 import asyncio
+from dataclasses import dataclass
 import json
 import logging
 import os
@@ -15,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from ..client.connection import MCPConnectionManager
-from ..types import MCPSession, MCPToolCall, Trajectory, TerminationReason
+from ..types import MCPSession, MCPToolCall, Trajectory, TerminationReason, LLMUsageStats
 
 from tau2.user.user_simulator import UserSimulator
 from tau2.data_model.message import AssistantMessage, UserMessage
@@ -124,35 +125,16 @@ class ExecutionManager:
 
         results = {}
 
-        with ThreadPoolExecutor(max_workers=max_concurrent_rollouts, thread_name_prefix="rollout") as executor:
-            futures = {
-                executor.submit(
-                    lambda idx=i: asyncio.run(
-                        self._execute_rollout(
-                            envs,
-                            policy,
-                            idx,
-                            steps,
-                            openai_logger,
-                            recording_mode,
-                            playback_mode,
-                            start_time,
-                        )
-                    )
-                ): i
-                for i in range(envs.n)
-            }
+        semaphore = asyncio.Semaphore(max_concurrent_rollouts)
 
-            completed_count = 0
-            for future in as_completed(futures):
-                rollout_idx = futures[future]
-                trajectory = future.result()
+        async def _execute_with_semaphore(idx):
+            async with semaphore:
+                return await self._execute_rollout(
+                    envs, policy, idx, steps, openai_logger, recording_mode, playback_mode, start_time
+                )
 
-                results[rollout_idx] = trajectory
-
-                completed_count += 1
-
-        trajectories = [results[i] for i in range(envs.n)]
+        tasks = [_execute_with_semaphore(i) for i in range(envs.n)]
+        trajectories = await asyncio.gather(*tasks)
 
         # Calculate durations
         total_duration = time.time() - start_time
@@ -218,6 +200,11 @@ class ExecutionManager:
             control_plane_summary={},
             termination_reason="",
             conversation_history=[],
+            llm_usage_summary={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
         )
 
         current_observation, tool_schema = await envs.reset(session)
@@ -251,6 +238,8 @@ class ExecutionManager:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
+
+        usage_stats_list: List[LLMUsageStats] = []
 
         logger.info(f"🎯 Starting rollout {rollout_idx} in thread {threading.current_thread().name}")
 
@@ -287,7 +276,7 @@ class ExecutionManager:
 
             # In each turn: keep looping until assistant is ready to provide final response
             while not turn_completed and not trajectory.terminated:
-                tool_calls = await policy(tool_schema, rollout_idx, conversation_history)
+                tool_calls, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
 
                 # If no tool call is generated, turn is finished
                 if len(tool_calls) == 1:
@@ -360,6 +349,10 @@ class ExecutionManager:
                 if observation is not None:
                     current_observation = observation
 
+                # calc llm usage stats happened in this turn if there is aany
+                if usage_stats:
+                    usage_stats_list.append(usage_stats)
+
             # With user simulator, increment step after an entire conversation step
             if user_simulator is not None:
                 step += 1
@@ -430,6 +423,11 @@ class ExecutionManager:
             trajectory.termination_reason = TerminationReason.MAX_STEPS
 
         trajectory.conversation_history = conversation_history
+
+        for usage_stats in usage_stats_list:
+            trajectory.llm_usage_summary["prompt_tokens"] += usage_stats.prompt_tokens
+            trajectory.llm_usage_summary["completion_tokens"] += usage_stats.completion_tokens
+            trajectory.llm_usage_summary["total_tokens"] += usage_stats.total_tokens
 
         logger.info(
             f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}"
