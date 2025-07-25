@@ -10,7 +10,7 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ...playback_policy import PlaybackPolicyBase
 from ..types import LLMUsageStats, MCPToolCall
@@ -148,7 +148,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> List[MCPToolCall]:
+    ) -> Tuple[List[MCPToolCall], LLMUsageStats]:
         """
         Generate tool calls using conversation history for proper OpenAI trajectories.
 
