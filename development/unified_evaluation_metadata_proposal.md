@@ -134,6 +134,11 @@ The schema below describes the structure of the JSON string that will be the val
     "error": {
       "type": ["string", "null"],
       "description": "Optional error message if evaluation failed."
+    },
+    "final_control_plane_info": {
+        "type": ["object", "null"],
+        "description": "Final state information from the control plane that caused termination or conclusion.",
+        "additionalProperties": true
     }
   },
   "definitions": {
@@ -151,49 +156,127 @@ The schema below describes the structure of the JSON string that will be the val
       "properties": {
         "step_index": { "type": ["integer", "string"] },
         "base_reward": { "type": "number" },
+        "terminated": { 
+            "type": "boolean",
+            "description": "Whether the episode terminated at this step."
+        },
+        "control_plane_info": {
+            "type": ["object", "null"],
+            "description": "Structured information from the environment's control plane for this step.",
+            "additionalProperties": true
+        },
         "metrics": { "type": "object", "additionalProperties": true },
         "reason": { "type": ["string", "null"] }
       },
-      "required": ["step_index", "base_reward"]
+      "required": ["step_index", "base_reward", "terminated"]
     }
   }
 }
 ```
 
-### 6. Impact on the `Trajectory` Class
+### 6. Impact on the `Trajectory` and Control Plane Integration
 
-This unified approach necessitates a corresponding simplification and update to the `eval_protocol.mcp.types.Trajectory` dataclass. The goal is to make `EvaluateResult` the single container for all evaluation-related data, removing redundant or overlapping fields from `Trajectory`.
+This unified approach necessitates a corresponding simplification and update to the `eval_protocol.mcp.types.Trajectory` dataclass and a clear mapping from the control plane logic in `execution/manager.py`.
 
-#### 6.1. Current `Trajectory` Definition
+#### 6.1. Extending Core Data Models
+
+To properly handle control plane data, we must first extend our core data models.
+
+**`StepOutput` Extension**: We will add `terminated` and `control_plane_info` to capture the state at each step.
 
 ```python
-# From: eval_protocol/mcp/types.py
-
-@dataclass
-class Trajectory:
-    """Represents a complete rollout trajectory."""
-    session: MCPSession
-    observations: List[Any]
-    actions: List[str]
-    rewards: List[float]
-    terminated: bool
-    total_reward: float
-    steps: int
-    duration: float
-    control_plane_steps: List[Dict[str, Any]]
-    control_plane_summary: Dict[str, Any]
-    termination_reason: str
-    conversation_history: List[Dict[str, Any]]
-    llm_usage_summary: Dict[str, int] = field(default_factory=dict)
+# In eval_protocol/models.py
+class StepOutput(BaseModel):
+    step_index: Union[int, str]
+    base_reward: float
+    terminated: bool = Field(description="Whether the environment signaled termination at this step.")
+    control_plane_info: Optional[Dict[str, Any]] = Field(default=None, description="Structured info from the environment's control plane.")
+    metrics: Dict[str, Any] = Field(default_factory=dict)
+    reason: Optional[str] = None
 ```
 
-#### 6.2. Proposed `Trajectory` Definition
+**`EvaluateResult` Extension**: We will add `final_control_plane_info` to capture the final state that caused the episode to end.
 
-The updated `Trajectory` will store the final `EvaluateResult` for the entire episode. This single object will contain the overall score, per-step rewards, and all other evaluation metrics, making the trajectory object cleaner and more consistent with our data model.
+```python
+# In eval_protocol/models.py
+class EvaluateResult(BaseModel):
+    score: float
+    # ... other fields
+    step_outputs: Optional[List[StepOutput]] = None
+    final_control_plane_info: Optional[Dict[str, Any]] = Field(default=None, description="The final control plane state that led to termination.")
+    error: Optional[str] = None
+    # ... serialization methods
+```
+
+#### 6.2. Mapping Control Plane Logic from `manager.py`
+
+With the extended models, we can now clearly map the logic from `_execute_rollout` in `manager.py`.
+
+**Old Logic (`manager.py`)**:
+```python
+# Create and append control_plane_step dictionary
+control_plane_step = {
+    "step": step - 1,
+    "reward": reward,
+    "terminated": rollout_end,
+    "info": info.get("control_plane", {}),
+    "tool_calls": tool_calls_summary,
+}
+trajectory.control_plane_steps.append(control_plane_step)
+
+# Create and update control_plane_summary dictionary
+if rollout_end:
+    trajectory.control_plane_summary.update({
+        "total_reward": trajectory.total_reward,
+        "control_plane_source": info.get("control_plane", {}),
+        # ... other summary fields
+    })
+```
+
+**New Logic (Conceptual)**:
+The `_execute_rollout` function would no longer build `control_plane_steps` or `control_plane_summary`. Instead, it would create a list of `StepOutput` objects.
+
+```python
+# Inside the rollout loop in manager.py
+step_outputs = []
+# ... after envs.step() returns reward, rollout_end, info
+
+# The tool_calls_summary can be added to metrics
+step_metrics = {"tool_calls": tool_calls_summary}
+
+# Create a StepOutput for each interaction
+new_step_output = StepOutput(
+    step_index=step - 1,
+    base_reward=reward,
+    terminated=rollout_end,
+    control_plane_info=info.get("control_plane", {}),
+    metrics=step_metrics
+)
+step_outputs.append(new_step_output)
+
+# ... at the end of the rollout
+
+# The final EvaluateResult is assembled
+final_eval_result = EvaluateResult(
+    score=total_reward,
+    step_outputs=step_outputs,
+    # The final info that caused termination is the control_plane_info from the last step
+    final_control_plane_info=step_outputs[-1].control_plane_info if step_outputs and step_outputs[-1].terminated else None,
+    reason=trajectory.termination_reason,
+    # ... other metrics
+)
+
+# The new Trajectory object holds this single result
+trajectory.evaluation_result = final_eval_result
+```
+
+#### 6.3. Proposed `Trajectory` Definition
+
+This leads to a much cleaner `Trajectory` object, where all evaluation-related information is neatly encapsulated within the `EvaluateResult`.
 
 ```python
 # Proposed changes for: eval_protocol/mcp/types.py
-from eval_protocol.models import EvaluateResult, Message # Assuming Message model is accessible
+from eval_protocol.models import EvaluateResult, Message
 
 @dataclass
 class Trajectory:
@@ -212,14 +295,4 @@ class Trajectory:
     observations: List[Any] = field(default_factory=list)
     actions: List[str] = field(default_factory=list)
 ```
-
-#### 6.3. Mapping of Deprecated Fields
-
-The old fields will be consolidated into the `evaluation_result` object as follows:
-
-- **`total_reward: float`** -> `evaluation_result.score`
-- **`rewards: List[float]`** -> Contained within `evaluation_result.step_outputs`, where each `StepOutput` has a `base_reward`.
-- **`control_plane_summary: Dict`** -> The `reason`, `metrics`, and `error` fields of `evaluation_result`.
-- **`control_plane_steps: List[Dict]`** -> The details from these steps can be incorporated into the `metrics` of each corresponding `StepOutput` in `evaluation_result.step_outputs`.
-- **`llm_usage_summary: Dict`** -> Can be added as a custom metric in `evaluation_result.metrics`.
-- **`conversation_history: List[Dict]`** -> Becomes `conversation_history: List[Message]`. Each `Message` object in the list can now carry its own per-turn evaluation metadata, providing a complete, self-contained record. 
+This revised structure directly incorporates the control plane's data into our primary evaluation models, making the system more robust and the data flow more explicit. 
