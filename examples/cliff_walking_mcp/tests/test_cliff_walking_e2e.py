@@ -33,13 +33,15 @@ from eval_protocol.utils.static_policy import StaticPolicy, RandomPolicy
 
 
 # Helper functions for creating environment-specific policies
-def create_cliff_walking_static_policy(action_sequence: Optional[List[str]] = None, **kwargs) -> StaticPolicy:
+def create_cliff_walking_static_policy(
+    action_sequence: Optional[List[str]] = None, **kwargs
+) -> StaticPolicy:
     """Create a static policy configured for Cliff Walking environment."""
     return StaticPolicy(
         tool_name="cliff_move",
         action_sequence=action_sequence or ["UP", "UP", "UP", "UP", "UP", "UP", "UP"],
         available_actions=["LEFT", "DOWN", "RIGHT", "UP"],
-        **kwargs
+        **kwargs,
     )
 
 
@@ -487,7 +489,7 @@ async def test_cliff_walking_step_by_step(conda_isolation_recording_file):
         test_dataset = [
             {
                 "id": "conda_test_001",
-                "system_prompt": "You are playing Cliff Walking, a 4x12 grid game. Use cliff_move tool with LEFT, DOWN, RIGHT, UP actions.",
+                "system_prompt": "You are playing Cliff Walking, a grid-based navigation game displayed as a 4x12 text grid. The grid contains: x (Your position), o (safe place), C (the cliff), T (the target). You start at position (3,0) and the goal is to reach T without stepping on the cliff. In this version, the surface is not slippery so your moves are deterministic. If you step on the cliff, your position will be reset to (3, 0) and get a reward of -100.  Use the cliff_move tool with actions LEFT, DOWN, RIGHT, UP to navigate the grid.",
                 "user_prompt_template": "Current state: {observation}. Choose your move.",
                 "environment_context": {
                     "game": "CliffWalking",
@@ -547,7 +549,7 @@ def multi_env_dataset():
     return [
         {
             "id": "multi_env_test_001",
-            "system_prompt": "You are playing Cliff Walking, a 4x12 grid game. Use cliff_move tool with LEFT, DOWN, RIGHT, UP actions.",
+            "system_prompt": "You are playing Cliff Walking, a grid-based navigation game displayed as a 4x12 text grid. The grid contains: x (Your position), o (safe place), C (the cliff), T (the target). You start at position (3,0) and the goal is to reach T without stepping on the cliff. In this version, the surface is not slippery so your moves are deterministic. If you step on the cliff, your position will be reset to (3, 0) and get a reward of -100.  Use the cliff_move tool with actions LEFT, DOWN, RIGHT, UP to navigate the grid.",
             "user_prompt_template": "Current state: {observation}. Choose your move wisely.",
             "environment_context": {
                 "game": "CliffWalking",
@@ -556,7 +558,7 @@ def multi_env_dataset():
         },
         {
             "id": "multi_env_test_002",
-            "system_prompt": "You are playing Cliff Walking, a 4x12 grid game. Use cliff_move tool with LEFT, DOWN, RIGHT, UP actions.",
+            "system_prompt": "You are playing Cliff Walking, a grid-based navigation game displayed as a 4x12 text grid. The grid contains: x (Your position), o (safe place), C (the cliff), T (the target). You start at position (3,0) and the goal is to reach T without stepping on the cliff. In this version, the surface is not slippery so your moves are deterministic. If you step on the cliff, your position will be reset to (3, 0) and get a reward of -100.  Use the cliff_move tool with actions LEFT, DOWN, RIGHT, UP to navigate the grid.",
             "user_prompt_template": "Current state: {observation}. Navigate carefully to avoid cliffs.",
             "environment_context": {
                 "game": "CliffWalking",
@@ -565,7 +567,7 @@ def multi_env_dataset():
         },
         {
             "id": "multi_env_test_003",
-            "system_prompt": "You are playing Cliff Walking, a 4x12 grid game. Use cliff_move tool with LEFT, DOWN, RIGHT, UP actions.",
+            "system_prompt": "You are playing Cliff Walking, a grid-based navigation game displayed as a 4x12 text grid. The grid contains: x (Your position), o (safe place), C (the cliff), T (the target). You start at position (3,0) and the goal is to reach T without stepping on the cliff. In this version, the surface is not slippery so your moves are deterministic. If you step on the cliff, your position will be reset to (3, 0) and get a reward of -100.  Use the cliff_move tool with actions LEFT, DOWN, RIGHT, UP to navigate the grid.",
             "user_prompt_template": "Current state: {observation}. Find the shortest path to the goal.",
             "environment_context": {
                 "game": "CliffWalking",
@@ -601,7 +603,21 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
 
         # Create static policy for fast testing
         policy = create_cliff_walking_static_policy(
-            action_sequence=["UP", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "DOWN"]
+            action_sequence=[
+                "UP",
+                "RIGHT",
+                "RIGHT",
+                "RIGHT",
+                "RIGHT",
+                "RIGHT",
+                "RIGHT",
+                "RIGHT",
+                "RIGHT",
+                "RIGHT",
+                "RIGHT",
+                "RIGHT",
+                "DOWN",
+            ]
         )
 
         # Create multiple environments
