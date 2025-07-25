@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -70,7 +70,7 @@ class Trajectory:
     control_plane_summary: Dict[str, Any]
     termination_reason: str
     conversation_history: List[Dict[str, Any]]
-    llm_usage_summary: Dict[str, int]
+    llm_usage_summary: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
