@@ -236,11 +236,13 @@ class FireworksPolicy(LLMBasePolicy):
     Supports both live mode (using Fireworks LLM) and playback mode (replaying recorded trajectories).
     """
 
+    from fireworks import DeploymentTypeLiteral
+
     def __init__(
         self,
         model_id: str,
         temperature: float = 0.2,
-        deployment_type: str = "serverless",
+        deployment_type: DeploymentTypeLiteral = "serverless",
         max_tokens: int = 4096,
         max_tools_per_turn: Optional[int] = None,
         **kwargs,
@@ -338,6 +340,10 @@ class FireworksPolicy(LLMBasePolicy):
         Returns:
             API response in OpenAI format
         """
+        llm = self.llm
+        if llm is None:
+            raise RuntimeError("Fireworks LLM not initialized")
+
         # Clean messages by removing metadata before sending to API
         clean_messages = self._clean_messages_for_api(messages)
 
@@ -350,7 +356,7 @@ class FireworksPolicy(LLMBasePolicy):
 
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
-            self.llm_executor, lambda: self.llm.chat.completions.create(**current_request)
+            self.llm_executor, lambda: llm.chat.completions.create(**current_request)
         )
 
         # Convert Fireworks response to standard format
