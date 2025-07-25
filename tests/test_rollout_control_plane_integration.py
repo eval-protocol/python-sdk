@@ -13,7 +13,6 @@ This validates the complete implementation of the control plane separation
 feature in the rollout execution pipeline.
 """
 
-import asyncio
 import json
 import sys
 import tempfile
@@ -50,7 +49,7 @@ class MockPolicy:
         tool_calls.append(tool_call)
 
         self.step_count += 1
-        return tool_calls
+        return tool_calls, None
 
     def add_tool_response(
         self,
@@ -287,6 +286,7 @@ class TestRolloutControlPlaneIntegration:
             control_plane_summary={},
             termination_reason="",
             conversation_history=[],
+            llm_usage_summary={},
         )
 
         # Simulate steps with control plane separation
@@ -455,6 +455,7 @@ class TestRolloutControlPlaneIntegration:
             control_plane_summary={},
             termination_reason="",
             conversation_history=[],
+            llm_usage_summary={},
         )
 
         # Add control plane data
