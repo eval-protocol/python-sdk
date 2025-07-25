@@ -34,7 +34,8 @@ dependencies = [
     "omegaconf>=2.3.0",
     "gymnasium>=0.29.0",
     "httpx>=0.24.0",
-    "fireworks-ai>=0.17.19",
+    "fireworks-ai>=0.19.10",
+    "tau2",
 ]
 
 [project.urls]
@@ -60,7 +61,9 @@ dev = [
     "versioneer>=0.20",
     "openai==1.78.1",
     "pre-commit",
-    "e2b>=0.15.0",
+    "e2b",
+    "pytest-cov",
+    "pytest-xdist",
     "docker==7.1.0",
 ]
 trl = [
@@ -69,9 +72,6 @@ trl = [
     "peft>=0.7.0",
     "transformers>=4.0.0",
     "accelerate>=0.28.0",
-]
-deepseek = [
-    "difflib>=3.0.0",
 ]
 openevals = [
     "openevals>=0.1.0",
@@ -95,3 +95,6 @@ parentdir_prefix = "reward-kit-"
 
 [tool.black]
 line-length = 119
+
+[tool.uv.sources]
+tau2 = { git = "https://github.com/sierra-research/tau2-bench.git" }

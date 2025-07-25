@@ -6,15 +6,15 @@ concurrency:
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
-      - 'docs/**'
-      - '*.md'
+      - "docs/**"
+      - "*.md"
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
-      - 'docs/**'
-      - '*.md'
+      - "docs/**"
+      - "*.md"
   workflow_dispatch:
 
 jobs:
@@ -24,31 +24,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for all tags and branches
+          fetch-depth: 0 # Fetch all history for all tags and branches
+
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-lint-${{ hashFiles('**/pyproject.toml', '**/setup.py') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-lint-
+          enable-cache: true
 
-      - name: Install linting dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-          pip install flake8 mypy types-docker types-requests types-PyYAML types-setuptools
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
 
       - name: Lint with flake8
-        run: flake8 eval_protocol tests examples scripts --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+        run: uv run flake8 eval_protocol tests examples scripts --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
 
       - name: Type check with mypy
-        run: mypy eval_protocol
+        run: uv run mypy eval_protocol
 
   test-core:
     name: Core Tests (Python ${{ matrix.python-version }})
@@ -62,27 +57,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for all tags and branches
+          fetch-depth: 0 # Fetch all history for all tags and branches
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-test-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml', '**/setup.py') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-test-${{ matrix.python-version }}-
+          enable-cache: true
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,trl,openevals]" # Install all deps for core tests
-          pip install pytest-cov pytest-asyncio pytest-xdist
-          pip install e2b || echo "e2b not available, some tests may be skipped"
-          pip install git+https://github.com/sierra-research/tau2-bench.git
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
 
       - name: Run Core Tests with pytest-xdist
         env:
@@ -92,7 +80,7 @@ jobs:
           PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
         run: |
           # Run most tests in parallel, but explicitly ignore tests that manage their own servers
-          pytest \
+          uv run pytest \
             -n auto \
             --ignore=tests/test_batch_evaluation.py \
             --cov=eval_protocol --cov-append --cov-report=xml --cov-report=term-missing -v --durations=10
@@ -111,23 +99,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for all tags and branches
+          fetch-depth: 0 # Fetch all history for all tags and branches
+
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-test-3.12-${{ hashFiles('**/pyproject.toml', '**/setup.py') }}
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,trl]"
-          pip install pytest-cov pytest-asyncio
-          pip install e2b || echo "e2b not available, some tests may be skipped"
-          pip install git+https://github.com/sierra-research/tau2-bench.git
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
       - name: Run Batch Evaluation Tests
         env:
           E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
@@ -136,7 +122,7 @@ jobs:
           PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
         run: |
           # Run only this specific test file, WITHOUT xdist
-          pytest tests/test_batch_evaluation.py --cov=eval_protocol --cov-append --cov-report=xml -v --durations=10
+          uv run pytest tests/test_batch_evaluation.py --cov=eval_protocol --cov-append --cov-report=xml -v --durations=10
       - name: Store coverage file
         uses: actions/upload-artifact@v4
         with:
@@ -151,21 +137,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for all tags and branches
+          fetch-depth: 0 # Fetch all history for all tags and branches
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-test-3.12-${{ hashFiles('**/pyproject.toml', '**/setup.py') }}
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,trl]"
-          pip install pytest-cov pytest-asyncio
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
       - name: Store coverage file
         uses: actions/upload-artifact@v4
         with:
