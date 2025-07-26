@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Airline MCP-Gym Server (τ²-Bench domain)
+General MCP-Gym Server (τ²-Bench domains)
 
-This script launches the Airline MCP-Gym server implemented in `tau2_mcp.py`.
-It exposes all airline booking / cancellation tools so an agent can be evaluated
-end-to-end.  Compatible with CondaServerProcessManager for isolated execution.
+This script launches MCP-Gym servers for different τ²-Bench domains.
+It can serve airline, mock, or retail domains based on the --domain argument.
+Compatible with CondaServerProcessManager for isolated execution.
 
 Usage:
-    python server.py --port 9100 --seed 42
+    python server.py --domain airline --port 9100 --seed 42
+    python server.py --domain mock --port 9101 --seed 42
+    python server.py --domain retail --port 9102 --seed 42
 """
 
 import argparse
@@ -18,12 +20,18 @@ from pathlib import Path
 # Add root directory to path so we can import eval_protocol
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from tau2_mcp import AirlineMcp
+from tau2_mcp import AirlineDomainMcp, MockDomainMcp, RetailDomainMcp
 
 
 def main():
-    """Run the LunarLander MCP server."""
-    parser = argparse.ArgumentParser(description="Airline MCP Server")
+    """Run the specified domain MCP server."""
+    parser = argparse.ArgumentParser(description="General τ²-Bench MCP Server")
+    parser.add_argument(
+        "--domain",
+        choices=["airline", "mock", "retail"],
+        default="airline",
+        help="Domain to serve (airline, mock, or retail)",
+    )
     parser.add_argument(
         "--transport",
         choices=["streamable-http", "stdio"],
@@ -40,10 +48,23 @@ def main():
         # TODO: Benny to fix this later
         os.environ["PORT"] = str(args.port)
 
-    # Create and run server
-    server = AirlineMcp(seed=args.seed)
+    # Create server based on domain
+    domain_servers = {
+        "airline": AirlineDomainMcp,
+        "mock": MockDomainMcp,
+        "retail": RetailDomainMcp,
+    }
 
-    print(f"✈️  Starting Airline MCP server on port {args.port}")
+    domain_icons = {
+        "airline": "✈️",
+        "mock": "🧪",
+        "retail": "🛒",
+    }
+
+    server_class = domain_servers[args.domain]
+    server = server_class(seed=args.seed)
+
+    print(f"{domain_icons[args.domain]} Starting {args.domain.title()} MCP server on port {args.port}")
     print(f"🌱 Seed: {args.seed}")
     print(f"📡 Transport: {args.transport}")
 

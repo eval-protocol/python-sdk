@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-End-to-End Record and Replay Tests for Airline MCP
+End-to-End Record and Replay Tests for Tau2 MCP
 
-This module provides the test_fireworks_multi_environment_sessions test and its dependencies.
+This module provides comprehensive tests for multi-domain MCP environments with clean dataset loading.
 """
 
 import asyncio
@@ -32,9 +32,9 @@ def _is_ci_mode():
     return os.environ.get("CI", "").lower() in ["true", "1", "yes"]
 
 
-def _create_test_server(port: int) -> "MCPServerManager":
+def _create_test_server(port: int, domain: str = "airline") -> "MCPServerManager":
     """Create and start a test server."""
-    server = MCPServerManager("server.py", port=port)
+    server = MCPServerManager("server.py", port=port, domain=domain)
     server.start()
     print(f"✅ Started test server on port {port}")
     return server
@@ -49,9 +49,10 @@ def _stop_test_server(server: "MCPServerManager"):
 class MCPServerManager:
     """Manages MCP server lifecycle for testing."""
 
-    def __init__(self, server_script: str, port: int = 8000):
+    def __init__(self, server_script: str, port: int = 8000, domain: str = "airline"):
         self.server_script = server_script
         self.port = port
+        self.domain = domain
         self.process: Optional[subprocess.Popen] = None
         self.base_dir = Path(__file__).parent.parent
 
@@ -64,11 +65,11 @@ class MCPServerManager:
         env = os.environ.copy()
         env["PORT"] = str(self.port)
 
-        # Start server process
-        cmd = ["python", self.server_script, "--port", str(self.port)]
+        # Start server process with domain specification
+        cmd = ["python", self.server_script, "--domain", self.domain, "--port", str(self.port)]
 
         # Setup log file with cleanup
-        log_file_path = os.path.join(self.base_dir, f"server_output_{self.port}.log")
+        log_file_path = os.path.join(self.base_dir, f"server_output_{self.domain}_{self.port}.log")
         if os.path.exists(log_file_path):
             os.remove(log_file_path)
 
@@ -111,137 +112,83 @@ class MCPServerManager:
         return self.process is not None and self.process.poll() is None
 
 
-# === Airline test prompts ===
-AGENT_SYSTEM_PROMPT_AIRLINE = """<instructions>
-You are a customer service agent that helps the user according to the <policy> provided below.
-In each turn you can either:
-- Send a message to the user.
-- Make a tool call.
-You cannot do both at the same time.
+def load_dataset(dataset_file: str) -> List[Dict[str, Any]]:
+    """Load dataset and add system_prompt based on domain."""
+    test_dir = Path(__file__).parent
+    dataset_path = test_dir / dataset_file
 
-Try to be helpful and always follow the policy.
-</instructions>
-<policy>
-# Airline Agent Policy
+    with open(dataset_path, "r") as f:
+        data = json.load(f)
 
-The current time is 2024-05-15 15:00:00 EST.
+    # Load system prompts based on domain
+    for item in data:
+        domain = item["environment_context"]["domain"]
+        prompt_file = test_dir / f"system_prompts/{domain}_agent_system_prompt.md"
 
-As an airline agent, you can help users **book**, **modify**, or **cancel** flight reservations. You also handle **refunds and compensation**.
+        with open(prompt_file, "r") as f:
+            item["system_prompt"] = f.read().strip()
 
-Before taking any actions that update the booking database (booking, modifying flights, editing baggage, changing cabin class, or updating passenger information), you must list the action details and obtain explicit user confirmation (yes) to proceed.
-
-You should not provide any information, knowledge, or procedures not provided by the user or available tools, or give subjective recommendations or comments.
-
-You should only make one tool call at a time, and if you make a tool call, you should not respond to the user simultaneously. If you respond to the user, you should not make a tool call at the same time.
-
-You should deny user requests that are against this policy.
-
-You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions. To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON.' to the user.
-
-## Cancel flight
-
-First, the agent must obtain the user id and reservation id. 
-- The user must provide their user id. 
-- If the user doesn't know their reservation id, the agent should help locate it using available tools.
-
-The agent must also obtain the reason for cancellation (change of plan, airline cancelled flight, or other reasons)
-
-If any portion of the flight has already been flown, the agent cannot help and transfer is needed.
-
-Otherwise, flight can be cancelled if any of the following is true:
-- The booking was made within the last 24 hrs
-- The flight is cancelled by airline
-- It is a business flight
-- The user has travel insurance and the reason for cancellation is covered by insurance.
-
-The API does not check that cancellation rules are met, so the agent must make sure the rules apply before calling the API!
-
-Refund:
-- The refund will go to original payment methods within 5 to 7 business days.
-</policy>"""
-
-USER_INSTRUCTIONS_AIRLINE1 = """Domain: airline
-Reason for call: You want to cancel reservation EHGLP3.
-Known info: You are Emma Kim (user id emma_kim_9957).
-If the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.
-"""
-
-USER_INSTRUCTIONS_AIRLINE2 = """Domain: airline
-Reason for call: You recently spoke on the phone with a customer support representative that told you that a service agent will be able to help you cancel your reservation.
-Known info: You are Raj Sanchez. Your user id is raj_sanchez_7340.
-Task instructions: The trip you want to cancel is the one from Philadelphia to LaGuardia.
-If the service agent says that the reservation cannot be canceled, mention that the customer support representative approved it. You don't want to go ahead with the cancellation if you don't get a refund.
-"""
-
-USER_INSTRUCTIONS_AIRLINE3 = """Domain: airline
-Reason for call: First, try to book a flight from sf to ny. You will have 3 passengers. Halfway through the book flight process, abruptly mention that you would like to talk about something else by saying that you are frustrated with the delayed flight in your most recent reservation.
-Known info: You are Noah Muller. Your user id is noah_muller_9847.
-"""
-
-NL_ASSERTIONS = [
-    ["Agent should refuse to proceed with the cancellation."],
-    ["Agent should not approve the cancellation."],
-    [
-        "Agent should not offer compensation unless the user asks for it.",
-        "Agent should check that the flight was indeed delayed.",
-        "Agent should detect that the number of passengers on the delayed flight mentioned by the user is incorrect.",
-        "Agent should offer a certificate of $50.",
-    ],
-]
+    return data
 
 
 @pytest.fixture
-def multi_env_dataset():
-    """Create a multi-environment dataset for testing."""
-    return [
-        {
-            "id": f"airline_task_1",
-            "system_prompt": AGENT_SYSTEM_PROMPT_AIRLINE,
-            "user_prompt_template": "{observation}",
-            "environment_context": {"domain": "airline"},
-            "user_simulation": {
-                "enabled": True,
-                "llm": "gpt-4.1",
-                "system_prompt": USER_INSTRUCTIONS_AIRLINE1,
-            },
-        },
-        {
-            "id": f"airline_task_2",
-            "system_prompt": AGENT_SYSTEM_PROMPT_AIRLINE,
-            "user_prompt_template": "{observation}",
-            "environment_context": {"domain": "airline"},
-            "user_simulation": {
-                "enabled": True,
-                "llm": "gpt-4.1",
-                "system_prompt": USER_INSTRUCTIONS_AIRLINE2,
-            },
-        },
-        {
-            "id": f"airline_task_3",
-            "system_prompt": AGENT_SYSTEM_PROMPT_AIRLINE,
-            "user_prompt_template": "{observation}",
-            "environment_context": {"domain": "airline"},
-            "user_simulation": {
-                "enabled": True,
-                "llm": "gpt-4.1",
-                "system_prompt": USER_INSTRUCTIONS_AIRLINE3,
-            },
-        },
-    ]
+def multi_env_airline_dataset():
+    """Load airline dataset with system prompts."""
+    return load_dataset("datasets/airline.json")
 
 
 @pytest.fixture
-def fireworks_multi_env_recording_file():
+def multi_env_mock_dataset():
+    """Load mock dataset with system prompts."""
+    return load_dataset("datasets/mock.json")
+
+
+@pytest.fixture
+def multi_env_retail_dataset():
+    """Load retail dataset with system prompts."""
+    return load_dataset("datasets/retail.json")
+
+
+@pytest.fixture
+def fireworks_multi_env_airline_recording_file():
     """Provide a recording file path for the OpenAIPolicy multi-environment test."""
     recording_dir = Path(__file__).parent / "recordings"
     recording_dir.mkdir(exist_ok=True)
-    recording_path = recording_dir / "fireworks_multi_env_trajectory.jsonl"
+    recording_path = recording_dir / "fireworks_multi_env_airline_trajectory.jsonl"
 
     # Don't remove here - let the test handle removal for clean runs
     yield str(recording_path)
 
     # Keep the file after test completion for review
     print(f"📁 OpenAIPolicy multi-environment trajectory preserved at: {recording_path}")
+
+
+@pytest.fixture
+def fireworks_multi_env_mock_recording_file():
+    """Provide a recording file path for the mock domain multi-environment test."""
+    recording_dir = Path(__file__).parent / "recordings"
+    recording_dir.mkdir(exist_ok=True)
+    recording_path = recording_dir / "fireworks_multi_env_mock_trajectory.jsonl"
+
+    # Don't remove here - let the test handle removal for clean runs
+    yield str(recording_path)
+
+    # Keep the file after test completion for review
+    print(f"📁 Mock domain multi-environment trajectory preserved at: {recording_path}")
+
+
+@pytest.fixture
+def fireworks_multi_env_retail_recording_file():
+    """Provide a recording file path for the retail domain multi-environment test."""
+    recording_dir = Path(__file__).parent / "recordings"
+    recording_dir.mkdir(exist_ok=True)
+    recording_path = recording_dir / "fireworks_multi_env_retail_trajectory.jsonl"
+
+    # Don't remove here - let the test handle removal for clean runs
+    yield str(recording_path)
+
+    # Keep the file after test completion for review
+    print(f"📁 Retail domain multi-environment trajectory preserved at: {recording_path}")
 
 
 async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]):
@@ -634,7 +581,7 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
 
 
 @reward_function
-def airline_eval(messages: List[Dict[str, Any]], nl_assertions: List[str] = None, **kwargs) -> EvaluateResult:
+def tau2_eval(messages: List[Dict[str, Any]], nl_assertions: List[str] = None, **kwargs) -> EvaluateResult:
     """
     Evaluate airline conversation using tau2-bench NLAssertionsEvaluator.
 
@@ -692,18 +639,20 @@ def airline_eval(messages: List[Dict[str, Any]], nl_assertions: List[str] = None
 
 
 @pytest.mark.asyncio
-async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks_multi_env_recording_file):
+async def test_fireworks_multi_airline_environment_sessions(
+    multi_env_airline_dataset, fireworks_multi_env_airline_recording_file
+):
     """Test multi-environment session handling with OpenAIPolicy."""
 
     print("\n🧪 === FIREWORKS MULTI-ENVIRONMENT SESSION TEST ===")
 
     # Check if we're in CI mode and have existing recording
     is_ci = os.environ.get("CI", "").lower() in ["true", "1", "yes"]
-    if is_ci and os.path.exists(fireworks_multi_env_recording_file):
+    if is_ci and os.path.exists(fireworks_multi_env_airline_recording_file):
         print("\n🎬 === CI MODE: PLAYBACK ONLY ===")
 
         # Set up playback environment
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
+        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_airline_recording_file
 
         # Create playback policy, using OpenAI policy for vision modality + tool calling
         playback_policy = rk.OpenAIPolicy(
@@ -717,7 +666,7 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
         # Create environments for playback
         playback_envs = rk.make(
             "http://localhost:9500/mcp/",
-            dataset=multi_env_dataset,
+            dataset=multi_env_airline_dataset,
             model_id=playback_policy.model_id,
         )
 
@@ -736,16 +685,16 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
         return  # Skip recording phase in CI
 
     # ALWAYS remove trajectory file first to avoid confusion
-    if os.path.exists(fireworks_multi_env_recording_file):
-        os.unlink(fireworks_multi_env_recording_file)
-        print(f"🧹 Removed existing trajectory file: {fireworks_multi_env_recording_file}")
+    if os.path.exists(fireworks_multi_env_airline_recording_file):
+        os.unlink(fireworks_multi_env_airline_recording_file)
+        print(f"🧹 Removed existing trajectory file: {fireworks_multi_env_airline_recording_file}")
 
     # Start server for this test
     server = _create_test_server(9700)
     try:
 
         # Set up recording
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
+        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_airline_recording_file
 
         # Create OpenAIPolicy for multi-environment testing
         policy = rk.OpenAIPolicy(
@@ -759,7 +708,7 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
         # Create multiple environments
         envs = rk.make(
             f"http://localhost:{server.port}/mcp/",
-            dataset=multi_env_dataset,
+            dataset=multi_env_airline_dataset,
             model_id=policy.model_id,
         )
 
@@ -771,18 +720,18 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == len(multi_env_dataset), "Should have trajectory for each environment"
+        assert len(trajectories) == len(multi_env_airline_dataset), "Should have trajectory for each environment"
         assert all(traj.steps > 0 for traj in trajectories), "All trajectories should have steps"
 
         print(
             f"✅ OpenAIPolicy multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s"
         )
-        print(f"📁 OpenAIPolicy multi-environment recording saved to: {fireworks_multi_env_recording_file}")
+        print(f"📁 OpenAIPolicy multi-environment recording saved to: {fireworks_multi_env_airline_recording_file}")
 
         # Print trajectory summaries
         print("📊 OpenAIPolicy Multi-Environment Trajectory Summary:")
         for i, traj in enumerate(trajectories):
-            dataset_entry = multi_env_dataset[i]
+            dataset_entry = multi_env_airline_dataset[i]
             seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
             domain = dataset_entry.get("environment_context", {}).get("domain", "N/A")
             print(
@@ -796,19 +745,19 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
         print(f"📈 Unique rewards across environments: {unique_rewards}")
 
         # 🔍 CRITICAL VALIDATIONS
-        await _validate_recording_integrity(fireworks_multi_env_recording_file, multi_env_dataset)
+        await _validate_recording_integrity(fireworks_multi_env_airline_recording_file, multi_env_airline_dataset)
 
         # 🧪 TAU2 REWARD FUNCTION EVALUATION
         print(f"\n🎯 Evaluating {len(trajectories)} trajectories using conversation_history field")
 
         for env_idx, trajectory in enumerate(trajectories):
             conversation_history = trajectory.conversation_history
-            nl_assertions = NL_ASSERTIONS[env_idx]
+            nl_assertions = multi_env_airline_dataset[env_idx]["assertions"]
 
             print(f"\n🔍 Environment {env_idx} conversation history:")
             print(f"  Messages: {len(conversation_history)} total")
 
-            eval = airline_eval(conversation_history, nl_assertions)
+            eval = tau2_eval(conversation_history, nl_assertions)
 
             # Print evaluation result details
             print(f"🎯 Evaluation Result for env {env_idx}:")
@@ -819,6 +768,264 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
                 print(
                     f"    {metric_name}: score={metric_result.score:.2f}, success={metric_result.is_score_valid}, reason='{metric_result.reason}'"
                 )
+
+        # Clean up
+        await envs.close()
+        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
+            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+
+    finally:
+        # Always stop the server
+        _stop_test_server(server)
+
+
+@pytest.mark.asyncio
+async def test_fireworks_multi_mock_environment_sessions(
+    multi_env_mock_dataset, fireworks_multi_env_mock_recording_file
+):
+    """Test multi-environment session handling with OpenAIPolicy for mock domain."""
+
+    print("\n🧪 === FIREWORKS MULTI-ENVIRONMENT SESSION TEST (MOCK DOMAIN) ===")
+
+    # Check if we're in CI mode and have existing recording
+    is_ci = os.environ.get("CI", "").lower() in ["true", "1", "yes"]
+    if is_ci and os.path.exists(fireworks_multi_env_mock_recording_file):
+        print("\n🎬 === CI MODE: PLAYBACK ONLY ===")
+
+        # Set up playback environment
+        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_mock_recording_file
+
+        # Create playback policy
+        playback_policy = rk.OpenAIPolicy(
+            model_id="gpt-4.1",
+            temperature=0.2,
+            system_prompt="You are a helpful task management assistant.",
+        )
+
+        # Run playback test
+        server = _create_test_server(8021, domain="mock")  # Use unique port for mock
+
+        try:
+            envs = rk.make(
+                f"http://localhost:{server.port}/mcp/",
+                dataset=multi_env_mock_dataset,
+                model_id=playback_policy.model_id,
+            )
+
+            trajectories = await rk.rollout(envs, policy=playback_policy, steps=10)
+
+            print(f"✅ Playback completed with {len(trajectories)} trajectories")
+
+            await envs.close()
+
+        finally:
+            _stop_test_server(server)
+            if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
+                del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+
+        return
+
+    # RECORDING MODE
+    print("\n📹 === RECORDING MODE ===")
+
+    # Remove existing recording for clean run
+    if os.path.exists(fireworks_multi_env_mock_recording_file):
+        os.remove(fireworks_multi_env_mock_recording_file)
+        print(f"🗑️  Removed existing recording: {fireworks_multi_env_mock_recording_file}")
+
+    # Start server
+    server = _create_test_server(8021, domain="mock")  # Use unique port for mock
+
+    try:
+        # Set up recording
+        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_mock_recording_file
+
+        # Create recording policy
+        policy = rk.OpenAIPolicy(
+            model_id="gpt-4.1",
+            temperature=0.2,
+            system_prompt="You are a helpful task management assistant.",
+        )
+
+        assert not policy.is_playback_mode(), "Should be in recording mode initially"
+
+        # Create multiple environments
+        envs = rk.make(
+            f"http://localhost:{server.port}/mcp/",
+            dataset=multi_env_mock_dataset,
+            model_id=policy.model_id,
+        )
+
+        print(f"📊 Created {len(envs.sessions)} environment sessions")
+
+        # Run rollout with multiple environments
+        start_time = time.time()
+        trajectories = await rk.rollout(envs, policy=policy, steps=15)
+        duration = time.time() - start_time
+
+        # Validate results
+        assert len(trajectories) == len(multi_env_mock_dataset), "Should have trajectory for each environment"
+        assert all(traj.steps > 0 for traj in trajectories), "All trajectories should have steps"
+
+        print(
+            f"✅ Mock domain multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s"
+        )
+        print(f"📁 Mock domain recording saved to: {fireworks_multi_env_mock_recording_file}")
+
+        # Print trajectory summaries
+        print("📊 Mock Domain Multi-Environment Trajectory Summary:")
+        for i, traj in enumerate(trajectories):
+            dataset_entry = multi_env_mock_dataset[i]
+            domain = dataset_entry.get("environment_context", {}).get("domain", "N/A")
+            print(
+                f"  Trajectory {i} (domain: {domain}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
+            )
+
+        # 🧪 TAU2 REWARD FUNCTION EVALUATION
+        print(f"\n🎯 Evaluating {len(trajectories)} mock domain trajectories")
+
+        for env_idx, trajectory in enumerate(trajectories):
+            conversation_history = trajectory.conversation_history
+            nl_assertions = multi_env_mock_dataset[env_idx]["assertions"]
+
+            print(f"\n🔍 Environment {env_idx} conversation history:")
+            print(f"  Messages: {len(conversation_history)} total")
+
+            eval_result = tau2_eval(conversation_history, nl_assertions)
+
+            # Print evaluation result details
+            print(f"🎯 Evaluation Result for env {env_idx}:")
+            print(f"  Score: {eval_result.score}")
+            print(f"  Reason: {eval_result.reason}")
+
+        # Clean up
+        await envs.close()
+        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
+            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+
+    finally:
+        # Always stop the server
+        _stop_test_server(server)
+
+
+@pytest.mark.asyncio
+async def test_fireworks_multi_retail_environment_sessions(
+    multi_env_retail_dataset, fireworks_multi_env_retail_recording_file
+):
+    """Test multi-environment session handling with OpenAIPolicy for retail domain."""
+
+    print("\n🛒 === FIREWORKS MULTI-ENVIRONMENT SESSION TEST (RETAIL DOMAIN) ===")
+
+    # Check if we're in CI mode and have existing recording
+    is_ci = os.environ.get("CI", "").lower() in ["true", "1", "yes"]
+    if is_ci and os.path.exists(fireworks_multi_env_retail_recording_file):
+        print("\n🎬 === CI MODE: PLAYBACK ONLY ===")
+
+        # Set up playback environment
+        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_retail_recording_file
+
+        # Create playback policy
+        playback_policy = rk.OpenAIPolicy(
+            model_id="gpt-4.1",
+            temperature=0.2,
+            system_prompt="You are a helpful retail customer service agent.",
+        )
+
+        # Run playback test
+        server = _create_test_server(8022, domain="retail")  # Use unique port for retail
+
+        try:
+            envs = rk.make(
+                f"http://localhost:{server.port}/mcp/",
+                dataset=multi_env_retail_dataset,
+                model_id=playback_policy.model_id,
+            )
+
+            trajectories = await rk.rollout(envs, policy=playback_policy, steps=10)
+
+            print(f"✅ Playback completed with {len(trajectories)} trajectories")
+
+            await envs.close()
+
+        finally:
+            _stop_test_server(server)
+            if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
+                del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+
+        return
+
+    # RECORDING MODE
+    print("\n📹 === RECORDING MODE ===")
+
+    # Remove existing recording for clean run
+    if os.path.exists(fireworks_multi_env_retail_recording_file):
+        os.remove(fireworks_multi_env_retail_recording_file)
+        print(f"🗑️  Removed existing recording: {fireworks_multi_env_retail_recording_file}")
+
+    # Start server
+    server = _create_test_server(8022, domain="retail")  # Use unique port for retail
+
+    try:
+        # Set up recording
+        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_retail_recording_file
+
+        # Create recording policy
+        policy = rk.OpenAIPolicy(
+            model_id="gpt-4.1",
+            temperature=0.2,
+            system_prompt="You are a helpful retail customer service agent.",
+        )
+
+        assert not policy.is_playback_mode(), "Should be in recording mode initially"
+
+        # Create multiple environments
+        envs = rk.make(
+            f"http://localhost:{server.port}/mcp/",
+            dataset=multi_env_retail_dataset,
+            model_id=policy.model_id,
+        )
+
+        print(f"📊 Created {len(envs.sessions)} environment sessions")
+
+        # Run rollout with multiple environments
+        start_time = time.time()
+        trajectories = await rk.rollout(envs, policy=policy, steps=15)
+        duration = time.time() - start_time
+
+        # Validate results
+        assert len(trajectories) == len(multi_env_retail_dataset), "Should have trajectory for each environment"
+        assert all(traj.steps > 0 for traj in trajectories), "All trajectories should have steps"
+
+        print(
+            f"✅ Retail domain multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s"
+        )
+        print(f"📁 Retail domain recording saved to: {fireworks_multi_env_retail_recording_file}")
+
+        # Print trajectory summaries
+        print("📊 Retail Domain Multi-Environment Trajectory Summary:")
+        for i, traj in enumerate(trajectories):
+            dataset_entry = multi_env_retail_dataset[i]
+            domain = dataset_entry.get("environment_context", {}).get("domain", "N/A")
+            print(
+                f"  Trajectory {i} (domain: {domain}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
+            )
+
+        # 🧪 TAU2 REWARD FUNCTION EVALUATION
+        print(f"\n🎯 Evaluating {len(trajectories)} retail domain trajectories")
+
+        for env_idx, trajectory in enumerate(trajectories):
+            conversation_history = trajectory.conversation_history
+            nl_assertions = multi_env_retail_dataset[env_idx]["assertions"]
+
+            print(f"\n🔍 Environment {env_idx} conversation history:")
+            print(f"  Messages: {len(conversation_history)} total")
+
+            eval_result = tau2_eval(conversation_history, nl_assertions)
+
+            # Print evaluation result details
+            print(f"🎯 Evaluation Result for env {env_idx}:")
+            print(f"  Score: {eval_result.score}")
+            print(f"  Reason: {eval_result.reason}")
 
         # Clean up
         await envs.close()
