@@ -2,282 +2,249 @@
 
 ### 1. Overview
 
-This document proposes a unified standard for handling evaluation data within the `eval-protocol` library. The core idea is to leverage a single, enhanced `EvaluateResult` model as the universal data structure for all evaluation scenarios, including per-turn, per-trajectory, and Reinforcement Learning (RL) contexts.
+This document proposes a unified standard for handling evaluation data within the `eval-protocol` library. The core idea is to leverage two enhanced data models as the universal data structures for all evaluation scenarios:
 
-This approach simplifies the existing data pipeline by eliminating the need for a separate `StandardizedMetadata` class, making `EvaluateResult` directly compatible with the `metadata` field of OpenAI's message objects.
+1. **`EvaluateResult`** - The unified evaluation result model for both per-turn and per-trajectory evaluations
+2. **`EvaluationRow`** - The canonical data structure that encapsulates messages, tools, and evaluation results
+
+This approach simplifies the existing data pipeline by providing clear, consistent data models that can handle both traditional row-wise evaluation and trajectory-based RL evaluation scenarios.
 
 ### 2. Motivation
 
 The primary goals of this proposal are to:
-- **Simplify the Data Model**: Use one canonical class for evaluation results, reducing complexity and removing the need for data model translation.
-- **Improve Developer Experience**: Provide a clear and consistent API for developers writing reward functions. The output is always an `EvaluateResult`, regardless of the evaluation's scope.
-- **Ensure Compatibility**: Natively handle the constraints of OpenAI's `metadata` field (e.g., string-only values, key/value length limits) within the core data model.
+- **Simplify the Data Model**: Use canonical classes for evaluation data, reducing complexity and eliminating the need for data model translation.
+- **Improve Developer Experience**: Provide a clear and consistent API for developers writing reward functions and handling evaluation data.
 - **Unify Turn and Trajectory Data**: Seamlessly represent both granular per-turn rewards and aggregated trajectory-level results within the same structure.
+- **Support Both Evaluation Paradigms**: Handle both traditional batch evaluation (row-wise) and interactive trajectory evaluation (RL) scenarios.
 
-### 3. The Unified Model: `EvaluateResult`
+### 3. The Unified Models
 
-The `eval_protocol.models.EvaluateResult` pydantic model will be the single source of truth for all evaluation data. It is already used by reward functions and contains fields for an overall score, detailed metrics, and `step_outputs` for RL-style rewards.
+#### 3.1. Enhanced `EvaluateResult`
 
-We will extend `EvaluateResult` with two key methods to handle serialization to and from the OpenAI-compatible format.
+The `eval_protocol.models.EvaluateResult` model serves as the universal evaluation result structure. It has been extended to support both per-turn and per-trajectory evaluation scenarios:
 
-#### 3.1. Proposed `EvaluateResult` Extensions
+**Key Enhancements:**
+- `trajectory_info`: Additional trajectory-level information (duration, steps, termination_reason, etc.)
+- `final_control_plane_info`: The final control plane state that led to termination
+- Enhanced `StepOutput` with `terminated` and `control_plane_info` fields
+
+#### 3.2. New `EvaluationRow` Model
+
+The new `EvaluationRow` model serves as the canonical data structure for evaluation units with a clean, organized structure:
 
 ```python
-# In eval_protocol/models.py
+class EvaluationRow(BaseModel):
+    """
+    Unified data structure for a single evaluation unit that contains messages, 
+    tools, and evaluation results. This can represent either a single turn evaluation
+    or a complete trajectory evaluation.
+    """
+    
+    # Core conversation data
+    messages: List[Message]
+    
+    # Tool and function call information  
+    tools: Optional[List[Dict[str, Any]]] = None
+    
+    # Input-related metadata (grouped together for cleaner organization)
+    input_metadata: Optional[Dict[str, Any]] = None
+    
+    # Unified evaluation result
+    evaluation_result: Optional[EvaluateResult] = None
+```
 
+**Key Features:**
+- **Clean Organization**: Only four main fields for maximum clarity
+- `is_trajectory_evaluation()`: Determines if this represents a trajectory vs. single-turn evaluation
+- `get_conversation_length()`, `get_assistant_messages()`, `get_user_messages()`: Helper methods for data analysis
+- `get_input_metadata(key, default)`: Helper method to access input metadata
+- Full serialization/deserialization support via Pydantic
+
+**Input Metadata Structure:**
+The `input_metadata` field can contain any relevant input information:
+```python
+input_metadata = {
+    "row_id": "unique_identifier",
+    "dataset_info": {"source": "math_problems", "difficulty": "easy"},
+    "model_config": {"model": "gpt-4", "temperature": 0.1},
+    "session_data": {"seed": 42, "timestamp": "2024-01-01T00:00:00Z"},
+    "custom_fields": {...}  # Any additional custom metadata
+}
+```
+
+### 4. Usage in Practice
+
+#### 4.1. Per-Turn Evaluation (Row-wise)
+```python
+# Single turn conversation
+messages = [
+    Message(role="user", content="What is 2+2?"),
+    Message(role="assistant", content="2+2 equals 4.")
+]
+
+# Evaluation result for this turn
+evaluation_result = EvaluateResult(
+    score=1.0,
+    reason="Correct answer",
+    metrics={"accuracy": MetricResult(score=1.0, reason="Perfect")}
+)
+
+# Create evaluation row
+row = EvaluationRow(
+    messages=messages,
+    evaluation_result=evaluation_result,
+    input_metadata={
+        "row_id": "math_001",
+        "dataset_info": {"source": "math_eval"},
+        "model_config": {"model": "gpt-4", "temperature": 0.0}
+    }
+)
+
+# Check type: row.is_trajectory_evaluation() -> False
+# Access metadata: row.get_input_metadata("row_id") -> "math_001"
+```
+
+#### 4.2. Per-Trajectory Evaluation (RL)
+```python
+# Multi-turn trajectory
+messages = [
+    Message(role="user", content="Start task"),
+    Message(role="assistant", content="Starting step 1"),
+    Message(role="user", content="Continue"),
+    Message(role="assistant", content="Completing step 2")
+]
+
+# Step-by-step evaluation results
+step_outputs = [
+    StepOutput(
+        step_index=0, 
+        base_reward=0.3, 
+        terminated=False
+    ),
+    StepOutput(
+        step_index=1, 
+        base_reward=0.7, 
+        terminated=True,
+        control_plane_info={"task_completed": True}
+    )
+]
+
+# Final trajectory evaluation
+evaluation_result = EvaluateResult(
+    score=0.5,
+    reason="Task completed in 2 steps",
+    step_outputs=step_outputs,
+    trajectory_info={
+        "duration": 45.2,
+        "steps": 2,
+        "termination_reason": "task_completed"
+    },
+    final_control_plane_info={"task_completed": True}
+)
+
+# Create evaluation row
+row = EvaluationRow(
+    messages=messages,
+    evaluation_result=evaluation_result,
+    input_metadata={
+        "row_id": "trajectory_001",
+        "session_data": {"seed": 123, "environment": "gridworld"},
+        "execution_info": {"max_steps": 10, "timeout": 60}
+    }
+)
+
+# Check type: row.is_trajectory_evaluation() -> True
+```
+
+#### 4.3. With Tool Usage
+```python
+messages = [
+    Message(role="user", content="Search for recent papers on ML"),
+    Message(
+        role="assistant", 
+        content="I'll search for recent ML papers.",
+        tool_calls=[{
+            "id": "search_1", 
+            "type": "function", 
+            "function": {"name": "search_papers", "arguments": '{"query": "machine learning", "recent": true}'}
+        }]
+    )
+]
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_papers",
+            "description": "Search academic papers",
+            "parameters": {"type": "object", "properties": {...}}
+        }
+    }
+]
+
+row = EvaluationRow(
+    messages=messages,
+    tools=tools,
+    evaluation_result=EvaluateResult(score=0.9, reason="Good tool usage"),
+    input_metadata={
+        "row_id": "search_001",
+        "dataset_info": {"category": "tool_usage", "complexity": "medium"}
+    }
+)
+```
+
+### 5. Enhanced Data Models
+
+#### 5.1. Extended `StepOutput`
+
+```python
+class StepOutput(BaseModel):
+    step_index: Union[int, str]
+    base_reward: float
+    terminated: bool = False  # NEW: Environment termination signal
+    control_plane_info: Optional[Dict[str, Any]] = None  # NEW: Control plane data
+    metrics: Dict[str, Any] = Field(default_factory=dict)
+    reason: Optional[str] = None
+```
+
+#### 5.2. Extended `EvaluateResult`
+
+```python
 class EvaluateResult(BaseModel):
-    """The complete result of an evaluator."""
     score: float
     is_score_valid: bool = True
     reason: Optional[str] = None
     metrics: Dict[str, MetricResult] = Field(default_factory=dict)
     step_outputs: Optional[List[StepOutput]] = None
     error: Optional[str] = None
-
-    def to_openai_metadata(self) -> Dict[str, str]:
-        """
-        Serializes the EvaluateResult into a dictionary compatible with
-        OpenAI's message metadata field.
-
-        This involves:
-        1. Promoting the 'score' to a top-level key.
-        2. Packing the rest of the data into a single JSON string under the 'info' key.
-        3. Validating and truncating the 'info' JSON to meet the 512-char limit.
-        """
-        # 1. Promote score
-        metadata = {"eval_protocol_score": str(self.score)}
-
-        # 2. Pack the rest into an 'info' dictionary
-        info_dict = {
-            "is_score_valid": self.is_score_valid,
-            "reason": self.reason,
-            "metrics": {k: v.dict() for k, v in self.metrics.items()},
-            "step_outputs": [so.dict() for so in self.step_outputs] if self.step_outputs else None,
-            "error": self.error,
-        }
-        # Remove null values for compactness
-        info_dict = {k: v for k, v in info_dict.items() if v is not None}
-
-        # 3. Serialize to JSON and validate/truncate
-        info_json = json.dumps(info_dict, separators=(",", ":"))
-        if len(info_json) > 512:
-            # Implement intelligent truncation here, e.g., drop less critical fields
-            # For now, we'll just show a placeholder for the logic
-            truncated_info = {"error": "info_truncated", "reason": self.reason}
-            info_json = json.dumps(truncated_info)
-            # Potentially log a warning that data was lost
-
-        metadata["eval_protocol_info"] = info_json
-        return metadata
-
-    @classmethod
-    def from_openai_metadata(cls, metadata: Dict[str, str]) -> "EvaluateResult":
-        """
-        Deserializes an EvaluateResult from an OpenAI-compatible metadata dictionary.
-        """
-        score = float(metadata.get("eval_protocol_score", "0.0"))
-        info_json = metadata.get("eval_protocol_info", "{}")
-
-        try:
-            info_data = json.loads(info_json)
-        except json.JSONDecodeError:
-            info_data = {"error": "invalid_json_in_metadata"}
-
-        return cls(score=score, **info_data)
-
-# ... other models like MetricResult, StepOutput remain the same ...
+    
+    # NEW: Unified trajectory and row-wise support
+    trajectory_info: Optional[Dict[str, Any]] = None
+    final_control_plane_info: Optional[Dict[str, Any]] = None
 ```
 
-### 4. Usage in Practice
+### 6. JSON Schema for `EvaluationRow`
 
-#### Per-Turn Evaluation
-1. A reward function runs after an agent turn and returns a complete `EvaluateResult` object.
-2. This object is serialized: `metadata_dict = turn_result.to_openai_metadata()`.
-3. The `metadata_dict` is attached to the corresponding `Message` object's `metadata` field.
+A comprehensive JSON schema will be developed for the `EvaluationRow` structure to ensure:
+- Proper validation of evaluation data
+- Clear documentation of the data format
+- Support for tooling and integrations
+- Standardized serialization across different components
 
-#### Per-Trajectory Evaluation (e.g., for RL)
-1. At the end of an episode, a final evaluation is performed on the entire trajectory.
-2. The reward function returns a single `EvaluateResult`. Its `step_outputs` field contains the list of all per-step rewards and metrics gathered during the episode.
-3. This final `EvaluateResult` is serialized: `final_metadata = trajectory_result.to_openai_metadata()`.
-4. The `final_metadata` is attached to the *final message* of the trajectory, providing a complete, aggregated record.
+The schema will cover:
+- Message structure validation
+- Tools and function call formatting
+- Evaluation result structure (both single-turn and trajectory)
+- Input metadata field specifications
+- Proper handling of optional fields
 
-### 5. JSON Schema for `eval_protocol_info`
+### 7. Impact on Existing Components
 
-The schema below describes the structure of the JSON string that will be the value of the `eval_protocol_info` key in the metadata.
+#### 7.1. Trajectory Integration
 
-```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "EvaluateResultInfo",
-  "description": "Schema for the content of the 'eval_protocol_info' field, representing a serialized EvaluateResult object (excluding the top-level score).",
-  "type": "object",
-  "properties": {
-    "is_score_valid": {
-      "type": "boolean",
-      "description": "Whether the overall score is valid.",
-      "default": true
-    },
-    "reason": {
-      "type": ["string", "null"],
-      "description": "Optional explanation for the overall score."
-    },
-    "metrics": {
-      "type": "object",
-      "description": "Dictionary of component metrics for detailed evaluation.",
-      "additionalProperties": { "$ref": "#/definitions/MetricResult" }
-    },
-    "step_outputs": {
-      "type": ["array", "null"],
-      "description": "For RL, a list of outputs for each conceptual step.",
-      "items": { "$ref": "#/definitions/StepOutput" }
-    },
-    "error": {
-      "type": ["string", "null"],
-      "description": "Optional error message if evaluation failed."
-    },
-    "final_control_plane_info": {
-        "type": ["object", "null"],
-        "description": "Final state information from the control plane that caused termination or conclusion.",
-        "additionalProperties": true
-    }
-  },
-  "definitions": {
-    "MetricResult": {
-      "type": "object",
-      "properties": {
-        "is_score_valid": { "type": "boolean", "default": true },
-        "score": { "type": "number", "minimum": 0, "maximum": 1 },
-        "reason": { "type": "string" }
-      },
-      "required": ["score", "reason"]
-    },
-    "StepOutput": {
-      "type": "object",
-      "properties": {
-        "step_index": { "type": ["integer", "string"] },
-        "base_reward": { "type": "number" },
-        "terminated": { 
-            "type": "boolean",
-            "description": "Whether the episode terminated at this step."
-        },
-        "control_plane_info": {
-            "type": ["object", "null"],
-            "description": "Structured information from the environment's control plane for this step.",
-            "additionalProperties": true
-        },
-        "metrics": { "type": "object", "additionalProperties": true },
-        "reason": { "type": ["string", "null"] }
-      },
-      "required": ["step_index", "base_reward", "terminated"]
-    }
-  }
-}
-```
-
-### 6. Impact on the `Trajectory` and Control Plane Integration
-
-This unified approach necessitates a corresponding simplification and update to the `eval_protocol.mcp.types.Trajectory` dataclass and a clear mapping from the control plane logic in `execution/manager.py`.
-
-#### 6.1. Extending Core Data Models
-
-To properly handle control plane data, we must first extend our core data models.
-
-**`StepOutput` Extension**: We will add `terminated` and `control_plane_info` to capture the state at each step.
+The unified approach necessitates updates to the `eval_protocol.mcp.types.Trajectory` dataclass:
 
 ```python
-# In eval_protocol/models.py
-class StepOutput(BaseModel):
-    step_index: Union[int, str]
-    base_reward: float
-    terminated: bool = Field(description="Whether the environment signaled termination at this step.")
-    control_plane_info: Optional[Dict[str, Any]] = Field(default=None, description="Structured info from the environment's control plane.")
-    metrics: Dict[str, Any] = Field(default_factory=dict)
-    reason: Optional[str] = None
-```
-
-**`EvaluateResult` Extension**: We will add `final_control_plane_info` to capture the final state that caused the episode to end.
-
-```python
-# In eval_protocol/models.py
-class EvaluateResult(BaseModel):
-    score: float
-    # ... other fields
-    step_outputs: Optional[List[StepOutput]] = None
-    final_control_plane_info: Optional[Dict[str, Any]] = Field(default=None, description="The final control plane state that led to termination.")
-    error: Optional[str] = None
-    # ... serialization methods
-```
-
-#### 6.2. Mapping Control Plane Logic from `manager.py`
-
-With the extended models, we can now clearly map the logic from `_execute_rollout` in `manager.py`.
-
-**Old Logic (`manager.py`)**:
-```python
-# Create and append control_plane_step dictionary
-control_plane_step = {
-    "step": step - 1,
-    "reward": reward,
-    "terminated": rollout_end,
-    "info": info.get("control_plane", {}),
-    "tool_calls": tool_calls_summary,
-}
-trajectory.control_plane_steps.append(control_plane_step)
-
-# Create and update control_plane_summary dictionary
-if rollout_end:
-    trajectory.control_plane_summary.update({
-        "total_reward": trajectory.total_reward,
-        "control_plane_source": info.get("control_plane", {}),
-        # ... other summary fields
-    })
-```
-
-**New Logic (Conceptual)**:
-The `_execute_rollout` function would no longer build `control_plane_steps` or `control_plane_summary`. Instead, it would create a list of `StepOutput` objects.
-
-```python
-# Inside the rollout loop in manager.py
-step_outputs = []
-# ... after envs.step() returns reward, rollout_end, info
-
-# The tool_calls_summary can be added to metrics
-step_metrics = {"tool_calls": tool_calls_summary}
-
-# Create a StepOutput for each interaction
-new_step_output = StepOutput(
-    step_index=step - 1,
-    base_reward=reward,
-    terminated=rollout_end,
-    control_plane_info=info.get("control_plane", {}),
-    metrics=step_metrics
-)
-step_outputs.append(new_step_output)
-
-# ... at the end of the rollout
-
-# The final EvaluateResult is assembled
-final_eval_result = EvaluateResult(
-    score=total_reward,
-    step_outputs=step_outputs,
-    # The final info that caused termination is the control_plane_info from the last step
-    final_control_plane_info=step_outputs[-1].control_plane_info if step_outputs and step_outputs[-1].terminated else None,
-    reason=trajectory.termination_reason,
-    # ... other metrics
-)
-
-# The new Trajectory object holds this single result
-trajectory.evaluation_result = final_eval_result
-```
-
-#### 6.3. Proposed `Trajectory` Definition
-
-This leads to a much cleaner `Trajectory` object, where all evaluation-related information is neatly encapsulated within the `EvaluateResult`.
-
-```python
-# Proposed changes for: eval_protocol/mcp/types.py
-from eval_protocol.models import EvaluateResult, Message
-
 @dataclass
 class Trajectory:
     """Represents a complete rollout trajectory with unified evaluation results."""
@@ -295,4 +262,30 @@ class Trajectory:
     observations: List[Any] = field(default_factory=list)
     actions: List[str] = field(default_factory=list)
 ```
-This revised structure directly incorporates the control plane's data into our primary evaluation models, making the system more robust and the data flow more explicit. 
+
+#### 7.2. Control Plane Integration
+
+The control plane logic in `execution/manager.py` will be simplified to directly populate the unified data structures:
+
+- `control_plane_steps` and `control_plane_summary` data will be integrated into `StepOutput` objects
+- Final trajectory state will be captured in `EvaluateResult.final_control_plane_info`
+- Step-level control plane data will be stored in `StepOutput.control_plane_info`
+
+### 8. Backward Compatibility
+
+- `EvaluateResult` maintains full backward compatibility for existing reward functions
+- Existing reward functions continue to work without modification
+- New fields are optional and default to appropriate values
+- The enhanced models provide additional capabilities without breaking existing code
+
+### 9. Benefits
+
+1. **Clean and Simple Structure**: Only four main fields in `EvaluationRow` for maximum clarity
+2. **Flexible Input Metadata**: Single `input_metadata` field can contain any relevant context
+3. **Unified Data Flow**: Single data structure handles both evaluation paradigms
+4. **Developer Friendly**: Clear helper methods and intuitive data access patterns
+5. **Extensible**: Easy to add new capabilities without structural changes
+6. **Type Safe**: Full Pydantic validation and type hints throughout
+7. **Serialization Ready**: Built-in JSON serialization/deserialization support
+
+This unified approach provides a robust yet simple foundation for evaluation data handling while maintaining clarity and backward compatibility. 
