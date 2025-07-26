@@ -3,7 +3,7 @@
 FrozenLake MCP-Gym Rollout Example
 
 This script demonstrates the north star vision for MCP-Gym rollouts,
-showing how to use the clean rk.rollout() interface with MCP-Gym environments.
+showing how to use the clean ep.rollout() interface with MCP-Gym environments.
 
 Usage:
     python rollout_example.py
@@ -62,7 +62,7 @@ class MCPGymRolloutManager:
     """
     Rollout manager implementing the north star vision.
 
-    This demonstrates how rk.rollout() would work in the full implementation,
+    This demonstrates how ep.rollout() would work in the full implementation,
     handling multiple environments and policies with clean separation between
     data plane (tool calls) and control plane (rewards).
     """
@@ -176,7 +176,7 @@ class RewardKit:
     """
     Simplified RewardKit interface implementing north star vision.
 
-    This demonstrates how the rk.rollout() interface would work
+    This demonstrates how the ep.rollout() interface would work
     in the full implementation.
     """
 
@@ -186,7 +186,7 @@ class RewardKit:
         Execute rollouts using north star interface.
 
         This is the clean interface from the north star document:
-        rollouts = await rk.rollout(envs, policy, steps=20)
+        rollouts = await ep.rollout(envs, policy, steps=20)
         """
         manager = MCPGymRolloutManager()
         return await manager.rollout(envs, policy, steps)
@@ -222,7 +222,7 @@ async def main():
 
     # Execute rollouts using the north star interface
     print("Executing rollouts...")
-    trajectories = await rk.rollout(envs, policy, steps=20)
+    trajectories = await ep.rollout(envs, policy, steps=20)
 
     # Print results
     manager = MCPGymRolloutManager()
@@ -235,7 +235,7 @@ async def main():
     print("Key Features Demonstrated:")
     print("1. Clean McpGym base class inheritance")
     print("2. Simple tool registration with @self.mcp.tool() decorator")
-    print("3. Clean rk.rollout() interface")
+    print("3. Clean ep.rollout() interface")
     print("4. Separation of data plane (tool calls) and control plane (rewards)")
     print("5. Multiple environments with different seeds")
     print("6. Consistent API across different environment types")

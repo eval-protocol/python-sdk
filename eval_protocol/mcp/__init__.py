@@ -11,7 +11,13 @@ from .adapter import EnvironmentAdapter
 
 # New refactored components
 from .client import MCPConnectionManager
-from .execution import FireworksPolicy, LLMBasePolicy, OpenAIPolicy, ExecutionManager
+from .execution import LLMBasePolicy, OpenAIPolicy, ExecutionManager
+
+# FireworksPolicy is imported conditionally by execution.__init__.py
+try:
+    from .execution import FireworksPolicy
+except ImportError:
+    FireworksPolicy = None
 
 # North Star MCP-Gym Framework
 from .mcpgym import McpGym
@@ -26,7 +32,6 @@ __all__ = [
     # New refactored components
     "MCPConnectionManager",
     "LLMBasePolicy",
-    "FireworksPolicy",
     "OpenAIPolicy",
     "ExecutionManager",
     "GeneralMCPVectorEnv",
@@ -37,3 +42,7 @@ __all__ = [
     # North Star MCP-Gym Framework
     "McpGym",
 ]
+
+# Only export FireworksPolicy if it's available
+if FireworksPolicy is not None:
+    __all__.insert(__all__.index("OpenAIPolicy") + 1, "FireworksPolicy")

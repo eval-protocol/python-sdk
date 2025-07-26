@@ -4,13 +4,20 @@ MCP Execution Framework
 This module handles policy execution, tool calling, and rollout coordination.
 """
 
-from .policy import AnthropicPolicy, FireworksPolicy, LLMBasePolicy, OpenAIPolicy
+from .base_policy import LLMBasePolicy
+from .policy import AnthropicPolicy, OpenAIPolicy, FireworksPolicy
 from .manager import ExecutionManager
+
+# FireworksPolicy is conditionally imported by policy.py
+_FIREWORKS_AVAILABLE = FireworksPolicy is not None
 
 __all__ = [
     "LLMBasePolicy",
     "AnthropicPolicy",
-    "FireworksPolicy",
-    "OpenAIPolicy",
+    "OpenAIPolicy", 
     "ExecutionManager",
 ]
+
+# Only export FireworksPolicy if it's available
+if _FIREWORKS_AVAILABLE:
+    __all__.append("FireworksPolicy")

@@ -15,7 +15,6 @@ from .auth import get_fireworks_api_key, get_fireworks_account_id
 from .common_utils import load_jsonl
 from .config import load_config, get_config, RewardKitConfig
 from .mcp_env import (
-    FireworksPolicy,
     OpenAIPolicy,
     AnthropicPolicy,
     MCPVectorEnv,
@@ -23,6 +22,14 @@ from .mcp_env import (
     rollout,
     test_mcp,
 )
+
+# Try to import FireworksPolicy if available
+try:
+    from .mcp_env import FireworksPolicy
+
+    _FIREWORKS_AVAILABLE = True
+except (ImportError, AttributeError):
+    _FIREWORKS_AVAILABLE = False
 from .models import EvaluateResult, Message, MetricResult
 from .playback_policy import PlaybackPolicyBase
 from .resources import create_llm_resource
@@ -69,6 +76,10 @@ __all__ = [
     "rewards",
     "mcp",
 ]
+
+# Add FireworksPolicy to exports if available
+if _FIREWORKS_AVAILABLE:
+    __all__.insert(__all__.index("OpenAIPolicy") + 1, "FireworksPolicy")
 
 from . import _version
 

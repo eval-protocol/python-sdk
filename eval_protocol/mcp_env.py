@@ -51,9 +51,17 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 # Import all functionality from the new modular components
 from .mcp.execution.manager import ExecutionManager
-from .mcp.execution.policy import AnthropicPolicy, FireworksPolicy, LLMBasePolicy, OpenAIPolicy
+from .mcp.execution.policy import AnthropicPolicy, LLMBasePolicy, OpenAIPolicy
 from .mcp.session.manager import GeneralMCPVectorEnv
 from .mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
+
+# Try to import FireworksPolicy - it may fail if fireworks-ai is not installed
+# or if a different 'fireworks' package is installed
+try:
+    from .mcp.execution.policy import FireworksPolicy
+except:
+    # Silently skip if import fails for any reason
+    pass
 
 logger = logging.getLogger(__name__)
 

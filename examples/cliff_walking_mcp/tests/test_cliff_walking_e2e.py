@@ -219,7 +219,7 @@ async def test_production_server_record_and_replay(
         os.environ["EP_PLAYBACK_FILE"] = production_recording_file
 
         # Create playback policy
-        playback_policy = rk.FireworksPolicy(
+        playback_policy = ep.FireworksPolicy(
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=4096,
@@ -228,7 +228,7 @@ async def test_production_server_record_and_replay(
         assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
 
         # Create environments for playback
-        playback_envs = rk.make(
+        playback_envs = ep.make(
             "http://localhost:9500/mcp/",
             dataset=cliff_walking_dataset,
             model_id=playback_policy.model_id,
@@ -236,7 +236,7 @@ async def test_production_server_record_and_replay(
 
         # Run playback
         start_time = time.time()
-        playback_trajectories = await rk.rollout(
+        playback_trajectories = await ep.rollout(
             playback_envs, policy=playback_policy, steps=8
         )
         playback_duration = time.time() - start_time
@@ -258,7 +258,7 @@ async def test_production_server_record_and_replay(
     os.environ["EP_PLAYBACK_FILE"] = production_recording_file
 
     # Create policy for recording
-    policy = rk.FireworksPolicy(
+    policy = ep.FireworksPolicy(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=4096,
@@ -267,14 +267,14 @@ async def test_production_server_record_and_replay(
     assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
     # Create environments
-    envs = rk.make(
+    envs = ep.make(
         "http://localhost:9500/mcp/",
         dataset=cliff_walking_dataset,
         model_id=policy.model_id,
     )
 
     start_time = time.time()
-    trajectories = await rk.rollout(
+    trajectories = await ep.rollout(
         envs,
         policy=policy,
         steps=16,  # Cliff Walking episodes are typically longer
@@ -323,7 +323,7 @@ async def test_production_server_record_and_replay(
     print("\n🎬 === CLIFF WALKING PLAYBACK PHASE ===")
 
     # Create new policy for playback (same environment variable)
-    playback_policy = rk.FireworksPolicy(
+    playback_policy = ep.FireworksPolicy(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=4096,
@@ -332,7 +332,7 @@ async def test_production_server_record_and_replay(
     assert playback_policy.is_playback_mode(), "Should be in playback mode"
 
     # Create new environments for playback
-    playback_envs = rk.make(
+    playback_envs = ep.make(
         "http://localhost:9500/mcp/",
         dataset=cliff_walking_dataset,
         model_id=playback_policy.model_id,
@@ -340,7 +340,7 @@ async def test_production_server_record_and_replay(
 
     # Run playback
     start_time = time.time()
-    playback_trajectories = await rk.rollout(
+    playback_trajectories = await ep.rollout(
         playback_envs, policy=playback_policy, steps=15
     )
     playback_duration = time.time() - start_time
@@ -424,7 +424,7 @@ async def test_production_only_recorded_policy(cliff_walking_dataset):
         os.environ["EP_PLAYBACK_FILE"] = str(test_recording_file)
 
         # Create policy in playback mode
-        policy = rk.FireworksPolicy(
+        policy = ep.FireworksPolicy(
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=4096,
@@ -479,7 +479,7 @@ async def test_cliff_walking_step_by_step(conda_isolation_recording_file):
         os.environ["EP_PLAYBACK_FILE"] = conda_isolation_recording_file
 
         # Create policy
-        policy = rk.FireworksPolicy(
+        policy = ep.FireworksPolicy(
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=4096,
@@ -499,7 +499,7 @@ async def test_cliff_walking_step_by_step(conda_isolation_recording_file):
         ]
 
         # Create environment pointing to conda-isolated server
-        envs = rk.make(
+        envs = ep.make(
             f"http://localhost:{port}/mcp/",
             dataset=test_dataset,
             model_id=policy.model_id,
@@ -507,7 +507,7 @@ async def test_cliff_walking_step_by_step(conda_isolation_recording_file):
 
         # Run short rollout
         start_time = time.time()
-        trajectories = await rk.rollout(envs, policy=policy, steps=5)
+        trajectories = await ep.rollout(envs, policy=policy, steps=5)
         duration = time.time() - start_time
 
         assert len(trajectories) == 1, "Should have one trajectory"
@@ -621,7 +621,7 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
         )
 
         # Create multiple environments
-        envs = rk.make(
+        envs = ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_dataset,
             model_id=policy.model_id,
@@ -631,7 +631,7 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
 
         # Run rollout with multiple environments
         start_time = time.time()
-        trajectories = await rk.rollout(envs, policy=policy, steps=14)
+        trajectories = await ep.rollout(envs, policy=policy, steps=14)
         duration = time.time() - start_time
 
         # Validate results
@@ -1089,7 +1089,7 @@ async def test_fireworks_multi_environment_sessions(
         os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
 
         # Create playback policy
-        playback_policy = rk.FireworksPolicy(
+        playback_policy = ep.FireworksPolicy(
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=4096,
@@ -1098,7 +1098,7 @@ async def test_fireworks_multi_environment_sessions(
         assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
 
         # Create environments for playback
-        playback_envs = rk.make(
+        playback_envs = ep.make(
             "http://localhost:9500/mcp/",
             dataset=multi_env_dataset,
             model_id=playback_policy.model_id,
@@ -1106,7 +1106,7 @@ async def test_fireworks_multi_environment_sessions(
 
         # Run playback
         start_time = time.time()
-        playback_trajectories = await rk.rollout(
+        playback_trajectories = await ep.rollout(
             playback_envs, policy=playback_policy, steps=16
         )
         playback_duration = time.time() - start_time
@@ -1136,7 +1136,7 @@ async def test_fireworks_multi_environment_sessions(
         os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
 
         # Create FireworksPolicy for multi-environment testing
-        policy = rk.FireworksPolicy(
+        policy = ep.FireworksPolicy(
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=4096,
@@ -1145,7 +1145,7 @@ async def test_fireworks_multi_environment_sessions(
         assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
         # Create multiple environments
-        envs = rk.make(
+        envs = ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_dataset,
             model_id=policy.model_id,
@@ -1155,7 +1155,7 @@ async def test_fireworks_multi_environment_sessions(
 
         # Run rollout with multiple environments (fewer steps for LLM efficiency)
         start_time = time.time()
-        trajectories = await rk.rollout(envs, policy=policy, steps=16)
+        trajectories = await ep.rollout(envs, policy=policy, steps=16)
         duration = time.time() - start_time
 
         # Validate results
@@ -1278,7 +1278,7 @@ async def test_control_plane_state_querying(multi_env_dataset):
         policy = create_cliff_walking_static_policy(action_sequence=["UP", "UP"])
 
         # Create environments
-        envs = rk.make(
+        envs = ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_dataset[:2],  # Use only 2 environments for faster testing
             model_id=policy.model_id,
@@ -1288,7 +1288,7 @@ async def test_control_plane_state_querying(multi_env_dataset):
 
         # Run a few steps and check control plane state
         start_time = time.time()
-        trajectories = await rk.rollout(envs, policy=policy, steps=3)
+        trajectories = await ep.rollout(envs, policy=policy, steps=3)
         duration = time.time() - start_time
 
         # Validate results

@@ -282,7 +282,7 @@ class ExecutionManager:
                 if len(tool_calls) == 1:
                     # No tool calls means the policy is ready to provide final response on this turn
                     if tool_calls[0].tool_name == "_no_tool_call":
-                        turn_completed = True
+                        trajectory.terminated = True
                         break
                     elif tool_calls[0].tool_name == "_playback_terminate":
                         trajectory.terminated = True

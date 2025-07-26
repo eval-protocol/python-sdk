@@ -34,8 +34,7 @@ dependencies = [
     "omegaconf>=2.3.0",
     "gymnasium>=0.29.0",
     "httpx>=0.24.0",
-    "fireworks-ai>=0.19.10",
-    "tau2",
+    "tau2 @ git+https://github.com/sierra-research/tau2-bench.git@main",
     "anthropic>=0.59.0",
     "ipykernel>=6.30.0",
     "jupyter>=1.1.1",
@@ -81,6 +80,9 @@ trl = [
 ]
 openevals = [
     "openevals>=0.1.0",
+]
+fireworks = [
+    "fireworks-ai>=0.19.10",
 ]
 
 [project.scripts]

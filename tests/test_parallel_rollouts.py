@@ -273,7 +273,7 @@ async def _run_simplified_compatibility_test():
         )
 
     # This should work even without a server (just creates session objects)
-    envs = rk.make("http://127.0.0.1:8001/mcp/", dataset=dataset)
+    envs = ep.make("http://127.0.0.1:8001/mcp/", dataset=dataset)
     assert len(envs.sessions) == len(test_seeds)
     print("✅ Environment creation works")
 

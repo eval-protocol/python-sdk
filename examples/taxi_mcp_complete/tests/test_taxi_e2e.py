@@ -155,7 +155,7 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
     os.environ["EP_PLAYBACK_FILE"] = recording_file
 
     # Create policy for recording
-    policy = rk.FireworksPolicy(
+    policy = ep.FireworksPolicy(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=16384,  # Taxi needs more thinking space
@@ -165,11 +165,11 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
     assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
     # Create environments
-    envs = rk.make("http://localhost:9500/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
+    envs = ep.make("http://localhost:9500/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
 
     # Record trajectories (Taxi typically needs more steps)
     start_time = time.time()
-    trajectories = await rk.rollout(
+    trajectories = await ep.rollout(
         envs,
         policy=policy,
         steps=25,
@@ -186,7 +186,7 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
     print("\n🎬 === TAXI PLAYBACK PHASE ===")
 
     # Create new policy for playback (same environment variable)
-    playback_policy = rk.FireworksPolicy(
+    playback_policy = ep.FireworksPolicy(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=16384,
@@ -196,7 +196,7 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
     assert playback_policy.is_playback_mode(), "Should be in playback mode"
 
     # Create new environments for playback
-    playback_envs = rk.make(
+    playback_envs = ep.make(
         "http://localhost:9500/mcp/",
         dataset=taxi_dataset,
         model_id=playback_policy.model_id,
@@ -204,7 +204,7 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
 
     # Run playback
     start_time = time.time()
-    playback_trajectories = await rk.rollout(playback_envs, policy=playback_policy, steps=25)
+    playback_trajectories = await ep.rollout(playback_envs, policy=playback_policy, steps=25)
     playback_duration = time.time() - start_time
 
     assert len(playback_trajectories) == len(trajectories), "Playback should have same number of trajectories"
@@ -234,7 +234,7 @@ async def test_simulation_server_record_and_replay(simulation_server, taxi_datas
     os.environ["EP_PLAYBACK_FILE"] = recording_file
 
     # Create policy for recording
-    policy = rk.FireworksPolicy(
+    policy = ep.FireworksPolicy(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=16384,
@@ -242,11 +242,11 @@ async def test_simulation_server_record_and_replay(simulation_server, taxi_datas
     )
 
     # Create environments pointing to simulation server
-    envs = rk.make("http://localhost:9501/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
+    envs = ep.make("http://localhost:9501/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
 
     # Record trajectories
     start_time = time.time()
-    trajectories = await rk.rollout(envs, policy=policy, steps=25)
+    trajectories = await ep.rollout(envs, policy=policy, steps=25)
     recording_duration = time.time() - start_time
 
     assert len(trajectories) == len(taxi_dataset), "Should have trajectory for each dataset entry"
@@ -258,7 +258,7 @@ async def test_simulation_server_record_and_replay(simulation_server, taxi_datas
     print("\n🎬 === TAXI SIMULATION PLAYBACK PHASE ===")
 
     # Create playback policy
-    playback_policy = rk.FireworksPolicy(
+    playback_policy = ep.FireworksPolicy(
         model_id="accounts/fireworks/models/qwen3-235b-a22b",
         temperature=0.2,
         max_tokens=16384,
@@ -266,7 +266,7 @@ async def test_simulation_server_record_and_replay(simulation_server, taxi_datas
     )
 
     # Create new environments for playback
-    playback_envs = rk.make(
+    playback_envs = ep.make(
         "http://localhost:9501/mcp/",
         dataset=taxi_dataset,
         model_id=playback_policy.model_id,
@@ -274,7 +274,7 @@ async def test_simulation_server_record_and_replay(simulation_server, taxi_datas
 
     # Run playback
     start_time = time.time()
-    playback_trajectories = await rk.rollout(playback_envs, policy=playback_policy, steps=25)
+    playback_trajectories = await ep.rollout(playback_envs, policy=playback_policy, steps=25)
     playback_duration = time.time() - start_time
 
     assert len(playback_trajectories) == len(trajectories), "Playback should have same number of trajectories"
@@ -337,7 +337,7 @@ async def test_production_only_recorded_policy(taxi_dataset):
         os.environ["EP_PLAYBACK_FILE"] = test_recording_file
 
         # Create policy in playback mode
-        policy = rk.FireworksPolicy(
+        policy = ep.FireworksPolicy(
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=16384,

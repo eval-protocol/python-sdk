@@ -655,7 +655,7 @@ async def test_fireworks_multi_airline_environment_sessions(
         os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_airline_recording_file
 
         # Create playback policy, using OpenAI policy for vision modality + tool calling
-        playback_policy = rk.OpenAIPolicy(
+        playback_policy = ep.OpenAIPolicy(
             model_id="gpt-4.1",
             temperature=0.2,
             max_tokens=8192,
@@ -664,7 +664,7 @@ async def test_fireworks_multi_airline_environment_sessions(
         assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
 
         # Create environments for playback
-        playback_envs = rk.make(
+        playback_envs = ep.make(
             "http://localhost:9500/mcp/",
             dataset=multi_env_airline_dataset,
             model_id=playback_policy.model_id,
@@ -673,7 +673,7 @@ async def test_fireworks_multi_airline_environment_sessions(
         # Run playback
         start_time = time.time()
         # TODO: figure out how user simulator works for playback
-        playback_trajectories = await rk.rollout(playback_envs, policy=playback_policy, steps=15)
+        playback_trajectories = await ep.rollout(playback_envs, policy=playback_policy, steps=15)
         playback_duration = time.time() - start_time
 
         print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
@@ -697,7 +697,7 @@ async def test_fireworks_multi_airline_environment_sessions(
         os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_airline_recording_file
 
         # Create OpenAIPolicy for multi-environment testing
-        policy = rk.OpenAIPolicy(
+        policy = ep.OpenAIPolicy(
             model_id="gpt-4.1",
             # temperature=0.2,
             max_tokens=4096,
@@ -706,7 +706,7 @@ async def test_fireworks_multi_airline_environment_sessions(
         assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
         # Create multiple environments
-        envs = rk.make(
+        envs = ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_airline_dataset,
             model_id=policy.model_id,
@@ -716,7 +716,7 @@ async def test_fireworks_multi_airline_environment_sessions(
 
         # Run rollout with multiple environments (fewer steps for LLM efficiency)
         start_time = time.time()
-        trajectories = await rk.rollout(envs, policy=policy, steps=15)
+        trajectories = await ep.rollout(envs, policy=policy, steps=15)
         duration = time.time() - start_time
 
         # Validate results
@@ -796,7 +796,7 @@ async def test_fireworks_multi_mock_environment_sessions(
         os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_mock_recording_file
 
         # Create playback policy
-        playback_policy = rk.OpenAIPolicy(
+        playback_policy = ep.OpenAIPolicy(
             model_id="gpt-4.1",
             temperature=0.2,
             system_prompt="You are a helpful task management assistant.",
@@ -806,13 +806,13 @@ async def test_fireworks_multi_mock_environment_sessions(
         server = _create_test_server(8021, domain="mock")  # Use unique port for mock
 
         try:
-            envs = rk.make(
+            envs = ep.make(
                 f"http://localhost:{server.port}/mcp/",
                 dataset=multi_env_mock_dataset,
                 model_id=playback_policy.model_id,
             )
 
-            trajectories = await rk.rollout(envs, policy=playback_policy, steps=10)
+            trajectories = await ep.rollout(envs, policy=playback_policy, steps=10)
 
             print(f"✅ Playback completed with {len(trajectories)} trajectories")
 
@@ -841,7 +841,7 @@ async def test_fireworks_multi_mock_environment_sessions(
         os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_mock_recording_file
 
         # Create recording policy
-        policy = rk.OpenAIPolicy(
+        policy = ep.OpenAIPolicy(
             model_id="gpt-4.1",
             temperature=0.2,
             system_prompt="You are a helpful task management assistant.",
@@ -850,7 +850,7 @@ async def test_fireworks_multi_mock_environment_sessions(
         assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
         # Create multiple environments
-        envs = rk.make(
+        envs = ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_mock_dataset,
             model_id=policy.model_id,
@@ -860,7 +860,7 @@ async def test_fireworks_multi_mock_environment_sessions(
 
         # Run rollout with multiple environments
         start_time = time.time()
-        trajectories = await rk.rollout(envs, policy=policy, steps=15)
+        trajectories = await ep.rollout(envs, policy=policy, steps=15)
         duration = time.time() - start_time
 
         # Validate results
@@ -925,7 +925,7 @@ async def test_fireworks_multi_retail_environment_sessions(
         os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_retail_recording_file
 
         # Create playback policy
-        playback_policy = rk.OpenAIPolicy(
+        playback_policy = ep.OpenAIPolicy(
             model_id="gpt-4.1",
             temperature=0.2,
             system_prompt="You are a helpful retail customer service agent.",
@@ -935,13 +935,13 @@ async def test_fireworks_multi_retail_environment_sessions(
         server = _create_test_server(8022, domain="retail")  # Use unique port for retail
 
         try:
-            envs = rk.make(
+            envs = ep.make(
                 f"http://localhost:{server.port}/mcp/",
                 dataset=multi_env_retail_dataset,
                 model_id=playback_policy.model_id,
             )
 
-            trajectories = await rk.rollout(envs, policy=playback_policy, steps=10)
+            trajectories = await ep.rollout(envs, policy=playback_policy, steps=10)
 
             print(f"✅ Playback completed with {len(trajectories)} trajectories")
 
@@ -970,7 +970,7 @@ async def test_fireworks_multi_retail_environment_sessions(
         os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_retail_recording_file
 
         # Create recording policy
-        policy = rk.OpenAIPolicy(
+        policy = ep.OpenAIPolicy(
             model_id="gpt-4.1",
             temperature=0.2,
             system_prompt="You are a helpful retail customer service agent.",
@@ -979,7 +979,7 @@ async def test_fireworks_multi_retail_environment_sessions(
         assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
         # Create multiple environments
-        envs = rk.make(
+        envs = ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_retail_dataset,
             model_id=policy.model_id,
@@ -989,7 +989,7 @@ async def test_fireworks_multi_retail_environment_sessions(
 
         # Run rollout with multiple environments
         start_time = time.time()
-        trajectories = await rk.rollout(envs, policy=policy, steps=15)
+        trajectories = await ep.rollout(envs, policy=policy, steps=15)
         duration = time.time() - start_time
 
         # Validate results
