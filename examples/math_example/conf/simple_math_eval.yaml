@@ -15,7 +15,7 @@ hydra:
 
 # Dataset Configuration - Load from HuggingFace GSM8K
 dataset:
-  _target_: reward_kit.datasets.loader.load_and_process_dataset
+  _target_: eval_protocol.datasets.loader.load_and_process_dataset
   source_type: "huggingface"
   path_or_name: "openai/gsm8k"
   config_name: "main"  # Required for GSM8K dataset
@@ -32,7 +32,7 @@ system_prompt: "Solve the following math problem. Show your work clearly. Put th
 # Model Generation Configuration (enabled to generate responses to GSM8K questions)
 generation:
   enabled: true
-  _target_: reward_kit.generation.generate_responses
+  _target_: eval_protocol.generation.generate_responses
   model_name: "accounts/fireworks/models/llama-v3p3-70b-reasoning"
   batch_size: 1
   max_new_tokens: 1024

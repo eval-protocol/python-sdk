@@ -33,7 +33,7 @@
                 *   [x] Data regeneration confirmed improved adherence, though not perfect for all ambiguous cases.
                 *   **Goal:** Achieved significant improvement.
             *   [x] **3.3.3. Consider `math_reward` Leniency (Fallback, if 3.3.2 is insufficient for demo):**
-                *   [x] `reward_kit/rewards/math.py` was updated with a demo-specific leniency: if a `\boxed{}` answer is present in ground truth but missing in generated, and a `#### NUMBER` fallback matches, it's considered a pass. This helped improve the pass rate for demo purposes.
+                *   [x] `eval_protocol/rewards/math.py` was updated with a demo-specific leniency: if a `\boxed{}` answer is present in ground truth but missing in generated, and a `#### NUMBER` fallback matches, it's considered a pass. This helped improve the pass rate for demo purposes.
                 *   **Goal:** Achieved acceptable demo pass rate.
         *   [x] **3.4. Implement Mocking from Newly Recorded Data (Post 3.3 resolution)**:
             *   [x] `examples/math_example/fireworks_regenerate.py` now loads and uses `fireworks_regenerate_recorded_data.jsonl` for mocking when `TEST_MOCK_FIREWORKS_REGEN="true"` and not regenerating live data.

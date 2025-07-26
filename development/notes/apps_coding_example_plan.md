@@ -1,6 +1,6 @@
-# Detailed Plan: APPS Coding Example for `reward-kit run`
+# Detailed Plan: APPS Coding Example for `eval-protocol run`
 
-This plan details the steps to create a new example using the `codeparrot/apps` dataset and adapting logic similar to `verl.utils.reward_score.prime_code.compute_score`, leveraging the `reward-kit run` CLI. This follows the general playbook outlined in `verl_replication_playbook.md`.
+This plan details the steps to create a new example using the `codeparrot/apps` dataset and adapting logic similar to `verl.utils.reward_score.prime_code.compute_score`, leveraging the `eval-protocol run` CLI. This follows the general playbook outlined in `verl_replication_playbook.md`.
 
 **Target `verl` Pairing:**
 *   **Dataset:** `codeparrot/apps` (Hugging Face)
@@ -11,8 +11,8 @@ This plan details the steps to create a new example using the `codeparrot/apps` 
     *   Understand its inputs: typically a code solution string and ground truth (likely test cases).
     *   How it executes code (if it does, this is the complex part) or checks correctness.
     *   How it parses test cases from the ground truth string.
-2.  **Design `reward_kit.rewards.apps_coding_reward.evaluate_apps_solution`:**
-    *   Create a new file: `reward_kit/rewards/apps_coding_reward.py`.
+2.  **Design `eval_protocol.rewards.apps_coding_reward.evaluate_apps_solution`:**
+    *   Create a new file: `eval_protocol/rewards/apps_coding_reward.py`.
     *   Signature: `def evaluate_apps_solution(messages: List[Message], ground_truth: str, **kwargs) -> EvaluateResult:`
     *   `ground_truth`: Will be a JSON string from APPS' `input_output` field, containing lists of inputs and expected outputs for multiple test cases.
     *   **Core Logic (Initial Simplification - No Sandbox):**
@@ -97,7 +97,7 @@ This plan details the steps to create a new example using the `codeparrot/apps` 
       api_params: {rate_limit_qps: 1.0, max_retries: 3, max_concurrent_requests: 5}
 
     reward:
-      function_path: "reward_kit.rewards.apps_coding_reward.evaluate_apps_solution" # Path to the new reward function
+      function_path: "eval_protocol.rewards.apps_coding_reward.evaluate_apps_solution" # Path to the new reward function
       params: {} # Any params for the coding reward function
 
     evaluation_params: {limit_samples: null}
@@ -106,18 +106,18 @@ This plan details the steps to create a new example using the `codeparrot/apps` 
     ```
 
 **Phase 5: Minimal Example Code File (Optional)**
-*   The main reward logic will be in `reward_kit/rewards/apps_coding_reward.py`. No specific `main.py` needed in the example folder itself unless it defines a further wrapper.
+*   The main reward logic will be in `eval_protocol/rewards/apps_coding_reward.py`. No specific `main.py` needed in the example folder itself unless it defines a further wrapper.
 
 **Phase 6: Documentation**
 1.  Create `examples/apps_coding_example/README.md`:
     *   Describe APPS dataset, task, and the (initially simplified) reward logic.
-    *   Instructions for data prep and running `reward-kit run`.
+    *   Instructions for data prep and running `eval-protocol run`.
 
 **Phase 7: Testing**
 1.  Implement the (simplified) `evaluate_apps_solution` reward function.
 2.  Implement `scripts/convert_apps_to_prompts.py`.
 3.  Generate `development/apps_sample_prompts.jsonl`.
-4.  Run `reward-kit run` with the APPS example config.
+4.  Run `eval-protocol run` with the APPS example config.
 5.  Verify flow, generation (if enabled), caching, and that the reward function is called and returns a score.
 
 **Key Challenge:** The `evaluate_apps_solution` reward function. Starting with a non-execution-based version is crucial for a quick first iteration. Full code execution is a separate, large feature.

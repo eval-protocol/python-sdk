@@ -167,7 +167,7 @@ def run_evaluation_command_logic(cfg: DictConfig) -> None:
 # It needs a config_path relative to where this script is, or an absolute one.
 # If reward-kit is installed, conf might not be easily found via relative paths.
 # Using `pkg://` provider is more robust for installed packages.
-# For now, assume a `conf` dir at project root, and this script is in `reward_kit/cli_commands`.
+# For now, assume a `conf` dir at project root, and this script is in `eval_protocol/cli_commands`.
 import os  # Ensure os is imported for path manipulation
 
 # So, `config_path` would be `../../conf`.
@@ -192,11 +192,11 @@ def hydra_cli_entry_point(cfg: DictConfig) -> None:
     run_evaluation_command_logic(cfg)
 
 
-# This allows running `python -m reward_kit.cli_commands.run_eval_cmd` (if __main__.py in folder)
+# This allows running `python -m eval_protocol.cli_commands.run_eval_cmd` (if __main__.py in folder)
 # or if this file itself is made executable.
 if __name__ == "__main__":
     # This will parse sys.argv for Hydra overrides.
-    # Example: python reward_kit/cli_commands/run_eval_cmd.py dataset=gsm8k_local_prompts generation.enabled=false
+    # Example: python eval_protocol/cli_commands/run_eval_cmd.py dataset=gsm8k_local_prompts generation.enabled=false
     import sys  # Required for sys.exit
 
     hydra_cli_entry_point()

@@ -4,7 +4,7 @@ import httpx
 import pytest
 from werkzeug.wrappers import Response
 
-import eval_protocol as rk
+import eval_protocol as ep
 
 
 # Sync tests for the rk.make() function
@@ -17,7 +17,7 @@ def test_mcp_env_make_appends_trailing_slash():
     corrected_url = "http://localhost:8000/mcp/"
 
     # Use n and seeds to avoid needing a full dataset
-    envs = rk.make(base_url, n=1, seeds=[42])
+    envs = ep.make(base_url, n=1, seeds=[42])
 
     assert len(envs.sessions) == 1
     # The session's base_url should have the trailing slash
@@ -31,7 +31,7 @@ def test_mcp_env_make_keeps_existing_trailing_slash():
     base_url = "http://localhost:8000/mcp/"
 
     # Use n and seeds to avoid needing a full dataset
-    envs = rk.make(base_url, n=1, seeds=[42])
+    envs = ep.make(base_url, n=1, seeds=[42])
 
     assert len(envs.sessions) == 1
     # The session's base_url should remain unchanged

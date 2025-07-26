@@ -87,7 +87,7 @@ check_prerequisites() {
     info "Checking prerequisites..."
 
     # Check if reward-kit is available
-    if ! python -c "import reward_kit" 2>/dev/null; then
+    if ! python -c "import eval_protocol" 2>/dev/null; then
         error "reward-kit not installed or not in Python path"
         exit 1
     fi
@@ -178,12 +178,12 @@ main() {
     TRAJECTORY_LOG_FILE="$LOG_DIR/agent_trajectory_${TIMESTAMP}.log"
 
     # Run the evaluation with detailed logging
-    info "Executing: python -m reward_kit.cli agent-eval --task-def examples/frozen_lake/client/task_def.yaml"
+    info "Executing: python -m eval_protocol.cli agent-eval --task-def examples/frozen_lake/client/task_def.yaml"
     info "Full logs will be saved to: $FULL_LOG_FILE"
     info "Agent trajectory will be extracted to: $TRAJECTORY_LOG_FILE"
 
     # Capture all output and filter agent trajectory
-    python -m reward_kit.cli agent-eval --task-def examples/frozen_lake/client/task_def.yaml 2>&1 | tee "$FULL_LOG_FILE"
+    python -m eval_protocol.cli agent-eval --task-def examples/frozen_lake/client/task_def.yaml 2>&1 | tee "$FULL_LOG_FILE"
 
     # Extract agent trajectory and tool calls
     log "Extracting agent trajectory for review..."

@@ -5,7 +5,7 @@ A minimal example showing how to evaluate a Braintrust-style scorer end to end w
 ## Quick Start
 
 ```bash
-python -m reward_kit.cli run --config-name simple_braintrust_eval
+python -m eval_protocol.cli run --config-name simple_braintrust_eval
 ```
 
 ## Files

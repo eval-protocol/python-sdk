@@ -1,6 +1,6 @@
 # Taxi MCP Complete Example
 
-A comprehensive Model Context Protocol (MCP) implementation for the **Taxi-v3** gymnasium environment. This example demonstrates how to create a fully functional MCP server for reinforcement learning environments using the reward-kit framework, including local development, testing, and deployment patterns.
+A comprehensive Model Context Protocol (MCP) implementation for the **Taxi-v3** gymnasium environment. This example demonstrates how to create a fully functional MCP server for reinforcement learning environments using the eval-protocol framework, including local development, testing, and deployment patterns.
 
 ## 🎯 What is the Taxi Problem?
 
@@ -83,7 +83,7 @@ taxi_mcp_complete/
 
 ### Prerequisites
 
-Ensure you have the reward-kit development environment set up:
+Ensure you have the eval-protocol development environment set up:
 
 ```bash
 # Activate virtual environment
@@ -153,7 +153,7 @@ description = adapter.get_state_description(state)
 ```
 🌟 Testing Simplified North Star Interface - Taxi Environment
 📝 === RECORDING MODE ===
-🎬 Setting REWARD_KIT_PLAYBACK_FILE=recording_trajectories.jsonl
+🎬 Setting EP_PLAYBACK_FILE=recording_trajectories.jsonl
 ✅ Policy created in live mode
 ✅ MCP environments created successfully
 ✅ Completed 3 trajectories in 45.23s
@@ -211,7 +211,7 @@ pip install gymnasium[toy_text]
 
 **Import Errors:**
 ```bash
-# Ensure reward-kit is installed in development mode
+# Ensure eval-protocol is installed in development mode
 pip install -e .
 
 # Check adapter imports
@@ -260,4 +260,4 @@ When modifying this example:
 
 ---
 
-This example demonstrates a production-ready MCP server implementation suitable for cloud deployment and integration with LLM applications requiring taxi navigation capabilities. It showcases the reward-kit north star API with record-and-playback for efficient development and evaluation workflows.
+This example demonstrates a production-ready MCP server implementation suitable for cloud deployment and integration with LLM applications requiring taxi navigation capabilities. It showcases the eval-protocol north star API with record-and-playback for efficient development and evaluation workflows.

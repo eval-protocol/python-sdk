@@ -6,7 +6,7 @@ import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ValidationError
 
-# Assuming these models are correctly defined in reward_kit.models
+# Assuming these models are correctly defined in eval_protocol.models
 from eval_protocol.models import EvaluateResult, Message
 
 
@@ -48,7 +48,7 @@ async def verify_api_key(request: Request):
 app = FastAPI(
     title="Reward Kit Generic Reward Function Server",
     description="Serves a dynamically loaded reward function.",
-    version="0.1.0",  # Or use reward_kit.__version__
+    version="0.1.0",  # Or use eval_protocol.__version__
 )
 
 

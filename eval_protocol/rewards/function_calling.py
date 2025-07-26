@@ -431,7 +431,7 @@ def schema_jaccard_reward(
     NOTE: This function now delegates to exact_tool_match_reward.
     Original Jaccard similarity logic for function call schemas is bypassed.
     The helper functions for Jaccard similarity are kept in this file as they
-    are used by reward_kit.rewards.json_schema.py.
+    are used by eval_protocol.rewards.json_schema.py.
 
     Args:
         messages: List of conversation messages.

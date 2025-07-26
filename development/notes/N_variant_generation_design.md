@@ -4,9 +4,9 @@ Based on my review of the code, I have come up with a design that I believe will
 
 ### Code Analysis Summary
 
-1.  **Entry Point**: The command `reward-kit run` is the entry point for the evaluation pipeline.
+1.  **Entry Point**: The command `eval-protocol run` is the entry point for the evaluation pipeline.
 2.  **Configuration**: The pipeline is configured using Hydra, with the main configuration loaded from a YAML file.
-3.  **Core Logic**: The core logic for the evaluation pipeline is in the `EvaluationPipeline` class in `reward_kit/execution/pipeline.py`.
+3.  **Core Logic**: The core logic for the evaluation pipeline is in the `EvaluationPipeline` class in `eval_protocol/execution/pipeline.py`.
 4.  **Single Sample Processing**: The `_process_single_sample` method in the `EvaluationPipeline` class is responsible for processing a single sample from the dataset. This includes generating a response from a model if `generation.enabled` is true.
 5.  **Generation**: The `self.model_client.generate` method is called to generate a single response for a given sample.
 
@@ -35,18 +35,18 @@ Here is a Mermaid diagram illustrating the proposed changes to the pipeline:
 
 ```mermaid
 graph TD
-    subgraph "reward_kit/cli.py"
-        A[reward-kit run] --> B{parse_args};
+    subgraph "eval_protocol/cli.py"
+        A[eval-protocol run] --> B{parse_args};
         B --> C{hydra_cli_entry_point};
     end
 
-    subgraph "reward_kit/cli_commands/run_eval_cmd.py"
+    subgraph "eval_protocol/cli_commands/run_eval_cmd.py"
         C --> D[run_evaluation_command_logic];
         D --> E[pipeline = EvaluationPipeline(cfg)];
         E --> F[pipeline.run()];
     end
 
-    subgraph "reward_kit/execution/pipeline.py"
+    subgraph "eval_protocol/execution/pipeline.py"
         F --> G[EvaluationPipeline.run];
         G -- for each sample --> H[EvaluationPipeline._process_single_sample];
         H -- reads cfg.generation.n --> I{Loop n times};

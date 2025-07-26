@@ -14,7 +14,7 @@ hydra:
 
 # Dataset loading from HuggingFace GSM8K (reuse math example dataset)
 dataset:
-  _target_: reward_kit.datasets.loader.load_and_process_dataset
+  _target_: eval_protocol.datasets.loader.load_and_process_dataset
   source_type: "huggingface"
   path_or_name: "openai/gsm8k"
   config_name: "main"
@@ -31,7 +31,7 @@ system_prompt: "Solve the math problem and return the same text as the ground tr
 # Generation configuration using Fireworks
 generation:
   enabled: true
-  _target_: reward_kit.generation.generate_responses
+  _target_: eval_protocol.generation.generate_responses
   model_name: "accounts/fireworks/models/qwen3-235b-a22b"
   batch_size: 1
   max_new_tokens: 50

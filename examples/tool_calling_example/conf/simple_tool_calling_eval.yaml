@@ -15,7 +15,7 @@ hydra:
 
 # Dataset Configuration - Simplified without inheritance
 dataset:
-  _target_: reward_kit.datasets.loader.load_and_process_dataset
+  _target_: eval_protocol.datasets.loader.load_and_process_dataset
   source_type: "jsonl"
   path_or_name: "dataset.jsonl"
   split: "train"
@@ -29,7 +29,7 @@ dataset:
 # Model Generation Configuration (disabled for evaluation of existing conversations)
 generation:
   enabled: false
-  _target_: reward_kit.generation.generate_responses
+  _target_: eval_protocol.generation.generate_responses
   model_name: "accounts/fireworks/models/qwen3-235b-a22b"
   batch_size: 1
   max_new_tokens: 512

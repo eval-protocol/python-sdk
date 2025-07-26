@@ -1,6 +1,6 @@
 # Frozen Lake Agent Evaluation
 
-This example demonstrates LLM agent evaluation on the Frozen Lake game using reward-kit's HTTP rollout framework. The agent must navigate from start (S) to goal (G) while avoiding holes (H).
+This example demonstrates LLM agent evaluation on the Frozen Lake game using eval-protocol's HTTP rollout framework. The agent must navigate from start (S) to goal (G) while avoiding holes (H).
 
 ## Quick Start
 
@@ -20,13 +20,13 @@ export MODEL_AGENT="openai/gpt-4o-mini"
 ### Run Evaluation
 ```bash
 # Batch evaluation (8 parallel rollouts) - recommended
-reward-kit agent-eval --task-def examples/frozen_lake/client/task_def.yaml
+eval-protocol agent-eval --task-def examples/frozen_lake/client/task_def.yaml
 
 # Single rollout for debugging
-reward-kit agent-eval --task-def examples/frozen_lake/client/task_def.yaml --num-rollouts 1
+eval-protocol agent-eval --task-def examples/frozen_lake/client/task_def.yaml --num-rollouts 1
 
 # Custom batch size
-reward-kit agent-eval --task-def examples/frozen_lake/client/task_def.yaml --num-rollouts 16
+eval-protocol agent-eval --task-def examples/frozen_lake/client/task_def.yaml --num-rollouts 16
 ```
 
 ### Output
@@ -44,7 +44,7 @@ Task 'frozen_lake_http_rollout' batch results:
 ```
 ┌─────────────────┐    HTTP     ┌──────────────────┐
 │ Client Side     │ ◄─────────► │ Server Side      │
-│ (reward-kit)    │  Rollout    │ (Game Env)       │
+│ (eval-protocol)    │  Rollout    │ (Game Env)       │
 │                 │             │                  │
 │ • Agent Eval    │             │ • Game Logic     │
 │ • Reward Func   │             │ • State Mgmt     │
@@ -111,8 +111,8 @@ Create new reward functions and test them on existing trajectories:
 
 ```python
 # my_rewards.py
-from reward_kit.typed_interface import reward_function
-from reward_kit.models import EvaluateResult, MetricResult
+from eval_protocol.typed_interface import reward_function
+from eval_protocol.models import EvaluateResult, MetricResult
 
 @reward_function
 def efficiency_reward(messages, state=None, **kwargs):

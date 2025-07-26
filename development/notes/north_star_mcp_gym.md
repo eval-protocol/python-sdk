@@ -139,13 +139,13 @@ The cost of rebuilding RL plumbing ends now. Let's create the abstraction layer 
 
 The MCP-Gym framework has been fully implemented and validated with real LLM policies:
 
-### 1. Session-Aware Base Class (`reward_kit/mcp/mcpgym.py`)
+### 1. Session-Aware Base Class (`eval_protocol/mcp/mcpgym.py`)
 
 ```python
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple, TypeVar, Generic
 from fastmcp import Context
-from reward_kit.mcp.base import GymProductionServer
+from eval_protocol.mcp.base import GymProductionServer
 
 EnvType = TypeVar('EnvType')
 
@@ -198,7 +198,7 @@ class McpGym(GymProductionServer, ABC, Generic[EnvType]):
 from typing import Any, Dict, Optional, Tuple
 from gymnasium.envs.toy_text import FrozenLakeEnv
 from gymnasium.envs.toy_text.frozen_lake import generate_random_map
-from reward_kit.mcp.adapters import EnvironmentAdapter
+from eval_protocol.mcp.adapters import EnvironmentAdapter
 
 class FrozenLakeAdapter(EnvironmentAdapter[FrozenLakeEnv]):
     """Adapter for FrozenLake Gymnasium environment"""
@@ -229,7 +229,7 @@ class FrozenLakeAdapter(EnvironmentAdapter[FrozenLakeEnv]):
 ```python
 from typing import Any, Dict
 from fastmcp import Context
-from reward_kit.mcp.mcpgym import McpGym
+from eval_protocol.mcp.mcpgym import McpGym
 from .frozen_lake_adapter import FrozenLakeAdapter
 
 class FrozenLakeMcp(McpGym):
@@ -324,8 +324,8 @@ python server.py --port 9004
 ### Multi-Environment Rollouts with FireworksPolicy
 
 ```python
-import reward_kit as rk
-from reward_kit.mcp.execution.policy import FireworksPolicy
+import eval_protocol as rk
+from eval_protocol.mcp.execution.policy import FireworksPolicy
 
 # Initialize Fireworks LLM policy (production-ready)
 policy = FireworksPolicy(

@@ -34,8 +34,8 @@ generation:
     max_concurrent_requests: 25
 
 reward:
-  # Path to the new reward function in reward_kit/rewards/
-  function_path: "reward_kit.rewards.apps_coding_reward.evaluate_apps_solution"
+  # Path to the new reward function in eval_protocol/rewards/
+function_path: "eval_protocol.rewards.apps_coding_reward.evaluate_apps_solution"
   params: {} # Any specific parameters for the apps_coding_reward function
 
 evaluation_params:

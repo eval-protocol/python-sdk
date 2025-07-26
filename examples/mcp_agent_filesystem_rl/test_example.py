@@ -200,7 +200,7 @@ async def main():
         print("✓ All tests passed! Example setup is ready.")
         print("\nTo run the full example:")
         print("1. Start the MCP intermediary server:")
-        print("   python -m reward_kit.mcp_agent.main")
+        print("   python -m eval_protocol.mcp_agent.main")
         print("2. Run the evaluation:")
         print("   reward-kit run --config config.yaml")
 

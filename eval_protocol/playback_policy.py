@@ -45,7 +45,7 @@ class PlaybackPolicyBase(ABC):
         self._playback_step_counters = {}  # {env_index: current_step}
 
         # Environment variable override
-        playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
+        playback_file = os.environ.get("EP_PLAYBACK_FILE")
         if playback_file and not self._is_playback:
             logger.info(f"🎬 Auto-enabling playback mode from environment variable: {playback_file}")
             self._playback_actions = self._load_trajectory_file(playback_file)
@@ -353,8 +353,8 @@ class PlaybackPolicyBase(ABC):
             step: Current step number
             conversation_history: List of conversation messages
         """
-        # Use REWARD_KIT_PLAYBACK_FILE environment variable for recording
-        playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
+        # Use EP_PLAYBACK_FILE environment variable for recording
+        playback_file = os.environ.get("EP_PLAYBACK_FILE")
         if not playback_file:
             return  # No recording file specified
 
@@ -381,8 +381,8 @@ class PlaybackPolicyBase(ABC):
             step: Current step number
             conversation_history: List of conversation messages
         """
-        # Use REWARD_KIT_PLAYBACK_FILE environment variable for recording
-        playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
+        # Use EP_PLAYBACK_FILE environment variable for recording
+        playback_file = os.environ.get("EP_PLAYBACK_FILE")
         if not playback_file:
             return  # No recording file specified
 

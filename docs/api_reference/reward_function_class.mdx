@@ -13,7 +13,7 @@ The `RewardFunction` class wraps a reward function (either a local function or a
 ## Import
 
 ```python
-from reward_kit.reward_function import RewardFunction
+from eval_protocol.reward_function import RewardFunction
 ```
 
 ## Constructor
@@ -111,7 +111,7 @@ The returned adapter function:
 ### Local Mode
 
 ```python
-from reward_kit import RewardFunction, EvaluateResult, MetricResult
+from eval_protocol import RewardFunction, EvaluateResult, MetricResult
 
 # Define a reward function
 def my_reward_fn(messages, **kwargs):
@@ -177,7 +177,7 @@ print(f"Score: {result.score}")
 ### Using with TRL
 
 ```python
-from reward_kit import RewardFunction
+from eval_protocol import RewardFunction
 
 # Create a reward function
 reward_fn = RewardFunction(name="my-deployed-evaluator", mode="remote")

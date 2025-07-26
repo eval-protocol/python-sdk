@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from eval_protocol.utils.static_policy import StaticPolicy
 
-import eval_protocol as rk
+import eval_protocol as ep
 
 
 async def test_multi_session():
@@ -61,7 +61,7 @@ async def test_multi_session():
 
     try:
         # Create environments (assumes server is running on localhost:8000)
-        envs = rk.make(
+        envs = ep.make(
             "http://localhost:8000/mcp/",
             dataset=test_dataset,
             model_id=policy.model_id,
@@ -71,7 +71,7 @@ async def test_multi_session():
 
         # Run rollout
         start_time = time.time()
-        trajectories = await rk.rollout(envs, policy=policy, steps=6)
+        trajectories = await ep.rollout(envs, policy=policy, steps=6)
         duration = time.time() - start_time
 
         # Validate results

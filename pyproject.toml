@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/fireworks-ai/reward-kit"
+Homepage = "https://github.com/fireworks-ai/eval-protocol"
 
 [project.optional-dependencies]
 dev = [
@@ -91,7 +91,7 @@ style = "pep440"
 versionfile_source = "eval_protocol/_version.py"
 versionfile_build = "eval_protocol/_version.py"
 tag_prefix = "v"
-parentdir_prefix = "reward-kit-"
+parentdir_prefix = "eval-protocol-"
 
 [tool.black]
 line-length = 119

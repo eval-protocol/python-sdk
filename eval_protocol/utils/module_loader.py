@@ -36,8 +36,8 @@ def load_function(import_path: str) -> Callable[..., Any]:
 # Example usage:
 # if __name__ == '__main__':
 #     try:
-#         # Assuming you have a reward_kit.rewards.math module with math_reward function
-#         math_reward_func = load_function("reward_kit.rewards.math.math_reward")
+#         # Assuming you have a eval_protocol.rewards.math module with math_reward function
+#         math_reward_func = load_function("eval_protocol.rewards.math.math_reward")
 #         print(f"Loaded: {math_reward_func}")
 #         # You could then call it, e.g., if it took simple args: math_reward_func(arg1="test")
 #     except Exception as e:
@@ -45,7 +45,7 @@ def load_function(import_path: str) -> Callable[..., Any]:
 
 #     try:
 #         # Test with a non-existent function
-#         load_function("reward_kit.rewards.math.non_existent_function")
+#         load_function("eval_protocol.rewards.math.non_existent_function")
 #     except Exception as e:
 #         print(f"Test loading non-existent function failed as expected: {e}")
 

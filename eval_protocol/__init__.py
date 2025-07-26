@@ -11,7 +11,9 @@ tool-augmented models using self-contained task bundles.
 import warnings
 
 from .adapters.braintrust import reward_fn_to_scorer, scorer_to_reward_fn
+from .auth import get_fireworks_api_key, get_fireworks_account_id
 from .common_utils import load_jsonl
+from .config import load_config, get_config, RewardKitConfig
 from .mcp_env import (
     FireworksPolicy,
     OpenAIPolicy,
@@ -26,6 +28,10 @@ from .resources import create_llm_resource
 from .reward_function import RewardFunction
 from .typed_interface import reward_function
 
+# Import submodules to make them available via eval_protocol.rewards, etc.
+from . import rewards
+from . import mcp
+
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 __all__ = [
@@ -37,6 +43,13 @@ __all__ = [
     "RewardFunction",
     "scorer_to_reward_fn",
     "reward_fn_to_scorer",
+    # Authentication
+    "get_fireworks_api_key",
+    "get_fireworks_account_id",
+    # Configuration
+    "load_config",
+    "get_config",
+    "RewardKitConfig",
     # Utilities
     "load_jsonl",
     # MCP Environment API
@@ -50,6 +63,9 @@ __all__ = [
     "PlaybackPolicyBase",
     # Resource management
     "create_llm_resource",
+    # Submodules
+    "rewards",
+    "mcp",
 ]
 
 from . import _version

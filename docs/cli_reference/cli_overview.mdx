@@ -46,7 +46,7 @@ The `run` command is the primary way to execute local evaluation pipelines. It l
 ### Syntax
 
 ```bash
-python -m reward_kit.cli run [options] [HYDRA_OVERRIDES...]
+python -m eval_protocol.cli run [options] [HYDRA_OVERRIDES...]
 ```
 or
 ```bash
@@ -68,12 +68,12 @@ You can override any parameter defined in your Hydra configuration YAML files di
 
 ```bash
 # Basic usage, running an evaluation defined in examples/math_example/conf/run_math_eval.yaml
-python -m reward_kit.cli run \
+python -m eval_protocol.cli run \
   --config-path examples/math_example/conf \
   --config-name run_math_eval.yaml
 
 # Override the number of samples to process and the model name
-python -m reward_kit.cli run \
+python -m eval_protocol.cli run \
   --config-path examples/math_example/conf \
   --config-name run_math_eval.yaml \
   evaluation_params.limit_samples=10 \
@@ -203,7 +203,7 @@ A typical development workflow using the CLI now often involves `reward-kit run`
 1.  **Configure**: Set up your dataset and evaluation parameters in Hydra YAML files (e.g., `conf/dataset/my_data.yaml`, `conf/run_my_eval.yaml`). Define or reference your reward function logic.
 2.  **Run**: Execute the evaluation pipeline using `reward-kit run`. This generates model responses and initial scores.
     ```bash
-    python -m reward_kit.cli run --config-path ./conf --config-name run_my_eval.yaml
+    python -m eval_protocol.cli run --config-path ./conf --config-name run_my_eval.yaml
     ```
 3.  **Analyze & Iterate**:
     *   Examine the detailed results (`*_results.jsonl`) and the `preview_input_output_pairs.jsonl` from the output directory.

@@ -41,20 +41,20 @@ This roadmap outlines the development priorities. Tasks within each phase can be
     *   [ ] Implement Phase 3: Scalability and Productionization (Tasks 3.1 - 3.2).
     *   [ ] Update relevant documentation and examples throughout the implementation.
 *   **P1.2: [CRITICAL] Complete API & Data Format Refactor:**
-    *   [ ] **Core Reward Functions:** Finish refactoring all remaining functions in `reward_kit/rewards/` (e.g., `multiple_choice_math_reward.py`, `reasoning_steps.py`, `accuracy_length.py`) and their tests to align with the new `messages`/`ground_truth` paradigm and Pydantic type hinting.
+    *   [ ] **Core Reward Functions:** Finish refactoring all remaining functions in `eval_protocol/rewards/` (e.g., `multiple_choice_math_reward.py`, `reasoning_steps.py`, `accuracy_length.py`) and their tests to align with the new `messages`/`ground_truth` paradigm and Pydantic type hinting.
     *   [ ] **Example Scripts:** Update all existing example scripts in `examples/` to use the new API and data formats.
-    *   [ ] **TRL Adapter:** Update `RewardFunction.get_trl_adapter` in `reward_kit/reward_function.py`.
-    *   [ ] **`RewardFunction` Class:** Review and align `reward_kit/reward_function.py` (especially `__call__` and `func_path` handling).
+    *   [ ] **TRL Adapter:** Update `RewardFunction.get_trl_adapter` in `eval_protocol/reward_function.py`.
+    *   [ ] **`RewardFunction` Class:** Review and align `eval_protocol/reward_function.py` (especially `__call__` and `func_path` handling).
 *   **P1.4: Code Quality & Tooling Setup:**
     *   [ ] **Configuration Standardization:** Standardize `flake8`, `black`, `mypy` configurations across `.pre-commit-config.yaml`, `.flake8`, `mypy.ini`, `Makefile`, `pyproject.toml` (if adopted).
     *   [ ] **MyPy Strictness:** Systematically review and reduce globally disabled MyPy error codes.
     *   [ ] **Makefile & Pre-commit Consistency:** Ensure Makefile targets and pre-commit hooks are consistent.
     *   [ ] **Docstring Checking:** Enable and enforce docstring checking.
 *   **P1.5: Authentication System Refactor:**
-    *   [ ] **Centralize Logic:** Create `reward_kit/auth.py`.
+    *   [ ] **Centralize Logic:** Create `eval_protocol/auth.py`.
     *   [ ] **Configuration Methods:** Support environment variables and `auth.ini`.
     *   [ ] **Documentation:** Clearly document `FIREWORKS_ACCOUNT_ID` usage and auth setup.
-    *   [ ] **Codebase Update:** Refactor `reward_kit/evaluation.py` etc. to use new auth module.
+    *   [ ] **Codebase Update:** Refactor `eval_protocol/evaluation.py` etc. to use new auth module.
 *   **P1.6: Build, Packaging, and Basic CI:**
     *   [ ] **`setup.py` Review:** Evaluate `openai` pinning, clean `extras_require`, populate `long_description`.
     *   [ ] **Basic CI Pipeline (GitHub Actions):** Setup CI for linting, formatting checks, and running tests on main Python version.
@@ -65,7 +65,7 @@ This roadmap outlines the development priorities. Tasks within each phase can be
 *(Focus: Develop core utilities, key integrations, robust dataset handling, and new comprehensive examples that showcase the power of Reward-Protocol.)*
 
 *   **P2.1: Hydra-based Dataset Management Refactor:**
-    *   [ ] **Core Dataset Module:** Create `reward_kit/datasets/loader.py` (or similar) for centralized dataset loading/processing logic driven by Hydra.
+    *   [ ] **Core Dataset Module:** Create `eval_protocol/datasets/loader.py` (or similar) for centralized dataset loading/processing logic driven by Hydra.
     *   [ ] **Hydra Schemas:** Define structured Hydra configuration schemas for datasets (e.g., in `conf/dataset/base_dataset.yaml`, `conf/dataset/gsm8k.yaml`).
     *   [ ] **Refactor `convert_dataset.py`:** Further refine `examples/math_example/convert_dataset.py` to use the new global Hydra dataset schemas.
     *   [ ] **Refactor Example Scripts:** Update other example scripts (`local_eval.py`, TRL examples, etc.) to use Hydra for dataset configuration, referencing global dataset configs.

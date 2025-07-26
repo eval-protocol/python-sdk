@@ -16,7 +16,7 @@ import pytest
 def clean_environment():
     """Clean up reward-kit environment variables before and after each test."""
     # Environment variables that might affect reward-kit behavior
-    env_vars_to_clean = ["REWARD_KIT_PLAYBACK_FILE", "REWARD_KIT_FORCE_RECORD", "PORT"]
+    env_vars_to_clean = ["EP_PLAYBACK_FILE", "EP_FORCE_RECORD", "PORT"]
 
     # Store original values
     original_values = {}

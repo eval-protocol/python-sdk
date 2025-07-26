@@ -24,7 +24,7 @@ async def test_north_star_interface():
         import os
         import time
 
-        import eval_protocol as rk
+        import eval_protocol as ep
 
         # Load dataset with environment configuration and prompts
         dataset = load_jsonl("/home/bchen/home/reward-kit/examples/taxi_mcp_complete/shared_data/taxi_rollouts.jsonl")
@@ -38,15 +38,15 @@ async def test_north_star_interface():
 
         if recording_mode:
             print("\n📝 === RECORDING MODE ===")
-            print(f"🎬 Setting REWARD_KIT_PLAYBACK_FILE={playback_file}")
-            os.environ["REWARD_KIT_PLAYBACK_FILE"] = playback_file
+            print(f"🎬 Setting EP_PLAYBACK_FILE={playback_file}")
+            os.environ["EP_PLAYBACK_FILE"] = playback_file
         else:
             print("\n🎬 === PLAYBACK MODE ===")
             print(f"📂 Using existing file: {playback_file}")
-            os.environ["REWARD_KIT_PLAYBACK_FILE"] = playback_file
+            os.environ["EP_PLAYBACK_FILE"] = playback_file
 
         # Create policy - will auto-detect mode based on environment variable
-        policy = rk.FireworksPolicy(
+        policy = ep.FireworksPolicy(
             model_id="accounts/fireworks/models/qwen3-235b-a22b",
             temperature=0.2,
             max_tokens=16384,  # Increased from default 4096 for more thinking space
@@ -55,12 +55,12 @@ async def test_north_star_interface():
         print(f"✅ Policy created in {'playback' if policy.is_playback_mode() else 'live'} mode")
 
         # Create environments
-        envs = rk.make("http://localhost:8000/mcp/", dataset=dataset, model_id=policy.model_id)
+        envs = ep.make("http://localhost:8000/mcp/", dataset=dataset, model_id=policy.model_id)
         print("✅ MCP environments created successfully")
 
         # Run rollout - same API for both modes!
         start_time = time.time()
-        trajectories = await rk.rollout(
+        trajectories = await ep.rollout(
             envs,
             policy=policy,
             steps=25,  # Taxi typically needs more steps than FrozenLake

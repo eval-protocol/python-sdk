@@ -2,7 +2,7 @@
 
 ## 1. Introduction and Goals
 
-**Overall Objective:** To significantly enhance the `reward-kit` framework, enabling it to robustly support the development, training, and evaluation of agents that perform complex, multi-step interactions. This plan focuses on integrating advanced reinforcement learning (RL) techniques, specifically **Group-in-Group Policy Optimization (GiGPO)**, to handle long-horizon tasks and sparse rewards effectively. The primary user interface for defining rewards will remain simple, centered around `List[Message]` objects.
+**Overall Objective:** To significantly enhance the `eval-protocol` framework, enabling it to robustly support the development, training, and evaluation of agents that perform complex, multi-step interactions. This plan focuses on integrating advanced reinforcement learning (RL) techniques, specifically **Group-in-Group Policy Optimization (GiGPO)**, to handle long-horizon tasks and sparse rewards effectively. The primary user interface for defining rewards will remain simple, centered around `List[Message]` objects.
 
 **Target Audience:** This plan is designed to be understandable and actionable by entry-level AI infrastructure engineers. It will break down complex tasks into smaller, more manageable pieces, explaining the "what," "why," and "how" for each.
 
@@ -23,11 +23,11 @@ Before diving into the plan, let's define some key terms:
 *   **Step (or Timestep):** A single point in an episode where the agent observes the environment, takes an action, and (conceptually) receives a reward and a new observation.
 *   **`Message`:** The primary data unit (e.g., `{'role': 'user', 'content': '...'}`) that reward authors will interact with. A sequence of messages (`List[Message]`) represents a rollout's conversational history.
 *   **`StepData` (Internal System Structure):** A detailed internal representation of a single step in an episode, containing `observation_data` (which includes `List[Message]`), the `action_taken` by the policy, `policy_logprobs`, `policy_value_estimate` (though GiGPO can be critic-free), `is_done` flags, and other RL-specific information. This is collected by the `RLRolloutWorker`.
-*   **`EvaluateResult` (Extended):** The Pydantic model (from `reward_kit.typed_interface.py`) that user reward functions will return. It will be extended to carry not just a `score` but also optional per-step `base_reward` information derived from messages.
+*   **`EvaluateResult` (Extended):** The Pydantic model (from `eval_protocol.typed_interface.py`) that user reward functions will return. It will be extended to carry not just a `score` but also optional per-step `base_reward` information derived from messages.
 *   **Base Rewards:** Scalar values assigned by the user's reward function to conceptual steps within a rollout, based on `List[Message]`. These are inputs to the GiGPO calculation.
 *   **GiGPO (Group-in-Group Policy Optimization):** An RL algorithm that improves credit assignment by comparing trajectories (episode-level advantage `A_E`) and actions taken in similar states (step-level advantage `A_S`) within groups of rollouts. It's particularly useful for sparse rewards. *(Reference: `development/notes/gigpo_breakdown.md`)*
 *   **Advantage (`A_t`):** A measure of how much better an action is compared to a baseline or average. In this plan, advantages will be primarily computed using GiGPO.
-*   **Sandbox Execution Component:** The part of the system responsible for running user-provided Python code (their reward functions) in an isolated environment. (Implemented in `reward_kit/evaluation.py`).
+*   **Sandbox Execution Component:** The part of the system responsible for running user-provided Python code (their reward functions) in an isolated environment. (Implemented in `eval_protocol/evaluation.py`).
 
 ## 3. Proposed Enhancements (Phased Approach - GiGPO Focus)
 
@@ -44,7 +44,7 @@ This phase focuses on defining how users write reward functions based on `List[M
     *   **Objective:** Enable users to define reward functions (decorated with `@reward_function`) that take `List[Message]` (pointwise) or `List[List[Message]]` (batch-wise) and return an (extended) `EvaluateResult`.
     *   **Details:** See `development/notes/multi_step_rl_enhancement_plan_phase1.md#task-12-implement-unified-user-reward-function-definition`.
 *   **Task 1.3: Adapt Sandbox Execution Component for Reward Functions**
-    *   **Objective:** Modify the sandbox execution component (from `reward_kit/evaluation.py`) to correctly invoke these user reward functions (pointwise or batch-wise) and handle the (extended) `EvaluateResult` output.
+    *   **Objective:** Modify the sandbox execution component (from `eval_protocol/evaluation.py`) to correctly invoke these user reward functions (pointwise or batch-wise) and handle the (extended) `EvaluateResult` output.
     *   **Details:** See `development/notes/multi_step_rl_enhancement_plan_phase1.md#task-13-adapt-sandbox-execution-component`.
 *   **Task 1.4: Design System-Level Preprocessing for GiGPO**
     *   **Objective:** Define how the system takes the `EvaluateResult` (containing `score` and/or `step_outputs` with `base_rewards`) from the user's reward function and aligns it with the internal `StepData` (collected during rollouts). This prepares the necessary inputs for the main GiGPO calculation.
@@ -64,7 +64,7 @@ This phase focuses on generating the `StepData` and then applying the GiGPO algo
     *   **Objective:** Add mechanisms to `RLRolloutWorker` for ending episodes (max steps, agent signals, regex).
     *   **Details:** See `development/notes/multi_step_rl_enhancement_plan_phase2.md#task-23-implement-episode-termination-logic`. *(Initial concepts in old Phase 1, Task 1.1)*
 *   **Task 2.4: Implement System-Level GiGPO Advantage Calculation**
-    *   **Objective:** Create the system component and helper functions (`reward_kit.rl_helpers`) that take the processed `StepData` (with aligned `base_rewards` or `final_scores` from Phase 1) and compute GiGPO advantages (`A_E`, `A_S`, `A_GiG`).
+    *   **Objective:** Create the system component and helper functions (`eval_protocol.rl_helpers`) that take the processed `StepData` (with aligned `base_rewards` or `final_scores` from Phase 1) and compute GiGPO advantages (`A_E`, `A_S`, `A_GiG`).
     *   **Details:** See `development/notes/multi_step_rl_enhancement_plan_phase2.md#task-24-implement-system-level-gigpo-advantage-calculation`. *(Based on `gigpo_breakdown.md` and concepts from old Phase 2, Task 2.2)*
 
 ### Phase 3: Training Integration, User Experience, and Scalability

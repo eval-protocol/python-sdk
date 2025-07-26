@@ -28,20 +28,20 @@ The typical lifecycle of working with or developing an example involves these ke
 
 *   **Goal**: Execute your example to generate model responses and evaluate them, or to run a training loop.
 *   **Tools**:
-    *   **CLI-based Evaluation**: `python -m reward_kit.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml`
+    *   **CLI-based Evaluation**: `python -m eval_protocol.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml`
         *   Uses Hydra for configuration (see `run_math_eval.yaml`).
         *   Generates outputs like `math_example_results.jsonl` and `preview_input_output_pairs.jsonl`.
     *   **Custom Scripts (e.g., TRL Training)**: `.venv/bin/python examples/math_example/trl_grpo_integration.py`
         *   Also typically uses Hydra for configuration (see `math_example/conf/trl_grpo_config.yaml`).
 *   **Configuration**: Parameters for model selection, sampling, and reward function behavior are managed via Hydra YAML files in the example's `conf/` directory.
 
-**4. Previewing Results (`reward-kit preview`)**
+**4. Previewing Results (`eval-protocol preview`)**
 
 *   **Goal**: Inspect or re-evaluate generated prompt/response pairs, often using different or updated reward logic.
 *   **Usage**:
     ```bash
     # Preview with local metric scripts or a deployed evaluator
-    python -m reward_kit.cli preview \
+    python -m eval_protocol.cli preview \
       --samples ./outputs/<timestamp_dir>/preview_input_output_pairs.jsonl \
       --metrics-folders custom_metric_name=./path/to/your_metrics_folder
     # or --remote-url <your_deployed_evaluator_url>
@@ -50,7 +50,7 @@ The typical lifecycle of working with or developing an example involves these ke
 
 **5. Deployment (Optional for Examples, see `CONTRIBUTING.md`)**
 
-*   While individual examples focus on local execution and preview, the general process for deploying evaluators is covered in `development/CONTRIBUTING.md` using `reward-kit deploy`. Example-specific READMEs might also touch on this if relevant.
+*   While individual examples focus on local execution and preview, the general process for deploying evaluators is covered in `development/CONTRIBUTING.md` using `eval-protocol deploy`. Example-specific READMEs might also touch on this if relevant.
 
 ## Key Principles for Examples
 

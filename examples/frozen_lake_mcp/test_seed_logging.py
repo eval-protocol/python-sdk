@@ -10,7 +10,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-import eval_protocol as rk
+import eval_protocol as ep
 
 
 async def test_seed_logging():
@@ -30,7 +30,7 @@ async def test_seed_logging():
     try:
         # Create environment pointing to our server
         print("🔌 Connecting to server...")
-        envs = rk.make("http://localhost:9600/mcp/", dataset=dataset, model_id="test")
+        envs = ep.make("http://localhost:9600/mcp/", dataset=dataset, model_id="test")
         print(f"✅ Created envs: {len(envs.sessions)} sessions")
 
         # Reset environments to trigger session creation

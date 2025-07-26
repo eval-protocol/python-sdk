@@ -29,8 +29,8 @@ This duplication makes maintenance difficult and leaves the production and simul
     from abc import ABC, abstractmethod
     from typing import Any, Dict, Tuple
     from mcp.server.fastmcp import Context, FastMCP
-    from reward_kit.mcp import EnvironmentAdapter
-    from reward_kit.mcp.grid_renderer import render_grid
+    from eval_protocol.mcp import EnvironmentAdapter
+    from eval_protocol.mcp.grid_renderer import render_grid
 
     class GymProductionServer(ABC):
         """
@@ -77,8 +77,8 @@ This duplication makes maintenance difficult and leaves the production and simul
 
     ```python
     from typing import Any, Dict
-    from reward_kit.mcp.gym_prod_server import GymProductionServer
-    from reward_kit.mcp.grid_renderer import render_grid
+    from eval_protocol.mcp.gym_prod_server import GymProductionServer
+    from eval_protocol.mcp.grid_renderer import render_grid
     from examples.frozen_lake_mcp_complete.mcp_server.frozen_lake_adapter import FrozenLakeAdapter
 
     class FrozenLakeProdServer(GymProductionServer):
@@ -117,8 +117,8 @@ This duplication makes maintenance difficult and leaves the production and simul
 3. **Implement simulation servers as subclasses of `SimulationServerBase`**
 
     ```python
-    from reward_kit.mcp.simulation_server import SimulationServerBase, simulation_tool
-    from reward_kit.mcp.grid_renderer import render_grid
+    from eval_protocol.mcp.simulation_server import SimulationServerBase, simulation_tool
+    from eval_protocol.mcp.grid_renderer import render_grid
     from examples.frozen_lake.server import app as prod_app      # import production for validation
     from examples.frozen_lake_mcp_complete.mcp_server.frozen_lake_adapter import FrozenLakeAdapter
 
@@ -182,9 +182,9 @@ This duplication makes maintenance difficult and leaves the production and simul
 ### What Was Built
 
 1. **Unified Framework Components**
-   - `reward_kit/mcp/gym_production_server.py` - Base class for production servers
-   - `reward_kit/mcp/grid_renderer.py` - Shared grid visualization utilities
-   - Updated `reward_kit/mcp/__init__.py` to export new components
+   - `eval_protocol/mcp/gym_production_server.py` - Base class for production servers
+   - `eval_protocol/mcp/grid_renderer.py` - Shared grid visualization utilities
+   - Updated `eval_protocol/mcp/__init__.py` to export new components
 
 2. **Refactored Production Servers**
    - `examples/frozen_lake_mcp_complete/mcp_server/frozen_lake_mcp_server_new.py`
@@ -213,4 +213,4 @@ This duplication makes maintenance difficult and leaves the production and simul
 
 ### Framework Impact
 
-This refactoring demonstrates the **reward-kit MCP framework** is now production-ready for rapid gymnasium environment integration. The pattern can be applied to any gymnasium environment with minimal effort.
+This refactoring demonstrates the **eval-protocol MCP framework** is now production-ready for rapid gymnasium environment integration. The pattern can be applied to any gymnasium environment with minimal effort.

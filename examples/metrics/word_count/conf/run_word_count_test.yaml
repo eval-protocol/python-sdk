@@ -5,7 +5,7 @@ defaults:
   - override hydra/job_logging: default
   - override hydra/hydra_logging: default
   # Include other necessary default groups if your pipeline expects them.
-  # For example, if 'reward_kit run' needs 'generation', 'output', 'evaluation_params' groups
+  # For example, if 'eval_protocol run' needs 'generation', 'output', 'evaluation_params' groups
   # to be defined even if we override most of their content.
   # These would point to files like conf/generation/default.yaml etc.
   # For now, we define these sections fully below.
@@ -16,7 +16,7 @@ defaults:
 # It tells Hydra to also look in <project_root>/conf for items in the 'dataset' group.
 hydra:
   searchpath:
-    - pkg://reward_kit.conf # General shared configs within the package
+    - pkg://eval_protocol.conf # General shared configs within the package
     - file://${oc.env:PWD}/conf # Project root's conf, for dataset defaults etc.
 
 dataset:
@@ -55,5 +55,5 @@ output: # Output files will be relative to Hydra's run directory
 logging_params:
   batch_log_interval: 1
 
-# Ensure the structure matches what `reward_kit.cli_commands.run_eval_cmd.py`
-# and `reward_kit.execution.pipeline.EvaluationPipeline` expect from the DictConfig 'cfg'.
+# Ensure the structure matches what `eval_protocol.cli_commands.run_eval_cmd.py`
+# and `eval_protocol.execution.pipeline.EvaluationPipeline` expect from the DictConfig 'cfg'.

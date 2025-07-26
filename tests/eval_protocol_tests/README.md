@@ -6,7 +6,7 @@ This directory contains tests specifically for verifying the `eval_protocol` dua
 
 ### `test_eval_protocol_import.py`
 - Comprehensive pytest-compatible test suite
-- Tests import equivalence between `reward_kit` and `eval_protocol`
+- Tests import equivalence between `eval_protocol` and `eval_protocol`
 - Verifies that both packages provide identical functionality
 - Tests require all dependencies to be installed
 
@@ -24,7 +24,7 @@ This directory contains tests specifically for verifying the `eval_protocol` dua
 ### `test_import_equivalence.py`
 - Tests import equivalence by examining module structure
 - Verifies console scripts and package metadata
-- Tests that `eval_protocol` properly re-exports `reward_kit`
+- Tests that `eval_protocol` properly re-exports `eval_protocol`
 - ✅ **Passes in development environment**
 
 ### `demo_dual_imports.py`
@@ -56,7 +56,7 @@ pytest tests/test_eval_protocol_import.py -v
 ## Purpose
 
 These tests verify that users can import the package using either:
-- `from reward_kit import ...` (original style)
+- `from eval_protocol import ...` (original style)
 - `from eval_protocol import ...` (new style)
 
 Both import styles provide identical functionality with no breaking changes. 

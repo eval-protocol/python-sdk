@@ -5,7 +5,7 @@ This plan outlines the steps to refactor example scripts to use Hydra for datase
 **Phase 1: Core Dataset Handling Module & Hydra Schemas**
 
 1.  **Define a Centralized Dataset Loading/Processing Logic:**
-    *   Create a new Python module within the `reward_kit` core, perhaps `reward_kit/datasets/loader.py` or `reward_kit/data_handling.py`.
+    *   Create a new Python module within the `eval_protocol` core, perhaps `eval_protocol/datasets/loader.py` or `eval_protocol/data_handling.py`.
     *   This module will contain functions responsible for:
         *   Loading datasets from various sources (Hugging Face, local files like JSONL).
         *   Applying common preprocessing steps (e.g., formatting messages, extracting specific columns based on configuration).
@@ -24,7 +24,7 @@ This plan outlines the steps to refactor example scripts to use Hydra for datase
     *   Example schema structure in YAML (to be potentially backed by Python dataclasses):
         ```yaml
         # conf/dataset/base_dataset.yaml (abstract base)
-        _target_: reward_kit.datasets.loader.load_and_process_dataset # Points to the new central loader
+        _target_: eval_protocol.datasets.loader.load_and_process_dataset # Points to the new central loader
         source_type: ???
         path_or_name: ???
         split: "train"
@@ -117,14 +117,14 @@ This plan outlines the steps to refactor example scripts to use Hydra for datase
 *   **Reusability:** Dataset definitions (global `conf/dataset/*.yaml`) can be reused across multiple examples.
 *   **Clarity:** Users can easily see and modify dataset configurations without digging into script code.
 *   **Flexibility:** Hydra's command-line overrides and composition make it easy to experiment with different datasets or parameters.
-*   **Centralized Logic:** The core dataset loading and preprocessing logic is maintained in one place (e.g., `reward_kit.datasets.loader`).
+*   **Centralized Logic:** The core dataset loading and preprocessing logic is maintained in one place (e.g., `eval_protocol.datasets.loader`).
 
 **Diagrammatic Overview:**
 
 ```mermaid
 graph TD
     subgraph Core Reward Kit
-        A[reward_kit.datasets.loader.py] -- Defines --> B(Dataset Loading/Processing Functions);
+        A[eval_protocol.datasets.loader.py] -- Defines --> B(Dataset Loading/Processing Functions);
     end
 
     subgraph Global Hydra Configurations
@@ -150,4 +150,4 @@ graph TD
 
 *   **Location of `conf/dataset/`:** A root-level `project_root/conf/dataset/` is preferred for global dataset definitions, making them "first-class citizens".
 *   **Dataclass Schemas vs. Pure YAML:** Using Python dataclasses (e.g., with `hydra_zen`) for config schemas is a good practice for validation and IDE support, potentially for a later refinement.
-*   **Initial Focus:** Start by creating the `reward_kit.datasets.loader` module and a couple of basic global dataset configs. Then refactor one or two example scripts to use this new system.
+*   **Initial Focus:** Start by creating the `eval_protocol.datasets.loader` module and a couple of basic global dataset configs. Then refactor one or two example scripts to use this new system.

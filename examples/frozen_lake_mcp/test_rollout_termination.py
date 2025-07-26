@@ -50,7 +50,7 @@ def run_rollout_test():
         cmd = [
             sys.executable,
             "-m",
-            "reward_kit.rollout.main",
+            "eval_protocol.rollout.main",
             "--config",
             str(config_path),
             "--environment",

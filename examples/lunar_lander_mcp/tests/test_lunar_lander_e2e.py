@@ -14,7 +14,7 @@ Usage:
 
 Environment Variables:
     CI=true                    # CI mode - only playback existing recordings
-    REWARD_KIT_PLAYBACK_FILE   # Path to replay file (auto-detected if not set)
+    EP_PLAYBACK_FILE   # Path to replay file (auto-detected if not set)
 """
 
 import asyncio
@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-import eval_protocol as rk
+import eval_protocol as ep
 from eval_protocol.utils.static_policy import StaticPolicy, RandomPolicy
 
 
@@ -78,8 +78,8 @@ def _setup_recording_file(filename: str) -> str:
 
 def _cleanup_playback_env():
     """Clean up playback environment variables."""
-    if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-        del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+    if "EP_PLAYBACK_FILE" in os.environ:
+        del os.environ["EP_PLAYBACK_FILE"]
 
 
 def _create_test_server(port: int) -> "MCPServerManager":
@@ -222,7 +222,7 @@ async def test_production_server_record_and_replay(production_server, lunar_land
         print("\n🎬 === CI MODE: PLAYBACK ONLY ===")
 
         # Set up playback environment
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = production_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = production_recording_file
 
         # Create playback policy
         playback_policy = rk.OpenAIPolicy(
@@ -249,8 +249,8 @@ async def test_production_server_record_and_replay(production_server, lunar_land
         print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
 
         # Clean up environment variable
-        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+        if "EP_PLAYBACK_FILE" in os.environ:
+            del os.environ["EP_PLAYBACK_FILE"]
 
         return  # Skip recording phase in CI
 
@@ -258,7 +258,7 @@ async def test_production_server_record_and_replay(production_server, lunar_land
     print("\n📝 === LUNAR LANDER RECORDING PHASE ===")
 
     # Set up recording environment
-    os.environ["REWARD_KIT_PLAYBACK_FILE"] = production_recording_file
+    os.environ["EP_PLAYBACK_FILE"] = production_recording_file
 
     # Create policy for recording
     policy = rk.OpenAIPolicy(
@@ -355,8 +355,8 @@ async def test_production_server_record_and_replay(production_server, lunar_land
     assert speedup > 10, f"Playback should be at least 10x faster, got {speedup:.1f}x"
 
     # Clean up environment variable
-    if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-        del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+    if "EP_PLAYBACK_FILE" in os.environ:
+        del os.environ["EP_PLAYBACK_FILE"]
 
 
 def test_server_health_checks(production_server):
@@ -408,7 +408,7 @@ async def test_production_only_recorded_policy(lunar_lander_dataset):
 
     try:
         # Set up playback environment
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = str(test_recording_file)
+        os.environ["EP_PLAYBACK_FILE"] = str(test_recording_file)
 
         # Create policy in playback mode
         policy = rk.OpenAIPolicy(
@@ -425,8 +425,8 @@ async def test_production_only_recorded_policy(lunar_lander_dataset):
 
     finally:
         # Clean up environment variable (but keep the file for review)
-        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+        if "EP_PLAYBACK_FILE" in os.environ:
+            del os.environ["EP_PLAYBACK_FILE"]
 
 
 @pytest.mark.asyncio
@@ -460,7 +460,7 @@ async def test_lunar_lander_step_by_step(conda_isolation_recording_file):
         print(f"✅ Started conda-isolated server on port {port}")
 
         # Set up recording
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = conda_isolation_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = conda_isolation_recording_file
 
         # Create policy
         policy = rk.OpenAIPolicy(
@@ -517,8 +517,8 @@ async def test_lunar_lander_step_by_step(conda_isolation_recording_file):
         print("✅ Conda-isolated server stopped and cleaned up")
 
         # Clean up environment variable (but keep the recording file)
-        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+        if "EP_PLAYBACK_FILE" in os.environ:
+            del os.environ["EP_PLAYBACK_FILE"]
 
     except ImportError:
         print("⚠️ CondaServerProcessManager not available, skipping conda isolation test")
@@ -618,7 +618,7 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
     try:
 
         # Set up recording
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = multi_env_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = multi_env_recording_file
 
         # Create static policy for fast testing with lunar lander actions
         policy = create_lunar_lander_static_policy()
@@ -663,8 +663,8 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
 
         # Clean up
         await envs.close()
-        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+        if "EP_PLAYBACK_FILE" in os.environ:
+            del os.environ["EP_PLAYBACK_FILE"]
 
     finally:
         # Always stop the server
@@ -1061,7 +1061,7 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
         print("\n🎬 === CI MODE: PLAYBACK ONLY ===")
 
         # Set up playback environment
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
 
         # Create playback policy, using OpenAI policy for vision modality + tool calling
         playback_policy = rk.OpenAIPolicy(
@@ -1088,8 +1088,8 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
         print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
 
         # Clean up environment variable
-        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+        if "EP_PLAYBACK_FILE" in os.environ:
+            del os.environ["EP_PLAYBACK_FILE"]
 
         return  # Skip recording phase in CI
 
@@ -1103,7 +1103,7 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
     try:
 
         # Set up recording
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
 
         # Create OpenAIPolicy for multi-environment testing
         policy = rk.OpenAIPolicy(
@@ -1159,8 +1159,8 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
 
         # Clean up
         await envs.close()
-        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+        if "EP_PLAYBACK_FILE" in os.environ:
+            del os.environ["EP_PLAYBACK_FILE"]
 
     finally:
         # Always stop the server

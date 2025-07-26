@@ -1,13 +1,13 @@
-# Detailed Plan: MATH-lighteval Example for `reward-kit run`
+# Detailed Plan: MATH-lighteval Example for `eval-protocol run`
 
-This plan details the steps to create a new example using the `DigitalLearningGmbH/MATH-lighteval` dataset and the existing `reward_kit.rewards.math.math_reward` function, leveraging the `reward-kit run` CLI. This follows the general playbook outlined in `verl_replication_playbook.md`.
+This plan details the steps to create a new example using the `DigitalLearningGmbH/MATH-lighteval` dataset and the existing `eval_protocol.rewards.math.math_reward` function, leveraging the `eval-protocol run` CLI. This follows the general playbook outlined in `verl_replication_playbook.md`.
 
 **Target `verl` Pairing:**
 *   **Dataset:** `DigitalLearningGmbH/MATH-lighteval` (Hugging Face)
 *   **`verl` Reward Logic:** `verl.utils.reward_score.math.compute_score`
 
 **Phase 1: Reward Function**
-1.  **Decision:** Use the existing `reward_kit.rewards.math.math_reward`.
+1.  **Decision:** Use the existing `eval_protocol.rewards.math.math_reward`.
 2.  **Verification (Mental Check):**
     *   `MATH-lighteval` answers often use `\\boxed{}`. Our `math_reward`'s `extract_numbers` function prioritizes `\\boxed{}`. This should be compatible.
     *   The `ground_truth_for_eval` will be the full solution string from `MATH-lighteval`, and `math_reward` will extract the answer from it.
@@ -49,7 +49,7 @@ This plan details the steps to create a new example using the `DigitalLearningGm
 1.  Create `conf/dataset/math_lighteval_prompts.yaml`:
     ```yaml
     # conf/dataset/math_lighteval_prompts.yaml
-    # For `reward-kit run` to use the sample prompt JSONL
+    # For `eval-protocol run` to use the sample prompt JSONL
     defaults:
       - base_dataset
       - _self_
@@ -95,7 +95,7 @@ This plan details the steps to create a new example using the `DigitalLearningGm
       api_params: {rate_limit_qps: 1.0, max_retries: 3, max_concurrent_requests: 5}
 
     reward:
-      function_path: "reward_kit.rewards.math.math_reward"
+      function_path: "eval_protocol.rewards.math.math_reward"
       params:
         tolerance: 0.001
         # absolute_tolerance: 1e-8 # Default in math_reward
@@ -120,7 +120,7 @@ This plan details the steps to create a new example using the `DigitalLearningGm
     *   Instructions for generating `development/math_lighteval_sample_prompts.jsonl` using `convert_dataset.py` with `conf/dataset/math_lighteval_source.yaml`.
     *   Command to run the example:
         ```bash
-        reward-kit run --config-dir examples/math_lighteval_example/conf --config-name run_eval
+        eval-protocol run --config-dir examples/math_lighteval_example/conf --config-name run_eval
         ```
     *   Explain key configuration overrides (e.g., `evaluation_params.limit_samples`, `generation.model_name`).
 

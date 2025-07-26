@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-import eval_protocol as rk
+import eval_protocol as ep
 
 
 @pytest.mark.asyncio
@@ -138,7 +138,7 @@ async def _test_seed_handling_and_type_compatibility_impl():
             )
 
         # 3. Test that environments are created with proper seed isolation
-        envs = rk.make("http://127.0.0.1:8001/mcp/", dataset=dataset)
+        envs = ep.make("http://127.0.0.1:8001/mcp/", dataset=dataset)
 
         # Verify we have the right number of environments
         assert len(envs.sessions) == len(test_seeds), f"Expected {len(test_seeds)} sessions, got {len(envs.sessions)}"
@@ -319,7 +319,7 @@ async def _run_simplified_compatibility_test():
         if not os.environ.get("FIREWORKS_API_KEY"):
             print("⚠️ Skipping policy test - no API key in CI")
         else:
-            policy = rk.FireworksPolicy("accounts/fireworks/models/qwen3-235b-a22b")
+            policy = ep.FireworksPolicy("accounts/fireworks/models/qwen3-235b-a22b")
             print("✅ Policy creation works")
     except Exception as e:
         print(f"⚠️ Policy creation failed (expected in CI): {e}")

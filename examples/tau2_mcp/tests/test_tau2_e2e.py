@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-import eval_protocol as rk
+import eval_protocol as ep
 from eval_protocol import reward_function, EvaluateResult
 
 from tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
@@ -652,7 +652,7 @@ async def test_fireworks_multi_airline_environment_sessions(
         print("\n🎬 === CI MODE: PLAYBACK ONLY ===")
 
         # Set up playback environment
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_airline_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_airline_recording_file
 
         # Create playback policy, using OpenAI policy for vision modality + tool calling
         playback_policy = rk.OpenAIPolicy(
@@ -679,8 +679,8 @@ async def test_fireworks_multi_airline_environment_sessions(
         print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
 
         # Clean up environment variable
-        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+        if "EP_PLAYBACK_FILE" in os.environ:
+            del os.environ["EP_PLAYBACK_FILE"]
 
         return  # Skip recording phase in CI
 
@@ -694,7 +694,7 @@ async def test_fireworks_multi_airline_environment_sessions(
     try:
 
         # Set up recording
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_airline_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_airline_recording_file
 
         # Create OpenAIPolicy for multi-environment testing
         policy = rk.OpenAIPolicy(
@@ -771,8 +771,8 @@ async def test_fireworks_multi_airline_environment_sessions(
 
         # Clean up
         await envs.close()
-        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+        if "EP_PLAYBACK_FILE" in os.environ:
+            del os.environ["EP_PLAYBACK_FILE"]
 
     finally:
         # Always stop the server

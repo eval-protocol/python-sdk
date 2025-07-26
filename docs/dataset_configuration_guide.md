@@ -1,6 +1,6 @@
 # Dataset Configuration Guide
 
-This guide explains the structure and fields used in YAML configuration files for datasets within the Reward Kit. These configurations are typically located in `conf/dataset/` or within an example's `conf/dataset/` directory (e.g., `examples/math_example/conf/dataset/`). They are processed by `reward_kit.datasets.loader.py` using Hydra.
+This guide explains the structure and fields used in YAML configuration files for datasets within the Reward Kit. These configurations are typically located in `conf/dataset/` or within an example's `conf/dataset/` directory (e.g., `examples/math_example/conf/dataset/`). They are processed by `eval_protocol.datasets.loader.py` using Hydra.
 
 There are two main types of dataset configurations: **Base Datasets** and **Derived Datasets**.
 
@@ -14,8 +14,8 @@ A base dataset configuration defines the connection to a raw data source and per
 
 *   **`_target_`** (Required)
     *   **Description**: Specifies the Python function to instantiate for loading this dataset.
-    *   **Typical Value**: `reward_kit.datasets.loader.load_and_process_dataset`
-    *   **Example**: `_target_: reward_kit.datasets.loader.load_and_process_dataset`
+    *   **Typical Value**: `eval_protocol.datasets.loader.load_and_process_dataset`
+    *   **Example**: `_target_: eval_protocol.datasets.loader.load_and_process_dataset`
 
 *   **`source_type`** (Required)
     *   **Description**: Defines the type of the data source.
@@ -51,7 +51,7 @@ A base dataset configuration defines the connection to a raw data source and per
     *   **Example**: `max_samples: 100`
 
 *   **`column_mapping`** (Optional)
-    *   **Description**: A dictionary to rename columns from the source dataset to a standard internal format. Keys are the new standard names (e.g., `"query"`, `"ground_truth"`), and values are the original column names in the source dataset. This mapping is applied by `reward_kit.datasets.loader.py`.
+    *   **Description**: A dictionary to rename columns from the source dataset to a standard internal format. Keys are the new standard names (e.g., `"query"`, `"ground_truth"`), and values are the original column names in the source dataset. This mapping is applied by `eval_protocol.datasets.loader.py`.
     *   **Default**: `{"query": "query", "ground_truth": "ground_truth", "solution": null}`
     *   **Example (`gsm8k.yaml`)**:
         ```yaml
@@ -61,7 +61,7 @@ A base dataset configuration defines the connection to a raw data source and per
         ```
 
 *   **`preprocessing_steps`** (Optional)
-    *   **Description**: A list of strings, where each string is a Python import path to a preprocessing function (e.g., `"reward_kit.datasets.loader.transform_codeparrot_apps_sample"`). These functions are applied to the dataset after loading and before column mapping.
+    *   **Description**: A list of strings, where each string is a Python import path to a preprocessing function (e.g., `"eval_protocol.datasets.loader.transform_codeparrot_apps_sample"`). These functions are applied to the dataset after loading and before column mapping.
     *   **Default**: `[]`
     *   **Example**: `preprocessing_steps: ["my_module.my_preprocessor_func"]`
 
@@ -84,8 +84,8 @@ A derived dataset configuration references a base dataset and applies further tr
 
 *   **`_target_`** (Required)
     *   **Description**: Specifies the Python function to instantiate for loading this derived dataset.
-    *   **Typical Value**: `reward_kit.datasets.loader.load_derived_dataset`
-    *   **Example**: `_target_: reward_kit.datasets.loader.load_derived_dataset`
+    *   **Typical Value**: `eval_protocol.datasets.loader.load_derived_dataset`
+    *   **Example**: `_target_: eval_protocol.datasets.loader.load_derived_dataset`
 
 *   **`base_dataset`** (Required)
     *   **Description**: A reference to the base dataset configuration to derive from. This can be the name of another dataset configuration file (e.g., `"gsm8k"`, which would load `conf/dataset/gsm8k.yaml`) or a full inline base dataset configuration object.
@@ -131,7 +131,7 @@ A derived dataset configuration references a base dataset and applies further tr
 
 ## How Configurations are Loaded
 
-The `reward_kit.datasets.loader.py` script uses Hydra to:
+The `eval_protocol.datasets.loader.py` script uses Hydra to:
 1.  Compose these YAML configurations.
 2.  Instantiate the appropriate loader function (`load_and_process_dataset` or `load_derived_dataset`) with the parameters defined in the YAML.
 3.  The loader functions then use these parameters to fetch data (e.g., from Hugging Face or local files), apply mappings, execute preprocessing steps, and format the data as requested.

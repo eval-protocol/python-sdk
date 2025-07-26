@@ -87,7 +87,7 @@ python test_termination_fix.py
 
 ### Comprehensive Test
 ```bash
-# Test with reward-kit rollout system
+# Test with eval-protocol rollout system
 python test_rollout_termination.py
 ```
 

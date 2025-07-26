@@ -67,7 +67,7 @@ def _resolve_module_path_and_name(function_ref: str) -> Optional[Tuple[Path, str
 def generate_dockerfile_content(
     function_ref: str,
     python_version: str = DEFAULT_PYTHON_VERSION,
-    reward_kit_install_source: str = "reward-kit",  # e.g., "reward-kit", "reward-kit[dev]", or path to local wheel/sdist
+    eval_protocol_install_source: str = "eval-protocol",  # e.g., "eval-protocol", "eval-protocol[dev]", or path to local wheel/sdist
     user_requirements_path: Optional[str] = None,  # Path relative to CWD or absolute
     inline_requirements_content: Optional[str] = None,  # Direct content for requirements.txt
     service_port: int = 8080,
@@ -78,7 +78,7 @@ def generate_dockerfile_content(
     Args:
         function_ref: Python import string for the reward function (e.g., 'my_module.my_reward_func').
         python_version: The Python version for the base image (e.g., "3.10").
-        reward_kit_install_source: Pip install string for reward-kit.
+        eval_protocol_install_source: Pip install string for eval-protocol.
         user_requirements_path: Optional path to a requirements.txt for user dependencies.
         inline_requirements_content: Optional string containing the content of requirements.txt.
         service_port: Port the service inside the container will listen on.
@@ -111,10 +111,10 @@ def generate_dockerfile_content(
         "WORKDIR /app",
         "",
         "# Copy the entire application source (build context)",
-        "COPY . .",  # Copies setup.py, reward_kit package, user's function module, etc.
+        "COPY . .",  # Copies setup.py, eval_protocol package, user's function module, etc.
         "",
         "# Install reward-kit from local source and its dependencies",
-        # This assumes setup.py is configured to install reward_kit and its deps.
+        # This assumes setup.py is configured to install eval_protocol and its deps.
         # Add [dev] if extra dev dependencies are needed by generic_server itself, though unlikely.
         "RUN pip install --no-cache-dir .",
         "",

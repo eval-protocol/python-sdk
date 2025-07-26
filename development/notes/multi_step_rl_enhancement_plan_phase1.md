@@ -27,14 +27,14 @@ For the overall plan, introduction, core concepts, and links to other phases, pl
 *   **How to approach (Detailed Steps for an Engineer):**
 
     1.  **Review `Message` Model:**
-        *   Ensure `reward_kit.models.Message` is suitable. It typically includes `role` and `content`, and may have `tool_calls`, `tool_call_id`. This should be sufficient for user reward functions.
+        *   Ensure `eval_protocol.models.Message` is suitable. It typically includes `role` and `content`, and may have `tool_calls`, `tool_call_id`. This should be sufficient for user reward functions.
         *   *Action Item:* No changes likely needed to `Message` itself for this task.
 
     2.  **Define `StepOutput` Model:**
         *   This model will be part of the `EvaluateResult`.
-        *   *Action Item:* Create/define this Pydantic model, likely in `reward_kit/typed_interface.py` or a new `reward_kit/rl_models.py`.
+        *   *Action Item:* Create/define this Pydantic model, likely in `eval_protocol/typed_interface.py` or a new `eval_protocol/rl_models.py`.
             ```python
-            # In reward_kit/typed_interface.py or reward_kit/rl_models.py
+            # In eval_protocol/typed_interface.py or eval_protocol/rl_models.py
             from pydantic import BaseModel
             from typing import Dict, Any, Optional, Union
 
@@ -50,10 +50,10 @@ For the overall plan, introduction, core concepts, and links to other phases, pl
             ```
 
     3.  **Extend `EvaluateResult` Model:**
-        *   Modify `reward_kit.typed_interface.EvaluateResult`.
+        *   Modify `eval_protocol.typed_interface.EvaluateResult`.
         *   *Action Item:* Add the `step_outputs` field.
             ```python
-            # In reward_kit/typed_interface.py
+            # In eval_protocol/typed_interface.py
             # from .models import Message # If Message is used directly, else not needed here
             from pydantic import BaseModel # Assuming OriginalEvaluateResult is a BaseModel
             from typing import List, Optional, Dict, Any # Add List, Optional
@@ -76,13 +76,13 @@ For the overall plan, introduction, core concepts, and links to other phases, pl
 
     4.  **Define Internal `StepData` Model:**
         *   This is a system-internal structure, not directly manipulated by the user's message-based reward function. It's collected by `RLRolloutWorker` (Phase 2) and used by the system for GiGPO.
-        *   *Action Item:* Define this Pydantic model, likely in `reward_kit/agent/models.py` or `reward_kit/rl_models.py`.
+        *   *Action Item:* Define this Pydantic model, likely in `eval_protocol/agent/models.py` or `eval_protocol/rl_models.py`.
             ```python
-            # In reward_kit/agent/models.py or reward_kit/rl_models.py
+            # In eval_protocol/agent/models.py or eval_protocol/rl_models.py
             from pydantic import BaseModel
             from typing import List, Dict, Any, Optional
 
-            # Assuming Message model is importable, e.g., from reward_kit.models import Message
+            # Assuming Message model is importable, e.g., from eval_protocol.models import Message
 
             class StepData(BaseModel):
                 # System-generated index for the step within the episode/rollout.
@@ -124,9 +124,9 @@ For the overall plan, introduction, core concepts, and links to other phases, pl
             ```
 
 *   **Files Involved:**
-    *   `reward_kit/typed_interface.py` (for `EvaluateResult`, `StepOutput`)
-    *   `reward_kit/agent/models.py` or `reward_kit/rl_models.py` (for `StepData`, and potentially `StepOutput` if moved)
-    *   `reward_kit/models.py` (for `Message`)
+    *   `eval_protocol/typed_interface.py` (for `EvaluateResult`, `StepOutput`)
+    *   `eval_protocol/agent/models.py` or `eval_protocol/rl_models.py` (for `StepData`, and potentially `StepOutput` if moved)
+    *   `eval_protocol/models.py` (for `Message`)
 
 *   **Key Learning for Engineer:** Pydantic model definition, understanding data flow implications, designing for extensibility and backward compatibility.
 
@@ -147,7 +147,7 @@ For the overall plan, introduction, core concepts, and links to other phases, pl
 
 *   **How to approach (Detailed Steps for an Engineer):**
 
-    1.  **Adapt `@reward_function` Decorator (in `reward_kit/typed_interface.py`):**
+    1.  **Adapt `@reward_function` Decorator (in `eval_protocol/typed_interface.py`):**
         *   The decorator itself might not need much change. Its main role is to mark a function for discovery by the sandbox execution component.
         *   The "mode" (pointwise vs. batch) will likely be determined by the sandbox execution component when it prepares to call the user's function, possibly based on configuration passed to it or by inspecting the function signature if feasible (though explicit configuration is more robust).
         *   *Action Item:* Review `@reward_function`. Ensure it doesn't impose constraints that prevent these two modes.
@@ -173,7 +173,7 @@ For the overall plan, introduction, core concepts, and links to other phases, pl
         *   The system, when processing `StepData` (collected by `RLRolloutWorker`), will also need to record a corresponding `system_step_index` or a way to map to the user's `step_index`.
 
 *   **Files Involved:**
-    *   `reward_kit/typed_interface.py` (for `@reward_function` and `EvaluateResult`).
+    *   `eval_protocol/typed_interface.py` (for `@reward_function` and `EvaluateResult`).
     *   Documentation and example files.
 
 *   **Key Learning for Engineer:** API design for user-facing functions, importance of clear contracts (signatures, return types), and how data flows from user code back to the system.
@@ -182,7 +182,7 @@ For the overall plan, introduction, core concepts, and links to other phases, pl
 
 ### **Task 1.3: Adapt Sandbox Execution Component for Reward Functions**
 
-*   **Objective:** Modify the sandbox execution component (currently in `reward_kit/evaluation.py`, e.g., `EvalSandbox` and its related classes like `MultiMetricsSandbox`) to correctly invoke the user's pointwise or batch-wise reward functions and handle their `EvaluateResult` outputs.
+*   **Objective:** Modify the sandbox execution component (currently in `eval_protocol/evaluation.py`, e.g., `EvalSandbox` and its related classes like `MultiMetricsSandbox`) to correctly invoke the user's pointwise or batch-wise reward functions and handle their `EvaluateResult` outputs.
 
 *   **Why it's important:**
     *   This component is responsible for safely running user-provided code.
@@ -190,9 +190,9 @@ For the overall plan, introduction, core concepts, and links to other phases, pl
 
 *   **How to approach (Detailed Steps for an Engineer):**
 
-    1.  **Review Existing Sandbox Logic (`reward_kit/evaluation.py`):**
+    1.  **Review Existing Sandbox Logic (`eval_protocol/evaluation.py`):**
         *   Understand how `EvalSandbox`, `MultiMetricsSandbox`, `MultiCriteriaSandbox` currently work, especially methods like `setup()`, `run_code()`, `evaluate()`, and the internal `evaluate_with_line()` wrapper.
-        *   *(Reference: The `reward_kit/evaluation.py` code provided in the initial prompt.)*
+        *   *(Reference: The `eval_protocol/evaluation.py` code provided in the initial prompt.)*
 
     2.  **Generalize the Sandbox's Main Execution Method:**
         *   The method that orchestrates running user code (e.g., `EvalSandbox.evaluate()`) needs to:
@@ -224,7 +224,7 @@ For the overall plan, introduction, core concepts, and links to other phases, pl
         *   The calling code (outside the sandbox) needs to correctly interpret the returned data based on the mode (a single `EvaluateResult` or a `List[EvaluateResult]`).
 
 *   **Files Involved:**
-    *   `reward_kit/evaluation.py` (significant changes to `EvalSandbox` and/or related classes).
+    *   `eval_protocol/evaluation.py` (significant changes to `EvalSandbox` and/or related classes).
     *   Potentially new files for sandbox wrapper templates if they become complex.
 
 *   **Key Learning for Engineer:** Modifying existing complex classes, inter-process communication (serialization), dynamic code generation/selection for sandbox execution, API design for internal system components.
@@ -243,7 +243,7 @@ For the overall plan, introduction, core concepts, and links to other phases, pl
 *   **How to approach (Detailed Steps for an Engineer):**
 
     1.  **Define the "Aligner" Component/Logic (e.g., `RLDataAligner` class or module):**
-        *   **Location:** Likely a new module, e.g., `reward_kit/rl_processing.py`.
+        *   **Location:** Likely a new module, e.g., `eval_protocol/rl_processing.py`.
         *   **Primary Method (Conceptual):** `align_data_for_rl_processing`
         *   **Inputs to this method:**
             *   `eval_results_from_sandbox: Union[EvaluateResult, List[EvaluateResult]]`: The direct output from the user's reward function after sandbox execution.
@@ -278,8 +278,8 @@ For the overall plan, introduction, core concepts, and links to other phases, pl
         *   Explain that if `step_outputs` are not provided, the system might rely solely on `EvaluateResult.score` for GiGPO (leading to sparser step-level signals if `default_step_reward` is 0).
 
 *   **Files Involved:**
-    *   A new module, e.g., `reward_kit/rl_processing.py`, to house the `RLDataAligner` logic.
-    *   This module will use types from `reward_kit/typed_interface.py` (for `EvaluateResult`) and `reward_kit/agent/models.py` (for `StepData`).
+    *   A new module, e.g., `eval_protocol/rl_processing.py`, to house the `RLDataAligner` logic.
+    *   This module will use types from `eval_protocol/typed_interface.py` (for `EvaluateResult`) and `eval_protocol/agent/models.py` (for `StepData`).
 
 *   **Key Learning for Engineer:** Designing data transformation pipelines, handling data alignment between different sources (user output vs. system data), defining clear contracts for indices and identifiers, considering edge cases and error handling in data mapping.
 

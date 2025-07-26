@@ -26,7 +26,7 @@ For Phase 2 details (Rollout Generation & GiGPO Advantage Calculation):
 
 *   **Why it's important:**
     *   Validates the entire data pipeline from rollout to training signal.
-    *   Provides a concrete example for users integrating `reward-kit` into their RL training setups.
+    *   Provides a concrete example for users integrating `eval-protocol` into their RL training setups.
     *   Helps identify any remaining gaps or friction points in the workflow.
 
 *   **How to approach (Detailed Steps for an Engineer):**
@@ -79,7 +79,7 @@ For Phase 2 details (Rollout Generation & GiGPO Advantage Calculation):
                 #     final_scores = [er.score for er in list_evaluate_result] # Assuming score is present
 
                 #     # 4. Calculate GiGPO Advantages (System-Level GiGPO Calculation)
-                #     # This uses reward_kit.rl_helpers.system_apply_gigpo_to_batch_steps
+                #     # This uses eval_protocol.rl_helpers.system_apply_gigpo_to_batch_steps
                 #     batch_step_data_with_advantages = system_gippo_calculator.calculate_advantages(
                 #         batch_of_step_data_lists=processed_batch_step_data,
                 #         final_scores_for_rollouts=final_scores, # Or uses base_rewards within StepData
@@ -114,7 +114,7 @@ For Phase 2 details (Rollout Generation & GiGPO Advantage Calculation):
 
 *   **How to approach (Detailed Steps for an Engineer):**
 
-    1.  **Update `reward_kit/typed_interface.py` Docstrings:**
+    1.  **Update `eval_protocol/typed_interface.py` Docstrings:**
         *   Clearly document the extended `EvaluateResult` model, including the new `step_outputs: Optional[List[StepOutput]]` field and its purpose.
         *   Document the `StepOutput` model: `step_index`, `base_reward`, `metrics`, `reason`.
         *   Explain the expected signatures for `@reward_function` in pointwise and batch-wise modes.
@@ -139,7 +139,7 @@ For Phase 2 details (Rollout Generation & GiGPO Advantage Calculation):
         *   *Action Item:* Write this documentation page with clear code examples.
 
 *   **Files Involved:**
-    *   `reward_kit/typed_interface.py` (for docstrings).
+    *   `eval_protocol/typed_interface.py` (for docstrings).
     *   `docs/developer_guide/authoring_rl_rewards.mdx` (New documentation file).
     *   Update other relevant documentation pages to link to this new guide.
 
@@ -164,7 +164,7 @@ For Phase 2 details (Rollout Generation & GiGPO Advantage Calculation):
 
     2.  **Logging in System-Level GiGPO Components:**
         *   Log inputs and outputs of the "Aligner" component (Phase 1, Task 1.4).
-        *   Log key intermediate calculations within `reward_kit.rl_helpers.system_apply_gigpo_to_batch_steps()`:
+        *   Log key intermediate calculations within `eval_protocol.rl_helpers.system_apply_gigpo_to_batch_steps()`:
             *   Calculated `A_E` for trajectories.
             *   Identified anchor states and their hashed representations.
             *   Calculated `G_k` (future discounted returns) for actions from anchor states.
@@ -183,9 +183,9 @@ For Phase 2 details (Rollout Generation & GiGPO Advantage Calculation):
         *   *Action Item:* Develop this basic script.
 
 *   **Files Involved:**
-    *   `reward_kit/agent/rl_rollout_worker.py`
-    *   `reward_kit/rl_processing.py` (or wherever Aligner and GiGPO orchestration happens)
-    *   `reward_kit/rl_helpers.py`
+    *   `eval_protocol/agent/rl_rollout_worker.py`
+    *   `eval_protocol/rl_processing.py` (or wherever Aligner and GiGPO orchestration happens)
+    *   `eval_protocol/rl_helpers.py`
     *   `scripts/view_rl_trajectory.py` (New)
 
 *   **Key Learning for Engineer:** Effective use of Python's `logging` module, designing for debuggability, creating helpful developer tools.
@@ -221,4 +221,4 @@ For Phase 2 details (Rollout Generation & GiGPO Advantage Calculation):
 *   **Files Involved:**
     *   This task is primarily for design documentation at this stage, perhaps in a new `development/notes/rl_scalability_plan.md`.
 
-This detailed Phase 3 plan aims to make the GiGPO-enhanced `reward-kit` usable and understandable, providing a complete loop from data generation to training signals, along with essential developer experience features.
+This detailed Phase 3 plan aims to make the GiGPO-enhanced `eval-protocol` usable and understandable, providing a complete loop from data generation to training signals, along with essential developer experience features.

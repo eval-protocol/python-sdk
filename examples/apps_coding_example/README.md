@@ -1,12 +1,12 @@
 # APPS Coding Example
 
-A simplified example showing how to evaluate code generation models using reward-kit on programming problems.
+A simplified example showing how to evaluate code generation models using eval-protocol on programming problems.
 
 ## Quick Start
 
 ```bash
 # Run the evaluation
-python -m reward_kit.cli run --config-name simple_apps_eval
+python -m eval_protocol.cli run --config-name simple_apps_eval
 ```
 
 That's it! The framework automatically:
@@ -54,9 +54,9 @@ Results are saved to `outputs/apps_coding_eval/[timestamp]/eval_results.jsonl` w
 
 ## About Code Evaluation
 
-This example demonstrates how to create custom reward functions that reuse existing reward-kit functionality. The `main.py` file imports and wraps the built-in `evaluate_apps_solution` function, showing the recommended pattern for:
+This example demonstrates how to create custom reward functions that reuse existing eval-protocol functionality. The `main.py` file imports and wraps the built-in `evaluate_apps_solution` function, showing the recommended pattern for:
 
-- **Reusing existing functions**: Import from `reward_kit.rewards.apps_coding_reward`
+- **Reusing existing functions**: Import from `eval_protocol.rewards.apps_coding_reward`
 - **Adding customization**: Easy to extend with preprocessing or custom logic
 - **Maintaining simplicity**: Keep the core evaluation logic while allowing flexibility
 

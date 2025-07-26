@@ -1,12 +1,12 @@
 # Tool Calling Example
 
-A simplified example showing how to evaluate function/tool calling capabilities using reward-kit.
+A simplified example showing how to evaluate function/tool calling capabilities using eval-protocol.
 
 ## Quick Start
 
 ```bash
 # Run the evaluation
-python -m reward_kit.cli run --config-name simple_tool_calling_eval
+python -m eval_protocol.cli run --config-name simple_tool_calling_eval
 ```
 
 That's it! The framework automatically:
@@ -54,9 +54,9 @@ Results are saved to `outputs/tool_calling_eval/[timestamp]/eval_results.jsonl` 
 
 ## About Tool Calling Evaluation
 
-This example demonstrates how to create custom reward functions that reuse existing reward-kit functionality. The `main.py` file imports and wraps the built-in `exact_tool_match_reward` function, showing the recommended pattern for:
+This example demonstrates how to create custom reward functions that reuse existing eval-protocol functionality. The `main.py` file imports and wraps the built-in `exact_tool_match_reward` function, showing the recommended pattern for:
 
-- **Reusing existing functions**: Import from `reward_kit.rewards.function_calling`
+- **Reusing existing functions**: Import from `eval_protocol.rewards.function_calling`
 - **Adding customization**: Easy to extend with preprocessing or custom logic
 - **Maintaining simplicity**: Keep the core evaluation logic while allowing flexibility
 

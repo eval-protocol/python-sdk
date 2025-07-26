@@ -26,7 +26,7 @@ First, let's create a simple evaluator that assesses informativeness and accurac
 
 ```python
 # evaluators/informativeness/main.py
-from reward_kit import reward_function, EvaluateResult, MetricResult, Message
+from eval_protocol import reward_function, EvaluateResult, MetricResult, Message
 from typing import List, Optional
 
 @reward_function
@@ -259,7 +259,7 @@ if not os.environ.get("FIREWORKS_API_KEY"):
     print("Set this variable for API access:")
     print("export FIREWORKS_API_KEY=your_api_key")
 
-from reward_kit.evaluation import preview_evaluation
+from eval_protocol.evaluation import preview_evaluation
 
 def main():
     # Get paths
@@ -315,7 +315,7 @@ import os
 from pathlib import Path
 from typing import Dict, List
 
-from reward_kit.evaluation import preview_evaluation
+from eval_protocol.evaluation import preview_evaluation
 
 def load_samples_by_model(base_dir: str) -> Dict[str, str]:
     """Load sample files for different models."""
@@ -406,7 +406,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from reward_kit.evaluation import preview_evaluation
+from eval_protocol.evaluation import preview_evaluation
 
 def save_results(preview_result, output_path: str) -> None:
     """Save evaluation results to a JSON file."""
@@ -492,7 +492,7 @@ import os
 from pathlib import Path
 import json
 
-from reward_kit.evaluation import preview_evaluation
+from eval_protocol.evaluation import preview_evaluation
 
 def batch_process(metric_path: str, samples_path: str, batch_size: int = 100) -> None:
     """Process samples in batches."""
