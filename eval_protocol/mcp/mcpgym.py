@@ -481,34 +481,21 @@ class McpGym(ABC):
     @control_plane_endpoint("/control/initial_state")
     def get_initial_state_endpoint(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
         """Get initial state for this session."""
-        print(f"🔍 get_initial_state_endpoint called")
-        print(f"🔍 session_data keys: {list(session_data.keys())}")
-        print(f"🔍 session_id: {session_data.get('session_id')}")
-        
         env = session_data.get("env")
         obs = session_data.get("obs")
 
-        print(f"🔍 env type: {type(env)}")
-        print(f"🔍 obs type: {type(obs)}")
-
         if env and obs is not None:
-            print(f"✅ Both env and obs are available, calling format_observation")
             try:
-                # Format the observation for this specific session
                 formatted_obs = self.format_observation(obs, env)
-                print(f"✅ format_observation returned: {type(formatted_obs)}")
                 return formatted_obs
             except Exception as e:
-                print(f"❌ Error in format_observation: {e}")
-                import traceback
-                traceback.print_exc()
+                logger.error(f"❌ Error in format_observation: {e}")
                 return {
                     "error": f"Failed to format observation: {str(e)}",
                     "observation_type": str(type(obs)),
                     "session_id": session_data.get("session_id", "unknown"),
                 }
         else:
-            print("⚠️  Fallback: env or obs not available")
             # Fallback if session data is not available
             return {
                 "observation": "session_not_initialized",
