@@ -145,6 +145,8 @@ class McpGym(ABC):
                         # Create a stable session ID based on seed and other config
                         seed_value = extra_data.get("seed")
                         config_value = extra_data.get("config", {})
+                        dataset_row_id_value = extra_data.get("dataset_row_id")
+                        model_id_value = extra_data.get("model_id")
 
                         print(f"🔍 _get_session_id: seed_value: {seed_value} (type: {type(seed_value)})")
                         print(f"🔍 _get_session_id: config_value: {config_value}")
@@ -152,6 +154,8 @@ class McpGym(ABC):
                         stable_data = {
                             "seed": seed_value,
                             "config": config_value,
+                            "dataset_row_id": dataset_row_id_value,
+                            "model_id": model_id_value,
                             "name": client_info.name,
                             "version": client_info.version,
                         }
@@ -481,8 +485,16 @@ class McpGym(ABC):
         obs = session_data.get("obs")
 
         if env and obs is not None:
-            # Format the observation for this specific session
-            return self.format_observation(obs, env)
+            try:
+                formatted_obs = self.format_observation(obs, env)
+                return formatted_obs
+            except Exception as e:
+                logger.error(f"❌ Error in format_observation: {e}")
+                return {
+                    "error": f"Failed to format observation: {str(e)}",
+                    "observation_type": str(type(obs)),
+                    "session_id": session_data.get("session_id", "unknown"),
+                }
         else:
             # Fallback if session data is not available
             return {
@@ -517,9 +529,7 @@ class McpGym(ABC):
         """
         pass
 
-    @staticmethod
-    @abstractmethod
-    def format_observation(obs: Any, env: Any) -> Dict[str, Any]:
+    def format_observation(self, obs: Any, env: Any) -> Dict[str, Any]:
         """
         Format observation for MCP response.
 
@@ -529,8 +539,18 @@ class McpGym(ABC):
 
         Returns:
             Formatted observation dictionary (DATA PLANE ONLY)
+            
+        Implementation Note:
+            You can use self._to_json_serializable(obs) as a starting point
+            for most standard serialization needs.
         """
-        pass
+        serialized_obs = self._to_json_serializable(obs)
+        
+        # If it's already a dict, return as-is, otherwise wrap it
+        if isinstance(serialized_obs, dict):
+            return serialized_obs
+        else:
+            return {"observation": serialized_obs}
 
     def run(self, transport: str = "streamable-http", **kwargs):
         """
@@ -556,3 +576,62 @@ class McpGym(ABC):
 
         # Run the unified server
         self.mcp.run(transport=transport, **kwargs)
+
+    def _to_json_serializable(self, obj: Any) -> Any:
+        """Convert any object to JSON-serializable format.
+        
+        Handles Pydantic models, dataclasses, lists, dicts, and primitive types.
+        This is a utility method that can be used by format_observation implementations.
+        """
+        from pydantic import BaseModel
+        import dataclasses
+        from datetime import datetime, date
+        from enum import Enum
+        
+        # Handle None and primitive types
+        if obj is None or isinstance(obj, (str, int, float, bool)):
+            return obj
+            
+        # Handle datetime objects
+        elif isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+            
+        # Handle enums
+        elif isinstance(obj, Enum):
+            return obj.value
+            
+        # Handle Pydantic models (covers tau2 objects and many others)
+        elif isinstance(obj, BaseModel):
+            return obj.model_dump()
+            
+        # Handle dataclasses
+        elif dataclasses.is_dataclass(obj):
+            return dataclasses.asdict(obj)
+            
+        # Handle dictionaries
+        elif isinstance(obj, dict):
+            return {k: self._to_json_serializable(v) for k, v in obj.items()}
+            
+        # Handle lists and tuples
+        elif isinstance(obj, (list, tuple)):
+            return [self._to_json_serializable(item) for item in obj]
+            
+        # Handle sets (convert to list)
+        elif isinstance(obj, set):
+            return [self._to_json_serializable(item) for item in obj]
+            
+        # Handle objects with __dict__ (fallback)
+        elif hasattr(obj, '__dict__'):
+            result = {}
+            for key, value in obj.__dict__.items():
+                if not key.startswith('_'):  # Skip private attributes
+                    try:
+                        result[key] = self._to_json_serializable(value)
+                    except Exception:
+                        # If conversion fails, store as string
+                        result[key] = str(value)
+            return result
+            
+        # Final fallback - convert to string
+        else:
+            return str(obj)

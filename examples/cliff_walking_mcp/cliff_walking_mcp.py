@@ -99,8 +99,7 @@ class CliffWalkingMcp(McpGym):
 
             return observation_data
 
-    @staticmethod
-    def format_observation(obs: int, env: CliffWalkingEnv) -> Dict[str, Any]:
+    def format_observation(self, obs: int, env: CliffWalkingEnv) -> Dict[str, Any]:
         """Format observation for MCP response (data plane only)."""
         return {
             "position": int(obs),

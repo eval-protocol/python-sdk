@@ -95,8 +95,7 @@ class BlackjackMcp(McpGym):
 
             return observation_data
 
-    @staticmethod
-    def format_observation(obs: Tuple[int, int, int], env: BlackjackEnv) -> Dict[str, int]:
+    def format_observation(self, obs: Tuple[int, int, int], env: BlackjackEnv) -> Dict[str, int]:
         """Format observation for MCP response (data plane only)."""
         return {
             "player_sum": obs[0],

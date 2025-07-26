@@ -95,8 +95,7 @@ class FrozenLakeMcp(McpGym):
 
             return observation_data
 
-    @staticmethod
-    def format_observation(obs: int, env: Any) -> Dict[str, Any]:
+    def format_observation(self, obs: int, env: Any) -> Dict[str, Any]:
         """Format observation for MCP response (data plane only)."""
         return {
             "position": int(obs),

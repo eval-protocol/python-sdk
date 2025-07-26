@@ -17,6 +17,7 @@ from .config import load_config, get_config, RewardKitConfig
 from .mcp_env import (
     FireworksPolicy,
     OpenAIPolicy,
+    AnthropicPolicy,
     MCPVectorEnv,
     make,
     rollout,
@@ -55,6 +56,7 @@ __all__ = [
     # MCP Environment API
     "make",
     "rollout",
+    "AnthropicPolicy",
     "FireworksPolicy",
     "OpenAIPolicy",
     "MCPVectorEnv",

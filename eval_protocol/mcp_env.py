@@ -51,7 +51,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 # Import all functionality from the new modular components
 from .mcp.execution.manager import ExecutionManager
-from .mcp.execution.policy import FireworksPolicy, LLMBasePolicy, OpenAIPolicy
+from .mcp.execution.policy import AnthropicPolicy, FireworksPolicy, LLMBasePolicy, OpenAIPolicy
 from .mcp.session.manager import GeneralMCPVectorEnv
 from .mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
@@ -283,6 +283,7 @@ async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:
 __all__ = [
     "make",
     "rollout",
+    "AnthropicPolicy",
     "FireworksPolicy",
     "OpenAIPolicy",
     "LLMBasePolicy",  # New base class for OpenAI integration
