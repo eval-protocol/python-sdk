@@ -73,6 +73,14 @@ class StepOutput(BaseModel):
         description="User-defined index for the step (e.g., assistant message index, turn number). This is used by the system to map this output to the internal StepData."
     )
     base_reward: float = Field(description="Base reward calculated by the user's reward function for this step.")
+    terminated: bool = Field(
+        default=False, 
+        description="Whether the environment signaled termination at this step."
+    )
+    control_plane_info: Optional[Dict[str, Any]] = Field(
+        default=None, 
+        description="Structured info from the environment's control plane."
+    )
     metrics: Dict[str, Any] = Field(
         default_factory=dict,
         description="Optional dictionary of custom metrics for this step.",
@@ -87,6 +95,8 @@ class EvaluateResult(BaseModel):
     """The complete result of an evaluator.
     For standard evaluation, it provides an overall score and component metrics.
     For Reinforcement Learning, it can also provide per-step base rewards via 'step_outputs'.
+    
+    This unified model serves both per-turn and per-trajectory evaluation scenarios.
 
     Attributes:
         score (float): The overall evaluation score.
@@ -96,6 +106,8 @@ class EvaluateResult(BaseModel):
         step_outputs (Optional[List[StepOutput]]): For RL, a list of outputs for each conceptual step,
                                                   providing base rewards.
         error (Optional[str]): Optional error message if evaluation failed.
+        trajectory_info (Optional[Dict[str, Any]]): Additional trajectory-level information.
+        final_control_plane_info (Optional[Dict[str, Any]]): The final control plane state that led to termination.
     """
 
     score: float = Field(..., description="The overall evaluation score, typically between 0.0 and 1.0.")
@@ -115,6 +127,17 @@ class EvaluateResult(BaseModel):
     error: Optional[str] = Field(
         default=None,
         description="Optional error message if the evaluation itself encountered an issue.",
+    )
+    
+    # New fields for unified trajectory and row-wise results
+    trajectory_info: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Additional trajectory-level information (duration, steps, termination_reason, etc.)."
+    )
+    
+    final_control_plane_info: Optional[Dict[str, Any]] = Field(
+        default=None, 
+        description="The final control plane state that led to termination."
     )
 
     def __getitem__(self, key: str) -> Any:
@@ -145,6 +168,69 @@ class EvaluateResult(BaseModel):
 
     def __iter__(self):
         return iter(self.__fields__.keys())  # Changed to __fields__
+
+
+class EvaluationRow(BaseModel):
+    """
+    Unified data structure for a single evaluation unit that contains messages, 
+    tools, and evaluation results. This can represent either a single turn evaluation
+    or a complete trajectory evaluation.
+    
+    This model serves as the canonical format for evaluation data across the system,
+    supporting both row-wise batch evaluation and trajectory-based RL evaluation.
+    """
+    
+    # Core conversation data
+    messages: List[Message] = Field(
+        description="List of messages in the conversation/trajectory."
+    )
+    
+    # Tool and function call information
+    tools: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Available tools/functions that were provided to the agent."
+    )
+    
+    # Input-related metadata (grouped together for cleaner organization)
+    input_metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Metadata related to the input (dataset info, model config, session data, etc.)."
+    )
+    
+    # Unified evaluation result
+    evaluation_result: Optional[EvaluateResult] = Field(
+        default=None,
+        description="The evaluation result for this row/trajectory."
+    )
+
+    def is_trajectory_evaluation(self) -> bool:
+        """
+        Returns True if this represents a trajectory evaluation (has step_outputs),
+        False if it represents a single turn evaluation.
+        """
+        return (
+            self.evaluation_result is not None 
+            and self.evaluation_result.step_outputs is not None 
+            and len(self.evaluation_result.step_outputs) > 0
+        )
+    
+    def get_conversation_length(self) -> int:
+        """Returns the number of messages in the conversation."""
+        return len(self.messages)
+    
+    def get_assistant_messages(self) -> List[Message]:
+        """Returns only the assistant messages from the conversation."""
+        return [msg for msg in self.messages if msg.role == "assistant"]
+    
+    def get_user_messages(self) -> List[Message]:
+        """Returns only the user messages from the conversation."""
+        return [msg for msg in self.messages if msg.role == "user"]
+    
+    def get_input_metadata(self, key: str, default: Any = None) -> Any:
+        """Helper method to get a specific value from input_metadata."""
+        if self.input_metadata is None:
+            return default
+        return self.input_metadata.get(key, default)
 
 
 # Original dataclass-based models for backwards compatibility
@@ -273,7 +359,8 @@ class TaskDefinitionModel(BaseModel):
         extra = "allow"  # Allow and capture extra fields not explicitly defined
         # For Pydantic v2, it's model_config = {"extra": "allow"}
         # Assuming Pydantic v1 style for now based on existing file, can update if needed.
-        # If using Pydantic v2, this should be:
+        # If using Pydantic v1, `Config.extra = "allow"` is correct.
+        # For Pydantic v2, this should be:
         # from pydantic import ConfigDict
         # model_config = ConfigDict(extra='allow')
         # For Pydantic v1, `Config.extra = "allow"` is correct.
