@@ -1,4 +1,4 @@
-# reward_kit/platform_api.py
+# eval_protocol/platform_api.py
 import logging
 import sys
 from typing import Any, Dict, Optional
@@ -22,15 +22,15 @@ logger = logging.getLogger(__name__)
 ENV_DEV_PATH = find_dotenv(filename=".env.dev", raise_error_if_not_found=False, usecwd=True)
 if ENV_DEV_PATH:
     load_dotenv(dotenv_path=ENV_DEV_PATH, override=False)
-    logger.info(f"reward_kit.platform_api: Loaded environment variables from: {ENV_DEV_PATH}")
+    logger.info(f"eval_protocol.platform_api: Loaded environment variables from: {ENV_DEV_PATH}")
 else:
     ENV_PATH = find_dotenv(filename=".env", raise_error_if_not_found=False, usecwd=True)
     if ENV_PATH:
         load_dotenv(dotenv_path=ENV_PATH, override=False)
-        logger.info(f"reward_kit.platform_api: Loaded environment variables from: {ENV_PATH}")
+        logger.info(f"eval_protocol.platform_api: Loaded environment variables from: {ENV_PATH}")
     else:
         logger.info(
-            "reward_kit.platform_api: No .env.dev or .env file found. "
+            "eval_protocol.platform_api: No .env.dev or .env file found. "
             "Relying on shell/existing environment variables."
         )
 # --- End .env loading ---
@@ -128,9 +128,9 @@ def create_or_update_fireworks_secret(
         if not payload_key_name or not payload_key_name[0].isupper():
             # This case should be rare if key_name is not empty and contains letters
             logger.warning(
-                f"Could not transform key_name '{key_name}' to valid starting uppercase for payload. Using default 'REWARD_KIT_SECRET'."
+                f"Could not transform key_name '{key_name}' to valid starting uppercase for payload. Using default 'EP_SECRET.'"
             )
-            payload_key_name = "REWARD_KIT_SECRET"  # Fallback, though unlikely needed with .upper()
+            payload_key_name = "EP_SECRET"  # Fallback, though unlikely needed with .upper()
 
         payload = {"keyName": payload_key_name, "value": secret_value}
         try:
@@ -163,9 +163,9 @@ def create_or_update_fireworks_secret(
         payload_key_name = key_name.upper().replace("-", "_")
         if not payload_key_name or not payload_key_name[0].isupper():
             logger.warning(
-                f"Could not transform key_name '{key_name}' to valid starting uppercase for payload. Using default 'REWARD_KIT_SECRET'."
+                f"Could not transform key_name '{key_name}' to valid starting uppercase for payload. Using default 'EP_SECRET.'"
             )
-            payload_key_name = "REWARD_KIT_SECRET"
+            payload_key_name = "EP_SECRET"
 
         payload = {
             "name": full_resource_name_for_payload,  # This 'name' is the resource path

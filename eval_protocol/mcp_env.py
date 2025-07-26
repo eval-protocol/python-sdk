@@ -11,19 +11,19 @@ New modular structure:
 - mcp.session.manager: Session and environment management
 
 Usage remains the same:
-    import eval_protocol as rk
+    import eval_protocol as ep
 
     # Load dataset with environment configuration and prompts
     dataset = load_jsonl("dataset.jsonl")
 
     # Create general policy (environment-agnostic)
-    policy = rk.FireworksPolicy(model_id="accounts/fireworks/models/qwen3-235b-a22b")
+    policy = ep.FireworksPolicy(model_id="accounts/fireworks/models/qwen3-235b-a22b")
 
     # Create environments with dataset-driven configuration
-    envs = rk.make("http://localhost:8000/mcp", dataset=dataset)
+    envs = ep.make("http://localhost:8000/mcp", dataset=dataset)
 
     # Execute tool-calling rollouts
-    trajectories = await rk.rollout(envs, policy=policy, steps=512)
+    trajectories = await ep.rollout(envs, policy=policy, steps=512)
 
 Key Features:
 - General tool-calling interface that works with any MCP environment
@@ -86,10 +86,10 @@ def make(
     Example:
         # New dataset-driven approach (preferred)
         dataset = load_jsonl("dataset.jsonl")
-        envs = rk.make("http://localhost:8000/mcp", dataset=dataset)
+        envs = ep.make("http://localhost:8000/mcp", dataset=dataset)
 
         # Legacy approach (backward compatibility)
-        envs = rk.make("http://localhost:8000/mcp", n=10, seeds=seeds)
+        envs = ep.make("http://localhost:8000/mcp", n=10, seeds=seeds)
     """
     # Parse environment specification - make sure URL format is correct
     base_url = env_spec
@@ -202,7 +202,7 @@ async def rollout(
         max_concurrent_rollouts: Maximum number of concurrent rollouts to run
 
     Environment Variable Control:
-        REWARD_KIT_PLAYBACK_FILE: Controls record/playback mode
+        EP_PLAYBACK_FILE: Controls record/playback mode
         - Not set: Normal live mode
         - Set but file doesn't exist: Record mode (file will be created)
         - Set and file exists: Playback mode (uses recorded data)
@@ -212,14 +212,14 @@ async def rollout(
 
     Example:
         # Live mode
-        trajectories = await rk.rollout(envs, policy)
+        trajectories = await ep.rollout(envs, policy)
 
         # Recording mode
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = "record.jsonl"
-        trajectories = await rk.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
+        os.environ["EP_PLAYBACK_FILE"] = "record.jsonl"
+        trajectories = await ep.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
 
         # Playback mode (after recording file exists)
-        trajectories = await rk.rollout(envs, policy)
+        trajectories = await ep.rollout(envs, policy)
     """
     # Use the new ExecutionManager for execution
     execution_manager = ExecutionManager()
@@ -279,7 +279,7 @@ async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:
     return results
 
 
-# Add to reward_kit.__init__.py exports
+# Add to eval_protocol.__init__.py exports
 __all__ = [
     "make",
     "rollout",

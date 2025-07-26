@@ -6,7 +6,7 @@ This guide explains how to use the `reward-kit run` command to evaluate code gen
 
 *   **Dataset**: A sample from `codeparrot/apps`, a dataset of programming problems and solutions. The specific dataset configuration used is `apps_full_prompts` (defined in `conf/dataset/apps_full_prompts.yaml`), which typically points to a pre-generated JSONL file.
 *   **Task**: Given a problem description (question), the model should generate a Python code solution.
-*   **Reward Function**: The evaluation uses `reward_kit.rewards.apps_coding_reward.evaluate_apps_solution`.
+*   **Reward Function**: The evaluation uses `eval_protocol.rewards.apps_coding_reward.evaluate_apps_solution`.
     *   **Functionality**: In its current form for this example, this reward function performs a basic check to see if the generated Python code is parsable by Python's `ast.parse` module. It scores `1.0` if the code is parsable and `0.0` otherwise.
     *   It does *not* execute the code or check for functional correctness against test cases in this simplified setup.
     *   The `ground_truth_for_eval` field (derived from APPS' `input_output` field) is available to the reward function but not utilized by this initial parsability check.

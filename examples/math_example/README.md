@@ -1,12 +1,12 @@
 # Math Example
 
-A simplified example showing how to evaluate mathematical reasoning using reward-kit.
+A simplified example showing how to evaluate mathematical reasoning using eval-protocol.
 
 ## Quick Start
 
 ```bash
 # Run the evaluation
-python -m reward_kit.cli run --config-name simple_math_eval
+python -m eval_protocol.cli run --config-name simple_math_eval
 ```
 
 That's it! The framework automatically:
@@ -58,9 +58,9 @@ Results are saved to `outputs/math_eval/[timestamp]/eval_results.jsonl` with:
 
 ## About Math Evaluation
 
-This example demonstrates how to create custom reward functions that reuse existing reward-kit functionality. The `main.py` file imports and wraps the built-in `math_reward` function, showing the recommended pattern for:
+This example demonstrates how to create custom reward functions that reuse existing eval-protocol functionality. The `main.py` file imports and wraps the built-in `math_reward` function, showing the recommended pattern for:
 
-- **Reusing existing functions**: Import from `reward_kit.rewards.math`
+- **Reusing existing functions**: Import from `eval_protocol.rewards.math`
 - **Adding customization**: Easy to extend with preprocessing or custom logic
 - **Maintaining simplicity**: Keep the core evaluation logic while allowing flexibility
 

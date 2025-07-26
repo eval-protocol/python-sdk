@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class ResponseCache:
     def __init__(self, cache_config: DictConfig):
         self.cache_config = cache_config
-        self.cache_dir = cache_config.get("cache_dir", ".reward_kit_cache/generated_responses")
+        self.cache_dir = cache_config.get("cache_dir", ".eval_protocol_cache/generated_responses")
         # Resolve cache_dir relative to CWD if not an absolute path.
         # Consider making this configurable to be relative to project root or Hydra's original CWD.
         if not os.path.isabs(self.cache_dir):

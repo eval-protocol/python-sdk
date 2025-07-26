@@ -52,7 +52,7 @@ def get_config() -> VersioneerConfig:
     cfg.style = "pep440"
     cfg.tag_prefix = "v"
     cfg.parentdir_prefix = "reward-kit-"
-    cfg.versionfile_source = "reward_kit/_version.py"
+    cfg.versionfile_source = "eval_protocol/_version.py"
     cfg.verbose = False
     return cfg
 

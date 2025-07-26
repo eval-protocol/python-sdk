@@ -44,7 +44,7 @@ output:
 Run the evaluation:
 
 ```bash
-reward-kit run --config config.yaml
+eval-protocol run --config config.yaml
 ```
 
 This produces a JSONL file where each line represents one variant with:
@@ -58,7 +58,7 @@ This produces a JSONL file where each line represents one variant with:
 Use the transformation utility to group variants by request:
 
 ```python
-from reward_kit.utils.batch_transformation import transform_n_variant_jsonl_to_batch_format
+from eval_protocol.utils.batch_transformation import transform_n_variant_jsonl_to_batch_format
 
 # Transform N-variant output to batch format
 batch_data = transform_n_variant_jsonl_to_batch_format(
@@ -78,9 +78,9 @@ This creates batch evaluation entries with:
 Create a batch reward function and run evaluation:
 
 ```python
-from reward_kit.typed_interface import reward_function
-from reward_kit.models import EvaluateResult, Message
-from reward_kit.utils.batch_evaluation import run_batch_evaluation
+from eval_protocol.typed_interface import reward_function
+from eval_protocol.models import EvaluateResult, Message
+from eval_protocol.utils.batch_evaluation import run_batch_evaluation
 
 @reward_function(mode="batch")
 def my_batch_reward(

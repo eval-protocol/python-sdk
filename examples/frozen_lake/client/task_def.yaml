@@ -30,7 +30,7 @@ poc_max_turns: 20
 # Generation configuration
 generation:
   enabled: true
-  _target_: reward_kit.generation.generate_responses
+  _target_: eval_protocol.generation.generate_responses
   model_name: "accounts/fireworks/models/qwen3-235b-a22b"
   temperature: 0.0
   max_new_tokens: 500

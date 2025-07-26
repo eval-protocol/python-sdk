@@ -60,7 +60,7 @@ cd tau2-bench
 pip install -e .
 ```
 
-2. **Install reward-kit** (if not already installed):
+2. **Install eval-protocol** (if not already installed):
 ```bash
 pip install reward-protocol
 ```
@@ -114,7 +114,7 @@ env = AirlineEnvironment()
 Create an agent policy and run evaluation:
 
 ```python
-from reward_kit.policies import FireworksPolicy
+from eval_protocol.policies import FireworksPolicy
 from airline_example import AirlineEvaluationExample
 
 # Create agent policy

@@ -127,7 +127,7 @@ def load_and_process_dataset(
     dataset_description = kwargs.pop("description", "No description provided.")
 
     # Pop all reward-kit specific metadata fields not intended for datasets.load_dataset
-    reward_kit_specific_keys = [
+    eval_protocol_specific_keys = [
         "dataset_name",
         "pretty_name",
         "final_columns",
@@ -139,7 +139,7 @@ def load_and_process_dataset(
         "dataset_type",
     ]
 
-    for key in reward_kit_specific_keys:
+    for key in eval_protocol_specific_keys:
         if key in kwargs:
             logger.debug(f"Filtering out reward-kit specific config key: {key}")
             kwargs.pop(key, None)

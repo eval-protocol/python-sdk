@@ -230,7 +230,7 @@ class Orchestrator:
         return True
 
     def _get_resource_class(self, resource_type_name: str) -> Type[ForkableResource]:
-        # This method will now need to look into reward_kit.agent_v2.resources
+        # This method will now need to look into eval_protocol.agent_v2.resources
         # For example: from .resources import SQLResource, PythonStateResource etc.
         # And then map resource_type_name string to the class.
         # For now, a placeholder that would need specific imports or a registry.

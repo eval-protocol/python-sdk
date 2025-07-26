@@ -3,7 +3,7 @@
 ## 🎯 All Requirements Implemented
 
 ✅ **Clean folder structure** - Removed all old server files
-✅ **Environment variable control** - Uses `REWARD_KIT_PLAYBACK_FILE` for all configuration
+✅ **Environment variable control** - Uses `EP_PLAYBACK_FILE` for all configuration
 ✅ **Local recordings by default** - Tests use local recordings instead of hitting production servers
 ✅ **Simplified configuration** - Single environment variable controls everything
 
@@ -17,18 +17,18 @@
 - Updated all imports and references
 
 ### Environment Variable Simplification
-**Before**: Multiple variables (`REWARD_KIT_RECORDINGS_DIR`, `REWARD_KIT_PLAYBACK_FILE`, flags)
-**After**: Single variable `REWARD_KIT_PLAYBACK_FILE` controls everything
+**Before**: Multiple variables (`EP_RECORDINGS_DIR`, `EP_PLAYBACK_FILE`, flags)
+**After**: Single variable `EP_PLAYBACK_FILE` controls everything
 
 ```bash
 # Use local recordings (default behavior)
 python test_north_star_local.py
 
 # Force new recording
-REWARD_KIT_FORCE_RECORD=1 python test_north_star_local.py
+EP_FORCE_RECORD=1 python test_north_star_local.py
 
 # Custom recording file
-REWARD_KIT_PLAYBACK_FILE=./my_recordings.jsonl python test_north_star_local.py
+EP_PLAYBACK_FILE=./my_recordings.jsonl python test_north_star_local.py
 ```
 
 ## 🚀 Local-First Testing
@@ -70,20 +70,20 @@ examples/
 
 ## 🎯 Environment Variable Control
 
-### Single Source of Truth: `REWARD_KIT_PLAYBACK_FILE`
+### Single Source of Truth: `EP_PLAYBACK_FILE`
 
 ```bash
 # Default behavior (uses ./recordings/{env}_trajectories.jsonl)
 python test_north_star_local.py
 
 # Custom path
-REWARD_KIT_PLAYBACK_FILE=/path/to/my_recordings.jsonl python test_north_star_local.py
+EP_PLAYBACK_FILE=/path/to/my_recordings.jsonl python test_north_star_local.py
 
 # CI/Development (always local)
 python run_ci_tests.py --quick
 
 # Force new recording
-REWARD_KIT_FORCE_RECORD=1 python test_north_star_local.py
+EP_FORCE_RECORD=1 python test_north_star_local.py
 ```
 
 ### Test Environment Setup

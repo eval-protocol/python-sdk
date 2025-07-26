@@ -1,6 +1,6 @@
 # Frozen Lake Implementation Context
 
-This document provides context for the implementation of the Frozen Lake example within the `reward-kit` framework.
+This document provides context for the implementation of the Frozen Lake example within the `eval-protocol` framework.
 
 ## High-Level Goal
 
@@ -12,10 +12,10 @@ The implementation is distributed across several key files:
 
 -   **`examples/frozen_lake/client/dataset.jsonl`**: The source of truth for evaluation runs. Each line defines a scenario, specifying the `seed` for the environment's initial state.
 -   **`examples/frozen_lake/client/task_def.yaml`**: The main configuration file for the task. It points to the dataset and defines how many rollouts to perform for each sample in the dataset.
--   **`examples/frozen_lake/server/http_rollout_server.py`**: A FastAPI server that wraps the Frozen Lake game logic, exposing it via an HTTP API that the `reward-kit` agent can interact with.
+-   **`examples/frozen_lake/server/http_rollout_server.py`**: A FastAPI server that wraps the Frozen Lake game logic, exposing it via an HTTP API that the `eval-protocol` agent can interact with.
 -   **`examples/frozen_lake/gymnasium_frozen_lake_server.py`**: The core game logic, which wraps the official `gymnasium` Frozen Lake environment. It is responsible for accepting a `seed` to create a deterministic starting state.
 -   **`examples/frozen_lake/client/reward.py`**: A reward function that evaluates the agent's performance based on the outcome of the game (e.g., reaching the goal).
--   **`reward_kit/agent/`**: The core agent framework, including the `TaskManager` and `Orchestrator`, which together manage the data-driven execution of rollouts based on the task definition and dataset.
+-   **`eval_protocol/agent/`**: The core agent framework, including the `TaskManager` and `Orchestrator`, which together manage the data-driven execution of rollouts based on the task definition and dataset.
 
 ## Data-Driven Rollout Flow
 

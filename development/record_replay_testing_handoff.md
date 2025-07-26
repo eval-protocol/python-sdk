@@ -21,7 +21,7 @@
    - Root cause: FastMCP expects `FASTMCP_PORT` env var, not `PORT`
 
 3. **Recording/Playback Mechanism**:
-   - Policy correctly detects playback mode with REWARD_KIT_PLAYBACK_FILE
+   - Policy correctly detects playback mode with EP_PLAYBACK_FILE
    - Empty files correctly fall back to recording mode
    - Basic recorded policy test passes
 
@@ -37,7 +37,7 @@ python -m pytest examples/taxi_mcp_complete/tests/test_record_and_replay_e2e.py 
 ### Known Issues to Investigate
 1. **Recording File Format**: E2E tests show recording files exist but contain "no valid entries"
    - Need to verify trajectory recording format matches expected playback format
-   - Check if rollout() properly writes to REWARD_KIT_PLAYBACK_FILE
+   - Check if rollout() properly writes to EP_PLAYBACK_FILE
 
 2. **Port Binding**: SimulationServerBase port configuration needs fixing
    - Current workaround: servers run on default port 8000
@@ -102,15 +102,15 @@ PORT=8001 python simulation_server.py --port 8001
 ```bash
 export FIREWORKS_API_KEY="your_dev_fireworks_api_key"
 export FIREWORKS_ACCOUNT_ID="your_account_id"
-export REWARD_KIT_PLAYBACK_FILE="/path/to/recording.jsonl"  # For playback mode
+export EP_PLAYBACK_FILE="/path/to/recording.jsonl"  # For playback mode
 ```
 
 ## 📁 Files Modified
 - `examples/frozen_lake_mcp_complete/README.md` - Clarified server types
 - `examples/taxi_mcp_complete/README.md` - Added architecture explanations
 - `examples/frozen_lake_mcp_complete/mcp_server/frozen_lake_adapter.py` - Fixed to use FrozenLake's built-in random generation
-- `reward_kit/mcp/grid_renderer.py` - Fixed to show "W" when player reaches goal
-- `reward_kit/mcp/gym_production_server.py` - Added note about single-session usage
+- `eval_protocol/mcp/grid_renderer.py` - Fixed to show "W" when player reaches goal
+- `eval_protocol/mcp/gym_production_server.py` - Added note about single-session usage
 
 ## 🎯 Success Criteria
 

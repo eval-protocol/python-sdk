@@ -112,7 +112,7 @@ Comprehensive testing including live LLM recording phase.
 ### Production Deployment
 ```bash
 # Set environment variable for recorded policy
-export REWARD_KIT_PLAYBACK_FILE=/path/to/production_trajectories.jsonl
+export EP_PLAYBACK_FILE=/path/to/production_trajectories.jsonl
 
 # Run with deterministic, zero-cost playback
 python your_production_script.py
@@ -148,7 +148,7 @@ python your_production_script.py
 
 ### Adding New Environment
 ```python
-from reward_kit.mcp import GymProductionServer
+from eval_protocol.mcp import GymProductionServer
 
 class NewGameProdServer(GymProductionServer):
     def __init__(self):

@@ -8,8 +8,8 @@ We are committed to fostering an open and welcoming environment. All contributor
 
 ```bash
 # Clone the repository
-git clone https://github.com/fireworks-ai/reward-kit.git
-cd reward-kit
+git clone https://github.com/fireworks-ai/eval-protocol.git
+cd eval-protocol
 
 # Set up environment with uv
 uv venv
@@ -30,8 +30,8 @@ make pre-commit
 1. **Clone the repository:**
 
 ```bash
-git clone https://github.com/fireworks-ai/reward-kit.git
-cd reward-kit
+git clone https://github.com/fireworks-ai/eval-protocol.git
+cd eval-protocol
 ```
 
 2. **Create and activate a virtual environment with uv:**
@@ -133,8 +133,8 @@ Reward Kit prioritizes credentials as follows:
 ## Code Structure
 
 ```
-reward-kit/
-├── reward_kit/                 # Main package source code
+eval-protocol/
+├── eval_protocol/                 # Main package source code
 │   ├── __init__.py             # Package initialization
 │   ├── reward_function.py      # Core reward function decorator
 │   ├── models.py               # Data models and types
@@ -170,9 +170,9 @@ reward-kit/
 
 ### Creating a New Reward Function
 
-1. Create a new module in `reward_kit/rewards/` if needed
+1. Create a new module in `eval_protocol/rewards/` if needed
 2. Implement your reward function using the `@reward_function` decorator
-3. Update `reward_kit/rewards/__init__.py` to expose your function
+3. Update `eval_protocol/rewards/__init__.py` to expose your function
 4. Add unit tests in the `tests/` directory
 
 Example structure:
@@ -239,7 +239,7 @@ To maintain code quality and consistency, please adhere to the following standar
     - Adhere to `flake8` guidelines.
 - **Type Hinting**:
     - Use type hints for all function parameters, return values, and variables where appropriate.
-    - Run `mypy reward_kit` to check for type errors.
+    - Run `mypy eval_protocol` to check for type errors.
 - **Naming Conventions**:
     - `snake_case` for functions, methods, and variables.
     - `PascalCase` for classes and dataclasses.
@@ -310,7 +310,7 @@ uv run pytest tests/test_evaluation.py
 uv run pytest tests/test_file.py::test_function
 
 # Run with coverage report
-uv run pytest --cov=reward_kit
+uv run pytest --cov=eval_protocol
 ```
 
 We can focus on tests/ and examples/ folder for now since there are a lot of other repos
@@ -322,7 +322,7 @@ Create test files in the `tests/` directory following this pattern:
 ```python
 import unittest
 # Import the function you're testing
-from reward_kit.rewards.your_module import your_function
+from eval_protocol.rewards.your_module import your_function
 
 class TestYourFunction(unittest.TestCase):
     """Test your reward function."""
@@ -349,13 +349,13 @@ class TestYourFunction(unittest.TestCase):
    Use uv to run code quality tools:
 ```bash
 # Type checking
-uv run mypy reward_kit
+uv run mypy eval_protocol
 
 # Linting
-uv run flake8 reward_kit
+uv run flake8 eval_protocol
 
 # Format code
-uv run black reward_kit
+uv run black eval_protocol
 ```
 
 ## Available Reward Functions
@@ -450,6 +450,7 @@ Refer to the specific `conf/*.yaml` file for each example to see all available c
 
 ## Command Line Interface
 
+
 Use the Reward Kit CLI for common operations during development. Use uv to run the CLI commands:
 
 ```bash
@@ -471,7 +472,7 @@ uv run reward-kit deploy --id test-local-serve-eval --target local-serve \
 For local development and testing, you can use the `--target local-serve` option to run a reward function server locally with external tunnel access:
 
 ```bash
-uv run reward-kit deploy --id test-local-serve-eval --target local-serve \
+uv run eval-protocol deploy --id test-local-serve-eval --target local-serve \
 --function-ref examples.row_wise.dummy_example.dummy_rewards.simple_echo_reward --verbose --force
 ```
 
@@ -485,8 +486,8 @@ uv run reward-kit deploy --id test-local-serve-eval --target local-serve \
 - The CLI returns control to you, but the server processes continue running in the background
 - Check running processes: `ps aux | grep -E "(generic_server|ngrok)"`
 - Test locally: `curl -X POST http://localhost:8001/evaluate -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "test"}]}'`
-- Monitor server logs: `tail -f logs/reward-kit-local/generic_server_*.log`
-- Monitor tunnel logs: `tail -f logs/reward-kit-local/ngrok_*.log`
+- Monitor server logs: `tail -f logs/eval-protocol-local/generic_server_*.log`
+- Monitor tunnel logs: `tail -f logs/eval-protocol-local/ngrok_*.log`
 - Stop when done: Kill the background processes manually
 
 This is perfect for development, webhook testing, or making your reward function accessible to remote services without deploying to cloud infrastructure.
@@ -507,7 +508,7 @@ If you encounter authentication issues:
 
 You can use the following snippet to check what credentials the Reward Kit is resolving:
 ```python
-from reward_kit.auth import get_fireworks_api_key, get_fireworks_account_id
+from eval_protocol.auth import get_fireworks_api_key, get_fireworks_account_id
 
 api_key = get_fireworks_api_key()
 account_id = get_fireworks_account_id()
@@ -535,7 +536,7 @@ logging.basicConfig(level=logging.DEBUG)
 Or use the `--verbose` flag with CLI commands (from the venv):
 
 ```bash
-.venv/bin/reward-kit --verbose preview --metrics-folders "word_count=./examples/metrics/word_count" \
+.venv/bin/eval-protocol --verbose preview --metrics-folders "word_count=./examples/metrics/word_count" \
 --samples ./examples/samples/samples.jsonl
 ```
 
@@ -549,7 +550,8 @@ rm -rf dist/ build/ *.egg-info
 uv build
 
 # Install locally from the built package
-uv pip install dist/reward_kit-*.whl
+
+uv pip install dist/eval_protocol-*.whl
 ```
 
 ## Contributing Process
@@ -557,13 +559,13 @@ uv pip install dist/reward_kit-*.whl
 We welcome contributions to Reward Kit! Please follow these steps to contribute:
 
 1.  **Find or Create an Issue**:
-    *   Look for existing issues on the [GitHub Issues page](https://github.com/fireworks-ai/reward-kit/issues) that you'd like to work on.
+    *   Look for existing issues on the [GitHub Issues page](https://github.com/fireworks-ai/eval-protocol/issues) that you'd like to work on.
     *   If you have a new feature or bug fix, please create a new issue first to discuss it with the maintainers, unless it's a very minor change.
 
 2.  **Fork and Clone the Repository**:
     *   Fork the repository to your own GitHub account.
-    *   Clone your fork locally: `git clone https://github.com/YOUR_USERNAME/reward-kit.git`
-    *   Add the upstream repository: `git remote add upstream https://github.com/fireworks-ai/reward-kit.git`
+    *   Clone your fork locally: `git clone https://github.com/YOUR_USERNAME/eval-protocol.git`
+    *   Add the upstream repository: `git remote add upstream https://github.com/fireworks-ai/eval-protocol.git`
 
 3.  **Create a New Branch**:
     *   Create a descriptive branch name for your feature or fix (e.g., `feat/add-new-reward-metric` or `fix/resolve-auth-bug`).
@@ -578,6 +580,7 @@ We welcome contributions to Reward Kit! Please follow these steps to contribute:
     *   Ensure all tests pass by running `.venv/bin/pytest` (after activating the virtual environment).
 
 6.  **Run Code Quality Checks**:
+
     *   Format your code: `uv run black reward_kit tests`
     *   Check linting: `uv run flake8 reward_kit tests`
     *   Check types: `uv run mypy reward_kit`
@@ -595,7 +598,7 @@ We welcome contributions to Reward Kit! Please follow these steps to contribute:
     *   `git push origin your-branch-name`
 
 10. **Submit a Pull Request (PR)**:
-    *   Open a pull request from your branch to the `main` branch of the `fireworks-ai/reward-kit` repository.
+    *   Open a pull request from your branch to the `main` branch of the `fireworks-ai/eval-protocol` repository.
     *   Provide a clear title and a detailed description of your changes in the PR.
         *   Explain the "what" and "why" of your contribution.
         *   Link to the relevant issue(s) using keywords like `Closes #123` or `Fixes #456`.
@@ -618,6 +621,6 @@ Update the documentation when adding new functionality:
 2. **Authentication Failures**: Verify your API key and account ID
 3. **Import Errors**: Ensure you're using the correct virtual environment
 4. **Deployment Failures**: Check API logs and your account permissions
-5. **Type Errors**: Run `mypy reward_kit` to identify typing issues
+5. **Type Errors**: Run `mypy eval_protocol` to identify typing issues
 
-For more help, consult the [official documentation](https://github.com/fireworks-ai/reward-kit) or file an issue on GitHub.
+For more help, consult the [official documentation](https://github.com/fireworks-ai/eval-protocol) or file an issue on GitHub.

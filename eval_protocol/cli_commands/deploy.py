@@ -214,7 +214,7 @@ def _deploy_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
             if args.runtime.startswith("python") and len(args.runtime) > 7
             else args.runtime.replace("python", "")
         ),
-        reward_kit_install_source=".",
+        eval_protocol_install_source=".",
         user_requirements_path=None,  # Explicitly None, inline_requirements_content will be used
         inline_requirements_content=inline_requirements_content,
         service_port=8080,

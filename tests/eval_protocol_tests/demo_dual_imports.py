@@ -160,12 +160,12 @@ def verify_package_structure():
         with open("setup.py", "r") as f:
             content = f.read()
 
-        if "eval_protocol*" in content and "reward_kit*" in content:
+        if "eval_protocol*" in content and "eval_protocol*" in content:
             print("✓ setup.py includes both packages")
         else:
             print("✗ setup.py missing package configurations")
 
-        if "eval-protocol=reward_kit.cli:main" in content:
+        if "eval-protocol=eval_protocol.cli:main" in content:
             print("✓ Console script for eval-protocol configured")
         else:
             print("✗ Console script for eval-protocol not configured")

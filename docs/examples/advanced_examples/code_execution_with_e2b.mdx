@@ -25,7 +25,7 @@ Note: The code will also work with the `e2b` package, but `e2b_code_interpreter`
 Here's a simple example of how to use the reward function:
 
 ```python
-from reward_kit.rewards.code_execution import e2b_code_execution_reward
+from eval_protocol.rewards.code_execution import e2b_code_execution_reward
 
 # Example conversation with a Python coding task
 messages = [
@@ -115,7 +115,7 @@ result = e2b_code_execution_reward(
 You can gracefully fall back to local execution when an E2B API key is not available:
 
 ```python
-from reward_kit.rewards.code_execution import (
+from eval_protocol.rewards.code_execution import (
     e2b_code_execution_reward,
     local_code_execution_reward
 )

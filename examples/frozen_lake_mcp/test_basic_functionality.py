@@ -16,7 +16,7 @@ import subprocess
 import time
 from pathlib import Path
 
-import eval_protocol as rk
+import eval_protocol as ep
 
 
 async def test_basic_server_functionality():
@@ -43,10 +43,10 @@ async def test_basic_server_functionality():
         ]
 
         # Create policy (we'll use a simple test without actual LLM calls)
-        policy = rk.FireworksPolicy(model_id="accounts/fireworks/models/qwen3-235b-a22b", temperature=0.2)
+        policy = ep.FireworksPolicy(model_id="accounts/fireworks/models/qwen3-235b-a22b", temperature=0.2)
 
         # Create environment pointing to local server
-        envs = rk.make("http://localhost:8000/mcp/", dataset=test_dataset, model_id=policy.model_id)
+        envs = ep.make("http://localhost:8000/mcp/", dataset=test_dataset, model_id=policy.model_id)
         print("✅ Successfully connected to MCP server")
 
         # Test 2: Try to make tool calls (we'll simulate this for now)

@@ -1,10 +1,10 @@
 ## IB. Math Example (OpenR1) (`examples/math_example_openr1/`)
-*   **Core Reward Function(s):** `math_reward` (from `reward_kit.rewards.math`), potentially `length_reward`.
+*   **Core Reward Function(s):** `math_reward` (from `eval_protocol.rewards.math`), potentially `length_reward`.
 *   **Goal:** Create a parallel math example using `open-r1/OpenR1-Math-220k` to demonstrate broader dataset compatibility and ensure the `math_reward` function is robust.
 *   **Status:**
     *   [x] **0. Prerequisite & Data Preparation:**
         *   [x] **0.1. Refactor `math_reward` (Optional but Recommended):**
-            *   [x] **Task:** Review `reward_kit/rewards/math.py`. Identify opportunities to split complex logic into smaller helper functions or utilities (e.g., within `reward_kit/rewards/math_utils/` or kept private in the module). (Completed: `extract_numbers` broken into sub-functions; `math_reward` strictness checks and unit helper moved out.)
+            *   [x] **Task:** Review `eval_protocol/rewards/math.py`. Identify opportunities to split complex logic into smaller helper functions or utilities (e.g., within `eval_protocol/rewards/math_utils/` or kept private in the module). (Completed: `extract_numbers` broken into sub-functions; `math_reward` strictness checks and unit helper moved out.)
             *   [x] **Task:** Clean up unnecessary comments and improve code clarity. (Completed as part of refactoring.)
             *   [x] **Verification:** Existing math-related tests (e.g., `tests/test_math.py`, `tests/test_readiness.py` for the gsm8k example) continue to pass after refactoring. (User to verify post-refactor by running tests.)
         *   [x] **0.2. Prepare `dataset.jsonl` from `open-r1/OpenR1-Math-220k`:**

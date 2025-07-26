@@ -13,8 +13,8 @@ Usage:
     pytest test_record_and_replay_e2e.py -v
 
 Environment Variables:
-    REWARD_KIT_FORCE_RECORD=1  # Force recording mode even if replay file exists
-    REWARD_KIT_PLAYBACK_FILE   # Path to replay file (auto-detected if not set)
+    EP_FORCE_RECORD=1  # Force recording mode even if replay file exists
+    EP_PLAYBACK_FILE   # Path to replay file (auto-detected if not set)
 """
 
 import asyncio
@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-import eval_protocol as rk
+import eval_protocol as ep
 
 
 class MCPServerManager:
@@ -152,7 +152,7 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
     print("\n📝 === TAXI RECORDING PHASE ===")
 
     # Set up recording environment
-    os.environ["REWARD_KIT_PLAYBACK_FILE"] = recording_file
+    os.environ["EP_PLAYBACK_FILE"] = recording_file
 
     # Create policy for recording
     policy = rk.FireworksPolicy(
@@ -219,8 +219,8 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
     assert speedup > 10, f"Playback should be at least 10x faster, got {speedup:.1f}x"
 
     # Clean up environment variable
-    if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-        del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+    if "EP_PLAYBACK_FILE" in os.environ:
+        del os.environ["EP_PLAYBACK_FILE"]
 
 
 @pytest.mark.asyncio
@@ -231,7 +231,7 @@ async def test_simulation_server_record_and_replay(simulation_server, taxi_datas
     print("\n📝 === TAXI SIMULATION RECORDING PHASE ===")
 
     # Set up recording environment
-    os.environ["REWARD_KIT_PLAYBACK_FILE"] = recording_file
+    os.environ["EP_PLAYBACK_FILE"] = recording_file
 
     # Create policy for recording
     policy = rk.FireworksPolicy(
@@ -287,8 +287,8 @@ async def test_simulation_server_record_and_replay(simulation_server, taxi_datas
     assert speedup > 10, f"Simulation playback should be at least 10x faster, got {speedup:.1f}x"
 
     # Clean up environment variable
-    if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-        del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+    if "EP_PLAYBACK_FILE" in os.environ:
+        del os.environ["EP_PLAYBACK_FILE"]
 
 
 def test_server_health_checks(production_server, simulation_server):
@@ -334,7 +334,7 @@ async def test_production_only_recorded_policy(taxi_dataset):
 
     try:
         # Set up playback environment
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = test_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = test_recording_file
 
         # Create policy in playback mode
         policy = rk.FireworksPolicy(
@@ -352,8 +352,8 @@ async def test_production_only_recorded_policy(taxi_dataset):
         # Clean up
         if os.path.exists(test_recording_file):
             os.unlink(test_recording_file)
-        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+        if "EP_PLAYBACK_FILE" in os.environ:
+            del os.environ["EP_PLAYBACK_FILE"]
 
 
 if __name__ == "__main__":

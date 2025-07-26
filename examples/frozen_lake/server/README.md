@@ -4,7 +4,7 @@ This is the **server-side implementation** of the Frozen Lake game environment t
 
 ## Overview
 
-This server implements the HTTP Rollout Protocol that allows external evaluation frameworks (like reward-kit) to interact with the game environment through standardized endpoints.
+This server implements the HTTP Rollout Protocol that allows external evaluation frameworks (like eval-protocol) to interact with the game environment through standardized endpoints.
 
 ## API Endpoints
 

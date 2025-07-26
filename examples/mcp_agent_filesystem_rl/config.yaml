@@ -7,7 +7,7 @@ hydra:
     - file://${oc.env:PWD}/conf
 
 dataset:
-  _target_: reward_kit.datasets.loader.load_and_process_dataset
+  _target_: eval_protocol.datasets.loader.load_and_process_dataset
   source_type: "jsonl"
   path_or_name: "examples/mcp_agent_filesystem_rl/dataset.jsonl" # Path relative to repo root
 

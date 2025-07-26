@@ -1,6 +1,6 @@
-# Playbook: Replicating `verl` Examples in `reward-kit`
+# Playbook: Replicating `verl` Examples in `eval-protocol`
 
-This document outlines a general playbook for adapting dataset/reward function pairings from the `verl` project (or similar sources) into new examples for `reward-kit`, leveraging the `reward-kit run` CLI command and its underlying evaluation pipeline.
+This document outlines a general playbook for adapting dataset/reward function pairings from the `verl` project (or similar sources) into new examples for `eval-protocol`, leveraging the `eval-protocol run` CLI command and its underlying evaluation pipeline.
 
 ## I. General Playbook Steps
 
@@ -17,10 +17,10 @@ For each `verl` dataset/reward function pair to replicate:
         *   What are the relevant columns for prompt, solution/answer, and any necessary metadata (e.g., test cases for coding)?
         *   How is the ground truth structured in the source dataset?
 
-2.  **Adapt or Implement Reward Function in `reward-kit`:**
+2.  **Adapt or Implement Reward Function in `eval-protocol`:**
     *   **Decision Point:**
-        *   Can an existing `reward_kit.rewards.*` function be used directly or with minor parameter adjustments?
-        *   Is the `verl` logic simple enough to be a new standalone function in `reward_kit.rewards/`?
+        *   Can an existing `eval_protocol.rewards.*` function be used directly or with minor parameter adjustments?
+        *   Is the `verl` logic simple enough to be a new standalone function in `eval_protocol.rewards/`?
         *   Is the logic highly specific to this example and best placed in `examples/new_example_name/custom_rewards.py`?
     *   **Implementation:**
         *   Create the new Python file for the reward function if needed.
@@ -49,7 +49,7 @@ For each `verl` dataset/reward function pair to replicate:
     *   **Source Dataset Config (if using `convert_dataset.py`):**
         *   E.g., `conf/dataset/new_example_source.yaml`.
         *   Defines `source_type`, `path_or_name` for the original dataset, and `column_mapping` for `convert_dataset.py` to find the raw query and ground truth parts.
-    *   **Prompt Dataset Config (for `reward-kit run`):**
+    *   **Prompt Dataset Config (for `eval-protocol run`):**
         *   E.g., `conf/dataset/new_example_prompts.yaml` (for the sample) and potentially `new_example_full_prompts.yaml` (for the full set).
         *   `source_type: jsonl`.
         *   `path_or_name`: Points to the generated prompt JSONL file (e.g., `development/new_example_sample_prompts.jsonl`).
@@ -58,7 +58,7 @@ For each `verl` dataset/reward function pair to replicate:
 5.  **Create Example Run Configuration:**
     *   Create a new example directory: `examples/new_example_name/`.
     *   Inside, create `conf/run_eval.yaml` (or `run_new_example_eval.yaml`).
-    *   This file configures the `reward-kit run` command:
+    *   This file configures the `eval-protocol run` command:
         *   `defaults`: Includes `- dataset: new_example_prompts` (pointing to the sample prompt dataset config).
         *   `hydra.searchpath`: Ensure `['file://${oc.env:PWD}/conf']` is present so global dataset configs are found.
         *   `system_prompt`: Tailored to the task.
@@ -75,19 +75,19 @@ For each `verl` dataset/reward function pair to replicate:
 
 6.  **Minimal Example Code File (Optional):**
     *   If the reward function is implemented within the example directory (e.g., `examples/new_example_name/custom_rewards.py`), ensure `reward.function_path` in the run config points to it correctly.
-    *   A `main.py` in the example directory is generally not needed for the `reward-kit run` flow unless it's defining the reward function itself.
+    *   A `main.py` in the example directory is generally not needed for the `eval-protocol run` flow unless it's defining the reward function itself.
 
 7.  **Documentation (`examples/new_example_name/README.md`):**
     *   Briefly describe the task, dataset, and reward logic.
     *   Provide clear, copy-pasteable instructions:
         *   How to run data preparation (if applicable).
-        *   How to execute the example using `reward-kit run --config-dir examples/new_example_name/conf --config-name run_eval.yaml`.
+        *   How to execute the example using `eval-protocol run --config-dir examples/new_example_name/conf --config-name run_eval.yaml`.
         *   Common CLI overrides (e.g., changing dataset, model, number of samples).
     *   Explain the expected output and where to find results.
 
 8.  **Testing:**
     *   Manually run the data conversion script.
-    *   Manually run `reward-kit run` with the new example configuration.
+    *   Manually run `eval-protocol run` with the new example configuration.
     *   Verify:
         *   Correct dataset loading.
         *   System prompt application.
@@ -102,21 +102,21 @@ For each `verl` dataset/reward function pair to replicate:
 
 *   **Verl Reference:** `DigitalLearningGmbH/MATH-lighteval` & `verl.utils.reward_score.math.compute_score`.
 *   **Reward Kit Target:**
-    *   **Reward Function:** Use existing `reward_kit.rewards.math.math_reward`. Verify its compatibility with `MATH-lighteval`'s answer format (often `\\boxed{}`).
+    *   **Reward Function:** Use existing `eval_protocol.rewards.math.math_reward`. Verify its compatibility with `MATH-lighteval`'s answer format (often `\\boxed{}`).
     *   **Data Prep:** Use `examples/math_example/convert_dataset.py`.
         *   Source Config: `conf/dataset/math_lighteval_source.yaml` (maps `problem`->`query`, `solution`->`ground_truth`).
         *   Output: `development/math_lighteval_sample_prompts.jsonl`.
     *   **Prompt Config:** `conf/dataset/math_lighteval_prompts.yaml`.
     *   **Run Config:** `examples/math_lighteval_example/conf/run_eval.yaml`.
         *   `system_prompt`: "Solve... Output in `\\boxed{}`."
-        *   `reward.function_path`: `"reward_kit.rewards.math.math_reward"`.
+        *   `reward.function_path`: `"eval_protocol.rewards.math.math_reward"`.
     *   **README:** `examples/math_lighteval_example/README.md`.
 
 ### B. APPS Coding Example (More Complex)
 
 *   **Verl Reference:** `codeparrot/apps` & `verl.utils.reward_score.prime_code.compute_score`.
 *   **Reward Kit Target:**
-    *   **Reward Function (New/Adapted):** `reward_kit.rewards.prime_code_adapted_reward.evaluate_coding_solution`.
+    *   **Reward Function (New/Adapted):** `eval_protocol.rewards.prime_code_adapted_reward.evaluate_coding_solution`.
         *   Input `ground_truth_for_eval`: JSON string of test cases from APPS' `input_output` field.
         *   Logic: Parse test cases. Execute the assistant's code solution against these test cases. This requires a secure code execution environment (big feature - for initial pass, might mock or simplify this part, e.g., by checking for specific keywords or simple execution if possible, or deferring full execution).
     *   **Data Prep:** New script `scripts/convert_apps_to_prompts.py`.

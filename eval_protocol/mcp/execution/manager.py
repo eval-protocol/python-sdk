@@ -91,7 +91,7 @@ class ExecutionManager:
             max_concurrent_rollouts: Maximum number of concurrent threads to run
 
         Environment Variable Control:
-            REWARD_KIT_PLAYBACK_FILE: Controls record/playback mode
+            EP_PLAYBACK_FILE: Controls record/playback mode
             - Not set: Normal live mode
             - Set but file doesn't exist: Record mode (file will be created)
             - Set and file exists: Playback mode (uses recorded data)
@@ -102,7 +102,7 @@ class ExecutionManager:
         start_time = time.time()
 
         # Check for record/playback mode
-        playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
+        playback_file = os.environ.get("EP_PLAYBACK_FILE")
         recording_mode = bool(playback_file and not os.path.exists(playback_file))
         playback_mode = bool(playback_file and os.path.exists(playback_file))
 

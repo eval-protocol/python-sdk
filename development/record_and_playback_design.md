@@ -1,6 +1,6 @@
 # Design Doc: Record-and-Playback for FireworksPolicy - IMPLEMENTED ✅
 
-This document outlines the design, implementation, and testing approach for adding trajectory recording and playback functionality to `reward_kit`, focusing on the developer experience as the primary driver.
+This document outlines the design, implementation, and testing approach for adding trajectory recording and playback functionality to `eval_protocol`, focusing on the developer experience as the primary driver.
 
 ## 1. North-Star Developer Experience (DX) - ✅ COMPLETED
 
@@ -11,11 +11,11 @@ The primary goal is to provide a simple, intuitive API that requires minimal cha
 Recording trajectories is now completely automatic when the environment variable is set to a non-existent file:
 
 ```python
-import reward_kit as rk
+import eval_protocol as rk
 import os
 
 # Set the environment variable for recording
-os.environ["REWARD_KIT_PLAYBACK_FILE"] = "my_recording.jsonl"
+os.environ["EP_PLAYBACK_FILE"] = "my_recording.jsonl"
 
 # Create environments and policy as usual
 envs = rk.make("http://localhost:8000/mcp", dataset=dataset)
@@ -34,11 +34,11 @@ trajectories = await rk.rollout(
 Replaying is automatic when the environment variable points to an existing file:
 
 ```python
-import reward_kit as rk
+import eval_protocol as rk
 import os
 
 # The file now exists from the previous recording
-os.environ["REWARD_KIT_PLAYBACK_FILE"] = "my_recording.jsonl"
+os.environ["EP_PLAYBACK_FILE"] = "my_recording.jsonl"
 
 # Identical code - auto-detects playback mode
 envs = rk.make("http://localhost:8000/mcp", dataset=dataset)
@@ -52,7 +52,7 @@ replayed_trajectories = await rk.rollout(envs, policy)
 
 The implementation uses a single environment variable for complete control:
 
-- **`REWARD_KIT_PLAYBACK_FILE`**: Controls all record/playback behavior
+- **`EP_PLAYBACK_FILE`**: Controls all record/playback behavior
   - **Not set**: Normal live mode (no recording/playback)
   - **Set but file doesn't exist**: Recording mode (file will be created)
   - **Set and file exists**: Playback mode (uses recorded data)
@@ -64,7 +64,7 @@ The implementation uses a single environment variable for complete control:
 python my_script.py
 
 # Recording mode
-export REWARD_KIT_PLAYBACK_FILE="trajectory.jsonl"
+export EP_PLAYBACK_FILE="trajectory.jsonl"
 python my_script.py
 
 # Playback mode (after recording file exists)
@@ -80,7 +80,7 @@ The implementation uses a clean inheritance-based architecture with automatic mo
 ```mermaid
 graph TD
     subgraph User's Script
-        A["os.environ['REWARD_KIT_PLAYBACK_FILE'] = 'file.jsonl'"] --> B["policy = rk.FireworksPolicy(...)"];
+        A["os.environ['EP_PLAYBACK_FILE'] = 'file.jsonl'"] --> B["policy = rk.FireworksPolicy(...)"];
         B --> C["rk.rollout(envs, policy)"];
     end
 
@@ -110,7 +110,7 @@ graph TD
 ```python
 def __init__(self, model_id: str, ...):
     # Check for automatic playback mode
-    playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
+    playback_file = os.environ.get("EP_PLAYBACK_FILE")
     _playback_actions = None
 
     if playback_file and os.path.exists(playback_file):
@@ -142,7 +142,7 @@ async def rollout(
     openai_format_log_file: Optional[str] = None,
 ) -> List[Trajectory]:
     # Auto-detect mode from environment variable
-    playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
+    playback_file = os.environ.get("EP_PLAYBACK_FILE")
     recording_mode = playback_file and not os.path.exists(playback_file)
 
     # ... rollout logic ...
@@ -205,7 +205,7 @@ The north star test demonstrates the clean API in action:
 
 ```python
 # 1. Recording Mode (file doesn't exist)
-os.environ["REWARD_KIT_PLAYBACK_FILE"] = "recording.jsonl"
+os.environ["EP_PLAYBACK_FILE"] = "recording.jsonl"
 policy = rk.FireworksPolicy(model_id="...")  # Auto-detects recording
 trajectories = await rk.rollout(envs, policy, openai_format_log_file="sft.jsonl")
 
@@ -243,7 +243,7 @@ trajectories = await rk.rollout(envs, policy)
 **New API (current):**
 ```python
 # Recording
-os.environ["REWARD_KIT_PLAYBACK_FILE"] = "record.jsonl"
+os.environ["EP_PLAYBACK_FILE"] = "record.jsonl"
 policy = rk.FireworksPolicy(model_id="...")
 trajectories = await rk.rollout(envs, policy, openai_format_log_file="sft.jsonl")
 

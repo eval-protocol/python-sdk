@@ -22,11 +22,11 @@ class BFCLSimAPIResource(ForkableResource):
         "MathAPI": "eval_protocol.agent.resources.bfcl_envs.math_api",
         "TwitterAPI": "eval_protocol.agent.resources.bfcl_envs.posting_api",
         # Add these back when implemented:
-        # "MessageAPI": "reward_kit.agent.resources.bfcl_envs.message_api",
-        # "TicketAPI": "reward_kit.agent.resources.bfcl_envs.ticket_api",
-        # "TradingBot": "reward_kit.agent.resources.bfcl_envs.trading_bot",
-        # "TravelAPI": "reward_kit.agent.resources.bfcl_envs.travel_booking",
-        # "VehicleControlAPI": "reward_kit.agent.resources.bfcl_envs.vehicle_control",
+        # "MessageAPI": "eval_protocol.agent.resources.bfcl_envs.message_api",
+        # "TicketAPI": "eval_protocol.agent.resources.bfcl_envs.ticket_api",
+        # "TradingBot": "eval_protocol.agent.resources.bfcl_envs.trading_bot",
+        # "TravelAPI": "eval_protocol.agent.resources.bfcl_envs.travel_booking",
+        # "VehicleControlAPI": "eval_protocol.agent.resources.bfcl_envs.vehicle_control",
     }
     STATELESS_CLASSES = ["MathAPI"]
 

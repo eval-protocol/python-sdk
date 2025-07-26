@@ -16,7 +16,7 @@ Convert a Braintrust-style scorer to a Reward Kit reward function using `scorer_
 
 ```python
 from braintrust import Eval
-from reward_kit.integrations.braintrust import scorer_to_reward_fn
+from eval_protocol.integrations.braintrust import scorer_to_reward_fn
 
 
 def equality_scorer(input: str, output: str, expected: str) -> float:

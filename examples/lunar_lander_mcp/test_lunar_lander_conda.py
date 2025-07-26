@@ -14,7 +14,7 @@ import sys
 import time
 from pathlib import Path
 
-import eval_protocol as rk
+import eval_protocol as ep
 
 
 async def test_lunar_lander_with_conda_isolation():
@@ -97,7 +97,7 @@ async def test_lunar_lander_with_conda_isolation():
     print("✅ Server is running!")
 
     try:
-        # Test basic functionality using reward_kit
+        # Test basic functionality using eval_protocol
         print("🧪 Testing basic lunar lander functionality...")
 
         # Create a simple dataset for testing
@@ -119,7 +119,7 @@ async def test_lunar_lander_with_conda_isolation():
         ]
 
         # Configure for MCP environment
-        envs = rk.make("http://localhost:9004/mcp", dataset=dataset)
+        envs = ep.make("http://localhost:9004/mcp", dataset=dataset)
 
         # Simple policy that takes random actions
         class RandomLunarLanderPolicy:
@@ -146,7 +146,7 @@ async def test_lunar_lander_with_conda_isolation():
         # Run a few episodes to test the environment
         print("🎮 Running test episodes...")
 
-        rollouts = await rk.rollout(envs, policy, steps=20)  # Keep short for testing
+        rollouts = await ep.rollout(envs, policy, steps=20)  # Keep short for testing
 
         print(f"✅ Completed {len(rollouts)} rollouts")
 

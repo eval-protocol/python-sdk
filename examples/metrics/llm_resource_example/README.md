@@ -28,7 +28,7 @@ export FIREWORKS_ACCOUNT_ID=pyroworks
 
 ```bash
 # Run evaluation using the configuration file
-FIREWORKS_ACCOUNT_ID=pyroworks reward-kit run --config-path conf --config-name simple_llm_judge_eval
+FIREWORKS_ACCOUNT_ID=pyroworks eval-protocol run --config-path conf --config-name simple_llm_judge_eval
 ```
 
 ## Configuration

@@ -27,7 +27,7 @@ For Phase 1 details (Reward Function Interface & Preprocessing):
     *(This task draws heavily from the original plan's Task 1.1, 1.2, and 1.5 in `multi_step_rl_enhancement_plan_phase1.md` (the older version), but now focuses on producing `StepData` and `List[Message]` for the new GiGPO-centric flow).*
 
     1.  **Design the `RLRolloutWorker` Class:**
-        *   *Action Item:* Create `reward_kit/agent/rl_rollout_worker.py`.
+        *   *Action Item:* Create `eval_protocol/agent/rl_rollout_worker.py`.
         *   **Constructor (`__init__`):**
             *   Takes `task_definition: TaskDefinitionModel` (for initial setup, environment details, tool paths, ground truth).
             *   Takes an `agent_policy: AgentPolicy` (interface defined in Task 2.2 of this phase).
@@ -104,8 +104,8 @@ For Phase 1 details (Reward Function Interface & Preprocessing):
         *   `_check_termination()`: Implements termination conditions (see Task 2.3).
 
 *   **Files Involved:**
-    *   `reward_kit/agent/rl_rollout_worker.py` (New)
-    *   Uses `StepData` from `reward_kit/agent/models.py` (or `rl_models.py`) and `Message` from `reward_kit/models.py`.
+    *   `eval_protocol/agent/rl_rollout_worker.py` (New)
+    *   Uses `StepData` from `eval_protocol/agent/models.py` (or `rl_models.py`) and `Message` from `eval_protocol/models.py`.
 
 *   **Key Learning for Engineer:** Python class design, managing state within an episode, asynchronous programming (`async/await`) for policy calls and tool executions, detailed data logging.
 
@@ -123,7 +123,7 @@ For Phase 1 details (Reward Function Interface & Preprocessing):
     *(This task is based on the original plan's Task 1.4 in `multi_step_rl_enhancement_plan_phase1.md` (older version)).*
 
     1.  **Define the Interface:**
-        *   *Action Item:* Create `reward_kit/agent/policy_interface.py`.
+        *   *Action Item:* Create `eval_protocol/agent/policy_interface.py`.
         *   **Core Method: `async get_action(self, observation: Any, available_tools_specs: Optional[List[Dict[str,Any]]] = None) -> Tuple[Dict[str, Any], Optional[str], Optional[Dict[str, Any]], Optional[float]]`**
             *   `observation`: Data provided by `RLRolloutWorker` (e.g., `List[Message]`).
             *   `available_tools_specs`: OpenAPI-like schema for tools the agent can use this turn.
@@ -134,13 +134,13 @@ For Phase 1 details (Reward Function Interface & Preprocessing):
                 4.  `value_estimate` (Optional[float]): `V(s_t)` from a critic, if the policy has one (optional for critic-free GiGPO, but good to include for future flexibility).
 
     2.  **Implement an Initial Policy (e.g., `OpenAIAgentPolicy`):**
-        *   *Action Item:* Create `reward_kit/agent/policies/openai_policy.py`.
+        *   *Action Item:* Create `eval_protocol/agent/policies/openai_policy.py`.
         *   Implements `AgentPolicy`.
         *   Handles formatting requests to OpenAI, parsing responses into the structured action, and extracting log_probs (if `logprobs=True` requested and available). Value estimates are typically not available from standard OpenAI chat completion endpoints unless using a custom model or specific APIs.
 
 *   **Files Involved:**
-    *   `reward_kit/agent/policy_interface.py` (New)
-    *   `reward_kit/agent/policies/openai_policy.py` (New)
+    *   `eval_protocol/agent/policy_interface.py` (New)
+    *   `eval_protocol/agent/policies/openai_policy.py` (New)
 
 *   **Key Learning for Engineer:** API abstraction, interface design (ABCs/Protocols), working with external model APIs.
 
@@ -168,8 +168,8 @@ For Phase 1 details (Reward Function Interface & Preprocessing):
         *   *Action Item:* Implement this logic in `RLRolloutWorker`. `TaskDefinitionModel` will need a field for the optional termination regex.
 
 *   **Files Involved:**
-    *   `reward_kit/agent/rl_rollout_worker.py`
-    *   `reward_kit/models.py` (to add regex field to `TaskDefinitionModel`).
+    *   `eval_protocol/agent/rl_rollout_worker.py`
+    *   `eval_protocol/models.py` (to add regex field to `TaskDefinitionModel`).
 
 *   **Key Learning for Engineer:** Implementing control flow logic, string manipulation (regex), configuring behavior through data models.
 
@@ -177,7 +177,7 @@ For Phase 1 details (Reward Function Interface & Preprocessing):
 
 ### **Task 2.4: Implement System-Level GiGPO Advantage Calculation**
 
-*   **Objective:** Create the system component and helper functions (in `reward_kit.rl_helpers`) that take the processed `StepData` (which includes `base_reward` and/or `final_score_for_rollout` aligned from Phase 1's output) and compute final GiGPO advantages.
+*   **Objective:** Create the system component and helper functions (in `eval_protocol.rl_helpers`) that take the processed `StepData` (which includes `base_reward` and/or `final_score_for_rollout` aligned from Phase 1's output) and compute final GiGPO advantages.
 
 *   **Why it's important:**
     *   This is the core of the GiGPO algorithm implementation.
@@ -186,15 +186,15 @@ For Phase 1 details (Reward Function Interface & Preprocessing):
 *   **How to approach (Detailed Steps for an Engineer):**
     *(This task implements the GiGPO logic detailed in `development/notes/gigpo_breakdown.md` and uses the outputs from Phase 1, Task 1.4).*
 
-    1.  **Create `reward_kit/rl_helpers.py`:**
+    1.  **Create `eval_protocol/rl_helpers.py`:**
         *   This module will house the GiGPO calculation logic.
         *   *Action Item:* Create the file.
 
     2.  **Implement `system_apply_gigpo_to_batch_steps()`:**
         *   **Function Signature (Conceptual):**
             ```python
-            # In reward_kit/rl_helpers.py
-            # from reward_kit.agent.models import StepData # Internal StepData
+            # In eval_protocol/rl_helpers.py
+            # from eval_protocol.agent.models import StepData # Internal StepData
             # from typing import List, Dict, Any, Callable
 
             # def system_apply_gigpo_to_batch_steps(
@@ -238,8 +238,8 @@ For Phase 1 details (Reward Function Interface & Preprocessing):
         *   This function will likely be passed in by the system configuration.
 
 *   **Files Involved:**
-    *   `reward_kit/rl_helpers.py` (New, for GiGPO logic).
-    *   The system component that calls this helper (defined in Phase 1, Task 1.4, e.g., in `reward_kit/rl_processing.py`).
+    *   `eval_protocol/rl_helpers.py` (New, for GiGPO logic).
+    *   The system component that calls this helper (defined in Phase 1, Task 1.4, e.g., in `eval_protocol/rl_processing.py`).
 
 *   **Key Learning for Engineer:** Implementing complex RL algorithms from papers/specifications, advanced data manipulation (grouping, aggregation, normalization), designing flexible helper functions, understanding the nuances of state representation for LLM agents.
 

@@ -6,7 +6,7 @@ This example extends the basic math evaluation by also checking that responses f
 ## Quick Start
 ```bash
 # Run the evaluation
-python -m reward_kit.cli run --config-name simple_math_format_length_eval
+python -m eval_protocol.cli run --config-name simple_math_format_length_eval
 ```
 
 The framework will download a small GSM8K subset, generate answers using a reasoning

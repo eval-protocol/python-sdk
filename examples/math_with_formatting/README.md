@@ -1,12 +1,12 @@
 # Math with Formatting Example
 
-A simplified example showing how to evaluate mathematical reasoning with specific response formatting requirements using reward-kit.
+A simplified example showing how to evaluate mathematical reasoning with specific response formatting requirements using eval-protocol.
 
 ## Quick Start
 
 ```bash
 # Run the evaluation
-python -m reward_kit.cli run --config-name simple_math_formatting_eval
+python -m eval_protocol.cli run --config-name simple_math_formatting_eval
 ```
 
 That's it! The framework automatically:
@@ -61,7 +61,7 @@ Results are saved to `outputs/math_formatting_eval/[timestamp]/eval_results.json
 
 This example demonstrates how to create custom reward functions that combine multiple evaluation criteria. The `main.py` file shows the recommended pattern for:
 
-- **Reusing existing functions**: Import `math_reward` from `reward_kit.rewards.math`
+- **Reusing existing functions**: Import `math_reward` from `eval_protocol.rewards.math`
 - **Adding custom criteria**: Implement format checking with regex patterns
 - **Combining metrics**: Average multiple scores for overall evaluation
 - **Detailed reporting**: Provide separate metrics for each criterion

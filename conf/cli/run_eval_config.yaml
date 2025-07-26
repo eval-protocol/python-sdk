@@ -37,7 +37,7 @@ generation:
     max_concurrent_requests: 5 # Used by semaphore in pipeline
   cache:
     enabled: true
-    cache_dir: ".reward_kit_cache/cli_generated_responses" # Relative to CWD (Hydra output dir)
+    cache_dir: ".ep_cache/cli_generated_responses" # Relative to CWD (Hydra output dir)
     # force_regenerate: false # Example, not used by current ResponseCache
 
 reward:

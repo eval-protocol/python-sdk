@@ -25,12 +25,12 @@ This strategy is preferred over `docker commit` for `mcp/filesystem` because the
 
 ## 3. Required Code Changes
 
-### 3.1. `reward_kit/mcp_agent/config.py`
+### 3.1. `eval_protocol/mcp_agent/config.py`
 
 *   **`BackendServerConfig`**:
     *   Verify that the `template_data_path_host: Optional[str]` field exists. Its description should be updated or understood to include its use as a source directory for the copy-on-provision strategy for applicable backend types like "filesystem".
 
-### 3.2. `reward_kit/mcp_agent/orchestration/local_docker_client.py`
+### 3.2. `eval_protocol/mcp_agent/orchestration/local_docker_client.py`
 
 *   **Imports**: Add `import shutil` and ensure `from pathlib import Path` is present.
 *   **Constants**: Define `DEFAULT_INSTANCE_DATA_BASE_PATH = Path("/tmp/rk_mcp_instance_data")` (or similar configurable path).
@@ -111,7 +111,7 @@ This strategy is preferred over `docker commit` for `mcp/filesystem` because the
 
 ## Phase 2: Multi-Instance Testing and Full RL Example Integration
 
-**Objective**: To validate the system's capability to handle multiple concurrent RL rollouts with isolated, stateful MCP environments and to create a complete end-to-end example using the `reward-kit` CLI.
+**Objective**: To validate the system's capability to handle multiple concurrent RL rollouts with isolated, stateful MCP environments and to create a complete end-to-end example using the `eval-protocol` CLI.
 
 ### 2.1. Verify Multi-Instance Functionality
 
@@ -128,7 +128,7 @@ This strategy is preferred over `docker commit` for `mcp/filesystem` because the
 
 ### 2.2. Develop Full End-to-End RL Example
 
-*   **Objective**: Create a complete, runnable example showcasing an LLM agent interacting with forkable filesystem environments, with evaluation orchestrated by the `reward-kit` CLI using the `mcp-agent` component.
+*   **Objective**: Create a complete, runnable example showcasing an LLM agent interacting with forkable filesystem environments, with evaluation orchestrated by the `eval-protocol` CLI using the `mcp-agent` component.
 *   **Example Location**: A new directory, e.g., `examples/mcp_agent_filesystem_rl/`.
 *   **Components**:
     1.  **Dataset (`dataset.jsonl`)**:
@@ -139,7 +139,7 @@ This strategy is preferred over `docker commit` for `mcp/filesystem` because the
         *   The template directory for `filesystem_test` (from `mcp_agent_config.yaml`) should be updated or a new one created to reflect this initial state (e.g., `source_files/important_document.txt` exists, `archive/` is an empty directory).
     2.  **Reward Function (`reward_function.py`)**:
         *   A Python function decorated with `@reward_function`.
-        *   **Input**: It will receive the LLM's generated output (which should ideally be a tool call to `move_file` or a sequence of actions leading to that). It will also need access to the `rk_session_id` and the specific `instance_id` for the current rollout to interact with the correct MCP environment. (The mechanism for passing this context to the reward function needs to be confirmed based on `reward-kit`'s capabilities when using an agent).
+        *   **Input**: It will receive the LLM's generated output (which should ideally be a tool call to `move_file` or a sequence of actions leading to that). It will also need access to the `rk_session_id` and the specific `instance_id` for the current rollout to interact with the correct MCP environment. (The mechanism for passing this context to the reward function needs to be confirmed based on `eval-protocol`'s capabilities when using an agent).
         *   **Logic**:
             *   Construct an MCP client (similar to `test_rl_filesystem_scenario.py`) to connect to the `RewardKitIntermediaryServer`.
             *   Use `call_backend_tool` to interact with the specific `filesystem_test` instance for the current rollout.
@@ -162,9 +162,9 @@ This strategy is preferred over `docker commit` for `mcp/filesystem` because the
         *   Detailed instructions on:
             *   Setting up the template directory for this example.
             *   Ensuring the `mcp_agent_config.yaml` points to this template.
-            *   The `reward-kit` CLI command to run the evaluation (e.g., `reward-kit run --config ./config.yaml` or `reward-kit mcp-agent run ...`).
+            *   The `eval-protocol` CLI command to run the evaluation (e.g., `eval-protocol run --config ./config.yaml` or `eval-protocol mcp-agent run ...`).
 *   **Execution & Verification**:
-    *   The `reward-kit` CLI command should successfully launch 4 concurrent rollouts.
+    *   The `eval-protocol` CLI command should successfully launch 4 concurrent rollouts.
     *   Each rollout should use an independent, templated filesystem environment.
     *   The LLM's actions should be evaluated by the reward function against the state of its specific environment.
     *   The CLI should produce an evaluation report.

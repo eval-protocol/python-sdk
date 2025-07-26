@@ -45,7 +45,7 @@ example_directory/
         The `reward-kit run` command itself is integrated with Hydra. You specify the path to the configuration directory and the name of the main configuration file.
         ```bash
         # Example from math_example
-        python -m reward_kit.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml
+        python -m eval_protocol.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml
         ```
     *   **For Python scripts using Hydra directly (e.g., TRL integration)**:
         ```bash
@@ -61,7 +61,7 @@ This is one of Hydra's most powerful features. You can override any parameter de
 *   **Simple Override**:
     ```bash
     # Override number of samples for reward-kit run
-    python -m reward_kit.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml evaluation_params.limit_samples=10
+    python -m eval_protocol.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml evaluation_params.limit_samples=10
 
     # Override model name for a TRL script
     .venv/bin/python examples/math_example/trl_grpo_integration.py model_name=mistralai/Mistral-7B-Instruct-v0.2
@@ -77,13 +77,13 @@ This is one of Hydra's most powerful features. You can override any parameter de
     If your main config allows choosing different dataset configurations (often via a `defaults` list or a parameter like `dataset_config_name`):
     ```bash
     # Assuming run_math_eval.yaml can switch dataset configs
-    python -m reward_kit.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml dataset=my_custom_dataset_prompts
+    python -m eval_protocol.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml dataset=my_custom_dataset_prompts
     ```
     (The exact way to switch datasets depends on how the `main_config.yaml` is structured, often using [config groups](https://hydra.cc/docs/patterns/select_between_config_groups/).)
 
 *   **Multiple Overrides**:
     ```bash
-    python -m reward_kit.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml \
+    python -m eval_protocol.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml \
       evaluation_params.limit_samples=5 \
       generation.model_name="accounts/fireworks/models/llama-v3p1-8b-instruct" \
       reward.params.tolerance=0.01

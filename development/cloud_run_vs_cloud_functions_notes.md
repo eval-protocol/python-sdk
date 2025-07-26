@@ -67,5 +67,5 @@ Context: Evaluating deployment options for stateful MCP servers (like FrozenLake
 
 ## Related Files
 - `/examples/frozen_lake_mcp/frozen_lake_mcp_server.py` - Current MCP server
-- `/reward_kit/cli_commands/deploy_mcp.py` - Deployment logic
+- `/eval_protocol/cli_commands/deploy_mcp.py` - Deployment logic
 - `/remote_rollout_test/test_remote_north_star.py` - Remote testing

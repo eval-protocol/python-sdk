@@ -7,7 +7,7 @@ These implementation notes provide technical details about the Agent Evaluation 
 The agent evaluation CLI command supports the following key features:
 
 ```python
-# agent-eval command in reward_kit/cli.py
+# agent-eval command in eval_protocol/cli.py
 agent_eval_parser = subparsers.add_parser(
     "agent-eval",
     help="Run agent evaluation on task bundles"
@@ -224,7 +224,7 @@ The reward function follows the standard Reward Kit interface with an additional
 @reward_function
 def evaluate(messages, *, db, end_goal_sql, **kwargs):
     # Ensure imports for EvaluateResult and MetricResult would be available
-    # from reward_kit import EvaluateResult, MetricResult
+    # from eval_protocol import EvaluateResult, MetricResult
     ok = db.execute(end_goal_sql).scalar_one()
     score = 1.0 if ok else 0.0
     reason = "Task completed successfully" if ok else "Task incomplete"

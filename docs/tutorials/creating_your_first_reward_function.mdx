@@ -31,7 +31,7 @@ Relevance Metric: Evaluates how well a response addresses the user's query.
 """
 
 from typing import List, Dict, Optional
-from reward_kit import reward_function, EvaluateResult, MetricResult, Message
+from eval_protocol import reward_function, EvaluateResult, MetricResult, Message
 
 @reward_function
 def evaluate(messages: List[Message], original_messages: List[Message] = list(), **kwargs) -> EvaluateResult:
@@ -302,7 +302,7 @@ For more control over deployment, create a deployment script:
 import os
 import sys
 from pathlib import Path
-from reward_kit.evaluation import create_evaluation
+from eval_protocol.evaluation import create_evaluation
 
 def main():
     """Deploy the relevance evaluator to Fireworks."""

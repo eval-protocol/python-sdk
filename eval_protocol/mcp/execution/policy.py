@@ -44,7 +44,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             max_tokens: Maximum tokens to generate per request
             max_tools_per_turn: Maximum number of tool calls per turn (None = unlimited, 1 = single tool)
         """
-        # Initialize playback functionality (parent class handles REWARD_KIT_PLAYBACK_FILE automatically)
+        # Initialize playback functionality (parent class handles EP_PLAYBACK_FILE automatically)
         super().__init__(**kwargs)
 
         # Store policy configuration
@@ -127,8 +127,8 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             env_index: Environment index
             step: Current step number
         """
-        # Use REWARD_KIT_PLAYBACK_FILE environment variable for recording
-        playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
+        # Use EP_PLAYBACK_FILE environment variable for recording
+        playback_file = os.environ.get("EP_PLAYBACK_FILE")
         if not playback_file:
             return  # No recording file specified
 

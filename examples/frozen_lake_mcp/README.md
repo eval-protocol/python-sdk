@@ -213,8 +213,8 @@ server = FrozenLakeMcpServer(port=9004, seed=42)
 This example demonstrates how MCP-Gym environments integrate with the broader Reward-Kit ecosystem:
 
 ```python
-# The environment works seamlessly with reward-kit features
-import reward_kit as rk
+# The environment works seamlessly with eval-protocol features
+import eval_protocol as ep
 
 # Deploy as MCP server
 rk.deploy_mcp_server(FrozenLakeMcp, port=9004, seed=42)

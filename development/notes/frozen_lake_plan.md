@@ -45,26 +45,26 @@ The task definition will be updated to reference the dataset and specify how man
 
 The following changes will plumb the `seed` from the dataset through the framework to the game environment.
 
-1.  **Data Model (`reward_kit/models.py`):**
+1.  **Data Model (`eval_protocol/models.py`):**
     -   Update `TaskDefinitionModel` to include `dataset_path: Optional[str]` and `num_rollouts_per_sample: int`.
 
-2.  **TaskManager (`reward_kit/agent/task_manager.py`):**
+2.  **TaskManager (`eval_protocol/agent/task_manager.py`):**
     -   Modify the `execute_tasks` method to load samples from the `dataset_path`.
     -   For each sample, generate `num_rollouts_per_sample` rollout jobs.
     -   Pass the sample data (containing the `seed`) for each job down to the `Orchestrator`.
 
-3.  **Orchestrator (`reward_kit/agent/orchestrator.py`):**
+3.  **Orchestrator (`eval_protocol/agent/orchestrator.py`):**
     -   Modify `execute_task_poc` to accept `sample_data` as a parameter.
     -   Pass this data to the resource's `initialize` method: `await episode_resource.initialize(**sample_data)`.
 
-4.  **HTTP Rollout Resource (`reward_kit/agent/resources/http_rollout_resource.py`):**
+4.  **HTTP Rollout Resource (`eval_protocol/agent/resources/http_rollout_resource.py`):**
     -   The `initialize` method will accept `**kwargs`.
     -   These `kwargs` (the `sample_data`) will be sent as the JSON body of the POST request to the `/start_episode` endpoint.
 
 5.  **HTTP Rollout Server & Protocol:**
     -   The `/start_episode` endpoint in `examples/frozen_lake/server/http_rollout_server.py` will be updated to accept a JSON request body.
     -   It will pass the entire request body as keyword arguments to the `GymnasiumFrozenLakeGame` constructor: `game = FrozenLakeGame(**request_data)`.
-    -   The `StartEpisodeRequest` model in `reward_kit/agent/resources/http_rollout_protocol.py` will be updated to allow arbitrary extra fields.
+    -   The `StartEpisodeRequest` model in `eval_protocol/agent/resources/http_rollout_protocol.py` will be updated to allow arbitrary extra fields.
 
 6.  **Gymnasium Game (`examples/frozen_lake/gymnasium_frozen_lake_server.py`):**
     -   The `__init__` method of `GymnasiumFrozenLakeGame` will be changed to accept `**kwargs`.

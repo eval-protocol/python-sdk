@@ -13,11 +13,11 @@ generation:
     top_p: 0.9
 
 reward:
-  function_path: "reward_kit.rewards.accuracy.accuracy_reward"
+  function_path: "eval_protocol.rewards.accuracy.accuracy_reward"
   params: {}
 
 dataset:
-  _target_: reward_kit.datasets.loader.load_and_process_dataset
+  _target_: eval_protocol.datasets.loader.load_and_process_dataset
   path_or_name: "path/to/your/dataset.jsonl"
 
 output:

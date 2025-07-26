@@ -163,8 +163,8 @@ class StaticPolicy(PlaybackPolicyBase):
             step: Current step number
             conversation_history: List of conversation messages
         """
-        # Use REWARD_KIT_PLAYBACK_FILE environment variable for recording
-        playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
+        # Use EP_PLAYBACK_FILE environment variable for recording
+        playback_file = os.environ.get("EP_PLAYBACK_FILE")
         if not playback_file:
             return  # No recording file specified
 
@@ -286,7 +286,7 @@ class RandomPolicy(PlaybackPolicyBase):
         self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]
     ):
         """Log the current conversation state for playback recording."""
-        playback_file = os.environ.get("REWARD_KIT_PLAYBACK_FILE")
+        playback_file = os.environ.get("EP_PLAYBACK_FILE")
         if not playback_file:
             return
 

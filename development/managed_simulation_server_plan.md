@@ -68,10 +68,10 @@ The managed simulation server implementation is **100% complete** and tested:
 **Key Files:**
 - `examples/frozen_lake_mcp_complete/mcp_server/managed_simulation_server.py`
 - `examples/lunar_lander_mcp/` - Visual environment with complex dependencies
-- `reward_kit/mcp/process_manager.py` & `simple_process_manager.py`
-- `reward_kit/mcp/execution/policy.py` - LLMBasePolicy abstraction for OpenAI integration
-- `reward_kit/mcp/client/connection.py` - Modular MCP connection management
-- `reward_kit/mcp/session/manager.py` - Refactored session and environment management
+- `eval_protocol/mcp/process_manager.py` & `simple_process_manager.py`
+- `eval_protocol/mcp/execution/policy.py` - LLMBasePolicy abstraction for OpenAI integration
+- `eval_protocol/mcp/client/connection.py` - Modular MCP connection management
+- `eval_protocol/mcp/session/manager.py` - Refactored session and environment management
 
 ---
 
@@ -107,7 +107,7 @@ The managed simulation server implementation is **100% complete** and tested:
 
 ### Issue #3: MCP Environment Module Too Large ✅ **COMPLETED**
 
-**✅ DELIVERED:** Complete refactoring of the 1479-line `reward_kit/mcp_env.py` into modular components
+**✅ DELIVERED:** Complete refactoring of the 1479-line `eval_protocol/mcp_env.py` into modular components
 - **Improved Maintainability:** Code split into logical, focused modules
 - **LLMBasePolicy Abstraction:** Enables easy OpenAI integration for multi-modal capabilities
 - **Backward Compatibility:** Original API preserved via facade pattern
@@ -115,7 +115,7 @@ The managed simulation server implementation is **100% complete** and tested:
 **Key Achievements:**
 1. **✅ Modular Architecture Created:**
    ```
-   reward_kit/mcp/
+   eval_protocol/mcp/
    ├── client/
    │   ├── __init__.py
    │   └── connection.py     # MCP client connection management
@@ -229,7 +229,7 @@ The MCP environment module refactoring has been successfully completed, providin
 
 **Architecture Delivered:**
    ```
-   reward_kit/mcp/
+   eval_protocol/mcp/
    ├── client/
    │   ├── __init__.py
    │   └── connection.py     # MCP client connection management
@@ -279,7 +279,7 @@ The MCP environment module refactoring has been successfully completed, providin
 4. **Update managed simulation server** to support transport selection
 
 ### 🔥 **PRIORITY 5: Multi-Modal OpenAI Integration**
-1. **Add OpenAI Policy Support:** Extend reward_kit to support OpenAI models alongside Fireworks
+1. **Add OpenAI Policy Support:** Extend eval_protocol to support OpenAI models alongside Fireworks
 2. **Multi-Modal Tool Calling:** Test OpenAI vision models with lunar lander rendered frames
 3. **End-to-End Visual Rollouts:** Complete rollouts with OpenAI models analyzing images
 4. **Trajectory Analysis:** Compare performance of text-only vs. visual-enabled policies

@@ -8,7 +8,7 @@ The content below details the capabilities and programmatic usage of the underly
 
 ## `math_reward` Function Overview
 
-The `math_reward` function (found in `reward_kit.rewards.math`) allows you to:
+The `math_reward` function (found in `eval_protocol.rewards.math`) allows you to:
 
 1. Extract numerical answers from LLM responses
 2. Compare them with expected answers or reference solutions
@@ -30,7 +30,7 @@ The following examples demonstrate direct programmatic use of the `math_reward` 
 Here's a simple example:
 
 ```python
-from reward_kit.rewards.math import math_reward
+from eval_protocol.rewards.math import math_reward
 
 # Example conversation with a math problem
 messages = [
@@ -125,7 +125,7 @@ The math reward function can extract and compare answers in various formats:
 You can customize the extraction process to look for answers in particular formats or locations:
 
 ```python
-from reward_kit.rewards.math import math_reward
+from eval_protocol.rewards.math import math_reward
 
 # Messages with LaTeX formatted answer
 messages = [
@@ -154,7 +154,7 @@ result = math_reward(
 Sometimes, multiple forms of the same answer are acceptable. You can evaluate against multiple correct answers:
 
 ```python
-from reward_kit.rewards.math import math_reward
+from eval_protocol.rewards.math import math_reward
 
 # Message with fraction answer
 messages = [
@@ -181,7 +181,7 @@ result = math_reward(
 If the correct answer is in the original messages, you can extract it automatically:
 
 ```python
-from reward_kit.rewards.math import math_reward
+from eval_protocol.rewards.math import math_reward
 
 # Original conversation with correct answer
 original_messages = [

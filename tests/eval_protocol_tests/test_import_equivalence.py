@@ -141,9 +141,9 @@ def test_console_scripts():
 
         # Check for all three console scripts
         expected_scripts = [
-            "fireworks-reward=reward_kit.cli:main",
-            "reward-kit=reward_kit.cli:main",
-            "eval-protocol=reward_kit.cli:main",
+            "fireworks-reward=eval_protocol.cli:main",
+            "reward-kit=eval_protocol.cli:main",
+            "eval-protocol=eval_protocol.cli:main",
         ]
 
         for script in expected_scripts:

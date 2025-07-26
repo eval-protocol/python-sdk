@@ -531,7 +531,7 @@ def reliability_guard(maximum_memory_bytes=None):
 
     # It's generally safer to avoid modifying builtins directly if possible.
     # For a library, this can have wide-ranging effects.
-    # Consider if this level of modification is truly necessary for reward_kit's use case
+    # Consider if this level of modification is truly necessary for eval_protocol's use case
     # or if the multiprocessing wrapper in utils.py provides sufficient isolation.
     # Note: The original implementation had many builtins and os/shutil functions commented out.
     # These have been removed for clarity, as the preferred method of sandboxing
@@ -552,7 +552,7 @@ def reliability_guard(maximum_memory_bytes=None):
     # subprocess.Popen
     # Modifying __builtins__ or sys.modules entries.
 
-    # For reward_kit, rely on higher-level sandboxing if untrusted code execution is a concern.
+    # For eval_protocol, rely on higher-level sandboxing if untrusted code execution is a concern.
     # The memory limits via `resource` are a good first step for resource exhaustion.
     import shutil  # Keep import if other shutil functions are used, or remove if not.
     import subprocess  # Keep import if other subprocess functions are used, or remove if not.

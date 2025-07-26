@@ -19,7 +19,7 @@ Marry these pieces once and every RL or agent team in the company—Fireworks, R
 ### 2 · North-star developer experience (DX) — **UPDATED: General Tool-Calling Interface**
 
 ```python
-import reward_kit as rk
+import eval_protocol as rk
 
 # Load dataset with environment configuration and prompts
 dataset = load_jsonl("rollouts.jsonl")              # contains seeds, system_prompt, user_prompt_template
@@ -61,7 +61,7 @@ trajectories = rk.rollout(                          # 2️⃣ parallel tool-call
 ```
  ┌──────────────────────────────────────────────────────────────────────────┐
  │  Training / evaluation script                                           │
- │  reward_kit.VectorEnv (N)                                               │
+ │  eval_protocol.VectorEnv (N)                                               │
  │     └─ httpx.AsyncClient ───────────────┐  initialize (seed, model_id)  │
  │                                         │  lake.move(action) …         │
  └──────────────────────────────────────────┘                              │
@@ -126,7 +126,7 @@ def lake_move(action: str, ctx: Context) -> Dict[str, Any]:
 #### Simulation Server (The "Magic" Research Wrapper)
 ```python
 # simulation_server.py - The new, simplified developer experience
-from reward_kit.mcp.simulation_server import SimulationServerBase, simulation_tool
+from eval_protocol.mcp.simulation_server import SimulationServerBase, simulation_tool
 from mcp.server.fastmcp import Context
 import frozen_lake_server
 
@@ -227,7 +227,7 @@ async with streamablehttp_client("http://localhost:8000/mcp") as (read_stream, w
 
 ## 8 · Why this scales company-wide
 
-* **One spec, many surfaces** — product teams expose *their* environments as MPC tools; agents and evaluation harnesses reuse reward-kit with zero coupling.
+* **One spec, many surfaces** — product teams expose *their* environments as MPC tools; agents and evaluation harnesses reuse eval-protocol with zero coupling.
 * **Model routing baked in** — `model_id` travels with session; same code runs on Fireworks, Anthropic, or internal HF checkpoints.
 * **Local-first** — everybody can reproduce a 10 k-episode experiment on a laptop **today**; cloud scaling is an additive knob, not a dependency.
 
@@ -246,8 +246,8 @@ async with streamablehttp_client("http://localhost:8000/mcp") as (read_stream, w
 **✅ READY**: Infrastructure complete for M1 `rk.make()` and `rk.rollout()` integration
 
 **Next Developer Focus**:
-1. **M1 Implementation**: Integrate working MCP client pattern into `reward_kit/mcp_env.py`
-2. **Batch Operations**: Extend `reward_kit/evaluation.py` for MCP-based environments
+1. **M1 Implementation**: Integrate working MCP client pattern into `eval_protocol/mcp_env.py`
+2. **Batch Operations**: Extend `eval_protocol/evaluation.py` for MCP-based environments
 3. **Model Routing**: Connect `model_id` initialization to policy execution
 
 **The rest of the roadmap is execution, not research.**

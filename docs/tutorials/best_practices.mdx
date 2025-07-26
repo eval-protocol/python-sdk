@@ -126,7 +126,7 @@ improvement_score = current_response_score / baseline_score
 Always validate input before processing:
 
 ```python
-from reward_kit import EvaluateResult, MetricResult # Added for example
+from eval_protocol import EvaluateResult, MetricResult # Added for example
 
 @reward_function
 def robust_reward(messages, original_messages=None, **kwargs):
@@ -470,7 +470,7 @@ Create automated tests for your reward functions:
 
 ```python
 import unittest
-from reward_kit import RewardOutput
+from eval_protocol import RewardOutput
 from my_rewards import clarity_reward
 
 class TestClarityReward(unittest.TestCase):
