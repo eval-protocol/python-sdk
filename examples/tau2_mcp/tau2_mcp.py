@@ -8,8 +8,9 @@ It provides all the tools as MCP tools for agent evaluation.
 
 import argparse
 import os
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Annotated
 import json
+from pydantic import Field
 
 from mcp.server.fastmcp import Context
 from airplane_environment.airline_environment import AirlineEnvironment
@@ -18,6 +19,8 @@ from retail_environment.retail_environment import RetailEnvironment
 
 from eval_protocol.mcp import McpGym, EnvironmentAdapter
 from eval_protocol.mcp.mcpgym import control_plane_endpoint
+
+from tau2.domains.airline.data_model import Passenger, FlightType, CabinClass, FlightInfo, Payment, Insurance
 
 
 class AirlineDomainMcp(McpGym):
@@ -40,17 +43,17 @@ class AirlineDomainMcp(McpGym):
 
         @self.mcp.tool(name="book_reservation", description="Book a reservation.")
         def book_reservation(
-            user_id: str,
-            origin: str,
-            destination: str,
-            flight_type: str,  # "round_trip" or "one_way"
-            cabin: str,  # "business", "economy", "basic_economy"
-            flights: List[Dict[str, Any]],
-            passengers: List[Dict[str, Any]],
-            payment_methods: List[Dict[str, Any]],
-            total_baggages: int,
-            nonfree_baggages: int,
-            insurance: str,  # "yes" or "no"
+            user_id: Annotated[str, Field(description="The ID of the user to book the reservation such as 'sara_doe_496'")],
+            origin: Annotated[str, Field(description="The IATA code for the origin city such as 'SFO'")],
+            destination: Annotated[str, Field(description="The IATA code for the destination city such as 'JFK'")],
+            flight_type: Annotated[FlightType, Field(description="The type of flight such as 'one_way' or 'round_trip'")],
+            cabin: Annotated[CabinClass, Field(description="The cabin class such as 'basic_economy', 'economy', or 'business'")],
+            flights: Annotated[List[FlightInfo | dict], Field(description="An array of objects containing details about each piece of flight")],
+            passengers: Annotated[List[Passenger | dict], Field(description="An array of objects containing details about each passenger")],
+            payment_methods: Annotated[List[Payment | dict], Field(description="An array of objects containing details about each payment method")],
+            total_baggages: Annotated[int, Field(description="The total number of baggage items to book the reservation")],
+            nonfree_baggages: Annotated[int, Field(description="The number of non-free baggage items to book the reservation")],
+            insurance: Annotated[Insurance, Field(description="Whether the reservation has insurance")],
             ctx: Context,
         ) -> Dict[str, Any]:
             """Book a new reservation with all details"""
@@ -81,7 +84,10 @@ class AirlineDomainMcp(McpGym):
             name="calculate",
             description="Calculate the result of a mathematical expression.",
         )
-        def calculate(expression: str, ctx: Context) -> Dict[str, Any]:
+        def calculate(
+            expression: Annotated[str, Field(description="The mathematical expression to calculate, such as '2 + 2'. The expression can contain numbers, operators (+, -, *, /), parentheses, and spaces.")],
+            ctx: Context
+        ) -> Dict[str, Any]:
             """Calculate mathematical expressions"""
             session_id = self._get_session_id(ctx)
 
@@ -91,7 +97,10 @@ class AirlineDomainMcp(McpGym):
             )
 
         @self.mcp.tool(name="cancel_reservation", description="Cancel the whole reservation.")
-        def cancel_reservation(reservation_id: str, ctx: Context) -> Dict[str, Any]:
+        def cancel_reservation(
+            reservation_id: Annotated[str, Field(description="The reservation ID, such as 'ZFA04Y'")],
+            ctx: Context
+        ) -> Dict[str, Any]:
             """Cancel a reservation"""
             session_id = self._get_session_id(ctx)
 
@@ -107,7 +116,10 @@ class AirlineDomainMcp(McpGym):
             name="get_reservation_details",
             description="Get the details of a reservation.",
         )
-        def get_reservation_details(reservation_id: str, ctx: Context) -> Dict[str, Any]:
+        def get_reservation_details(
+            reservation_id: Annotated[str, Field(description="The reservation ID, such as '8JX2WO'")],
+            ctx: Context
+        ) -> Dict[str, Any]:
             """Get reservation details"""
             session_id = self._get_session_id(ctx)
 
@@ -123,7 +135,10 @@ class AirlineDomainMcp(McpGym):
             name="get_user_details",
             description="Get the details of a user, including their reservations.",
         )
-        def get_user_details(user_id: str, ctx: Context) -> Dict[str, Any]:
+        def get_user_details(
+            user_id: Annotated[str, Field(description="The user ID, such as 'sara_doe_496'")],
+            ctx: Context
+        ) -> Dict[str, Any]:
             """Get user details"""
             session_id = self._get_session_id(ctx)
 
@@ -148,7 +163,12 @@ class AirlineDomainMcp(McpGym):
             name="search_direct_flight",
             description="Search for direct flights between two cities on a specific date.",
         )
-        def search_direct_flight(origin: str, destination: str, date: str, ctx: Context) -> Dict[str, Any]:
+        def search_direct_flight(
+            origin: Annotated[str, Field(description="The origin city airport in three letters, such as 'JFK'")],
+            destination: Annotated[str, Field(description="The destination city airport in three letters, such as 'LAX'")],
+            date: Annotated[str, Field(description="The date of the flight in the format 'YYYY-MM-DD', such as '2024-01-01'")],
+            ctx: Context
+        ) -> Dict[str, Any]:
             """Search for direct flights"""
             session_id = self._get_session_id(ctx)
 
@@ -168,7 +188,12 @@ class AirlineDomainMcp(McpGym):
             name="search_onestop_flight",
             description="Search for one-stop flights between two cities on a specific date.",
         )
-        def search_onestop_flight(origin: str, destination: str, date: str, ctx: Context) -> Dict[str, Any]:
+        def search_onestop_flight(
+            origin: Annotated[str, Field(description="The origin city airport in three letters, such as 'JFK'")],
+            destination: Annotated[str, Field(description="The destination city airport in three letters, such as 'LAX'")],
+            date: Annotated[str, Field(description="The date of the flight in the format 'YYYY-MM-DD', such as '2024-05-01'")],
+            ctx: Context
+        ) -> Dict[str, Any]:
             """Search for one-stop flights"""
             session_id = self._get_session_id(ctx)
 
@@ -188,7 +213,11 @@ class AirlineDomainMcp(McpGym):
             name="send_certificate",
             description="Send a certificate to a user. Be careful!",
         )
-        def send_certificate(user_id: str, amount: int, ctx: Context) -> Dict[str, Any]:
+        def send_certificate(
+            user_id: Annotated[str, Field(description="The ID of the user to book the reservation, such as 'sara_doe_496'")],
+            amount: Annotated[int, Field(description="The amount of the certificate to send")],
+            ctx: Context
+        ) -> Dict[str, Any]:
             """Send a certificate to a user"""
             session_id = self._get_session_id(ctx)
 
@@ -202,9 +231,12 @@ class AirlineDomainMcp(McpGym):
 
         @self.mcp.tool(
             name="transfer_to_human_agents",
-            description="Transfer the user to a human agent, with a summary of the user's issue.",
+            description="Transfer the user to a human agent, with a summary of the user's issue. Only transfer if the user explicitly asks for a human agent or given the policy and the available tools, you cannot solve the user's issue.",
         )
-        def transfer_to_human_agents(summary: str, ctx: Context) -> Dict[str, Any]:
+        def transfer_to_human_agents(
+            summary: Annotated[str, Field(description="A summary of the user's issue")],
+            ctx: Context
+        ) -> Dict[str, Any]:
             """Transfer to human agent"""
             session_id = self._get_session_id(ctx)
 
@@ -221,10 +253,10 @@ class AirlineDomainMcp(McpGym):
             description="Update the baggage information of a reservation.",
         )
         def update_reservation_baggages(
-            reservation_id: str,
-            total_baggages: int,
-            nonfree_baggages: int,
-            payment_id: str,
+            reservation_id: Annotated[str, Field(description="The reservation ID, such as 'ZFA04Y'")],
+            total_baggages: Annotated[int, Field(description="The updated total number of baggage items included in the reservation")],
+            nonfree_baggages: Annotated[int, Field(description="The updated number of non-free baggage items included in the reservation")],
+            payment_id: Annotated[str, Field(description="The payment id stored in user profile, such as 'credit_card_7815826', 'gift_card_7815826', 'certificate_7815826'")],
             ctx: Context,
         ) -> Dict[str, Any]:
             """Update reservation baggage information"""
@@ -248,10 +280,10 @@ class AirlineDomainMcp(McpGym):
             description="Update the flight information of a reservation.",
         )
         def update_reservation_flights(
-            reservation_id: str,
-            cabin: str,
-            flights: List[Dict[str, Any]],
-            payment_id: str,
+            reservation_id: Annotated[str, Field(description="The reservation ID, such as 'ZFA04Y'")],
+            cabin: Annotated[CabinClass, Field(description="The cabin class of the reservation")],
+            flights: Annotated[List[FlightInfo | dict], Field(description="An array of objects containing details about each piece of flight in the ENTIRE new reservation. Even if the a flight segment is not changed, it should still be included in the array")],
+            payment_id: Annotated[str, Field(description="The payment id stored in user profile, such as 'credit_card_7815826', 'gift_card_7815826', 'certificate_7815826'")],
             ctx: Context,
         ) -> Dict[str, Any]:
             """Update reservation flight information"""
@@ -275,7 +307,9 @@ class AirlineDomainMcp(McpGym):
             description="Update the passenger information of a reservation.",
         )
         def update_reservation_passengers(
-            reservation_id: str, passengers: List[Dict[str, Any]], ctx: Context
+            reservation_id: Annotated[str, Field(description="The reservation ID, such as 'ZFA04Y'")],
+            passengers: Annotated[List[Passenger | dict], Field(description="An array of objects containing details about each passenger")],
+            ctx: Context
         ) -> Dict[str, Any]:
             """Update reservation passenger information"""
             session_id = self._get_session_id(ctx)
@@ -292,7 +326,11 @@ class AirlineDomainMcp(McpGym):
             )
 
         @self.mcp.tool(name="get_flight_status", description="Get the status of a flight.")
-        def get_flight_status(flight_number: str, date: str, ctx: Context) -> Dict[str, Any]:
+        def get_flight_status(
+            flight_number: Annotated[str, Field(description="The flight number")],
+            date: Annotated[str, Field(description="The date of the flight")],
+            ctx: Context
+        ) -> Dict[str, Any]:
             """Get flight status"""
             session_id = self._get_session_id(ctx)
 
@@ -303,17 +341,6 @@ class AirlineDomainMcp(McpGym):
                     "parameters": {"flight_number": flight_number, "date": date},
                 },
             )
-
-    @staticmethod
-    def format_observation(obs: Any, env: Any) -> Dict[str, Any]:
-        """Return observation as JSON-serialisable dict.
-
-        For the airline domain the environment already returns dictionaries, so
-        we simply pass them through.  If another type slips through, wrap it.
-        """
-        if isinstance(obs, dict):
-            return obs
-        return {"observation": obs}
 
 
 class MockDomainMcp(McpGym):
@@ -405,17 +432,6 @@ class MockDomainMcp(McpGym):
             return self._execute_session_environment_step(
                 session_id, {"action": "transfer_to_human_agents", "parameters": {"summary": summary}}
             )
-
-    @staticmethod
-    def format_observation(obs: Any, env: Any) -> Dict[str, Any]:
-        """Return observation as JSON-serialisable dict.
-
-        For the mock domain the environment already returns dictionaries, so
-        we simply pass them through.  If another type slips through, wrap it.
-        """
-        if isinstance(obs, dict):
-            return obs
-        return {"observation": obs}
 
 
 class RetailDomainMcp(McpGym):
@@ -690,13 +706,3 @@ class RetailDomainMcp(McpGym):
                 session_id, {"action": "transfer_to_human_agents", "parameters": {"summary": summary}}
             )
 
-    @staticmethod
-    def format_observation(obs: Any, env: Any) -> Dict[str, Any]:
-        """Return observation as JSON-serialisable dict.
-
-        For the retail domain the environment already returns dictionaries, so
-        we simply pass them through.  If another type slips through, wrap it.
-        """
-        if isinstance(obs, dict):
-            return obs
-        return {"observation": obs}

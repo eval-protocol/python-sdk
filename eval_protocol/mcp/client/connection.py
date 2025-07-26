@@ -55,6 +55,10 @@ class MCPConnectionManager:
                 client_info._extra["seed"] = session.seed
             if session.dataset_row and session.dataset_row.environment_context:
                 client_info._extra["config"] = session.dataset_row.environment_context
+            if session.dataset_row and session.dataset_row.id:
+                client_info._extra["dataset_row_id"] = session.dataset_row.id
+            if session.model_id:
+                client_info._extra["model_id"] = session.model_id
 
         read_stream, write_stream, _ = await exit_stack.enter_async_context(
             streamablehttp_client(session.base_url, terminate_on_close=True)
@@ -76,10 +80,14 @@ class MCPConnectionManager:
 
                 seed_value = extra_data.get("seed")
                 config_value = extra_data.get("config", {})
+                dataset_row_id_value = extra_data.get("dataset_row_id")
+                model_id_value = extra_data.get("model_id")
 
                 stable_data = {
                     "seed": seed_value,
                     "config": config_value,
+                    "dataset_row_id": dataset_row_id_value,
+                    "model_id": model_id_value,
                     "name": client_info.name,
                     "version": client_info.version,
                 }
@@ -484,7 +492,8 @@ class MCPConnectionManager:
                 # Handle cancellation gracefully (especially important for Python 3.12)
                 logger.debug(f"Session {session.session_id} close was cancelled")
             except Exception as e:
-                logger.warning(f"Error closing session {session.session_id}: {e}")
+                # Hitting this error, probably because of use of threads: "Attempted to exit cancel scope in a different task than it was entered in"
+                logger.debug(f"Error closing session {session.session_id}: {e}")
             finally:
                 session._exit_stack = None
                 session._mcp_session = None

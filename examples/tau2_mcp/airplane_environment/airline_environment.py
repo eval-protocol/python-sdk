@@ -35,6 +35,10 @@ class AirlineEnvironment:
 
     def reset(self, seed: Optional[int] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Reset the environment to initial state"""
+        logger.info("🔄 Resetting airline environment - reloading database from disk")
+        self.db = FlightDB.load(AIRLINE_DB_PATH)
+        self.airline_tools = AirlineTools(self.db)
+        
         return {}, {}
 
     def step(self, action: Dict[str, Any]) -> Tuple[Dict[str, Any], float, bool, bool, Dict[str, Any]]:

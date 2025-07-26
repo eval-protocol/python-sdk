@@ -15,6 +15,7 @@ from .common_utils import load_jsonl
 from .mcp_env import (
     FireworksPolicy,
     OpenAIPolicy,
+    AnthropicPolicy,
     MCPVectorEnv,
     make,
     rollout,
@@ -42,6 +43,7 @@ __all__ = [
     # MCP Environment API
     "make",
     "rollout",
+    "AnthropicPolicy",
     "FireworksPolicy",
     "OpenAIPolicy",
     "MCPVectorEnv",
