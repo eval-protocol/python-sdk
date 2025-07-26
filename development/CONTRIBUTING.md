@@ -11,13 +11,13 @@ We are committed to fostering an open and welcoming environment. All contributor
 git clone https://github.com/fireworks-ai/reward-kit.git
 cd reward-kit
 
-# Set up environment
-python -m venv .venv
-source .venv/bin/activate
-.venv/bin/pip install -e ".[dev]"  # Includes development dependencies
+# Set up environment with uv
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv pip install -e ".[dev]"  # Includes development dependencies
 
 # Run tests
-.venv/bin/pytest
+uv run pytest
 
 # Type check and lint
 make pre-commit
@@ -34,20 +34,20 @@ git clone https://github.com/fireworks-ai/reward-kit.git
 cd reward-kit
 ```
 
-2. **Create and activate a virtual environment:**
+2. **Create and activate a virtual environment with uv:**
 
 ```bash
-python -m venv .venv
+uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
    **Important for LLMs and automated scripts:** After activating the virtual environment, always explicitly use executables from the `.venv/bin/` directory (e.g., `.venv/bin/pip`, `.venv/bin/pytest`, `.venv/bin/python`). This ensures commands run within the isolated environment, even if the shell's `PATH` isn't immediately updated or if context is lost between commands.
 
 3. **Install the package in development mode:**
 
-   Use `pip` from the virtual environment:
+   Use `uv pip` from the virtual environment:
 ```bash
-.venv/bin/pip install -e .            # Basic installation
-.venv/bin/pip install -e ".[dev]"     # With development dependencies
+uv pip install -e .            # Basic installation
+uv pip install -e ".[dev]"     # With development dependencies
 ```
 
 ### Authentication Setup for Development
@@ -270,9 +270,9 @@ To help enforce coding standards and catch issues early, we use pre-commit hooks
 **Installation and Setup:**
 
 1.  **Install pre-commit**:
-    If you installed development dependencies with `.venv/bin/pip install -e ".[dev]"`, `pre-commit` should already be installed. If not, you can install it via the virtual environment's pip:
+    If you installed development dependencies with `uv pip install -e ".[dev]"`, `pre-commit` should already be installed. If not, you can install it via uv:
     ```bash
-    .venv/bin/pip install pre-commit
+    uv pip install pre-commit
     ```
 
 2.  **Install the git hooks**:
@@ -298,19 +298,19 @@ By using pre-commit hooks, we can ensure a consistent code style and catch many 
 
 ### Running Tests
 
-   Ensure your virtual environment is activated (`source .venv/bin/activate`). Then run tests using `pytest` from the virtual environment:
+   Use uv to run tests with pytest:
 ```bash
 # Run all tests
-.venv/bin/pytest tests/
+uv run pytest tests/
 
 # Run specific test file
-.venv/bin/pytest tests/test_evaluation.py
+uv run pytest tests/test_evaluation.py
 
 # Run specific test function
-.venv/bin/pytest tests/test_file.py::test_function
+uv run pytest tests/test_file.py::test_function
 
 # Run with coverage report
-.venv/bin/pytest --cov=reward_kit
+uv run pytest --cov=reward_kit
 ```
 
 We can focus on tests/ and examples/ folder for now since there are a lot of other repos
@@ -346,16 +346,16 @@ class TestYourFunction(unittest.TestCase):
 
 ### Code Quality Tools
 
-   Ensure your virtual environment is activated (`source .venv/bin/activate`). Then run these tools from the virtual environment:
+   Use uv to run code quality tools:
 ```bash
 # Type checking
-.venv/bin/mypy reward_kit
+uv run mypy reward_kit
 
 # Linting
-.venv/bin/flake8 reward_kit
+uv run flake8 reward_kit
 
 # Format code
-.venv/bin/black reward_kit
+uv run black reward_kit
 ```
 
 ## Available Reward Functions
@@ -384,16 +384,14 @@ The examples folder contains sample code for using the Reward Kit:
 
 ```bash
 # Run evaluation preview example
-# Ensure venv is active: source .venv/bin/activate
 FIREWORKS_API_KEY=$DEV_FIREWORKS_API_KEY \
 FIREWORKS_API_BASE=https://dev.api.fireworks.ai \
-.venv/bin/python examples/evaluation_preview_example.py
+uv run python examples/evaluation_preview_example.py
 
 # Run deployment example
-# Ensure venv is active: source .venv/bin/activate
 FIREWORKS_API_KEY=$DEV_FIREWORKS_API_KEY \
 FIREWORKS_API_BASE=https://dev.api.fireworks.ai \
-.venv/bin/python examples/deploy_example.py
+uv run python examples/deploy_example.py
 ```
 
 
@@ -403,21 +401,16 @@ Several example scripts, particularly those involving local evaluations (`local_
 
 **How to Run:**
 
-1.  **Activate your virtual environment:**
-    ```bash
-    source .venv/bin/activate
-    ```
+1.  **Navigate to the repository root** if you aren't already there.
 
-2.  **Navigate to the repository root** if you aren't already there.
-
-3.  **Run the script directly using python:**
+2.  **Run the script directly using uv:**
     Hydra will automatically pick up the configuration from the `conf` subdirectory relative to the script's location.
     ```bash
     # Example for math_example local_eval.py
-    .venv/bin/python examples/math_example/local_eval.py
+    uv run python examples/math_example/local_eval.py
 
     # Example for math_example trl_grpo_integration.py
-    .venv/bin/python examples/math_example/trl_grpo_integration.py
+    uv run python examples/math_example/trl_grpo_integration.py
     ```
 
 **Configuration:**
@@ -431,20 +424,20 @@ You can easily override any configuration parameter from the command line:
 
 *   **Dataset Path:**
     ```bash
-    .venv/bin/python examples/math_example/local_eval.py dataset_file_path=path/to/your/specific_dataset.jsonl
+    uv run python examples/math_example/local_eval.py dataset_file_path=path/to/your/specific_dataset.jsonl
     ```
 *   **Model Name (for TRL scripts):**
     ```bash
-    .venv/bin/python examples/math_example/trl_grpo_integration.py model_name=mistralai/Mistral-7B-Instruct-v0.2
+    uv run python examples/math_example/trl_grpo_integration.py model_name=mistralai/Mistral-7B-Instruct-v0.2
     ```
 *   **GRPO Training Arguments (for TRL scripts):**
     Access nested parameters using dot notation.
     ```bash
-    .venv/bin/python examples/math_example/trl_grpo_integration.py grpo.learning_rate=5e-5 grpo.num_train_epochs=3
+    uv run python examples/math_example/trl_grpo_integration.py grpo.learning_rate=5e-5 grpo.num_train_epochs=3
     ```
 *   **Multiple Overrides:**
     ```bash
-    .venv/bin/python examples/tool_calling_example/trl_grpo_integration.py dataset_file_path=my_tools_data.jsonl model_name=google/gemma-7b grpo.per_device_train_batch_size=4
+    uv run python examples/tool_calling_example/trl_grpo_integration.py dataset_file_path=my_tools_data.jsonl model_name=google/gemma-7b grpo.per_device_train_batch_size=4
     ```
 
 **Output Directory:**
@@ -457,19 +450,19 @@ Refer to the specific `conf/*.yaml` file for each example to see all available c
 
 ## Command Line Interface
 
-Use the Reward Kit CLI for common operations during development. Ensure your virtual environment is activated (`source .venv/bin/activate`), then use the `reward-kit` command (which should be available from `.venv/bin/`):
+Use the Reward Kit CLI for common operations during development. Use uv to run the CLI commands:
 
 ```bash
 # Preview an evaluator
-.venv/bin/reward-kit preview --metrics-folders "word_count=./examples/metrics/word_count" \
+uv run reward-kit preview --metrics-folders "word_count=./examples/metrics/word_count" \
 --samples ./examples/samples/samples.jsonl
 
 # Deploy an evaluator
-.venv/bin/reward-kit deploy --id my-test-evaluator \
+uv run reward-kit deploy --id my-test-evaluator \
 --metrics-folders "word_count=./examples/metrics/word_count" --force
 
 # Deploy as local development server with tunnel (ideal for development/testing)
-.venv/bin/reward-kit deploy --id test-local-serve-eval --target local-serve \
+uv run reward-kit deploy --id test-local-serve-eval --target local-serve \
 --function-ref examples.row_wise.dummy_example.dummy_rewards.simple_echo_reward --verbose --force
 ```
 
@@ -478,7 +471,7 @@ Use the Reward Kit CLI for common operations during development. Ensure your vir
 For local development and testing, you can use the `--target local-serve` option to run a reward function server locally with external tunnel access:
 
 ```bash
-.venv/bin/reward-kit deploy --id test-local-serve-eval --target local-serve \
+uv run reward-kit deploy --id test-local-serve-eval --target local-serve \
 --function-ref examples.row_wise.dummy_example.dummy_rewards.simple_echo_reward --verbose --force
 ```
 
@@ -553,10 +546,10 @@ Or use the `--verbose` flag with CLI commands (from the venv):
 rm -rf dist/ build/ *.egg-info
 
 # Build the package
-python -m build
+uv build
 
 # Install locally from the built package
-pip install dist/reward_kit-*.whl
+uv pip install dist/reward_kit-*.whl
 ```
 
 ## Contributing Process
@@ -585,11 +578,10 @@ We welcome contributions to Reward Kit! Please follow these steps to contribute:
     *   Ensure all tests pass by running `.venv/bin/pytest` (after activating the virtual environment).
 
 6.  **Run Code Quality Checks**:
-    *   Ensure your virtual environment is activated (`source .venv/bin/activate`).
-    *   Format your code: `.venv/bin/black reward_kit tests`
-    *   Check linting: `.venv/bin/flake8 reward_kit tests`
-    *   Check types: `.venv/bin/mypy reward_kit`
-    *   Run pre-commit hooks (which should use the venv's tools if configured correctly): `pre-commit run --all-files`
+    *   Format your code: `uv run black reward_kit tests`
+    *   Check linting: `uv run flake8 reward_kit tests`
+    *   Check types: `uv run mypy reward_kit`
+    *   Run pre-commit hooks: `pre-commit run --all-files`
 
 7.  **Update Documentation**:
     *   If your changes affect user-facing features or APIs, update the relevant documentation in the `docs/` directory.
