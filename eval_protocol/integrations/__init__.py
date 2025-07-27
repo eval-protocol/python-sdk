@@ -1,4 +1,4 @@
-"""Integration helpers for Reward Kit."""
+"""Integration helpers for Eval Protocol."""
 
 from .braintrust import reward_fn_to_scorer, scorer_to_reward_fn
 from .openeval import adapt

@@ -1,5 +1,5 @@
 """
-Resources for the Reward Kit Agent V2 Framework.
+Resources for the Eval Protocol Agent V2 Framework.
 
 This package contains concrete implementations of the ForkableResource ABC.
 """

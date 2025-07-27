@@ -1,6 +1,6 @@
 # Remote Rollout Server API
 
-Reward Kit can collect reinforcement learning trajectories from an external HTTP service.
+Eval Protocol can collect reinforcement learning trajectories from an external HTTP service.
 The service exposes three simple endpoints used by `RemoteHttpRolloutClient`:
 
 ## `POST /start_episode`
@@ -30,7 +30,7 @@ Request body:
 ```
 Signals that the episode is complete.
 
-The Reward Kit pipeline is responsible for invoking an
+The Eval Protocol pipeline is responsible for invoking an
 OpenAI-compatible API between steps and feeding the resulting assistant messages
 back into the rollout. This illustrates how an environment can interact with an
 LLM at every step while keeping model calls in the pipeline.

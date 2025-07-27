@@ -15,7 +15,7 @@ def evaluate(
 ) -> EvaluateResult:
     """
     Pure evaluation function that compares actual vs expected filesystem state.
-    This function is designed to be easily used by the Reward Kit framework for multiple rollouts.
+    This function is designed to be easily used by the Eval Protocol framework for multiple rollouts.
 
     Args:
         messages: List of conversation messages from the rollout.

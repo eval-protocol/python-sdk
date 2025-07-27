@@ -1,5 +1,5 @@
 """
-Reward Kit Agent Evaluation Framework V2 Components.
+Eval Protocol Agent Evaluation Framework V2 Components.
 
 This package contains the core components for the new, resource-centric
 agent evaluation framework, including the ForkableResource ABC, Orchestrator,

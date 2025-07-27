@@ -123,7 +123,7 @@ This plan outlines the steps to refactor example scripts to use Hydra for datase
 
 ```mermaid
 graph TD
-    subgraph Core Reward Kit
+    subgraph Core Eval Protocol
         A[eval_protocol.datasets.loader.py] -- Defines --> B(Dataset Loading/Processing Functions);
     end
 

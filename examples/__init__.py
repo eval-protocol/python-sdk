@@ -1,1 +1,1 @@
-"""Examples package for Reward Kit."""
+"""Examples package for Eval Protocol."""

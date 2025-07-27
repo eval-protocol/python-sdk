@@ -1,4 +1,4 @@
-# Plan: Integrate Advanced Evaluation into Reward Kit CLI
+# Plan: Integrate Advanced Evaluation into Eval Protocol CLI
 
 **Objective:** Move the core logic from `examples/math_example/main.py` (dataset loading, system prompt handling, model response generation with caching & API client features, and evaluation orchestration) into the `eval-protocol` core library and expose it via an enhanced or new CLI command. The example `main.py` (and similar examples) should become minimal, primarily defining custom reward logic if necessary.
 
