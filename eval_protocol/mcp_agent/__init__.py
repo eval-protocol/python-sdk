@@ -1,1 +1,1 @@
-# Reward Kit MCP Agent Package
+# Eval Protocol MCP Agent Package

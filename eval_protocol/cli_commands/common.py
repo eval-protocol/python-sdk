@@ -1,5 +1,5 @@
 """
-Common utility functions for the Reward Kit CLI.
+Common utility functions for the Eval Protocol CLI.
 """
 
 import json

@@ -46,7 +46,7 @@ async def verify_api_key(request: Request):
 
 # --- FastAPI App ---
 app = FastAPI(
-    title="Reward Kit Generic Reward Function Server",
+    title="Eval Protocol Generic Reward Function Server",
     description="Serves a dynamically loaded reward function.",
     version="0.1.0",  # Or use eval_protocol.__version__
 )

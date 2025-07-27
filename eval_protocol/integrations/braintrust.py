@@ -1,4 +1,4 @@
-"""Adapters for integrating Reward Kit with Braintrust scoring functions."""
+"""Adapters for integrating Eval Protocol with Braintrust scoring functions."""
 
 from typing import Any, Callable, List, Optional
 
@@ -15,7 +15,7 @@ def scorer_to_reward_fn(
     messages_to_input: Optional[Callable[[List[Message]], Any]] = None,
     ground_truth_to_expected: Optional[Callable[[List[Message]], Any]] = None,
 ) -> Callable[[List[Message], Optional[List[Message]]], EvaluateResult]:
-    """Wrap a Braintrust scorer as a Reward Kit reward function."""
+    """Wrap a Braintrust scorer as an Eval Protocol reward function."""
 
     @reward_function
     def reward_fn(messages: List[Message], ground_truth: Optional[List[Message]] = None, **kwargs) -> EvaluateResult:
@@ -35,7 +35,7 @@ def scorer_to_reward_fn(
 def reward_fn_to_scorer(
     reward_fn: Callable[[List[Message], Optional[List[Message]]], EvaluateResult],
 ) -> BraintrustScorer:
-    """Create a Braintrust-compatible scorer from a Reward Kit reward function."""
+    """Create a Braintrust-compatible scorer from an Eval Protocol reward function."""
 
     def scorer(input_val: Any, output: Any, expected: Any) -> float:
         messages = [

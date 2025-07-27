@@ -1,6 +1,6 @@
-# Reward Protocol
+# Eval Protocol
 
-**Reward-Protocol: Author, reproduce, and evaluate reward functions seamlessly on Fireworks, TRL, and your own infrastructure.**
+**Eval Protocol: Author, reproduce, and evaluate reward functions seamlessly on Fireworks, TRL, and your own infrastructure.**
 
 ## Key Features
 
@@ -29,11 +29,11 @@ pip install "eval-protocol[trl]"
 
 ## Getting Started
 
-Reward Protocol simplifies the creation and deployment of reward functions for evaluating AI model outputs.
+Eval Protocol simplifies the creation and deployment of reward functions for evaluating AI model outputs.
 
 ### 1. Creating a Reward Function for Tool Calling
 
-Reward Protocol allows you to define custom logic to evaluate model responses. Here's an example of how you might use the built-in `exact_tool_match_reward` for evaluating tool/function calls. This reward function checks if the model's generated tool calls exactly match the expected ones.
+Eval Protocol allows you to define custom logic to evaluate model responses. Here's an example of how you might use the built-in `exact_tool_match_reward` for evaluating tool/function calls. This reward function checks if the model's generated tool calls exactly match the expected ones.
 
 ```python
 # This is a conceptual example of how exact_tool_match_reward is defined and used.
@@ -224,7 +224,7 @@ For more details on this command, Hydra configuration, and advanced usage, see t
 
 ### Fireworks Authentication Setup (Required for Preview/Deploy with Fireworks)
 
-To interact with the Fireworks AI platform for deploying and managing evaluations (including some preview scenarios that might use remote evaluators or if `eval-protocol run` uses a Fireworks-hosted model), Reward Protocol needs your Fireworks AI credentials. You can configure these in two ways:
+To interact with the Fireworks AI platform for deploying and managing evaluations (including some preview scenarios that might use remote evaluators or if `eval-protocol run` uses a Fireworks-hosted model), Eval Protocol needs your Fireworks AI credentials. You can configure these in two ways:
 
 **A. Environment Variables (Highest Priority)**
 
@@ -240,7 +240,7 @@ export FIREWORKS_ACCOUNT_ID="your_fireworks_account_id"
 
 **B. Configuration File (Lower Priority)**
 
-Alternatively, you can store your credentials in a configuration file located at `~/.fireworks/auth.ini`. If environment variables are not set, Reward Protocol will look for this file.
+Alternatively, you can store your credentials in a configuration file located at `~/.fireworks/auth.ini`. If environment variables are not set, Eval Protocol will look for this file.
 
 Create the file with the following format:
 
@@ -254,7 +254,7 @@ Replace `YOUR_FIREWORKS_API_KEY` and `YOUR_FIREWORKS_ACCOUNT_ID` with your actua
 
 **Credential Sourcing Order:**
 
-Reward Protocol will prioritize credentials in the following order:
+Eval Protocol will prioritize credentials in the following order:
 1.  Environment Variables (`FIREWORKS_API_KEY`, `FIREWORKS_ACCOUNT_ID`)
 2.  `~/.fireworks/auth.ini` configuration file
 
@@ -401,7 +401,7 @@ my_function.deploy(
 
 ## Dataset Integration
 
-Reward Protocol provides seamless integration with popular datasets through a simplified configuration system:
+Eval Protocol provides seamless integration with popular datasets through a simplified configuration system:
 
 ### Direct HuggingFace Integration
 
@@ -451,7 +451,7 @@ Check the `examples` directory for complete examples:
 - `apps_coding_example/`: Shows CLI-based evaluation (`eval-protocol run`) for code generation tasks (APPS dataset).
  - `apps_coding_example/`: Shows CLI-based evaluation (`eval-protocol run`) for code generation tasks (APPS dataset).
 
-The OpenEvals project provides a suite of evaluators that can be used directly within Reward Protocol. The helper `eval_protocol.integrations.openeval.adapt` converts any OpenEvals evaluator into a reward function returning an `EvaluateResult`.
+The OpenEvals project provides a suite of evaluators that can be used directly within Eval Protocol. The helper `eval_protocol.integrations.openeval.adapt` converts any OpenEvals evaluator into a reward function returning an `EvaluateResult`.
 
 ```python
 from openevals import exact_match
@@ -511,7 +511,7 @@ print(result.score)
 
 ## Command Line Interface
 
-Reward Protocol includes a CLI for common operations:
+Eval Protocol includes a CLI for common operations:
 
 ```bash
 # Show help
@@ -562,4 +562,4 @@ We are dedicated to providing a welcoming and inclusive experience for everyone.
 
 ## License
 
-Reward Protocol is released under the Apache License 2.0.
+Eval Protocol is released under the Apache License 2.0.

@@ -1,4 +1,4 @@
-# Reward Protocol Tests
+# Eval Protocol Tests
 
 This directory contains tests specifically for verifying the `eval_protocol` dual import functionality.
 

@@ -1,4 +1,4 @@
-# Democratizing RL Environments: Fireworks' Reward Protocol & MCP-Gym
+# Democratizing RL Environments: Fireworks' Eval Protocol & MCP-Gym
 
 ### The RL Environment Fragmentation Crisis
 
@@ -13,7 +13,7 @@ The LLM community's advances in open-sourcing models and SFT datasets stands in 
 
 ### Creating RL's Universal Adapter
 
-Fireworks is bridging this divide with **MCP-Gym** – implementing our open **Reward Protocol** to converge:
+Fireworks is bridging this divide with **MCP-Gym** – implementing our open **Eval Protocol** to converge:
 
 - Training Infrastructure
 - Production MCP Standards
@@ -25,9 +25,9 @@ Like PyTorch abstracted GPU programming, MCP-Gym creates universal compatibility
 2. Production systems (existing MCP toolchains)
 3. RL training stacks (Fireworks RFT + community tools)
 
-### Our Solution: Reward Protocol via MCP-Gym
+### Our Solution: Eval Protocol via MCP-Gym
 
-Fireworks introduces a universal abstraction layer for RL environments using **MCP-Gym** - an implementation of our open **Reward Protocol** that standardizes agent-environment interaction like PyTorch standardized GPU programming.
+Fireworks introduces a universal abstraction layer for RL environments using **MCP-Gym** - an implementation of our open **Eval Protocol** that standardizes agent-environment interaction like PyTorch standardized GPU programming.
 
 **How MCP-Gym Works:**
 

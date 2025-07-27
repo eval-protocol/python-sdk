@@ -1,6 +1,6 @@
-# Reward Kit Examples: Developer Workflow
+# Eval Protocol Examples: Developer Workflow
 
-This guide provides a concise developer workflow for understanding, running, and creating examples within the Reward Kit. For a comprehensive illustration of these principles, always refer to `examples/math_example/`.
+This guide provides a concise developer workflow for understanding, running, and creating examples within the Eval Protocol. For a comprehensive illustration of these principles, always refer to `examples/math_example/`.
 
 ## Core Workflow for an Example
 

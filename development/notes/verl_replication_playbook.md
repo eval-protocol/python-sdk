@@ -101,7 +101,7 @@ For each `verl` dataset/reward function pair to replicate:
 ### A. MATH-lighteval Example (Relatively Straightforward)
 
 *   **Verl Reference:** `DigitalLearningGmbH/MATH-lighteval` & `verl.utils.reward_score.math.compute_score`.
-*   **Reward Kit Target:**
+*   **Eval Protocol Target:**
     *   **Reward Function:** Use existing `eval_protocol.rewards.math.math_reward`. Verify its compatibility with `MATH-lighteval`'s answer format (often `\\boxed{}`).
     *   **Data Prep:** Use `examples/math_example/convert_dataset.py`.
         *   Source Config: `conf/dataset/math_lighteval_source.yaml` (maps `problem`->`query`, `solution`->`ground_truth`).
@@ -115,7 +115,7 @@ For each `verl` dataset/reward function pair to replicate:
 ### B. APPS Coding Example (More Complex)
 
 *   **Verl Reference:** `codeparrot/apps` & `verl.utils.reward_score.prime_code.compute_score`.
-*   **Reward Kit Target:**
+*   **Eval Protocol Target:**
     *   **Reward Function (New/Adapted):** `eval_protocol.rewards.prime_code_adapted_reward.evaluate_coding_solution`.
         *   Input `ground_truth_for_eval`: JSON string of test cases from APPS' `input_output` field.
         *   Logic: Parse test cases. Execute the assistant's code solution against these test cases. This requires a secure code execution environment (big feature - for initial pass, might mock or simplify this part, e.g., by checking for specific keywords or simple execution if possible, or deferring full execution).

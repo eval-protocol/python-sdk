@@ -16,7 +16,7 @@ def hi_bot_task(name: str) -> str:
 
 
 Eval(
-    "Reward Kit Braintrust Example",
+    "Eval Protocol Braintrust Example",
     data=lambda: [
         {"input": "Foo", "expected": "Hi Foo"},
         {"input": "Bar", "expected": "Hello Bar"},

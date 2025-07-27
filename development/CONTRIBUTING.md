@@ -1,6 +1,6 @@
-# Reward Kit Developer Guide
+# Eval Protocol Developer Guide
 
-This comprehensive guide is designed for developers who want to contribute to or modify the Reward Kit codebase. It covers all key aspects of development, from environment setup to testing and contributing new reward functions.
+This comprehensive guide is designed for developers who want to contribute to or modify the Eval Protocol codebase. It covers all key aspects of development, from environment setup to testing and contributing new reward functions.
 
 We are committed to fostering an open and welcoming environment. All contributors are expected to adhere to our [Code of Conduct](../../CODE_OF_CONDUCT.md).
 
@@ -52,11 +52,11 @@ uv pip install -e ".[dev]"     # With development dependencies
 
 ### Authentication Setup for Development
 
-For development and testing interactions with the Fireworks AI platform, you need to configure your Fireworks AI credentials. Reward Kit supports two methods:
+For development and testing interactions with the Fireworks AI platform, you need to configure your Fireworks AI credentials. Eval Protocol supports two methods:
 
 ### Local Development Configuration (.env.dev)
 
-For a streamlined local development experience, especially when managing multiple environment variables, Reward Kit utilizes a `.env.dev` file in the root of the project. This file is used to load environment variables automatically when running the application locally.
+For a streamlined local development experience, especially when managing multiple environment variables, Eval Protocol utilizes a `.env.dev` file in the root of the project. This file is used to load environment variables automatically when running the application locally.
 
 **Setup:**
 
@@ -84,7 +84,7 @@ This file simplifies managing development-specific settings without needing to e
 
 ### Authentication Setup for Development (Continued)
 
-For development and testing interactions with the Fireworks AI platform, you need to configure your Fireworks AI credentials. Reward Kit supports two methods:
+For development and testing interactions with the Fireworks AI platform, you need to configure your Fireworks AI credentials. Eval Protocol supports two methods:
 
 **A. Environment Variables (Highest Priority)**
 
@@ -106,7 +106,7 @@ export FIREWORKS_API_BASE="https://dev.api.fireworks.ai" # If targeting dev API
 
 **B. Configuration File (Lower Priority)**
 
-If environment variables are not set, Reward Kit will attempt to read credentials from `~/.fireworks/auth.ini`.
+If environment variables are not set, Eval Protocol will attempt to read credentials from `~/.fireworks/auth.ini`.
 
 Create or ensure the file `~/.fireworks/auth.ini` exists with the following format:
 ```ini
@@ -117,7 +117,7 @@ account_id = YOUR_FIREWORKS_ACCOUNT_ID
 Replace with your actual development credentials if using this method.
 
 **Credential Sourcing Order:**
-Reward Kit prioritizes credentials as follows:
+Eval Protocol prioritizes credentials as follows:
 1.  Environment Variables (`FIREWORKS_API_KEY`, `FIREWORKS_ACCOUNT_ID`)
 2.  `~/.fireworks/auth.ini` configuration file
 
@@ -451,7 +451,7 @@ Refer to the specific `conf/*.yaml` file for each example to see all available c
 ## Command Line Interface
 
 
-Use the Reward Kit CLI for common operations during development. Use uv to run the CLI commands:
+Use the Eval Protocol CLI for common operations during development. Use uv to run the CLI commands:
 
 ```bash
 # Preview an evaluator
