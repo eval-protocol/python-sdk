@@ -1,8 +1,8 @@
 """
-Utility functions for integrating reward-kit reward functions with TRL.
+Utility functions for integrating eval-protocol reward functions with TRL.
 
 This module provides helper functions for:
-1. Converting reward-kit reward functions to TRL-compatible format
+1. Converting eval-protocol reward functions to TRL-compatible format
 2. Combining multiple reward functions with weights
 3. Creating GRPO-specific format rewards
 """
@@ -12,12 +12,12 @@ import re
 import sys
 from typing import Any, Callable, Dict, List, Optional, Union
 
-# Ensure reward-kit is in the path
+# Ensure eval-protocol is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from eval_protocol.models import EvaluateResult, MetricResult
 
-# Import reward-kit components
+# Import eval-protocol components
 from eval_protocol.reward_function import RewardFunction, reward_function
 
 

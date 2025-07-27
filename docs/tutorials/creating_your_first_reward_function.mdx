@@ -270,7 +270,7 @@ Now let's use the Eval Protocol CLI to preview our evaluation with the sample da
 export FIREWORKS_API_KEY=your_api_key
 
 # Run the preview
-reward-kit preview \
+eval-protocol preview \
   --metrics-folders "relevance=./metrics/relevance" \
   --samples ./samples.jsonl
 ```
@@ -283,7 +283,7 @@ Once you're satisfied with your reward function, deploy it to make it available 
 
 ```bash
 # Deploy using the CLI
-reward-kit deploy \
+eval-protocol deploy \
   --id relevance-evaluator \
   --metrics-folders "relevance=./metrics/relevance" \
   --display-name "Response Relevance Evaluator" \

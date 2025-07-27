@@ -1,4 +1,4 @@
-# Default Hydra configuration for the 'reward-kit run' command.
+# Default Hydra configuration for the 'eval-protocol run' command.
 # Users can override these settings via command line or by providing their own config file.
 
 defaults:
@@ -17,7 +17,7 @@ defaults:
 # --- Main Configuration for the Evaluation Pipeline ---
 
 # Dataset configuration will be resolved by Hydra from the `dataset` group.
-# Example: `reward-kit run dataset=my_dataset_config`
+# Example: `eval-protocol run dataset=my_dataset_config`
 # where `my_dataset_config.yaml` is in `conf/dataset/`
 dataset: ${dataset} # Refer to the dataset group chosen from defaults or CLI
 

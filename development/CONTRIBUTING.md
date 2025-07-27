@@ -455,15 +455,15 @@ Use the Eval Protocol CLI for common operations during development. Use uv to ru
 
 ```bash
 # Preview an evaluator
-uv run reward-kit preview --metrics-folders "word_count=./examples/metrics/word_count" \
+uv run eval-protocol preview --metrics-folders "word_count=./examples/metrics/word_count" \
 --samples ./examples/samples/samples.jsonl
 
 # Deploy an evaluator
-uv run reward-kit deploy --id my-test-evaluator \
+uv run eval-protocol deploy --id my-test-evaluator \
 --metrics-folders "word_count=./examples/metrics/word_count" --force
 
 # Deploy as local development server with tunnel (ideal for development/testing)
-uv run reward-kit deploy --id test-local-serve-eval --target local-serve \
+uv run eval-protocol deploy --id test-local-serve-eval --target local-serve \
 --function-ref examples.row_wise.dummy_example.dummy_rewards.simple_echo_reward --verbose --force
 ```
 

@@ -15,14 +15,14 @@ A sample `dataset.jsonl` is provided in the example directory. For tool calling 
 
 ## Setup
 
-1.  **Environment**: Ensure your Python environment has `reward-kit` and its development dependencies installed:
+1.  **Environment**: Ensure your Python environment has `eval-protocol` and its development dependencies installed:
     ```bash
     # From the root of the repository
     pip install -e ".[dev]"
     ```
 2.  **TRL Extras (for `trl_grpo_integration.py`)**:
     ```bash
-    pip install "reward-kit[trl]"
+    pip install "eval-protocol[trl]"
     ```
 3.  **API Keys**: If using models that require API keys (e.g., Fireworks AI models for `local_eval.py` if not using a local model, or for downloading a base model for TRL), ensure necessary keys like `FIREWORKS_API_KEY` are set.
 

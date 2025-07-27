@@ -11,7 +11,7 @@ import yaml
 from datasets import load_from_disk
 
 # Add the root directory and verifiers directory to the Python path
-sys.path.append("/home/bchen/home/reward-kit")
+sys.path.append("/home/bchen/home/eval-protocol")
 sys.path.append("references/verifiers")
 
 # Import BFCLSimAPIResource

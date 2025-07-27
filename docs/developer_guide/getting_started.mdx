@@ -34,7 +34,7 @@ It is a tool calling dataset, with messages and tools field. Let's update the ev
 To get started with Eval Protocol, install it via pip:
 
 ```bash
-pip install reward-kit
+pip install eval-protocol
 ```
 
 For development, including running all examples and contributing to the codebase, install it in editable mode with development dependencies:
@@ -136,9 +136,9 @@ print(f"Score: {result.score}")
 print(f"Explanation: {result.metrics['word_count'].reason}")
 ```
 
-### Local Evaluation with `reward-kit run` (Recommended for datasets/examples)
+### Local Evaluation with `eval-protocol run` (Recommended for datasets/examples)
 
-For evaluating datasets or running complete examples, the primary method is the `reward-kit run` CLI command. This uses [Hydra for configuration](./hydra_configuration.mdx), allowing you to define your dataset, model, and reward logic in YAML files.
+For evaluating datasets or running complete examples, the primary method is the `eval-protocol run` CLI command. This uses [Hydra for configuration](./hydra_configuration.mdx), allowing you to define your dataset, model, and reward logic in YAML files.
 
 1.  **Explore Examples**: Check out the examples in the `examples/` directory at the root of the repository. The [main Examples README](../../../examples/README.md) provides an overview and guidance on their structure. Each example (e.g., `examples/math_example/`) has its own README explaining how to run it.
 
@@ -151,13 +151,13 @@ For evaluating datasets or running complete examples, the primary method is the 
     ```
     This command processes the dataset, generates model responses, applies reward functions, and saves detailed results.
 
-### Previewing Evaluation Outputs with `reward-kit preview`
+### Previewing Evaluation Outputs with `eval-protocol preview`
 
-After running an evaluation with `reward-kit run`, a `preview_input_output_pairs.jsonl` file is typically generated in the output directory. You can use `reward-kit preview` to inspect these pairs or re-evaluate them with different metrics:
+After running an evaluation with `eval-protocol run`, a `preview_input_output_pairs.jsonl` file is typically generated in the output directory. You can use `eval-protocol preview` to inspect these pairs or re-evaluate them with different metrics:
 
 ```bash
 # Preview outputs from a previous run
-reward-kit preview \
+eval-protocol preview \
   --samples ./outputs/YYYY-MM-DD/HH-MM-SS/preview_input_output_pairs.jsonl \
   --metrics-folders "your_metric_name=./path/to/your_metric_script"
 ```
@@ -180,7 +180,7 @@ print(f"Deployed with ID: {evaluator_id}")
 Or using the CLI:
 
 ```bash
-reward-kit deploy --id word-count-evaluator --metrics-folders "word_count=./path/to/metric" --force
+eval-protocol deploy --id word-count-evaluator --metrics-folders "word_count=./path/to/metric" --force
 ```
 
 ## Next Steps

@@ -14,8 +14,8 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def clean_environment():
-    """Clean up reward-kit environment variables before and after each test."""
-    # Environment variables that might affect reward-kit behavior
+    """Clean up eval-protocol environment variables before and after each test."""
+    # Environment variables that might affect eval-protocol behavior
     env_vars_to_clean = ["EP_PLAYBACK_FILE", "EP_FORCE_RECORD", "PORT"]
 
     # Store original values

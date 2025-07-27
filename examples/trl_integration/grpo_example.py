@@ -1,8 +1,8 @@
 """
-Example demonstrating how to use reward-kit reward functions with TRL's GRPO trainer.
+Example demonstrating how to use eval-protocol reward functions with TRL's GRPO trainer.
 
 This example shows how to:
-1. Define reward functions in reward-kit
+1. Define reward functions in eval-protocol
 2. Convert them to TRL-compatible format
 3. Use them with the GRPO trainer
 """
@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 import torch
 
-# Ensure reward-kit is in the path
+# Ensure eval-protocol is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from eval_protocol.integrations.trl import (  # Import the new generic TRL adapter
@@ -23,7 +23,7 @@ from eval_protocol.integrations.trl import (  # Import the new generic TRL adapt
 )
 from eval_protocol.models import EvaluateResult, MetricResult
 
-# Import reward-kit components
+# Import eval-protocol components
 from eval_protocol.reward_function import (  # RewardFunction class no longer needed for this example's core logic
     reward_function,
 )
@@ -42,11 +42,11 @@ try:
 
     HAS_TRL = True
 except ImportError:
-    print("TRL or related packages not installed. Install with: pip install 'reward-kit[trl]' math_verify")
+    print("TRL or related packages not installed. Install with: pip install 'eval-protocol[trl]' math_verify")
     HAS_TRL = False
 
 
-# Define reward functions compatible with reward-kit
+# Define reward functions compatible with eval-protocol
 @reward_function
 def format_reward(
     messages: List[Dict[str, Any]],
@@ -279,7 +279,7 @@ def prepare_dataset_for_trl(
         Dataset in TRL-compatible format
     """
     if not HAS_TRL:
-        print("TRL or related packages not installed. Install with: pip install 'reward-kit[trl]'")
+        print("TRL or related packages not installed. Install with: pip install 'eval-protocol[trl]'")
         return None
 
     # Load dataset
@@ -343,13 +343,13 @@ def prepare_dataset_for_trl(
 
 def train_with_grpo_example():
     """
-    Example of training with GRPO using reward-kit reward functions.
+    Example of training with GRPO using eval-protocol reward functions.
     """
     if not HAS_TRL:
-        print("TRL or related packages not installed. Install with: pip install 'reward-kit[trl]'")
+        print("TRL or related packages not installed. Install with: pip install 'eval-protocol[trl]'")
         return
 
-    print("Setting up GRPO training with reward-kit reward functions...")
+    print("Setting up GRPO training with eval-protocol reward functions...")
 
     # 1. Define reward function configurations (no RewardFunction class needed here)
     # format_reward is defined locally. rk_math_reward is imported.
@@ -466,7 +466,7 @@ def train_with_grpo_example():
         print("Training complete!")
 
     print("\nExample completed successfully. In a real scenario, the training would now run.")
-    print("This example shows how reward-kit reward functions can be adapted for TRL's GRPO trainer.")
+    print("This example shows how eval-protocol reward functions can be adapted for TRL's GRPO trainer.")
 
     # Print dataset sample to show the format
     print("\nDataset format example (first sample):")

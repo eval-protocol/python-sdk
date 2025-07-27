@@ -13,7 +13,7 @@ import sys
 import unittest
 from typing import Any, Dict, List, Optional
 
-# Ensure reward-kit is in the path
+# Ensure eval-protocol is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 # Import TRL adapter utilities
@@ -25,7 +25,7 @@ from examples.trl_integration.trl_adapter import (  # Changed to absolute import
 )
 from eval_protocol.models import EvaluateResult, MetricResult
 
-# Import reward-kit components
+# Import eval-protocol components
 from eval_protocol.reward_function import RewardFunction, reward_function
 from eval_protocol.rewards.length import length_reward
 
