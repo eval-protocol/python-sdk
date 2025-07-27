@@ -1,5 +1,5 @@
 """
-Command-line interface for reward-kit.
+Command-line interface for Eval Protocol.
 """
 
 import argparse
@@ -82,7 +82,7 @@ def parse_args(args=None):
     )
     hf_group.add_argument(
         "--huggingface-key-map",
-        help="JSON mapping of dataset keys to reward-kit message keys",
+        help="JSON mapping of dataset keys to Eval Protocol message keys",
     )
     preview_parser.add_argument(
         "--remote-url",
@@ -135,7 +135,7 @@ def parse_args(args=None):
     )
     hf_deploy_group.add_argument(
         "--huggingface-key-map",
-        help="JSON mapping of dataset keys to reward-kit message keys",
+        help="JSON mapping of dataset keys to Eval Protocol message keys",
     )
     deploy_parser.add_argument(
         "--remote-url",
@@ -229,7 +229,7 @@ def parse_args(args=None):
     )
     deploy_mcp_parser.add_argument(
         "--gcp-ar-repo",
-        help="Google Artifact Registry repository name. Defaults to 'reward-kit-mcp-servers'",
+        help="Google Artifact Registry repository name. Defaults to 'eval-protocol-mcp-servers'",
     )
     deploy_mcp_parser.add_argument(
         "--port",
@@ -399,7 +399,7 @@ def main():
             if "Cannot find primary config" in error_msg:
                 logger.error("HINT: Configuration file not found.")
                 logger.error("SOLUTION: Ensure you have a config file in ./conf/ directory")
-                logger.error("Try: reward-kit run --config-name simple_uipath_eval")
+                logger.error("Try: eval-protocol run --config-name simple_uipath_eval")
             elif "missing from config" in error_msg or "MissingMandatoryValue" in error_msg:
                 logger.error("HINT: Required configuration values are missing.")
                 logger.error("SOLUTION: Check your config file for missing required fields")
@@ -408,11 +408,11 @@ def main():
                 logger.error("SOLUTION: Create a ./conf directory with your config files")
             elif "ValidationError" in error_msg:
                 logger.error("HINT: Configuration validation failed.")
-                logger.error("SOLUTION: Run 'reward-kit validate-data --file your_data.jsonl' to check data")
+                logger.error("SOLUTION: Run 'eval-protocol validate-data --file your_data.jsonl' to check data")
 
             logger.error("\nQuick fix suggestions:")
-            logger.error("1. Use the simplified setup: reward-kit run --config-name simple_uipath_eval")
-            logger.error("2. Validate your data first: reward-kit validate-data --file data.jsonl --schema agent")
+            logger.error("1. Use the simplified setup: eval-protocol run --config-name simple_uipath_eval")
+            logger.error("2. Validate your data first: eval-protocol validate-data --file data.jsonl --schema agent")
             logger.error("3. Ensure you have: ./conf/simple_uipath_eval.yaml and ./uipath_reward.py")
             return 1
     else:

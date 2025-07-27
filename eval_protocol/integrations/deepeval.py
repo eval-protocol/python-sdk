@@ -30,7 +30,7 @@ def _metric_name(metric: Any) -> str:
 
 
 def adapt_metric(metric: Any):
-    """Adapt a deepeval metric object into a reward-kit reward function."""
+    """Adapt a deepeval metric object into an Eval Protocol reward function."""
 
     @reward_function
     def wrapped(

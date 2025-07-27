@@ -34,14 +34,14 @@ def huggingface_dataset_to_jsonl(
     prompt_key: str = "prompt",
 ) -> str:
     """
-    Converts a HuggingFace dataset to JSONL format suitable for reward-kit evaluation.
+    Converts a HuggingFace dataset to JSONL format suitable for Eval Protocol evaluation.
 
     Args:
         dataset_name: The name of the HuggingFace dataset (e.g., "deepseek-ai/DeepSeek-ProverBench")
         split: The dataset split to use (default: "train")
         output_file: Optional file path to save the JSONL output (if None, generates a temp file)
         max_samples: Maximum number of samples to include
-        message_key_map: Optional mapping of dataset keys to reward-kit message keys
+        message_key_map: Optional mapping of dataset keys to Eval Protocol message keys
         response_key: Key in the dataset containing the response text (default: "response")
         prompt_key: Key in the dataset containing the prompt text (default: "prompt")
 
@@ -53,7 +53,7 @@ def huggingface_dataset_to_jsonl(
     except ImportError:
         raise ImportError(
             "The 'datasets' package is required to use this function. "
-            "Please install it with 'pip install \"reward-kit[deepseek]\"'"
+            "Please install it with 'pip install \"eval-protocol[deepseek]\"'"
         )
 
     import tempfile
