@@ -152,7 +152,7 @@ class MCPConnectionManager:
             import httpx
 
             # Extract base URL and session ID from the MCP session
-            base_url = session.base_url.rstrip("/mcp").rstrip("/")
+            base_url = session.base_url.rstrip("/").removesuffix("/mcp")
             session_id = session.session_id
 
             if session_id:
@@ -409,7 +409,7 @@ class MCPConnectionManager:
             import httpx
 
             # Extract base URL and session ID from the MCP session
-            base_url = session.base_url.rstrip("/mcp").rstrip("/")
+            base_url = session.base_url.rstrip("/").removesuffix("/mcp")
             # Use the session ID from the established MCP session
             session_id = session.session_id
 
