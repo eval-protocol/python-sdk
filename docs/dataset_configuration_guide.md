@@ -1,6 +1,6 @@
 # Dataset Configuration Guide
 
-This guide explains the structure and fields used in YAML configuration files for datasets within the Reward Kit. These configurations are typically located in `conf/dataset/` or within an example's `conf/dataset/` directory (e.g., `examples/math_example/conf/dataset/`). They are processed by `eval_protocol.datasets.loader.py` using Hydra.
+This guide explains the structure and fields used in YAML configuration files for datasets within Eval Protocol. These configurations are typically located in `conf/dataset/` or within an example's `conf/dataset/` directory (e.g., `examples/math_example/conf/dataset/`). They are processed by `eval_protocol.datasets.loader.py` using Hydra.
 
 There are two main types of dataset configurations: **Base Datasets** and **Derived Datasets**.
 
@@ -136,4 +136,4 @@ The `eval_protocol.datasets.loader.py` script uses Hydra to:
 2.  Instantiate the appropriate loader function (`load_and_process_dataset` or `load_derived_dataset`) with the parameters defined in the YAML.
 3.  The loader functions then use these parameters to fetch data (e.g., from Hugging Face or local files), apply mappings, execute preprocessing steps, and format the data as requested.
 
-This structured configuration approach allows for flexible and reproducible dataset management within the Reward Kit.
+This structured configuration approach allows for flexible and reproducible dataset management within Eval Protocol.

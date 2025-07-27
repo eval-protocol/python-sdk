@@ -46,7 +46,7 @@ def sample_reward_function(
 
 
 class TestIntegration:
-    """Integration tests for reward-kit components."""
+    """Integration tests for Eval Protocol components."""
 
     def test_reward_function_to_server(self):
         """Test flow from reward function to server."""

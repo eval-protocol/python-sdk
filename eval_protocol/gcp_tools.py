@@ -469,7 +469,7 @@ if __name__ == "__main__":
     ensure_artifact_registry_repo_exists(
         project_id="my-test-project",
         region="us-central1",
-        repo_name="reward-kit-evaluators",
+        repo_name="eval-protocol-evaluators",
         dry_run=True,
     )
 

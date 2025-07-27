@@ -12,7 +12,7 @@ gcp_cloud_run:
   region: "us-central1"
 
   # Optional: Default Artifact Registry repository name.
-  # If not set, 'reward-kit deploy' will use "reward-kit-evaluators".
+  # If not set, 'eval-protocol deploy' will use "eval-protocol-evaluators".
   # artifact_registry_repository: "my-custom-ar-repo"
 
   # Optional: Default authentication mode for services deployed to GCP Cloud Run.

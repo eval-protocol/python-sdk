@@ -14,7 +14,7 @@ def demo_import_equivalence():
     This shows what users can expect when the package is installed.
     """
 
-    print("=== Reward Kit/Protocol Dual Import Demo ===")
+    print("=== Eval Protocol Dual Import Demo ===")
     print()
     print("After installing the package, users can use either import style:")
     print()

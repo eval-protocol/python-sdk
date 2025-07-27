@@ -182,7 +182,7 @@ def parse_args(args=None):
     gcp_group.add_argument(
         "--gcp-ar-repo",
         required=False,
-        help="Google Artifact Registry repository name. Optional, defaults to value in rewardkit.yaml or 'reward-kit-evaluators' if not specified.",
+        help="Google Artifact Registry repository name. Optional, defaults to value in rewardkit.yaml or 'eval-protocol-evaluators' if not specified.",
     )
     gcp_group.add_argument(
         "--service-account",

@@ -142,7 +142,6 @@ def test_console_scripts():
         # Check for all three console scripts
         expected_scripts = [
             "fireworks-reward=eval_protocol.cli:main",
-            "reward-kit=eval_protocol.cli:main",
             "eval-protocol=eval_protocol.cli:main",
         ]
 
@@ -175,11 +174,11 @@ def test_package_metadata():
             print("✗ Package discovery configuration incorrect")
             return False
 
-        # Check that the package name is still reward-kit
-        if 'name="reward-kit"' in setup_content:
-            print("✓ Package name remains 'reward-kit'")
+        # Check that the package name is eval-protocol
+        if 'name="eval-protocol"' in setup_content:
+            print("✓ Package name set to 'eval-protocol'")
         else:
-            print("✗ Package name changed incorrectly")
+            print("✗ Package name missing or incorrect")
             return False
 
         return True
@@ -210,8 +209,7 @@ def demonstrate_usage():
     print()
 
     print("Command-line usage:")
-    print("reward-kit --help          # Original")
-    print("eval-protocol --help       # New")
+    print("eval-protocol --help       # Primary")
     print("fireworks-reward --help    # Alternative")
     print()
 

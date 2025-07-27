@@ -83,8 +83,8 @@ It's recommended to run the deployment command from the directory containing the
 
 ## Expected Outcome
 
-If successful, `reward-kit` will:
-1.  Create an Artifact Registry repository (default: `reward-kit-evaluators`, or as specified in `rewardkit.yaml`).
+If successful, `eval-protocol` will:
+1.  Create an Artifact Registry repository (default: `eval-protocol-evaluators`, or as specified in `rewardkit.yaml`).
 2.  Build a Docker container with your reward function and push it to Artifact Registry.
 3.  If `api-key` auth is used, create a GCP Secret to store the generated API key.
 4.  Deploy the container to Cloud Run, configured for the chosen authentication mode.
