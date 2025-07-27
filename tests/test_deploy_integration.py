@@ -202,7 +202,7 @@ def test_deploy_gcp_with_inline_requirements(
         mock_ensure_ar.assert_called_once_with(
             project_id=args.gcp_project,
             region=args.gcp_region,
-            repo_name="reward-kit-evaluators",  # Default repo name
+            repo_name="eval-protocol-evaluators",  # Default repo name
         )
         mock_build_push.assert_called_once()
         mock_deploy_cr.assert_called_once()

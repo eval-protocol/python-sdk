@@ -1,6 +1,6 @@
 # TRL Integration Examples
 
-This directory contains examples showing how to use reward-kit reward functions with Hugging Face's Transformer Reinforcement Learning (TRL) library.
+This directory contains examples showing how to use Eval Protocol reward functions with Hugging Face's Transformer Reinforcement Learning (TRL) library.
 
 ## Overview
 
@@ -11,14 +11,14 @@ TRL is a library designed for fine-tuning language models using reinforcement le
 - DPO (Direct Preference Optimization)
 - ORPO (Optimal RLHF Policy Optimization)
 
-These examples demonstrate how to integrate reward-kit's reward functions with TRL for model fine-tuning. This document serves as the primary guide for the scripts found in the `examples/trl_integration/` directory.
+These examples demonstrate how to integrate Eval Protocol's reward functions with TRL for model fine-tuning. This document serves as the primary guide for the scripts found in the `examples/trl_integration/` directory.
 
 ## Example Scripts in `examples/trl_integration/`
 
 The `examples/trl_integration/` directory contains several Python scripts:
 
 *   **`grpo_example.py`**: Demonstrates using reward functions with the Group Relative Policy Optimization (GRPO) trainer from TRL. This is a key example showing:
-    *   Creating reward functions compatible with reward-kit.
+    *   Creating reward functions compatible with Eval Protocol.
     *   Converting them to the TRL-compatible format.
     *   Combining multiple reward functions.
     *   Dataset preparation for TRL.
@@ -37,7 +37,7 @@ Most examples are run directly as Python scripts. Ensure your virtual environmen
 **1. GRPO Example (`grpo_example.py`)**
 This example demonstrates using reward functions with the Group Relative Policy Optimization (GRPO) trainer from TRL. It shows:
 
-- Creating format and accuracy reward functions compatible with reward-kit
+- Creating format and accuracy reward functions compatible with Eval Protocol
 - Converting these reward functions to TRL-compatible format
 - Combining multiple reward functions with weights
 - Preparing a dataset in the format expected by TRL
@@ -64,7 +64,7 @@ python examples/trl_integration/minimal_deepcoder_grpo_example.py
 To run these examples you'll need the optional TRL dependencies:
 
 ```bash
-pip install "reward-kit[trl]"
+pip install "eval-protocol[trl]"
 ```
 
 For the GRPO example, you might also need:
@@ -97,9 +97,9 @@ For fine-tuning models like DeepSeek-R1, multiple reward functions are typically
 
 The examples demonstrate proper weighting and normalization techniques.
 
-## Integration with reward-kit's RewardFunction Class
+## Integration with Eval Protocol's RewardFunction Class
 
-reward-kit's RewardFunction class includes a `get_trl_adapter()` method that converts any reward function into the format expected by TRL. This makes it easy to use existing reward functions from reward-kit with TRL trainers.
+Eval Protocol's RewardFunction class includes a `get_trl_adapter()` method that converts any reward function into the format expected by TRL. This makes it easy to use existing reward functions from Eval Protocol with TRL trainers.
 
 ## References
 

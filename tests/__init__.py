@@ -1,1 +1,1 @@
-"""Tests for the reward-kit package."""
+"""Tests for the eval-protocol package."""

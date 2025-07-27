@@ -1,6 +1,6 @@
 # N-Variant Generation to Batch Evaluation Guide
 
-This guide explains how to use N-variant generation with batch reward functions in Reward Kit.
+This guide explains how to use N-variant generation with batch reward functions in Eval Protocol.
 
 ## Overview
 

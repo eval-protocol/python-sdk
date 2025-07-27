@@ -16,7 +16,7 @@ import pytest
 
 def test_cli_help():
     """Test that the CLI help message works."""
-    result = subprocess.run(["reward-kit", "--help"], capture_output=True, text=True, check=False)
+    result = subprocess.run(["eval-protocol", "--help"], capture_output=True, text=True, check=False)
 
     # Check that the command ran successfully
     assert result.returncode == 0
@@ -28,7 +28,7 @@ def test_cli_help():
 def test_cli_agent_eval_help():
     """Test that the agent-eval help message works."""
     result = subprocess.run(
-        ["reward-kit", "agent-eval", "--help"],
+        ["eval-protocol", "agent-eval", "--help"],
         capture_output=True,
         text=True,
         check=False,

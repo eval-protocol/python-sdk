@@ -1,6 +1,6 @@
 # Integrating with Braintrust
 
-This guide explains how to bridge Reward Kit with [Braintrust](https://braintrust.dev/). You can log Reward Kit evaluations to Braintrust or reuse Braintrust scorers as Reward Kit reward functions.
+This guide explains how to bridge Eval Protocol with [Braintrust](https://braintrust.dev/). You can log Eval Protocol evaluations to Braintrust or reuse Braintrust scorers as Eval Protocol reward functions.
 
 ## Installation
 
@@ -10,9 +10,9 @@ Install the Braintrust SDK in your environment:
 pip install braintrust
 ```
 
-## Using a Braintrust scorer in Reward Kit
+## Using a Braintrust scorer in Eval Protocol
 
-Convert a Braintrust-style scorer to a Reward Kit reward function using `scorer_to_reward_fn`:
+Convert a Braintrust-style scorer to an Eval Protocol reward function using `scorer_to_reward_fn`:
 
 ```python
 from braintrust import Eval
@@ -30,7 +30,7 @@ def hi_bot_task(name: str) -> str:
 
 
 Eval(
-    "Reward Kit Braintrust Example",
+    "Eval Protocol Braintrust Example",
     data=lambda: [
         {"input": "Foo", "expected": "Hi Foo"},
         {"input": "Bar", "expected": "Hello Bar"},

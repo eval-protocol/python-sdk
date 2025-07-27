@@ -102,7 +102,6 @@ def test_setup_py_structure():
         # Check for console scripts
         console_scripts = [
             "fireworks-reward=eval_protocol.cli:main",
-            "reward-kit=eval_protocol.cli:main",
             "eval-protocol=eval_protocol.cli:main",
         ]
 

@@ -1,5 +1,5 @@
 """
-Pytest configuration file for reward-kit tests.
+Pytest configuration file for Eval Protocol tests.
 """
 
 import sys
