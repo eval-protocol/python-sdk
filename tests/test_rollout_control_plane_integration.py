@@ -493,7 +493,7 @@ class TestRolloutControlPlaneIntegration:
             mock_make.return_value = mock_env
 
             manager_instance = MockManager.return_value
-            manager_instance.execute_rollouts.return_value = ["ok"]
+            manager_instance.execute_rollouts = AsyncMock(return_value=["ok"])
 
             result = await ep.rollout(
                 "http://localhost:1234/mcp/",
