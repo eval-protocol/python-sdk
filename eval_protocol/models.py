@@ -104,6 +104,7 @@ class EvaluateResult(BaseModel):
         error (Optional[str]): Optional error message if evaluation failed.
         trajectory_info (Optional[Dict[str, Any]]): Additional trajectory-level information.
         final_control_plane_info (Optional[Dict[str, Any]]): The final control plane state that led to termination.
+        ground_truth (Optional[str]): Optional ground truth reference for this evaluation.
     """
 
     score: float = Field(..., description="The overall evaluation score, typically between 0.0 and 1.0.")
@@ -132,7 +133,13 @@ class EvaluateResult(BaseModel):
     )
 
     final_control_plane_info: Optional[Dict[str, Any]] = Field(
-        default=None, description="The final control plane state that led to termination."
+        default=None,
+        description="The final control plane state that led to termination."
+    )
+
+    ground_truth: Optional[str] = Field(
+        default=None,
+        description="Optional ground truth reference for this evaluation."
     )
 
     def __getitem__(self, key: str) -> Any:

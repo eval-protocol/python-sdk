@@ -26,6 +26,7 @@ The `eval_protocol.models.EvaluateResult` model serves as the universal evaluati
 **Key Enhancements:**
 - `trajectory_info`: Additional trajectory-level information (duration, steps, termination_reason, etc.)
 - `final_control_plane_info`: The final control plane state that led to termination
+- `ground_truth`: Optional reference string with the expected answer
 - Enhanced `StepOutput` with `terminated` and `control_plane_info` fields
 
 #### 3.2. New `EvaluationRow` Model
@@ -221,6 +222,7 @@ class EvaluateResult(BaseModel):
     # NEW: Unified trajectory and row-wise support
     trajectory_info: Optional[Dict[str, Any]] = None
     final_control_plane_info: Optional[Dict[str, Any]] = None
+    ground_truth: Optional[str] = None
 ```
 
 ### 6. JSON Schema for `EvaluationRow`

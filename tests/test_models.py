@@ -207,6 +207,7 @@ def test_evaluate_result_dict_access():
         "step_outputs",
         "trajectory_info",
         "final_control_plane_info",
+        "ground_truth",
     }
 
     # values() - check presence due to potential order variation of model_fields
@@ -229,6 +230,7 @@ def test_evaluate_result_dict_access():
             ("step_outputs", None),
             ("trajectory_info", None),
             ("final_control_plane_info", None),
+            ("ground_truth", None),
         ]
     )
     # result.items() returns a list of tuples, so convert to list then sort.
@@ -247,6 +249,7 @@ def test_evaluate_result_dict_access():
         "step_outputs",
         "trajectory_info",
         "final_control_plane_info",
+        "ground_truth",
     }
 
 
