@@ -45,7 +45,7 @@ def demo_console_scripts():
     print("After installation, users will have access to three console scripts:")
     print()
     print("1. fireworks-reward --help")
-    print("2. reward-kit --help")
+    print("2. eval-protocol --help")
     print("3. eval-protocol --help  # NEW!")
     print()
     print("All three scripts provide the same CLI functionality.")

@@ -113,7 +113,7 @@ def generate_dockerfile_content(
         "# Copy the entire application source (build context)",
         "COPY . .",  # Copies setup.py, eval_protocol package, user's function module, etc.
         "",
-        "# Install reward-kit from local source and its dependencies",
+        "# Install eval protocol from local source and its dependencies",
         # This assumes setup.py is configured to install eval_protocol and its deps.
         # Add [dev] if extra dev dependencies are needed by generic_server itself, though unlikely.
         "RUN pip install --no-cache-dir .",

@@ -15,7 +15,7 @@ def _convert_result(res: Dict[str, Any]) -> EvaluateResult:
 
 
 def adapt(openeval_fn: Callable[..., Union[Dict[str, Any], List[Dict[str, Any]]]]):
-    """Adapt an OpenEvals evaluator into a reward-kit reward function."""
+    """Adapt an OpenEvals evaluator into an Eval Protocol reward function."""
 
     @reward_function
     def wrapped(

@@ -1,5 +1,5 @@
 """
-Adapters for integrating reward-kit reward functions with TRL (Transformer Reinforcement Learning) trainers.
+Adapters for integrating Eval Protocol reward functions with TRL (Transformer Reinforcement Learning) trainers.
 """
 
 import logging
@@ -19,14 +19,14 @@ def create_trl_adapter(
 ) -> Callable[[List[Any], List[str]], List[float]]:
     """
     Creates an adapter function compatible with TRL trainers (e.g., GRPOTrainer, PPOTrainer)
-    from a reward-kit reward function.
+    from an Eval Protocol reward function.
 
     The TRL trainer expects a reward function with the signature:
     (prompts: List[str], completions: List[str], **kwargs: Any) -> List[float]
     where **kwargs contains other columns from the HuggingFace dataset.
 
     Args:
-        reward_fn: The reward-kit reward function to adapt. This function should
+        reward_fn: The Eval Protocol reward function to adapt. This function should
                    already be decorated with @reward_function or follow its
                    input/output conventions (takes List[Message] or List[Dict],
                    returns Dict with a 'score' key).
