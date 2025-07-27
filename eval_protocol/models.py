@@ -104,7 +104,6 @@ class EvaluateResult(BaseModel):
         error (Optional[str]): Optional error message if evaluation failed.
         trajectory_info (Optional[Dict[str, Any]]): Additional trajectory-level information.
         final_control_plane_info (Optional[Dict[str, Any]]): The final control plane state that led to termination.
-        ground_truth (Optional[str]): Optional ground truth reference for this evaluation.
     """
 
     score: float = Field(..., description="The overall evaluation score, typically between 0.0 and 1.0.")
@@ -135,11 +134,6 @@ class EvaluateResult(BaseModel):
     final_control_plane_info: Optional[Dict[str, Any]] = Field(
         default=None,
         description="The final control plane state that led to termination."
-    )
-
-    ground_truth: Optional[str] = Field(
-        default=None,
-        description="Optional ground truth reference for this evaluation."
     )
 
     def __getitem__(self, key: str) -> Any:
@@ -194,7 +188,13 @@ class EvaluationRow(BaseModel):
     input_metadata: Optional[Dict[str, Any]] = Field(
         default=None, description="Metadata related to the input (dataset info, model config, session data, etc.)."
     )
-
+    
+    # Ground truth reference (moved from EvaluateResult to top level)
+    ground_truth: Optional[str] = Field(
+        default=None,
+        description="Optional ground truth reference for this evaluation."
+    )
+    
     # Unified evaluation result
     evaluation_result: Optional[EvaluateResult] = Field(
         default=None, description="The evaluation result for this row/trajectory."
