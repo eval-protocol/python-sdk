@@ -34,7 +34,6 @@ dependencies = [
     "omegaconf>=2.3.0",
     "gymnasium>=0.29.0",
     "httpx>=0.24.0",
-    "tau2 @ git+https://github.com/sierra-research/tau2-bench.git@main",
     "anthropic>=0.59.0",
     "ipykernel>=6.30.0",
     "jupyter>=1.1.1",
