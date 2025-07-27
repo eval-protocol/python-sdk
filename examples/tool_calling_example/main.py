@@ -2,7 +2,7 @@
 Tool Calling Evaluation Example
 
 This example shows how to create a custom reward function that reuses
-existing reward-kit functionality. Here we import and use the built-in
+existing eval-protocol functionality. Here we import and use the built-in
 exact_tool_match_reward function to evaluate tool calling accuracy.
 """
 
@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 from eval_protocol import EvaluateResult, reward_function
 from eval_protocol.models import Message
 
-# Import the existing reward function from reward-kit
+# Import the existing reward function from eval-protocol
 from eval_protocol.rewards.function_calling import exact_tool_match_reward
 
 
@@ -24,7 +24,7 @@ def evaluate_tool_calling(
     """
     Evaluate tool calling accuracy using exact match comparison.
 
-    This function demonstrates how to reuse existing reward-kit functions
+    This function demonstrates how to reuse existing eval-protocol functions
     while allowing for future customization if needed.
 
     Args:

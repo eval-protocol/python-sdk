@@ -8,8 +8,8 @@ The typical workflow involves:
 
 1.  **Dataset Configuration**: Defining how your data is loaded and prepared (see [Dataset Configuration Guide](../dataset_configuration_guide.md)).
 2.  **Reward Function Implementation**: Writing the logic to evaluate model responses.
-3.  **Local Evaluation (using `reward-kit run`)**: Running evaluations locally using Hydra-based configurations to generate responses and score them.
-4.  **Previewing Results (using `reward-kit preview`)**: Inspecting or re-evaluating generated outputs.
+3.  **Local Evaluation (using `eval-protocol run`)**: Running evaluations locally using Hydra-based configurations to generate responses and score them.
+4.  **Previewing Results (using `eval-protocol preview`)**: Inspecting or re-evaluating generated outputs.
 5.  **Deployment**: Making the reward function or evaluator available as a service.
 6.  **Integration**: Using the deployed evaluator in RLHF training or other workflows.
 
@@ -63,9 +63,9 @@ def helpfulness_reward(
 ```
 This function can then be referenced in your evaluation configuration.
 
-## 3. Local Evaluation with `reward-kit run`
+## 3. Local Evaluation with `eval-protocol run`
 
-The primary method for running local evaluations is the `reward-kit run` CLI command, which uses Hydra for configuration. This command handles generating model responses (if needed) and evaluating them according to your specified dataset and reward logic.
+The primary method for running local evaluations is the `eval-protocol run` CLI command, which uses Hydra for configuration. This command handles generating model responses (if needed) and evaluating them according to your specified dataset and reward logic.
 
 ### Setting up the Configuration
 
@@ -83,7 +83,7 @@ Refer to the [Hydra Configuration for Examples](./hydra_configuration.mdx) guide
 # Activate virtual environment
 source .venv/bin/activate
 
-# Run evaluation using reward-kit run
+# Run evaluation using eval-protocol run
 python -m eval_protocol.cli run \
   --config-path ./path/to/your/example/conf \
   --config-name run_my_eval.yaml \
@@ -98,12 +98,12 @@ This command will:
 
 ## 4. Previewing and Analyzing Results
 
-After a `reward-kit run`, you can use `reward-kit preview` to inspect the generated `preview_input_output_pairs.jsonl` or re-evaluate them with different/updated metrics.
+After a `eval-protocol run`, you can use `eval-protocol preview` to inspect the generated `preview_input_output_pairs.jsonl` or re-evaluate them with different/updated metrics.
 
 ### Using the CLI for Preview
 ```bash
 # Preview the outputs of a previous run
-reward-kit preview \
+eval-protocol preview \
   --samples ./outputs/YYYY-MM-DD/HH-MM-SS/preview_input_output_pairs.jsonl \
   --metrics-folders "new_metric=./path/to/new_metric_script"
   # Or --remote-url <your_deployed_evaluator_url>
@@ -115,7 +115,7 @@ You can also load the `*.jsonl` result files programmatically (e.g., with Pandas
 
 ## 5. Deployment
 
-Once your reward function is developed and tested locally, you can deploy it as an evaluator. The primary methods are using the `deploy()` method on a reward function object or the `reward-kit deploy` CLI command.
+Once your reward function is developed and tested locally, you can deploy it as an evaluator. The primary methods are using the `deploy()` method on a reward function object or the `eval-protocol deploy` CLI command.
 
 ### Using the `deploy()` Method (Programmatic)
 
@@ -148,20 +148,20 @@ custom_evaluation_id = helpfulness_reward.deploy(
 print(f"Deployed custom provider evaluator: {custom_evaluation_id}")
 ```
 
-### Using the CLI (`reward-kit deploy`)
+### Using the CLI (`eval-protocol deploy`)
 
-The `reward-kit deploy` command is suitable for deploying reward functions defined in script files. The `--metrics-folders` argument should point to the directory containing your reward function script (e.g., a `main.py` with the `@reward_function` decorator).
+The `eval-protocol deploy` command is suitable for deploying reward functions defined in script files. The `--metrics-folders` argument should point to the directory containing your reward function script (e.g., a `main.py` with the `@reward_function` decorator).
 
 ```bash
 # Deploy with the CLI
-reward-kit deploy \
+eval-protocol deploy \
   --id helpfulness-evaluator \
   --metrics-folders "helpfulness=./path/to/your/metric_script_directory" \
   --display-name "Helpfulness Evaluator" \
   --description "Evaluates the helpfulness of responses" \
   --force
 ```
-For more details on `reward-kit deploy`, see the [CLI Reference](../cli_reference/cli_overview.mdx).
+For more details on `eval-protocol deploy`, see the [CLI Reference](../cli_reference/cli_overview.mdx).
 
 ### Lower-level `create_evaluation` Function
 
@@ -218,7 +218,7 @@ trl_reward_fn = reward_fn.get_trl_adapter()
 
 ## 7. Best Practices
 
-1. **Iterative Development**: Start simple, test thoroughly, and refine your reward function. Use `reward-kit run` and `reward-kit preview` extensively.
+1. **Iterative Development**: Start simple, test thoroughly, and refine your reward function. Use `eval-protocol run` and `eval-protocol preview` extensively.
 2. **Version Control**: Use version control for your reward functions, configurations, and datasets.
 3. **Sample Diversity**: Test with a diverse set of samples to ensure robustness.
 4. **Documentation**: Document the behavior and assumptions of your reward function.

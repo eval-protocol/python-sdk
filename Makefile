@@ -43,18 +43,18 @@ sync-docs:
 	@echo "Syncing docs to ~/home/docs with links under 'evaluators'..."
 	@mkdir -p ~/home/docs/evaluators
 	@# Create a temp directory for processed files
-	@rm -rf /tmp/reward-kit-docs-processed
-	@mkdir -p /tmp/reward-kit-docs-processed
+@rm -rf /tmp/eval-protocol-docs-processed
+@mkdir -p /tmp/eval-protocol-docs-processed
 	@# Copy all docs files to temp directory
-	@cp -r ./docs/* /tmp/reward-kit-docs-processed/
+@cp -r ./docs/* /tmp/eval-protocol-docs-processed/
 	@# Only update links in the main documentation home file
-	@if [ -f /tmp/reward-kit-docs-processed/documentation_home.mdx ]; then \
-		sed -i -E 's/\[([^]]+)\]\(([^)]+\.mdx?)\)/[\1](evaluators\/\2)/g' /tmp/reward-kit-docs-processed/documentation_home.mdx; \
-		sed -i -E 's/\[([^]]+)\]\(\/([^)]+\.mdx?)\)/[\1](\/evaluators\/\2)/g' /tmp/reward-kit-docs-processed/documentation_home.mdx; \
-		sed -i -E 's/\.md\)/\.mdx)/g' /tmp/reward-kit-docs-processed/documentation_home.mdx; \
+@if [ -f /tmp/eval-protocol-docs-processed/documentation_home.mdx ]; then \
+sed -i -E 's/\[([^]]+)\]\(([^)]+\.mdx?)\)/[\1](evaluators\/\2)/g' /tmp/eval-protocol-docs-processed/documentation_home.mdx; \
+sed -i -E 's/\[([^]]+)\]\(\/([^)]+\.mdx?)\)/[\1](\/evaluators\/\2)/g' /tmp/eval-protocol-docs-processed/documentation_home.mdx; \
+sed -i -E 's/\.md\)/\.mdx)/g' /tmp/eval-protocol-docs-processed/documentation_home.mdx; \
 	fi
 	@# Copy processed files to destination
-	@rsync -av --delete /tmp/reward-kit-docs-processed/ ~/home/docs/evaluators/
+@rsync -av --delete /tmp/eval-protocol-docs-processed/ ~/home/docs/evaluators/
 	@echo "Docs synced successfully to ~/home/docs/evaluators"
 	@# Validate all documentation links
 	@echo "Validating documentation links..."

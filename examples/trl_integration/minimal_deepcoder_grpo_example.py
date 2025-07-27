@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 logging.basicConfig(level=logging.DEBUG)  # Changed to DEBUG to see more logs
 logger = logging.getLogger(__name__)
 
-# Ensure reward-kit is in the path
+# Ensure eval-protocol is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 try:
@@ -27,14 +27,14 @@ try:
     HAS_TRL_AND_TRANSFORMERS = True
 except ImportError as e:
     print(
-        f"TRL/Transformers/PEFT/Datasets not installed. Install with: pip install 'reward-kit[trl]' transformers bitsandbytes. Error: {e}"
+        f"TRL/Transformers/PEFT/Datasets not installed. Install with: pip install 'eval-protocol[trl]' transformers bitsandbytes. Error: {e}"
     )
     HAS_TRL_AND_TRANSFORMERS = False
 
 # from eval_protocol.models import Message # No longer directly needed here
 from eval_protocol.integrations.trl import create_trl_adapter  # Import the new adapter
 
-# Import reward-kit components
+# Import eval-protocol components
 # from eval_protocol.reward_function import RewardFunction # No longer strictly needed here
 from eval_protocol.rewards import deepcoder_code_reward
 from eval_protocol.rewards.code_execution_utils import prepare_deepcoder_sample_for_trl
@@ -51,7 +51,7 @@ TIMEOUT = 10  # seconds for code execution
 
 
 def load_and_prepare_dataset(raw_data_path: Path) -> Optional[Dataset]:
-    """Loads and prepares the DeepCoder-style dataset into HuggingFace Dataset format using reward-kit utilities."""
+    """Loads and prepares the DeepCoder-style dataset into HuggingFace Dataset format using eval-protocol utilities."""
 
     required_cols_for_reward = [
         "test_cases",
@@ -65,7 +65,7 @@ def load_and_prepare_dataset(raw_data_path: Path) -> Optional[Dataset]:
     )
 
     if hf_dataset is None:
-        logger.error(f"Failed to load dataset from {raw_data_path} using reward-kit utilities.")
+        logger.error(f"Failed to load dataset from {raw_data_path} using eval-protocol utilities.")
         return None
 
     if len(hf_dataset) == 0:
@@ -267,5 +267,5 @@ if __name__ == "__main__":
         main()
     else:
         print(
-            "TRL/Transformers/PEFT/Datasets not found. Please install them to run this example: pip install 'reward-kit[trl]' transformers bitsandbytes"
+            "TRL/Transformers/PEFT/Datasets not found. Please install them to run this example: pip install 'eval-protocol[trl]' transformers bitsandbytes"
         )

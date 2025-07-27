@@ -1,8 +1,8 @@
 """
-Example demonstrating how to use reward-kit reward functions with TRL's PPO trainer.
+Example demonstrating how to use eval-protocol reward functions with TRL's PPO trainer.
 
 This example shows how to:
-1. Define a simple reward function in reward-kit
+1. Define a simple reward function in eval-protocol
 2. Convert it to TRL-compatible format
 3. Use it with the PPO trainer
 """
@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Ensure reward-kit is in the path
+# Ensure eval-protocol is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from eval_protocol.integrations.trl import (  # Import the new generic TRL adapter
@@ -23,7 +23,7 @@ from eval_protocol.models import (  # RewardOutput, MetricRewardOutput are likel
     MetricResult,
 )
 
-# Import reward-kit components
+# Import eval-protocol components
 from eval_protocol.reward_function import (  # RewardFunction class no longer needed for this example
     reward_function,
 )
@@ -37,11 +37,11 @@ try:
 
     HAS_TRL = True
 except ImportError:
-    print("TRL or related packages not installed. Install with: pip install 'reward-kit[trl]'")
+    print("TRL or related packages not installed. Install with: pip install 'eval-protocol[trl]'")
     HAS_TRL = False
 
 
-# Define a simple reward function compatible with reward-kit
+# Define a simple reward function compatible with eval-protocol
 @reward_function
 def helpfulness_reward(
     messages: List[Dict[str, Any]],
@@ -162,7 +162,7 @@ def prepare_dataset_for_ppo(dataset_name, split="train", max_samples=None):
         Dataset in PPO-compatible format
     """
     if not HAS_TRL:
-        print("TRL or related packages not installed. Install with: pip install 'reward-kit[trl]'")
+        print("TRL or related packages not installed. Install with: pip install 'eval-protocol[trl]'")
         return None
 
     # Load dataset
@@ -192,13 +192,13 @@ def prepare_dataset_for_ppo(dataset_name, split="train", max_samples=None):
 
 def train_with_ppo_example():
     """
-    Example of training with PPO using a reward-kit reward function.
+    Example of training with PPO using an eval-protocol reward function.
     """
     if not HAS_TRL:
-        print("TRL or related packages not installed. Install with: pip install 'reward-kit[trl]'")
+        print("TRL or related packages not installed. Install with: pip install 'eval-protocol[trl]'")
         return
 
-    print("Setting up PPO training with a reward-kit reward function...")
+    print("Setting up PPO training with an eval-protocol reward function...")
 
     # 1. Create reward function adapter using the new create_trl_adapter
     # helpfulness_reward is defined above and decorated with @reward_function
@@ -310,7 +310,7 @@ def train_with_ppo_example():
             print(f"Stats: {stats}")
 
     print("\nExample completed successfully. In a real scenario, the PPO training would now run.")
-    print("This example shows how a reward-kit reward function can be adapted for TRL's PPO trainer.")
+    print("This example shows how an eval-protocol reward function can be adapted for TRL's PPO trainer.")
 
     # Show how the reward function would be called
     print("\nReward function test on sample data:")

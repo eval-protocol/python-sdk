@@ -18,7 +18,7 @@ from typing import (  # Removed Callable, Union. Added List, TypedDict
 from transformers import AutoTokenizer  # For Repobench-P
 
 # Define the root path to the SandboxFusion sample datasets
-# (Relative to the reward-kit project root)
+# (Relative to the eval-protocol project root)
 SANDBOX_SAMPLES_DIR = "./SandboxFusion/sandbox/tests/datasets/samples/"
 
 # List of Python-specific dataset .jsonl files

@@ -14,7 +14,7 @@ import os
 import sys
 from pathlib import Path
 
-# Add the reward-kit package to the path
+# Add the eval-protocol package to the path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from eval_protocol.models import (  # Ensure EvaluateResult is imported
@@ -202,7 +202,7 @@ async def main():
         print("1. Start the MCP intermediary server:")
         print("   python -m eval_protocol.mcp_agent.main")
         print("2. Run the evaluation:")
-        print("   reward-kit run --config config.yaml")
+        print("   eval-protocol run --config config.yaml")
 
     except AssertionError as e:
         print(f"\n❌ Test failed: {e}")

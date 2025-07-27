@@ -22,10 +22,10 @@ The agent evaluation framework is integrated with the Eval Protocol CLI through 
 
 ```bash
 # Run agent evaluation on a task bundle
-reward-kit agent-eval --task-dir ./flight_task
+eval-protocol agent-eval --task-dir ./flight_task
 
 # You can also specify just the task.jsonl file
-reward-kit agent-eval --dataset ./flight_task/task.jsonl
+eval-protocol agent-eval --dataset ./flight_task/task.jsonl
 ```
 
 ### Environment Variables
@@ -40,44 +40,44 @@ export MODEL_AGENT=openai/gpt-4o
 export MODEL_SIM=openai/gpt-3.5-turbo
 
 # Then run evaluation
-reward-kit agent-eval --task-dir ./flight_task
+eval-protocol agent-eval --task-dir ./flight_task
 ```
 
 ### Advanced Options
 
 ```bash
 # Specify model directly (overrides environment variable)
-reward-kit agent-eval --task-dir ./flight_task --model openai/gpt-4o
+eval-protocol agent-eval --task-dir ./flight_task --model openai/gpt-4o
 
 # Use custom output directory
-reward-kit agent-eval --task-dir ./flight_task --output-dir ./my_runs
+eval-protocol agent-eval --task-dir ./flight_task --output-dir ./my_runs
 
 # Disable simulated user (use static initial messages only)
-reward-kit agent-eval --task-dir ./flight_task --no-sim-user
+eval-protocol agent-eval --task-dir ./flight_task --no-sim-user
 
 # Use test mode without requiring API keys
-reward-kit agent-eval --task-dir ./flight_task --test-mode
+eval-protocol agent-eval --task-dir ./flight_task --test-mode
 
 # Use mock response in test mode
-reward-kit agent-eval --task-dir ./flight_task --test-mode --mock-response
+eval-protocol agent-eval --task-dir ./flight_task --test-mode --mock-response
 
 # Run in debug mode with verbose output
-reward-kit agent-eval --task-dir ./flight_task --debug
+eval-protocol agent-eval --task-dir ./flight_task --debug
 
 # Limit the number of tasks to evaluate
-reward-kit agent-eval --task-dir ./flight_task --max-tasks 2
+eval-protocol agent-eval --task-dir ./flight_task --max-tasks 2
 
 # Run specific tasks by ID
-reward-kit agent-eval --task-dir ./flight_task --task-ids flight.booking.001,flight.booking.002
+eval-protocol agent-eval --task-dir ./flight_task --task-ids flight.booking.001,flight.booking.002
 
 # Use a specific registry for a task
-reward-kit agent-eval --task-dir ./flight_task --registry-override my_custom_tools.flight_tools
+eval-protocol agent-eval --task-dir ./flight_task --registry-override my_custom_tools.flight_tools
 
 # Use multiple tool registries
-reward-kit agent-eval --task-dir ./complex_task --registries flight=flight_tools,hotel=hotel_tools
+eval-protocol agent-eval --task-dir ./complex_task --registries flight=flight_tools,hotel=hotel_tools
 
 # Specify evaluator
-reward-kit agent-eval --task-dir ./flight_task --evaluator flight_reward.success_evaluator
+eval-protocol agent-eval --task-dir ./flight_task --evaluator flight_reward.success_evaluator
 ```
 
 ## Testing & Debugging
@@ -86,16 +86,16 @@ The CLI provides several options for testing and debugging:
 
 ```bash
 # Test mode verifies tool setup without making API calls
-reward-kit agent-eval --task-dir ./flight_task --test-mode
+eval-protocol agent-eval --task-dir ./flight_task --test-mode
 
 # Debug mode shows detailed information about tool execution
-reward-kit agent-eval --task-dir ./flight_task --debug
+eval-protocol agent-eval --task-dir ./flight_task --debug
 
 # Export tools as OpenAPI spec for manual testing
-reward-kit agent-eval --task-dir ./flight_task --export-tools ./tools_spec
+eval-protocol agent-eval --task-dir ./flight_task --export-tools ./tools_spec
 
 # Validate task bundle structure and requirements
-reward-kit agent-eval --task-dir ./flight_task --validate-only
+eval-protocol agent-eval --task-dir ./flight_task --validate-only
 ```
 
 ## Examples
@@ -104,29 +104,29 @@ reward-kit agent-eval --task-dir ./flight_task --validate-only
 
 ```bash
 export MODEL_AGENT=openai/gpt-4o
-reward-kit agent-eval --task-dir ./examples/flight_task
+eval-protocol agent-eval --task-dir ./examples/flight_task
 ```
 
 ### Testing Without API Keys
 
 ```bash
-reward-kit agent-eval --task-dir ./examples/flight_task --test-mode --mock-response
+eval-protocol agent-eval --task-dir ./examples/flight_task --test-mode --mock-response
 ```
 
 ### Complex Task with Multiple Tool Registries
 
 ```bash
-reward-kit agent-eval --task-dir ./examples/travel_task --registries flight=flight_tools,hotel=hotel_tools
+eval-protocol agent-eval --task-dir ./examples/travel_task --registries flight=flight_tools,hotel=hotel_tools
 ```
 
 ### Running with Specific Task IDs
 
 ```bash
-reward-kit agent-eval --task-dir ./examples/flight_task --task-ids flight.booking.001,flight.booking.002
+eval-protocol agent-eval --task-dir ./examples/flight_task --task-ids flight.booking.001,flight.booking.002
 ```
 
 ### Using Debug Mode
 
 ```bash
-reward-kit agent-eval --task-dir ./examples/flight_task --debug
+eval-protocol agent-eval --task-dir ./examples/flight_task --debug
 ```

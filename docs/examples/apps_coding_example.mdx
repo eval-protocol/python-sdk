@@ -1,6 +1,6 @@
 # APPS Coding Example
 
-This guide explains how to use the `reward-kit run` command to evaluate code generation models on a sample of the `codeparrot/apps` dataset. This example focuses on checking the parsability of generated Python code.
+This guide explains how to use the `eval-protocol run` command to evaluate code generation models on a sample of the `codeparrot/apps` dataset. This example focuses on checking the parsability of generated Python code.
 
 ## Overview
 
@@ -17,7 +17,7 @@ This guide explains how to use the `reward-kit run` command to evaluate code gen
 
 ## Setup
 
-1.  **Environment**: Ensure your Python environment is set up with `reward-kit` and its development dependencies installed. If you haven't already, install them from the root of the repository:
+1.  **Environment**: Ensure your Python environment is set up with `eval-protocol` and its development dependencies installed. If you haven't already, install them from the root of the repository:
     ```bash
     pip install -e ".[dev]"
     ```
@@ -46,7 +46,7 @@ If you wished to regenerate this sample or create a different one (this is for i
 
 The evaluation is configured in `examples/apps_coding_example/conf/run_eval.yaml`. This is the main configuration file used by Hydra.
 
-To run the evaluation using the `reward-kit run` command:
+To run the evaluation using the `eval-protocol run` command:
 
 1.  Ensure your virtual environment is activated:
     ```bash
@@ -54,7 +54,7 @@ To run the evaluation using the `reward-kit run` command:
     ```
 2.  Execute the run command from the root of the repository:
     ```bash
-    reward-kit run --config-path examples/apps_coding_example/conf --config-name run_eval
+    eval-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval
     ```
 
 ### Overriding Parameters
@@ -63,23 +63,23 @@ You can override parameters from the `run_eval.yaml` configuration directly from
 
 *   **Limit the number of samples for a quick test**:
     ```bash
-    reward-kit run --config-path examples/apps_coding_example/conf --config-name run_eval evaluation_params.limit_samples=2
+    eval-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval evaluation_params.limit_samples=2
     ```
 *   **Disable code generation (to test reward function with cached responses)**:
     If you have previously run the example and responses are cached (default cache dir: `outputs/generated_responses_cache_apps/`), you can disable new generation:
     ```bash
-    reward-kit run --config-path examples/apps_coding_example/conf --config-name run_eval generation.enabled=false
+    eval-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval generation.enabled=false
     ```
 *   **Change the generation model**:
     ```bash
-    reward-kit run --config-path examples/apps_coding_example/conf --config-name run_eval generation.model_name="accounts/fireworks/models/another-model"
+    eval-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval generation.model_name="accounts/fireworks/models/another-model"
     ```
 
 Refer to the [Hydra Configuration for Examples guide](../../developer_guide/hydra_configuration.mdx) for more details on Hydra.
 
 ## Expected Output
 
-The `reward-kit run` command will:
+The `eval-protocol run` command will:
 
 1.  Load prompts based on the `apps_full_prompts` dataset configuration (typically from `development/CODING_DATASET.jsonl`).
 2.  If `generation.enabled` is `true` (default), generate code solutions using the configured model. Responses are cached (default: `outputs/generated_responses_cache_apps/`).

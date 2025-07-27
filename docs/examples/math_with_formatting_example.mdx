@@ -1,6 +1,6 @@
 # Math with Formatting Example
 
-This guide explains how to evaluate models on math word problems using the `reward-kit run` command, focusing on both the accuracy of the numerical answer and the adherence to a specific response format (e.g., `<think>...</think><answer>...</answer>`). This example uses the GSM8K dataset.
+This guide explains how to evaluate models on math word problems using the `eval-protocol run` command, focusing on both the accuracy of the numerical answer and the adherence to a specific response format (e.g., `<think>...</think><answer>...</answer>`). This example uses the GSM8K dataset.
 
 ## Overview
 
@@ -19,7 +19,7 @@ The final score reported is typically an average of these two rewards.
 
 ## Setup
 
-1.  **Environment**: Ensure your Python environment has `reward-kit` and its development dependencies installed:
+1.  **Environment**: Ensure your Python environment has `eval-protocol` and its development dependencies installed:
     ```bash
     # From the root of the repository
     pip install -e ".[dev]"
@@ -34,9 +34,9 @@ The primary configuration for this example is `examples/math_with_formatting/con
     ```bash
     source .venv/bin/activate
     ```
-2.  Execute the `reward-kit run` command from the root of the repository:
+2.  Execute the `eval-protocol run` command from the root of the repository:
     ```bash
-    reward-kit run --config-path examples/math_with_formatting/conf --config-name run_math_with_formatting_eval
+    eval-protocol run --config-path examples/math_with_formatting/conf --config-name run_math_with_formatting_eval
     ```
 
 ### Overriding Parameters
@@ -45,12 +45,12 @@ You can modify parameters via the command line. For instance:
 
 *   **Limit samples**:
     ```bash
-    reward-kit run --config-path examples/math_with_formatting/conf --config-name run_math_with_formatting_eval evaluation_params.limit_samples=5
+    eval-protocol run --config-path examples/math_with_formatting/conf --config-name run_math_with_formatting_eval evaluation_params.limit_samples=5
     ```
     (The default in the example config is `limit_samples: 2`).
 *   **Change generation model**:
     ```bash
-    reward-kit run --config-path examples/math_with_formatting/conf --config-name run_math_with_formatting_eval generation.model_name="accounts/fireworks/models/mixtral-8x7b-instruct"
+    eval-protocol run --config-path examples/math_with_formatting/conf --config-name run_math_with_formatting_eval generation.model_name="accounts/fireworks/models/mixtral-8x7b-instruct"
     ```
 
 For more on Hydra, see the [Hydra Configuration for Examples guide](../../developer_guide/hydra_configuration.mdx).
