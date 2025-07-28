@@ -1078,13 +1078,13 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=21.5b2" },
     { name = "build", marker = "extra == 'dev'" },
     { name = "dataclasses-json", specifier = ">=0.5.7" },
-    { name = "datasets", specifier = "==3.6.0" },
+    { name = "datasets" },
     { name = "docker", marker = "extra == 'dev'", specifier = "==7.1.0" },
     { name = "e2b", marker = "extra == 'dev'" },
     { name = "fastapi", specifier = ">=0.68.0" },
     { name = "fireworks-ai", marker = "extra == 'fireworks'", specifier = ">=0.19.10" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=3.9.2" },
-    { name = "fsspec", specifier = "==2025.3.0" },
+    { name = "fsspec" },
     { name = "gymnasium", specifier = ">=0.29.0" },
     { name = "httpx", specifier = ">=0.24.0" },
     { name = "hydra-core", specifier = ">=1.3.2" },
@@ -1198,7 +1198,7 @@ wheels = [
 
 [[package]]
 name = "fireworks-ai"
-version = "0.19.11"
+version = "0.19.12"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp", extra = ["speedups"] },
@@ -1218,9 +1218,9 @@ dependencies = [
     { name = "toml" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/92/df/1d5412ce628a9864b006b74c6de30dc93c3b21252f7a36891cee43d50092/fireworks_ai-0.19.11.tar.gz", hash = "sha256:39b828dfb3719ba35bca0b0c6e7b580038d02b02587c2d5b3382206d7a8b783a", size = 410249, upload-time = "2025-07-25T02:35:41.781Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/85/27/409093dbd7b02d71c3f58830468e7ce2c74a79a0596b436afb00535a117b/fireworks_ai-0.19.12.tar.gz", hash = "sha256:10ff6ec97b677336c0790ec4809047e47141576ba2f0ea66b0bc94abdc0b34bf", size = 410323, upload-time = "2025-07-28T16:09:49.732Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/df/8d/4e2d9ae0d64611afcff71665e0dcf0d57a3929a3192518a25b2e95f676da/fireworks_ai-0.19.11-py3-none-any.whl", hash = "sha256:338898b14ba0df4d5e772763baf8ce06febb5a2e2281d2fd9d114fa411f3120c", size = 584647, upload-time = "2025-07-25T02:35:40.137Z" },
+    { url = "https://files.pythonhosted.org/packages/20/83/1d44379a2d60009e31d157673998e46be144fc842c9c9389523e42cdfa65/fireworks_ai-0.19.12-py3-none-any.whl", hash = "sha256:3a50d807a7ca274a62e37be3a0b0d93ce76c412fb58e24b3d4cbadf8b9be0b74", size = 584665, upload-time = "2025-07-28T16:09:48.132Z" },
 ]
 
 [[package]]
