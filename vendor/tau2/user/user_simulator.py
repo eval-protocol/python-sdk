@@ -23,16 +23,12 @@ from vendor.tau2.user.base import (
 from vendor.tau2.utils import DATA_DIR
 from vendor.tau2.utils.llm_utils import generate
 
-GLOBAL_USER_SIM_GUIDELINES_DIR = DATA_DIR / "tau2" / "user_simulator"
+GLOBAL_USER_SIM_GUIDELINES_DIR = DATA_DIR / "user_simulator"
 
 
-GLOBAL_USER_SIM_GUIDELINES_PATH = (
-    GLOBAL_USER_SIM_GUIDELINES_DIR / "simulation_guidelines.md"
-)
+GLOBAL_USER_SIM_GUIDELINES_PATH = GLOBAL_USER_SIM_GUIDELINES_DIR / "simulation_guidelines.md"
 
-GLOBAL_USER_SIM_GUIDELINES_PATH_TOOLS = (
-    GLOBAL_USER_SIM_GUIDELINES_DIR / "simulation_guidelines_tools.md"
-)
+GLOBAL_USER_SIM_GUIDELINES_PATH_TOOLS = GLOBAL_USER_SIM_GUIDELINES_DIR / "simulation_guidelines_tools.md"
 
 
 def get_global_user_sim_guidelines(use_tools: bool = False) -> str:
@@ -98,17 +94,15 @@ class UserSimulator(BaseUser):
         )
         return system_prompt
 
-    def get_init_state(
-        self, message_history: Optional[list[Message]] = None
-    ) -> UserState:
+    def get_init_state(self, message_history: Optional[list[Message]] = None) -> UserState:
         """
         Get the initial state of the user simulator.
         """
         if message_history is None:
             message_history = []
-        assert all(is_valid_user_history_message(m) for m in message_history), (
-            "Invalid user message history. User messages must be of type UserMessage, AssistantMessage, or ToolMessage to User."
-        )
+        assert all(
+            is_valid_user_history_message(m) for m in message_history
+        ), "Invalid user message history. User messages must be of type UserMessage, AssistantMessage, or ToolMessage to User."
 
         user_state = UserState(
             system_messages=[SystemMessage(role="system", content=self.system_prompt)],
@@ -124,15 +118,9 @@ class UserSimulator(BaseUser):
         if message.is_tool_call():
             return False
         assert message.content is not None
-        return (
-            STOP in message.content
-            or TRANSFER in message.content
-            or OUT_OF_SCOPE in message.content
-        )
+        return STOP in message.content or TRANSFER in message.content or OUT_OF_SCOPE in message.content
 
-    def generate_next_message(
-        self, message: ValidUserInputMessage, state: UserState
-    ) -> Tuple[UserMessage, UserState]:
+    def generate_next_message(self, message: ValidUserInputMessage, state: UserState) -> Tuple[UserMessage, UserState]:
         return self._generate_next_message(message, state)
 
     def _generate_next_message(
@@ -194,18 +182,15 @@ class UserSimulator(BaseUser):
 class DummyUser(UserSimulator):
     """A dummy user to run a agent solo simulation."""
 
-    def get_init_state(
-        self, message_history: Optional[list[Message]] = None
-    ) -> UserState:
+    def get_init_state(self, message_history: Optional[list[Message]] = None) -> UserState:
         return UserState(messages=[], system_messages=[])
 
+    @classmethod
     def is_stop(cls, message: UserMessage) -> bool:
         raise NotImplementedError("DummyUser does not support stop messages")
 
     def set_seed(self, seed: int):
         pass
 
-    def generate_next_message(
-        self, message: ValidUserInputMessage, state: UserState
-    ) -> tuple[UserMessage, UserState]:
+    def generate_next_message(self, message: ValidUserInputMessage, state: UserState) -> tuple[UserMessage, UserState]:
         raise NotImplementedError("DummyUser does not support generate_next_message")
