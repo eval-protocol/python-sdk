@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pytest
-from tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
 
 import eval_protocol as ep
 from eval_protocol import EvaluateResult, reward_function

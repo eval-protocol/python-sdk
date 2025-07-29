@@ -16,7 +16,6 @@ from mcp.server.fastmcp import Context
 from mock_environment.mock_environment import MockEnvironment
 from pydantic import Field
 from retail_environment.retail_environment import RetailEnvironment
-from tau2.domains.airline.data_model import CabinClass, FlightInfo, FlightType, Insurance, Passenger, Payment
 
 from eval_protocol.mcp import EnvironmentAdapter, McpGym
 from eval_protocol.mcp.mcpgym import control_plane_endpoint

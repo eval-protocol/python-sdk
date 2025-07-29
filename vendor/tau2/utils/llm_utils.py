@@ -32,38 +32,41 @@ from vendor.tau2.environment.tool import Tool
 
 # litellm._turn_on_debug()
 
-if USE_LANGFUSE:
-    # set callbacks
-    litellm.success_callback = ["langfuse"]
-    litellm.failure_callback = ["langfuse"]
+# COMMENTED OUT: Let user's LiteLLM policy handle callbacks
+# if USE_LANGFUSE:
+#     # set callbacks
+#     litellm.success_callback = ["langfuse"]
+#     litellm.failure_callback = ["langfuse"]
 
-litellm.drop_params = True
+# COMMENTED OUT: Let user's LiteLLM policy handle this
+# litellm.drop_params = True
 
-if LLM_CACHE_ENABLED:
-    if DEFAULT_LLM_CACHE_TYPE == "redis":
-        logger.info(f"LiteLLM: Using Redis cache at {REDIS_HOST}:{REDIS_PORT}")
-        litellm.cache = Cache(
-            type=DEFAULT_LLM_CACHE_TYPE,
-            host=REDIS_HOST,
-            port=REDIS_PORT,
-            password=REDIS_PASSWORD,
-            namespace=f"{REDIS_PREFIX}:{REDIS_CACHE_VERSION}:litellm",
-            ttl=REDIS_CACHE_TTL,
-        )
-    elif DEFAULT_LLM_CACHE_TYPE == "local":
-        logger.info("LiteLLM: Using local cache")
-        litellm.cache = Cache(
-            type="local",
-            ttl=REDIS_CACHE_TTL,
-        )
-    else:
-        raise ValueError(
-            f"Invalid cache type: {DEFAULT_LLM_CACHE_TYPE}. Should be 'redis' or 'local'"
-        )
-    litellm.enable_cache()
-else:
-    logger.info("LiteLLM: Cache is disabled")
-    litellm.disable_cache()
+# COMMENTED OUT: Let user's LiteLLM policy handle caching
+# if LLM_CACHE_ENABLED:
+#     if DEFAULT_LLM_CACHE_TYPE == "redis":
+#         logger.info(f"LiteLLM: Using Redis cache at {REDIS_HOST}:{REDIS_PORT}")
+#         litellm.cache = Cache(
+#             type=DEFAULT_LLM_CACHE_TYPE,
+#             host=REDIS_HOST,
+#             port=REDIS_PORT,
+#             password=REDIS_PASSWORD,
+#             namespace=f"{REDIS_PREFIX}:{REDIS_CACHE_VERSION}:litellm",
+#             ttl=REDIS_CACHE_TTL,
+#         )
+#     elif DEFAULT_LLM_CACHE_TYPE == "local":
+#         logger.info("LiteLLM: Using local cache")
+#         litellm.cache = Cache(
+#             type="local",
+#             ttl=REDIS_CACHE_TTL,
+#         )
+#     else:
+#         raise ValueError(
+#             f"Invalid cache type: {DEFAULT_LLM_CACHE_TYPE}. Should be 'redis' or 'local'"
+#         )
+#     litellm.enable_cache()
+# else:
+#     logger.info("LiteLLM: Cache is disabled")
+#     litellm.disable_cache()
 
 
 ALLOW_SONNET_THINKING = False
@@ -110,9 +113,7 @@ def get_response_usage(response: ModelResponse) -> Optional[dict]:
     }
 
 
-def to_tau2_messages(
-    messages: list[dict], ignore_roles: set[str] = set()
-) -> list[Message]:
+def to_tau2_messages(messages: list[dict], ignore_roles: set[str] = set()) -> list[Message]:
     """
     Convert a list of messages from a dictionary to a list of Tau2 messages.
     """
@@ -196,11 +197,13 @@ def generate(
 
     Returns: A tuple containing the message and the cost.
     """
-    if kwargs.get("num_retries") is None:
-        kwargs["num_retries"] = DEFAULT_MAX_RETRIES
+    # COMMENTED OUT: Let user's LiteLLM policy handle retry count
+    # if kwargs.get("num_retries") is None:
+    #     kwargs["num_retries"] = DEFAULT_MAX_RETRIES
 
-    if model.startswith("claude") and not ALLOW_SONNET_THINKING:
-        kwargs["thinking"] = {"type": "disabled"}
+    # COMMENTED OUT: Let user's LiteLLM policy handle Claude thinking
+    # if model.startswith("claude") and not ALLOW_SONNET_THINKING:
+    #     kwargs["thinking"] = {"type": "disabled"}
     litellm_messages = to_litellm_messages(messages)
     tools = [tool.openai_schema for tool in tools] if tools else None
     if tools and tool_choice is None:
@@ -226,9 +229,7 @@ def generate(
     except Exception as e:
         logger.error(e)
         raise e
-    assert response.message.role == "assistant", (
-        "The response should be an assistant message"
-    )
+    assert response.message.role == "assistant", "The response should be an assistant message"
     content = response.message.content
     tool_calls = response.message.tool_calls or []
     tool_calls = [
