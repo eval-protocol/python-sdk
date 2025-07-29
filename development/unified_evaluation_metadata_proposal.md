@@ -49,10 +49,10 @@ class EvaluationRow(BaseModel):
 
     # Input-related metadata (grouped together for cleaner organization)
     input_metadata: Optional[Dict[str, Any]] = None
-    
+
     # Ground truth reference (top-level field)
     ground_truth: Optional[str] = None
-    
+
     evaluation_result: Optional[EvaluateResult] = None
 ```
 
@@ -277,6 +277,23 @@ The control plane logic in `execution/manager.py` will be simplified to directly
 - `control_plane_steps` and `control_plane_summary` data will be integrated into `StepOutput` objects
 - Final trajectory state will be captured in `EvaluateResult.final_control_plane_info`
 - Step-level control plane data will be stored in `StepOutput.control_plane_info`
+
+```python
+@evaluate_test(
+    rollout_processor=response_api_rollouts,
+    env_url="frozen_lake_url/mcp",
+)
+def evaluate_frozen_lake(messages: Messages) -> EvaluateResult:
+    # SIMPLER CASE, one overall reward for entire evaluation row
+    return EvaluateResult(score=messages[-1].control_plane_info.reward)
+    or
+    return EvaluateResult(score=np.mean([m.control_plane_info.reward for m in messages]))
+    or
+    # ADVANCED CASE, per step rewards for evaluation row
+    return EvaluationResult(
+        step_output=[m.control_plane_steps.reward for m in messages]
+    )
+```
 
 ### 8. Backward Compatibility
 
