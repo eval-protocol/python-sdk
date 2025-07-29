@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 from ..client.connection import MCPConnectionManager
 from ..types import MCPSession, MCPToolCall, Trajectory, TerminationReason, LLMUsageStats
 
-from tau2.user.user_simulator import UserSimulator
-from tau2.data_model.message import AssistantMessage, UserMessage
+from vendor.tau2.user.user_simulator import UserSimulator
+from vendor.tau2.data_model.message import AssistantMessage, UserMessage
 
 if TYPE_CHECKING:
     from ..session.manager import GeneralMCPVectorEnv
@@ -280,11 +280,12 @@ class ExecutionManager:
 
                 # If no tool call is generated, turn is finished
                 if len(tool_calls) == 1:
-                    # No tool calls means the policy is ready to provide final response on this turn
-                    if tool_calls[0].tool_name == "_no_tool_call":
-                        trajectory.terminated = True
+                    # If there's a user simulator, no tool call means the policy is ready to provide final response on this turn
+                    if tool_calls[0].tool_name == "_no_tool_call" and user_simulator:
+                        turn_completed = True
                         break
-                    elif tool_calls[0].tool_name == "_playback_terminate":
+                    # If there's no user simulator, no tool call means policy failed and we should terminate the rollout
+                    elif tool_calls[0].tool_name in ["_playback_terminate", "_no_tool_call"]:
                         trajectory.terminated = True
                         break
 

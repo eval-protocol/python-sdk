@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 import os
 from pathlib import Path
 
-from tau2.domains.airline.data_model import FlightDB
-from tau2.domains.airline.tools import AirlineTools
+from vendor.tau2.domains.airline.data_model import FlightDB
+from vendor.tau2.domains.airline.tools import AirlineTools
 
 logger = logging.getLogger(__name__)
 

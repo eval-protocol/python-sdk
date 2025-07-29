@@ -20,8 +20,8 @@ import pytest
 import eval_protocol as ep
 from eval_protocol import reward_function, EvaluateResult
 
-from tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
-from tau2.data_model.message import (
+from vendor.tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
+from vendor.tau2.data_model.message import (
     SystemMessage,
     AssistantMessage,
     UserMessage,
@@ -36,7 +36,7 @@ def _is_ci_mode():
 
 def _create_test_server(port: int, domain: str = "airline") -> "MCPServerManager":
     """Create and start a test server."""
-    server = MCPServerManager("server.py", port=port, domain=domain)
+    server = MCPServerManager("examples/tau2_mcp/server.py", port=port, domain=domain)
     server.start()
     print(f"✅ Started test server on port {port}")
     return server

@@ -20,7 +20,7 @@ from retail_environment.retail_environment import RetailEnvironment
 from eval_protocol.mcp import McpGym, EnvironmentAdapter
 from eval_protocol.mcp.mcpgym import control_plane_endpoint
 
-from tau2.domains.airline.data_model import Passenger, FlightType, CabinClass, FlightInfo, Payment, Insurance
+from vendor.tau2.domains.airline.data_model import Passenger, FlightType, CabinClass, FlightInfo, Payment, Insurance
 
 
 class AirlineDomainMcp(McpGym):

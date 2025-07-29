@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 import os
 from pathlib import Path
 
-from tau2.domains.mock.data_model import MockDB
-from tau2.domains.mock.tools import MockTools
+from vendor.tau2.domains.mock.data_model import MockDB
+from vendor.tau2.domains.mock.tools import MockTools
 
 logger = logging.getLogger(__name__)
 

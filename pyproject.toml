@@ -37,6 +37,16 @@ dependencies = [
     "anthropic>=0.59.0",
     "ipykernel>=6.30.0",
     "jupyter>=1.1.1",
+    # Dependencies for vendored tau2 package
+    "toml>=0.10.0",
+    "loguru>=0.6.0",
+    "docstring-parser>=0.15",
+    "rich>=12.0.0",
+    "psutil>=5.8.0",
+    "litellm>=1.0.0",
+    "addict>=2.4.0",
+    "deepdiff>=6.0.0",
+    "pandas>=1.5.0",
 ]
 
 [project.urls]
@@ -89,7 +99,7 @@ fireworks-reward = "eval_protocol.cli:main"
 eval-protocol = "eval_protocol.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["eval_protocol*", "development*"]
+include = ["eval_protocol*", "development*", "vendor*"]
 
 [tool.versioneer]
 VCS = "git"

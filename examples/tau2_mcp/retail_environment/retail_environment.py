@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 import os
 from pathlib import Path
 
-from tau2.domains.retail.data_model import RetailDB
-from tau2.domains.retail.tools import RetailTools
+from vendor.tau2.domains.retail.data_model import RetailDB
+from vendor.tau2.domains.retail.tools import RetailTools
 
 logger = logging.getLogger(__name__)
 
