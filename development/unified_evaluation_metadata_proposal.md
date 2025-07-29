@@ -26,6 +26,7 @@ The `eval_protocol.models.EvaluateResult` model serves as the universal evaluati
 **Key Enhancements:**
 - `trajectory_info`: Additional trajectory-level information (duration, steps, termination_reason, etc.)
 - `final_control_plane_info`: The final control plane state that led to termination
+- `ground_truth`: Optional reference string with the expected answer
 - Enhanced `StepOutput` with `terminated` and `control_plane_info` fields
 
 #### 3.2. New `EvaluationRow` Model
@@ -48,16 +49,19 @@ class EvaluationRow(BaseModel):
 
     # Input-related metadata (grouped together for cleaner organization)
     input_metadata: Optional[Dict[str, Any]] = None
-
-    # Unified evaluation result
+    
+    # Ground truth reference (top-level field)
+    ground_truth: Optional[str] = None
+    
     evaluation_result: Optional[EvaluateResult] = None
 ```
 
 **Key Features:**
-- **Clean Organization**: Only four main fields for maximum clarity
+- **Clean Organization**: Only five main fields for maximum clarity
 - `is_trajectory_evaluation()`: Determines if this represents a trajectory vs. single-turn evaluation
 - `get_conversation_length()`, `get_assistant_messages()`, `get_user_messages()`: Helper methods for data analysis
 - `get_input_metadata(key, default)`: Helper method to access input metadata
+- `ground_truth`: Top-level field for reference data (moved from EvaluateResult)
 - Full serialization/deserialization support via Pydantic
 
 **Input Metadata Structure:**
@@ -92,6 +96,7 @@ evaluation_result = EvaluateResult(
 # Create evaluation row
 row = EvaluationRow(
     messages=messages,
+    ground_truth="4",
     evaluation_result=evaluation_result,
     input_metadata={
         "row_id": "math_001",
@@ -145,6 +150,7 @@ evaluation_result = EvaluateResult(
 # Create evaluation row
 row = EvaluationRow(
     messages=messages,
+    ground_truth="Task completed successfully",
     evaluation_result=evaluation_result,
     input_metadata={
         "row_id": "trajectory_001",
@@ -185,6 +191,7 @@ tools = [
 row = EvaluationRow(
     messages=messages,
     tools=tools,
+    ground_truth="Recent ML papers found",
     evaluation_result=EvaluateResult(score=0.9, reason="Good tool usage"),
     input_metadata={
         "row_id": "search_001",
@@ -280,7 +287,7 @@ The control plane logic in `execution/manager.py` will be simplified to directly
 
 ### 9. Benefits
 
-1. **Clean and Simple Structure**: Only four main fields in `EvaluationRow` for maximum clarity
+1. **Clean and Simple Structure**: Only five main fields in `EvaluationRow` for maximum clarity
 2. **Flexible Input Metadata**: Single `input_metadata` field can contain any relevant context
 3. **Unified Data Flow**: Single data structure handles both evaluation paradigms
 4. **Developer Friendly**: Clear helper methods and intuitive data access patterns

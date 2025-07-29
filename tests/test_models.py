@@ -5,8 +5,10 @@ import pytest
 
 from eval_protocol.models import (  # Added Message to existing import
     EvaluateResult,
+    EvaluationRow,
     Message,
     MetricResult,
+    StepOutput,
 )
 
 
@@ -251,6 +253,93 @@ def test_evaluate_result_dict_access():
 
 
 # Removed the redundant import from here
+
+
+def test_evaluation_row_creation():
+    """Test creating an EvaluationRow."""
+    messages = [
+        Message(role="user", content="What is 2+2?"),
+        Message(role="assistant", content="2+2 equals 4.")
+    ]
+    
+    evaluation_result = EvaluateResult(
+        score=1.0,
+        reason="Correct answer",
+        metrics={"accuracy": MetricResult(score=1.0, reason="Perfect")}
+    )
+    
+    row = EvaluationRow(
+        messages=messages,
+        ground_truth="4",
+        evaluation_result=evaluation_result,
+        input_metadata={
+            "row_id": "math_001",
+            "dataset_info": {"source": "math_eval"}
+        }
+    )
+    
+    assert len(row.messages) == 2
+    assert row.ground_truth == "4"
+    assert row.evaluation_result.score == 1.0
+    assert row.get_input_metadata("row_id") == "math_001"
+    assert not row.is_trajectory_evaluation()
+
+
+def test_evaluation_row_trajectory_evaluation():
+    """Test EvaluationRow with trajectory evaluation."""
+    messages = [
+        Message(role="user", content="Start task"),
+        Message(role="assistant", content="Step 1"),
+        Message(role="user", content="Continue"),
+        Message(role="assistant", content="Step 2")
+    ]
+    
+    step_outputs = [
+        StepOutput(step_index=0, base_reward=0.3, terminated=False),
+        StepOutput(step_index=1, base_reward=0.7, terminated=True)
+    ]
+    
+    evaluation_result = EvaluateResult(
+        score=0.5,
+        reason="Task completed",
+        step_outputs=step_outputs
+    )
+    
+    row = EvaluationRow(
+        messages=messages,
+        ground_truth="Task completed successfully",
+        evaluation_result=evaluation_result
+    )
+    
+    assert row.is_trajectory_evaluation()
+    assert row.ground_truth == "Task completed successfully"
+    assert len(row.get_assistant_messages()) == 2
+    assert len(row.get_user_messages()) == 2
+
+
+def test_evaluation_row_serialization():
+    """Test serializing EvaluationRow to JSON."""
+    messages = [
+        Message(role="user", content="Test question"),
+        Message(role="assistant", content="Test answer")
+    ]
+    
+    evaluation_result = EvaluateResult(score=0.8, reason="Good response")
+    
+    row = EvaluationRow(
+        messages=messages,
+        ground_truth="Expected answer",
+        evaluation_result=evaluation_result,
+        input_metadata={"test": True}
+    )
+    
+    json_str = row.model_dump_json()
+    data = json.loads(json_str)
+    
+    assert len(data["messages"]) == 2
+    assert data["ground_truth"] == "Expected answer"
+    assert data["evaluation_result"]["score"] == 0.8
+    assert data["input_metadata"]["test"] is True
 
 
 def test_message_creation_requires_role():
