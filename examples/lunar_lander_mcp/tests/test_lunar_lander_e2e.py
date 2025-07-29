@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional
 import pytest
 
 import eval_protocol as ep
-from eval_protocol.utils.static_policy import StaticPolicy, RandomPolicy
+from eval_protocol.utils.static_policy import RandomPolicy, StaticPolicy
 
 
 # Helper functions for creating environment-specific policies

@@ -7,9 +7,7 @@ import json  # Added import for json.loads
 import pytest
 
 from eval_protocol.models import EvaluateResult, Message  # Added for new tests
-from eval_protocol.rewards.code_execution import (
-    fractional_code_reward,  # Added for new tests
-)
+from eval_protocol.rewards.code_execution import fractional_code_reward  # Added for new tests
 from eval_protocol.rewards.code_execution import (
     _HAS_E2B,
     compare_outputs,

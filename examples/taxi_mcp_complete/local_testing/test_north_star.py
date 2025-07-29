@@ -27,7 +27,9 @@ async def test_north_star_interface():
         import eval_protocol as ep
 
         # Load dataset with environment configuration and prompts
-        dataset = load_jsonl("/home/bchen/home/eval-protocol/examples/taxi_mcp_complete/shared_data/taxi_rollouts.jsonl")
+        dataset = load_jsonl(
+            "/home/bchen/home/eval-protocol/examples/taxi_mcp_complete/shared_data/taxi_rollouts.jsonl"
+        )
         # Use only first 3 for faster testing
         dataset = dataset[:3]
         print(f"📊 Loaded dataset with {len(dataset)} rows")

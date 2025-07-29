@@ -5,8 +5,8 @@ This module handles policy execution, tool calling, and rollout coordination.
 """
 
 from .base_policy import LLMBasePolicy
-from .policy import AnthropicPolicy, OpenAIPolicy, FireworksPolicy
 from .manager import ExecutionManager
+from .policy import AnthropicPolicy, FireworksPolicy, OpenAIPolicy
 
 # FireworksPolicy is conditionally imported by policy.py
 _FIREWORKS_AVAILABLE = FireworksPolicy is not None
@@ -14,7 +14,7 @@ _FIREWORKS_AVAILABLE = FireworksPolicy is not None
 __all__ = [
     "LLMBasePolicy",
     "AnthropicPolicy",
-    "OpenAIPolicy", 
+    "OpenAIPolicy",
     "ExecutionManager",
 ]
 

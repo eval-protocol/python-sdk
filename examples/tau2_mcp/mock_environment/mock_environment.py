@@ -5,14 +5,14 @@ Mock Environment for τ²-Bench Integration
 This module implements a MockEnvironment that integrates the τ²-Bench simulation
 pattern (Agent/User/Environment communication) with the MCP-Gym framework.
 """
-from copy import deepcopy
 import json
 import logging
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
-from dataclasses import dataclass, field
 import os
+from copy import deepcopy
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from vendor.tau2.domains.mock.data_model import MockDB
 from vendor.tau2.domains.mock.tools import MockTools

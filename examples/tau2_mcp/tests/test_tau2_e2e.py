@@ -6,27 +6,27 @@ This module provides comprehensive tests for multi-domain MCP environments with 
 """
 
 import asyncio
+import atexit
 import json
 import os
+import signal
 import subprocess
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import atexit
-import signal
 
 import pytest
+from tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
 
 import eval_protocol as ep
-from eval_protocol import reward_function, EvaluateResult
-
-from vendor.tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
+from eval_protocol import EvaluateResult, reward_function
 from vendor.tau2.data_model.message import (
-    SystemMessage,
     AssistantMessage,
-    UserMessage,
+    SystemMessage,
     ToolMessage,
+    UserMessage,
 )
+from vendor.tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
 
 
 def _is_ci_mode():
@@ -50,7 +50,7 @@ def _stop_test_server(server: "MCPServerManager"):
 
 class MCPServerManager:
     """Manages MCP server lifecycle for testing."""
-    
+
     # Class-level tracking of all server instances
     _active_servers = []
     _cleanup_registered = False
@@ -63,10 +63,10 @@ class MCPServerManager:
         self.base_dir = Path(".").resolve()
         self._log_file = None
         self._log_file_path = None
-        
+
         # Register this server for cleanup
         MCPServerManager._active_servers.append(self)
-        
+
         # Register cleanup handlers only once
         if not MCPServerManager._cleanup_registered:
             MCPServerManager._register_cleanup_handlers()
@@ -110,7 +110,7 @@ class MCPServerManager:
         # Check if process is still running
         if self.process.poll() is not None:
             try:
-                with open(self._log_file_path, 'r') as f:
+                with open(self._log_file_path, "r") as f:
                     log_content = f.read()
                 print(f"❌ Server failed to start!")
                 print(f"📋 Server log ({self._log_file_path}):")
@@ -121,7 +121,7 @@ class MCPServerManager:
             except Exception as e:
                 stdout, stderr = self.process.communicate()
                 raise RuntimeError(f"Server failed to start. stderr: {stderr}, log error: {e}")
-        
+
         print(f"✅ Server started successfully on port {self.port}")
 
     def stop(self) -> None:
@@ -136,7 +136,7 @@ class MCPServerManager:
                 self.process.kill()
                 self.process.wait()
             self.process = None
-            
+
         # Clean up log file
         if self._log_file:
             try:
@@ -144,7 +144,7 @@ class MCPServerManager:
             except Exception:
                 pass
             self._log_file = None
-            
+
         if self._log_file_path and os.path.exists(self._log_file_path):
             try:
                 os.remove(self._log_file_path)
@@ -152,7 +152,7 @@ class MCPServerManager:
             except OSError:
                 pass
             self._log_file_path = None
-        
+
         # Remove from active servers list
         if self in MCPServerManager._active_servers:
             MCPServerManager._active_servers.remove(self)
@@ -167,26 +167,26 @@ class MCPServerManager:
             except Exception as e:
                 print(f"⚠️  Error stopping server: {e}")
         cls._active_servers.clear()
-    
+
     @classmethod
     def _signal_handler(cls, signum, frame):
         """Handle interrupt signals"""
         print(f"\n🛑 Received signal {signum}, cleaning up...")
         cls._cleanup_all_servers()
         exit(1)
-    
+
     @classmethod
     def _register_cleanup_handlers(cls):
         """Register cleanup handlers - called only once"""
         atexit.register(cls._cleanup_all_servers)
         signal.signal(signal.SIGINT, cls._signal_handler)  # Ctrl+C
         signal.signal(signal.SIGTERM, cls._signal_handler)  # Termination signal
-    
+
     def __enter__(self):
         """Context manager entry"""
         self.start()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit - ensures cleanup even on exceptions"""
         self.stop()

@@ -12,12 +12,12 @@ Key Features:
 - Session-aware control plane endpoints via @control_plane_endpoint decorator
 """
 
-import os
 import hashlib
-import threading
 import inspect
 import json
 import logging
+import os
+import threading
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional, Tuple
 
@@ -539,13 +539,13 @@ class McpGym(ABC):
 
         Returns:
             Formatted observation dictionary (DATA PLANE ONLY)
-            
+
         Implementation Note:
             You can use self._to_json_serializable(obs) as a starting point
             for most standard serialization needs.
         """
         serialized_obs = self._to_json_serializable(obs)
-        
+
         # If it's already a dict, return as-is, otherwise wrap it
         if isinstance(serialized_obs, dict):
             return serialized_obs
@@ -579,59 +579,60 @@ class McpGym(ABC):
 
     def _to_json_serializable(self, obj: Any) -> Any:
         """Convert any object to JSON-serializable format.
-        
+
         Handles Pydantic models, dataclasses, lists, dicts, and primitive types.
         This is a utility method that can be used by format_observation implementations.
         """
-        from pydantic import BaseModel
         import dataclasses
-        from datetime import datetime, date
+        from datetime import date, datetime
         from enum import Enum
-        
+
+        from pydantic import BaseModel
+
         # Handle None and primitive types
         if obj is None or isinstance(obj, (str, int, float, bool)):
             return obj
-            
+
         # Handle datetime objects
         elif isinstance(obj, (datetime, date)):
             return obj.isoformat()
-            
+
         # Handle enums
         elif isinstance(obj, Enum):
             return obj.value
-            
+
         # Handle Pydantic models (covers tau2 objects and many others)
         elif isinstance(obj, BaseModel):
             return obj.model_dump()
-            
+
         # Handle dataclasses
         elif dataclasses.is_dataclass(obj):
             return dataclasses.asdict(obj)
-            
+
         # Handle dictionaries
         elif isinstance(obj, dict):
             return {k: self._to_json_serializable(v) for k, v in obj.items()}
-            
+
         # Handle lists and tuples
         elif isinstance(obj, (list, tuple)):
             return [self._to_json_serializable(item) for item in obj]
-            
+
         # Handle sets (convert to list)
         elif isinstance(obj, set):
             return [self._to_json_serializable(item) for item in obj]
-            
+
         # Handle objects with __dict__ (fallback)
-        elif hasattr(obj, '__dict__'):
+        elif hasattr(obj, "__dict__"):
             result = {}
             for key, value in obj.__dict__.items():
-                if not key.startswith('_'):  # Skip private attributes
+                if not key.startswith("_"):  # Skip private attributes
                     try:
                         result[key] = self._to_json_serializable(value)
                     except Exception:
                         # If conversion fails, store as string
                         result[key] = str(value)
             return result
-            
+
         # Final fallback - convert to string
         else:
             return str(obj)

@@ -20,8 +20,8 @@ Example usage:
 from typing import Any, Dict, Optional
 
 from cliff_walking_adapter import CliffWalkingAdapter
-from mcp.server.fastmcp import Context
 from gymnasium.envs.toy_text.cliffwalking import CliffWalkingEnv
+from mcp.server.fastmcp import Context
 
 from eval_protocol.mcp import McpGym
 
@@ -87,15 +87,11 @@ class CliffWalkingMcp(McpGym):
             session_data = self._get_or_create_session(ctx)
 
             # Execute environment step using base class method
-            observation_data = self._execute_session_environment_step(
-                session_id, action_int
-            )
+            observation_data = self._execute_session_environment_step(session_id, action_int)
             observation_data["action"] = action
 
             # Log move (no control plane data in logs)
-            print(
-                f"🎮 Session {session_id[:16]}...: {action} → position {session_data['obs']}"
-            )
+            print(f"🎮 Session {session_id[:16]}...: {action} → position {session_data['obs']}")
 
             return observation_data
 

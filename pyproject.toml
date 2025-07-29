@@ -61,6 +61,7 @@ dev = [
     "pytest-httpserver",
     "werkzeug>=2.0.0",
     "black>=21.5b2",
+    "isort>=5.0.0",
     "mypy>=0.812",
     "flake8>=3.9.2",
     "autopep8>=1.5.0",
@@ -112,9 +113,9 @@ parentdir_prefix = "eval-protocol-"
 [tool.black]
 line-length = 119
 
+[tool.isort]
+profile = "black"
+line_length = 119
+
 [tool.uv.sources]
 tau2 = { git = "https://github.com/sierra-research/tau2-bench.git" }
-
-
-
-

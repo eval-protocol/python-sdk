@@ -71,8 +71,8 @@ def test_reward_function_import():
     print("Testing reward function import...")
 
     # Import EvaluateResult specifically within this function's scope
-    from examples.mcp_agent_filesystem_rl import main as filesystem_rl_main
     from eval_protocol.models import EvaluateResult
+    from examples.mcp_agent_filesystem_rl import main as filesystem_rl_main
 
     assert hasattr(filesystem_rl_main, "evaluate"), "Reward function 'evaluate' not found in main.py"
 

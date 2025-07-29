@@ -212,9 +212,7 @@ class TestRewardProtocolImports:
         try:
             # Test another submodule - use a function that actually exists
             from eval_protocol.auth import get_fireworks_account_id
-            from eval_protocol.auth import (
-                get_fireworks_account_id as rp_get_fireworks_account_id,
-            )
+            from eval_protocol.auth import get_fireworks_account_id as rp_get_fireworks_account_id
 
             assert get_fireworks_account_id is rp_get_fireworks_account_id
         except ImportError:

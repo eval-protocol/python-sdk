@@ -16,17 +16,17 @@ import yaml  # For saving config if save_config helper doesn't exist
 
 # TODO: Consider moving subprocess_manager functions to a more central location if used by core CLI
 try:
+    from development.utils.subprocess_manager import start_ngrok_and_get_url  # Added ngrok function
     from development.utils.subprocess_manager import (
-        start_ngrok_and_get_url,  # Added ngrok function
         start_process,
         start_serveo_and_get_url,
         stop_process,
     )
 except ImportError:
     # Fallback implementations when development module is not available
-    import subprocess
     import signal
     import socket
+    import subprocess
 
     def start_process(command, log_path, env=None):
         """Fallback process starter."""

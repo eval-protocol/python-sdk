@@ -247,4 +247,4 @@ This integration enables direct comparison with τ²-Bench leaderboard results:
 | GPT-4o | 0.420 | 0.200 | ✅ Compatible |
 | GPT-4o-mini | 0.225 | 0.100 | ✅ Compatible |
 
-Your MCP-Gym integration can now evaluate agents on the same tasks and compare results directly with the research community. 
+Your MCP-Gym integration can now evaluate agents on the same tasks and compare results directly with the research community.

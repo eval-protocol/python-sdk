@@ -59,4 +59,4 @@ These tests verify that users can import the package using either:
 - `from eval_protocol import ...` (original style)
 - `from eval_protocol import ...` (new style)
 
-Both import styles provide identical functionality with no breaking changes. 
+Both import styles provide identical functionality with no breaking changes.

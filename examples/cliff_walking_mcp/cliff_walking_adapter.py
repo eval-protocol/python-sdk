@@ -17,9 +17,7 @@ class CliffWalkingAdapter(EnvironmentAdapter):
 
     ACTION_NAMES = ["UP", "RIGHT", "DOWN", "LEFT"]
 
-    def create_environment(
-        self, config: Optional[Dict[str, Any]] = None
-    ) -> CliffWalkingEnv:
+    def create_environment(self, config: Optional[Dict[str, Any]] = None) -> CliffWalkingEnv:
         """
         Create Cliff Walking environment.
 
@@ -52,24 +50,16 @@ class CliffWalkingAdapter(EnvironmentAdapter):
 
         # Add seed to config for environment creation
         env_config = {**config, "seed": seed}
-        print(
-            f"🔍 CliffWalkingAdapter.create_environment_with_seed: env_config: {env_config}"
-        )
+        print(f"🔍 CliffWalkingAdapter.create_environment_with_seed: env_config: {env_config}")
 
         env = self.create_environment(env_config)
-        print(
-            f"🔍 CliffWalkingAdapter.create_environment_with_seed: created env, calling reset with seed: {seed}"
-        )
+        print(f"🔍 CliffWalkingAdapter.create_environment_with_seed: created env, calling reset with seed: {seed}")
         obs, info = env.reset(seed=seed)
-        print(
-            f"🔍 CliffWalkingAdapter.create_environment_with_seed: reset returned obs: {obs}, info: {info}"
-        )
+        print(f"🔍 CliffWalkingAdapter.create_environment_with_seed: reset returned obs: {obs}, info: {info}")
 
         return env, obs, info
 
-    def reset_environment(
-        self, env: CliffWalkingEnv, seed: Optional[int] = None
-    ) -> Tuple[int, Dict[str, Any]]:
+    def reset_environment(self, env: CliffWalkingEnv, seed: Optional[int] = None) -> Tuple[int, Dict[str, Any]]:
         """
         Reset environment.
 
@@ -82,9 +72,7 @@ class CliffWalkingAdapter(EnvironmentAdapter):
         """
         return env.reset(seed=seed)
 
-    def step_environment(
-        self, env: CliffWalkingEnv, action: int
-    ) -> Tuple[int, float, bool, bool, Dict[str, Any]]:
+    def step_environment(self, env: CliffWalkingEnv, action: int) -> Tuple[int, float, bool, bool, Dict[str, Any]]:
         """
         Execute environment step.
 
@@ -121,9 +109,7 @@ class CliffWalkingAdapter(EnvironmentAdapter):
         """
         action_str = action_str.strip().upper()
         if action_str not in self.ACTION_NAMES:
-            raise ValueError(
-                f"Invalid action '{action_str}'. Valid actions: {self.ACTION_NAMES}"
-            )
+            raise ValueError(f"Invalid action '{action_str}'. Valid actions: {self.ACTION_NAMES}")
         return self.ACTION_NAMES.index(action_str)
 
     def format_observation(self, observation: int) -> int:

@@ -20,10 +20,10 @@ Example usage:
 """
 
 import argparse
+import json
 import os
 from re import A
-from typing import Any, Dict, Optional, List
-import json
+from typing import Any, Dict, List, Optional
 
 from lunar_lander_adapter import LunarLanderAdapter
 from mcp.server.fastmcp import Context

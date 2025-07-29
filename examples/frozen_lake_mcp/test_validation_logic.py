@@ -13,9 +13,10 @@ from _pytest.outcomes import Failed
 # Add the test directory to the path so we can import our validation functions
 sys.path.insert(0, str(Path(__file__).parent / "tests"))
 
+import importlib.util
+
 # Import from the local test file explicitly
 import sys
-import importlib.util
 
 spec = importlib.util.spec_from_file_location(
     "test_frozen_lake_e2e_local",

@@ -20,9 +20,8 @@ from pathlib import Path
 # Add current directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from eval_protocol.utils.static_policy import StaticPolicy
-
 import eval_protocol as ep
+from eval_protocol.utils.static_policy import StaticPolicy
 
 
 async def test_multi_session():

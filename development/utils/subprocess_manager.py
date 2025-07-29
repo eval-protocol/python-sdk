@@ -15,9 +15,7 @@ except ImportError:
     REQUESTS_AVAILABLE = False
 
 # Store PIDs of started processes
-managed_processes: Dict[int, Dict[str, Any]] = (
-    {}
-)  # pid -> {process, command, log_file, log_file_path, env}
+managed_processes: Dict[int, Dict[str, Any]] = {}  # pid -> {process, command, log_file, log_file_path, env}
 
 NGROK_API_URL = "http://127.0.0.1:4040/api/tunnels"
 
@@ -43,9 +41,7 @@ def start_process(
     Returns:
         The Popen object for the started process.
     """
-    print(
-        f"Starting process: {' '.join(str(c) for c in command)}"
-    )  # Ensure all parts of command are str for join
+    print(f"Starting process: {' '.join(str(c) for c in command)}")  # Ensure all parts of command are str for join
     print(f"Logging output to: {log_file_path}")
 
     # Ensure log directory exists
@@ -89,9 +85,7 @@ def get_ngrok_public_url(retries: int = 5, delay: int = 3) -> Optional[str]:
     Queries the local ngrok API to get the public HTTPS URL.
     """
     if not REQUESTS_AVAILABLE:
-        print(
-            "ERROR: 'requests' library is not installed. Cannot fetch ngrok URL automatically."
-        )
+        print("ERROR: 'requests' library is not installed. Cannot fetch ngrok URL automatically.")
         print("Please install it, e.g., pip install requests")
         return None
 
@@ -102,9 +96,7 @@ def get_ngrok_public_url(retries: int = 5, delay: int = 3) -> Optional[str]:
             response.raise_for_status()
             tunnels_data = response.json()
             for tunnel in tunnels_data.get("tunnels", []):
-                if tunnel.get("proto") == "https" and tunnel.get(
-                    "public_url", ""
-                ).startswith("https://"):
+                if tunnel.get("proto") == "https" and tunnel.get("public_url", "").startswith("https://"):
                     print(f"Found ngrok public URL: {tunnel['public_url']}")
                     return tunnel["public_url"]
             print(
@@ -115,9 +107,7 @@ def get_ngrok_public_url(retries: int = 5, delay: int = 3) -> Optional[str]:
                 f"Attempt {attempt + 1}/{retries}: ngrok API not yet available at {NGROK_API_URL}. Retrying in {delay}s..."
             )
         except Exception as e:
-            print(
-                f"Attempt {attempt + 1}/{retries}: Error fetching ngrok URL: {e}. Retrying in {delay}s..."
-            )
+            print(f"Attempt {attempt + 1}/{retries}: Error fetching ngrok URL: {e}. Retrying in {delay}s...")
         time.sleep(delay)
     print("ERROR: Failed to get ngrok public URL after multiple retries.")
     return None
@@ -138,14 +128,10 @@ def start_ngrok_and_get_url(
 
     try:
         # Check if ngrok command is available
-        ngrok_version_process = subprocess.run(
-            ["ngrok", "--version"], capture_output=True, text=True, check=True
-        )
+        ngrok_version_process = subprocess.run(["ngrok", "--version"], capture_output=True, text=True, check=True)
         print(f"Found ngrok version: {ngrok_version_process.stdout.strip()}")
     except (subprocess.CalledProcessError, FileNotFoundError):
-        print(
-            "ERROR: ngrok command not found or not executable. Please ensure ngrok is installed and in your PATH."
-        )
+        print("ERROR: ngrok command not found or not executable. Please ensure ngrok is installed and in your PATH.")
         return None, None
 
     if authtoken:
@@ -163,9 +149,7 @@ def start_ngrok_and_get_url(
     print(f"Attempting to start ngrok for port {local_port}...")
     # ngrok typically doesn't need to be in a new process group for simple start/stop.
     # Its logs will go to ngrok_log_file via start_process.
-    ngrok_process = start_process(
-        ngrok_command, ngrok_log_file, new_process_group=False
-    )
+    ngrok_process = start_process(ngrok_command, ngrok_log_file, new_process_group=False)
 
     if not ngrok_process or ngrok_process.poll() is not None:
         print(f"ERROR: Failed to start ngrok. Check log: {ngrok_log_file}")
@@ -179,22 +163,16 @@ def start_ngrok_and_get_url(
             pass  # stop_process will be called by the caller if needed
         return None, None
 
-    print(
-        f"ngrok process started with PID {ngrok_process.pid}. Waiting for tunnel URL..."
-    )
+    print(f"ngrok process started with PID {ngrok_process.pid}. Waiting for tunnel URL...")
     # Increased sleep time as ngrok can take a moment to establish tunnel and API to update
     time.sleep(8)
 
     public_url = get_ngrok_public_url()
 
     if not public_url:
-        print(
-            f"ERROR: Could not retrieve public URL from ngrok API. Check log: {ngrok_log_file}"
-        )
+        print(f"ERROR: Could not retrieve public URL from ngrok API. Check log: {ngrok_log_file}")
         # If URL fetch fails, stop the ngrok process we started.
-        stop_process(
-            ngrok_process.pid
-        )  # stop_process will remove it from managed_processes
+        stop_process(ngrok_process.pid)  # stop_process will remove it from managed_processes
         return None, None
 
     print(f"Successfully started ngrok and retrieved public URL: {public_url}")
@@ -220,9 +198,7 @@ def start_serveo_and_get_url(
         A tuple (ssh_process, public_url). (None, None) on failure.
     """
     if not shutil.which("ssh"):
-        print(
-            "ERROR: 'ssh' command not found. Please ensure OpenSSH client is installed and in your PATH."
-        )
+        print("ERROR: 'ssh' command not found. Please ensure OpenSSH client is installed and in your PATH.")
         return None, None
 
     # Ensure log directory exists
@@ -262,9 +238,7 @@ def start_serveo_and_get_url(
             text=True,  # Decode output as text
             bufsize=1,  # Line-buffered
             universal_newlines=True,  # Ensure consistent line endings
-            preexec_fn=(
-                os.setsid if os.name != "nt" else None
-            ),  # New process group for proper termination
+            preexec_fn=(os.setsid if os.name != "nt" else None),  # New process group for proper termination
         )
 
         # Add to managed_processes early so it can be cleaned up if something goes wrong
@@ -275,22 +249,16 @@ def start_serveo_and_get_url(
             "log_file_path": log_file_path,
             "is_ngrok": False,
         }
-        print(
-            f"Serveo SSH process started with PID: {ssh_process.pid}. Waiting for URL..."
-        )
+        print(f"Serveo SSH process started with PID: {ssh_process.pid}. Waiting for URL...")
 
-        url_pattern = re.compile(
-            r"Forwarding HTTP traffic from (https://\S+\.serveo\.net)"
-        )
+        url_pattern = re.compile(r"Forwarding HTTP traffic from (https://\S+\.serveo\.net)")
 
         start_time = time.time()
         if ssh_process.stdout:
             for line in iter(ssh_process.stdout.readline, ""):
                 log_file.write(line)  # Write to the main log file
                 log_file.flush()
-                print(
-                    f"[Serveo PID {ssh_process.pid}]: {line.strip()}"
-                )  # Also print to console for live feedback
+                print(f"[Serveo PID {ssh_process.pid}]: {line.strip()}")  # Also print to console for live feedback
 
                 match = url_pattern.search(line)
                 if match:
@@ -299,29 +267,21 @@ def start_serveo_and_get_url(
                     break  # URL found
 
                 if time.time() - start_time > timeout_seconds:
-                    print(
-                        f"ERROR: Timeout ({timeout_seconds}s) waiting for Serveo URL."
-                    )
+                    print(f"ERROR: Timeout ({timeout_seconds}s) waiting for Serveo URL.")
                     break  # Timeout
                 if ssh_process.poll() is not None:  # Process terminated unexpectedly
-                    print(
-                        f"ERROR: Serveo SSH process terminated unexpectedly. Check log: {log_file_path}"
-                    )
+                    print(f"ERROR: Serveo SSH process terminated unexpectedly. Check log: {log_file_path}")
                     break
 
             # If loop exited because readline returned '', process ended.
             if ssh_process.poll() is not None and not public_url:
-                print(
-                    f"ERROR: Serveo SSH process ended before URL was found. Check log: {log_file_path}"
-                )
+                print(f"ERROR: Serveo SSH process ended before URL was found. Check log: {log_file_path}")
 
         else:  # Should not happen if Popen was successful
             print("ERROR: SSH process stdout stream not available.")
 
     except FileNotFoundError:
-        print(
-            "ERROR: 'ssh' command not found. Please ensure OpenSSH client is installed and in your PATH."
-        )
+        print("ERROR: 'ssh' command not found. Please ensure OpenSSH client is installed and in your PATH.")
         if ssh_process and ssh_process.pid in managed_processes:
             stop_process(ssh_process.pid)  # Clean up if partially started
         return None, None
@@ -370,11 +330,7 @@ def stop_process(pid: int):
                 # Send SIGTERM to the entire process group
                 os.killpg(os.getpgid(pid), signal.SIGTERM)
 
-            if (
-                hasattr(process, "stdout")
-                and process.stdout
-                and not process.stdout.closed
-            ):
+            if hasattr(process, "stdout") and process.stdout and not process.stdout.closed:
                 process.stdout.close()  # This might not be necessary if Popen handles it on terminate/kill
             process.wait(timeout=5)  # Wait for graceful termination
             print(f"Process PID {pid} terminated gracefully.")
@@ -394,9 +350,7 @@ def stop_process(pid: int):
         except Exception as e:
             print(f"Error stopping process PID {pid}: {e}")
         finally:
-            if (
-                log_file and not log_file.closed
-            ):  # Check if log_file is TextIOWrapper and not closed
+            if log_file and not log_file.closed:  # Check if log_file is TextIOWrapper and not closed
                 log_file.close()
             if pid in managed_processes:  # Check if pid still exists before deleting
                 del managed_processes[pid]

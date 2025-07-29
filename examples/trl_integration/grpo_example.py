@@ -36,9 +36,7 @@ try:
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from trl import GRPOConfig, GRPOTrainer
 
-    from eval_protocol.rewards.math import (
-        math_reward as rk_math_reward,  # Import the library's math_reward
-    )
+    from eval_protocol.rewards.math import math_reward as rk_math_reward  # Import the library's math_reward
 
     HAS_TRL = True
 except ImportError:
