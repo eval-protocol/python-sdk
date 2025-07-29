@@ -41,9 +41,7 @@ try:
         from openai.types.chat.chat_completion_token_logprob import (
             ChatCompletionTokenLogprob,
         )
-        from openai.types.chat.choice_logprobs import (
-            ChoiceLogprobs as OpenAIChoiceLogprobs,
-        )
+        from openai.types.chat.choice_logprobs import ChoiceLogprobs as OpenAIChoiceLogprobs
         from openai.types.completion_usage import CompletionUsage
     except ImportError:
         print("Warning: Failed to import some openai.types. Mock will use dicts instead of Pydantic models.")

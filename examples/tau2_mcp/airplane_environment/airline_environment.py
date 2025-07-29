@@ -5,14 +5,14 @@ Airline Environment for τ²-Bench Integration
 This module implements an AirlineEnvironment that integrates the τ²-Bench simulation
 pattern (Agent/User/Environment communication) with the MCP-Gym framework.
 """
-from copy import deepcopy
 import json
 import logging
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
-from dataclasses import dataclass, field
 import os
+from copy import deepcopy
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from vendor.tau2.domains.airline.data_model import FlightDB
 from vendor.tau2.domains.airline.tools import AirlineTools
@@ -38,7 +38,7 @@ class AirlineEnvironment:
         logger.info("🔄 Resetting airline environment - reloading database from disk")
         self.db = FlightDB.load(AIRLINE_DB_PATH)
         self.airline_tools = AirlineTools(self.db)
-        
+
         return {}, {}
 
     def step(self, action: Dict[str, Any]) -> Tuple[Dict[str, Any], float, bool, bool, Dict[str, Any]]:

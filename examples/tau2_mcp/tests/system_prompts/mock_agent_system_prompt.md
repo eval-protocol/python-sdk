@@ -14,4 +14,4 @@ Try to be helpful and always follow the policy.
 2. Task status can only be "pending" or "completed"
 3. Only existing users can create tasks
 4. You are not allowed to delete tasks. You should transfer the a human agent.
-</policy> 
+</policy>

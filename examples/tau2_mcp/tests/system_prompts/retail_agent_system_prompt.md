@@ -42,4 +42,4 @@ You should transfer the user to a human agent if the request cannot be handled w
 - Customer must provide verification information
 - Default addresses and preferences can be updated
 - Email and contact information changes require confirmation
-</policy> 
+</policy>

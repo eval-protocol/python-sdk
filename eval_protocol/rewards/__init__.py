@@ -48,12 +48,8 @@ from .lean_prover import (
 )
 
 # Import these with aliases to avoid name conflicts
-from .list_comparison_math_reward import (
-    list_comparison_math_reward as list_comparison_math_reward_function,
-)
-from .multiple_choice_math_reward import (
-    multiple_choice_math_reward as multiple_choice_math_reward_function,
-)
+from .list_comparison_math_reward import list_comparison_math_reward as list_comparison_math_reward_function
+from .multiple_choice_math_reward import multiple_choice_math_reward as multiple_choice_math_reward_function
 
 __all__ = [
     # Modules

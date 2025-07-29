@@ -14,6 +14,8 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from frozen_lake_mcp import FrozenLakeMcp
+
+import eval_protocol as ep
 from eval_protocol.mcp import McpGym
 
 

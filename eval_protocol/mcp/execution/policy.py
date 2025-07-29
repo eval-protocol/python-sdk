@@ -10,12 +10,11 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from concurrent.futures import ThreadPoolExecutor
-
-from .base_policy import LLMBasePolicy
 from ..types import LLMUsageStats, MCPToolCall
+from .base_policy import LLMBasePolicy
 
 # Try to import FireworksPolicy from separate module - it's optional
 try:
@@ -25,8 +24,6 @@ except ImportError:
     FireworksPolicy = None
 
 logger = logging.getLogger(__name__)
-
-
 
 
 class OpenAIPolicy(LLMBasePolicy):

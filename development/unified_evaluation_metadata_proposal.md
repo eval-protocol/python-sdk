@@ -35,20 +35,20 @@ The new `EvaluationRow` model serves as the canonical data structure for evaluat
 ```python
 class EvaluationRow(BaseModel):
     """
-    Unified data structure for a single evaluation unit that contains messages, 
+    Unified data structure for a single evaluation unit that contains messages,
     tools, and evaluation results. This can represent either a single turn evaluation
     or a complete trajectory evaluation.
     """
-    
+
     # Core conversation data
     messages: List[Message]
-    
-    # Tool and function call information  
+
+    # Tool and function call information
     tools: Optional[List[Dict[str, Any]]] = None
-    
+
     # Input-related metadata (grouped together for cleaner organization)
     input_metadata: Optional[Dict[str, Any]] = None
-    
+
     # Unified evaluation result
     evaluation_result: Optional[EvaluateResult] = None
 ```
@@ -117,13 +117,13 @@ messages = [
 # Step-by-step evaluation results
 step_outputs = [
     StepOutput(
-        step_index=0, 
-        base_reward=0.3, 
+        step_index=0,
+        base_reward=0.3,
         terminated=False
     ),
     StepOutput(
-        step_index=1, 
-        base_reward=0.7, 
+        step_index=1,
+        base_reward=0.7,
         terminated=True,
         control_plane_info={"task_completed": True}
     )
@@ -161,11 +161,11 @@ row = EvaluationRow(
 messages = [
     Message(role="user", content="Search for recent papers on ML"),
     Message(
-        role="assistant", 
+        role="assistant",
         content="I'll search for recent ML papers.",
         tool_calls=[{
-            "id": "search_1", 
-            "type": "function", 
+            "id": "search_1",
+            "type": "function",
             "function": {"name": "search_papers", "arguments": '{"query": "machine learning", "recent": true}'}
         }]
     )
@@ -217,7 +217,7 @@ class EvaluateResult(BaseModel):
     metrics: Dict[str, MetricResult] = Field(default_factory=dict)
     step_outputs: Optional[List[StepOutput]] = None
     error: Optional[str] = None
-    
+
     # NEW: Unified trajectory and row-wise support
     trajectory_info: Optional[Dict[str, Any]] = None
     final_control_plane_info: Optional[Dict[str, Any]] = None
@@ -288,4 +288,4 @@ The control plane logic in `execution/manager.py` will be simplified to directly
 6. **Type Safe**: Full Pydantic validation and type hints throughout
 7. **Serialization Ready**: Built-in JSON serialization/deserialization support
 
-This unified approach provides a robust yet simple foundation for evaluation data handling while maintaining clarity and backward compatibility. 
+This unified approach provides a robust yet simple foundation for evaluation data handling while maintaining clarity and backward compatibility.

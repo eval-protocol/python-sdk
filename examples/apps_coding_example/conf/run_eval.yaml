@@ -35,7 +35,7 @@ generation:
 
 reward:
   # Path to the new reward function in eval_protocol/rewards/
-function_path: "eval_protocol.rewards.apps_coding_reward.evaluate_apps_solution"
+  function_path: "eval_protocol.rewards.apps_coding_reward.evaluate_apps_solution"
   params: {} # Any specific parameters for the apps_coding_reward function
 
 evaluation_params:

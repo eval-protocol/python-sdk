@@ -11,13 +11,13 @@ tool-augmented models using self-contained task bundles.
 import warnings
 
 from .adapters.braintrust import reward_fn_to_scorer, scorer_to_reward_fn
-from .auth import get_fireworks_api_key, get_fireworks_account_id
+from .auth import get_fireworks_account_id, get_fireworks_api_key
 from .common_utils import load_jsonl
-from .config import load_config, get_config, RewardKitConfig
+from .config import RewardKitConfig, get_config, load_config
 from .mcp_env import (
-    OpenAIPolicy,
     AnthropicPolicy,
     MCPVectorEnv,
+    OpenAIPolicy,
     make,
     rollout,
     test_mcp,
@@ -30,15 +30,13 @@ try:
     _FIREWORKS_AVAILABLE = True
 except (ImportError, AttributeError):
     _FIREWORKS_AVAILABLE = False
+# Import submodules to make them available via eval_protocol.rewards, etc.
+from . import mcp, rewards
 from .models import EvaluateResult, Message, MetricResult
 from .playback_policy import PlaybackPolicyBase
 from .resources import create_llm_resource
 from .reward_function import RewardFunction
 from .typed_interface import reward_function
-
-# Import submodules to make them available via eval_protocol.rewards, etc.
-from . import rewards
-from . import mcp
 
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 

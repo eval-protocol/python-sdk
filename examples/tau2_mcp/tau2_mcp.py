@@ -7,20 +7,20 @@ It provides all the tools as MCP tools for agent evaluation.
 """
 
 import argparse
-import os
-from typing import Any, Dict, Optional, List, Annotated
 import json
-from pydantic import Field
+import os
+from typing import Annotated, Any, Dict, List, Optional
 
-from mcp.server.fastmcp import Context
 from airplane_environment.airline_environment import AirlineEnvironment
+from mcp.server.fastmcp import Context
 from mock_environment.mock_environment import MockEnvironment
+from pydantic import Field
 from retail_environment.retail_environment import RetailEnvironment
+from tau2.domains.airline.data_model import CabinClass, FlightInfo, FlightType, Insurance, Passenger, Payment
 
-from eval_protocol.mcp import McpGym, EnvironmentAdapter
+from eval_protocol.mcp import EnvironmentAdapter, McpGym
 from eval_protocol.mcp.mcpgym import control_plane_endpoint
-
-from vendor.tau2.domains.airline.data_model import Passenger, FlightType, CabinClass, FlightInfo, Payment, Insurance
+from vendor.tau2.domains.airline.data_model import CabinClass, FlightInfo, FlightType, Insurance, Passenger, Payment
 
 
 class AirlineDomainMcp(McpGym):
@@ -43,16 +43,35 @@ class AirlineDomainMcp(McpGym):
 
         @self.mcp.tool(name="book_reservation", description="Book a reservation.")
         def book_reservation(
-            user_id: Annotated[str, Field(description="The ID of the user to book the reservation such as 'sara_doe_496'")],
+            user_id: Annotated[
+                str, Field(description="The ID of the user to book the reservation such as 'sara_doe_496'")
+            ],
             origin: Annotated[str, Field(description="The IATA code for the origin city such as 'SFO'")],
             destination: Annotated[str, Field(description="The IATA code for the destination city such as 'JFK'")],
-            flight_type: Annotated[FlightType, Field(description="The type of flight such as 'one_way' or 'round_trip'")],
-            cabin: Annotated[CabinClass, Field(description="The cabin class such as 'basic_economy', 'economy', or 'business'")],
-            flights: Annotated[List[FlightInfo | dict], Field(description="An array of objects containing details about each piece of flight")],
-            passengers: Annotated[List[Passenger | dict], Field(description="An array of objects containing details about each passenger")],
-            payment_methods: Annotated[List[Payment | dict], Field(description="An array of objects containing details about each payment method")],
-            total_baggages: Annotated[int, Field(description="The total number of baggage items to book the reservation")],
-            nonfree_baggages: Annotated[int, Field(description="The number of non-free baggage items to book the reservation")],
+            flight_type: Annotated[
+                FlightType, Field(description="The type of flight such as 'one_way' or 'round_trip'")
+            ],
+            cabin: Annotated[
+                CabinClass, Field(description="The cabin class such as 'basic_economy', 'economy', or 'business'")
+            ],
+            flights: Annotated[
+                List[FlightInfo | dict],
+                Field(description="An array of objects containing details about each piece of flight"),
+            ],
+            passengers: Annotated[
+                List[Passenger | dict],
+                Field(description="An array of objects containing details about each passenger"),
+            ],
+            payment_methods: Annotated[
+                List[Payment | dict],
+                Field(description="An array of objects containing details about each payment method"),
+            ],
+            total_baggages: Annotated[
+                int, Field(description="The total number of baggage items to book the reservation")
+            ],
+            nonfree_baggages: Annotated[
+                int, Field(description="The number of non-free baggage items to book the reservation")
+            ],
             insurance: Annotated[Insurance, Field(description="Whether the reservation has insurance")],
             ctx: Context,
         ) -> Dict[str, Any]:
@@ -85,8 +104,13 @@ class AirlineDomainMcp(McpGym):
             description="Calculate the result of a mathematical expression.",
         )
         def calculate(
-            expression: Annotated[str, Field(description="The mathematical expression to calculate, such as '2 + 2'. The expression can contain numbers, operators (+, -, *, /), parentheses, and spaces.")],
-            ctx: Context
+            expression: Annotated[
+                str,
+                Field(
+                    description="The mathematical expression to calculate, such as '2 + 2'. The expression can contain numbers, operators (+, -, *, /), parentheses, and spaces."
+                ),
+            ],
+            ctx: Context,
         ) -> Dict[str, Any]:
             """Calculate mathematical expressions"""
             session_id = self._get_session_id(ctx)
@@ -98,8 +122,7 @@ class AirlineDomainMcp(McpGym):
 
         @self.mcp.tool(name="cancel_reservation", description="Cancel the whole reservation.")
         def cancel_reservation(
-            reservation_id: Annotated[str, Field(description="The reservation ID, such as 'ZFA04Y'")],
-            ctx: Context
+            reservation_id: Annotated[str, Field(description="The reservation ID, such as 'ZFA04Y'")], ctx: Context
         ) -> Dict[str, Any]:
             """Cancel a reservation"""
             session_id = self._get_session_id(ctx)
@@ -117,8 +140,7 @@ class AirlineDomainMcp(McpGym):
             description="Get the details of a reservation.",
         )
         def get_reservation_details(
-            reservation_id: Annotated[str, Field(description="The reservation ID, such as '8JX2WO'")],
-            ctx: Context
+            reservation_id: Annotated[str, Field(description="The reservation ID, such as '8JX2WO'")], ctx: Context
         ) -> Dict[str, Any]:
             """Get reservation details"""
             session_id = self._get_session_id(ctx)
@@ -136,8 +158,7 @@ class AirlineDomainMcp(McpGym):
             description="Get the details of a user, including their reservations.",
         )
         def get_user_details(
-            user_id: Annotated[str, Field(description="The user ID, such as 'sara_doe_496'")],
-            ctx: Context
+            user_id: Annotated[str, Field(description="The user ID, such as 'sara_doe_496'")], ctx: Context
         ) -> Dict[str, Any]:
             """Get user details"""
             session_id = self._get_session_id(ctx)
@@ -165,9 +186,13 @@ class AirlineDomainMcp(McpGym):
         )
         def search_direct_flight(
             origin: Annotated[str, Field(description="The origin city airport in three letters, such as 'JFK'")],
-            destination: Annotated[str, Field(description="The destination city airport in three letters, such as 'LAX'")],
-            date: Annotated[str, Field(description="The date of the flight in the format 'YYYY-MM-DD', such as '2024-01-01'")],
-            ctx: Context
+            destination: Annotated[
+                str, Field(description="The destination city airport in three letters, such as 'LAX'")
+            ],
+            date: Annotated[
+                str, Field(description="The date of the flight in the format 'YYYY-MM-DD', such as '2024-01-01'")
+            ],
+            ctx: Context,
         ) -> Dict[str, Any]:
             """Search for direct flights"""
             session_id = self._get_session_id(ctx)
@@ -190,9 +215,13 @@ class AirlineDomainMcp(McpGym):
         )
         def search_onestop_flight(
             origin: Annotated[str, Field(description="The origin city airport in three letters, such as 'JFK'")],
-            destination: Annotated[str, Field(description="The destination city airport in three letters, such as 'LAX'")],
-            date: Annotated[str, Field(description="The date of the flight in the format 'YYYY-MM-DD', such as '2024-05-01'")],
-            ctx: Context
+            destination: Annotated[
+                str, Field(description="The destination city airport in three letters, such as 'LAX'")
+            ],
+            date: Annotated[
+                str, Field(description="The date of the flight in the format 'YYYY-MM-DD', such as '2024-05-01'")
+            ],
+            ctx: Context,
         ) -> Dict[str, Any]:
             """Search for one-stop flights"""
             session_id = self._get_session_id(ctx)
@@ -214,9 +243,11 @@ class AirlineDomainMcp(McpGym):
             description="Send a certificate to a user. Be careful!",
         )
         def send_certificate(
-            user_id: Annotated[str, Field(description="The ID of the user to book the reservation, such as 'sara_doe_496'")],
+            user_id: Annotated[
+                str, Field(description="The ID of the user to book the reservation, such as 'sara_doe_496'")
+            ],
             amount: Annotated[int, Field(description="The amount of the certificate to send")],
-            ctx: Context
+            ctx: Context,
         ) -> Dict[str, Any]:
             """Send a certificate to a user"""
             session_id = self._get_session_id(ctx)
@@ -234,8 +265,7 @@ class AirlineDomainMcp(McpGym):
             description="Transfer the user to a human agent, with a summary of the user's issue. Only transfer if the user explicitly asks for a human agent or given the policy and the available tools, you cannot solve the user's issue.",
         )
         def transfer_to_human_agents(
-            summary: Annotated[str, Field(description="A summary of the user's issue")],
-            ctx: Context
+            summary: Annotated[str, Field(description="A summary of the user's issue")], ctx: Context
         ) -> Dict[str, Any]:
             """Transfer to human agent"""
             session_id = self._get_session_id(ctx)
@@ -254,9 +284,18 @@ class AirlineDomainMcp(McpGym):
         )
         def update_reservation_baggages(
             reservation_id: Annotated[str, Field(description="The reservation ID, such as 'ZFA04Y'")],
-            total_baggages: Annotated[int, Field(description="The updated total number of baggage items included in the reservation")],
-            nonfree_baggages: Annotated[int, Field(description="The updated number of non-free baggage items included in the reservation")],
-            payment_id: Annotated[str, Field(description="The payment id stored in user profile, such as 'credit_card_7815826', 'gift_card_7815826', 'certificate_7815826'")],
+            total_baggages: Annotated[
+                int, Field(description="The updated total number of baggage items included in the reservation")
+            ],
+            nonfree_baggages: Annotated[
+                int, Field(description="The updated number of non-free baggage items included in the reservation")
+            ],
+            payment_id: Annotated[
+                str,
+                Field(
+                    description="The payment id stored in user profile, such as 'credit_card_7815826', 'gift_card_7815826', 'certificate_7815826'"
+                ),
+            ],
             ctx: Context,
         ) -> Dict[str, Any]:
             """Update reservation baggage information"""
@@ -282,8 +321,18 @@ class AirlineDomainMcp(McpGym):
         def update_reservation_flights(
             reservation_id: Annotated[str, Field(description="The reservation ID, such as 'ZFA04Y'")],
             cabin: Annotated[CabinClass, Field(description="The cabin class of the reservation")],
-            flights: Annotated[List[FlightInfo | dict], Field(description="An array of objects containing details about each piece of flight in the ENTIRE new reservation. Even if the a flight segment is not changed, it should still be included in the array")],
-            payment_id: Annotated[str, Field(description="The payment id stored in user profile, such as 'credit_card_7815826', 'gift_card_7815826', 'certificate_7815826'")],
+            flights: Annotated[
+                List[FlightInfo | dict],
+                Field(
+                    description="An array of objects containing details about each piece of flight in the ENTIRE new reservation. Even if the a flight segment is not changed, it should still be included in the array"
+                ),
+            ],
+            payment_id: Annotated[
+                str,
+                Field(
+                    description="The payment id stored in user profile, such as 'credit_card_7815826', 'gift_card_7815826', 'certificate_7815826'"
+                ),
+            ],
             ctx: Context,
         ) -> Dict[str, Any]:
             """Update reservation flight information"""
@@ -308,8 +357,11 @@ class AirlineDomainMcp(McpGym):
         )
         def update_reservation_passengers(
             reservation_id: Annotated[str, Field(description="The reservation ID, such as 'ZFA04Y'")],
-            passengers: Annotated[List[Passenger | dict], Field(description="An array of objects containing details about each passenger")],
-            ctx: Context
+            passengers: Annotated[
+                List[Passenger | dict],
+                Field(description="An array of objects containing details about each passenger"),
+            ],
+            ctx: Context,
         ) -> Dict[str, Any]:
             """Update reservation passenger information"""
             session_id = self._get_session_id(ctx)
@@ -329,7 +381,7 @@ class AirlineDomainMcp(McpGym):
         def get_flight_status(
             flight_number: Annotated[str, Field(description="The flight number")],
             date: Annotated[str, Field(description="The date of the flight")],
-            ctx: Context
+            ctx: Context,
         ) -> Dict[str, Any]:
             """Get flight status"""
             session_id = self._get_session_id(ctx)
@@ -469,7 +521,7 @@ class RetailDomainMcp(McpGym):
             the order status will be changed to 'cancelled' and the payment will be refunded.
             The refund will be added to the user's gift card balance immediately if the payment
             was made using a gift card, otherwise the refund would take 5-7 business days to process.
-            The function returns the order details after the cancellation. 
+            The function returns the order details after the cancellation.
             Args:
             order_id: The order id, such as '#W0000000'. Be careful there is a '#' symbol at the beginning of the order id.
             reason: The reason for cancellation, which should be either 'no longer needed' or 'ordered by mistake'.""",
@@ -705,4 +757,3 @@ class RetailDomainMcp(McpGym):
             return self._execute_session_environment_step(
                 session_id, {"action": "transfer_to_human_agents", "parameters": {"summary": summary}}
             )
-

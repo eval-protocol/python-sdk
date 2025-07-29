@@ -6,20 +6,20 @@ Combines the functionality of SessionManager and RolloutManager.
 """
 
 import asyncio
-from dataclasses import dataclass
 import json
 import logging
 import os
-import time
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
-from ..client.connection import MCPConnectionManager
-from ..types import MCPSession, MCPToolCall, Trajectory, TerminationReason, LLMUsageStats
-
-from vendor.tau2.user.user_simulator import UserSimulator
 from vendor.tau2.data_model.message import AssistantMessage, UserMessage
+from vendor.tau2.user.user_simulator import UserSimulator
+
+from ..client.connection import MCPConnectionManager
+from ..types import LLMUsageStats, MCPSession, MCPToolCall, TerminationReason, Trajectory
 
 if TYPE_CHECKING:
     from ..session.manager import GeneralMCPVectorEnv

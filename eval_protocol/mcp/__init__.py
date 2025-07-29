@@ -11,7 +11,7 @@ from .adapter import EnvironmentAdapter
 
 # New refactored components
 from .client import MCPConnectionManager
-from .execution import LLMBasePolicy, OpenAIPolicy, ExecutionManager
+from .execution import ExecutionManager, LLMBasePolicy, OpenAIPolicy
 
 # FireworksPolicy is imported conditionally by execution.__init__.py
 try:

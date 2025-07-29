@@ -12,9 +12,8 @@ from typing import Any, Dict, Optional, Tuple
 
 import gymnasium as gym
 import numpy as np
-from PIL import Image
-
 from gymnasium.envs.box2d.lunar_lander import LunarLander
+from PIL import Image
 
 from eval_protocol.mcp.adapter import EnvironmentAdapter
 

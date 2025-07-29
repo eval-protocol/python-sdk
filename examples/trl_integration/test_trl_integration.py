@@ -16,6 +16,12 @@ from typing import Any, Dict, List, Optional
 # Ensure eval-protocol is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+from eval_protocol.models import EvaluateResult, MetricResult
+
+# Import eval-protocol components
+from eval_protocol.reward_function import RewardFunction, reward_function
+from eval_protocol.rewards.length import length_reward
+
 # Import TRL adapter utilities
 from examples.trl_integration.trl_adapter import (  # Changed to absolute import from project root
     apply_reward_to_responses,
@@ -23,11 +29,6 @@ from examples.trl_integration.trl_adapter import (  # Changed to absolute import
     create_grpo_reward,
     grpo_format_reward,
 )
-from eval_protocol.models import EvaluateResult, MetricResult
-
-# Import eval-protocol components
-from eval_protocol.reward_function import RewardFunction, reward_function
-from eval_protocol.rewards.length import length_reward
 
 
 # Define a simple example reward function (not a pytest test case)

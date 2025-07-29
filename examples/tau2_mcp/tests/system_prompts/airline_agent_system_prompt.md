@@ -26,8 +26,8 @@ You should transfer the user to a human agent if and only if the request cannot 
 
 ## Cancel flight
 
-First, the agent must obtain the user id and reservation id. 
-- The user must provide their user id. 
+First, the agent must obtain the user id and reservation id.
+- The user must provide their user id.
 - If the user doesn't know their reservation id, the agent should help locate it using available tools.
 
 The agent must also obtain the reason for cancellation (change of plan, airline cancelled flight, or other reasons)
@@ -44,4 +44,4 @@ The API does not check that cancellation rules are met, so the agent must make s
 
 Refund:
 - The refund will go to original payment methods within 5 to 7 business days.
-</policy> 
+</policy>
