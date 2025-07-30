@@ -255,7 +255,19 @@ def evaluation_test(
                     )
                     if results is None:
                         raise ValueError(
-                            f"Results is None for model {model_name}. Return an EvaluationRow instance from your test function."
+                            f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
+                        )
+                    if not isinstance(results, list):
+                        raise ValueError(
+                            f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                        )
+                    if not results:
+                        raise ValueError(
+                            f"Test function {test_func.__name__} returned an empty list. You must return a non-empty list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                        )
+                    if not all(isinstance(r, EvaluationRow) for r in results):
+                        raise ValueError(
+                            f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
                         )
                     all_results.extend(results)
 
@@ -274,8 +286,7 @@ def evaluation_test(
                 return wrapper_body(**kwargs)
 
             parameters = [
-                inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-                for name in test_param_names
+                inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names
             ]
             wrapper.__signature__ = inspect.Signature(parameters)
 
