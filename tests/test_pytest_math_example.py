@@ -9,6 +9,6 @@ from examples.math_example.main import evaluate as math_evaluate
     max_dataset_rows=5,
     threshold_of_success=0.0,
 )
-def test_math_dataset(evaluation_rows):
+def test_math_dataset(input_dataset, input_params, model):
     """Run math evaluation on sample dataset using pytest interface."""
-    return evaluate(evaluation_rows, math_evaluate)
+    return evaluate(input_dataset, math_evaluate)
