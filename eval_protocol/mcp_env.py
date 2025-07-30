@@ -45,13 +45,17 @@ MCP Integration:
 
 # For legacy compatibility - import the facade functions
 import logging
-import os
 import random
 from typing import Any, Callable, Dict, List, Optional, Union
 
 # Import all functionality from the new modular components
 from .mcp.execution.manager import ExecutionManager
-from .mcp.execution.policy import AnthropicPolicy, LLMBasePolicy, OpenAIPolicy
+from .mcp.execution.policy import (
+    AnthropicPolicy,
+    FireworksPolicy,
+    LLMBasePolicy,
+    OpenAIPolicy,
+)
 from .mcp.session.manager import GeneralMCPVectorEnv
 from .mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
@@ -127,7 +131,9 @@ def make(
                     system_prompt=row["system_prompt"],
                     user_prompt_template=row["user_prompt_template"],
                     environment_context=environment_context,
-                    user_simulation=(row["user_simulation"] if "user_simulation" in row else None),
+                    user_simulation=(
+                        row["user_simulation"] if "user_simulation" in row else None
+                    ),
                 )
             else:
                 dataset_row = row  # Assume it's already a DatasetRow
@@ -186,8 +192,11 @@ def make(
 
 
 async def rollout(
-    envs: Union[GeneralMCPVectorEnv, "MCPVectorEnv"],
+    envs: Union[str, GeneralMCPVectorEnv],
     policy: Union[FireworksPolicy, LLMBasePolicy, Callable],
+    *,
+    dataset: Optional[List[Dict]] = None,
+    model_id: Optional[str] = None,
     steps: int = 512,
     openai_format_log_file: Optional[str] = None,
     max_concurrent_rollouts: int = 8,
@@ -203,8 +212,10 @@ async def rollout(
     3. No hardcoded environment logic
 
     Args:
-        envs: GeneralMCPVectorEnv instance
+        envs: Either a GeneralMCPVectorEnv instance or the MCP server URL
         policy: Policy that takes tool schemas, observations, prompts and returns tool calls
+        dataset: Dataset used when envs is a URL (required for automatic env creation)
+        model_id: Model identifier used when creating environments. Defaults to ``policy.model_id`` when available.
         steps: Maximum steps per rollout
         openai_format_log_file: Optional file to log clean OpenAI format for terminated trajectories only
         max_concurrent_rollouts: Maximum number of concurrent rollouts to run
@@ -219,8 +230,16 @@ async def rollout(
         List of Trajectory objects with complete rollout data
 
     Example:
-        # Live mode
+        # Provide an existing environment
         trajectories = await ep.rollout(envs, policy)
+
+        # Create environments automatically
+        trajectories = await ep.rollout(
+            "http://localhost:8000/mcp/",
+            policy,
+            dataset=my_dataset,
+            model_id=policy.model_id,
+        )
 
         # Recording mode
         os.environ["EP_PLAYBACK_FILE"] = "record.jsonl"
@@ -229,6 +248,14 @@ async def rollout(
         # Playback mode (after recording file exists)
         trajectories = await ep.rollout(envs, policy)
     """
+    # Automatically create environments if a base URL is provided
+    if isinstance(envs, str):
+        if dataset is None:
+            raise ValueError("'dataset' must be provided when envs is a URL")
+
+        auto_model_id = model_id or getattr(policy, "model_id", "unknown")
+        envs = make(envs, dataset=dataset, model_id=auto_model_id)
+
     # Use the new ExecutionManager for execution
     execution_manager = ExecutionManager()
 
@@ -275,14 +302,20 @@ async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:
                 )
             else:
                 results["failed"] += 1
-                results["results"].append({"seed": seed, "status": "failed", "error": "empty_trajectory"})
+                results["results"].append(
+                    {"seed": seed, "status": "failed", "error": "empty_trajectory"}
+                )
 
         except Exception as e:
             results["failed"] += 1
-            results["results"].append({"seed": seed, "status": "failed", "error": str(e)})
+            results["results"].append(
+                {"seed": seed, "status": "failed", "error": str(e)}
+            )
 
     success_rate = results["successful"] / results["total_tests"] * 100
-    print(f"✅ Test complete: {results['successful']}/{results['total_tests']} successful ({success_rate:.1f}%)")
+    print(
+        f"✅ Test complete: {results['successful']}/{results['total_tests']} successful ({success_rate:.1f}%)"
+    )
 
     return results
 
