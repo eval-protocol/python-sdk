@@ -266,24 +266,20 @@ def evaluation_test(
                         agg_score >= threshold_of_success
                     ), f"Aggregated score {agg_score:.3f} below threshold {threshold_of_success}"
 
-            # Create a function with the exact signature pytest expects
-            import types
+            # Create a function with the exact signature pytest expects without using exec
             from functools import wraps
 
-            # Create the function signature string
-            param_str = ", ".join(test_param_names)
+            @wraps(test_func)
+            def wrapper(**kwargs):
+                return wrapper_body(**kwargs)
 
-            # Use exec to create function with exact signature
-            namespace = {"wrapper_body": wrapper_body}
-            exec(
-                f"""
-def wrapper({param_str}):
-    return wrapper_body({', '.join(f"{name}={name}" for name in test_param_names)})
-""",
-                namespace,
-            )
+            parameters = [
+                inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+                for name in test_param_names
+            ]
+            wrapper.__signature__ = inspect.Signature(parameters)
 
-            return namespace["wrapper"]
+            return wrapper
 
         wrapper = create_wrapper_with_signature()
         wrapper = pytest.mark.parametrize(test_param_names, param_tuples)(wrapper)
