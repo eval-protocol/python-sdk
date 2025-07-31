@@ -160,7 +160,19 @@ def evaluation_test(
             if input_messages is not None:
                 kwargs["input_messages"] = input_messages
             if is_async:
-                results = asyncio.run(test_func(**kwargs))
+                # Handle async functions with proper event loop management
+                try:
+                    loop = asyncio.get_event_loop()
+                    if not loop.is_closed():
+                        # Use existing loop
+                        task = loop.create_task(test_func(**kwargs))
+                        results = loop.run_until_complete(task)
+                    else:
+                        # Loop is closed, create a new one
+                        results = asyncio.run(test_func(**kwargs))
+                except RuntimeError:
+                    # No event loop or other issues, create a new one
+                    results = asyncio.run(test_func(**kwargs))
             else:
                 results = test_func(**kwargs)
             return results
