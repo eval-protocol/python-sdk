@@ -16,7 +16,6 @@ import litellm
 from litellm import acompletion, completion
 from litellm.caching import Cache, DualCache, InMemoryCache, RedisCache
 
-from ..types import LLMUsageStats, MCPToolCall
 from .base_policy import LLMBasePolicy
 
 logger = logging.getLogger(__name__)
@@ -122,21 +121,22 @@ class LiteLLMPolicy(LLMBasePolicy):
 
     def _clean_messages_for_api(self, messages: List[Dict]) -> List[Dict]:
         """
-        Clean messages by removing metadata fields.
+        Clean messages by keeping only OpenAI API compatible fields.
         LiteLLM handles provider-specific message format conversion automatically.
 
         Args:
             messages: Conversation messages with potential metadata
 
         Returns:
-            Clean messages without metadata fields
+            Clean messages with only OpenAI API compatible fields
         """
+        # Standard OpenAI message fields
+        allowed_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
+
         clean_messages = []
         for msg in messages:
-            clean_msg = msg.copy()
-            # Remove metadata field if present
-            if "metadata" in clean_msg:
-                del clean_msg["metadata"]
+            # Only keep allowed fields
+            clean_msg = {k: v for k, v in msg.items() if k in allowed_fields}
             clean_messages.append(clean_msg)
         return clean_messages
 

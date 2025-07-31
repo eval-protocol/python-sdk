@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "examples" / "frozen_lake_
 
 from eval_protocol.mcp.execution.manager import ExecutionManager
 from eval_protocol.mcp.session.manager import GeneralMCPVectorEnv
-from eval_protocol.mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
+from eval_protocol.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
 
 class MockPolicy:
@@ -38,6 +38,7 @@ class MockPolicy:
     def __init__(self, actions=None):
         self.actions = actions or ["right", "down", "right", "down"]
         self.step_count = 0
+        self.model_id = "mock-model"
 
     async def __call__(self, tool_schema, env_index, conversation_history):
         """Return predetermined actions as tool calls."""
@@ -63,14 +64,36 @@ class MockPolicy:
         done=False,
         info=None,
     ):
-        """Mock method for conversation tracking."""
+        """Mock method for conversation tracking - adds proper OpenAI-format messages."""
+        # Add assistant message with tool call
         conversation_history.append(
             {
-                "tool_call": tool_call,
-                "response": response,
-                "reward": reward,
-                "done": done,
-                "info": info,
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": tool_call.tool_call_id or f"call_{len(conversation_history)}",
+                        "type": "function",
+                        "function": {"name": tool_call.tool_name, "arguments": str(tool_call.arguments)},
+                    }
+                ],
+            }
+        )
+
+        # Add tool response message
+        conversation_history.append(
+            {
+                "role": "tool",
+                "content": response,
+                "tool_call_id": tool_call.tool_call_id or f"call_{len(conversation_history)-1}",
+                "control_plane_step": {
+                    "step": env_index,
+                    "reward": reward,
+                    "terminated": done,
+                    "info": info.get("control_plane", {}) if info else {},
+                    "tool_calls": [f"{tool_call.tool_name}({tool_call.arguments})"],
+                    "num_tool_calls": 1,
+                },
             }
         )
 
@@ -120,9 +143,7 @@ class TestRolloutControlPlaneIntegration:
             patch.object(GeneralMCPVectorEnv, "reset") as mock_reset,
             patch.object(GeneralMCPVectorEnv, "step") as mock_step,
             patch.object(GeneralMCPVectorEnv, "close") as mock_close,
-            patch.object(
-                GeneralMCPVectorEnv, "format_user_prompt"
-            ) as mock_format_user_prompt,
+            patch.object(GeneralMCPVectorEnv, "format_user_prompt") as mock_format_user_prompt,
         ):
 
             # Setup mock vector environment
@@ -131,13 +152,12 @@ class TestRolloutControlPlaneIntegration:
             mock_env.dataset_rows = dataset_rows
             mock_env.n = 1
             mock_env.user_prompt_formatter = lambda template, obs, context: template
+            mock_env.tool_schemas = [{"name": "lake_move", "description": "Move in FrozenLake"}]
 
             # Mock reset to return initial state
             mock_reset.return_value = (
                 {"position": 0, "grid": "4x4 FrozenLake"},  # single observation
-                [
-                    {"name": "lake_move", "description": "Move in FrozenLake"}
-                ],  # single tool schema
+                [{"name": "lake_move", "description": "Move in FrozenLake"}],  # single tool schema
             )
 
             # Mock format_user_prompt to return template
@@ -215,76 +235,58 @@ class TestRolloutControlPlaneIntegration:
             policy = MockPolicy(["right", "down", "right"])
 
             # Execute rollout
-            trajectories = await self.execution_manager.execute_rollouts(
-                mock_env, policy, steps=10
-            )
+            evaluation_rows = await self.execution_manager.execute_rollouts(mock_env, policy, steps=10)
 
             # Validate results
-            assert len(trajectories) == 1, "Should have one trajectory"
-            trajectory = trajectories[0]
+            assert len(evaluation_rows) == 1, "Should have one evaluation row"
+            evaluation_row = evaluation_rows[0]
+
+            # Extract trajectory information from messages' control_plane_step data
+            messages_with_control_plane = [
+                msg for msg in evaluation_row.messages if msg.control_plane_step is not None
+            ]
+            steps = len(messages_with_control_plane)
+            total_reward = sum(msg.control_plane_step["reward"] for msg in messages_with_control_plane)
+            terminated = any(msg.control_plane_step["terminated"] for msg in messages_with_control_plane)
 
             # Validate basic trajectory structure
-            assert trajectory.steps == 3, f"Expected 3 steps, got {trajectory.steps}"
-            assert (
-                trajectory.total_reward == 1.0
-            ), f"Expected reward 1.0, got {trajectory.total_reward}"
-            assert trajectory.terminated == True, "Trajectory should be terminated"
+            assert steps == 3, f"Expected 3 steps, got {steps}"
+            assert total_reward == 1.0, f"Expected reward 1.0, got {total_reward}"
+            assert terminated == True, "Trajectory should be terminated"
 
-            # Validate data plane information (observations)
-            assert (
-                len(trajectory.observations) == 4
-            ), "Should have 4 observations (initial + 3 steps)"
-            for obs in trajectory.observations:
-                # Data plane should only contain observations
-                assert "position" in obs, "Observation should contain position"
-                assert "grid" in obs, "Observation should contain grid"
-                # Data plane should NOT contain rewards or termination
-                assert "reward" not in obs, "Data plane should not contain reward"
-                assert (
-                    "terminated" not in obs
-                ), "Data plane should not contain termination"
+            # Validate that data plane and control plane are properly separated in messages
+            # Tool responses should only contain observations, rewards/termination are in control_plane_step
+            for msg in evaluation_row.messages:
+                if msg.role == "tool":
+                    # Tool responses should only contain data plane information
+                    content = msg.content or ""
+                    # The content should not directly contain rewards or termination (they're in control_plane_step)
+                    assert (
+                        "reward" not in content.lower() or "reward_source" in content.lower()
+                    ), "Tool response should not directly contain reward"
 
-            # Validate control plane information
-            assert len(trajectory.rewards) == 3, "Should have 3 reward values"
-            assert trajectory.rewards == [
-                0.0,
-                0.0,
-                1.0,
-            ], "Rewards should match control plane"
+            # Validate control plane information from messages
+            rewards = [msg.control_plane_step["reward"] for msg in messages_with_control_plane]
+            assert rewards == [0.0, 0.0, 1.0], "Rewards should match control plane"
 
-            # Validate enhanced control plane tracking
-            assert hasattr(
-                trajectory, "control_plane_steps"
-            ), "Should have control plane steps"
-            assert (
-                len(trajectory.control_plane_steps) == 3
-            ), "Should have 3 control plane steps"
+            # Validate enhanced control plane tracking via messages
+            assert len(messages_with_control_plane) == 3, "Should have 3 messages with control plane steps"
 
-            for i, cp_step in enumerate(trajectory.control_plane_steps):
+            for i, msg in enumerate(messages_with_control_plane):
+                cp_step = msg.control_plane_step
                 assert "step" in cp_step, "Control plane step should have step number"
                 assert "reward" in cp_step, "Control plane step should have reward"
-                assert (
-                    "terminated" in cp_step
-                ), "Control plane step should have terminated status"
-                assert (
-                    "info" in cp_step
-                ), "Control plane step should have control plane info"
-                assert (
-                    "tool_calls" in cp_step
-                ), "Control plane step should have tool calls"
+                assert "terminated" in cp_step, "Control plane step should have terminated status"
+                assert "info" in cp_step, "Control plane step should have control plane info"
+                assert "tool_calls" in cp_step, "Control plane step should have tool calls"
 
-            # Validate control plane summary
-            assert hasattr(
-                trajectory, "control_plane_summary"
-            ), "Should have control plane summary"
-            summary = trajectory.control_plane_summary
-            assert (
-                summary["total_reward"] == 1.0
-            ), "Summary should have correct total reward"
-            assert (
-                summary["termination_reason"] == "control_plane_signal"
-            ), "Should terminate via control plane"
-            assert summary["final_step"] == 2, "Should record final step"
+            # Validate final step has termination
+            final_msg = messages_with_control_plane[-1]
+            final_cp_step = final_msg.control_plane_step
+            assert final_cp_step["terminated"] == True, "Final step should be terminated"
+            assert final_cp_step["reward"] == 1.0, "Final step should have correct reward"
+            assert final_cp_step["termination_reason"] == "control_plane_signal", "Should terminate via control plane"
+            assert final_cp_step["step"] == 2, "Should record final step"
 
             # Validate policy interaction
             assert policy.step_count == 3, "Policy should have been called 3 times"
@@ -316,7 +318,7 @@ class TestRolloutControlPlaneIntegration:
             control_plane_summary={},
             termination_reason="",
             conversation_history=[],
-            llm_usage_summary={},
+            usage={},
         )
 
         # Simulate steps with control plane separation
@@ -374,9 +376,7 @@ class TestRolloutControlPlaneIntegration:
         assert len(trajectory.observations) == 2, "Should have 2 observations"
         assert len(trajectory.actions) == 2, "Should have 2 actions"
         assert len(trajectory.rewards) == 2, "Should have 2 rewards"
-        assert (
-            len(trajectory.control_plane_steps) == 2
-        ), "Should have 2 control plane steps"
+        assert len(trajectory.control_plane_steps) == 2, "Should have 2 control plane steps"
 
         # Validate data plane contains only observations
         for obs in trajectory.observations:
@@ -391,10 +391,7 @@ class TestRolloutControlPlaneIntegration:
 
         # Validate control plane summary
         assert trajectory.control_plane_summary["total_reward"] == 1.0
-        assert (
-            trajectory.control_plane_summary["termination_reason"]
-            == "control_plane_signal"
-        )
+        assert trajectory.control_plane_summary["termination_reason"] == "control_plane_signal"
         assert trajectory.control_plane_summary["final_step"] == 1
 
     @pytest.mark.asyncio
@@ -426,9 +423,7 @@ class TestRolloutControlPlaneIntegration:
             patch.object(GeneralMCPVectorEnv, "reset") as mock_reset,
             patch.object(GeneralMCPVectorEnv, "step") as mock_step,
             patch.object(GeneralMCPVectorEnv, "close") as mock_close,
-            patch.object(
-                GeneralMCPVectorEnv, "format_user_prompt"
-            ) as mock_format_user_prompt,
+            patch.object(GeneralMCPVectorEnv, "format_user_prompt") as mock_format_user_prompt,
         ):
 
             mock_env = GeneralMCPVectorEnv(sessions, dataset_rows)
@@ -436,6 +431,8 @@ class TestRolloutControlPlaneIntegration:
             mock_env.dataset_rows = dataset_rows
             mock_env.n = 1
             mock_env.user_prompt_formatter = lambda template, obs, context: template
+            # Add tool_schemas attribute expected by execute_rollouts
+            mock_env.tool_schemas = [{"name": "move", "description": "Move"}]
 
             # Mock reset
             mock_reset.return_value = (
@@ -452,23 +449,29 @@ class TestRolloutControlPlaneIntegration:
             )
 
             mock_close.return_value = None
+            mock_format_user_prompt.return_value = "Test"
 
             # Execute rollout with control plane failure
             policy = MockPolicy(["right"])
-            trajectories = await self.execution_manager.execute_rollouts(
-                mock_env, policy, steps=1
-            )
+            evaluation_rows = await self.execution_manager.execute_rollouts(mock_env, policy, steps=1)
 
             # Should still work, but without control plane info
-            assert len(trajectories) == 1
-            trajectory = trajectories[0]
-            assert trajectory.steps == 1
-            assert trajectory.total_reward == 0.0
+            assert len(evaluation_rows) == 1
+            evaluation_row = evaluation_rows[0]
+
+            # Extract trajectory information from messages
+            messages_with_control_plane = [
+                msg for msg in evaluation_row.messages if msg.control_plane_step is not None
+            ]
+            steps = len(messages_with_control_plane)
+            total_reward = sum(msg.control_plane_step["reward"] for msg in messages_with_control_plane)
+
+            assert steps == 1
+            assert total_reward == 0.0
 
             # Control plane steps should still be recorded (even if empty)
-            assert hasattr(trajectory, "control_plane_steps")
-            assert len(trajectory.control_plane_steps) == 1
-            assert trajectory.control_plane_steps[0]["info"] == {}
+            assert len(messages_with_control_plane) == 1
+            assert messages_with_control_plane[0].control_plane_step["info"] == {}
 
     @pytest.mark.asyncio
     async def test_rollout_creates_envs_from_url(self):
@@ -508,9 +511,7 @@ class TestRolloutControlPlaneIntegration:
                 dataset=dataset,
                 model_id="test_model",
             )
-            manager_instance.execute_rollouts.assert_called_once_with(
-                mock_env, policy, 5, None, 8
-            )
+            manager_instance.execute_rollouts.assert_called_once_with(mock_env, policy, 5, None, 8)
             assert result == ["ok"]
 
     def test_control_plane_trajectory_serialization(self):
@@ -537,7 +538,7 @@ class TestRolloutControlPlaneIntegration:
             control_plane_summary={},
             termination_reason="",
             conversation_history=[],
-            llm_usage_summary={},
+            usage={},
         )
 
         # Add control plane data
@@ -582,10 +583,7 @@ class TestRolloutControlPlaneIntegration:
 
                 assert loaded_data["session_id"] == "test"
                 assert len(loaded_data["control_plane_steps"]) == 1
-                assert (
-                    loaded_data["control_plane_summary"]["termination_reason"]
-                    == "control_plane_signal"
-                )
+                assert loaded_data["control_plane_summary"]["termination_reason"] == "control_plane_signal"
 
         # Clean up
         Path(f.name).unlink()

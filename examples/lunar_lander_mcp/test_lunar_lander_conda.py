@@ -129,7 +129,7 @@ async def test_lunar_lander_with_conda_isolation():
                 self.rng = random.Random(42)
 
             async def __call__(self, tool_schemas, observations, system_prompts, user_prompts):
-                from eval_protocol.mcp.types import MCPToolCall
+                from eval_protocol.types import MCPToolCall
 
                 tool_calls = []
                 actions = ["NOTHING", "FIRE_LEFT", "FIRE_MAIN", "FIRE_RIGHT"]
@@ -146,63 +146,62 @@ async def test_lunar_lander_with_conda_isolation():
         # Run a few episodes to test the environment
         print("🎮 Running test episodes...")
 
-        rollouts = await ep.rollout(envs, policy, steps=20)  # Keep short for testing
+        evaluation_rows = await ep.rollout(envs, policy, steps=20)  # Keep short for testing
 
-        print(f"✅ Completed {len(rollouts)} rollouts")
+        print(f"✅ Completed {len(evaluation_rows)} evaluation rows")
 
         # Create output directory for images
         output_dir = Path(__file__).parent / "trajectory_output"
         output_dir.mkdir(exist_ok=True)
 
-        print(f"💾 Saving trajectory data to {output_dir}")
+        print(f"💾 Saving evaluation data to {output_dir}")
 
-        # Validate rollouts and save trajectory data
-        for i, trajectory in enumerate(rollouts):
-            print(f"📊 Episode {i}: trajectory object of type {type(trajectory)}")
+        # Validate evaluation rows and save evaluation data
+        for i, eval_row in enumerate(evaluation_rows):
+            print(f"📊 Episode {i}: evaluation row object of type {type(eval_row)}")
 
-            # Save trajectory summary
-            trajectory_summary = {
+            # Save evaluation summary
+            evaluation_summary = {
                 "episode": i,
-                "total_reward": getattr(trajectory, "total_reward", "N/A"),
-                "steps": getattr(trajectory, "steps", "N/A"),
-                "terminated": getattr(trajectory, "terminated", "N/A"),
-                "duration": getattr(trajectory, "duration", "N/A"),
+                "total_reward": eval_row.get_total_reward(),
+                "steps": eval_row.get_steps(),
+                "terminated": eval_row.get_terminated(),
+                "termination_reason": eval_row.get_termination_reason(),
+                "messages_count": len(eval_row.messages),
             }
 
-            # Save observations and actions if available
-            if hasattr(trajectory, "observations"):
-                trajectory_summary["observations"] = trajectory.observations[:5]  # First 5 for brevity
-            if hasattr(trajectory, "actions"):
-                trajectory_summary["actions"] = trajectory.actions[:5]  # First 5 for brevity
-            if hasattr(trajectory, "rewards"):
-                trajectory_summary["rewards"] = trajectory.rewards[:5]  # First 5 for brevity
+            # Note: observations, actions, and rewards are now embedded in messages
+            # Actions and rewards can be extracted from control_plane_step data in messages
+            control_plane_messages = [msg for msg in eval_row.messages if msg.control_plane_step]
+            if control_plane_messages:
+                evaluation_summary["control_plane_steps"] = len(control_plane_messages)
+                evaluation_summary["sample_rewards"] = [
+                    msg.control_plane_step["reward"] for msg in control_plane_messages[:5]
+                ]
 
-            # Save trajectory summary to JSON
+            # Save evaluation summary to JSON
             with open(output_dir / f"episode_{i}_summary.json", "w") as f:
-                json.dump(trajectory_summary, f, indent=2, default=str)
+                json.dump(evaluation_summary, f, indent=2, default=str)
 
-            # Debug: print the structure of observations
-            if hasattr(trajectory, "observations"):
-                print(f"  🔍 Observations type: {type(trajectory.observations)}")
-                print(f"  🔍 Number of observations: {len(trajectory.observations) if trajectory.observations else 0}")
+            # Debug: print the structure of messages
+            print(f"  🔍 Messages count: {len(eval_row.messages)}")
+            print(f"  🔍 Control plane messages: {len(control_plane_messages)}")
 
-                if trajectory.observations and len(trajectory.observations) > 0:
-                    first_obs = trajectory.observations[0]
-                    print(f"  🔍 First observation type: {type(first_obs)}")
-                    print(
-                        f"  🔍 First observation keys: {first_obs.keys() if isinstance(first_obs, dict) else 'Not a dict'}"
-                    )
+            if control_plane_messages:
+                first_control_plane = control_plane_messages[0].control_plane_step
+                print(f"  🔍 First control plane step keys: {list(first_control_plane.keys())}")
 
-                    # Save full first observation for debugging
-                    with open(output_dir / f"episode_{i}_first_obs_debug.json", "w") as f:
-                        json.dump(first_obs, f, indent=2, default=str)
+                # Save full first control plane step for debugging
+                with open(output_dir / f"episode_{i}_first_control_plane_debug.json", "w") as f:
+                    json.dump(first_control_plane, f, indent=2, default=str)
 
-                # Try to extract frames from observations
-                for step_idx, obs in enumerate(trajectory.observations[:10]):  # First 10 steps
-                    if isinstance(obs, dict):
-                        print(f"    Step {step_idx} keys: {list(obs.keys())}")
-                        if "rendered_frame" in obs:
-                            frame_data = obs["rendered_frame"]
+                # Try to extract frames from control plane steps (if available)
+                for step_idx, msg in enumerate(control_plane_messages[:10]):  # First 10 steps
+                    control_plane_step = msg.control_plane_step
+                    if isinstance(control_plane_step, dict):
+                        print(f"    Step {step_idx} keys: {list(control_plane_step.keys())}")
+                        if "rendered_frame" in control_plane_step:
+                            frame_data = control_plane_step["rendered_frame"]
                             if frame_data and frame_data.startswith("data:image/png;base64,"):
                                 try:
                                     # Decode base64 image
@@ -220,17 +219,20 @@ async def test_lunar_lander_with_conda_isolation():
                                 except Exception as e:
                                     print(f"  ❌ Error saving frame {step_idx}: {e}")
                         else:
-                            print(f"    Step {step_idx}: No rendered_frame field")
+                            print(f"    Step {step_idx}: No rendered_frame field in control_plane_step")
                     else:
-                        print(f"    Step {step_idx}: Not a dict, type: {type(obs)}")
+                        print(
+                            f"    Step {step_idx}: control_plane_step is not a dict, type: {type(control_plane_step)}"
+                        )
             else:
-                print(f"  🔍 No observations attribute found")
+                print(f"  🔍 No control plane messages found")
 
             print(f"  ✅ Episode {i} validation passed")
 
-        print(f"📁 All trajectory data saved to {output_dir}")
+        print(f"📁 All evaluation data saved to {output_dir}")
         print(f"   - Episode summaries: episode_*_summary.json")
-        print(f"   - Rendered frames: episode_*_step_*.png")
+        print(f"   - Control plane debug data: episode_*_first_control_plane_debug.json")
+        print(f"   - Rendered frames: episode_*_step_*.png (if available)")
 
         print("🎉 All tests passed! Conda isolation working correctly.")
         return True

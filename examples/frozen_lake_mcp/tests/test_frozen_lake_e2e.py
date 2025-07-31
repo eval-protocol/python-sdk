@@ -240,10 +240,10 @@ async def test_production_server_record_and_replay(production_server, frozen_lak
 
         # Run playback
         start_time = time.time()
-        playback_trajectories = await ep.rollout(playback_envs, policy=playback_policy, steps=8)
+        playback_evaluation_rows = await ep.rollout(playback_envs, policy=playback_policy, steps=8)
         playback_duration = time.time() - start_time
 
-        print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
+        print(f"✅ CI playback completed: {len(playback_evaluation_rows)} evaluation rows in {playback_duration:.2f}s")
 
         # Clean up environment variable
         if "EP_PLAYBACK_FILE" in os.environ:
@@ -274,9 +274,9 @@ async def test_production_server_record_and_replay(production_server, frozen_lak
         model_id=policy.model_id,
     )
 
-    # Record trajectories (FrozenLake typically needs fewer steps than Taxi)
+    # Record evaluation rows (FrozenLake typically needs fewer steps than Taxi)
     start_time = time.time()
-    trajectories = await ep.rollout(
+    evaluation_rows = await ep.rollout(
         envs,
         policy=policy,
         steps=8,  # FrozenLake episodes are typically shorter
@@ -284,23 +284,28 @@ async def test_production_server_record_and_replay(production_server, frozen_lak
     )
     recording_duration = time.time() - start_time
 
-    assert len(trajectories) == len(frozen_lake_dataset), "Should have trajectory for each dataset entry"
+    assert len(evaluation_rows) == len(frozen_lake_dataset), "Should have evaluation row for each dataset entry"
     assert os.path.exists(production_recording_file), "Recording file should be created"
-    assert trajectories[0].llm_usage_summary["prompt_tokens"] > 0, "LLM usage summary should be non-zero"
+    assert evaluation_rows[0].usage.prompt_tokens > 0, "LLM usage summary should be non-zero"
 
-    print(f"✅ Recorded {len(trajectories)} trajectories in {recording_duration:.2f}s")
+    print(f"✅ Recorded {len(evaluation_rows)} evaluation rows in {recording_duration:.2f}s")
     print(f"📁 Recording saved to: {production_recording_file}")
 
     # Print trajectory summary for review
     print("📊 Trajectory Summary:")
-    for i, traj in enumerate(trajectories):
+    for i, eval_row in enumerate(evaluation_rows):
         dataset_entry = frozen_lake_dataset[i]
         seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
+
+        # Use helper methods for cleaner access to trajectory info
+        steps = eval_row.get_steps()
+        total_reward = eval_row.get_total_reward()
+        terminated = eval_row.get_terminated()
+        termination_reason = eval_row.get_termination_reason()
+
         print(
-            f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
+            f"  Trajectory {i} (seed: {seed}): {steps} steps, reward: {total_reward:.2f}, terminated: {terminated}, termination: {termination_reason}"
         )
-        if hasattr(traj, "actions") and len(traj.actions) > 0:
-            print(f"    Actions: {traj.actions[:5]}{'...' if len(traj.actions) > 5 else ''}")
 
     # Read and display first few recorded steps for verification
     print("🔍 Sample recorded steps (first 3):")
@@ -338,15 +343,15 @@ async def test_production_server_record_and_replay(production_server, frozen_lak
 
     # Run playback
     start_time = time.time()
-    playback_trajectories = await ep.rollout(playback_envs, policy=playback_policy, steps=15)
+    playback_evaluation_rows = await ep.rollout(playback_envs, policy=playback_policy, steps=15)
     playback_duration = time.time() - start_time
 
-    assert len(playback_trajectories) == len(trajectories), "Playback should have same number of trajectories"
+    assert len(playback_evaluation_rows) == len(evaluation_rows), "Playback should have same number of evaluation rows"
 
     # Calculate speedup
     speedup = recording_duration / playback_duration if playback_duration > 0 else float("inf")
 
-    print(f"✅ Played back {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
+    print(f"✅ Played back {len(playback_evaluation_rows)} evaluation rows in {playback_duration:.2f}s")
     print(f"⚡ Speedup: {speedup:.1f}x faster than recording")
 
     # Validate performance - playback should be significantly faster
@@ -491,22 +496,24 @@ async def test_frozen_lake_step_by_step(conda_isolation_recording_file):
 
         # Run short rollout
         start_time = time.time()
-        trajectories = await ep.rollout(envs, policy=policy, steps=5)
+        evaluation_rows = await ep.rollout(envs, policy=policy, steps=5)
         duration = time.time() - start_time
 
-        assert len(trajectories) == 1, "Should have one trajectory"
-        assert len(trajectories[0].get("steps", [])) > 0, "Should have recorded steps"
+        assert len(evaluation_rows) == 1, "Should have one evaluation row"
+        assert evaluation_rows[0].get_steps() > 0, "Should have recorded steps"
 
-        print(f"✅ Conda-isolated server test completed with {len(trajectories[0]['steps'])} steps in {duration:.2f}s")
+        print(
+            f"✅ Conda-isolated server test completed with {evaluation_rows[0].get_steps()} steps in {duration:.2f}s"
+        )
         print(f"📁 Conda isolation recording saved to: {conda_isolation_recording_file}")
 
         # Print trajectory summary
-        traj = trajectories[0]
+        eval_row = evaluation_rows[0]
         print(
-            f"📊 Conda Isolation Trajectory: {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
+            f"📊 Conda Isolation Evaluation: {eval_row.get_steps()} steps, reward: {eval_row.get_total_reward():.2f}, terminated: {eval_row.get_terminated()}, termination: {eval_row.get_termination_reason()}"
         )
-        if hasattr(traj, "actions") and len(traj.actions) > 0:
-            print(f"    Actions: {traj.actions}")
+        # Actions are no longer available in EvaluationRow (they're embedded in messages)
+        print(f"    Messages: {len(eval_row.messages)} total")
 
         # Clean up
         manager.stop_server(port)
@@ -596,27 +603,27 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
 
         # Run rollout with multiple environments
         start_time = time.time()
-        trajectories = await ep.rollout(envs, policy=policy, steps=10)
+        evaluation_rows = await ep.rollout(envs, policy=policy, steps=10)
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == len(multi_env_dataset), "Should have trajectory for each environment"
-        assert all(traj.steps > 0 for traj in trajectories), "All trajectories should have steps"
+        assert len(evaluation_rows) == len(multi_env_dataset), "Should have evaluation row for each environment"
+        assert all(eval_row.get_steps() > 0 for eval_row in evaluation_rows), "All evaluation rows should have steps"
 
-        print(f"✅ Multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s")
+        print(f"✅ Multi-environment test completed with {len(evaluation_rows)} evaluation rows in {duration:.2f}s")
         print(f"📁 Multi-environment recording saved to: {multi_env_recording_file}")
 
         # Print trajectory summaries
-        print("📊 Multi-Environment Trajectory Summary:")
-        for i, traj in enumerate(trajectories):
+        print("📊 Multi-Environment Evaluation Summary:")
+        for i, eval_row in enumerate(evaluation_rows):
             dataset_entry = multi_env_dataset[i]
             seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
             print(
-                f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
+                f"  Evaluation {i} (seed: {seed}): {eval_row.get_steps()} steps, reward: {eval_row.get_total_reward():.2f}, terminated: {eval_row.get_terminated()}, termination: {eval_row.get_termination_reason()}"
             )
 
         # Validate that different seeds produce different environments
-        unique_rewards = set(traj.total_reward for traj in trajectories)
+        unique_rewards = set(eval_row.get_total_reward() for eval_row in evaluation_rows)
         print(f"📈 Unique rewards across environments: {unique_rewards}")
 
         # 🔍 CRITICAL VALIDATIONS
@@ -1072,10 +1079,10 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
 
         # Run playback
         start_time = time.time()
-        playback_trajectories = await ep.rollout(playback_envs, policy=playback_policy, steps=8)
+        playback_evaluation_rows = await ep.rollout(playback_envs, policy=playback_policy, steps=8)
         playback_duration = time.time() - start_time
 
-        print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
+        print(f"✅ CI playback completed: {len(playback_evaluation_rows)} evaluation rows in {playback_duration:.2f}s")
 
         # Clean up environment variable
         if "EP_PLAYBACK_FILE" in os.environ:
@@ -1116,31 +1123,31 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
 
         # Run rollout with multiple environments (fewer steps for LLM efficiency)
         start_time = time.time()
-        trajectories = await ep.rollout(envs, policy=policy, steps=8)
+        evaluation_rows = await ep.rollout(envs, policy=policy, steps=8)
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == len(multi_env_dataset), "Should have trajectory for each environment"
-        assert all(traj.steps > 0 for traj in trajectories), "All trajectories should have steps"
+        assert len(evaluation_rows) == len(multi_env_dataset), "Should have evaluation row for each environment"
+        assert all(eval_row.get_steps() > 0 for eval_row in evaluation_rows), "All evaluation rows should have steps"
 
         print(
-            f"✅ FireworksPolicy multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s"
+            f"✅ FireworksPolicy multi-environment test completed with {len(evaluation_rows)} evaluation rows in {duration:.2f}s"
         )
         print(f"📁 FireworksPolicy multi-environment recording saved to: {fireworks_multi_env_recording_file}")
 
         # Print trajectory summaries
-        print("📊 FireworksPolicy Multi-Environment Trajectory Summary:")
-        for i, traj in enumerate(trajectories):
+        print("📊 FireworksPolicy Multi-Environment Evaluation Summary:")
+        for i, eval_row in enumerate(evaluation_rows):
             dataset_entry = multi_env_dataset[i]
             seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
             print(
-                f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
+                f"  Evaluation {i} (seed: {seed}): {eval_row.get_steps()} steps, reward: {eval_row.get_total_reward():.2f}, terminated: {eval_row.get_terminated()}, termination: {eval_row.get_termination_reason()}"
             )
-            if hasattr(traj, "actions") and len(traj.actions) > 0:
-                print(f"    Actions: {traj.actions[:3]}{'...' if len(traj.actions) > 3 else ''}")
+            # Actions are no longer available in EvaluationRow (they're embedded in messages)
+            print(f"    Messages: {len(eval_row.messages)} total")
 
         # Validate that different seeds produce different environments
-        unique_rewards = set(traj.total_reward for traj in trajectories)
+        unique_rewards = set(eval_row.get_total_reward() for eval_row in evaluation_rows)
         print(f"📈 Unique rewards across environments: {unique_rewards}")
 
         # 🔍 CRITICAL VALIDATIONS
@@ -1187,7 +1194,7 @@ async def test_static_policy_functionality():
             ]
 
             # Call policy for this specific environment
-            actions = await policy(
+            actions, usage_stats = await policy(
                 tool_schemas=[],  # Empty tool schema for test
                 env_index=env_index,
                 conversation_history=conversation_history,
@@ -1235,19 +1242,19 @@ async def test_control_plane_state_querying(multi_env_dataset):
 
         # Run a few steps and check control plane state
         start_time = time.time()
-        trajectories = await ep.rollout(envs, policy=policy, steps=3)
+        evaluation_rows = await ep.rollout(envs, policy=policy, steps=3)
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == 2, "Should have 2 trajectories"
+        assert len(evaluation_rows) == 2, "Should have 2 evaluation rows"
 
-        print(f"✅ Control plane test completed with {len(trajectories)} trajectories in {duration:.2f}s")
+        print(f"✅ Control plane test completed with {len(evaluation_rows)} evaluation rows in {duration:.2f}s")
 
         # Print trajectory summaries to verify different session behavior
         print("📊 Control Plane State Summary:")
-        for i, traj in enumerate(trajectories):
+        for i, eval_row in enumerate(evaluation_rows):
             print(
-                f"  Trajectory {i}: {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
+                f"  Evaluation {i}: {eval_row.get_steps()} steps, reward: {eval_row.get_total_reward():.2f}, terminated: {eval_row.get_terminated()}, termination: {eval_row.get_termination_reason()}"
             )
 
         # Clean up
@@ -1284,10 +1291,10 @@ async def _run_playback_only(recording_file: str, dataset: List[Dict], server_ur
 
     # Run playback
     start_time = time.time()
-    playback_trajectories = await ep.rollout(playback_envs, policy=playback_policy, steps=steps)
+    playback_evaluation_rows = await ep.rollout(playback_envs, policy=playback_policy, steps=steps)
     playback_duration = time.time() - start_time
 
-    print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
+    print(f"✅ CI playback completed: {len(playback_evaluation_rows)} evaluation rows in {playback_duration:.2f}s")
 
     _cleanup_playback_env()
 

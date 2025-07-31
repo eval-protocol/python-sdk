@@ -12,7 +12,9 @@ import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
-from .mcp.types import LLMUsageStats, MCPToolCall
+from openai.types import CompletionUsage
+
+from .types import MCPToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +207,7 @@ class PlaybackPolicyBase(ABC):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List["MCPToolCall"], LLMUsageStats]:
+    ) -> Tuple[List["MCPToolCall"], CompletionUsage]:
         """
         Generate tool calls in live mode. Concrete classes must implement this.
 

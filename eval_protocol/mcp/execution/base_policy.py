@@ -12,8 +12,10 @@ import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from openai.types import CompletionUsage
+
 from ...playback_policy import PlaybackPolicyBase
-from ..types import LLMUsageStats, MCPToolCall
+from ...types import MCPToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +149,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List[MCPToolCall], LLMUsageStats]:
+    ) -> Tuple[List[MCPToolCall], CompletionUsage]:
         """
         Generate tool calls using conversation history for proper OpenAI trajectories.
 
@@ -180,7 +182,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             "role": "assistant",
             "content": response["choices"][0]["message"]["content"],
         }
-        usage_stats = LLMUsageStats(
+        usage_stats = CompletionUsage(
             prompt_tokens=response["usage"]["prompt_tokens"],
             completion_tokens=response["usage"]["completion_tokens"],
             total_tokens=response["usage"]["total_tokens"],

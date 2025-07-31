@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from eval_protocol.mcp.execution.manager import ExecutionManager
 from eval_protocol.mcp.session.manager import GeneralMCPVectorEnv
-from eval_protocol.mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
+from eval_protocol.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
 
 class DemoPolicy:

@@ -7,7 +7,7 @@ from openai import OpenAI
 
 from .auth import get_fireworks_api_base, get_fireworks_api_key
 from .common_utils import load_jsonl
-from .models import EvaluateResult, EvaluationRow, Message
+from .models import CompletionParams, EvaluateResult, EvaluationRow, InputMetadata, Message
 
 
 def evaluate(
@@ -64,7 +64,7 @@ def default_rollout_processor(row: EvaluationRow, model: ModelParam, input_param
     processed = EvaluationRow(
         messages=messages,
         ground_truth=row.ground_truth,
-        input_metadata={"model": model, "params": input_params},
+        input_metadata=InputMetadata(completion_params=CompletionParams(model=model)),
     )
     return [processed]
 

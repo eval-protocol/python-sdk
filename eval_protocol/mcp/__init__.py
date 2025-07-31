@@ -19,11 +19,12 @@ try:
 except ImportError:
     FireworksPolicy = None
 
+from ..types import DatasetRow, MCPSession, MCPToolCall, Trajectory
+
 # North Star MCP-Gym Framework
 from .mcpgym import McpGym
 from .session import GeneralMCPVectorEnv
 from .simulation_server import SimulationServerBase
-from .types import DatasetRow, MCPSession, MCPToolCall, Trajectory
 
 __all__ = [
     # Legacy MCP server components

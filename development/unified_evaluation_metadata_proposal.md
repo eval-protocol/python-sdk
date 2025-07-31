@@ -54,26 +54,62 @@ class EvaluationRow(BaseModel):
     ground_truth: Optional[str] = None
 
     evaluation_result: Optional[EvaluateResult] = None
+
+    # LLM usage statistics
+    usage: Optional[CompletionUsage] = None
 ```
 
 **Key Features:**
-- **Clean Organization**: Only five main fields for maximum clarity
-- `is_trajectory_evaluation()`: Determines if this represents a trajectory vs. single-turn evaluation
+- **Clean Organization**: Only six main fields for maximum clarity
+- **Structured Metadata**: `input_metadata` is now a Pydantic model (`InputMetadata`) with standardized fields
+- **Model Configuration**: Dedicated `CompletionParams` model for LLM settings (temperature, max_tokens, etc.)
+- **Type Safety**: Full Pydantic validation for all metadata fields
+- `is_trajectory_evaluation()`: Determines if this represents a trajectory vs. single-turn evaluation (based on step_outputs)
 - `get_conversation_length()`, `get_assistant_messages()`, `get_user_messages()`: Helper methods for data analysis
-- `get_input_metadata(key, default)`: Helper method to access input metadata
+- `get_input_metadata(key, default)`: Helper method to access InputMetadata fields (e.g., `row_id`, `completion_params`, `dataset_info`)
+- `get_steps()`, `get_total_reward()`, `get_terminated()`, `get_termination_reason()`: Helper methods for trajectory data from control_plane_step
 - `ground_truth`: Top-level field for reference data (moved from EvaluateResult)
+- `usage`: Token usage statistics from LLM calls
 - Full serialization/deserialization support via Pydantic
 
 **Input Metadata Structure:**
-The `input_metadata` field can contain any relevant input information:
+The `input_metadata` field is now a structured **Pydantic model** (`InputMetadata`) with standardized fields:
+
 ```python
-input_metadata = {
-    "row_id": "unique_identifier",
-    "dataset_info": {"source": "math_problems", "difficulty": "easy"},
-    "model_config": {"model": "gpt-4", "temperature": 0.1},
-    "session_data": {"seed": 42, "timestamp": "2024-01-01T00:00:00Z"},
-    "custom_fields": {...}  # Any additional custom metadata
-}
+class CompletionParams(BaseModel):
+    """Configuration for the language model used in the session."""
+    model: str = Field(..., description="Model identifier (e.g., 'gpt-4.1', 'fireworks/llama')")
+    temperature: Optional[float] = Field(None, description="Temperature setting for model generation")
+    max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
+    max_tool_calls: Optional[int] = Field(None, description="Maximum tool calls per turn")
+
+class InputMetadata(BaseModel):
+    """Comprehensive metadata for input to evaluation and logging systems."""
+    model_config = ConfigDict(extra="allow")  # Allow additional custom fields
+
+    row_id: Optional[str] = Field(..., description="Unique ID for session/row/dataset_row (single unified identifier)")
+    completion_params: CompletionParams = Field(..., description="Completion endpoint parameters used")
+    dataset_info: Optional[Dict[str, Any]] = Field(..., description="Dataset row details: seed, system_prompt, environment_context, etc")
+    session_data: Optional[Dict[str, Any]] = Field(..., description="Session metadata like timestamp (input only, no duration/usage)")
+```
+
+**Example Usage:**
+```python
+input_metadata = InputMetadata(
+    row_id="session_123",
+    completion_params=CompletionParams(
+        model="gpt-4.1",
+        temperature=0.1,
+        max_tokens=1000
+    ),
+    dataset_info={
+        "seed": 42,
+        "environment_context": {"domain": "airline"}
+    },
+    session_data={
+        "timestamp": 1234567890
+    }
+)
 ```
 
 ### 4. Usage in Practice
@@ -98,11 +134,15 @@ row = EvaluationRow(
     messages=messages,
     ground_truth="4",
     evaluation_result=evaluation_result,
-    input_metadata={
-        "row_id": "math_001",
-        "dataset_info": {"source": "math_eval"},
-        "model_config": {"model": "gpt-4", "temperature": 0.0}
-    }
+    input_metadata=InputMetadata(
+        row_id="math_001",
+        completion_params=CompletionParams(
+            model="gpt-4",
+            temperature=0.0
+        ),
+        dataset_info={"source": "math_eval"},
+        session_data={"timestamp": 1234567890}
+    )
 )
 
 # Check type: row.is_trajectory_evaluation() -> False
@@ -152,11 +192,21 @@ row = EvaluationRow(
     messages=messages,
     ground_truth="Task completed successfully",
     evaluation_result=evaluation_result,
-    input_metadata={
-        "row_id": "trajectory_001",
-        "session_data": {"seed": 123, "environment": "gridworld"},
-        "execution_info": {"max_steps": 10, "timeout": 60}
-    }
+    input_metadata=InputMetadata(
+        row_id="trajectory_001",
+        completion_params=CompletionParams(
+            model="gpt-4.1",
+            temperature=0.2,
+            max_tokens=2048
+        ),
+        dataset_info={
+            "seed": 123,
+            "environment_context": {"domain": "gridworld"}
+        },
+        session_data={
+            "timestamp": 1234567890
+        }
+    )
 )
 
 # Check type: row.is_trajectory_evaluation() -> True
@@ -193,10 +243,19 @@ row = EvaluationRow(
     tools=tools,
     ground_truth="Recent ML papers found",
     evaluation_result=EvaluateResult(score=0.9, reason="Good tool usage"),
-    input_metadata={
-        "row_id": "search_001",
-        "dataset_info": {"category": "tool_usage", "complexity": "medium"}
-    }
+    input_metadata=InputMetadata(
+        row_id="search_001",
+        completion_params=CompletionParams(
+            model="gpt-4.1",
+            temperature=0.1,
+            max_tool_calls=3
+        ),
+        dataset_info={
+            "seed": 789,
+            "environment_context": {"domain": "search", "category": "tool_usage"}
+        },
+        session_data={"timestamp": 1234567890}
+    )
 )
 ```
 
@@ -285,13 +344,13 @@ The control plane logic in `execution/manager.py` will be simplified to directly
 )
 def evaluate_frozen_lake(messages: Messages) -> EvaluateResult:
     # SIMPLER CASE, one overall reward for entire evaluation row
-    return EvaluateResult(score=messages[-1].control_plane_info.reward)
+    return EvaluateResult(score=messages[-1].control_plane_step.reward)
     or
-    return EvaluateResult(score=np.mean([m.control_plane_info.reward for m in messages]))
+    return EvaluateResult(score=np.mean([m.control_plane_step.reward for m in messages]))
     or
     # ADVANCED CASE, per step rewards for evaluation row
     return EvaluationResult(
-        step_output=[m.control_plane_steps.reward for m in messages]
+        step_output=[m.control_plane_step.reward for m in messages]
     )
 ```
 
@@ -304,12 +363,14 @@ def evaluate_frozen_lake(messages: Messages) -> EvaluateResult:
 
 ### 9. Benefits
 
-1. **Clean and Simple Structure**: Only five main fields in `EvaluationRow` for maximum clarity
-2. **Flexible Input Metadata**: Single `input_metadata` field can contain any relevant context
-3. **Unified Data Flow**: Single data structure handles both evaluation paradigms
-4. **Developer Friendly**: Clear helper methods and intuitive data access patterns
-5. **Extensible**: Easy to add new capabilities without structural changes
-6. **Type Safe**: Full Pydantic validation and type hints throughout
-7. **Serialization Ready**: Built-in JSON serialization/deserialization support
+1. **Clean and Simple Structure**: Six main fields in `EvaluationRow` for maximum clarity
+2. **Structured Metadata**: Pydantic models (`InputMetadata`, `CompletionParams`) provide standardized, validated metadata
+3. **Unified Identifiers**: Single `row_id` eliminates redundancy between session_id, dataset_row_id, and row_id
+4. **Automatic Dataset Capture**: Complete dataset row content via `asdict(DatasetRow)` - no manual field extraction
+5. **Type Safety**: Full Pydantic validation prevents metadata inconsistencies and errors
+6. **Unified Data Flow**: Single data structure handles both evaluation paradigms
+7. **Developer Friendly**: Clear helper methods, autocomplete support, and intuitive data access patterns
+8. **Extensible**: Easy to add new capabilities without structural changes
+9. **Serialization Ready**: Built-in JSON serialization/deserialization support
 
 This unified approach provides a robust yet simple foundation for evaluation data handling while maintaining clarity and backward compatibility.

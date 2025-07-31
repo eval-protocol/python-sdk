@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
-from ..types import MCPSession
+from ...types import MCPSession
 
 logger = logging.getLogger(__name__)
 

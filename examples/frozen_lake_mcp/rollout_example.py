@@ -87,7 +87,7 @@ class MCPGymRolloutManager:
         """
         self.logger.info(f"Starting rollouts with {len(envs)} environments for {steps} steps")
 
-        trajectories = []
+        evaluation_rows = []
 
         for i, env in enumerate(envs):
             self.logger.info(f"Running rollout {i+1}/{len(envs)}")
@@ -135,19 +135,19 @@ class MCPGymRolloutManager:
                     self.logger.info(f"Episode finished at step {step}")
                     break
 
-            trajectories.append(trajectory)
+            evaluation_rows.append(trajectory)
             self.logger.info(f"Rollout {i+1} completed: {trajectory['total_reward']} total reward")
 
-        return trajectories
+        return evaluation_rows
 
-    def print_trajectory_summary(self, trajectories: List[Dict[str, Any]]):
+    def print_trajectory_summary(self, evaluation_rows: List[Dict[str, Any]]):
         """Print summary of rollout results."""
         print("\n" + "=" * 60)
         print("ROLLOUT SUMMARY")
         print("=" * 60)
 
-        for i, traj in enumerate(trajectories):
-            print(f"\nTrajectory {i+1}:")
+        for i, traj in enumerate(evaluation_rows):
+            print(f"\nEvaluation {i+1}:")
             print(f"  Environment: {traj['environment']}")
             print(f"  Seed: {traj['seed']}")
             print(f"  Steps: {len(traj['steps'])}")
@@ -161,14 +161,16 @@ class MCPGymRolloutManager:
                 print(f"  Final Reward: {traj['steps'][-1]['reward']}")
 
         # Overall statistics
-        total_reward = sum(traj["total_reward"] for traj in trajectories)
-        avg_reward = total_reward / len(trajectories) if trajectories else 0
+        total_reward = sum(traj["total_reward"] for traj in evaluation_rows)
+        avg_reward = total_reward / len(evaluation_rows) if evaluation_rows else 0
         success_rate = (
-            sum(1 for traj in trajectories if traj["total_reward"] > 0) / len(trajectories) if trajectories else 0
+            sum(1 for traj in evaluation_rows if traj["total_reward"] > 0) / len(evaluation_rows)
+            if evaluation_rows
+            else 0
         )
 
         print(f"\nOverall Statistics:")
-        print(f"  Total Environments: {len(trajectories)}")
+        print(f"  Total Environments: {len(evaluation_rows)}")
         print(f"  Average Reward: {avg_reward:.2f}")
         print(f"  Success Rate: {success_rate:.2%}")
 
@@ -224,11 +226,11 @@ async def main():
 
     # Execute rollouts using the north star interface
     print("Executing rollouts...")
-    trajectories = await ep.rollout(envs, policy, steps=20)
+    evaluation_rows = await ep.rollout(envs, policy, steps=20)
 
     # Print results
     manager = MCPGymRolloutManager()
-    manager.print_trajectory_summary(trajectories)
+    manager.print_trajectory_summary(evaluation_rows)
 
     print("\n" + "=" * 60)
     print("NORTH STAR VISION DEMONSTRATION COMPLETE")

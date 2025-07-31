@@ -10,8 +10,8 @@ import json
 import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+from ...types import DatasetRow, MCPSession, MCPToolCall
 from ..execution.manager import ExecutionManager
-from ..types import DatasetRow, MCPSession, MCPToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +63,9 @@ class GeneralMCPVectorEnv:
 
         # Get available tools from MCP server
         tool_schemas = await self.execution_manager.connection_manager.discover_tools(session)
+
+        if not self.tool_schemas:
+            self.tool_schemas = tool_schemas
 
         # PROPER MCP PATTERN: Get initial state from resources during session establishment
         initial_observation = await self.execution_manager.connection_manager.get_initial_state(session)
@@ -222,7 +225,3 @@ class GeneralMCPVectorEnv:
         print(f"🧹 Closing {self.n} MCP sessions...")
         await self.execution_manager.close_sessions(self.sessions)
         print(f"✅ All MCP sessions closed.")
-
-
-# Keep the old MCPVectorEnv for backward compatibility
-MCPVectorEnv = GeneralMCPVectorEnv

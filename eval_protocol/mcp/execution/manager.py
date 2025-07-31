@@ -12,14 +12,17 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+
+from openai.types import CompletionUsage
 
 from vendor.tau2.data_model.message import AssistantMessage, UserMessage
 from vendor.tau2.user.user_simulator import UserSimulator
 
+from ...models import CompletionParams, EvaluationRow, InputMetadata, Message
+from ...types import MCPSession, MCPToolCall, TerminationReason, Trajectory
 from ..client.connection import MCPConnectionManager
-from ..types import LLMUsageStats, MCPSession, MCPToolCall, TerminationReason, Trajectory
 
 if TYPE_CHECKING:
     from ..session.manager import GeneralMCPVectorEnv
@@ -74,7 +77,7 @@ class ExecutionManager:
         steps: int = 512,
         openai_format_log_file: Optional[str] = None,
         max_concurrent_rollouts: int = 8,
-    ) -> List[Trajectory]:
+    ) -> List[EvaluationRow]:
         """
         Execute general rollouts using tool calling interface with automatic record/playback.
 
@@ -97,7 +100,7 @@ class ExecutionManager:
             - Set and file exists: Playback mode (uses recorded data)
 
         Returns:
-            List of Trajectory objects with complete rollout data
+            List of EvaluationRow objects with unified evaluation data format
         """
         start_time = time.time()
 
@@ -141,6 +144,8 @@ class ExecutionManager:
         for trajectory in trajectories:
             trajectory.duration = total_duration
 
+        shared_tool_schema = envs.tool_schemas
+
         # Clean up
         await envs.close()
 
@@ -165,7 +170,33 @@ class ExecutionManager:
             # Add note about control plane separation
             logger.info(f"🎛️  Trajectories include control plane separation")
 
-        return trajectories
+        # Convert trajectories to unified EvaluationRow format
+        evaluation_rows = []
+        for trajectory in trajectories:
+            messages = [Message.model_validate(msg) for msg in trajectory.conversation_history]
+
+            input_metadata = InputMetadata(
+                row_id=trajectory.session.session_id,
+                dataset_info=asdict(trajectory.session.dataset_row) if trajectory.session.dataset_row else {},
+                completion_params=CompletionParams(
+                    model=policy.model_id,
+                    temperature=getattr(policy, "temperature", None),
+                    max_tokens=getattr(policy, "max_tokens", None),
+                    max_tool_calls=getattr(policy, "max_tools_per_turn", None),
+                ),
+                session_data={
+                    "timestamp": time.time(),
+                },
+            )
+            evaluation_row = EvaluationRow(
+                messages=messages,
+                tools=shared_tool_schema,
+                input_metadata=input_metadata,
+                usage=trajectory.usage,
+            )
+            evaluation_rows.append(evaluation_row)
+
+        return evaluation_rows
 
     async def _execute_rollout(
         self,
@@ -200,7 +231,7 @@ class ExecutionManager:
             control_plane_summary={},
             termination_reason="",
             conversation_history=[],
-            llm_usage_summary={
+            usage={
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "total_tokens": 0,
@@ -239,7 +270,7 @@ class ExecutionManager:
             {"role": "user", "content": user_prompt},
         ]
 
-        usage_stats_list: List[LLMUsageStats] = []
+        usage_stats_list: List[CompletionUsage] = []
 
         logger.info(f"🎯 Starting rollout {rollout_idx} in thread {threading.current_thread().name}")
 
@@ -331,6 +362,7 @@ class ExecutionManager:
                             "tool_calls": [f"{tool_call.tool_name}({tool_call.arguments})"],
                             "num_tool_calls": 1,
                         }
+                        conversation_history[-1]["control_plane_step"] = control_plane_step
                         trajectory.control_plane_steps.append(control_plane_step)
 
                         # Log conversation state for playback if in recording mode
@@ -371,6 +403,7 @@ class ExecutionManager:
                     "tool_calls": tool_calls_summary,
                     "num_tool_calls": len(tool_calls),
                 }
+                conversation_history[-1]["control_plane_step"] = control_plane_step
                 trajectory.control_plane_steps.append(control_plane_step)
 
                 # Log conversation state for playback if in recording mode
@@ -425,10 +458,16 @@ class ExecutionManager:
 
         trajectory.conversation_history = conversation_history
 
+        # Add termination_reason to the final control_plane_step
+        for msg in reversed(trajectory.conversation_history):
+            if msg.get("control_plane_step"):
+                msg["control_plane_step"]["termination_reason"] = trajectory.termination_reason
+                break
+
         for usage_stats in usage_stats_list:
-            trajectory.llm_usage_summary["prompt_tokens"] += usage_stats.prompt_tokens
-            trajectory.llm_usage_summary["completion_tokens"] += usage_stats.completion_tokens
-            trajectory.llm_usage_summary["total_tokens"] += usage_stats.total_tokens
+            trajectory.usage["prompt_tokens"] += usage_stats.prompt_tokens
+            trajectory.usage["completion_tokens"] += usage_stats.completion_tokens
+            trajectory.usage["total_tokens"] += usage_stats.total_tokens
 
         logger.info(
             f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}"

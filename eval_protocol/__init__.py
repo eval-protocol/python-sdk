@@ -16,7 +16,6 @@ from .common_utils import load_jsonl
 from .config import RewardKitConfig, get_config, load_config
 from .mcp_env import (
     AnthropicPolicy,
-    MCPVectorEnv,
     OpenAIPolicy,
     make,
     rollout,
@@ -64,7 +63,6 @@ __all__ = [
     "AnthropicPolicy",
     "FireworksPolicy",
     "OpenAIPolicy",
-    "MCPVectorEnv",
     "test_mcp",
     # Playback functionality
     "PlaybackPolicyBase",

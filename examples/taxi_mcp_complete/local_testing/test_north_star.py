@@ -62,14 +62,14 @@ async def test_north_star_interface():
 
         # Run rollout - same API for both modes!
         start_time = time.time()
-        trajectories = await ep.rollout(
+        evaluation_rows = await ep.rollout(
             envs,
             policy=policy,
             steps=25,  # Taxi typically needs more steps than FrozenLake
             openai_format_log_file=("clean_openai_format.jsonl" if recording_mode else None),
         )
         duration = time.time() - start_time
-        print(f"✅ Completed {len(trajectories)} trajectories in {duration:.2f}s")
+        print(f"✅ Completed {len(evaluation_rows)} evaluation rows in {duration:.2f}s")
 
         if recording_mode:
             print(f"📝 Recorded to: {playback_file}")
@@ -89,25 +89,25 @@ async def test_north_star_interface():
         # === RESULTS ===
         print("\n📊 === RESULTS ===")
 
-        # Show trajectory summary
-        print(f"🚕 Trajectories completed: {len(trajectories)}")
-        successful = sum(1 for traj in trajectories if traj.total_reward > 0)
-        print(f"✅ Successful: {successful}/{len(trajectories)}")
+        # Show evaluation summary
+        print(f"🚕 Evaluations completed: {len(evaluation_rows)}")
+        successful = sum(1 for eval_row in evaluation_rows if eval_row.get_total_reward() > 0)
+        print(f"✅ Successful: {successful}/{len(evaluation_rows)}")
 
-        for i, traj in enumerate(trajectories):
+        for i, eval_row in enumerate(evaluation_rows):
             env_context = dataset[i].get("environment_context", {})
             seed = env_context.get("seed", "N/A")
             is_raining = env_context.get("is_raining", False)
             fickle_passenger = env_context.get("fickle_passenger", False)
-            status = "SUCCESS" if traj.total_reward > 0 else "FAILED"
+            status = "SUCCESS" if eval_row.get_total_reward() > 0 else "FAILED"
 
             print(f"  Taxi Environment {i} (seed: {seed}, rain: {is_raining}, fickle: {fickle_passenger}): {status}")
-            print(f"    Steps: {traj.steps}, Reward: {traj.total_reward}")
+            print(f"    Steps: {eval_row.get_steps()}, Reward: {eval_row.get_total_reward()}")
 
         if recording_mode:
             print("\n🏆 Recording phase completed successfully!")
             print("📝 Files created:")
-            print(f"   - {playback_file}: Recorded trajectory data for playback")
+            print(f"   - {playback_file}: Recorded evaluation data for playback")
             print("   - clean_openai_format.jsonl: Clean OpenAI format for SFT training")
         else:
             print("\n🏆 Playback phase completed successfully!")

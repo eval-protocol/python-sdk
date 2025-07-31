@@ -1,15 +1,15 @@
-import json
 from typing import Any, Dict, List, Optional, Union
 
+from openai.types import CompletionUsage
 from openai.types.chat.chat_completion_message import (
     ChatCompletionMessageToolCall,
     FunctionCall,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Message(BaseModel):
-    """Chat message model compatible with OpenAI's interface."""
+    """Chat message model with trajectory evaluation support."""
 
     role: str
     content: Optional[str] = ""  # Content can be None for tool calls in OpenAI API
@@ -17,6 +17,7 @@ class Message(BaseModel):
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionMessageToolCall]] = None
     function_call: Optional[FunctionCall] = None
+    control_plane_step: Optional[Dict[str, Any]] = None
 
     @classmethod
     def model_validate(cls, obj, *args, **kwargs):
@@ -132,8 +133,7 @@ class EvaluateResult(BaseModel):
     )
 
     final_control_plane_info: Optional[Dict[str, Any]] = Field(
-        default=None,
-        description="The final control plane state that led to termination."
+        default=None, description="The final control plane state that led to termination."
     )
 
     def __getitem__(self, key: str) -> Any:
@@ -166,6 +166,30 @@ class EvaluateResult(BaseModel):
         return iter(self.__fields__.keys())  # Changed to __fields__
 
 
+class CompletionParams(BaseModel):
+    """Configuration for the language model used in the session."""
+
+    model: str = Field(..., description="Model identifier (e.g., 'gpt-4.1', 'fireworks/llama')")
+    temperature: Optional[float] = Field(None, description="Temperature setting for model generation")
+    max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
+    max_tool_calls: Optional[int] = Field(None, description="Maximum tool calls per turn")
+
+
+class InputMetadata(BaseModel):
+    """Comprehensive metadata for input to evaluation and logging systems."""
+
+    model_config = ConfigDict(extra="allow")
+
+    row_id: Optional[str] = Field(None, description="Unique string to ID the row")
+    completion_params: CompletionParams = Field(..., description="Completion endpoint parameters used")
+    dataset_info: Optional[Dict[str, Any]] = Field(
+        None, description="Dataset row details: seed, system_prompt, environment_context, etc"
+    )
+    session_data: Optional[Dict[str, Any]] = Field(
+        None, description="Session metadata like timestamp (input only, no duration/usage)"
+    )
+
+
 class EvaluationRow(BaseModel):
     """
     Unified data structure for a single evaluation unit that contains messages,
@@ -185,19 +209,23 @@ class EvaluationRow(BaseModel):
     )
 
     # Input-related metadata (grouped together for cleaner organization)
-    input_metadata: Optional[Dict[str, Any]] = Field(
+    input_metadata: Optional[InputMetadata] = Field(
         default=None, description="Metadata related to the input (dataset info, model config, session data, etc.)."
     )
-    
+
     # Ground truth reference (moved from EvaluateResult to top level)
     ground_truth: Optional[str] = Field(
-        default=None,
-        description="Optional ground truth reference for this evaluation."
+        default=None, description="Optional ground truth reference for this evaluation."
     )
-    
+
     # Unified evaluation result
     evaluation_result: Optional[EvaluateResult] = Field(
         default=None, description="The evaluation result for this row/trajectory."
+    )
+
+    # LLM usage statistics
+    usage: Optional[CompletionUsage] = Field(
+        default=None, description="Token usage statistics from LLM calls during execution."
     )
 
     def is_trajectory_evaluation(self) -> bool:
@@ -224,10 +252,40 @@ class EvaluationRow(BaseModel):
         return [msg for msg in self.messages if msg.role == "user"]
 
     def get_input_metadata(self, key: str, default: Any = None) -> Any:
-        """Helper method to get a specific value from input_metadata."""
+        """Helper method to get a specific value from input_metadata (InputMetadata fields)."""
         if self.input_metadata is None:
             return default
-        return self.input_metadata.get(key, default)
+        return getattr(self.input_metadata, key, default)
+
+    def get_steps(self) -> int:
+        """Get number of steps from control_plane_step data."""
+        return len([msg for msg in self.messages if msg.control_plane_step])
+
+    def get_total_reward(self) -> float:
+        """Get total reward from control_plane_step data."""
+        messages_with_control_plane = [msg for msg in self.messages if msg.control_plane_step]
+        return (
+            sum(msg.control_plane_step["reward"] for msg in messages_with_control_plane)
+            if messages_with_control_plane
+            else 0.0
+        )
+
+    def get_terminated(self) -> bool:
+        """Get termination status from control_plane_step data."""
+        messages_with_control_plane = [msg for msg in self.messages if msg.control_plane_step]
+        return (
+            any(msg.control_plane_step["terminated"] for msg in messages_with_control_plane)
+            if messages_with_control_plane
+            else False
+        )
+
+    def get_termination_reason(self) -> str:
+        """Get termination reason from the final control_plane_step data."""
+        # Find the last message with control_plane_step that has termination_reason
+        for msg in reversed(self.messages):
+            if msg.control_plane_step and msg.control_plane_step.get("termination_reason"):
+                return msg.control_plane_step["termination_reason"]
+        return "unknown"
 
 
 # Original dataclass-based models for backwards compatibility

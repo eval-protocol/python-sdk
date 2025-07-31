@@ -70,11 +70,4 @@ class Trajectory:
     control_plane_summary: Dict[str, Any]
     termination_reason: str
     conversation_history: List[Dict[str, Any]]
-    llm_usage_summary: Dict[str, int] = field(default_factory=dict)
-
-
-@dataclass
-class LLMUsageStats:
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
+    usage: Dict[str, int] = field(default_factory=dict)

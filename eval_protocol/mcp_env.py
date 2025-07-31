@@ -23,7 +23,7 @@ Usage remains the same:
     envs = ep.make("http://localhost:8000/mcp", dataset=dataset)
 
     # Execute tool-calling rollouts
-    trajectories = await ep.rollout(envs, policy=policy, steps=512)
+    evaluation_rows = await ep.rollout(envs, policy=policy, steps=512)
 
 Key Features:
 - General tool-calling interface that works with any MCP environment
@@ -50,27 +50,12 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 # Import all functionality from the new modular components
 from .mcp.execution.manager import ExecutionManager
-from .mcp.execution.policy import (
-    AnthropicPolicy,
-    FireworksPolicy,
-    LLMBasePolicy,
-    OpenAIPolicy,
-)
+from .mcp.execution.policy import AnthropicPolicy, FireworksPolicy, LLMBasePolicy, OpenAIPolicy
 from .mcp.session.manager import GeneralMCPVectorEnv
-from .mcp.types import DatasetRow, MCPSession, MCPToolCall, Trajectory
-
-# Try to import FireworksPolicy - it may fail if fireworks-ai is not installed
-# or if a different 'fireworks' package is installed
-try:
-    from .mcp.execution.policy import FireworksPolicy
-except:
-    # Silently skip if import fails for any reason
-    pass
+from .models import EvaluationRow
+from .types import DatasetRow, MCPSession, MCPToolCall
 
 logger = logging.getLogger(__name__)
-
-# Keep the old MCPVectorEnv for backward compatibility
-MCPVectorEnv = GeneralMCPVectorEnv
 
 
 def make(
@@ -131,9 +116,7 @@ def make(
                     system_prompt=row["system_prompt"],
                     user_prompt_template=row["user_prompt_template"],
                     environment_context=environment_context,
-                    user_simulation=(
-                        row["user_simulation"] if "user_simulation" in row else None
-                    ),
+                    user_simulation=(row["user_simulation"] if "user_simulation" in row else None),
                 )
             else:
                 dataset_row = row  # Assume it's already a DatasetRow
@@ -192,7 +175,7 @@ def make(
 
 
 async def rollout(
-    envs: Union[str, GeneralMCPVectorEnv],
+    envs: GeneralMCPVectorEnv,
     policy: Union[FireworksPolicy, LLMBasePolicy, Callable],
     *,
     dataset: Optional[List[Dict]] = None,
@@ -200,7 +183,7 @@ async def rollout(
     steps: int = 512,
     openai_format_log_file: Optional[str] = None,
     max_concurrent_rollouts: int = 8,
-) -> List[Trajectory]:
+) -> List[EvaluationRow]:
     """
     Execute general rollouts using tool calling interface with automatic record/playback.
 
@@ -227,11 +210,11 @@ async def rollout(
         - Set and file exists: Playback mode (uses recorded data)
 
     Returns:
-        List of Trajectory objects with complete rollout data
+        List of EvaluationRow objects
 
     Example:
-        # Provide an existing environment
-        trajectories = await ep.rollout(envs, policy)
+        # Live mode
+        evaluation_rows = await ep.rollout(envs, policy)
 
         # Create environments automatically
         trajectories = await ep.rollout(
@@ -243,10 +226,10 @@ async def rollout(
 
         # Recording mode
         os.environ["EP_PLAYBACK_FILE"] = "record.jsonl"
-        trajectories = await ep.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
+        evaluation_rows = await ep.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
 
         # Playback mode (after recording file exists)
-        trajectories = await ep.rollout(envs, policy)
+        evaluation_rows = await ep.rollout(envs, policy)
     """
     # Automatically create environments if a base URL is provided
     if isinstance(envs, str):
@@ -288,34 +271,28 @@ async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:
             policy = FireworksPolicy("test-model")
 
             # Run short rollout
-            trajectories = await rollout(envs, policy=policy, steps=10)
+            evaluation_rows = await rollout(envs, policy=policy, steps=10)
 
-            if trajectories and len(trajectories[0].observations) > 1:
+            if evaluation_rows and len(evaluation_rows[0].messages) > 1:
                 results["successful"] += 1
                 results["results"].append(
                     {
                         "seed": seed,
                         "status": "success",
-                        "steps": trajectories[0].steps,
-                        "total_reward": trajectories[0].total_reward,
+                        "steps": evaluation_rows[0].get_steps(),
+                        "total_reward": evaluation_rows[0].get_total_reward(),
                     }
                 )
             else:
                 results["failed"] += 1
-                results["results"].append(
-                    {"seed": seed, "status": "failed", "error": "empty_trajectory"}
-                )
+                results["results"].append({"seed": seed, "status": "failed", "error": "empty_trajectory"})
 
         except Exception as e:
             results["failed"] += 1
-            results["results"].append(
-                {"seed": seed, "status": "failed", "error": str(e)}
-            )
+            results["results"].append({"seed": seed, "status": "failed", "error": str(e)})
 
     success_rate = results["successful"] / results["total_tests"] * 100
-    print(
-        f"✅ Test complete: {results['successful']}/{results['total_tests']} successful ({success_rate:.1f}%)"
-    )
+    print(f"✅ Test complete: {results['successful']}/{results['total_tests']} successful ({success_rate:.1f}%)")
 
     return results
 
@@ -328,10 +305,8 @@ __all__ = [
     "FireworksPolicy",
     "OpenAIPolicy",
     "LLMBasePolicy",  # New base class for OpenAI integration
-    "MCPVectorEnv",
     "GeneralMCPVectorEnv",
     "MCPToolCall",
     "DatasetRow",
-    "Trajectory",
     "test_mcp",
 ]

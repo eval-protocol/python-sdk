@@ -70,25 +70,25 @@ async def test_multi_session():
 
         # Run rollout
         start_time = time.time()
-        trajectories = await ep.rollout(envs, policy=policy, steps=6)
+        evaluation_rows = await ep.rollout(envs, policy=policy, steps=6)
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == len(test_dataset), "Should have trajectory for each environment"
+        assert len(evaluation_rows) == len(test_dataset), "Should have evaluation row for each environment"
 
-        print(f"✅ Multi-session test completed with {len(trajectories)} trajectories in {duration:.2f}s")
+        print(f"✅ Multi-session test completed with {len(evaluation_rows)} evaluation rows in {duration:.2f}s")
 
-        # Print trajectory summaries
-        print("📊 Multi-Session Trajectory Summary:")
-        for i, traj in enumerate(trajectories):
+        # Print evaluation summaries
+        print("📊 Multi-Session Evaluation Summary:")
+        for i, eval_row in enumerate(evaluation_rows):
             dataset_entry = test_dataset[i]
             seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
             print(
-                f"  Trajectory {i} (seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
+                f"  Evaluation {i} (seed: {seed}): {eval_row.get_steps()} steps, reward: {eval_row.get_total_reward():.2f}, terminated: {eval_row.get_terminated()}"
             )
 
         # Validate that different seeds produce different results (if they do)
-        unique_rewards = set(traj.total_reward for traj in trajectories)
+        unique_rewards = set(eval_row.get_total_reward() for eval_row in evaluation_rows)
         print(f"📈 Unique rewards across environments: {unique_rewards}")
 
         # Clean up

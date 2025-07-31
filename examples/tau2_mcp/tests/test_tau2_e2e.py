@@ -19,6 +19,7 @@ import pytest
 
 import eval_protocol as ep
 from eval_protocol import EvaluateResult, reward_function
+from eval_protocol.models import Message
 from vendor.tau2.data_model.message import (
     AssistantMessage,
     SystemMessage,
@@ -663,12 +664,12 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
 
 
 @reward_function
-def tau2_eval(messages: List[Dict[str, Any]], nl_assertions: List[str] = None, **kwargs) -> EvaluateResult:
+def tau2_eval(messages: List[Message], nl_assertions: List[str] = None, **kwargs) -> EvaluateResult:
     """
     Evaluate airline conversation using tau2-bench NLAssertionsEvaluator.
 
     Args:
-        messages: Conversation between agent and customer
+        messages: List of Message objects from conversation between agent and customer
         nl_assertions: List of natural language assertions to evaluate
         **kwargs: Additional parameters
 
@@ -679,11 +680,11 @@ def tau2_eval(messages: List[Dict[str, Any]], nl_assertions: List[str] = None, *
     if nl_assertions is None:
         nl_assertions = ["The agent handled the customer request appropriately according to airline policy"]
 
-    # Convert messages to tau2-bench message objects based on role
+    # Convert Message objects directly to tau2-bench message objects
     trajectory_objects = []
     for msg in messages:
-        role = msg["role"]
-        content = msg["content"]
+        role = msg.role
+        content = msg.content
 
         if role == "system":
             trajectory_objects.append(SystemMessage(role=role, content=content))
@@ -692,7 +693,7 @@ def tau2_eval(messages: List[Dict[str, Any]], nl_assertions: List[str] = None, *
         elif role == "user":
             trajectory_objects.append(UserMessage(role=role, content=content))
         elif role == "tool":
-            tool_id = msg.get("tool_call_id")
+            tool_id = msg.tool_call_id
             trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=content))
 
     # Use tau2-bench NLAssertionsEvaluator
@@ -755,10 +756,10 @@ async def test_fireworks_multi_airline_environment_sessions(
         # Run playback
         start_time = time.time()
         # TODO: figure out how user simulator works for playback
-        playback_trajectories = await ep.rollout(playback_envs, policy=playback_policy, steps=15)
+        playback_evaluation_rows = await ep.rollout(playback_envs, policy=playback_policy, steps=15)
         playback_duration = time.time() - start_time
 
-        print(f"✅ CI playback completed: {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
+        print(f"✅ CI playback completed: {len(playback_evaluation_rows)} evaluation rows in {playback_duration:.2f}s")
 
         # Clean up environment variable
         if "EP_PLAYBACK_FILE" in os.environ:
@@ -798,48 +799,49 @@ async def test_fireworks_multi_airline_environment_sessions(
 
         # Run rollout with multiple environments (fewer steps for LLM efficiency)
         start_time = time.time()
-        trajectories = await ep.rollout(envs, policy=policy, steps=15)
+        evaluation_rows = await ep.rollout(envs, policy=policy, steps=15)
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == len(multi_env_airline_dataset), "Should have trajectory for each environment"
-        assert all(traj.steps > 0 for traj in trajectories), "All trajectories should have steps"
+        assert len(evaluation_rows) == len(
+            multi_env_airline_dataset
+        ), "Should have evaluation row for each environment"
+        assert all(eval_row.get_steps() > 0 for eval_row in evaluation_rows), "All evaluation rows should have steps"
 
         print(
-            f"✅ OpenAIPolicy multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s"
+            f"✅ OpenAIPolicy multi-environment test completed with {len(evaluation_rows)} evaluation rows in {duration:.2f}s"
         )
         print(f"📁 OpenAIPolicy multi-environment recording saved to: {fireworks_multi_env_airline_recording_file}")
 
-        # Print trajectory summaries
-        print("📊 OpenAIPolicy Multi-Environment Trajectory Summary:")
-        for i, traj in enumerate(trajectories):
+        # Print evaluation summaries
+        print("📊 OpenAIPolicy Multi-Environment Evaluation Summary:")
+        for i, eval_row in enumerate(evaluation_rows):
             dataset_entry = multi_env_airline_dataset[i]
             seed = dataset_entry.get("environment_context", {}).get("seed", "N/A")
             domain = dataset_entry.get("environment_context", {}).get("domain", "N/A")
             print(
-                f"  Trajectory {i} (domain: {domain}, seed: {seed}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}, termination: {traj.termination_reason}"
+                f"  Evaluation {i} (domain: {domain}, seed: {seed}): {eval_row.get_steps()} steps, reward: {eval_row.get_total_reward():.2f}, terminated: {eval_row.get_terminated()}, termination: {eval_row.get_termination_reason()}"
             )
-            if hasattr(traj, "actions") and len(traj.actions) > 0:
-                print(f"    Actions: {traj.actions[:3]}{'...' if len(traj.actions) > 3 else ''}")
+            # Actions are no longer available in EvaluationRow (they're embedded in messages)
+            print(f"    Messages: {len(eval_row.messages)} total")
 
         # Validate that different configurations produce different environments
-        unique_rewards = set(traj.total_reward for traj in trajectories)
+        unique_rewards = set(eval_row.get_total_reward() for eval_row in evaluation_rows)
         print(f"📈 Unique rewards across environments: {unique_rewards}")
 
         # 🔍 CRITICAL VALIDATIONS
         await _validate_recording_integrity(fireworks_multi_env_airline_recording_file, multi_env_airline_dataset)
 
         # 🧪 TAU2 REWARD FUNCTION EVALUATION
-        print(f"\n🎯 Evaluating {len(trajectories)} trajectories using conversation_history field")
+        print(f"\n🎯 Evaluating {len(evaluation_rows)} evaluation rows using messages field")
 
-        for env_idx, trajectory in enumerate(trajectories):
-            conversation_history = trajectory.conversation_history
+        for env_idx, eval_row in enumerate(evaluation_rows):
             nl_assertions = multi_env_airline_dataset[env_idx]["assertions"]
 
             print(f"\n🔍 Environment {env_idx} conversation history:")
-            print(f"  Messages: {len(conversation_history)} total")
+            print(f"  Messages: {len(eval_row.messages)} total")
 
-            eval = tau2_eval(conversation_history, nl_assertions)
+            eval = tau2_eval(eval_row.messages, nl_assertions)
 
             # Print evaluation result details
             print(f"🎯 Evaluation Result for env {env_idx}:")
@@ -875,7 +877,7 @@ async def test_fireworks_multi_mock_environment_sessions(
         print("\n🎬 === CI MODE: PLAYBACK ONLY ===")
 
         # Set up playback environment
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_mock_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_mock_recording_file
 
         # Create playback policy
         playback_policy = ep.OpenAIPolicy(
@@ -894,16 +896,16 @@ async def test_fireworks_multi_mock_environment_sessions(
                 model_id=playback_policy.model_id,
             )
 
-            trajectories = await ep.rollout(envs, policy=playback_policy, steps=10)
+            evaluation_rows = await ep.rollout(envs, policy=playback_policy, steps=10)
 
-            print(f"✅ Playback completed with {len(trajectories)} trajectories")
+            print(f"✅ Playback completed with {len(evaluation_rows)} evaluation rows")
 
             await envs.close()
 
         finally:
             _stop_test_server(server)
-            if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-                del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+            if "EP_PLAYBACK_FILE" in os.environ:
+                del os.environ["EP_PLAYBACK_FILE"]
 
         return
 
@@ -920,7 +922,7 @@ async def test_fireworks_multi_mock_environment_sessions(
 
     try:
         # Set up recording
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_mock_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_mock_recording_file
 
         # Create recording policy
         policy = ep.OpenAIPolicy(
@@ -942,38 +944,37 @@ async def test_fireworks_multi_mock_environment_sessions(
 
         # Run rollout with multiple environments
         start_time = time.time()
-        trajectories = await ep.rollout(envs, policy=policy, steps=15)
+        evaluation_rows = await ep.rollout(envs, policy=policy, steps=15)
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == len(multi_env_mock_dataset), "Should have trajectory for each environment"
-        assert all(traj.steps > 0 for traj in trajectories), "All trajectories should have steps"
+        assert len(evaluation_rows) == len(multi_env_mock_dataset), "Should have evaluation row for each environment"
+        assert all(eval_row.get_steps() > 0 for eval_row in evaluation_rows), "All evaluation rows should have steps"
 
         print(
-            f"✅ Mock domain multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s"
+            f"✅ Mock domain multi-environment test completed with {len(evaluation_rows)} evaluation rows in {duration:.2f}s"
         )
         print(f"📁 Mock domain recording saved to: {fireworks_multi_env_mock_recording_file}")
 
-        # Print trajectory summaries
-        print("📊 Mock Domain Multi-Environment Trajectory Summary:")
-        for i, traj in enumerate(trajectories):
+        # Print evaluation summaries
+        print("📊 Mock Domain Multi-Environment Evaluation Summary:")
+        for i, eval_row in enumerate(evaluation_rows):
             dataset_entry = multi_env_mock_dataset[i]
             domain = dataset_entry.get("environment_context", {}).get("domain", "N/A")
             print(
-                f"  Trajectory {i} (domain: {domain}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
+                f"  Evaluation {i} (domain: {domain}): {eval_row.get_steps()} steps, reward: {eval_row.get_total_reward():.2f}, terminated: {eval_row.get_terminated()}"
             )
 
         # 🧪 TAU2 REWARD FUNCTION EVALUATION
-        print(f"\n🎯 Evaluating {len(trajectories)} mock domain trajectories")
+        print(f"\n🎯 Evaluating {len(evaluation_rows)} mock domain evaluation rows")
 
-        for env_idx, trajectory in enumerate(trajectories):
-            conversation_history = trajectory.conversation_history
+        for env_idx, eval_row in enumerate(evaluation_rows):
             nl_assertions = multi_env_mock_dataset[env_idx]["assertions"]
 
             print(f"\n🔍 Environment {env_idx} conversation history:")
-            print(f"  Messages: {len(conversation_history)} total")
+            print(f"  Messages: {len(eval_row.messages)} total")
 
-            eval_result = tau2_eval(conversation_history, nl_assertions)
+            eval_result = tau2_eval(eval_row.messages, nl_assertions)
 
             # Print evaluation result details
             print(f"🎯 Evaluation Result for env {env_idx}:")
@@ -982,8 +983,8 @@ async def test_fireworks_multi_mock_environment_sessions(
 
         # Clean up
         await envs.close()
-        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+        if "EP_PLAYBACK_FILE" in os.environ:
+            del os.environ["EP_PLAYBACK_FILE"]
 
     finally:
         # Always stop the server
@@ -1004,7 +1005,7 @@ async def test_fireworks_multi_retail_environment_sessions(
         print("\n🎬 === CI MODE: PLAYBACK ONLY ===")
 
         # Set up playback environment
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_retail_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_retail_recording_file
 
         # Create playback policy
         playback_policy = ep.OpenAIPolicy(
@@ -1023,16 +1024,16 @@ async def test_fireworks_multi_retail_environment_sessions(
                 model_id=playback_policy.model_id,
             )
 
-            trajectories = await ep.rollout(envs, policy=playback_policy, steps=10)
+            evaluation_rows = await ep.rollout(envs, policy=playback_policy, steps=10)
 
-            print(f"✅ Playback completed with {len(trajectories)} trajectories")
+            print(f"✅ Playback completed with {len(evaluation_rows)} evaluation rows")
 
             await envs.close()
 
         finally:
             _stop_test_server(server)
-            if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-                del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+            if "EP_PLAYBACK_FILE" in os.environ:
+                del os.environ["EP_PLAYBACK_FILE"]
 
         return
 
@@ -1049,7 +1050,7 @@ async def test_fireworks_multi_retail_environment_sessions(
 
     try:
         # Set up recording
-        os.environ["REWARD_KIT_PLAYBACK_FILE"] = fireworks_multi_env_retail_recording_file
+        os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_retail_recording_file
 
         # Create recording policy
         policy = ep.OpenAIPolicy(
@@ -1071,38 +1072,37 @@ async def test_fireworks_multi_retail_environment_sessions(
 
         # Run rollout with multiple environments
         start_time = time.time()
-        trajectories = await ep.rollout(envs, policy=policy, steps=15)
+        evaluation_rows = await ep.rollout(envs, policy=policy, steps=15)
         duration = time.time() - start_time
 
         # Validate results
-        assert len(trajectories) == len(multi_env_retail_dataset), "Should have trajectory for each environment"
-        assert all(traj.steps > 0 for traj in trajectories), "All trajectories should have steps"
+        assert len(evaluation_rows) == len(multi_env_retail_dataset), "Should have evaluation row for each environment"
+        assert all(eval_row.get_steps() > 0 for eval_row in evaluation_rows), "All evaluation rows should have steps"
 
         print(
-            f"✅ Retail domain multi-environment test completed with {len(trajectories)} trajectories in {duration:.2f}s"
+            f"✅ Retail domain multi-environment test completed with {len(evaluation_rows)} evaluation rows in {duration:.2f}s"
         )
         print(f"📁 Retail domain recording saved to: {fireworks_multi_env_retail_recording_file}")
 
-        # Print trajectory summaries
-        print("📊 Retail Domain Multi-Environment Trajectory Summary:")
-        for i, traj in enumerate(trajectories):
+        # Print evaluation summaries
+        print("📊 Retail Domain Multi-Environment Evaluation Summary:")
+        for i, eval_row in enumerate(evaluation_rows):
             dataset_entry = multi_env_retail_dataset[i]
             domain = dataset_entry.get("environment_context", {}).get("domain", "N/A")
             print(
-                f"  Trajectory {i} (domain: {domain}): {traj.steps} steps, reward: {traj.total_reward:.2f}, terminated: {traj.terminated}"
+                f"  Evaluation {i} (domain: {domain}): {eval_row.get_steps()} steps, reward: {eval_row.get_total_reward():.2f}, terminated: {eval_row.get_terminated()}"
             )
 
         # 🧪 TAU2 REWARD FUNCTION EVALUATION
-        print(f"\n🎯 Evaluating {len(trajectories)} retail domain trajectories")
+        print(f"\n🎯 Evaluating {len(evaluation_rows)} retail domain evaluation rows")
 
-        for env_idx, trajectory in enumerate(trajectories):
-            conversation_history = trajectory.conversation_history
+        for env_idx, eval_row in enumerate(evaluation_rows):
             nl_assertions = multi_env_retail_dataset[env_idx]["assertions"]
 
             print(f"\n🔍 Environment {env_idx} conversation history:")
-            print(f"  Messages: {len(conversation_history)} total")
+            print(f"  Messages: {len(eval_row.messages)} total")
 
-            eval_result = tau2_eval(conversation_history, nl_assertions)
+            eval_result = tau2_eval(eval_row.messages, nl_assertions)
 
             # Print evaluation result details
             print(f"🎯 Evaluation Result for env {env_idx}:")
@@ -1111,8 +1111,8 @@ async def test_fireworks_multi_retail_environment_sessions(
 
         # Clean up
         await envs.close()
-        if "REWARD_KIT_PLAYBACK_FILE" in os.environ:
-            del os.environ["REWARD_KIT_PLAYBACK_FILE"]
+        if "EP_PLAYBACK_FILE" in os.environ:
+            del os.environ["EP_PLAYBACK_FILE"]
 
     finally:
         # Always stop the server

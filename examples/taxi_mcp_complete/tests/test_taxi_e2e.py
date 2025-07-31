@@ -167,9 +167,9 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
     # Create environments
     envs = ep.make("http://localhost:9500/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
 
-    # Record trajectories (Taxi typically needs more steps)
+    # Record evaluation rows (Taxi typically needs more steps)
     start_time = time.time()
-    trajectories = await ep.rollout(
+    evaluation_rows = await ep.rollout(
         envs,
         policy=policy,
         steps=25,
@@ -177,10 +177,10 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
     )
     recording_duration = time.time() - start_time
 
-    assert len(trajectories) == len(taxi_dataset), "Should have trajectory for each dataset entry"
+    assert len(evaluation_rows) == len(taxi_dataset), "Should have evaluation row for each dataset entry"
     assert os.path.exists(recording_file), "Recording file should be created"
 
-    print(f"✅ Recorded {len(trajectories)} trajectories in {recording_duration:.2f}s")
+    print(f"✅ Recorded {len(evaluation_rows)} evaluation rows in {recording_duration:.2f}s")
 
     # === PLAYBACK PHASE ===
     print("\n🎬 === TAXI PLAYBACK PHASE ===")
@@ -204,15 +204,15 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
 
     # Run playback
     start_time = time.time()
-    playback_trajectories = await ep.rollout(playback_envs, policy=playback_policy, steps=25)
+    playback_evaluation_rows = await ep.rollout(playback_envs, policy=playback_policy, steps=25)
     playback_duration = time.time() - start_time
 
-    assert len(playback_trajectories) == len(trajectories), "Playback should have same number of trajectories"
+    assert len(playback_evaluation_rows) == len(evaluation_rows), "Playback should have same number of evaluation rows"
 
     # Calculate speedup
     speedup = recording_duration / playback_duration if playback_duration > 0 else float("inf")
 
-    print(f"✅ Played back {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
+    print(f"✅ Played back {len(playback_evaluation_rows)} evaluation rows in {playback_duration:.2f}s")
     print(f"⚡ Speedup: {speedup:.1f}x faster than recording")
 
     # Validate performance - playback should be significantly faster
@@ -244,15 +244,15 @@ async def test_simulation_server_record_and_replay(simulation_server, taxi_datas
     # Create environments pointing to simulation server
     envs = ep.make("http://localhost:9501/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
 
-    # Record trajectories
+    # Record evaluation rows
     start_time = time.time()
-    trajectories = await ep.rollout(envs, policy=policy, steps=25)
+    evaluation_rows = await ep.rollout(envs, policy=policy, steps=25)
     recording_duration = time.time() - start_time
 
-    assert len(trajectories) == len(taxi_dataset), "Should have trajectory for each dataset entry"
+    assert len(evaluation_rows) == len(taxi_dataset), "Should have evaluation row for each dataset entry"
     assert os.path.exists(recording_file), "Recording file should be created"
 
-    print(f"✅ Simulation recorded {len(trajectories)} trajectories in {recording_duration:.2f}s")
+    print(f"✅ Simulation recorded {len(evaluation_rows)} evaluation rows in {recording_duration:.2f}s")
 
     # === PLAYBACK PHASE ===
     print("\n🎬 === TAXI SIMULATION PLAYBACK PHASE ===")
@@ -274,13 +274,13 @@ async def test_simulation_server_record_and_replay(simulation_server, taxi_datas
 
     # Run playback
     start_time = time.time()
-    playback_trajectories = await ep.rollout(playback_envs, policy=playback_policy, steps=25)
+    playback_evaluation_rows = await ep.rollout(playback_envs, policy=playback_policy, steps=25)
     playback_duration = time.time() - start_time
 
-    assert len(playback_trajectories) == len(trajectories), "Playback should have same number of trajectories"
+    assert len(playback_evaluation_rows) == len(evaluation_rows), "Playback should have same number of evaluation rows"
 
     speedup = recording_duration / playback_duration if playback_duration > 0 else float("inf")
-    print(f"✅ Simulation played back {len(playback_trajectories)} trajectories in {playback_duration:.2f}s")
+    print(f"✅ Simulation played back {len(playback_evaluation_rows)} evaluation rows in {playback_duration:.2f}s")
     print(f"⚡ Simulation speedup: {speedup:.1f}x faster than recording")
 
     # Validate performance
