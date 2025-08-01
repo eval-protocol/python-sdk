@@ -1,5 +1,5 @@
 """
-Core evaluation execution pipeline for reward-kit.
+Core evaluation execution pipeline for Eval Protocol.
 This module orchestrates dataset loading, model response generation (optional),
 and evaluation using specified reward functions.
 """

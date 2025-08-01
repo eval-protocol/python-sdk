@@ -1,5 +1,5 @@
 """
-Main entry point for running reward-kit as a module.
+Main entry point for running Eval Protocol as a module.
 """
 
 import sys

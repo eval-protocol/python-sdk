@@ -1,5 +1,5 @@
 """
-MCP Environment API for reward-kit - Backward Compatibility Facade
+MCP Environment API for Eval Protocol - Backward Compatibility Facade
 
 This module has been refactored into modular components for better maintainability.
 This file now serves as a backward compatibility facade.
