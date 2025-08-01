@@ -21,4 +21,4 @@ pip install eval-protocol
 
 ## License
 
-[License](LICENSE)
+[MIT](LICENSE)
