@@ -74,6 +74,7 @@ def evaluation_test(
     model: List[ModelParam],
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
+    dataset_adapter: Optional[Callable[[List[Dict[str, Any]]], Dataset]] = lambda x: x,
     input_params: Optional[List[InputParam]] = None,
     rollout_processor: Callable[
         [EvaluationRow, ModelParam, InputParam], List[EvaluationRow]
@@ -90,8 +91,13 @@ def evaluation_test(
 
     Args:
         model: Model identifiers to query.
-        input_messages: Messages to send to the model.
-        input_dataset: Paths to JSONL datasets.
+        input_messages: Messages to send to the model. This is useful if you
+            don't have a dataset but can hard-code the messages.
+        input_dataset: Paths to JSONL datasets. This is useful if you have a
+            dataset already. Provide a dataset_adapter to convert the input dataset
+            to a list of EvaluationRows if you have a custom dataset format.
+        dataset_adapter: Function to convert the input dataset to a list of
+            EvaluationRows. This is useful if you have a custom dataset format.
         input_params: Generation parameters for the model.
         rollout_processor: Function used to perform the rollout.
         aggregation_method: How to aggregate scores across rows.
@@ -240,16 +246,9 @@ def evaluation_test(
                     data = load_jsonl(kwargs["dataset_path"])
                     if max_dataset_rows is not None:
                         data = data[:max_dataset_rows]
-                    input_dataset = []
-                    for entry in data:
-                        user_query = entry.get("user_query") or entry.get("prompt")
-                        if not user_query:
-                            continue
-                        messages = [Message(role="user", content=user_query)]
-                        row = EvaluationRow(
-                            messages=messages,
-                            ground_truth=entry.get("ground_truth_for_eval"),
-                        )
+                    data = dataset_adapter(data)
+                    input_dataset: List[EvaluationRow] = []
+                    for row in data:
                         processed = rollout_processor(
                             row, model=model_name, input_params=kwargs.get("input_params") or {}
                         )

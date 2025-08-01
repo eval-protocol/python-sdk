@@ -1,9 +1,11 @@
 from eval_protocol.pytest_utils import evaluate, evaluation_test
 from examples.math_with_format_and_length.main import evaluate as math_fl_evaluate
+from tests.pytest.helper.gsm8k_to_evaluation_row import gsm8k_to_evaluation_row
 
 
 @evaluation_test(
     input_dataset=["development/gsm8k_sample.jsonl"],
+    dataset_adapter=gsm8k_to_evaluation_row,
     model=["accounts/fireworks/models/kimi-k2-instruct"],
     input_params=[{"temperature": 0.0}],
     max_dataset_rows=5,
