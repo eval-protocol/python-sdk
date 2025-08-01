@@ -1,0 +1,141 @@
+import json
+import os
+from contextlib import AsyncExitStack
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+from dotenv import load_dotenv
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+from mcp.types import CallToolResult
+from openai.types import FunctionDefinition
+from openai.types.chat import ChatCompletionToolParam
+
+from eval_protocol.types.types import MCPMultiClientConfiguration
+
+load_dotenv()  # load environment variables from .env
+
+
+class MCPMultiClient:
+    """
+    Implements what clients like Cursor and Claude Desktop do when you configure
+    them to use multiple MCP servers. The difference is that it validates
+    against a list of environment variables rather than injects them into the
+    MCP server process. This is so you can version control your configuration
+    without exposing your environment variables to the MCP server process.
+
+    Environment variables should instead be set in a .env file
+    """
+
+    def __init__(self, config_path: Optional[str] = None):
+        # Initialize session and client objects
+        self.sessions: Dict[str, ClientSession] = {}
+        self.tools_to_sessions: Dict[str, ClientSession] = {}
+        self.exit_stack = AsyncExitStack()
+        self.config = self._load_config(config_path)
+
+    def _load_config(self, config_path: Optional[str] = None) -> MCPMultiClientConfiguration:
+        """Load MCP server configuration from file or use default"""
+        if config_path and os.path.exists(config_path):
+            with open(config_path, "r") as f:
+                return json.load(f)
+
+        # Default configuration - can be overridden by config file
+        return {"mcpServers": {}}
+
+    def _validate_environment_variables(self, server_name: str, required_env: List[str]) -> None:
+        """Validate that required environment variables are set in os.environ"""
+        missing_vars = []
+        for env_var in required_env:
+            if env_var not in os.environ:
+                missing_vars.append(env_var)
+
+        if missing_vars:
+            raise ValueError(
+                f"Server '{server_name}' requires the following environment variables "
+                f"to be set in os.environ: {missing_vars}. "
+                f"Please set these variables in your environment or .env file."
+            )
+
+    async def connect_to_servers(self):
+        """Connect to all configured MCP servers"""
+        if not self.config.get("mcpServers"):
+            print("No MCP servers configured. Please provide a configuration file.")
+            return
+
+        for server_name, server_config in self.config["mcpServers"].items():
+            try:
+                await self._connect_to_server(server_name, server_config)
+            except Exception as e:
+                print(f"Failed to connect to server '{server_name}': {e}")
+
+    async def _connect_to_server(self, server_name: str, server_config: Dict[str, Any]):
+        """Connect to a specific MCP server using its configuration"""
+        command = server_config.get("command")
+        args = server_config.get("args", [])
+        env_config = server_config.get("env", [])
+
+        if not command:
+            raise ValueError(f"Server '{server_name}' must have a 'command' specified")
+
+        # Validate that required environment variables are set
+        if env_config:
+            self._validate_environment_variables(server_name, env_config)
+
+        # Use the current system environment (os.environ) - don't override with config
+        server_params = StdioServerParameters(command=command, args=args, env=os.environ)
+
+        stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
+        stdio, write = stdio_transport
+        session = await self.exit_stack.enter_async_context(ClientSession(stdio, write))
+
+        await session.initialize()
+        self.sessions[server_name] = session
+
+        # List available tools
+        response = await session.list_tools()
+        tools = response.tools
+        for tool in tools:
+            if tool.name in self.tools_to_sessions:
+                raise ValueError(f"Tool '{tool.name}' already exists")
+            self.tools_to_sessions[tool.name] = session
+        print(
+            f"\nConnected to server '{server_name}' with tools:",
+            [tool.name for tool in tools],
+        )
+
+    async def get_available_tools(self) -> List[ChatCompletionToolParam]:
+        """Get all available tools from all connected servers"""
+        all_tools = []
+        for server_name, session in self.sessions.items():
+            try:
+                response = await session.list_tools()
+                for tool in response.tools:
+                    all_tools.append(
+                        ChatCompletionToolParam(
+                            function=FunctionDefinition(
+                                name=tool.name,  # Prefix with server name
+                                description=tool.description,
+                                parameters=tool.inputSchema,
+                            ),
+                            type="function",
+                        )
+                    )
+            except Exception as e:
+                print(f"Error listing tools from server '{server_name}': {e}")
+
+        return all_tools
+
+    async def call_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> CallToolResult:
+        """Call a specific tool by name with arguments"""
+
+        session = self.tools_to_sessions[tool_name]
+        try:
+            result = await session.call_tool(tool_name, tool_args)
+            return result
+        except Exception as e:
+            return f"Error calling tool {tool_name}: {e}"
+
+    async def cleanup(self):
+        """Clean up resources"""
+        await self.exit_stack.aclose()

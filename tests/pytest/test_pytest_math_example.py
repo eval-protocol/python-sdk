@@ -1,4 +1,4 @@
-from eval_protocol.pytest_utils import evaluate, evaluation_test
+from eval_protocol.pytest import default_single_turn_rollout_processor, evaluate, evaluation_test
 from examples.math_example.main import evaluate as math_evaluate
 from tests.pytest.helper.gsm8k_to_evaluation_row import gsm8k_to_evaluation_row
 
@@ -10,6 +10,7 @@ from tests.pytest.helper.gsm8k_to_evaluation_row import gsm8k_to_evaluation_row
     input_params=[{"temperature": 0.0}],
     max_dataset_rows=5,
     threshold_of_success=0.0,
+    rollout_processor=default_single_turn_rollout_processor,
 )
 def test_math_dataset(input_dataset, input_params, model):
     """Run math evaluation on sample dataset using pytest interface."""

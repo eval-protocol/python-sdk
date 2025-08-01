@@ -185,6 +185,7 @@ class LiteLLMPolicy(LLMBasePolicy):
                 "choices": [
                     {
                         "message": {
+                            "role": response.choices[0].message.role,
                             "content": response.choices[0].message.content,
                             "tool_calls": (
                                 [

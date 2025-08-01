@@ -1,5 +1,7 @@
-from eval_protocol.models import EvaluateResult, EvaluationRow
-from eval_protocol.pytest_utils import evaluate, evaluation_test
+from typing import List
+
+from eval_protocol.models import EvaluationRow
+from eval_protocol.pytest import evaluation_test
 from examples.math_example.main import evaluate as math_evaluate
 
 
@@ -12,15 +14,8 @@ from examples.math_example.main import evaluate as math_evaluate
             {"role": "user", "content": "What is the capital of the moon?"},
         ],
     ],
-    model=["accounts/fireworks/models/kimi-k2-instruct", "gpt-4o"],
+    model=["accounts/fireworks/models/kimi-k2-instruct"],
 )
-async def test_input_messages_in_decorator(input_messages, model):
+async def test_pytest_async(input_dataset: List[EvaluationRow], model):
     """Run math evaluation on sample dataset using pytest interface."""
-    return [
-        EvaluationRow(
-            messages=input_messages,
-            evaluation_result=EvaluateResult(
-                score=0.0,
-            ),
-        )
-    ]
+    return input_dataset

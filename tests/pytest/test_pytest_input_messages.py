@@ -1,6 +1,7 @@
-from eval_protocol.models import EvaluateResult, EvaluationRow
-from eval_protocol.pytest_utils import evaluate, evaluation_test
-from examples.math_example.main import evaluate as math_evaluate
+from typing import List
+
+from eval_protocol.models import EvaluationRow
+from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
 
 
 @evaluation_test(
@@ -10,14 +11,8 @@ from examples.math_example.main import evaluate as math_evaluate
         ]
     ],
     model=["accounts/fireworks/models/kimi-k2-instruct"],
+    rollout_processor=default_single_turn_rollout_processor,
 )
-def test_input_messages_in_decorator(input_messages, model):
+def test_input_messages_in_decorator(input_dataset: List[EvaluationRow], model):
     """Run math evaluation on sample dataset using pytest interface."""
-    return [
-        EvaluationRow(
-            messages=input_messages,
-            evaluation_result=EvaluateResult(
-                score=0.0,
-            ),
-        )
-    ]
+    return input_dataset

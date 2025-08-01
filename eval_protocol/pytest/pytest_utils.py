@@ -3,11 +3,21 @@ import inspect
 from typing import Any, Callable, Dict, List, Optional
 
 import pytest
-from openai import OpenAI
 
-from .auth import get_fireworks_api_base, get_fireworks_api_key
-from .common_utils import load_jsonl
-from .models import CompletionParams, EvaluateResult, EvaluationRow, InputMetadata, Message
+from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
+from eval_protocol.pytest.types import (
+    Dataset,
+    DatasetPathParam,
+    InputMessagesParam,
+    InputParam,
+    ModelParam,
+    RolloutProcessor,
+    RolloutProcessorConfig,
+    TestFunction,
+)
+
+from ..common_utils import load_jsonl
+from ..models import EvaluateResult, EvaluationRow
 
 
 def evaluate(
@@ -34,41 +44,6 @@ def _aggregate(scores: List[float], method: str) -> float:
     raise ValueError(f"Unknown aggregation method: {method}")
 
 
-"""
-Parameter types
-"""
-ModelParam = str  # gpt-4o, gpt-4o-mini, accounts/fireworks/models/llama-3.1-8b-instruct
-DatasetPathParam = str
-InputParam = Dict[str, Any]
-InputMessagesParam = List[Message]
-
-Dataset = List[EvaluationRow]
-"""
-Test function types
-"""
-TestFunction = Callable[..., Dataset]
-
-
-def default_rollout_processor(row: EvaluationRow, model: ModelParam, input_params: InputParam) -> List[EvaluationRow]:
-    """Generate a single response from a Fireworks model."""
-
-    api_key = get_fireworks_api_key()
-    api_base = get_fireworks_api_base()
-    client = OpenAI(api_key=api_key, base_url=f"{api_base}/inference/v1")
-
-    messages_payload = [{"role": m.role, "content": m.content} for m in row.messages]
-
-    response = client.chat.completions.create(model=model, messages=messages_payload, **input_params)
-    assistant_content = response.choices[0].message.content or ""
-    messages = list(row.messages) + [Message(role="assistant", content=assistant_content)]
-    processed = EvaluationRow(
-        messages=messages,
-        ground_truth=row.ground_truth,
-        input_metadata=InputMetadata(completion_params=CompletionParams(model=model)),
-    )
-    return [processed]
-
-
 def evaluation_test(
     *,
     model: List[ModelParam],
@@ -76,13 +51,12 @@ def evaluation_test(
     input_dataset: Optional[List[DatasetPathParam]] = None,
     dataset_adapter: Optional[Callable[[List[Dict[str, Any]]], Dataset]] = lambda x: x,
     input_params: Optional[List[InputParam]] = None,
-    rollout_processor: Callable[
-        [EvaluationRow, ModelParam, InputParam], List[EvaluationRow]
-    ] = default_rollout_processor,
+    rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
     aggregation_method: str = "mean",
     threshold_of_success: Optional[float] = None,
     num_runs: int = 1,
     max_dataset_rows: Optional[int] = None,
+    mcp_config_path: Optional[str] = None,
 ) -> Callable[
     [TestFunction],
     TestFunction,
@@ -92,7 +66,8 @@ def evaluation_test(
     Args:
         model: Model identifiers to query.
         input_messages: Messages to send to the model. This is useful if you
-            don't have a dataset but can hard-code the messages.
+            don't have a dataset but can hard-code the messages. Will be passed as
+            "input_dataset" to the test function.
         input_dataset: Paths to JSONL datasets. This is useful if you have a
             dataset already. Provide a dataset_adapter to convert the input dataset
             to a list of EvaluationRows if you have a custom dataset format.
@@ -149,12 +124,18 @@ def evaluation_test(
         # Check if the function is async
         is_async = inspect.iscoroutinefunction(test_func)
 
+        sig = inspect.signature(test_func)
+        if "input_dataset" not in sig.parameters:
+            raise ValueError("test_func must have a parameter named 'input_dataset'")
+
+        if "model" not in sig.parameters:
+            raise ValueError("test_func must have a parameter named 'model'")
+
         def execute_with_params(
             test_func: TestFunction,
             model: str,
             input_dataset: List[EvaluationRow] | None = None,
             input_params: InputParam | None = None,
-            input_messages: InputMessagesParam | None = None,
         ):
             kwargs = {}
             if input_dataset is not None:
@@ -163,8 +144,6 @@ def evaluation_test(
                 kwargs["input_params"] = input_params
             if model is not None:
                 kwargs["model"] = model
-            if input_messages is not None:
-                kwargs["input_messages"] = input_messages
             if is_async:
                 # Handle async functions with proper event loop management
                 try:
@@ -240,19 +219,41 @@ def evaluation_test(
             def wrapper_body(**kwargs):
                 model_name = kwargs["model"]
 
-                # Handle dataset loading if dataset_path is provided
-                input_dataset = None
+                # Handle dataset loading
                 if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
                     data = load_jsonl(kwargs["dataset_path"])
                     if max_dataset_rows is not None:
                         data = data[:max_dataset_rows]
                     data = dataset_adapter(data)
-                    input_dataset: List[EvaluationRow] = []
-                    for row in data:
-                        processed = rollout_processor(
-                            row, model=model_name, input_params=kwargs.get("input_params") or {}
-                        )
-                        input_dataset.extend(processed)
+                elif "input_messages" in kwargs and kwargs["input_messages"] is not None:
+                    data: List[EvaluationRow] = [EvaluationRow(messages=kwargs["input_messages"])]
+                else:
+                    raise ValueError("No input dataset or input messages provided")
+
+                input_dataset: List[EvaluationRow] = []
+                config = RolloutProcessorConfig(
+                    model=model_name,
+                    input_params=kwargs.get("input_params") or {},
+                    mcp_config_path=mcp_config_path or "",
+                    initial_messages=kwargs.get("input_messages") if "input_messages" in kwargs else [],
+                )
+                for row in data:
+                    is_async = inspect.iscoroutinefunction(rollout_processor)
+                    if is_async:
+                        try:
+                            loop = asyncio.get_event_loop()
+                            if not loop.is_closed():
+                                # Use existing loop
+                                task = loop.create_task(rollout_processor(row, config=config))
+                                processed: List[EvaluationRow] = loop.run_until_complete(task)
+                            else:
+                                processed: List[EvaluationRow] = asyncio.run(rollout_processor(row, config=config))
+                        except RuntimeError:
+                            # No event loop or other issues, create a new one
+                            processed: List[EvaluationRow] = asyncio.run(rollout_processor(row, config=config))
+                    else:
+                        processed: List[EvaluationRow] = rollout_processor(row, config=config)
+                    input_dataset.extend(processed)
 
                 all_results: List[EvaluationRow] = []
                 for _ in range(num_runs):
@@ -262,7 +263,6 @@ def evaluation_test(
                         model=model_name,
                         input_dataset=input_dataset,
                         input_params=kwargs.get("input_params") if "input_params" in kwargs else None,
-                        input_messages=kwargs.get("input_messages") if "input_messages" in kwargs else None,
                     )
                     if results is None:
                         raise ValueError(
