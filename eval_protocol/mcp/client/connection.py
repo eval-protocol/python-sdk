@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 class MCPConnectionManager:
     """Manages MCP client connections and session lifecycle."""
 
+    def __init__(self):
+        self._tools_cache: Dict[str, List[Dict]] = {}
+        self._tools_cache_lock = asyncio.Lock()
+
     async def initialize_session(self, session: MCPSession) -> None:
         """
         Initialize a persistent MCP session.
@@ -99,9 +103,40 @@ class MCPConnectionManager:
                 session.session_id = server_session_id
                 logger.debug(f"Updated session ID to match server: {server_session_id}")
 
+        # PRE-WARM: Discover and cache tools immediately after session initialization
+        # This prevents concurrent list_tools() calls later
+        await self._prewarm_tools_cache(session)
+
+    async def _prewarm_tools_cache(self, session: MCPSession) -> None:
+        """
+        Pre-warm the tools cache for this session's base URL.
+        This prevents concurrent list_tools() calls during discover_tools().
+        """
+        cache_key = session.base_url
+
+        async with self._tools_cache_lock:
+            # Only fetch tools if not already cached for this base_url
+            if cache_key not in self._tools_cache:
+                logger.debug(f"Pre-warming tools cache for {cache_key}")
+                tools_response = await session._mcp_session.list_tools()
+                tools = tools_response.tools if hasattr(tools_response, "tools") else []
+
+                tool_schemas = []
+                for tool in tools:
+                    tool_schema = {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "input_schema": (tool.inputSchema if hasattr(tool, "inputSchema") else {}),
+                    }
+                    tool_schemas.append(tool_schema)
+
+                self._tools_cache[cache_key] = tool_schemas
+                logger.debug(f"✅ PRE-WARMED {len(tool_schemas)} tools for{cache_key}")
+
     async def discover_tools(self, session: MCPSession) -> List[Dict]:
         """
         Discover available tools from an MCP session.
+        Now uses pre-warmed cache to avoid concurrent list_tools() calls.
 
         Args:
             session: The MCPSession to discover tools from
@@ -112,9 +147,19 @@ class MCPConnectionManager:
         if not session._mcp_session:
             raise RuntimeError("Session not initialized")
 
+        cache_key = session.base_url
+
+        # Check cache first (should be pre-warmed during initialization)
+        async with self._tools_cache_lock:
+            if cache_key in self._tools_cache:
+                cached_tools = self._tools_cache[cache_key]
+                logger.debug(f"Using cached tools for session {session.session_id} ({len(cached_tools)} tools)")
+                return cached_tools
+
+        # Fallback: if cache miss (shouldn't happen with pre-warming), fetch directly
+        logger.warning(f"Cache miss for {cache_key} - this shouldn't happen with pre-warming")
         mcp_session = session._mcp_session
 
-        # Get available tools from MCP server
         tools_response = await mcp_session.list_tools()
         tools = tools_response.tools if hasattr(tools_response, "tools") else []
 
@@ -129,7 +174,25 @@ class MCPConnectionManager:
             }
             tool_schemas.append(tool_schema)
 
+        # Cache the result for future use
+        async with self._tools_cache_lock:
+            self._tools_cache[cache_key] = tool_schemas
+
         return tool_schemas
+
+    def clear_tools_cache(self, base_url: Optional[str] = None):
+        """
+        Clear the tools cache for debugging or when server tools change.
+
+        Args:
+            base_url: If provided, clear cache only for this URL. If None, clear all.
+        """
+        if base_url:
+            self._tools_cache.pop(base_url, None)
+            logger.debug(f"Cleared tools cache for {base_url}")
+        else:
+            self._tools_cache.clear()
+            logger.debug("Cleared all tools cache")
 
     async def get_initial_state(self, session: MCPSession) -> Any:
         """
@@ -160,8 +223,9 @@ class MCPConnectionManager:
 
                 # Query initial state endpoint
                 try:
-                    # Use shorter timeout for playback mode
-                    timeout = 3.0 if hasattr(session, "_is_playback_mode") and session._is_playback_mode else 5.0
+                    # Use shorter timeout for playback mode, longer timeout for high-concurrency initialization
+                    # (50+ concurrent sessions need more time for initial state setup)
+                    timeout = 3.0 if hasattr(session, "_is_playback_mode") and session._is_playback_mode else 15.0
                     async with httpx.AsyncClient(timeout=timeout) as client:
                         initial_state_response = await client.get(
                             f"{base_url}/control/initial_state",

@@ -12,6 +12,7 @@ Key Features:
 - Session-aware control plane endpoints via @control_plane_endpoint decorator
 """
 
+import asyncio
 import hashlib
 import inspect
 import json
@@ -21,6 +22,7 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional, Tuple
 
+import uvicorn
 from mcp.server.fastmcp import Context, FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -553,29 +555,32 @@ class McpGym(ABC):
             return {"observation": serialized_obs}
 
     def run(self, transport: str = "streamable-http", **kwargs):
-        """
-        Run the unified MCP-Gym server.
+        """Run the unified MCP-Gym server with high concurrency settings."""
+        if transport == "streamable-http":
+            # Run with custom high-concurrency uvicorn config
 
-        Args:
-            transport: MCP transport protocol ("stdio", "sse", "streamable-http")
-            **kwargs: Additional arguments passed to FastMCP.run()
-        """
-        print(f"🚀 {self.mcp.name} MCP-Gym Server Starting...")
-        print(f"📡 Transport: {transport}")
-        print("🎯 MCP Pattern: HTTP endpoints for control plane, tools for data plane")
-        print("🔗 Session-aware control plane endpoints:")
+            async def run_with_high_concurrency():
+                starlette_app = self.mcp.streamable_http_app()
 
-        # List registered control plane endpoints
-        for endpoint_name, endpoint_func in self._control_plane_endpoints.items():
-            print(f"  - {endpoint_name}: {endpoint_func._control_plane_path}")
+                config = uvicorn.Config(
+                    starlette_app,
+                    host=self.mcp.settings.host,
+                    port=self.mcp.settings.port,
+                    log_level=self.mcp.settings.log_level.lower(),
+                    # HIGH CONCURRENCY SETTINGS
+                    limit_concurrency=200,  # Increase for HTTP endpoints + MCP
+                    limit_max_requests=100000,  # Higher request limit
+                    timeout_keep_alive=120,  # Longer keep-alive for control plane
+                    timeout_notify=180,
+                    h11_max_incomplete_event_size=4 * 1024 * 1024,  # Handle larger events
+                )
+                server = uvicorn.Server(config)
+                await server.serve()
 
-        if not self._control_plane_endpoints:
-            print("  - No control plane endpoints registered")
-
-        print()
-
-        # Run the unified server
-        self.mcp.run(transport=transport, **kwargs)
+            asyncio.run(run_with_high_concurrency())
+        else:
+            # Use default FastMCP run for other transports
+            self.mcp.run(transport=transport, **kwargs)
 
     def _to_json_serializable(self, obj: Any) -> Any:
         """Convert any object to JSON-serializable format.
