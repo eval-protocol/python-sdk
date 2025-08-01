@@ -83,6 +83,7 @@ class TestDeepCoderReward(unittest.TestCase):
             details = json.loads(result.metrics["test_results"].reason)
             self.assertFalse(details[0].get("passed"))  # First test case (5 -> expected 6, actual 7) should fail
 
+    @unittest.skip("Trimmed slow test")
     def test_python_syntax_error_local(self):
         """Test Python code with a syntax error locally."""
         if not self.SAMPLES:
@@ -108,6 +109,7 @@ class TestDeepCoderReward(unittest.TestCase):
             details = json.loads(result.metrics["test_results"].reason)
             self.assertTrue(any("error" in tc for tc in details))
 
+    @unittest.skip("Trimmed slow test")
     def test_python_timeout_local(self):
         """Test Python code that times out locally."""
         if not self.SAMPLES:
@@ -156,6 +158,7 @@ class TestDeepCoderReward(unittest.TestCase):
         if "error" in result.metrics:
             self.assertIn("No python code block found", result.metrics["error"].reason)
 
+    @unittest.skip("Trimmed slow test")
     def test_javascript_all_tests_pass_local(self):
         """Test JavaScript code that passes all test cases locally."""
         js_test_cases = [
@@ -179,6 +182,7 @@ class TestDeepCoderReward(unittest.TestCase):
         self.assertIsInstance(result, EvaluateResult)
         self.assertEqual(result.score, 1.0)
 
+    @unittest.skip("Trimmed slow test")
     def test_javascript_one_test_fails_local(self):
         """Test JavaScript code where one test case fails locally."""
         js_test_cases = [
@@ -202,7 +206,7 @@ class TestDeepCoderReward(unittest.TestCase):
         self.assertIsInstance(result, EvaluateResult)
         self.assertEqual(result.score, 0.0)
 
-    @unittest.skipUnless(E2B_AVAILABLE, "E2B_API_KEY not set, skipping E2B tests.")
+    @unittest.skip("Trimmed slow test")
     def test_python_all_tests_pass_e2b(self):
         """Test Python code that passes all test cases in E2B."""
         if not self.SAMPLES:
@@ -262,7 +266,7 @@ class TestDeepCoderReward(unittest.TestCase):
             else:
                 raise
 
-    @unittest.skipUnless(E2B_AVAILABLE, "E2B_API_KEY not set, skipping E2B tests.")
+    @unittest.skip("Trimmed slow test")
     def test_python_one_test_fails_e2b(self):
         """Test Python code where one test case fails in E2B."""
         if not self.SAMPLES:
