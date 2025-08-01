@@ -80,6 +80,7 @@ dev = [
     "ipykernel>=6.30.0",
     "jupyter>=1.1.1",
     "pip>=25.1.1",
+    "haikus==0.3.8",
 ]
 trl = [
     "torch>=1.9",
@@ -119,3 +120,9 @@ line_length = 119
 
 [tool.uv.sources]
 tau2 = { git = "https://github.com/sierra-research/tau2-bench.git" }
+
+[dependency-groups]
+dev = [
+    "haikus==0.3.8",
+    "pytest>=8.4.1",
+]

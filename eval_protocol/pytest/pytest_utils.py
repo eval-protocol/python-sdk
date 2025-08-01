@@ -57,6 +57,7 @@ def evaluation_test(
     num_runs: int = 1,
     max_dataset_rows: Optional[int] = None,
     mcp_config_path: Optional[str] = None,
+    mode: str = "batch",  # "batch" (default) or "pointwise"/"rowwise"
 ) -> Callable[
     [TestFunction],
     TestFunction,
@@ -80,6 +81,8 @@ def evaluation_test(
             below this threshold.
         num_runs: Number of times to repeat the evaluation.
         max_dataset_rows: Limit dataset to the first N rows.
+        mode: Evaluation mode. "batch" (default) expects test function to handle
+            full dataset. "pointwise"/"rowwise" applies test function to each row.
 
     Usage:
     With an input dataset and input params, the test function will be called with the following arguments:
@@ -125,11 +128,18 @@ def evaluation_test(
         is_async = inspect.iscoroutinefunction(test_func)
 
         sig = inspect.signature(test_func)
-        if "input_dataset" not in sig.parameters:
-            raise ValueError("test_func must have a parameter named 'input_dataset'")
-
-        if "model" not in sig.parameters:
-            raise ValueError("test_func must have a parameter named 'model'")
+        
+        # For pointwise/rowwise mode, we expect a different signature
+        if mode in ["pointwise", "rowwise"]:
+            # Pointwise mode: function should accept messages and other row-level params
+            if "messages" not in sig.parameters:
+                raise ValueError(f"In {mode} mode, test_func must have a parameter named 'messages'")
+        else:
+            # Batch mode: function should accept input_dataset and model
+            if "input_dataset" not in sig.parameters:
+                raise ValueError("test_func must have a parameter named 'input_dataset'")
+            if "model" not in sig.parameters:
+                raise ValueError("test_func must have a parameter named 'model'")
 
         def execute_with_params(
             test_func: TestFunction,
@@ -205,13 +215,22 @@ def evaluation_test(
             param_tuples.append(tuple(param_tuple))
 
         # Determine the parameter names for the test function
-        test_param_names = ["model"]
-        if input_dataset is not None:
-            test_param_names.append("dataset_path")
-        if input_params is not None:
-            test_param_names.append("input_params")
-        if input_messages is not None:
-            test_param_names.append("input_messages")
+        if mode in ["pointwise", "rowwise"]:
+            # For pointwise mode, we generate simpler parameter names
+            test_param_names = ["model"]
+            if input_dataset is not None:
+                test_param_names.append("dataset_path")
+            if input_params is not None:
+                test_param_names.append("input_params")
+        else:
+            # For batch mode, use the original parameter names
+            test_param_names = ["model"]
+            if input_dataset is not None:
+                test_param_names.append("dataset_path")
+            if input_params is not None:
+                test_param_names.append("input_params")
+            if input_messages is not None:
+                test_param_names.append("input_messages")
 
         # Create wrapper function with exact signature that pytest expects
         def create_wrapper_with_signature():
@@ -257,29 +276,33 @@ def evaluation_test(
 
                 all_results: List[EvaluationRow] = []
                 for _ in range(num_runs):
-                    # Each run reuses the same processed rows
-                    results = execute_with_params(
-                        test_func,
-                        model=model_name,
-                        input_dataset=input_dataset,
-                        input_params=kwargs.get("input_params") if "input_params" in kwargs else None,
-                    )
-                    if results is None:
-                        raise ValueError(
-                            f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
+                    if mode in ["pointwise", "rowwise"]:
+                        # Pointwise mode: apply the evaluator function to each row
+                        results = evaluate(input_dataset, test_func)
+                    else:
+                        # Batch mode: call the test function with the full dataset
+                        results = execute_with_params(
+                            test_func,
+                            model=model_name,
+                            input_dataset=input_dataset,
+                            input_params=kwargs.get("input_params") if "input_params" in kwargs else None,
                         )
-                    if not isinstance(results, list):
-                        raise ValueError(
-                            f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                        )
-                    if not results:
-                        raise ValueError(
-                            f"Test function {test_func.__name__} returned an empty list. You must return a non-empty list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                        )
-                    if not all(isinstance(r, EvaluationRow) for r in results):
-                        raise ValueError(
-                            f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                        )
+                        if results is None:
+                            raise ValueError(
+                                f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
+                            )
+                        if not isinstance(results, list):
+                            raise ValueError(
+                                f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                            )
+                        if not results:
+                            raise ValueError(
+                                f"Test function {test_func.__name__} returned an empty list. You must return a non-empty list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                            )
+                        if not all(isinstance(r, EvaluationRow) for r in results):
+                            raise ValueError(
+                                f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                            )
                     all_results.extend(results)
 
                 scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
@@ -292,14 +315,28 @@ def evaluation_test(
             # Create a function with the exact signature pytest expects without using exec
             from functools import wraps
 
-            @wraps(test_func)
-            def wrapper(**kwargs):
-                return wrapper_body(**kwargs)
+            if mode in ["pointwise", "rowwise"]:
+                # For pointwise mode, create a wrapper that handles everything internally
+                @wraps(test_func)
+                def wrapper(**kwargs):
+                    return wrapper_body(**kwargs)
+                
+                # Give it the pytest-compatible signature but the test_func name
+                parameters = [
+                    inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names
+                ]
+                wrapper.__signature__ = inspect.Signature(parameters)
+                wrapper.__name__ = test_func.__name__.replace('_evaluate', '_dataset') if '_evaluate' in test_func.__name__ else f"test_{test_func.__name__}"
+            else:
+                # For batch mode, use the original wrapper
+                @wraps(test_func)
+                def wrapper(**kwargs):
+                    return wrapper_body(**kwargs)
 
-            parameters = [
-                inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names
-            ]
-            wrapper.__signature__ = inspect.Signature(parameters)
+                parameters = [
+                    inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names
+                ]
+                wrapper.__signature__ = inspect.Signature(parameters)
 
             return wrapper
 
