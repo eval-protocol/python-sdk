@@ -253,7 +253,7 @@ class ExecutionManager:
             user_simulator = UserSimulator(
                 instructions=dataset_row.user_simulation.get("system_prompt"),
                 llm=dataset_row.user_simulation.get("llm", "gpt-4.1"),
-                llm_args=dataset_row.user_simulation.get("llm_args", {"temperature": 0.7}),
+                llm_args=dataset_row.user_simulation.get("llm_args", {"temperature": 0.0}),
             )
 
             # Get initial messages in tau2-bench format for user simulator

@@ -36,6 +36,7 @@ class LiteLLMPolicy(LLMBasePolicy):
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_tools_per_turn: Optional[int] = None,
+        base_url: Optional[str] = None,
         # LiteLLM-specific parameters
         use_caching: bool = True,
         cache_type: Literal["memory", "redis", "dual", "s3", "disk"] = "memory",
@@ -58,7 +59,7 @@ class LiteLLMPolicy(LLMBasePolicy):
             num_retries: Number of retries for failed requests
             retry_strategy: Retry strategy (literal: "exponential_backoff_retry", "constant_retry")
         """
-        super().__init__(model_id, temperature, max_tokens, max_tools_per_turn, **kwargs)
+        super().__init__(model_id, temperature, max_tokens, max_tools_per_turn, base_url, **kwargs)
 
         self.num_retries = num_retries
         self.retry_strategy = retry_strategy
@@ -162,6 +163,7 @@ class LiteLLMPolicy(LLMBasePolicy):
             "caching": True,
             "num_retries": self.num_retries,
             "retry_strategy": self.retry_strategy,
+            "base_url": self.base_url,
         }
 
         # Add tools if provided
@@ -266,10 +268,19 @@ class FireworksPolicy(LiteLLMPolicy):
         super().__init__(model_id=f"fireworks_ai/{model_id}", **kwargs)
 
 
+class LocalPolicy(LiteLLMPolicy):
+    """Local policy using LiteLLM for local model endpoints."""
+
+    def __init__(self, model_id: str, base_url: str, **kwargs):
+        """Initialize LocalPolicy for local model endpoints."""
+        super().__init__(model_id=model_id, base_url=base_url, **kwargs)
+
+
 # Export the policies
 __all__ = [
     "LiteLLMPolicy",
     "OpenAIPolicy",
     "AnthropicPolicy",
     "FireworksPolicy",
+    "LocalPolicy",
 ]

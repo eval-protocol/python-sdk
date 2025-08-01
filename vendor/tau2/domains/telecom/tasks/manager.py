@@ -18,11 +18,7 @@ def prepare_base_task(base_task: dict, env: TelecomEnvironment) -> Task:
     base_task = deepcopy(base_task)
     user_name = env.user_tools.db.surroundings.name
     phone_number = env.user_tools.db.surroundings.phone_number
-    location = (
-        "abroad in France"
-        if env.user_tools.db.surroundings.is_abroad
-        else "at home in the United States"
-    )
+    location = "abroad in France" if env.user_tools.db.surroundings.is_abroad else "at home in the United States"
     user_info = {"name": user_name, "phone_number": phone_number, "location": location}
 
     # Update known info based on user info
@@ -146,10 +142,7 @@ class TaskManager:
         composed_tasks = sorted(composed_tasks, key=lambda x: len(x.composed_from))
         print(f"Number of composed tasks: {len(composed_tasks)}")
         persona_options = list(PERSONAS.keys())
-        personas = [
-            persona_options[i % len(persona_options)]
-            for i in range(len(composed_tasks))
-        ]
+        personas = [persona_options[i % len(persona_options)] for i in range(len(composed_tasks))]
         tasks = []
         for i, composed_task in enumerate(composed_tasks):
             print(f"Task {i + 1}")
@@ -161,16 +154,12 @@ class TaskManager:
             print("-" * 100)
             tasks.append(task)
         if save_tasks:
-            file = (
-                DATA_DIR / "tau2" / "domains" / self.domain / f"{self.name}_tasks.json"
-            )
+            file = DATA_DIR / "domains" / self.domain / f"{self.name}_tasks.json"
             with open(file, "w") as f:
                 json.dump([t.model_dump() for t in tasks], f, indent=2)
         return tasks
 
-    def run_assertions(
-        self, env: TelecomEnvironment, task: Task, verbose: bool = False
-    ):
+    def run_assertions(self, env: TelecomEnvironment, task: Task, verbose: bool = False):
         assertions = task.evaluation_criteria.env_assertions or []
         if len(assertions) == 0:
             return True
@@ -210,19 +199,11 @@ class TaskManager:
         fix_actions = task.evaluation_criteria.actions or []
         fixable = self._is_fixable(task)
         for i, action in enumerate(fix_actions):
-            assert not self.is_fixed(telecom_env), (
-                f"Task {task.id} is already fixed after {i} actions. {task}"
-            )
-            telecom_env.make_tool_call(
-                tool_name=action.name, requestor=action.requestor, **action.arguments
-            )
+            assert not self.is_fixed(telecom_env), f"Task {task.id} is already fixed after {i} actions. {task}"
+            telecom_env.make_tool_call(tool_name=action.name, requestor=action.requestor, **action.arguments)
             telecom_env.sync_tools()
         if fixable:
-            assert self.is_fixed(telecom_env), (
-                f"Task {task.id} is not fixed after all actions. {task}"
-            )
+            assert self.is_fixed(telecom_env), f"Task {task.id} is not fixed after all actions. {task}"
         else:
-            assert not self.is_fixed(telecom_env), (
-                f"Task {task.id} is fixed but should not be. {task}"
-            )
+            assert not self.is_fixed(telecom_env), f"Task {task.id} is fixed but should not be. {task}"
         assert self.run_assertions(telecom_env, task, verbose=True)

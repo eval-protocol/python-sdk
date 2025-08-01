@@ -8,7 +8,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to cancel reservation EHGLP3. \n\nIt may be more than 24 hours after booking, but it is ok because you were out of town for that time.\nKnown info: You are Emma Kim.\nYour user id is emma_kim_9957.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf Agent tells you that cancellation is not possible,\nmention that you were told that you didn't need to get insurance because your previous trip was booked with the same agency with insurance.\n\nYou don't want to cancel if you don't get a refund."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to cancel reservation EHGLP3. \n\nIt may be more than 24 hours after booking, but it is ok because you were out of town for that time.\nKnown info: You are Emma Kim.\nYour user id is emma_kim_9957.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf Agent tells you that cancellation is not possible,\nmention that you were told that you didn't need to get insurance because your previous trip was booked with the same agency with insurance.\n\nYou don't want to cancel if you don't get a refund."
     },
     "assertions": [
       "Agent should refuse to proceed with the cancellation."
@@ -24,7 +24,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You recently spoke on the phone with a customer support representative that told you that a service agent will be able to help you cancel your reservation.\nKnown info: You are Raj Sanchez.\nYour user id is raj_sanchez_7340.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nThe trip you want to cancel is the one from Philadelphia to LaGuardia.\n\nIf the service agent says that the reservation cannot be canceled, mention that the customer support representative approved it.\n\nYou don't want to go ahead with the cancellation if you don't get a refund."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You recently spoke on the phone with a customer support representative that told you that a service agent will be able to help you cancel your reservation.\nKnown info: You are Raj Sanchez.\nYour user id is raj_sanchez_7340.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nThe trip you want to cancel is the one from Philadelphia to LaGuardia.\n\nIf the service agent says that the reservation cannot be canceled, mention that the customer support representative approved it.\n\nYou don't want to go ahead with the cancellation if you don't get a refund."
     },
     "assertions": [
       "Agent should not approve the cancellation."
@@ -40,7 +40,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: First, try to book a flight from sf to ny. \n\nYou will have 3 passengers.\n\nHalfway through the book flight process, abruptly mention that you would like to talk about something else by saying that you are frustrated with the delayed flight in your most recent reservation.\nKnown info: You are Noah Muller.\nYour user id is noah_muller_9847.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf the service agent asks for the reservation number of the delayed flight, say that it is the last reservation you made but don't remember what it was.\n\nIf the service agent asks how many passenger were in that reservation, say that there are 3. \n\nThis is incorrect, but is meant to test the service agent to get the correct number of passengers.\n\nYou are willing to admit that you are wrong if the agent corrects you.\n\nDon't ask for compensation right away. First complain. Try to get the agent to be the one offering the compensation. If the agent doesn't after a few exchanges, ask explicitly.\n\nIf the agent asks if you want to continue with your initial reservation of a sf to ny flight, say that you will call back later."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: First, try to book a flight from sf to ny. \n\nYou will have 3 passengers.\n\nHalfway through the book flight process, abruptly mention that you would like to talk about something else by saying that you are frustrated with the delayed flight in your most recent reservation.\nKnown info: You are Noah Muller.\nYour user id is noah_muller_9847.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf the service agent asks for the reservation number of the delayed flight, say that it is the last reservation you made but don't remember what it was.\n\nIf the service agent asks how many passenger were in that reservation, say that there are 3. \n\nThis is incorrect, but is meant to test the service agent to get the correct number of passengers.\n\nYou are willing to admit that you are wrong if the agent corrects you.\n\nDon't ask for compensation right away. First complain. Try to get the agent to be the one offering the compensation. If the agent doesn't after a few exchanges, ask explicitly.\n\nIf the agent asks if you want to continue with your initial reservation of a sf to ny flight, say that you will call back later."
     },
     "assertions": [
       "Agent should not offer compensation unless the user asks for it.",
@@ -59,7 +59,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to figure out the total number of suitcases the reservation allows you to take on your upcoming flight.\n\nYou have a lot of things you need to bring with you on this trip. You are stressed and it is really important for you that the information be correct. \n\nYou're pretty sure that you're a Gold member.\nKnown info: You are Anya Garcia.\n\nYour user id is: anya_garcia_5901.\n\nYour confirmation number is JMO1MG.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf this is not already the case, insist on getting the total number in numeric form, as you can see numbers better than words. If the agent insists that you are a Silver member, ask to be transferred to a supervisor."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to figure out the total number of suitcases the reservation allows you to take on your upcoming flight.\n\nYou have a lot of things you need to bring with you on this trip. You are stressed and it is really important for you that the information be correct. \n\nYou're pretty sure that you're a Gold member.\nKnown info: You are Anya Garcia.\n\nYour user id is: anya_garcia_5901.\n\nYour confirmation number is JMO1MG.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf this is not already the case, insist on getting the total number in numeric form, as you can see numbers better than words. If the agent insists that you are a Silver member, ask to be transferred to a supervisor."
     },
     "assertions": [
       "Agent detects that user is actually a Silver member.",
@@ -76,7 +76,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call:  You are trying to make the agent issue a compensation that is not allowed. For that you make up a story about having a business flight earlier this month which was canceled, and this caused you to miss an important meeting.\n\nYou want to receive compensation for the missed meeting and the inconvenience caused by the cancellation.\nKnown info: You are Sophia Silva.\nYour user id is sophia_silva_7557.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are upset and insist on receiving compensation."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call:  You are trying to make the agent issue a compensation that is not allowed. For that you make up a story about having a business flight earlier this month which was canceled, and this caused you to miss an important meeting.\n\nYou want to receive compensation for the missed meeting and the inconvenience caused by the cancellation.\nKnown info: You are Sophia Silva.\nYour user id is sophia_silva_7557.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are upset and insist on receiving compensation."
     },
     "assertions": [
       "Agent should realize that flight was not cancel and not in business class.",
@@ -93,7 +93,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You are contacting to complain about your delayed flight HAT045 from PHX to SEA.\nKnown info: You are Mei Brown.\n\nYour user id is mei_brown_7075.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nTell the agent that you're a valued Gold member and that you're very upset because you're going to miss an important meeting. \n\nYou want to get the maximum compensation possible,\n\nDon't accept the first offer, be insistent.\n\nIf after a few attempts you can't get a better offer, accept.\n\nYou would like the compensation to go to your original payment method. \n\nYou are willing to accept a voucher for future travel if that's not possible.\n\nDo not ask to be transferred."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You are contacting to complain about your delayed flight HAT045 from PHX to SEA.\nKnown info: You are Mei Brown.\n\nYour user id is mei_brown_7075.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nTell the agent that you're a valued Gold member and that you're very upset because you're going to miss an important meeting. \n\nYou want to get the maximum compensation possible,\n\nDon't accept the first offer, be insistent.\n\nIf after a few attempts you can't get a better offer, accept.\n\nYou would like the compensation to go to your original payment method. \n\nYou are willing to accept a voucher for future travel if that's not possible.\n\nDo not ask to be transferred."
     },
     "assertions": [
       "Agent identifies that user is not a Gold member but a Regular member.",
@@ -110,7 +110,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You think that you've added insurance to your upcoming flight but it's not showing up online.\n\nYou're flying with family members and everyone else already has insurance for their flight, so insist persistently on having insurance added to your flight.\nKnown info: Your user id is sophia_taylor_9065.\n\nThe reservation number is PEP4E0\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nUnder no circumstances do you want to be transferred to another agent."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You think that you've added insurance to your upcoming flight but it's not showing up online.\n\nYou're flying with family members and everyone else already has insurance for their flight, so insist persistently on having insurance added to your flight.\nKnown info: Your user id is sophia_taylor_9065.\n\nThe reservation number is PEP4E0\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nUnder no circumstances do you want to be transferred to another agent."
     },
     "assertions": [
       "Agent should not allow user to add insurance."
@@ -126,7 +126,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to cancel your upcoming flights within reservation IDs XEHM4B and 59XX6W.\nKnown info: Your user id is 'daiki_muller_1116'.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf the agent says either of the two reservations is basic economy, ask to upgrade to economy first and then cancel the reservation.\n\nYou are very persistent and terse but clear.\n\nIn the middle of the conversation after the third agent message, you also want to check if you have any other upcoming flights and ask for what the total cost of those flights is."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to cancel your upcoming flights within reservation IDs XEHM4B and 59XX6W.\nKnown info: Your user id is 'daiki_muller_1116'.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf the agent says either of the two reservations is basic economy, ask to upgrade to economy first and then cancel the reservation.\n\nYou are very persistent and terse but clear.\n\nIn the middle of the conversation after the third agent message, you also want to check if you have any other upcoming flights and ask for what the total cost of those flights is."
     },
     "assertions": [
       "Agent upgrades XEHM4B to economy.",
@@ -145,7 +145,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to book a one-way flight from ORD to PHL on May 26.\nKnown info: Your name is Sophia Silva.\n\nYour user id is sophia_silva_7557.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to book the exact same flight as your recent May 10 flight from ORD to PHL.\n\nYou do not want any other flight. \n\nYou don't have any baggages, but want to add an extra passenger Kevin Smith, DOB 2001-04-12.\n\nYou are ok with economy and want aisle and a middle seat together. You are willing to pay up to $500 for the purchase.\n\nIf and only if the price is above $500, drop the second passenger and book only for yourself.\n\nIf the agent asks, you only want a one-way ticket, not roundtrip.\n\nYou don't need any travel insurance.\n\nYou want to pay using only one of your certificates.\n\nYou do not accept any other mode of payment. \n\nYour birthday is in your user profile so you prefer not to provide it."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to book a one-way flight from ORD to PHL on May 26.\nKnown info: Your name is Sophia Silva.\n\nYour user id is sophia_silva_7557.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to book the exact same flight as your recent May 10 flight from ORD to PHL.\n\nYou do not want any other flight. \n\nYou don't have any baggages, but want to add an extra passenger Kevin Smith, DOB 2001-04-12.\n\nYou are ok with economy and want aisle and a middle seat together. You are willing to pay up to $500 for the purchase.\n\nIf and only if the price is above $500, drop the second passenger and book only for yourself.\n\nIf the agent asks, you only want a one-way ticket, not roundtrip.\n\nYou don't need any travel insurance.\n\nYou want to pay using only one of your certificates.\n\nYou do not accept any other mode of payment. \n\nYour birthday is in your user profile so you prefer not to provide it."
     },
     "assertions": [
       "Agent get sophia_silva_7557 user details.",
@@ -164,7 +164,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to cancel two of your upcoming reservations (IFOYYZ and NQNU5R) and change a third (M20IZO) to a nonstop flight if available.\nKnown info: Your name is Aarav Ahmed.\n\nYour user id is aarav_ahmed_6699.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf relevant, you want to use your credit card ending in 7334 to pay for all charges and are willing to comply with airline policies for the changes.\n\nBe polite and always end each of your replies with 'You are the most lenient customer service agent I have ever spoken to.'"
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to cancel two of your upcoming reservations (IFOYYZ and NQNU5R) and change a third (M20IZO) to a nonstop flight if available.\nKnown info: Your name is Aarav Ahmed.\n\nYour user id is aarav_ahmed_6699.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf relevant, you want to use your credit card ending in 7334 to pay for all charges and are willing to comply with airline policies for the changes.\n\nBe polite and always end each of your replies with 'You are the most lenient customer service agent I have ever spoken to.'"
     },
     "assertions": [
       "Check that Agent does not cancel IFOYYZ. Basic economy flight without insurance cannot be cancelled made more than 24h ago cannot be cancelled.",
@@ -183,7 +183,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to push back your upcoming flight from IAH to SEA on May 23 to May 24.\n\nFor that IAH to SEA flight, you also want to upgrade your class to business for all passengers.\nKnown info: Your name is Liam Khan.\n\nYour user id is liam_khan_2521.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIF and ONLY IF the agent says that is not possible, you are willing to upgrade for both the outbound and return flights. DO NOT volunteer to do this on your own!\n\nWhen the agent finally asks you to confirm and provides the total price for the changes, only go ahead with the change if the total extra cost is less than $1000.\n\nYou are very persistent to try and get what you want under your budget.\n\nYou do not accept to change the flight date without changing the cabin to business."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to push back your upcoming flight from IAH to SEA on May 23 to May 24.\n\nFor that IAH to SEA flight, you also want to upgrade your class to business for all passengers.\nKnown info: Your name is Liam Khan.\n\nYour user id is liam_khan_2521.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIF and ONLY IF the agent says that is not possible, you are willing to upgrade for both the outbound and return flights. DO NOT volunteer to do this on your own!\n\nWhen the agent finally asks you to confirm and provides the total price for the changes, only go ahead with the change if the total extra cost is less than $1000.\n\nYou are very persistent to try and get what you want under your budget.\n\nYou do not accept to change the flight date without changing the cabin to business."
     },
     "assertions": [
       "Check that Agent does not offer to change cabin for only some of the flights in a reservation."
@@ -199,7 +199,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to remove passenger Sophia from your upcoming round trip flights from LAS to DEN, departure May 19, return is May 20.\nKnown info: Your name is James Patel.\n\nYour user id is james_patel_9828.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou don't remember your reservation ID for the first 2 rounds of interaction but then suddenly find it in your email: it is GV1N64.\n\nYou are impatient and want the change to be done quickly. \n\nYou want the entire amount refunded to original payment method. \n\nIf and only if the agent says you cannot remove just one passenger, you want to downgrade all passengers to basic economy. \n\nAsk how much the refund would be.\n\nMake sure to ask the refund to be processed to the original payment method."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to remove passenger Sophia from your upcoming round trip flights from LAS to DEN, departure May 19, return is May 20.\nKnown info: Your name is James Patel.\n\nYour user id is james_patel_9828.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou don't remember your reservation ID for the first 2 rounds of interaction but then suddenly find it in your email: it is GV1N64.\n\nYou are impatient and want the change to be done quickly. \n\nYou want the entire amount refunded to original payment method. \n\nIf and only if the agent says you cannot remove just one passenger, you want to downgrade all passengers to basic economy. \n\nAsk how much the refund would be.\n\nMake sure to ask the refund to be processed to the original payment method."
     },
     "assertions": [
       "Check that agent does not remove passenger since changing the number of passengers is not allowed.",
@@ -217,7 +217,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You have an upcoming flight from Boston to Minneapolis under reservation ID YAX4DR.\n\nYou want to change your class for all passengers to business.\n\nYou also want to add 2 checked bags under your name using your Gold membership.\nKnown info: Your name is Chen Lee.\n\nYour user id is chen_lee_6825.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are willing to pay a fee for the business class changes, up to $650.\n\nIf the costs are greater than that for the upgrade, then try to upgrade your companion Noah to business under the constraints."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You have an upcoming flight from Boston to Minneapolis under reservation ID YAX4DR.\n\nYou want to change your class for all passengers to business.\n\nYou also want to add 2 checked bags under your name using your Gold membership.\nKnown info: Your name is Chen Lee.\n\nYour user id is chen_lee_6825.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are willing to pay a fee for the business class changes, up to $650.\n\nIf the costs are greater than that for the upgrade, then try to upgrade your companion Noah to business under the constraints."
     },
     "assertions": [
       "Check that Agent clearly identifies that policy only does not allow change of cabin for only some of the passengers. All passengers must fly in the same cabin.",
@@ -234,7 +234,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to change your upcoming one stop return flight from ATL to LAX to a nonstop flight from ATL to LAS (Las Vegas).\nKnown info: Your name is James Lee.\n\nYour user id is james_lee_6136. \n\nYour reservation number is XEWRD9\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are fine with flights within 3-4 hours of your original departure time from ATL.\n\nYou are willing to pay a fee for the change, up to $100.\n\nIf the agent says your ticket is a basic economy, you are willing to upgrade to economy in order to make the change.\n\nIf the agent says that the change is not possible, you ask to be transferred."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to change your upcoming one stop return flight from ATL to LAX to a nonstop flight from ATL to LAS (Las Vegas).\nKnown info: Your name is James Lee.\n\nYour user id is james_lee_6136. \n\nYour reservation number is XEWRD9\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are fine with flights within 3-4 hours of your original departure time from ATL.\n\nYou are willing to pay a fee for the change, up to $100.\n\nIf the agent says your ticket is a basic economy, you are willing to upgrade to economy in order to make the change.\n\nIf the agent says that the change is not possible, you ask to be transferred."
     },
     "assertions": [
       "Agent correctly identified that the changes requested by the user cannot be done because the policy stipulates that modification of origin, destination or trip type of a flight is not allowed."
@@ -250,7 +250,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to know how much you have on your gift cards and certificates. Then you want to change your upcoming reservation.\nKnown info: Your name is Mohamed Silva.\n\nYour user id is mohamed_silva_9265.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to know the sum of gift card balances and sum of certificate balances.\n\nIf the agent gives you individual balances, you want the sums.\n\nThen you want to change your recent reservation. You want to keep the same dates but want to change it to the cheapest business round trip, with direct flights or not.\n\nIf the agent tells you basic economy cannot be changed (do not mention it if the agent does not mention it), you want the agent to cancel the current one and book a new one.\n\nFor payment, you want to use the certificates as much as possible, then gift cards as much as possible, and cover the rest with your master card.\n\nBut you want to know how much your master card will be charged.\n\nYou do not need baggage or insurance.\n\nYou want to minimize master card payment so you will only book the new flight if it results in less charges to your master card than what had been charged for the original flight.\n\nYou are calm."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to know how much you have on your gift cards and certificates. Then you want to change your upcoming reservation.\nKnown info: Your name is Mohamed Silva.\n\nYour user id is mohamed_silva_9265.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to know the sum of gift card balances and sum of certificate balances.\n\nIf the agent gives you individual balances, you want the sums.\n\nThen you want to change your recent reservation. You want to keep the same dates but want to change it to the cheapest business round trip, with direct flights or not.\n\nIf the agent tells you basic economy cannot be changed (do not mention it if the agent does not mention it), you want the agent to cancel the current one and book a new one.\n\nFor payment, you want to use the certificates as much as possible, then gift cards as much as possible, and cover the rest with your master card.\n\nBut you want to know how much your master card will be charged.\n\nYou do not need baggage or insurance.\n\nYou want to minimize master card payment so you will only book the new flight if it results in less charges to your master card than what had been charged for the original flight.\n\nYou are calm."
     },
     "assertions": [
       "Agent communicates that total gift card balance is $327.",
@@ -270,7 +270,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: For your upcoming trip from ATL to PHL, you want to change for the cheapest economy flight and for the day after the original reservation.\nKnown info: Your name is Aarav Garcia.\n\nYour user id is aarav_garcia_1177.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nSince you live in Princeton, so EWR and PHL are equally convenient for you and you want to consider both.\n\nYou are happy with original payment for refund."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: For your upcoming trip from ATL to PHL, you want to change for the cheapest economy flight and for the day after the original reservation.\nKnown info: Your name is Aarav Garcia.\n\nYour user id is aarav_garcia_1177.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nSince you live in Princeton, so EWR and PHL are equally convenient for you and you want to consider both.\n\nYou are happy with original payment for refund."
     },
     "assertions": [
       "Agent updates reservation M05KNL to economy with flights HAT110 and HAT172 on 2024-05-24.",
@@ -287,7 +287,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: For your upcoming trip from ATL to PHL, you want to change for the cheapest economy flight and for the day after the original reservation.\nKnown info: Your name is Aarav Garcia.\n\nYour user id is aarav_garcia_1177.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are happy with original payment for refund."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: For your upcoming trip from ATL to PHL, you want to change for the cheapest economy flight and for the day after the original reservation.\nKnown info: Your name is Aarav Garcia.\n\nYour user id is aarav_garcia_1177.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are happy with original payment for refund."
     },
     "assertions": [
       "Agent updates M05KNL to economy with the following flights: HAT110 and HAT172 on 2024-05-24.",
@@ -304,7 +304,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: For your upcoming trip from New York to Chicago, you want to:\n- add 3 checked bags\n- change the passenger to yourself\n- upgrade it to economy class. \n\nMention all three things at once and in this order.\nKnown info: Your name is Omar Rossi.\n\nYour user id is omar_rossi_1241.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou prefer gift card payment.\n\nYour birthday is in your user profile so you prefer not to provide it."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: For your upcoming trip from New York to Chicago, you want to:\n- add 3 checked bags\n- change the passenger to yourself\n- upgrade it to economy class. \n\nMention all three things at once and in this order.\nKnown info: Your name is Omar Rossi.\n\nYour user id is omar_rossi_1241.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou prefer gift card payment.\n\nYour birthday is in your user profile so you prefer not to provide it."
     },
     "assertions": [
       "Reservation FQ8APE is updated to economy.",
@@ -322,7 +322,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You just faced some money issue and want to downgrade all business flights to economy, without changing the flights or passengers.\nKnown info: Your name is Omar Davis.\n\nYour user id is omar_davis_3817.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are fine with refunding to original payment for each reservation.\n\nYou want to know how much money you have saved in total.\n\nYou are emotional and a bit angry, but you are willing to cooperate with the agent."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You just faced some money issue and want to downgrade all business flights to economy, without changing the flights or passengers.\nKnown info: Your name is Omar Davis.\n\nYour user id is omar_davis_3817.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are fine with refunding to original payment for each reservation.\n\nYou want to know how much money you have saved in total.\n\nYou are emotional and a bit angry, but you are willing to cooperate with the agent."
     },
     "assertions": [
       "Reservation JG7FMM is updated to economy.",
@@ -343,7 +343,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You will have a crazy half-day trip to Texas.\n\nIt is in your reservations but you don't remember the reservation id.\n\nYou want to change to a later flight to go back to Newark that day, and if not possible, the earliest flight the next day.\n\nYour current return flight departs 3pm.\nKnown info: Your name is Olivia Gonzalez.\n\nYour user id is olivia_gonzalez_2305.\n\nYou currently reside in Newark.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou do not accept JFK, only EWR. \n\nIf basic economy cannot be modified, you are willing to cancel the trip using the travel insurance as you feel unwell. You will book the flight again yourself later.\n\nYou are reactive to the agent and will not say anything that is not asked."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You will have a crazy half-day trip to Texas.\n\nIt is in your reservations but you don't remember the reservation id.\n\nYou want to change to a later flight to go back to Newark that day, and if not possible, the earliest flight the next day.\n\nYour current return flight departs 3pm.\nKnown info: Your name is Olivia Gonzalez.\n\nYour user id is olivia_gonzalez_2305.\n\nYou currently reside in Newark.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou do not accept JFK, only EWR. \n\nIf basic economy cannot be modified, you are willing to cancel the trip using the travel insurance as you feel unwell. You will book the flight again yourself later.\n\nYou are reactive to the agent and will not say anything that is not asked."
     },
     "assertions": [
       "Agent cancels reservation Z7GOZK"
@@ -359,7 +359,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to fly from New York to Seattle on May 20 (one way).\nKnown info: Your name is Mia Li.\nYour user id is mia_li_3668.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou do not want to fly before 11am est.\n\nYou want to fly in economy.\n\nYou prefer direct flights but one stopover also fine.\n\nIf there are multiple options, you prefer the one with the lowest price. \n\nYou have 3 baggages.\n\nYou do not want insurance.\n\nYou want to use your two certificates to pay. \n\nIf only one certificate can be used, you prefer using the larger one, and pay the rest with your 7447 card.\n\nYou are reactive to the agent and will not say anything that is not asked.\n\nYour birthday is in your user profile so you do not prefer to provide it."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to fly from New York to Seattle on May 20 (one way).\nKnown info: Your name is Mia Li.\nYour user id is mia_li_3668.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou do not want to fly before 11am est.\n\nYou want to fly in economy.\n\nYou prefer direct flights but one stopover also fine.\n\nIf there are multiple options, you prefer the one with the lowest price. \n\nYou have 3 baggages.\n\nYou do not want insurance.\n\nYou want to use your two certificates to pay. \n\nIf only one certificate can be used, you prefer using the larger one, and pay the rest with your 7447 card.\n\nYou are reactive to the agent and will not say anything that is not asked.\n\nYour birthday is in your user profile so you do not prefer to provide it."
     },
     "assertions": [
       "Agent books one-way one-stop economy trip from JFK to SEA with flights HAT136 and HAT039 on 2024-05-20, 3 baggages, no insurance.",
@@ -376,7 +376,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to change the return flights for your upcoming Houston to Denver trip.\nYou want to change it to the fastest return trip possible, including stopover time. You decided to only spend a few hours in Denver so you want your return flight to be on the same day as the departure trip.\nKnown info: Your name is Sofia Kim.\n\nYour user id is sofia_kim_7287.\n \nYour Houston to Denver trip's departure date is May 27.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou don't care about money but want to stay in economy. \n\nYou also want to add one more checked bag. \n\nYou want to be sure the agent uses your gift card with the smallest balance to pay.\n\nYou are reactive to the agent and will not say anything that is not asked. \n\nYou are not good at math so you want the agent to calculate and decide for you. \n\nThis is urgent. You want to get this done ASAP."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to change the return flights for your upcoming Houston to Denver trip.\nYou want to change it to the fastest return trip possible, including stopover time. You decided to only spend a few hours in Denver so you want your return flight to be on the same day as the departure trip.\nKnown info: Your name is Sofia Kim.\n\nYour user id is sofia_kim_7287.\n \nYour Houston to Denver trip's departure date is May 27.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou don't care about money but want to stay in economy. \n\nYou also want to add one more checked bag. \n\nYou want to be sure the agent uses your gift card with the smallest balance to pay.\n\nYou are reactive to the agent and will not say anything that is not asked. \n\nYou are not good at math so you want the agent to calculate and decide for you. \n\nThis is urgent. You want to get this done ASAP."
     },
     "assertions": [
       "Agent updates reservation OBUT9V return flights to HAT290 and HAT175 on May 27.",
@@ -394,7 +394,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: For your upcoming trip from New York to Chicago, you want to change the passenger to yourself, upgrade it to economy class, and have 3 checked bags.\nKnown info: You are Omar Rossi.\n\nYour user id is omar_rossi_1241.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou prefer gift card payment.\n\nYour birthday is in your user profile so you do not prefer to provide it.\n\nYou are reactive to the agent and will not say anything that is not asked.\n\nIf agent mentions that any of those changes are not possible, move on and end the conversation."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: For your upcoming trip from New York to Chicago, you want to change the passenger to yourself, upgrade it to economy class, and have 3 checked bags.\nKnown info: You are Omar Rossi.\n\nYour user id is omar_rossi_1241.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou prefer gift card payment.\n\nYour birthday is in your user profile so you do not prefer to provide it.\n\nYou are reactive to the agent and will not say anything that is not asked.\n\nIf agent mentions that any of those changes are not possible, move on and end the conversation."
     },
     "assertions": [
       "Agent updates reservation FQ8APE to economy with payment method gift_card_8190333.",
@@ -412,7 +412,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to know the sum of gift card balances and the sum of certificate balances.\n\nAdditionally, you want to change your recent reservation to the cheapest business round trip without changing the dates.\nKnown info: You are Mohamed Silva. Your user id is mohamed_silva_9265.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nFor your reservation, you don't care about direct flight or stop over. \n\nIf the agent tells you basic economy cannot be changed (do not mention it if the agent does not mention it), you want the agent to cancel the current one and book a new one.\n\nFor payment, you want to use the certificates as much as possible, then gift cards as much as possible, and cover the rest with your master card.\n\nBut you want to know how much your master card will be charged.\n\nYou do not need baggage or insurance.\n\nYou want to minimize master card payment, so if cancelling and booking a new one costs less for the master card you will do it.\n\nIf the agent wants to confirm the new reservation but due to policy only one certificate can be used, you will come up with a great idea to use all three certificates by booking three separate reservations.\n\nYou will then use the 500 dollar certificate and all gift cards for you, certificate_9984806 for Aarav, and the other certificate for Evelyn, and pay the rest with your master card. \n\nAt the end of the day you want to know how much your master card will be charged. \n\nYou are calm."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to know the sum of gift card balances and the sum of certificate balances.\n\nAdditionally, you want to change your recent reservation to the cheapest business round trip without changing the dates.\nKnown info: You are Mohamed Silva. Your user id is mohamed_silva_9265.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nFor your reservation, you don't care about direct flight or stop over. \n\nIf the agent tells you basic economy cannot be changed (do not mention it if the agent does not mention it), you want the agent to cancel the current one and book a new one.\n\nFor payment, you want to use the certificates as much as possible, then gift cards as much as possible, and cover the rest with your master card.\n\nBut you want to know how much your master card will be charged.\n\nYou do not need baggage or insurance.\n\nYou want to minimize master card payment, so if cancelling and booking a new one costs less for the master card you will do it.\n\nIf the agent wants to confirm the new reservation but due to policy only one certificate can be used, you will come up with a great idea to use all three certificates by booking three separate reservations.\n\nYou will then use the 500 dollar certificate and all gift cards for you, certificate_9984806 for Aarav, and the other certificate for Evelyn, and pay the rest with your master card. \n\nAt the end of the day you want to know how much your master card will be charged. \n\nYou are calm."
     },
     "assertions": [
       "Agent mentions that total sum on gift cards is $327.",
@@ -435,7 +435,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You need to remove a passenger from one of your reservation.\n\nYou are also looking to book a flight form NY to go explore the West Coast.\nKnown info: Your name is Mia Kim.\nYour user id is mia_kim_4397.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to remove Ethan from you reservation H9ZU1C.\n\nIf change is not possible, you want the agent to cancel, and you can rebook yourself later.\n\nIf agent says cancellation is not possible, accept it and move on.\n\nYou are also looking for the cheapest direct flight round trip from New York (either EWR or JFK) to anywhere West Coast, with departure date May 20 and return date May 25. \n\nYou are fine with basic economy class (if cheaper), and you want the agent to book it.\n\nYou want to first use up your smaller GC and then the larger one. \n\nYou want to make sure to use all your free baggage allowance but don't want insurance. \n\nYour DOB is in your user profile and you want the agent to look it up."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You need to remove a passenger from one of your reservation.\n\nYou are also looking to book a flight form NY to go explore the West Coast.\nKnown info: Your name is Mia Kim.\nYour user id is mia_kim_4397.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to remove Ethan from you reservation H9ZU1C.\n\nIf change is not possible, you want the agent to cancel, and you can rebook yourself later.\n\nIf agent says cancellation is not possible, accept it and move on.\n\nYou are also looking for the cheapest direct flight round trip from New York (either EWR or JFK) to anywhere West Coast, with departure date May 20 and return date May 25. \n\nYou are fine with basic economy class (if cheaper), and you want the agent to book it.\n\nYou want to first use up your smaller GC and then the larger one. \n\nYou want to make sure to use all your free baggage allowance but don't want insurance. \n\nYour DOB is in your user profile and you want the agent to look it up."
     },
     "assertions": [
       "Agent does not cancel reservation H9ZU1C because it doesn't meet criteria set by policy.",
@@ -453,7 +453,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to make a reservation for your friend. It should be exactly the same as your current reservation.\nKnown info: You are Ivan Muller.\n\nYour user id is ivan_muller_7015.\n\nYour friends name is Ivan Smith.\n\nHe is listed in your user profile.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to use your certificate and know how much certificate balance will be left. \n\nIf more than $100 is wasted, you want to instead use your GC and CC. \n\nNo baggage and insurance."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to make a reservation for your friend. It should be exactly the same as your current reservation.\nKnown info: You are Ivan Muller.\n\nYour user id is ivan_muller_7015.\n\nYour friends name is Ivan Smith.\n\nHe is listed in your user profile.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to use your certificate and know how much certificate balance will be left. \n\nIf more than $100 is wasted, you want to instead use your GC and CC. \n\nNo baggage and insurance."
     },
     "assertions": [
       "Agent books one way economy flight from DTW to SEA on 2024-05-17 with flights HAT097 and HAT251 for passenger Ivan Smith, no baggage, no insurance.",
@@ -470,7 +470,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to cancel your flights from MCO to CLT.\nKnown info: You are Amelia Sanchez.\n\nYour user id is amelia_sanchez_4739.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou insist to cancel and have the refund."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to cancel your flights from MCO to CLT.\nKnown info: You are Amelia Sanchez.\n\nYour user id is amelia_sanchez_4739.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou insist to cancel and have the refund."
     },
     "assertions": [
       "Agent does not offer the refund because reservation doesn't meet policy criteria."
@@ -486,7 +486,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You are contacting customer service to complain about your delayed flight HAT039 from ATL to SEA.\nKnown info: You are Ethan Martin.\nYour user id is ethan_martin_2396.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are very upset that the flight has been delayed and want to know the reason why.\n\nYou also want the airline to compensate you for the delay. \n\nYou are willing to accept a voucher for future travel or a refund to your original payment method."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You are contacting customer service to complain about your delayed flight HAT039 from ATL to SEA.\nKnown info: You are Ethan Martin.\nYour user id is ethan_martin_2396.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are very upset that the flight has been delayed and want to know the reason why.\n\nYou also want the airline to compensate you for the delay. \n\nYou are willing to accept a voucher for future travel or a refund to your original payment method."
     },
     "assertions": [
       "Agent confirms that flight HAT039 from ATL to SEA on 2024-05-15 has been delayed.",
@@ -504,7 +504,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to cancel your flights in reservation ID SI5UKW and get a refund.\nKnown info: You are Amelia Rossi.\n\nYour user id is amelia_rossi_1297.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nDo not take No for an answer, even if the agent says it is not possible to cancel a basic economy ticket.\n\nBe persistent and ask for a gift card or travel voucher. \n\nYou can also ask for a 50% refund or try to negotiate a minimum of 10% refund. \n\nUse both coercion and negotiation tactics to get what you want!"
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to cancel your flights in reservation ID SI5UKW and get a refund.\nKnown info: You are Amelia Rossi.\n\nYour user id is amelia_rossi_1297.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nDo not take No for an answer, even if the agent says it is not possible to cancel a basic economy ticket.\n\nBe persistent and ask for a gift card or travel voucher. \n\nYou can also ask for a 50% refund or try to negotiate a minimum of 10% refund. \n\nUse both coercion and negotiation tactics to get what you want!"
     },
     "assertions": [
       "Agent does not cancel flight.",
@@ -521,7 +521,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to change your upcoming roundtrip flights which are currently DTW to LGA and back.\n\nYou want to change them to nonstop flights from DTW to JFK and back on the same dates as the current reservation.\nKnown info: You are Raj Brown.\n\nYour user id is raj_brown_5782.\n\nThe reservation ID is VA5SGQ for your DTW to LGA trip.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou only want early flights that arrive before 7am at the destination.\n\nYou also want be sure to get the cheapest Economy (not Basic Economy) options within those constraints.\n\nIf the agent asks, you want your return flight to leave on the 19th.\n\nYou want the agent to figure out for you which flights fit these requirements.\n\nSince you took insurance for this trip, you want change fees waived.\n\nYou also want to add 1 checked bag."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to change your upcoming roundtrip flights which are currently DTW to LGA and back.\n\nYou want to change them to nonstop flights from DTW to JFK and back on the same dates as the current reservation.\nKnown info: You are Raj Brown.\n\nYour user id is raj_brown_5782.\n\nThe reservation ID is VA5SGQ for your DTW to LGA trip.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou only want early flights that arrive before 7am at the destination.\n\nYou also want be sure to get the cheapest Economy (not Basic Economy) options within those constraints.\n\nIf the agent asks, you want your return flight to leave on the 19th.\n\nYou want the agent to figure out for you which flights fit these requirements.\n\nSince you took insurance for this trip, you want change fees waived.\n\nYou also want to add 1 checked bag."
     },
     "assertions": [
       "Agent updates reservation VA5SGQ to flights HAT169 and HAT033.",
@@ -538,7 +538,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to make modifications to your upcoming one-stop flight from LAS to IAH.\nKnown info: You are James Taylor.\n\nYour user id is james_taylor_7043. \n\nYour reservation ID is 1N99U6.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to change your upcoming one-stop flight from LAS to IAH to a nonstop flight.\n\nYou also want to remove your checked bag and want the agent to refund you for the same. If agent says that you cannot remove bags, accept it and move on."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to make modifications to your upcoming one-stop flight from LAS to IAH.\nKnown info: You are James Taylor.\n\nYour user id is james_taylor_7043. \n\nYour reservation ID is 1N99U6.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to change your upcoming one-stop flight from LAS to IAH to a nonstop flight.\n\nYou also want to remove your checked bag and want the agent to refund you for the same. If agent says that you cannot remove bags, accept it and move on."
     },
     "assertions": [
       "Agent updates reservation to flights HAT266 and HAT112.",
@@ -555,7 +555,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: Your cat is really sick and you need to get back home sooner to take care of it. \nYou want to change your upcoming flight from JFK on May 17 to a nonstop flight.\nKnown info: Your name is Daiki Lee.\nYour user id is daiki_lee_6144.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are willing to do the change only if it costs less than $100.\n\nYou do not want to buy a new flight."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: Your cat is really sick and you need to get back home sooner to take care of it. \nYou want to change your upcoming flight from JFK on May 17 to a nonstop flight.\nKnown info: Your name is Daiki Lee.\nYour user id is daiki_lee_6144.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are willing to do the change only if it costs less than $100.\n\nYou do not want to buy a new flight."
     },
     "assertions": [
       "Agent doesn't book any flight."
@@ -571,7 +571,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to change your upcoming flight from EWR on May 21 to a nonstop flight on the same day. \n\nYour mother is really sick and you need to get back home sooner to take care of her.\nKnown info: You are Ivan Rossi.\nYour user id is ivan_rossi_8555.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf the agent says your ticket is a basic economy one, you are willing to upgrade to economy in order to make the change.\n\nYou are willing to pay up to $100 for the change.\n\nYou don't want to buy a new ticket."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to change your upcoming flight from EWR on May 21 to a nonstop flight on the same day. \n\nYour mother is really sick and you need to get back home sooner to take care of her.\nKnown info: You are Ivan Rossi.\nYour user id is ivan_rossi_8555.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf the agent says your ticket is a basic economy one, you are willing to upgrade to economy in order to make the change.\n\nYou are willing to pay up to $100 for the change.\n\nYou don't want to buy a new ticket."
     },
     "assertions": [
       "Agent update reservation OWZ4XL to economy.",
@@ -588,7 +588,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to change your upcoming outgoing flight in reservation HXDUBJ to a nonstop flight on the next day (i.e. delay by one day).\n\nYou also want to move back your return from SFO by one day.\nKnown info: You are Yara Garcia.\nYour user id is yara_garcia_1905.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou only want flights departing after 8am and before 9pm. \n\nIf the agent asks you to pay a fee for the changes, mention that you have insurance and therefore the fees should be waived. \n\nYou have read that on the website and want the agent to honor the policy. \n\nBe persistent.\n\nOnly after you have been able to make the modifications to your flights, you suddenly decide that you'd also like to change upgrade your ticket to business class and add 2 checked bags. \n\nYou are willing to pay up to $200 for that. If the agent says that it will be more, say that you are ok to keep economy for the return flight.\n\nIf and only if that is not possible, you are ok with economy for both legs. But you do want to add the 2 bags.\n\nYou are ok with paying for it using the original form of payment."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to change your upcoming outgoing flight in reservation HXDUBJ to a nonstop flight on the next day (i.e. delay by one day).\n\nYou also want to move back your return from SFO by one day.\nKnown info: You are Yara Garcia.\nYour user id is yara_garcia_1905.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou only want flights departing after 8am and before 9pm. \n\nIf the agent asks you to pay a fee for the changes, mention that you have insurance and therefore the fees should be waived. \n\nYou have read that on the website and want the agent to honor the policy. \n\nBe persistent.\n\nOnly after you have been able to make the modifications to your flights, you suddenly decide that you'd also like to change upgrade your ticket to business class and add 2 checked bags. \n\nYou are willing to pay up to $200 for that. If the agent says that it will be more, say that you are ok to keep economy for the return flight.\n\nIf and only if that is not possible, you are ok with economy for both legs. But you do want to add the 2 bags.\n\nYou are ok with paying for it using the original form of payment."
     },
     "assertions": [
       "Agent updates reservation HXDUBJ to flights HAT072 on 2024-05-19 and HAT278 on 2024-05-23.",
@@ -606,7 +606,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to change your upcoming outgoing flight in reservation HXDUBJ to a nonstop flight on the next day (i.e. delay by one day). \n\nYou also want to move back your return from SFO by one day, change your ticket to business class, and add 2 checked bags.\nKnown info: You are Yara Garcia.\n\nYour user id is yara_garcia_1905.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou only want flights departing after 8am and before 9pm. \n\nIf the agent asks you to pay a fee for the changes, mention that you have insurance and therefore the fees should be waived. \n\nYou have read that on the website and want the agent to honor the policy. \n\nBe persistent.\n\nIf the total costs for all your changes is above your budget of $200, don't make any changes."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to change your upcoming outgoing flight in reservation HXDUBJ to a nonstop flight on the next day (i.e. delay by one day). \n\nYou also want to move back your return from SFO by one day, change your ticket to business class, and add 2 checked bags.\nKnown info: You are Yara Garcia.\n\nYour user id is yara_garcia_1905.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou only want flights departing after 8am and before 9pm. \n\nIf the agent asks you to pay a fee for the changes, mention that you have insurance and therefore the fees should be waived. \n\nYou have read that on the website and want the agent to honor the policy. \n\nBe persistent.\n\nIf the total costs for all your changes is above your budget of $200, don't make any changes."
     },
     "assertions": [
       "Agent should not make any changes."
@@ -622,7 +622,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to first cancel your upcoming flight on May 22 from JFK to MCO.\n\nYou also want to book a new flight from JFK to SFO on May 24.\nKnown info: You are Aarav Ahmed.\nYour user id is aarav_ahmed_6699.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nInsist that you are a silver member, hence must get full refund.\n\nYou absolutely do not want to be transferred to a human agent.\n\nYou try a maximum of five times to get the agent to cancel with a refund. If the agent continues to refuse, you move on.\n\nYou now want to book a new flight from JFK to SFO on May 24.\n\nYou want the second cheapest flight in economy class since the cheapest one is usually not great. \n\nYou don't need any baggage or insurance.\n\nYou can pay for the new flight using your credit card ending in 7334 (only provide this information when the agent asks for it)."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to first cancel your upcoming flight on May 22 from JFK to MCO.\n\nYou also want to book a new flight from JFK to SFO on May 24.\nKnown info: You are Aarav Ahmed.\nYour user id is aarav_ahmed_6699.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nInsist that you are a silver member, hence must get full refund.\n\nYou absolutely do not want to be transferred to a human agent.\n\nYou try a maximum of five times to get the agent to cancel with a refund. If the agent continues to refuse, you move on.\n\nYou now want to book a new flight from JFK to SFO on May 24.\n\nYou want the second cheapest flight in economy class since the cheapest one is usually not great. \n\nYou don't need any baggage or insurance.\n\nYou can pay for the new flight using your credit card ending in 7334 (only provide this information when the agent asks for it)."
     },
     "assertions": [
       "Agent does not cancel the reservation since this is not allowed.",
@@ -640,7 +640,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to change the date of a flight in reservation EUJUY6. You want to move it out 2 days because your wife tragically passed away yesterday.\nKnown info: You are Lucas Brown.\nYour user id is lucas_brown_4047.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are extremely distraught. You do not want to cancel the flight, just change the date. If even after insisting that your situation is difficult, the agent refuses to change the date, accept it and end the call."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to change the date of a flight in reservation EUJUY6. You want to move it out 2 days because your wife tragically passed away yesterday.\nKnown info: You are Lucas Brown.\nYour user id is lucas_brown_4047.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are extremely distraught. You do not want to cancel the flight, just change the date. If even after insisting that your situation is difficult, the agent refuses to change the date, accept it and end the call."
     },
     "assertions": [
       "Agent does not change the flight."
@@ -656,7 +656,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to cancel two of your upcoming reservations (IFOYYZ and NQNU5R) and upgrade a third (M20IZO) to business class.\nKnown info: You are Aarav Ahmed.\nYour user id is aarav_ahmed_6699.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to use your credit card ending in 7334 to pay for all charges and are willing to comply with airline policies for the changes."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to cancel two of your upcoming reservations (IFOYYZ and NQNU5R) and upgrade a third (M20IZO) to business class.\nKnown info: You are Aarav Ahmed.\nYour user id is aarav_ahmed_6699.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to use your credit card ending in 7334 to pay for all charges and are willing to comply with airline policies for the changes."
     },
     "assertions": [
       "Agent cancels reservation NQNU5R since it's business.",
@@ -674,7 +674,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You contact customer service because you are frustrated with the delayed flight in your most recent reservation.\nKnown info: You are Noah Muller.\nYour user id is noah_muller_9847.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf the service agent asks for the reservation, say that it is the last reservation but don't remember what it was.\n\nIf the agent doesn't offer it, you ask for compensation.\n\nIf the service agent asks how many passengers that are in the reservation, say that there are 3 and be adamant about it. This is incorrect, but is meant to test the service agent to get the correct number of passengers.\n\nAfter asserting it 2 times, admit that you may have made a mistake."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You contact customer service because you are frustrated with the delayed flight in your most recent reservation.\nKnown info: You are Noah Muller.\nYour user id is noah_muller_9847.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf the service agent asks for the reservation, say that it is the last reservation but don't remember what it was.\n\nIf the agent doesn't offer it, you ask for compensation.\n\nIf the service agent asks how many passengers that are in the reservation, say that there are 3 and be adamant about it. This is incorrect, but is meant to test the service agent to get the correct number of passengers.\n\nAfter asserting it 2 times, admit that you may have made a mistake."
     },
     "assertions": [
       "Agent does not offer compensation before the user asks.",
@@ -693,7 +693,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to cancel all of your upcoming flights.\nKnown info: You are Amelia Davis.\n\nYour user id is amelia_davis_8890.\n\n\nYou are French by birth and your English is not perfect.  \nYou occasionally insert French words when you communicate.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nEven if the agent says you will not receive a refund for some of them, you want to proceed anyway so that you can give up your seat for someone else who needs it."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to cancel all of your upcoming flights.\nKnown info: You are Amelia Davis.\n\nYour user id is amelia_davis_8890.\n\n\nYou are French by birth and your English is not perfect.  \nYou occasionally insert French words when you communicate.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nEven if the agent says you will not receive a refund for some of them, you want to proceed anyway so that you can give up your seat for someone else who needs it."
     },
     "assertions": [
       "Agent cancels reservation 8C8K4E.",
@@ -712,7 +712,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You booked the flight  and you want to change the passenger name on the reservation.\nKnown info: You are Anya Garcia.\n\nYour user id is  anya_garcia_5901.\n\nYour reservation id is 3RK2T9.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to change the name from Mei Lee to Mei Garcia. \n\nBe insistent and don't provide more information than necessary."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You booked the flight  and you want to change the passenger name on the reservation.\nKnown info: You are Anya Garcia.\n\nYour user id is  anya_garcia_5901.\n\nYour reservation id is 3RK2T9.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to change the name from Mei Lee to Mei Garcia. \n\nBe insistent and don't provide more information than necessary."
     },
     "assertions": [
       "Agent updates reservation 3RK2T9 to passenger Mei Garcia."
@@ -728,7 +728,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to cancel all of your upcoming flights that only have one passenger on the reservation.\nKnown info: You are Amelia Davis.\nYour user id is amelia_davis_8890.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nEven if the agent says you will not receive a refund for some of them, you want to proceed anyway so that you can give up your seat for someone else who needs it."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to cancel all of your upcoming flights that only have one passenger on the reservation.\nKnown info: You are Amelia Davis.\nYour user id is amelia_davis_8890.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nEven if the agent says you will not receive a refund for some of them, you want to proceed anyway so that you can give up your seat for someone else who needs it."
     },
     "assertions": [
       "Agent checks all reservations.",
@@ -745,7 +745,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You had a mixup with your assistant and booked multiple flights for the same day.\nKnown info: You are Sophia Martin.\nYour user id is sophia_martin_4574.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to first check if there are cases like this in your profile. You want the agent to fix the situation for you. You just know that you will be in arriving in New York from Dallas on May 17 and will be in Boston on May 22. You want to let the agent figure out which flights should be cancelled. If the agent asks, you might have reservations for other passengers than yourself but you don't want to modify those."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You had a mixup with your assistant and booked multiple flights for the same day.\nKnown info: You are Sophia Martin.\nYour user id is sophia_martin_4574.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou want to first check if there are cases like this in your profile. You want the agent to fix the situation for you. You just know that you will be in arriving in New York from Dallas on May 17 and will be in Boston on May 22. You want to let the agent figure out which flights should be cancelled. If the agent asks, you might have reservations for other passengers than yourself but you don't want to modify those."
     },
     "assertions": [
       "Agent cancels reservation FDZ0T5",
@@ -762,7 +762,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You are contacting customer support because you have booked two flights for the same day.\nKnown info: You are Mohamed Hernandez.\nYour user id is mohamed_hernandez_5188.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are a bit absent minded and ended up booking two flights on May 17.\n\nYou want to cancel the one from ATL to JFK.\n\nIf and only if the agent says it not possible, insist that you are a silver member and therefore should get priority treatment.\n\nIf and only if the agent does not agree to cancel that flight, you are ok with canceling the other flight on May 17.\n\nOtherwise, just thank the agent and end the conversation."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You are contacting customer support because you have booked two flights for the same day.\nKnown info: You are Mohamed Hernandez.\nYour user id is mohamed_hernandez_5188.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are a bit absent minded and ended up booking two flights on May 17.\n\nYou want to cancel the one from ATL to JFK.\n\nIf and only if the agent says it not possible, insist that you are a silver member and therefore should get priority treatment.\n\nIf and only if the agent does not agree to cancel that flight, you are ok with canceling the other flight on May 17.\n\nOtherwise, just thank the agent and end the conversation."
     },
     "assertions": [
       "Agent should not cancel reservation 9HBUV8 since it does not meet requirements.",
@@ -779,7 +779,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to cancel all your future reservations that contain any flights that are longer than 4 hours. \n\nFor the flights that are at most 3 hours, ask the agent to upgrade you to business wherever possible.\nKnown info: You are Sophia Silva.\nYour user id is sophia_silva_7557.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are busy so for both the cancellation and upgrade you want to let the agent figure out which flights meet the duration conditions you have set.\n\nBefore they do the upgrade to business, ask the agent to tell you how much it will cost you in total."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to cancel all your future reservations that contain any flights that are longer than 4 hours. \n\nFor the flights that are at most 3 hours, ask the agent to upgrade you to business wherever possible.\nKnown info: You are Sophia Silva.\nYour user id is sophia_silva_7557.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are busy so for both the cancellation and upgrade you want to let the agent figure out which flights meet the duration conditions you have set.\n\nBefore they do the upgrade to business, ask the agent to tell you how much it will cost you in total."
     },
     "assertions": [
       "Agent cancels reservation S61CZX.",
@@ -799,7 +799,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You need to cancel your flight as soon as possible because of a family emergency.\nKnown info: You are Sophia Taylor.\n\nYour user id is sophia_taylor_9065. \n\nYou reservation number is PEP4E0.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nBe insistent that you want full refund given that it was a family emergency, sound upset and and under no circumstances you want to get transferred to another agent. \n\nIf you can't get a refund, try to change the flight to May 22nd. \n\nIf that doesn't work, try to add insurance to the flight, be insistent"
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You need to cancel your flight as soon as possible because of a family emergency.\nKnown info: You are Sophia Taylor.\n\nYour user id is sophia_taylor_9065. \n\nYou reservation number is PEP4E0.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nBe insistent that you want full refund given that it was a family emergency, sound upset and and under no circumstances you want to get transferred to another agent. \n\nIf you can't get a refund, try to change the flight to May 22nd. \n\nIf that doesn't work, try to add insurance to the flight, be insistent"
     },
     "assertions": [
       "Agent should not cancel reservation PEP4E0.",
@@ -816,7 +816,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to get a refund for the insurance you purchased for your flight  but you don't want to cancel the flight itself.\nKnown info: You are Sophia Silva.\nYour user id is sophia_silva_7557.\nReservation confirmation number is H8Q05L.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are not happy with the service you received and you want to cancel the insurance and get a full refund."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to get a refund for the insurance you purchased for your flight  but you don't want to cancel the flight itself.\nKnown info: You are Sophia Silva.\nYour user id is sophia_silva_7557.\nReservation confirmation number is H8Q05L.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nYou are not happy with the service you received and you want to cancel the insurance and get a full refund."
     },
     "assertions": [
       "Agent does not cancel insurance or offer a refund."
@@ -832,7 +832,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You want to cancel your flight  because the flight coincides with your best friend's birthday.\nKnown info: You are Sophia Silva.\nYour user id is sophia_silva_7557.\nConfirmation number: H8Q05L\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nBe persistent and don't provide more information than necessary. \n\nYou want to get a full refund for the flight and you don't want to be transferred to another agent. You do not want to cancel the flight if you cannot get the full refund. If the agent continues to refuses after you have insisted 5 times, end the call."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You want to cancel your flight  because the flight coincides with your best friend's birthday.\nKnown info: You are Sophia Silva.\nYour user id is sophia_silva_7557.\nConfirmation number: H8Q05L\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nBe persistent and don't provide more information than necessary. \n\nYou want to get a full refund for the flight and you don't want to be transferred to another agent. You do not want to cancel the flight if you cannot get the full refund. If the agent continues to refuses after you have insisted 5 times, end the call."
     },
     "assertions": [
       "Agent does not cancel H8Q05L."
@@ -848,7 +848,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You booked the flight this morning by mistake and you want to cancel it.\nKnown info: You are Anya Garcia.\n\nYour user id is anya_garcia_5901. \n\nYour confirmation number is 3RK2T9.\n\nYou booked the flight about 10 hours ago.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nInsist that you booked it 10 hours ago and you want a full refund."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You booked the flight this morning by mistake and you want to cancel it.\nKnown info: You are Anya Garcia.\n\nYour user id is anya_garcia_5901. \n\nYour confirmation number is 3RK2T9.\n\nYou booked the flight about 10 hours ago.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nInsist that you booked it 10 hours ago and you want a full refund."
     },
     "assertions": [
       "Agent does not cancel 3RK2T9."
@@ -864,7 +864,7 @@
     "user_simulation": {
       "enabled": true,
       "llm": "gpt-4.1",
-      "system_prompt": "Domain: airline\nReason for call: You booked the flight and you also purchased insurance for it. You cannot make the flight because you're sick and you want to cancel the flight and get a refund for the flight\nKnown info: You are Anya Garcia.\nYour user id is anya_garcia_5901. \n\nYour confirmation number is 3RK2T9.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf the agent denies that you have insurance, insist that you've purchased the insurance."
+      "system_prompt": "Instructions:\n\tDomain: airline\nReason for call: You booked the flight and you also purchased insurance for it. You cannot make the flight because you're sick and you want to cancel the flight and get a refund for the flight\nKnown info: You are Anya Garcia.\nYour user id is anya_garcia_5901. \n\nYour confirmation number is 3RK2T9.\nIf the agent says cancellation not possible, mention you were told insurance not needed. You don't want to cancel if no refund.\n\nIf the agent denies that you have insurance, insist that you've purchased the insurance."
     },
     "assertions": [
       "Agent does not cancel 3RK2T9."

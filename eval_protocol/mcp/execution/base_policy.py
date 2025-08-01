@@ -34,6 +34,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_tools_per_turn: Optional[int] = None,
+        base_url: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -53,6 +54,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_tools_per_turn = max_tools_per_turn
+        self.base_url = base_url
 
         # Initialize conversation state tracking for proper OpenAI trajectories
         self.initialized = False

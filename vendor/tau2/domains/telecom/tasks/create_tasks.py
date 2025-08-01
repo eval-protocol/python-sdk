@@ -27,7 +27,7 @@ def create_tasks(save_tasks: bool = True, max_count_per_bin: int = 3) -> list[Ta
 
     print(f"Number of tasks: {len(tasks)}")
 
-    file = DATA_DIR / "tau2" / "domains" / "telecom" / f"tasks_full.json"
+    file = DATA_DIR / "domains" / "telecom" / f"tasks_full.json"
     if save_tasks:
         with open(file, "w") as f:
             json.dump([t.model_dump() for t in tasks], f, indent=2)
@@ -50,30 +50,26 @@ def create_tasks(save_tasks: bool = True, max_count_per_bin: int = 3) -> list[Ta
                 }
             )
 
-    file_small = DATA_DIR / "tau2" / "domains" / "telecom" / f"tasks_small.json"
+    file_small = DATA_DIR / "domains" / "telecom" / f"tasks_small.json"
     small_tasks = [t["task"] for t in tasks_with_attrs if t["num_subtasks"] == 1]
     print(f"Number of tasks in small set: {len(small_tasks)}")
     if save_tasks:
         with open(file_small, "w") as f:
             json.dump([t.model_dump() for t in small_tasks], f, indent=2)
 
-    file_sampled = DATA_DIR / "tau2" / "domains" / "telecom" / f"tasks.json"
+    file_sampled = DATA_DIR / "domains" / "telecom" / f"tasks.json"
     tasks_by_bins = defaultdict(list)
     for task in tasks_with_attrs:
         if task["num_subtasks"] < 2:  # We only keep tasks with at least 2 subtasks
             continue
-        tasks_by_bins[(task["intent"], task["num_subtasks"], task["persona"])].append(
-            task["task"]
-        )
+        tasks_by_bins[(task["intent"], task["num_subtasks"], task["persona"])].append(task["task"])
 
     # sample $n$ tasks per intent, difficulty level, and persona
     sampled_tasks = []
     for (intent, num_subtasks, persona), tasks in tasks_by_bins.items():
         num_sampled = min(max_count_per_bin, len(tasks))
         sampled_tasks.extend(random.sample(tasks, num_sampled))
-        print(
-            f"Sampled {num_sampled} tasks for {intent} with {num_subtasks} subtasks and persona {persona}..."
-        )
+        print(f"Sampled {num_sampled} tasks for {intent} with {num_subtasks} subtasks and persona {persona}...")
 
     print(f"Number of sampled tasks: {len(sampled_tasks)}")
     if save_tasks:
