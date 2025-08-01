@@ -43,7 +43,7 @@ def _generate_mcp_dockerfile_content(
     # Base requirements for MCP servers - matching setup.py dependencies
     base_requirements = [
         "fastmcp>=0.1.0",
-        # Core reward-kit dependencies from setup.py
+        # Core Eval Protocol dependencies from setup.py
         "requests>=2.25.0",
         "pydantic>=2.0.0",
         "dataclasses-json>=0.5.7",
@@ -154,7 +154,7 @@ def _deploy_mcp_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
     if not gcp_ar_repo_name and gcp_config_from_yaml:
         gcp_ar_repo_name = gcp_config_from_yaml.artifact_registry_repository
     if not gcp_ar_repo_name:
-        gcp_ar_repo_name = "reward-kit-mcp-servers"
+        gcp_ar_repo_name = "eval-protocol-mcp-servers"
 
     print(f"Using GCP Project: {gcp_project_id}, Region: {gcp_region}, AR Repo: {gcp_ar_repo_name}")
 

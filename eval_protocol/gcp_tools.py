@@ -289,7 +289,7 @@ def ensure_artifact_registry_repo_exists(project_id: str, region: str, repo_name
                 "--location",
                 region,
                 "--description",
-                "Repository for reward-kit evaluators (auto-created by reward-kit CLI)",
+                "Repository for Eval Protocol evaluators (auto-created by Eval Protocol CLI)",
             ]
             create_success, create_stdout, create_stderr = _run_gcloud_command(create_cmd, dry_run=dry_run)
             if create_success:
@@ -442,7 +442,7 @@ if __name__ == "__main__":
     dummy_dockerfile = 'FROM python:3.10-slim\nCMD ["echo", "hello"]'
     img_name = "gcr.io/my-test-project/my-test-reward-eval:latest"  # Old GCR name, update for AR
     # Example AR image name: us-central1-docker.pkg.dev/my-test-project/my-ar-repo/my-test-reward-eval:latest
-    ar_img_name = "us-central1-docker.pkg.dev/my-test-project/reward-kit-images/my-test-reward-eval:latest"
+    ar_img_name = "us-central1-docker.pkg.dev/my-test-project/eval-protocol-images/my-test-reward-eval:latest"
 
     print(f"\n1. Simulating build and push for {ar_img_name} (dry_run=True)")
     build_and_push_docker_image(
@@ -478,7 +478,7 @@ if __name__ == "__main__":
         project_id="my-test-project",
         secret_id="my-test-api-key-secret",
         secret_value="supersecretvalue123",
-        labels={"managed-by": "reward-kit-test"},
+        labels={"managed-by": "eval-protocol-test"},
         dry_run=True,
     )
     print("\nNote: These are placeholder executions. Real implementation requires gcloud CLI and Docker.")

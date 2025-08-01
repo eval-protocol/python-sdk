@@ -93,7 +93,7 @@ def _establish_local_server_and_tunnel(args):
     function_ref = args.function_ref
     local_server_port = args.local_port
 
-    log_dir = os.path.join(os.getcwd(), "logs", "reward-kit-local")
+    log_dir = os.path.join(os.getcwd(), "logs", "eval-protocol-local")
     os.makedirs(log_dir, exist_ok=True)
     generic_server_log_path = os.path.join(log_dir, f"generic_server_{evaluator_id}.log")
 
@@ -270,9 +270,9 @@ def _deploy_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
 
         gcp_sanitized_eval_id = "".join(filter(lambda char: char.isalnum() or char in ["-", "_"], args.id))
         if not gcp_sanitized_eval_id:
-            gcp_sanitized_eval_id = "rewardkit-evaluator"
+            gcp_sanitized_eval_id = "evalprotocol-evaluator"
         secret_id_for_auth_key = f"rk-eval-{gcp_sanitized_eval_id}-authkey"
-        secret_labels = {"managed-by": "reward-kit", "evaluator-id": evaluator_id}
+        secret_labels = {"managed-by": "eval-protocol", "evaluator-id": evaluator_id}
 
         api_key_secret_version_id = ensure_gcp_secret(
             project_id=gcp_project_id,

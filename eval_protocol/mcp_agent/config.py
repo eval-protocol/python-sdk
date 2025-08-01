@@ -114,7 +114,7 @@ class BackendServerConfig(BaseModel):
 
 
 class AppConfig(BaseModel):
-    """Root configuration for the RewardKit Intermediary MCP Server."""
+    """Root configuration for the Eval Protocol Intermediary MCP Server."""
 
     backends: List[BackendServerConfig] = Field(
         default_factory=list,

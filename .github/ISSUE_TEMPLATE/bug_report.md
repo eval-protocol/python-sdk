@@ -25,9 +25,9 @@ If applicable, add screenshots to help explain your problem.
 
 **Environment (please complete the following information):**
  - OS: [e.g. macOS, Windows, Linux]
- - Python version: [e.g. 3.9, 3.10]
- - Reward Kit version: [e.g. 0.1.0, or commit SHA if from source]
- - How installed: [e.g. pip, from source]
+- Python version: [e.g. 3.9, 3.10]
+ - Eval Protocol version: [e.g. 0.1.0, or commit SHA if from source]
+- How installed: [e.g. pip, from source]
 
 **Additional context**
 Add any other context about the problem here. For example, are you using it with a specific LLM provider, or in a particular environment?

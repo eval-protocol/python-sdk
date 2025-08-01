@@ -51,7 +51,7 @@ def get_config() -> VersioneerConfig:
     cfg.VCS = "git"
     cfg.style = "pep440"
     cfg.tag_prefix = "v"
-    cfg.parentdir_prefix = "reward-kit-"
+    cfg.parentdir_prefix = "eval-protocol-"
     cfg.versionfile_source = "eval_protocol/_version.py"
     cfg.verbose = False
     return cfg

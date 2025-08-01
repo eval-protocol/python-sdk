@@ -360,7 +360,7 @@ uv run black eval_protocol
 
 ## Available Reward Functions
 
-Reward Kit includes these out-of-the-box reward functions:
+Eval Protocol includes these out-of-the-box reward functions:
 
 | Category | Reward Functions |
 |----------|-----------------|
@@ -380,7 +380,7 @@ Reward Kit includes these out-of-the-box reward functions:
 
 ## Running Examples
 
-The examples folder contains sample code for using the Reward Kit:
+The examples folder contains sample code for using Eval Protocol:
 
 ```bash
 # Run evaluation preview example
@@ -506,7 +506,7 @@ If you encounter authentication issues:
 3.  **Check Account ID**: Confirm that the `FIREWORKS_ACCOUNT_ID` is correct for the environment you are targeting (e.g., `pyroworks-dev` for the dev API, or your personal account ID).
 4.  **API Base URL**: If using `FIREWORKS_API_BASE`, ensure it points to the correct API endpoint (e.g., `https://dev.api.fireworks.ai` for development).
 
-You can use the following snippet to check what credentials the Reward Kit is resolving:
+You can use the following snippet to check what credentials Eval Protocol is resolving:
 ```python
 from eval_protocol.auth import get_fireworks_api_key, get_fireworks_account_id
 
@@ -556,7 +556,7 @@ uv pip install dist/eval_protocol-*.whl
 
 ## Contributing Process
 
-We welcome contributions to Reward Kit! Please follow these steps to contribute:
+We welcome contributions to Eval Protocol! Please follow these steps to contribute:
 
 1.  **Find or Create an Issue**:
     *   Look for existing issues on the [GitHub Issues page](https://github.com/fireworks-ai/eval-protocol/issues) that you'd like to work on.
@@ -581,9 +581,9 @@ We welcome contributions to Reward Kit! Please follow these steps to contribute:
 
 6.  **Run Code Quality Checks**:
 
-    *   Format your code: `uv run black reward_kit tests`
-    *   Check linting: `uv run flake8 reward_kit tests`
-    *   Check types: `uv run mypy reward_kit`
+    *   Format your code: `uv run black eval_protocol tests`
+    *   Check linting: `uv run flake8 eval_protocol tests`
+    *   Check types: `uv run mypy eval_protocol`
     *   Run pre-commit hooks: `pre-commit run --all-files`
 
 7.  **Update Documentation**:
