@@ -6,7 +6,7 @@ This test demonstrates how to check if model responses contain the required numb
 
 import json
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, InputMetadata, CompletionParams
 from eval_protocol.pytest import evaluation_test, default_single_turn_rollout_processor, evaluate
@@ -25,7 +25,7 @@ def markdown_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     ]
 
 
-def markdown_format_evaluate(messages: List[Message], ground_truth=None, **kwargs) -> EvaluateResult:
+def markdown_format_evaluate(messages: List[Message], ground_truth: Optional[str]=None, **kwargs) -> EvaluateResult:
     """
     Evaluation function that checks if the model's response contains the required number of formatted sections.
     """
