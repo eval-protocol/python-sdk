@@ -8,7 +8,7 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message, InputMetadata, CompletionParams
+from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test, default_single_turn_rollout_processor, evaluate
 
 
