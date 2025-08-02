@@ -25,9 +25,9 @@ def markdown_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     ]
 
 
-def markdown_highlighting_evaluate(messages: List[Message], ground_truth=None, **kwargs) -> EvaluateResult:
+def markdown_format_evaluate(messages: List[Message], ground_truth=None, **kwargs) -> EvaluateResult:
     """
-    Evaluation function that checks if the model's response contains the required number of highlighted sections.
+    Evaluation function that checks if the model's response contains the required number of formatted sections.
     """
     
     assistant_response = messages[-1].content
@@ -39,6 +39,9 @@ def markdown_highlighting_evaluate(messages: List[Message], ground_truth=None, *
         )
     
     required_highlights = int(ground_truth)
+
+    # Check if the response contains the required number of formatted sections
+    # e.g. **bold** or *italic*
     
     actual_count = 0
     highlights = re.findall(r"\*[^\n\*]*\*", assistant_response)
@@ -78,4 +81,4 @@ def test_markdown_highlighting_evaluation(input_dataset, input_params, model):
     """
     Test markdown highlighting validation using batch mode with evaluate().
     """
-    return evaluate(input_dataset, markdown_highlighting_evaluate) 
+    return evaluate(input_dataset, markdown_format_evaluate) 
