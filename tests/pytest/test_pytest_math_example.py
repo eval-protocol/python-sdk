@@ -27,12 +27,11 @@ def test_math_dataset(row: EvaluationRow, **kwargs) -> EvaluationRow:
     - Format compliance checking for <think>...</think><answer>...</answer> structure
 
     Args:
-        messages: The conversation messages including the math solution
-        ground_truth: Expected answer for comparison
-        **kwargs: Additional parameters (like tolerance)
+        row: EvaluationRow containing the conversation messages and ground truth
+        **kwargs: Additional parameters (like math_reward_kwargs)
 
     Returns:
-        EvaluateResult with combined score and detailed metrics
+        EvaluationRow with the evaluation result
     """
     # Get the assistant's response
     assistant_message = row.messages[-1]
