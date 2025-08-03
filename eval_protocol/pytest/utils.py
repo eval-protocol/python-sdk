@@ -39,18 +39,6 @@ def execute_function(func: Callable, **kwargs) -> Any:
     return results
 
 
-def evaluate(
-    rows: List[EvaluationRow], reward_fn: Callable[..., EvaluateResult], **kwargs: Any
-) -> List[EvaluationRow]:
-    """Apply a reward function to each row and attach the result."""
-    evaluated: List[EvaluationRow] = []
-    for row in rows:
-        result = reward_fn(messages=row.messages, ground_truth=row.ground_truth, **kwargs)
-        row.evaluation_result = result
-        evaluated.append(row)
-    return evaluated
-
-
 AggregationMethod = Literal["mean", "max", "min"]
 
 
