@@ -14,6 +14,6 @@ from tests.pytest.helper.gsm8k_to_evaluation_row import gsm8k_to_evaluation_row
     threshold_of_success=0.0,
     rollout_processor=default_single_turn_rollout_processor,
 )
-def test_math_dataset(input_dataset, input_params, model) -> List[EvaluationRow]:
+def test_math_dataset(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     """Run math evaluation on sample dataset using pytest interface."""
-    return evaluate(input_dataset, math_evaluate)
+    return evaluate(rows, math_evaluate)

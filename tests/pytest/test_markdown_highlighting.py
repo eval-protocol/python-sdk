@@ -4,7 +4,6 @@ Pytest test for markdown highlighting validation using the evaluation_test decor
 This test demonstrates how to check if model responses contain the required number of highlighted sections.
 """
 
-import json
 import re
 from typing import Any, Dict, List, Optional
 
@@ -69,8 +68,8 @@ def markdown_format_evaluate(messages: List[Message], ground_truth: Optional[str
     rollout_processor=default_single_turn_rollout_processor,
     num_runs=1,
 )
-def test_markdown_highlighting_evaluation(input_dataset, input_params, model) -> List[EvaluationRow]:
+def test_markdown_highlighting_evaluation(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     """
     Test markdown highlighting validation using batch mode with evaluate().
     """
-    return evaluate(input_dataset, markdown_format_evaluate)
+    return evaluate(rows, markdown_format_evaluate)

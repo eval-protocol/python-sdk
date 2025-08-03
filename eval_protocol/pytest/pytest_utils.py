@@ -204,15 +204,21 @@ def evaluation_test(
             if "row" not in sig.parameters:
                 raise ValueError(f"In pointwise mode, your eval function must have a parameter named 'row'")
 
+            # validate that "Row" is of type EvaluationRow
+            if sig.parameters["row"].annotation is not EvaluationRow:
+                raise ValueError(f"In pointwise mode, the 'row' parameter must be of type EvaluationRow")
+
             # validate that the function has a return type of EvaluationRow
             if sig.return_annotation is not EvaluationRow:
                 raise ValueError("In pointwise mode, your eval function must return an EvaluationRow instance")
         else:
             # Batch mode: function should accept input_dataset and model
-            if "input_dataset" not in sig.parameters:
-                raise ValueError("In batch mode, your eval function must have a parameter named 'input_dataset'")
-            if "model" not in sig.parameters:
-                raise ValueError("In batch mode, your eval function must have a parameter named 'model'")
+            if "rows" not in sig.parameters:
+                raise ValueError("In batch mode, your eval function must have a parameter named 'rows'")
+
+            # validate that "Rows" is of type List[EvaluationRow]
+            if sig.parameters["rows"].annotation is not List[EvaluationRow]:
+                raise ValueError(f"In batch mode, the 'rows' parameter must be of type List[EvaluationRow]")
 
             # validate that the function has a return type of List[EvaluationRow]
             if sig.return_annotation is not List[EvaluationRow]:
@@ -227,7 +233,7 @@ def evaluation_test(
         ):
             kwargs = {}
             if input_dataset is not None:
-                kwargs["input_dataset"] = list(input_dataset)
+                kwargs["rows"] = input_dataset
             if input_params is not None:
                 kwargs["input_params"] = input_params
             if model is not None:

@@ -1,4 +1,3 @@
-from typing import List
 from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
 from eval_protocol.models import EvaluateResult, MetricResult, EvaluationRow
 from tests.pytest.helper.word_count_to_evaluation_row import word_count_to_evaluation_row
