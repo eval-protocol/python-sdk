@@ -19,6 +19,11 @@ def test_word_count_evaluate(row: EvaluationRow) -> EvaluationRow:
     """
     Pointwise word count evaluator - just the core evaluation logic.
     Everything else (models, datasets, thresholds) is parameterized in the decorator.
+
+    NOTE: This function does not make any sense since it just counts the number
+    of words in the last message and computes some haiku analysis but only uses
+    the word count to compute the score. But tests/shows how to write a
+    pointwise evaluation function.
     """
     if not row.messages:
         return EvaluateResult(score=0.0, reason="No messages found", is_score_valid=False)
