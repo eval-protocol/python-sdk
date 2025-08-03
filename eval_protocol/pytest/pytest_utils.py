@@ -8,6 +8,7 @@ from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rol
 from eval_protocol.pytest.types import (
     Dataset,
     DatasetPathParam,
+    EvaluationTestMode,
     InputMessagesParam,
     InputParam,
     ModelParam,
@@ -44,6 +45,39 @@ def _aggregate(scores: List[float], method: str) -> float:
     raise ValueError(f"Unknown aggregation method: {method}")
 
 
+def _create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names):
+    """
+    Creates a wrapper function with dynamic parameters for pytest parameterization.
+
+    This function takes a test function and creates a wrapper that:
+    1. Preserves the original function's metadata using functools.wraps
+    2. Creates a new function signature with the specified parameter names that maps to pytest.mark.parametrize decorator
+    3. Returns a callable that can be used with pytest.mark.parametrize
+
+    The function signature is dynamically created to match the parameter names expected by
+    pytest.mark.parametrize, ensuring that pytest can properly map the test parameters
+    to the function arguments.
+
+    Args:
+        test_func: The original test function to wrap
+        wrapper_body: The function body that contains the actual test logic
+        test_param_names: List of parameter names for the dynamic signature
+
+    Returns:
+        A wrapper function with the specified parameter signature that calls wrapper_body
+    """
+    from functools import wraps
+
+    @wraps(test_func)
+    def wrapper(**kwargs):
+        return wrapper_body(**kwargs)
+
+    parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names]
+    wrapper.__signature__ = inspect.Signature(parameters)
+
+    return wrapper
+
+
 def evaluation_test(
     *,
     model: List[ModelParam],
@@ -57,7 +91,7 @@ def evaluation_test(
     num_runs: int = 1,
     max_dataset_rows: Optional[int] = None,
     mcp_config_path: Optional[str] = None,
-    mode: str = "batch",  # "batch" (default) or "pointwise"/"rowwise"
+    mode: EvaluationTestMode = "batch",
 ) -> Callable[
     [TestFunction],
     TestFunction,
@@ -82,7 +116,8 @@ def evaluation_test(
         num_runs: Number of times to repeat the evaluation.
         max_dataset_rows: Limit dataset to the first N rows.
         mode: Evaluation mode. "batch" (default) expects test function to handle
-            full dataset. "pointwise"/"rowwise" applies test function to each row.
+            full dataset. "pointwise" applies test function to each row. If your evaluation requires
+            the full rollout of all rows to compute the score, use
 
     Usage:
     With an input dataset and input params, the test function will be called with the following arguments:
@@ -128,22 +163,31 @@ def evaluation_test(
         is_async = inspect.iscoroutinefunction(test_func)
 
         sig = inspect.signature(test_func)
-        
+
         # For pointwise/rowwise mode, we expect a different signature
-        if mode in ["pointwise", "rowwise"]:
+        if mode == "pointwise":
             # Pointwise mode: function should accept messages and other row-level params
-            if "messages" not in sig.parameters:
-                raise ValueError(f"In {mode} mode, test_func must have a parameter named 'messages'")
+            if "row" not in sig.parameters:
+                raise ValueError(f"In pointwise mode, your eval function must have a parameter named 'row'")
+
+            # validate that the function has a return type of EvaluationRow
+            if sig.return_annotation is not EvaluationRow:
+                raise ValueError("In pointwise mode, your eval function must return an EvaluationRow instance")
         else:
             # Batch mode: function should accept input_dataset and model
             if "input_dataset" not in sig.parameters:
-                raise ValueError("test_func must have a parameter named 'input_dataset'")
+                raise ValueError("In batch mode, your eval function must have a parameter named 'input_dataset'")
             if "model" not in sig.parameters:
-                raise ValueError("test_func must have a parameter named 'model'")
+                raise ValueError("In batch mode, your eval function must have a parameter named 'model'")
+
+            # validate that the function has a return type of List[EvaluationRow]
+            if sig.return_annotation is not List[EvaluationRow]:
+                raise ValueError("In batch mode, your eval function must return a list of EvaluationRow instances")
 
         def execute_with_params(
             test_func: TestFunction,
             model: str,
+            row: EvaluationRow | None = None,
             input_dataset: List[EvaluationRow] | None = None,
             input_params: InputParam | None = None,
         ):
@@ -154,6 +198,8 @@ def evaluation_test(
                 kwargs["input_params"] = input_params
             if model is not None:
                 kwargs["model"] = model
+            if row is not None:
+                kwargs["row"] = row
             if is_async:
                 # Handle async functions with proper event loop management
                 try:
@@ -173,11 +219,8 @@ def evaluation_test(
             return results
 
         # Calculate all possible combinations of parameters
-        def generate_combinations(model: List[ModelParam]):
+        def generate_combinations():
             combinations = []
-
-            # Always include models
-            model_list = model
 
             # Handle optional parameters with defaults
             datasets: List[Optional[DatasetPathParam]] = input_dataset if input_dataset is not None else [None]  # type: ignore
@@ -185,7 +228,7 @@ def evaluation_test(
             messages: List[Optional[InputMessagesParam]] = input_messages if input_messages is not None else [None]  # type: ignore
 
             # Generate all combinations
-            for m in model_list:
+            for m in model:
                 for ds in datasets:
                     for ip in params:
                         for im in messages:
@@ -199,7 +242,7 @@ def evaluation_test(
 
             return combinations
 
-        combinations = generate_combinations(model)
+        combinations = generate_combinations()
 
         # Create parameter tuples for pytest.mark.parametrize
         param_tuples = []
@@ -214,23 +257,14 @@ def evaluation_test(
                 param_tuple.append(messages)
             param_tuples.append(tuple(param_tuple))
 
-        # Determine the parameter names for the test function
-        if mode in ["pointwise", "rowwise"]:
-            # For pointwise mode, we generate simpler parameter names
-            test_param_names = ["model"]
-            if input_dataset is not None:
-                test_param_names.append("dataset_path")
-            if input_params is not None:
-                test_param_names.append("input_params")
-        else:
-            # For batch mode, use the original parameter names
-            test_param_names = ["model"]
-            if input_dataset is not None:
-                test_param_names.append("dataset_path")
-            if input_params is not None:
-                test_param_names.append("input_params")
-            if input_messages is not None:
-                test_param_names.append("input_messages")
+        # For batch mode, use the original parameter names
+        test_param_names = ["model"]
+        if input_dataset is not None:
+            test_param_names.append("dataset_path")
+        if input_params is not None:
+            test_param_names.append("input_params")
+        if input_messages is not None:
+            test_param_names.append("input_messages")
 
         # Create wrapper function with exact signature that pytest expects
         def create_wrapper_with_signature():
@@ -276,9 +310,20 @@ def evaluation_test(
 
                 all_results: List[EvaluationRow] = []
                 for _ in range(num_runs):
-                    if mode in ["pointwise", "rowwise"]:
+                    if mode == "pointwise":
                         # Pointwise mode: apply the evaluator function to each row
-                        results = evaluate(input_dataset, test_func)
+                        for row in input_dataset:
+                            result = execute_with_params(
+                                test_func,
+                                model=model_name,
+                                row=row,
+                                input_params=kwargs.get("input_params") if "input_params" in kwargs else None,
+                            )
+                            if result is None or not isinstance(result, EvaluationRow):
+                                raise ValueError(
+                                    f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
+                                )
+                            all_results.append(result)
                     else:
                         # Batch mode: call the test function with the full dataset
                         results = execute_with_params(
@@ -303,7 +348,7 @@ def evaluation_test(
                             raise ValueError(
                                 f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
                             )
-                    all_results.extend(results)
+                        all_results.extend(results)
 
                 scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
                 agg_score = _aggregate(scores, aggregation_method)
@@ -312,33 +357,7 @@ def evaluation_test(
                         agg_score >= threshold_of_success
                     ), f"Aggregated score {agg_score:.3f} below threshold {threshold_of_success}"
 
-            # Create a function with the exact signature pytest expects without using exec
-            from functools import wraps
-
-            if mode in ["pointwise", "rowwise"]:
-                # For pointwise mode, create a wrapper that handles everything internally
-                @wraps(test_func)
-                def wrapper(**kwargs):
-                    return wrapper_body(**kwargs)
-                
-                # Give it the pytest-compatible signature but the test_func name
-                parameters = [
-                    inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names
-                ]
-                wrapper.__signature__ = inspect.Signature(parameters)
-                wrapper.__name__ = test_func.__name__.replace('_evaluate', '_dataset') if '_evaluate' in test_func.__name__ else f"test_{test_func.__name__}"
-            else:
-                # For batch mode, use the original wrapper
-                @wraps(test_func)
-                def wrapper(**kwargs):
-                    return wrapper_body(**kwargs)
-
-                parameters = [
-                    inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names
-                ]
-                wrapper.__signature__ = inspect.Signature(parameters)
-
-            return wrapper
+            return _create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names)
 
         wrapper = create_wrapper_with_signature()
         wrapper = pytest.mark.parametrize(test_param_names, param_tuples)(wrapper)

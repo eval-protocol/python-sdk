@@ -3,7 +3,7 @@ Parameter types
 """
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Literal
 
 from ..models import EvaluationRow, Message
 
@@ -13,6 +13,17 @@ InputParam = Dict[str, Any]
 InputMessagesParam = List[Message]
 
 Dataset = List[EvaluationRow]
+
+EvaluationTestMode = Literal["batch", "pointwise"]
+"""
+"batch": (default) expects test function to handle full dataset.
+"pointwise": applies test function to each row.
+
+How to choose between "batch" and "pointwise":
+If your evaluation requires the rollout of all rows to be passed into your eval compute the score, use "batch".
+If your evaluation can be computed pointwise, use "pointwise" as EP can pipeline the rollouts and evals to be faster.
+"""
+
 """
 Test function types
 """

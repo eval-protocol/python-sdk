@@ -1,6 +1,6 @@
 from typing import List
 from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
-from eval_protocol.models import EvaluateResult, MetricResult, Message
+from eval_protocol.models import EvaluateResult, MetricResult, EvaluationRow
 from tests.pytest.helper.word_count_to_evaluation_row import word_count_to_evaluation_row
 from haikus import haikus
 
@@ -15,15 +15,15 @@ from haikus import haikus
     rollout_processor=default_single_turn_rollout_processor,
     mode="pointwise",  # Use pointwise mode for elegant row-by-row evaluation
 )
-def test_word_count_evaluate(messages: List[Message], **kwargs) -> EvaluateResult:
+def test_word_count_evaluate(row: EvaluationRow) -> EvaluationRow:
     """
     Pointwise word count evaluator - just the core evaluation logic.
     Everything else (models, datasets, thresholds) is parameterized in the decorator.
     """
-    if not messages:
+    if not row.messages:
         return EvaluateResult(score=0.0, reason="No messages found", is_score_valid=False)
 
-    last_message = messages[-1]
+    last_message = row.messages[-1]
     content = last_message.content if last_message and last_message.content else ""
 
     # Word count logic
@@ -73,6 +73,5 @@ def test_word_count_evaluate(messages: List[Message], **kwargs) -> EvaluateResul
     return EvaluateResult(
         score=word_count_score,
         reason=f"Word count: {word_count}. {haiku_metric_reason}",
-        is_score_valid=True,
         metrics=metrics,
     )

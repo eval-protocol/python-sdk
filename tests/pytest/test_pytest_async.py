@@ -16,6 +16,6 @@ from examples.math_example.main import evaluate as math_evaluate
     ],
     model=["accounts/fireworks/models/kimi-k2-instruct"],
 )
-async def test_pytest_async(input_dataset: List[EvaluationRow], model):
+async def test_pytest_async(input_dataset: List[EvaluationRow], model) -> List[EvaluationRow]:
     """Run math evaluation on sample dataset using pytest interface."""
     return input_dataset

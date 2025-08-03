@@ -13,6 +13,6 @@ from eval_protocol.pytest import default_single_turn_rollout_processor, evaluati
     model=["accounts/fireworks/models/kimi-k2-instruct"],
     rollout_processor=default_single_turn_rollout_processor,
 )
-def test_input_messages_in_decorator(input_dataset: List[EvaluationRow], model):
+def test_input_messages_in_decorator(input_dataset: List[EvaluationRow], model) -> List[EvaluationRow]:
     """Run math evaluation on sample dataset using pytest interface."""
     return input_dataset
