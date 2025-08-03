@@ -567,7 +567,7 @@ def math_reward(
 ) -> EvaluateResult:
     """
     NOTE: This is the deprecated/old way of creating an eval in Eval Protocol.
-    What use to be the @reward_function decorator is now the evaluation_test
+    What use to be the @reward_function decorator is now the @evaluation_test
     decorator with the mode="pointwise" parameter.
     """
     if (
