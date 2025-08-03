@@ -9,7 +9,7 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message
-from eval_protocol.pytest.types import RolloutProcessorConfig
+from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
 
 
 class Agent:
@@ -73,8 +73,13 @@ class Agent:
         return first_content.text
 
 
-async def default_agent_rollout_processor(row: EvaluationRow, config: RolloutProcessorConfig) -> List[EvaluationRow]:
-    agent = Agent(model=config.model, initial_messages=config.initial_messages, config_path=config.mcp_config_path)
-    await agent.setup()
-    await agent.call_agent()
-    return [EvaluationRow(messages=agent.messages)]
+async def default_agent_rollout_processor(
+    rows: List[EvaluationRow], config: RolloutProcessorConfig
+) -> List[EvaluationRow]:
+    dataset: Dataset = []
+    for row in rows:
+        agent = Agent(model=config.model, initial_messages=row.messages, config_path=config.mcp_config_path)
+        await agent.setup()
+        await agent.call_agent()
+        dataset.append(EvaluationRow(messages=agent.messages, ground_truth=row.ground_truth))
+    return dataset
