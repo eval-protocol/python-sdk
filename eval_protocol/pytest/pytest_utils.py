@@ -21,6 +21,40 @@ from ..common_utils import load_jsonl
 from ..models import EvaluateResult, EvaluationRow
 
 
+def _execute_function(func: Callable, **kwargs) -> Any:
+    """
+    Execute a function with proper async handling.
+
+    This is a pure function that handles both async and non-async function execution
+    with proper event loop management for async functions.
+
+    Args:
+        func: The function to execute
+        **kwargs: Arguments to pass to the function
+
+    Returns:
+        The result of the function execution
+    """
+    is_async = asyncio.iscoroutinefunction(func)
+    if is_async:
+        # Handle async functions with proper event loop management
+        try:
+            loop = asyncio.get_event_loop()
+            if not loop.is_closed():
+                # Use existing loop
+                task = loop.create_task(func(**kwargs))
+                results = loop.run_until_complete(task)
+            else:
+                # Loop is closed, create a new one
+                results = asyncio.run(func(**kwargs))
+        except RuntimeError:
+            # No event loop or other issues, create a new one
+            results = asyncio.run(func(**kwargs))
+    else:
+        results = func(**kwargs)
+    return results
+
+
 def evaluate(
     rows: List[EvaluationRow], reward_fn: Callable[..., EvaluateResult], **kwargs: Any
 ) -> List[EvaluationRow]:
@@ -200,23 +234,7 @@ def evaluation_test(
                 kwargs["model"] = model
             if row is not None:
                 kwargs["row"] = row
-            if is_async:
-                # Handle async functions with proper event loop management
-                try:
-                    loop = asyncio.get_event_loop()
-                    if not loop.is_closed():
-                        # Use existing loop
-                        task = loop.create_task(test_func(**kwargs))
-                        results = loop.run_until_complete(task)
-                    else:
-                        # Loop is closed, create a new one
-                        results = asyncio.run(test_func(**kwargs))
-                except RuntimeError:
-                    # No event loop or other issues, create a new one
-                    results = asyncio.run(test_func(**kwargs))
-            else:
-                results = test_func(**kwargs)
-            return results
+            return _execute_function(test_func, **kwargs)
 
         # Calculate all possible combinations of parameters
         def generate_combinations():
@@ -291,21 +309,7 @@ def evaluation_test(
                     initial_messages=kwargs.get("input_messages") if "input_messages" in kwargs else [],
                 )
                 for row in data:
-                    is_async = inspect.iscoroutinefunction(rollout_processor)
-                    if is_async:
-                        try:
-                            loop = asyncio.get_event_loop()
-                            if not loop.is_closed():
-                                # Use existing loop
-                                task = loop.create_task(rollout_processor(row, config=config))
-                                processed: List[EvaluationRow] = loop.run_until_complete(task)
-                            else:
-                                processed: List[EvaluationRow] = asyncio.run(rollout_processor(row, config=config))
-                        except RuntimeError:
-                            # No event loop or other issues, create a new one
-                            processed: List[EvaluationRow] = asyncio.run(rollout_processor(row, config=config))
-                    else:
-                        processed: List[EvaluationRow] = rollout_processor(row, config=config)
+                    processed: List[EvaluationRow] = _execute_function(rollout_processor, row=row, config=config)
                     input_dataset.extend(processed)
 
                 all_results: List[EvaluationRow] = []
