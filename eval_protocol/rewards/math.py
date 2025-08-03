@@ -565,6 +565,11 @@ def math_reward(
     require_units: bool = False,
     **kwargs: Any,
 ) -> EvaluateResult:
+    """
+    NOTE: This is the deprecated/old way of creating an eval in Eval Protocol.
+    What use to be the @reward_function decorator is now the @evaluation_test
+    decorator with the mode="pointwise" parameter.
+    """
     if (
         not messages
         or not isinstance(messages[-1], Message)

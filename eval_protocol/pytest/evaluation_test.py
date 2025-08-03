@@ -8,10 +8,11 @@ from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rol
 from eval_protocol.pytest.types import (
     Dataset,
     DatasetPathParam,
+    EvaluationInputParam,
     EvaluationTestMode,
     InputMessagesParam,
-    InputParam,
     ModelParam,
+    RolloutInputParam,
     RolloutProcessor,
     RolloutProcessorConfig,
     TestFunction,
@@ -32,8 +33,9 @@ def evaluation_test(
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
     dataset_adapter: Optional[Callable[[List[Dict[str, Any]]], Dataset]] = lambda x: x,
-    input_params: Optional[List[InputParam]] = None,
+    rollout_input_params: Optional[List[RolloutInputParam]] = None,
     rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
+    evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
     aggregation_method: AggregationMethod = "mean",
     threshold_of_success: Optional[float] = None,
     num_runs: int = 1,
@@ -56,8 +58,9 @@ def evaluation_test(
             to a list of EvaluationRows if you have a custom dataset format.
         dataset_adapter: Function to convert the input dataset to a list of
             EvaluationRows. This is useful if you have a custom dataset format.
-        input_params: Generation parameters for the model.
+        rollout_input_params: Generation parameters for the rollout.
         rollout_processor: Function used to perform the rollout.
+        evaluation_test_kwargs: Kwargs for the evaluation function.
         aggregation_method: How to aggregate scores across rows.
         threshold_of_success: If set, fail the test if the aggregated score is
             below this threshold.
@@ -104,12 +107,19 @@ def evaluation_test(
             test_func: TestFunction,
             row: EvaluationRow | None = None,
             input_dataset: List[EvaluationRow] | None = None,
+            evaluation_test_kwargs: Optional[EvaluationInputParam] = None,
         ):
             kwargs = {}
             if input_dataset is not None:
                 kwargs["rows"] = input_dataset
             if row is not None:
                 kwargs["row"] = row
+            if evaluation_test_kwargs is not None:
+                if "row" in evaluation_test_kwargs:
+                    raise ValueError("'row' is a reserved parameter for the evaluation function")
+                if "rows" in evaluation_test_kwargs:
+                    raise ValueError("'rows' is a reserved parameter for the evaluation function")
+                kwargs.update(evaluation_test_kwargs)
             return execute_function(test_func, **kwargs)
 
         # Calculate all possible combinations of parameters
@@ -118,21 +128,23 @@ def evaluation_test(
 
             # Handle optional parameters with defaults
             datasets: List[Optional[DatasetPathParam]] = input_dataset if input_dataset is not None else [None]  # type: ignore
-            params: List[Optional[InputParam]] = input_params if input_params is not None else [None]  # type: ignore
+            params: List[Optional[RolloutInputParam]] = rollout_input_params if rollout_input_params is not None else [None]  # type: ignore
             messages: List[Optional[InputMessagesParam]] = input_messages if input_messages is not None else [None]  # type: ignore
+            kwargs: List[Optional[EvaluationInputParam]] = evaluation_test_kwargs if evaluation_test_kwargs is not None else [None]  # type: ignore
 
             # Generate all combinations
             for m in model:
                 for ds in datasets:
                     for ip in params:
                         for im in messages:
-                            # Skip combinations that don't make sense
-                            # If we have a dataset, we should have params for rollout
-                            if ds is not None and ip is None:
-                                continue
-                            # If we have messages but no dataset, that's fine
-                            # If we have no dataset and no messages, that's also fine
-                            combinations.append((m, ds, ip, im))
+                            for etk in kwargs:
+                                # Skip combinations that don't make sense
+                                # If we have a dataset, we should have params for rollout
+                                if ds is not None and ip is None:
+                                    continue
+                                # If we have messages but no dataset, that's fine
+                                # If we have no dataset and no messages, that's also fine
+                                combinations.append((m, ds, ip, im, etk))
 
             return combinations
 
@@ -141,27 +153,31 @@ def evaluation_test(
         # Create parameter tuples for pytest.mark.parametrize
         param_tuples = []
         for combo in combinations:
-            model_name, dataset, params, messages = combo
+            model_name, dataset, params, messages, etk = combo
             param_tuple = [model_name]
             if input_dataset is not None:
                 param_tuple.append(dataset)
-            if input_params is not None:
+            if rollout_input_params is not None:
                 param_tuple.append(params)
             if input_messages is not None:
                 param_tuple.append(messages)
+            if evaluation_test_kwargs is not None:
+                param_tuple.append(etk)
             param_tuples.append(tuple(param_tuple))
 
         # For batch mode, use the original parameter names
         test_param_names = ["model"]
         if input_dataset is not None:
             test_param_names.append("dataset_path")
-        if input_params is not None:
+        if rollout_input_params is not None:
             test_param_names.append("input_params")
         if input_messages is not None:
             test_param_names.append("input_messages")
+        if evaluation_test_kwargs is not None:
+            test_param_names.append("evaluation_test_kwargs")
 
         # Create wrapper function with exact signature that pytest expects
-        def create_wrapper_with_signature():
+        def create_wrapper_with_signature() -> Callable:
             # Create the function body that will be used
             def wrapper_body(**kwargs):
                 model_name = kwargs["model"]
@@ -193,6 +209,7 @@ def evaluation_test(
                             result = execute_with_params(
                                 test_func,
                                 row=row,
+                                evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                             )
                             if result is None or not isinstance(result, EvaluationRow):
                                 raise ValueError(
@@ -204,6 +221,7 @@ def evaluation_test(
                         results = execute_with_params(
                             test_func,
                             input_dataset=input_dataset,
+                            evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                         )
                         if results is None:
                             raise ValueError(
@@ -234,6 +252,7 @@ def evaluation_test(
 
         wrapper = create_wrapper_with_signature()
         wrapper = pytest.mark.parametrize(test_param_names, param_tuples)(wrapper)
+        wrapper.original_evaluation_test_func = test_func
 
         return wrapper
 

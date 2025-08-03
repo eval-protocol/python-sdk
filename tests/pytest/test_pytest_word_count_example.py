@@ -9,7 +9,7 @@ from tests.pytest.helper.word_count_to_evaluation_row import word_count_to_evalu
     input_dataset=["development/gsm8k_sample.jsonl"],
     dataset_adapter=word_count_to_evaluation_row,
     model=["accounts/fireworks/models/kimi-k2-instruct"],
-    input_params=[{"temperature": 0.0}],
+    rollout_input_params=[{"temperature": 0.0}],
     max_dataset_rows=5,
     threshold_of_success=0.3,  # Reasonable threshold for word count evaluation
     rollout_processor=default_single_turn_rollout_processor,

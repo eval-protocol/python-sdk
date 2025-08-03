@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
-from eval_protocol.pytest import evaluation_test, default_single_turn_rollout_processor, evaluate
+from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
 
 
 def markdown_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
@@ -21,17 +21,27 @@ def markdown_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     ]
 
 
-def markdown_format_evaluate(messages: List[Message], ground_truth: Optional[str] = None, **kwargs) -> EvaluateResult:
+@evaluation_test(
+    input_dataset=["tests/pytest/data/markdown_dataset.jsonl"],
+    dataset_adapter=markdown_dataset_to_evaluation_row,
+    model=["accounts/fireworks/models/llama-v3p1-8b-instruct"],
+    rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
+    threshold_of_success=1.0,
+    rollout_processor=default_single_turn_rollout_processor,
+    num_runs=1,
+    mode="pointwise",
+)
+def test_markdown_highlighting_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
     Evaluation function that checks if the model's response contains the required number of formatted sections.
     """
 
-    assistant_response = messages[-1].content
+    assistant_response = row.messages[-1].content
 
     if not assistant_response:
         return EvaluateResult(score=0.0, reason="❌ No assistant response found")
 
-    required_highlights = int(ground_truth)
+    required_highlights = int(row.ground_truth)
 
     # Check if the response contains the required number of formatted sections
     # e.g. **bold** or *italic*
@@ -50,26 +60,11 @@ def markdown_format_evaluate(messages: List[Message], ground_truth: Optional[str
     meets_requirement = actual_count >= required_highlights
 
     if meets_requirement:
-        return EvaluateResult(
+        row.evaluation_result = EvaluateResult(
             score=1.0, reason=f"✅ Found {actual_count} highlighted sections (required: {required_highlights})"
         )
     else:
-        return EvaluateResult(
+        row.evaluation_result = EvaluateResult(
             score=0.0, reason=f"❌ Only found {actual_count} highlighted sections (required: {required_highlights})"
         )
-
-
-@evaluation_test(
-    input_dataset=["tests/pytest/data/markdown_dataset.jsonl"],
-    dataset_adapter=markdown_dataset_to_evaluation_row,
-    model=["accounts/fireworks/models/llama-v3p1-8b-instruct"],
-    input_params=[{"temperature": 0.0, "max_tokens": 4096}],
-    threshold_of_success=1.0,
-    rollout_processor=default_single_turn_rollout_processor,
-    num_runs=1,
-)
-def test_markdown_highlighting_evaluation(rows: List[EvaluationRow]) -> List[EvaluationRow]:
-    """
-    Test markdown highlighting validation using batch mode with evaluate().
-    """
-    return evaluate(rows, markdown_format_evaluate)
+    return row
