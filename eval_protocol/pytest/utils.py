@@ -1,6 +1,6 @@
 import asyncio
 import inspect
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Literal
 
 from ..models import EvaluateResult, EvaluationRow
 
@@ -51,7 +51,10 @@ def evaluate(
     return evaluated
 
 
-def aggregate(scores: List[float], method: str) -> float:
+AggregationMethod = Literal["mean", "max", "min"]
+
+
+def aggregate(scores: List[float], method: AggregationMethod) -> float:
     if not scores:
         return 0.0
     if method == "mean":

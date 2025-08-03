@@ -16,7 +16,12 @@ from eval_protocol.pytest.types import (
     RolloutProcessorConfig,
     TestFunction,
 )
-from eval_protocol.pytest.utils import aggregate, create_dynamically_parameterized_wrapper, execute_function
+from eval_protocol.pytest.utils import (
+    AggregationMethod,
+    aggregate,
+    create_dynamically_parameterized_wrapper,
+    execute_function,
+)
 
 from ..common_utils import load_jsonl
 
@@ -29,7 +34,7 @@ def evaluation_test(
     dataset_adapter: Optional[Callable[[List[Dict[str, Any]]], Dataset]] = lambda x: x,
     input_params: Optional[List[InputParam]] = None,
     rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
-    aggregation_method: str = "mean",
+    aggregation_method: AggregationMethod = "mean",
     threshold_of_success: Optional[float] = None,
     num_runs: int = 1,
     max_dataset_rows: Optional[int] = None,
@@ -58,45 +63,10 @@ def evaluation_test(
             below this threshold.
         num_runs: Number of times to repeat the evaluation.
         max_dataset_rows: Limit dataset to the first N rows.
+        mcp_config_path: Path to MCP config file that follows MCPMultiClientConfiguration schema
         mode: Evaluation mode. "batch" (default) expects test function to handle
             full dataset. "pointwise" applies test function to each row. If your evaluation requires
             the full rollout of all rows to compute the score, use
-
-    Usage:
-    With an input dataset and input params, the test function will be called with the following arguments:
-
-    ```python
-    @evaluation_test(
-        model=["gpt-4o", "gpt-4o-mini"],
-        input_dataset=["data/test.jsonl"],
-        input_params=[{"temperature": 0.5}],
-        rollout_processor=default_rollout_processor,
-        aggregation_method="mean",
-    )
-    def test_func(dataset_path: str, model_name: str, input_params: Dict[str, Any]):
-        pass
-    ```
-
-    Without an input dataset and input params, the test function will be called with the following arguments:
-
-    ```python
-    @evaluation_test(
-        model=["gpt-4o", "gpt-4o-mini"],
-    )
-    def test_func(model_name: str):
-        pass
-    ```
-
-    With model and input_messages, the test function will be called with the following arguments:
-
-    ```python
-    @evaluation_test(
-        model=["gpt-4o", "gpt-4o-mini"],
-        input_messages=[{"role": "user", "content": "Hello, how are you?"}],
-    )
-    def test_func(model_name: str, input_messages: List[List[Message]]):
-        pass
-    ```
     """
 
     def decorator(
@@ -132,18 +102,12 @@ def evaluation_test(
 
         def execute_with_params(
             test_func: TestFunction,
-            model: str,
             row: EvaluationRow | None = None,
             input_dataset: List[EvaluationRow] | None = None,
-            input_params: InputParam | None = None,
         ):
             kwargs = {}
             if input_dataset is not None:
                 kwargs["rows"] = input_dataset
-            if input_params is not None:
-                kwargs["input_params"] = input_params
-            if model is not None:
-                kwargs["model"] = model
             if row is not None:
                 kwargs["row"] = row
             return execute_function(test_func, **kwargs)
@@ -231,9 +195,7 @@ def evaluation_test(
                         for row in input_dataset:
                             result = execute_with_params(
                                 test_func,
-                                model=model_name,
                                 row=row,
-                                input_params=kwargs.get("input_params") if "input_params" in kwargs else None,
                             )
                             if result is None or not isinstance(result, EvaluationRow):
                                 raise ValueError(
@@ -244,9 +206,7 @@ def evaluation_test(
                         # Batch mode: call the test function with the full dataset
                         results = execute_with_params(
                             test_func,
-                            model=model_name,
                             input_dataset=input_dataset,
-                            input_params=kwargs.get("input_params") if "input_params" in kwargs else None,
                         )
                         if results is None:
                             raise ValueError(

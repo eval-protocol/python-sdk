@@ -1,7 +1,8 @@
-from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
-from eval_protocol.models import EvaluateResult, MetricResult, EvaluationRow
-from tests.pytest.helper.word_count_to_evaluation_row import word_count_to_evaluation_row
 from haikus import haikus
+
+from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult
+from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
+from tests.pytest.helper.word_count_to_evaluation_row import word_count_to_evaluation_row
 
 
 @evaluation_test(
@@ -74,8 +75,9 @@ def test_word_count_evaluate(row: EvaluationRow) -> EvaluationRow:
         ),
     }
 
-    return EvaluateResult(
+    row.evaluation_result = EvaluateResult(
         score=word_count_score,
         reason=f"Word count: {word_count}. {haiku_metric_reason}",
         metrics=metrics,
     )
+    return row
