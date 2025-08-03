@@ -182,11 +182,8 @@ def evaluation_test(
                     model=model_name,
                     input_params=kwargs.get("input_params") or {},
                     mcp_config_path=mcp_config_path or "",
-                    initial_messages=kwargs.get("input_messages") if "input_messages" in kwargs else [],
                 )
-                for row in data:
-                    processed: List[EvaluationRow] = execute_function(rollout_processor, row=row, config=config)
-                    input_dataset.extend(processed)
+                input_dataset = execute_function(rollout_processor, rows=data, config=config)
 
                 all_results: List[EvaluationRow] = []
                 for _ in range(num_runs):

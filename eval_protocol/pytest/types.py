@@ -39,7 +39,6 @@ class RolloutProcessorConfig:
     model: ModelParam
     input_params: InputParam  # optional input parameters for inference
     mcp_config_path: str  # for agent rollout processor
-    initial_messages: list[Message]  # for agent rollout processor
 
 
-RolloutProcessor = Callable[[EvaluationRow, RolloutProcessorConfig], List[EvaluationRow]]
+RolloutProcessor = Callable[[List[EvaluationRow], RolloutProcessorConfig], List[EvaluationRow]]
