@@ -173,10 +173,25 @@ class ExecutionManager:
         # Convert trajectories to unified EvaluationRow format
         evaluation_rows = []
         for trajectory in trajectories:
-            messages = [Message.model_validate(msg) for msg in trajectory.conversation_history]
+            # Handle multimodal content by extracting text from complex content structures
+            messages = []
+            for msg in trajectory.conversation_history:
+                # Create a copy to avoid modifying the original
+                msg_dict = dict(msg)
+                
+                # Handle multimodal content (list of content blocks) by extracting text
+                if isinstance(msg_dict.get("content"), list):
+                    text_content = None
+                    for content_block in msg_dict["content"]:
+                        if isinstance(content_block, dict) and content_block.get("type") == "text":
+                            text_content = content_block.get("text")
+                            break
+                    msg_dict["content"] = text_content or ""
+                
+                messages.append(Message.model_validate(msg_dict))
 
             input_metadata = InputMetadata(
-                row_id=trajectory.session.session_id,
+                row_id=trajectory.session.dataset_row.id if trajectory.session.dataset_row else None,
                 dataset_info=asdict(trajectory.session.dataset_row) if trajectory.session.dataset_row else {},
                 completion_params=CompletionParams(
                     model=policy.model_id,

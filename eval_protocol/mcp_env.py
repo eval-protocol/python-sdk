@@ -13,21 +13,18 @@ New modular structure:
 Usage remains the same:
     import eval_protocol as ep
 
-    # Load dataset with environment configuration and prompts
-    dataset = load_jsonl("dataset.jsonl")
-
     # Create general policy (environment-agnostic)
     policy = ep.FireworksPolicy(model_id="accounts/fireworks/models/qwen3-235b-a22b")
 
-    # Create environments with dataset-driven configuration
-    envs = ep.make("http://localhost:8000/mcp", dataset=dataset)
+    # Create environments with evaluation_rows configuration
+    envs = ep.make("http://localhost:8000/mcp", evaluation_rows=evaluation_rows)
 
     # Execute tool-calling rollouts
     evaluation_rows = await ep.rollout(envs, policy=policy, steps=512)
 
 Key Features:
 - General tool-calling interface that works with any MCP environment
-- Dataset-driven configuration with system prompts and user prompt templates
+- EvaluationRow-driven configuration with system prompts and user prompt templates
 - Automatic MCP tool discovery from servers
 - **PROPER MCP PATTERN**: Initial state obtained from MCP resources during session establishment
 - Tools used only for actions/interactions, not for getting initial state
@@ -50,7 +47,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 # Import all functionality from the new modular components
 from .mcp.execution.manager import ExecutionManager
-from .mcp.execution.policy import AnthropicPolicy, FireworksPolicy, LLMBasePolicy, OpenAIPolicy
+from .mcp.execution.policy import AnthropicPolicy, FireworksPolicy, LLMBasePolicy, OpenAIPolicy, LiteLLMPolicy
 from .mcp.session.manager import GeneralMCPVectorEnv
 from .models import EvaluationRow
 from .types import DatasetRow, MCPSession, MCPToolCall
@@ -60,6 +57,7 @@ logger = logging.getLogger(__name__)
 
 def make(
     env_spec: str,
+    evaluation_rows: Optional[List[EvaluationRow]] = None,
     dataset: Optional[List[Dict]] = None,
     n: Optional[int] = None,
     seeds: Optional[List[int]] = None,
@@ -67,11 +65,12 @@ def make(
     user_prompt_formatter: Optional[Callable] = None,
 ) -> GeneralMCPVectorEnv:
     """
-    Create general MCP environments driven by dataset configuration.
+    Create general MCP environments driven by evaluation_rows configuration.
 
     Args:
         env_spec: MCP server URL
-        dataset: List of dataset rows with prompts and context (preferred)
+        evaluation_rows: List of EvaluationRow objects containing messages and metadata (preferred)
+        dataset: List of dataset entries (for backward compatibility)
         n: Number of environments (for backward compatibility)
         seeds: List of seeds (for backward compatibility)
         model_id: Model identifier
@@ -81,8 +80,10 @@ def make(
         General MCP environment that works with any MCP server
 
     Example:
-        # New dataset-driven approach (preferred)
-        dataset = load_jsonl("dataset.jsonl")
+        # EvaluationRow approach (preferred)
+        envs = ep.make("http://localhost:8000/mcp", evaluation_rows=evaluation_rows)
+
+        # Dataset approach (backward compatibility)
         envs = ep.make("http://localhost:8000/mcp", dataset=dataset)
 
         # Legacy approach (backward compatibility)
@@ -97,13 +98,39 @@ def make(
     if not base_url.endswith("/"):
         base_url += "/"
 
-    # Handle dataset-driven vs legacy approaches
-    if dataset is not None:
-        # New dataset-driven approach
+    # Convert evaluation_rows to dataset format if provided
+    internal_dataset = []
+
+    if evaluation_rows:
+        for i, row in enumerate(evaluation_rows):
+            dataset_info = row.input_metadata.dataset_info if row.input_metadata else {}
+            
+            system_message = row.get_system_message()
+            system_prompt = system_message.content or ""
+            
+            dataset_entry = {
+                "id": row.input_metadata.row_id if row.input_metadata and row.input_metadata.row_id else f"task_{i}",
+                "system_prompt": system_prompt,
+                "user_prompt_template": dataset_info.get("user_prompt_template", ""),
+                "environment_context": dataset_info.get("environment_context", {}),
+                "user_simulation": dataset_info.get("user_simulation", {}),
+                "evaluation_criteria": dataset_info.get("evaluation_criteria", {})
+            }
+            internal_dataset.append(dataset_entry)
+    elif dataset:
+        # Use provided dataset directly for backward compatibility
+        internal_dataset = dataset
+
+    dataset_rows = []
+    sessions = []
+
+    # Handle evaluation_rows vs legacy approaches
+    if internal_dataset:
+        # New evaluation_rows approach
         dataset_rows = []
         sessions = []
 
-        for row in dataset:
+        for row in internal_dataset:
             # Parse dataset row
             if isinstance(row, dict):
                 # Handle seed from both old location (backward compatibility) and new location
@@ -138,7 +165,7 @@ def make(
     else:
         # Legacy approach for backward compatibility
         if n is None:
-            raise ValueError("Either 'dataset' or 'n' must be provided")
+            raise ValueError("Either 'evaluation_rows' or 'n' must be provided")
 
         # Generate seeds if not provided
         if seeds is None:
@@ -178,6 +205,7 @@ async def rollout(
     envs: GeneralMCPVectorEnv,
     policy: Union[FireworksPolicy, LLMBasePolicy, Callable],
     *,
+    evaluation_rows: Optional[List[EvaluationRow]] = None,
     dataset: Optional[List[Dict]] = None,
     model_id: Optional[str] = None,
     steps: int = 512,
@@ -191,13 +219,14 @@ async def rollout(
 
     This works with ANY MCP environment because:
     1. Policy receives tool schemas and makes tool calls
-    2. Environment prompts come from dataset
+    2. Environment prompts come from evaluation_rows
     3. No hardcoded environment logic
 
     Args:
         envs: Either a GeneralMCPVectorEnv instance or the MCP server URL
         policy: Policy that takes tool schemas, observations, prompts and returns tool calls
-        dataset: Dataset used when envs is a URL (required for automatic env creation)
+        evaluation_rows: EvaluationRow list used when envs is a URL (for automatic env creation)
+        dataset: Dataset list used for backward compatibility when envs is a URL
         model_id: Model identifier used when creating environments. Defaults to ``policy.model_id`` when available.
         steps: Maximum steps per rollout
         openai_format_log_file: Optional file to log clean OpenAI format for terminated trajectories only
@@ -220,7 +249,7 @@ async def rollout(
         trajectories = await ep.rollout(
             "http://localhost:8000/mcp/",
             policy,
-            dataset=my_dataset,
+            evaluation_rows=my_evaluation_rows,
             model_id=policy.model_id,
         )
 
@@ -233,11 +262,11 @@ async def rollout(
     """
     # Automatically create environments if a base URL is provided
     if isinstance(envs, str):
-        if dataset is None:
-            raise ValueError("'dataset' must be provided when envs is a URL")
+        if evaluation_rows is None and dataset is None:
+            raise ValueError("Either 'evaluation_rows' or 'dataset' must be provided when envs is a URL")
 
         auto_model_id = model_id or getattr(policy, "model_id", "unknown")
-        envs = make(envs, dataset=dataset, model_id=auto_model_id)
+        envs = make(envs, evaluation_rows=evaluation_rows, dataset=dataset, model_id=auto_model_id)
 
     # Use the new ExecutionManager for execution
     execution_manager = ExecutionManager()
@@ -304,6 +333,7 @@ __all__ = [
     "AnthropicPolicy",
     "FireworksPolicy",
     "OpenAIPolicy",
+    "LiteLLMPolicy",
     "LLMBasePolicy",  # New base class for OpenAI integration
     "GeneralMCPVectorEnv",
     "MCPToolCall",

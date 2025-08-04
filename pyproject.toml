@@ -95,6 +95,10 @@ openevals = [
 fireworks = [
     "fireworks-ai>=0.19.10",
 ]
+box2d = [
+    "swig",
+    "gymnasium[box2d]>=0.29.0",
+]
 
 [project.scripts]
 fireworks-reward = "eval_protocol.cli:main"

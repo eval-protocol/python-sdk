@@ -3,7 +3,7 @@ Parameter types
 """
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Literal
+from typing import Any, Callable, Dict, List, Literal, Optional
 
 from ..models import EvaluationRow, Message
 
@@ -39,7 +39,10 @@ Rollout processor types
 class RolloutProcessorConfig:
     model: ModelParam
     input_params: RolloutInputParam  # optional input parameters for inference
-    mcp_config_path: str  # for agent rollout processor
+    mcp_config_path: str  
+    server_script_path: Optional[str] = None  # TODO: change from server_script_path to mcp_config_path for agent rollout processor
+    max_concurrent_rollouts: int = 8  # maximum number of concurrent rollouts
+    steps: int = 30  # max number of rollout steps
 
 
 RolloutProcessor = Callable[[List[EvaluationRow], RolloutProcessorConfig], List[EvaluationRow]]

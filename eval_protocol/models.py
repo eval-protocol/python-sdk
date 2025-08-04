@@ -243,6 +243,13 @@ class EvaluationRow(BaseModel):
         """Returns the number of messages in the conversation."""
         return len(self.messages)
 
+    def get_system_message(self) -> Message:
+        """Returns the system message from the conversation. Returns empty Message if none found."""
+        system_messages = [msg for msg in self.messages if msg.role == "system"]
+        if not system_messages:
+            return Message(role="system", content="")
+        return system_messages[0]
+
     def get_assistant_messages(self) -> List[Message]:
         """Returns only the assistant messages from the conversation."""
         return [msg for msg in self.messages if msg.role == "assistant"]
