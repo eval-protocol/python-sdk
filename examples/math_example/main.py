@@ -20,8 +20,8 @@ def check_think_answer_format(text: str) -> bool:
     """Check if text follows <think>...</think><answer>...</answer> format."""
     if not text:
         return False
-    pattern = r"<think>[\s\S]*?</think>[\s\S]*?<answer>[\s\S]*?</answer>"
-    return bool(re.search(pattern, text))
+    pattern = r"^<think>[\s\S]*?</think>\s*<answer>[\s\S]*?</answer>$"
+    return bool(re.match(pattern, text.strip()))
 
 
 @reward_function
@@ -59,12 +59,13 @@ def evaluate(
     format_correct = check_think_answer_format(assistant_response)
     format_score = 1.0 if format_correct else 0.0
 
-    # For math_example, accuracy takes priority - if accuracy is 0, overall score is 0
-    # If accuracy is 1, then format can contribute to the score
+    # The combined score is a weighted average of accuracy and format
+    weights = {"accuracy": 0.8, "format": 0.2}
+    combined_score = (accuracy_result.score * weights["accuracy"]) + (format_score * weights["format"])
+
+    # If accuracy is 0, the overall score is 0, regardless of format.
     if accuracy_result.score == 0.0:
         combined_score = 0.0
-    else:
-        combined_score = accuracy_result.score  # Only accuracy matters for math_example
 
     # Create metrics structure expected by tests
     metrics = {
