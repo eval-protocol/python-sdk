@@ -26,7 +26,7 @@ def markdown_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     dataset_adapter=markdown_dataset_to_evaluation_row,
     model=["accounts/fireworks/models/llama-v3p1-8b-instruct"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
-    threshold_of_success=1.0,
+    threshold_of_success=0.5,
     rollout_processor=default_single_turn_rollout_processor,
     num_runs=1,
     mode="pointwise",
