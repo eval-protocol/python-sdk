@@ -1,5 +1,5 @@
 """
-Pytest test for deepcoder code evaluation using the evaluation_test decorator.
+Pytest test for coding code evaluation using the evaluation_test decorator.
 
 This test demonstrates how to evaluate code correctness by executing Python code locally
 and comparing the output against expected results in a pointwise manner.
@@ -12,9 +12,9 @@ from eval_protocol.pytest import default_single_turn_rollout_processor, evaluati
 from eval_protocol.rewards.code_execution import extract_code_blocks, execute_python_code
 
 
-def deepcoder_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
+def coding_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
     """
-    Convert entries from deepcoder dataset to EvaluationRow objects.
+    Convert entries from coding dataset to EvaluationRow objects.
     """
     return [
         EvaluationRow(
@@ -26,8 +26,8 @@ def deepcoder_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
 
 
 @evaluation_test(
-    input_dataset=["tests/pytest/data/deepcoder_dataset.jsonl"],
-    dataset_adapter=deepcoder_dataset_to_evaluation_row,
+    input_dataset=["tests/pytest/data/coding_dataset.jsonl"],
+    dataset_adapter=coding_dataset_to_evaluation_row,
     model=["accounts/fireworks/models/kimi-k2-instruct"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
     threshold_of_success=0.5,
@@ -35,7 +35,7 @@ def deepcoder_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
     num_runs=1,
     mode="pointwise",
 )
-def test_deepcoder_code_evaluation(row: EvaluationRow) -> EvaluationRow:
+def test_coding_code_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
     Evaluation function that tests code correctness by executing it locally.
     
