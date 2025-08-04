@@ -2,8 +2,15 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/eval-protocol)](https://pypi.org/project/eval-protocol/)
 
-EP is an open protocol that standardizes how developers author evals for large
-language model (LLM) applications.
+EP is an open specification, Python SDK, and pytest wrapper that provides a
+standardized way to write evaluations for large language model (LLM)
+applications. Start with simple single-turn evals for model selection and prompt
+engineering, then scale up to complex multi-turn reinforcement learning (RL) for
+agents using Model Context Protocol (MCP). EP ensures consistent patterns for
+writing evals, storing traces, and saving results—enabling you to build
+sophisticated agent evaluations that work across real-world scenarios, from
+markdown generation tasks to customer service agents with tool calling
+capabilities.
 
 ## Quick Example
 
