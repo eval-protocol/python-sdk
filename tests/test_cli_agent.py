@@ -5,6 +5,7 @@ Tests for the agent-eval CLI command.
 import argparse
 import asyncio  # Added import
 import json
+import logging
 from unittest.mock import (  # Added AsyncMock and Mock
     AsyncMock,
     MagicMock,
@@ -38,6 +39,9 @@ class TestAgentEvalCommand:
     @patch("eval_protocol.cli_commands.agent_eval_cmd.TaskManager")
     @patch("eval_protocol.cli_commands.agent_eval_cmd.Path")
     def test_agent_eval_success_yaml(self, MockPath, MockTaskManager, caplog):
+        # Configure caplog to capture logs from the agent_eval logger
+        caplog.set_level(logging.INFO, logger="agent_eval")
+        
         # Setup Path mock
         mock_path_instance = Mock()
         MockPath.return_value = mock_path_instance

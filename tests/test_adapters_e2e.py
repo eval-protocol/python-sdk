@@ -276,7 +276,7 @@ class TestHuggingFaceAdapterE2E:
         
         # Create adapter
         adapter = create_huggingface_adapter(
-            dataset_id="hendrycks/competition_math",
+            dataset_id="SuperSecureHuman/competition_math_hf_dataset",
             transform_fn=math_transform,
         )
         
