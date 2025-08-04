@@ -39,8 +39,8 @@ Rollout processor types
 class RolloutProcessorConfig:
     model: ModelParam
     input_params: RolloutInputParam  # optional input parameters for inference
-    mcp_config_path: str = ""  # for agent rollout processor
-    server_script_path: Optional[str] = None  # path to MCP server script
+    mcp_config_path: str  
+    server_script_path: Optional[str] = None  # TODO: change from server_script_path to mcp_config_path for agent rollout processor
     max_concurrent_rollouts: int = 8  # maximum number of concurrent rollouts
     steps: int = 30  # max number of rollout steps
 
