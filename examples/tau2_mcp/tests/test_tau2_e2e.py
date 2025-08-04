@@ -60,7 +60,8 @@ def _is_ci_mode():
 
 def _create_test_server(port: int, domain: str = "airline") -> "MCPServerManager":
     """Create and start a test server."""
-    server = MCPServerManager("../server.py", port=port, domain=domain)
+    server_script_path = os.path.join(os.path.dirname(__file__), "..", "server.py")
+    server = MCPServerManager(server_script_path, port=port, domain=domain)
     server.start()
     print(f"✅ Started test server on port {port}")
     return server
@@ -104,6 +105,9 @@ class MCPServerManager:
         # Set environment for server
         env = os.environ.copy()
         env["PORT"] = str(self.port)
+        if 'PYTHONPATH' not in env:
+            env['PYTHONPATH'] = ''
+        env['PYTHONPATH'] += os.pathsep + str(self.base_dir)
 
         # Start server process (no domain argument needed for tau2_mcp server)
         cmd = ["python", self.server_script, "--port", str(self.port)]
