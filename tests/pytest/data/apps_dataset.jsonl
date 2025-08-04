@@ -1,3 +1,0 @@
-{"prompt": "Write a Python program that reads two integers from stdin and outputs their sum.", "input": "5\n3", "expected_output": "8"}
-{"prompt": "Write a Python program that reads a string from stdin and outputs its length.", "input": "hello", "expected_output": "5"}
-{"prompt": "Write a Python program that reads two integers from stdin and outputs the larger one.", "input": "10\n7", "expected_output": "10"}
