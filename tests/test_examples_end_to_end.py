@@ -144,7 +144,7 @@ def test_math_example(temp_examples_dir, mock_env_variables):
         Message(role="user", content="What is 2+2?"),
         Message(
             role="assistant",
-            content="<think>The user is asking for the sum of 2 and 2.</think><answer>The final answer is \\boxed{4}</answer>",
+            content="<think>I need to solve this arithmetic problem.</think><answer>The final answer is \\boxed{4}</answer>",
         ),
     ]
     ground_truth_correct = "The final answer is \\boxed{4}"
@@ -165,7 +165,7 @@ def test_math_example(temp_examples_dir, mock_env_variables):
         Message(role="user", content="What is 2+2?"),
         Message(
             role="assistant",
-            content="<think>The user is asking for the sum of 2 and 2.</think><answer>The final answer is \\boxed{5}</answer>",
+            content="<think>I need to solve this arithmetic problem.</think><answer>The final answer is \\boxed{5}</answer>",
         ),
     ]
     # Ground truth is still 4
@@ -186,7 +186,7 @@ def test_math_example(temp_examples_dir, mock_env_variables):
     ]
     result_incorrect_fmt = math_module.evaluate(messages=messages_incorrect_fmt, ground_truth=ground_truth_correct)
 
-    assert result_incorrect_fmt["score"] == 1.0  # Accuracy is 1.0
+    assert result_incorrect_fmt["score"] == 0.8  # Combined score: (1.0 * 0.8) + (0.0 * 0.2) = 0.8
     assert result_incorrect_fmt["is_score_valid"] is True
     # Asserting extracted answers from the result object directly might fail
     assert result_incorrect_fmt["metrics"]["accuracy_reward"]["score"] == 1.0
@@ -269,7 +269,7 @@ def test_math_example(temp_examples_dir, mock_env_variables):
         messages=messages_only_answer_tag, ground_truth=ground_truth_simple_gt
     )
 
-    assert result_only_answer_tag["score"] == 1.0  # Accuracy is fine
+    assert result_only_answer_tag["score"] == 0.8  # Combined score: (1.0 * 0.8) + (0.0 * 0.2) = 0.8
     assert result_only_answer_tag["is_score_valid"] is True
     # Asserting extracted answers from the result object directly might fail
     assert result_only_answer_tag["metrics"]["accuracy_reward"]["score"] == 1.0
