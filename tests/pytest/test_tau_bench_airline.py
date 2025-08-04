@@ -53,7 +53,7 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
             messages=messages,
             input_metadata=InputMetadata(
                 row_id=entry.get("id"),
-                completion_params=CompletionParams(model="placeholder"),
+                completion_params=CompletionParams(model="placeholder"), # This gets populated by the rollout processor
                 dataset_info={
                     "environment_context": entry.get("environment_context"),
                     "user_simulation": user_simulation,
@@ -77,7 +77,6 @@ def save_single_trajectory(trajectory_record: Dict, row_id: str, output_dir: str
     safe_model_id = trajectory_record["model_id"].replace("/", "_").replace("\\", "_")
     
     # Use row_id if provided, otherwise fall back to scenario_id
-
     filename = f"{safe_model_id}_{row_id}_trajectory.json"
     filepath = output_path / filename
 

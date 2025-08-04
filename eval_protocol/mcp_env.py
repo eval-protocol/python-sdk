@@ -125,7 +125,7 @@ def make(
     sessions = []
 
     # Handle evaluation_rows vs legacy approaches
-    if internal_dataset is not None:
+    if internal_dataset:
         # New evaluation_rows approach
         dataset_rows = []
         sessions = []

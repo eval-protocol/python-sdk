@@ -85,10 +85,13 @@ jobs:
           FIREWORKS_ACCOUNT_ID: ${{ secrets.FIREWORKS_ACCOUNT_ID }}
           PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
         run: |
-          # Run most tests in parallel, but explicitly ignore tests that manage their own servers
+          # Run most tests in parallel, but explicitly ignore tests that manage their own servers or are slow
           uv run pytest \
             -n auto \
             --ignore=tests/test_batch_evaluation.py \
+            --ignore=tests/pytest/test_frozen_lake.py \
+            --ignore=tests/pytest/test_lunar_lander.py \
+            --ignore=tests/pytest/test_tau_bench_airline.py \
             --cov=eval_protocol --cov-append --cov-report=xml --cov-report=term-missing -v --durations=10
 
       - name: Store coverage file

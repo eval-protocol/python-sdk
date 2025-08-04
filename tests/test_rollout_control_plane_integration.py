@@ -508,6 +508,7 @@ class TestRolloutControlPlaneIntegration:
 
             mock_make.assert_called_once_with(
                 "http://localhost:1234/mcp/",
+                evaluation_rows=None,
                 dataset=dataset,
                 model_id="test_model",
             )
