@@ -99,6 +99,18 @@ box2d = [
     "swig",
     "gymnasium[box2d]>=0.29.0",
 ]
+langfuse = [
+    "langfuse>=2.0.0",
+]
+huggingface = [
+    "datasets>=2.0.0",
+    "transformers>=4.0.0",
+]
+adapters = [
+    "langfuse>=2.0.0",
+    "datasets>=2.0.0", 
+    "transformers>=4.0.0",
+]
 
 [project.scripts]
 fireworks-reward = "eval_protocol.cli:main"
