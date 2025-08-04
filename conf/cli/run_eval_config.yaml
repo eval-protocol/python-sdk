@@ -1,0 +1,59 @@
+# Default Hydra configuration for the 'eval-protocol run' command.
+# Users can override these settings via command line or by providing their own config file.
+
+defaults:
+  - dataset: # Requires a dataset configuration group. Example: dataset=gsm8k_local_prompts
+      _target_: eval_protocol.datasets.loader.load_and_process_dataset
+      # Default dataset (e.g., a small sample for quick testing if no dataset is specified)
+      # This should ideally be a very small, self-contained dataset if a default is provided.
+      # For now, let's make it mandatory to specify a dataset via CLI or a custom config.
+      # path_or_name: "eval_protocol/sample_data/default_prompts.jsonl" # Example path
+      # source_type: "jsonl"
+      # column_mapping: {"id":"id", "user_query":"user_query", "ground_truth_for_eval":"ground_truth_for_eval"}
+      optional: true # Make the dataset group itself optional here, forcing user to specify one.
+                     # Or, provide a very basic default like below.
+  - _self_ # Allows this file to override values from included defaults.
+
+# --- Main Configuration for the Evaluation Pipeline ---
+
+# Dataset configuration will be resolved by Hydra from the `dataset` group.
+# Example: `eval-protocol run dataset=my_dataset_config`
+# where `my_dataset_config.yaml` is in `conf/dataset/`
+dataset: ${dataset} # Refer to the dataset group chosen from defaults or CLI
+
+system_prompt: null # Optional: System prompt string to prepend to messages.
+# Example: "You are a helpful assistant."
+
+generation:
+  enabled: true
+  model_name: "accounts/fireworks/models/llama-v3p3-8b-instruct" # A default model
+  temperature: 0.0
+  max_tokens: 1024
+  api_base: "https://api.fireworks.ai/inference/v1" # Default Fireworks API base
+  # API client parameters (passed to FireworksModelClient config)
+  api_params:
+    rate_limit_qps: 1.0 # Queries per second (placeholder, actual client needs to implement)
+    max_retries: 3
+    max_concurrent_requests: 5 # Used by semaphore in pipeline
+  cache:
+    enabled: true
+    cache_dir: ".ep_cache/cli_generated_responses" # Relative to CWD (Hydra output dir)
+    # force_regenerate: false # Example, not used by current ResponseCache
+
+reward:
+  function_path: "eval_protocol.rewards.math.math_reward" # Example default reward function
+  params: # Parameters to pass to the reward function
+    tolerance: 0.001
+    require_units: false
+    # absolute_tolerance: 1e-8 # Example
+
+evaluation_params:
+  limit_samples: null # Max number of samples to process (null for all)
+
+output:
+  results_file: "pipeline_results.jsonl" # Saved in Hydra's output directory for the run
+
+logging_params: # For pipeline's internal logging control if needed, e.g., batch log interval
+  batch_log_interval: 10
+
+# hydra_output_dir will be injected by run_eval_cmd.py using HydraConfig.get().runtime.output_dir

@@ -1,0 +1,680 @@
+# Best Practices for Reward Functions
+
+This guide provides recommendations and best practices for designing effective, robust, and maintainable reward functions using Eval Protocol.
+
+## Designing Effective Reward Functions
+
+### 1. Clear Evaluation Criteria
+
+Define clear, specific criteria for what makes a good response:
+
+```python
+@reward_function
+def clarity_reward(messages, original_messages=None, **kwargs):
+    """
+    Evaluates clarity based on specific, measurable criteria:
+    1. Sentence length (shorter sentences are easier to understand)
+    2. Use of technical jargon (fewer complex terms is better)
+    3. Use of explanatory language (examples, analogies)
+    """
+    # Implementation...
+```
+
+✅ **Good Practice**: Define concrete, measurable attributes
+❌ **Avoid**: Vague criteria like "good quality" or "well-written"
+
+### 2. Decompose into Component Metrics
+
+Break down complex evaluations into simpler component metrics:
+
+```python
+@reward_function
+def comprehensive_evaluation(messages, original_messages=None, **kwargs):
+    """Evaluates response quality using multiple component metrics."""
+    response = messages[-1].get("content", "")
+    metrics = {}
+
+    # Clarity component
+    clarity_score = evaluate_clarity(response) # Assume this returns a float
+    metrics["clarity"] = MetricResult( # Updated
+        score=clarity_score,
+        success=clarity_score > 0.7, # Example success
+        reason=f"Clarity score: {clarity_score:.2f}"
+    )
+
+    # Accuracy component
+    accuracy_score = evaluate_accuracy(response) # Assume this returns a float
+    metrics["accuracy"] = MetricResult( # Updated
+        score=accuracy_score,
+        success=accuracy_score > 0.8, # Example success
+        reason=f"Accuracy score: {accuracy_score:.2f}"
+    )
+
+    # Helpfulness component
+    helpfulness_score = evaluate_helpfulness(response) # Assume this returns a float
+    metrics["helpfulness"] = MetricResult( # Updated
+        score=helpfulness_score,
+        success=helpfulness_score > 0.6, # Example success
+        reason=f"Helpfulness score: {helpfulness_score:.2f}"
+    )
+
+    # Weighted combination
+    final_score = (
+        clarity_score * 0.3 +
+        accuracy_score * 0.4 +
+        helpfulness_score * 0.3
+    )
+    final_score = max(0.0, min(1.0, final_score)) # Ensure score is within [0,1]
+    overall_reason = "Comprehensive evaluation based on clarity, accuracy, and helpfulness."
+
+    return EvaluateResult(score=final_score, reason=overall_reason, metrics=metrics) # Updated
+```
+
+✅ **Good Practice**: Component metrics that can be analyzed independently
+❌ **Avoid**: Opaque single scores without explanation
+
+### 3. Provide Detailed Explanations
+
+Always include clear explanations for scores:
+
+```python
+metrics["clarity"] = MetricRewardOutput(
+    score=clarity_score,
+    reason=(
+        f"Clarity score: {clarity_score:.2f}. "
+        f"Average sentence length: {avg_sentence_length:.1f} words. "
+        f"Technical terms: {technical_term_count}. "
+        f"Explanatory elements: {explanatory_count}."
+    )
+)
+```
+
+✅ **Good Practice**: Detailed, specific reasons for scores
+❌ **Avoid**: Generic or missing explanations
+
+### 4. Use Appropriate Scoring Ranges
+
+Normalize scores to a consistent range (typically 0.0 to 1.0):
+
+```python
+# Raw word count can be any positive number
+word_count = len(response.split())
+
+# Normalized to a 0.0-1.0 range with a reasonable cap
+word_count_score = min(word_count / 100, 1.0)
+```
+
+✅ **Good Practice**: Normalized scores with reasonable scaling
+❌ **Avoid**: Unbounded scores or inconsistent ranges across metrics
+
+### 5. Emphasize Relative, Not Absolute Scores
+
+Design reward functions to distinguish between better and worse responses, rather than focusing on absolute scores:
+
+```python
+# Better approach: compare to a baseline or reference
+improvement_score = current_response_score / baseline_score
+```
+
+✅ **Good Practice**: Scores that effectively differentiate between responses
+❌ **Avoid**: Chasing specific absolute score values
+
+## Handling Edge Cases
+
+### 1. Input Validation
+
+Always validate input before processing:
+
+```python
+from eval_protocol import EvaluateResult, MetricResult # Added for example
+
+@reward_function
+def robust_reward(messages, original_messages=None, **kwargs):
+    """Reward function with robust input validation."""
+    # Check for empty or invalid input
+    if not messages:
+        return EvaluateResult( # Updated
+            score=0.0,
+            reason="Input validation failed: No messages provided.", # Added reason
+            metrics={"error": MetricResult( # Updated
+                score=0.0,
+                success=False, # Added success
+                reason="No messages provided"
+            )}
+        )
+
+    # Check for assistant message
+    if messages[-1].get("role") != "assistant":
+        return EvaluateResult( # Updated
+            score=0.0,
+            reason="Input validation failed: Last message is not from assistant.", # Added reason
+            metrics={"error": MetricResult( # Updated
+                score=0.0,
+                success=False, # Added success
+                reason="Last message is not from assistant"
+            )}
+        )
+
+    # Check for missing content
+    response = messages[-1].get("content")
+    if not response:
+        return EvaluateResult( # Updated
+            score=0.0,
+            reason="Input validation failed: Assistant message has no content.", # Added reason
+            metrics={"error": MetricResult( # Updated
+                score=0.0,
+                success=False, # Added success
+                reason="Assistant message has no content"
+            )}
+        )
+
+    # Now process the valid input
+    # ...
+    # return EvaluateResult(score=1.0, reason="Valid input processed.", metrics={}) # Example valid return
+```
+
+✅ **Good Practice**: Comprehensive input validation with descriptive error messages
+❌ **Avoid**: Assuming valid input or using generic error messages
+
+### 2. Handle Special Cases
+
+Consider special cases explicitly:
+
+```python
+# Handle very short responses
+if len(response) < 10:
+    return EvaluateResult( # Updated
+        score=0.1,
+        reason="Response is too short.", # Added reason
+        metrics={"length": MetricResult( # Updated
+            score=0.1,
+            success=False, # Added success
+            reason="Response too short to evaluate properly"
+        )}
+    )
+
+# Handle non-text responses (like function calls)
+if not response and messages[-1].get("function_call"):
+    # Special handling for function calls
+    # ...
+```
+
+✅ **Good Practice**: Explicit handling of edge cases
+❌ **Avoid**: Assuming all inputs follow the expected pattern
+
+### 3. Use Try-Except Blocks
+
+Wrap evaluation logic in try-except blocks:
+
+```python
+@reward_function
+def safe_evaluation(messages, original_messages=None, **kwargs):
+    """Evaluation with robust error handling."""
+    try:
+        # Main evaluation logic
+        # ...
+        # final_score = 1.0 # Placeholder
+        # metrics = {} # Placeholder
+        # return EvaluateResult(score=final_score, reason="Successful evaluation after try.", metrics=metrics) # Updated
+        pass # Placeholder for actual logic
+    except Exception as e:
+        # Log the error (in a real implementation)
+        print(f"Error in evaluation: {str(e)}")
+
+        # Return a fallback result
+        return EvaluateResult( # Updated
+            score=0.0,
+            reason=f"Evaluation failed due to an exception: {str(e)}", # Added reason
+            metrics={"error": MetricResult( # Updated
+                score=0.0,
+                success=False, # Added success
+                reason=f"Evaluation error: {str(e)}"
+            )}
+        )
+```
+
+✅ **Good Practice**: Explicit error handling with graceful fallbacks
+❌ **Avoid**: Allowing exceptions to propagate uncaught
+
+### 4. Validate Component Scores
+
+Ensure component scores are within expected ranges:
+
+```python
+# Validate component scores
+def validate_score(score, name="component"):
+    """Ensure score is a valid float between 0 and 1."""
+    try:
+        score_float = float(score)
+        if not (0 <= score_float <= 1):
+            print(f"Warning: {name} score {score_float} outside valid range, clamping")
+            return max(0.0, min(score_float, 1.0))
+        return score_float
+    except (ValueError, TypeError):
+        print(f"Warning: Invalid {name} score {score}, defaulting to 0.0")
+        return 0.0
+```
+
+✅ **Good Practice**: Explicitly validate and normalize scores
+❌ **Avoid**: Assuming scores will always be valid
+
+## Performance Optimization
+
+### 1. Avoid Redundant Calculations
+
+Cache results for reuse within the same evaluation:
+
+```python
+@reward_function
+def optimized_reward(messages, original_messages=None, **kwargs):
+    """Reward function with optimized calculations."""
+    response = messages[-1].get("content", "")
+
+    # Calculate expensive operations once
+    words = response.lower().split()
+    word_count = len(words)
+    unique_words = set(words)
+
+    # Reuse these calculations in multiple metrics
+    metrics = {}
+
+    # Length metric
+    length_score = min(word_count / 100.0, 1.0)
+    metrics["length"] = MetricResult( # Updated
+        score=length_score,
+        success=length_score > 0.5, # Example success
+        reason=f"Word count: {word_count}"
+    )
+
+    # Vocabulary metric (reuses words and unique_words)
+    vocabulary_richness = len(unique_words) / max(word_count, 1)
+    vocabulary_score = min(vocabulary_richness * 5.0, 1.0)
+    metrics["vocabulary"] = MetricResult( # Updated
+        score=vocabulary_score,
+        success=vocabulary_score > 0.3, # Example success
+        reason=f"Vocabulary richness: {vocabulary_richness:.2f}"
+    )
+
+    # ...
+    # return EvaluateResult(score=(length_score+vocabulary_score)/2, reason="Optimized eval", metrics=metrics) # Example return
+```
+
+✅ **Good Practice**: Calculate values once and reuse
+❌ **Avoid**: Recalculating the same values multiple times
+
+### 2. Use Efficient Algorithms
+
+Choose efficient algorithms and data structures:
+
+```python
+# Inefficient approach
+def contains_keywords_inefficient(text, keywords):
+    return sum(1 for keyword in keywords if keyword in text.lower().split())
+
+# More efficient approach
+def contains_keywords_efficient(text, keywords):
+    words = set(text.lower().split())
+    return sum(1 for keyword in keywords if keyword in words)
+```
+
+✅ **Good Practice**: Use efficient algorithms and data structures
+❌ **Avoid**: O(n²) operations or inefficient string operations
+
+### 3. Limit External Dependencies
+
+Use standard library functions when possible:
+
+```python
+# Simple approach using standard library
+def count_sentence_complexity(text):
+    sentences = [s.strip() for s in text.split('.') if s.strip()]
+    return sum(len(s.split()) for s in sentences) / max(len(sentences), 1)
+
+# Only use more complex NLP when necessary
+def advanced_analysis(text):
+    try:
+        import spacy
+        nlp = spacy.load("en_core_web_sm")
+        doc = nlp(text)
+        # Complex analysis...
+    except ImportError:
+        # Fallback to simple analysis
+        return count_sentence_complexity(text)
+```
+
+✅ **Good Practice**: Minimize dependencies, have fallbacks for complex operations
+❌ **Avoid**: Heavy dependencies for simple tasks
+
+### 4. Implement Early Returns
+
+Return early for special cases:
+
+```python
+@reward_function
+def early_return_reward(messages, original_messages=None, **kwargs):
+    """Reward function with early returns for efficiency."""
+    # Early return for empty input
+    if not messages:
+        return EvaluateResult(score=0.0, reason="No messages for early return.", metrics={}) # Updated
+
+    response = messages[-1].get("content", "")
+
+    # Early return for very short responses
+    if len(response) < 10:
+        return EvaluateResult( # Updated
+            score=0.1,
+            reason="Response too short for full evaluation.", # Added reason
+            metrics={"length": MetricResult(score=0.1, success=False, reason="Response too short")} # Updated
+        )
+
+    # Only continue with full evaluation for non-trivial responses
+    # ...
+    # return EvaluateResult(score=1.0, reason="Full evaluation after early checks.", metrics={}) # Example return
+```
+
+✅ **Good Practice**: Return early for special cases to avoid unnecessary computation
+❌ **Avoid**: Always running full evaluation logic regardless of input
+
+## Testing and Debugging
+
+### 1. Create Diverse Test Cases
+
+Test with a diverse set of inputs:
+
+```python
+def test_reward_function():
+    """Test the reward function with diverse cases."""
+    test_cases = [
+        # Normal case
+        {"messages": [
+            {"role": "user", "content": "How does photosynthesis work?"},
+            {"role": "assistant", "content": "Photosynthesis is the process..."}
+        ]},
+        # Empty response
+        {"messages": [
+            {"role": "user", "content": "How are you?"},
+            {"role": "assistant", "content": ""}
+        ]},
+        # Very long response
+        {"messages": [
+            {"role": "user", "content": "Tell me about quantum physics"},
+            {"role": "assistant", "content": "Quantum physics is a branch of physics..." + "a" * 10000}
+        ]},
+        # Non-English response
+        {"messages": [
+            {"role": "user", "content": "How do you say hello in French?"},
+            {"role": "assistant", "content": "Bonjour! C'est comment on dit bonjour en français."}
+        ]},
+        # Function call instead of text
+        {"messages": [
+            {"role": "user", "content": "What's the weather in Paris?"},
+            {"role": "assistant", "content": None, "function_call": {"name": "get_weather", "arguments": '{"location": "Paris"}'}}
+        ]}
+    ]
+
+    for i, case in enumerate(test_cases):
+        print(f"Test case {i+1}:")
+        result = my_reward_function(messages=case["messages"])
+        print(f"Score: {result.score}")
+        for name, metric in result.metrics.items():
+            print(f"  {name}: {metric.score} - {metric.reason}")
+        print()
+```
+
+✅ **Good Practice**: Test with diverse, realistic cases including edge cases
+❌ **Avoid**: Testing only with ideal, simple cases
+
+### 2. Add Logging for Complex Logic
+
+Include detailed logging for debugging:
+
+```python
+import logging
+
+@reward_function
+def loggable_reward(messages, original_messages=None, **kwargs):
+    """Reward function with detailed logging."""
+    logging.debug("Starting evaluation with %d messages", len(messages))
+
+    response = messages[-1].get("content", "")
+    logging.debug("Response length: %d characters", len(response))
+
+    # Component calculations with logging
+    clarity_score = evaluate_clarity(response)
+    logging.debug("Clarity score: %.2f", clarity_score)
+
+    accuracy_score = evaluate_accuracy(response)
+    logging.debug("Accuracy score: %.2f", accuracy_score)
+
+    # Final calculation
+    final_score = (clarity_score + accuracy_score) / 2
+    logging.debug("Final score: %.2f", final_score)
+
+    # Return result
+    return EvaluateResult( # Updated
+        score=final_score,
+        reason="Loggable reward evaluation complete.", # Added reason
+        metrics={
+            "clarity": MetricResult(score=clarity_score, success=clarity_score > 0.5, reason="..."), # Updated
+            "accuracy": MetricResult(score=accuracy_score, success=accuracy_score > 0.5, reason="...") # Updated
+        }
+    )
+```
+
+✅ **Good Practice**: Add detailed logging that can be enabled for debugging
+❌ **Avoid**: Print statements or no logging at all
+
+### 3. Implement Unit Tests
+
+Create automated tests for your reward functions:
+
+```python
+import unittest
+from eval_protocol import RewardOutput
+from my_rewards import clarity_reward
+
+class TestClarityReward(unittest.TestCase):
+
+    def test_perfect_clarity(self):
+        """Test with a perfectly clear response."""
+        messages = [
+            {"role": "user", "content": "What is photosynthesis?"},
+            {"role": "assistant", "content": "Photosynthesis is how plants make food. They use sunlight to turn water and carbon dioxide into sugar. This gives them energy to grow."}
+        ]
+        result = clarity_reward(messages=messages)
+        self.assertGreaterEqual(result.score, 0.8, "Perfect clarity example should score highly")
+
+    def test_poor_clarity(self):
+        """Test with a response that lacks clarity."""
+        messages = [
+            {"role": "user", "content": "What is photosynthesis?"},
+            {"role": "assistant", "content": "Photosynthesis refers to the biochemical process whereby photoautotrophic organisms synthesize glucose utilizing solar radiation through chlorophyll-containing chloroplasts, involving complex electron transport chains and enzymatic catalysis of carbon dioxide fixation."}
+        ]
+        result = clarity_reward(messages=messages)
+        self.assertLessEqual(result.score, 0.5, "Poor clarity example should score lower")
+
+    def test_empty_response(self):
+        """Test with an empty response."""
+        messages = [
+            {"role": "user", "content": "What is photosynthesis?"},
+            {"role": "assistant", "content": ""}
+        ]
+        result = clarity_reward(messages=messages)
+        self.assertEqual(result.score, 0.0, "Empty response should score 0")
+
+    def test_component_metrics(self):
+        """Test that component metrics are present."""
+        messages = [
+            {"role": "user", "content": "What is photosynthesis?"},
+            {"role": "assistant", "content": "Photosynthesis is how plants make food."}
+        ]
+        result = clarity_reward(messages=messages)
+        self.assertIn("sentence_length", result.metrics, "Should include sentence length metric")
+        self.assertIn("vocabulary", result.metrics, "Should include vocabulary metric")
+```
+
+✅ **Good Practice**: Comprehensive unit tests for different scenarios
+❌ **Avoid**: Manual testing only or inadequate test coverage
+
+## Collaboration and Documentation
+
+### 1. Document Function Purpose and Parameters
+
+Add comprehensive docstrings:
+
+```python
+@reward_function
+def documented_reward(
+    messages: List[Dict[str, str]],
+    original_messages: Optional[List[Dict[str, str]]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    **kwargs
+) -> RewardOutput:
+    """
+    Evaluates the helpfulness of a response based on content relevance and specificity.
+
+    This reward function assesses:
+    1. Query relevance: How well the response addresses the user's question
+    2. Specificity: Whether the response provides specific details rather than general information
+    3. Actionability: Whether the response provides clear, actionable advice when appropriate
+
+    Args:
+        messages: List of conversation messages, with the last one being evaluated
+        original_messages: Previous messages for context (defaults to all but last message)
+        metadata: Optional configuration parameters:
+            - weights: Dict[str, float] - Weights for each component (defaults to equal weighting)
+            - min_length: int - Minimum expected response length (defaults to 50)
+            - max_length: int - Maximum expected response length (defaults to 500)
+        **kwargs: Additional keyword arguments
+
+    Returns:
+        RewardOutput object containing:
+            - score: Overall helpfulness score from 0.0 to 1.0
+            - metrics: Component metrics with individual scores and explanations
+
+    Example:
+        >>> messages = [
+        ...     {"role": "user", "content": "How do I reset my password?"},
+        ...     {"role": "assistant", "content": "To reset your password: 1) Click on 'Forgot Password', 2) Enter your email, 3) Follow the link sent to your email."}
+        ... ]
+        >>> result = documented_reward(messages=messages)
+        >>> print(f"Score: {result.score}")
+    """
+    # Implementation...
+```
+
+✅ **Good Practice**: Detailed docstrings with purpose, parameters, returns, and examples
+❌ **Avoid**: Missing or minimal documentation
+
+### 2. Add Implementation Comments
+
+Include comments for complex logic:
+
+```python
+def calculate_relevance_score(query, response):
+    """Calculate how relevant the response is to the query."""
+    # Tokenize query and response
+    query_words = set(query.lower().split())
+    response_words = set(response.lower().split())
+
+    # Remove common stop words to focus on meaningful terms
+    stop_words = {"the", "a", "an", "in", "on", "at", "to", "for", "with", "by"}
+    query_words = query_words - stop_words
+    response_words = response_words - stop_words
+
+    # If no meaningful query words, return middle score since we can't assess
+    if not query_words:
+        return 0.5
+
+    # Calculate overlap between query and response terms
+    # This is a simple keyword matching approach
+    common_words = query_words.intersection(response_words)
+    overlap_ratio = len(common_words) / len(query_words)
+
+    # Apply non-linear scaling to emphasize higher overlap
+    # This rewards responses that cover most query terms
+    relevance_score = min(overlap_ratio ** 0.8, 1.0)
+
+    return relevance_score
+```
+
+✅ **Good Practice**: Comments explaining the "why" behind complex logic
+❌ **Avoid**: Commenting obvious operations or no comments at all
+
+### 3. Use Consistent Naming Conventions
+
+Follow a consistent naming scheme:
+
+```python
+# Function names: verb_noun format
+def calculate_clarity_score(text):
+    # ...
+
+def evaluate_accuracy(text):
+    # ...
+
+# Variable names: descriptive noun or adjective_noun
+sentence_count = len(sentences)
+avg_sentence_length = total_words / sentence_count
+technical_term_ratio = technical_terms / total_words
+```
+
+✅ **Good Practice**: Consistent, descriptive naming conventions
+❌ **Avoid**: Inconsistent naming or unclear abbreviations
+
+### 4. Use Type Annotations
+
+Add type hints for better code understanding:
+
+```python
+from typing import List, Dict, Optional, Any, Union, Tuple
+
+@reward_function
+def typed_reward(
+    messages: List[Dict[str, str]],
+    original_messages: Optional[List[Dict[str, str]]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    **kwargs
+) -> EvaluateResult: # Updated return type
+    """Reward function with proper type annotations."""
+    # Extract the response
+    response: str = messages[-1].get("content", "")
+
+    # Calculate component scores
+    clarity_score: float = calculate_clarity(response) # Assume returns float
+    helpfulness_score: float = calculate_helpfulness(response) # Assume returns float
+
+    # Create metrics dictionary
+    metrics: Dict[str, MetricResult] = { # Updated type hint
+        "clarity": MetricResult( # Updated
+            score=clarity_score,
+            success=clarity_score > 0.7, # Example success
+            reason=f"Clarity score: {clarity_score:.2f}"
+        ),
+        "helpfulness": MetricResult( # Updated
+            score=helpfulness_score,
+            success=helpfulness_score > 0.6, # Example success
+            reason=f"Helpfulness score: {helpfulness_score:.2f}"
+        )
+    }
+
+    # Calculate final score
+    final_score: float = (clarity_score + helpfulness_score) / 2.0
+    final_score = max(0.0, min(1.0, final_score)) # Ensure score is within [0,1]
+    overall_reason = "Typed reward evaluation complete."
+
+    return EvaluateResult(score=final_score, reason=overall_reason, metrics=metrics) # Updated
+
+def calculate_clarity(text: str) -> float:
+    """Calculate clarity score from text."""
+    # ...
+```
+
+✅ **Good Practice**: Clear type annotations for all functions and variables
+❌ **Avoid**: Missing type hints or incorrect annotations
+
+## Next Steps
+
+- Explore [Advanced Reward Functions](../examples/advanced_reward_functions.md)
+- Learn about [Evaluating Model Responses](evaluating_model_responses.md)
+- Discover how to [Integrate with Training Workflows](integrating_with_training_workflows.md)

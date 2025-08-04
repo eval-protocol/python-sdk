@@ -1,0 +1,200 @@
+# Core Data Types
+
+This guide explains the primary data types used in Eval Protocol, including the input and output structures for reward functions.
+
+## Overview
+
+Eval Protocol uses several core data types to represent:
+- Conversation messages
+- Evaluation results
+- Component metrics
+
+Understanding these types is crucial for creating effective reward functions.
+
+## Message Types
+
+### The `Message` Class
+
+```python
+from eval_protocol import Message
+
+message = Message(
+    role="assistant",
+    content="This is the response content",
+    name=None,  # Optional
+    tool_call_id=None,  # Optional, for tool calling
+    tool_calls=None,  # Optional, for tool calling
+    function_call=None  # Optional, for function calling
+)
+```
+
+The `Message` class represents a single message in a conversation and is compatible with the OpenAI message format.
+
+### Message Dictionary Format
+
+When working with reward functions, messages are often passed as dictionaries:
+
+```python
+message_dict = {
+    "role": "assistant",
+    "content": "This is the response content"
+}
+```
+
+The minimum required fields are:
+- `role`: The sender of the message (`"user"`, `"assistant"`, or `"system"`)
+- `content`: The text content of the message
+
+Additional fields for function/tool calling may include:
+- `name`: Name of the sender (for named system messages)
+- `tool_calls`: Tool call information
+- `function_call`: Function call information (legacy format)
+
+## Evaluation Output Types
+
+### `EvaluateResult` Class
+
+```python
+from eval_protocol import EvaluateResult, MetricResult
+
+result = EvaluateResult(
+    score=0.75,  # Overall score between 0.0 and 1.0
+    reason="The response meets quality requirements",  # Optional explanation
+    metrics={    # Component metrics dictionary
+        "clarity": MetricResult(
+            success=True,
+            score=0.8,
+            reason="The response is clear and concise"
+        ),
+        "accuracy": MetricResult(
+            score=0.7,
+            reason="Contains one minor factual error",
+            success=True
+        )
+    }
+)
+```
+
+The `EvaluateResult` class represents the complete result of a reward function evaluation, containing:
+- An overall score (typically 0.0 to 1.0)
+- An optional reason/explanation for the overall score
+- A dictionary of component metrics
+- An optional error field for handling evaluation failures
+
+### `MetricResult` Class
+
+```python
+from eval_protocol import MetricResult
+
+metric = MetricResult(
+    score=0.8,  # Score for this specific metric
+    reason="Explanation for why this score was assigned",  # Description
+    success=True  # Indicates if the metric condition was met (e.g., pass/fail)
+)
+```
+
+The `MetricResult` class represents a single component metric in the evaluation, containing:
+- A score value (typically 0.0 to 1.0)
+- A reason/explanation for the score
+- A `success: bool` flag indicating if the metric condition was met (e.g., pass/fail).
+
+### Removed Output Types (Legacy)
+
+The `RewardOutput` and `MetricRewardOutput` classes were used in older versions but have now been fully removed. All reward functions should now use `EvaluateResult` and `MetricResult`.
+
+If you are migrating from an older version that used `RewardOutput`, please refer to the "Migration from RewardOutput to EvaluateResult" section below.
+
+## Using Types in Reward Functions
+
+Here's how to use these types properly in your reward functions:
+
+```python
+from eval_protocol import reward_function, EvaluateResult, MetricResult, Message
+from typing import List, Optional, Dict, Any
+
+@reward_function
+def my_reward_function(
+    messages: List[Dict[str, str]],
+    original_messages: Optional[List[Dict[str, str]]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    **kwargs
+) -> EvaluateResult:
+    """
+    Example reward function with proper type annotations.
+    """
+    # Default values
+    metadata = metadata or {}
+
+    # Get the assistant's response
+    response = messages[-1].get("content", "")
+
+    # Evaluate the response
+    clarity_score = evaluate_clarity(response)
+
+    # Create metrics
+    metrics = {
+        "clarity": MetricResult(
+            score=clarity_score,
+            reason=f"Clarity score: {clarity_score:.2f}",
+            success=clarity_score >= 0.7
+        )
+    }
+
+    return EvaluateResult(
+        score=clarity_score,
+        reason=f"Overall quality assessment: {clarity_score:.2f}",
+        metrics=metrics
+    )
+```
+
+## Best Practices for Data Types
+
+1. **Use EvaluateResult**: Always return EvaluateResult from your reward functions
+2. **Use Type Hints**: Include proper type annotations in your functions
+3. **Provide Reasons**: Include clear reason strings for both overall score and individual metrics
+4. **Use `success`**: Set the `success: bool` flag in `MetricResult` to indicate pass/fail or whether a specific condition for that metric was met.
+5. **Default Values**: Provide defaults for optional parameters
+6. **Validation**: Validate input data before processing
+7. **Error Handling**: Handle missing or malformed data gracefully
+8. **Documentation**: Document the expected format for your inputs and outputs
+
+## Migration from RewardOutput to EvaluateResult
+
+If you have existing code using RewardOutput, here's how to migrate to EvaluateResult:
+
+```python
+# Old code (deprecated)
+@reward_function
+def my_reward(messages, **kwargs):
+    # ...
+    return RewardOutput(
+        score=0.75,
+        metrics={
+            "clarity": MetricRewardOutput(score=0.8, reason="Clear explanation")
+        }
+    )
+
+# New code (preferred)
+@reward_function
+def my_reward(messages, **kwargs):
+    # ...
+    return EvaluateResult(
+        score=0.75,
+        reason="Overall assessment",  # Add an overall reason
+        metrics={
+            "clarity": MetricResult(
+                score=0.8,
+                reason="Clear explanation",
+                success=True  # Add success flag if applicable
+            )
+        }
+    )
+```
+
+## Next Steps
+
+Now that you understand the core data types:
+
+1. Learn about [Evaluation Workflows](evaluation_workflows.md) for testing and deploying your functions
+2. Explore [Advanced Reward Functions](../examples/advanced_reward_functions.md) to see these types in action
+3. Check the [API Reference](../api_reference/data_models.md) for complete details on all data types

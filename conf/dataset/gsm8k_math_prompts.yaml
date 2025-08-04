@@ -1,0 +1,21 @@
+# GSM8K dataset with math-specific system prompt for evaluation.
+# This derived dataset takes the base GSM8K dataset and adds a system prompt
+# for math problem solving, converting it to evaluation format.
+
+defaults:
+  - base_derived_dataset
+  - _self_
+
+# Reference the base GSM8K dataset
+base_dataset: "gsm8k"
+
+# Math-specific system prompt
+system_prompt: "Solve the following math problem. Show your work clearly. Put the final numerical answer between <answer> and </answer> tags."
+
+# Convert to evaluation format with user_query and ground_truth_for_eval
+output_format: "evaluation_format"
+
+# For testing, limit to a small number of samples
+derived_max_samples: 5
+
+description: "GSM8K dataset with math-specific system prompt in evaluation format."

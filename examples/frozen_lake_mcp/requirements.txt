@@ -1,0 +1,5 @@
+gymnasium==0.29.1
+fastmcp>=0.1.0
+mcp>=1.0.0
+uvicorn>=0.30.0
+starlette>=0.37.0

@@ -1,0 +1,194 @@
+# Getting Started with Reward Functions
+
+This guide will help you understand the basics of creating, testing, and deploying reward functions using Eval Protocol.
+
+## What is a Reward Function?
+
+A reward function is a mechanism for evaluating the quality of model outputs in reinforcement learning from machine feedback (RLMF) workflows. Reward functions help:
+
+-   Evaluate model responses based on specific criteria.
+-   Provide numerical scores that can be used to optimize models.
+-   Offer explanations for why specific scores were assigned.
+
+## Getting started on www.fireworks.ai
+
+You will start your journey on our evaluators page
+
+![image](images/list_of_evaluators.png)
+
+Click on "Create Evaluator" on the upper right corner; you will be taken to the rewards page we have been working on.
+
+![image](images/create_evaluator.png)
+
+You can check out how to define an evaluator in our [tutorials](../tutorials) or in our examples for [out of the box evaluators](../examples/examples_overview.mdx). But before we decide on authoring any evaluators, let's actually pick a dataset. Let's take a look at eval-result-job17-epoch1. *(Note: The specific dataset "eval-result-job17-epoch1" mentioned here might be an internal or outdated reference; you may need to adapt this part to a publicly available or generally understandable example if this tutorial is for external use).*
+
+![image](images/create_evaluator_data.png)
+
+It is a tool calling dataset, with messages and tools field. Let's update the evaluator to run this. We will say that if the message is longer than 3 rows, then we have engaged user for long enough and call it a success (score is 1), otherwise it is a failure (score is 0).
+
+*(The image below seems to be a duplicate of the one above, ensure it's the correct one or remove if redundant)*
+![image](images/create_evaluator_data.png)
+
+## Installation
+
+To get started with Eval Protocol, install it via pip:
+
+```bash
+pip install eval-protocol
+```
+
+For development, including running all examples and contributing to the codebase, install it in editable mode with development dependencies:
+
+```bash
+git clone https://github.com/fireworks-ai/eval-protocol.git # Or your fork
+cd eval-protocol
+pip install -e ".[dev]"
+```
+
+## Authentication Setup
+
+To use Eval Protocol with the Fireworks AI platform, set up your authentication credentials:
+
+```bash
+# Set your API key
+export FIREWORKS_API_KEY=your_api_key
+```
+
+For development environments, you might use:
+
+```bash
+# Set environment variables for development
+export FIREWORKS_API_KEY=$DEV_FIREWORKS_API_KEY
+export FIREWORKS_API_BASE=https://dev.api.fireworks.ai
+```
+
+## Basic Reward Function Structure
+
+Here's a simple reward function that evaluates responses based on word count:
+
+```python
+from eval_protocol import reward_function, EvaluateResult, MetricResult
+from typing import List, Dict, Optional
+
+@reward_function
+def word_count_reward(
+    messages: List[Dict[str, str]],
+    original_messages: Optional[List[Dict[str, str]]] = None,
+    **kwargs
+) -> EvaluateResult:
+    """
+    Evaluate a response based on its word count.
+
+    Args:
+        messages: List of conversation messages
+        original_messages: Original messages (usually without the response being evaluated)
+        **kwargs: Additional parameters
+
+    Returns:
+        EvaluateResult with score and metrics information
+    """
+    # Get the assistant's response (last message)
+    if not messages or messages[-1].get("role") != "assistant":
+        return EvaluateResult(
+            score=0.0,
+            reason="No assistant response found in messages.",
+            metrics={"error": MetricResult(score=0.0, success=False, reason="No assistant response found")}
+        )
+
+    response = messages[-1].get("content", "")
+
+    # Count words and calculate score
+    word_count = len(response.split())
+    score = min(word_count / 100.0, 1.0)  # Cap at 1.0
+    success = word_count > 10 # Example: success if more than 10 words
+
+    return EvaluateResult(
+        score=score,
+        reason=f"Overall word count evaluation: {word_count} words.",
+        metrics={
+            "word_count": MetricResult(
+                score=score,
+                success=success,
+                reason=f"Word count: {word_count}"
+            )
+        }
+    )
+```
+
+## Testing and Evaluating
+
+There are several ways to test your reward functions and run evaluations:
+
+### Programmatic Testing (for individual functions)
+
+You can test your reward function directly in Python with sample conversations:
+
+```python
+# Sample conversation
+test_messages = [
+    {"role": "user", "content": "What is machine learning?"},
+    {"role": "assistant", "content": "Machine learning is a method of data analysis that automates analytical model building."}
+]
+
+# Test the reward function
+result = word_count_reward(messages=test_messages)
+print(f"Score: {result.score}")
+print(f"Explanation: {result.metrics['word_count'].reason}")
+```
+
+### Local Evaluation with `eval-protocol run` (Recommended for datasets/examples)
+
+For evaluating datasets or running complete examples, the primary method is the `eval-protocol run` CLI command. This uses [Hydra for configuration](./hydra_configuration.mdx), allowing you to define your dataset, model, and reward logic in YAML files.
+
+1.  **Explore Examples**: Check out the examples in the `examples/` directory at the root of the repository. The [main Examples README](../../../examples/README.md) provides an overview and guidance on their structure. Each example (e.g., `examples/math_example/`) has its own README explaining how to run it.
+
+2.  **Run an Example**:
+    ```bash
+    # Example: Running the math_example
+    python -m eval_protocol.cli run \
+      --config-path examples/math_example/conf \
+      --config-name run_math_eval.yaml
+    ```
+    This command processes the dataset, generates model responses, applies reward functions, and saves detailed results.
+
+### Previewing Evaluation Outputs with `eval-protocol preview`
+
+After running an evaluation with `eval-protocol run`, a `preview_input_output_pairs.jsonl` file is typically generated in the output directory. You can use `eval-protocol preview` to inspect these pairs or re-evaluate them with different metrics:
+
+```bash
+# Preview outputs from a previous run
+eval-protocol preview \
+  --samples ./outputs/YYYY-MM-DD/HH-MM-SS/preview_input_output_pairs.jsonl \
+  --metrics-folders "your_metric_name=./path/to/your_metric_script"
+```
+
+Refer to the [Evaluation Workflows guide](./evaluation_workflows.mdx) for a more detailed lifecycle overview.
+
+## Deploying Your Reward Function
+
+When you're ready, deploy your reward function to use in training workflows:
+
+```python
+# Deploy programmatically
+evaluator_id = word_count_reward.deploy(
+    name="word-count-evaluator",
+    description="Evaluates responses based on word count"
+)
+print(f"Deployed with ID: {evaluator_id}")
+```
+
+Or using the CLI:
+
+```bash
+eval-protocol deploy --id word-count-evaluator --metrics-folders "word_count=./path/to/metric" --force
+```
+
+## Next Steps
+
+Now that you have an overview of getting started:
+
+1.  Dive deeper into [Reward Function Anatomy](./reward_function_anatomy.md).
+2.  Understand the [Core Data Types](./core_data_types.md) used in Eval Protocol.
+3.  Explore the [Evaluation Workflows](./evaluation_workflows.mdx) in more detail.
+4.  Browse the [Examples Overview](../examples/examples_overview.mdx) and the main [Examples README](../../../examples/README.md) to find practical implementations.
+5.  Follow our [step-by-step tutorial](../tutorials/creating_your_first_reward_function.md) for a hands-on walkthrough.

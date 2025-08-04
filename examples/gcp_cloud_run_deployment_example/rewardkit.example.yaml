@@ -1,0 +1,25 @@
+# Example rewardkit.yaml for the GCP Cloud Run Deployment Example
+# Place this file as 'rewardkit.yaml' in the root of your project when running this example.
+
+# Configuration for GCP Cloud Run deployments
+gcp_cloud_run:
+  # REQUIRED: Your Google Cloud Project ID.
+  # Replace with your actual project ID.
+  project_id: "your-gcp-project-id-here"
+
+  # REQUIRED: Your preferred Google Cloud Region for deployments.
+  # Replace with your desired region (e.g., "us-central1", "europe-west1").
+  region: "us-central1"
+
+  # Optional: Default Artifact Registry repository name.
+  # If not set, 'eval-protocol deploy' will use "eval-protocol-evaluators".
+  # artifact_registry_repository: "my-custom-ar-repo"
+
+  # Optional: Default authentication mode for services deployed to GCP Cloud Run.
+  # If not set, 'reward-kit deploy' will default to "api-key".
+  # default_auth_mode: "api-key" # or "open"
+
+# This section is managed automatically by reward-kit when using API key authentication.
+# You typically do not need to add keys here manually.
+evaluator_endpoint_keys: {}
+  # my-gcp-evaluator-id: "a_generated_api_key_will_appear_here_after_deployment"

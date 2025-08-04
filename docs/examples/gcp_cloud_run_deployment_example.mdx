@@ -1,0 +1,115 @@
+# GCP Cloud Run Deployment Example
+
+This guide demonstrates how to deploy a simple reward function to Google Cloud Run using the `eval-protocol` CLI. The example uses a basic `hello_world_reward` function found in `examples/gcp_cloud_run_deployment_example/dummy_rewards.py`.
+
+## Overview
+
+Deploying a reward function to GCP Cloud Run allows you to host it as a scalable, serverless HTTP endpoint. The `eval-protocol deploy` command automates much of this process, including containerization and service configuration.
+
+## Files in the Example Directory
+
+Located in `examples/gcp_cloud_run_deployment_example/`:
+
+*   `dummy_rewards.py`: Contains a basic `hello_world_reward` function used for this deployment example.
+*   `rewardkit.example.yaml`: An example configuration file for `eval-protocol`. This shows the structure for `rewardkit.yaml` if you choose to use one for GCP settings.
+
+## Prerequisites
+
+1.  **Google Cloud Platform (GCP) Account**: Active GCP account with billing enabled.
+2.  **`gcloud` CLI**: [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) installed and authenticated (`gcloud auth login`, `gcloud auth application-default login`).
+3.  **APIs Enabled**: Ensure the following APIs are enabled in your GCP project:
+    *   Cloud Build API
+    *   Artifact Registry API
+    *   Cloud Run Admin API
+    *   Secret Manager API
+4.  **Permissions**: The authenticated user/service account for `gcloud` needs sufficient permissions (e.g., roles like "Cloud Build Editor", "Artifact Registry Administrator", "Cloud Run Admin", "Secret Manager Admin").
+5.  **`eval-protocol` installed**: Ensure `eval-protocol` is installed in your Python environment (e.g., `pip install eval-protocol`).
+
+## Setup
+
+### `rewardkit.yaml` Configuration (Optional but Recommended)
+
+The `eval-protocol` CLI can pick up GCP settings from a `rewardkit.yaml` file located in the directory from which you run the `eval-protocol deploy` command.
+
+1.  **Create `rewardkit.yaml`**:
+    You can copy the `examples/gcp_cloud_run_deployment_example/rewardkit.example.yaml` to the directory where you intend to run `eval-protocol deploy` (this could be the example directory itself, or your project root). Rename it to `rewardkit.yaml`.
+    ```bash
+    # If in examples/gcp_cloud_run_deployment_example/
+    cp rewardkit.example.yaml rewardkit.yaml
+    ```
+
+2.  **Customize `rewardkit.yaml`**:
+    Open `rewardkit.yaml` and replace placeholders with your actual GCP Project ID and desired region.
+    Example `rewardkit.yaml`:
+    ```yaml
+    gcp_cloud_run:
+      project_id: "my-actual-gcp-project-123"
+      region: "us-west1"
+      # artifact_registry_repository: "my-custom-eval-repo" # Optional
+      # default_auth_mode: "api-key" # Optional, defaults to api-key
+    evaluator_endpoint_keys: {} # Managed by eval-protocol for API key auth
+    ```
+
+**Note**: If you choose not to use a `rewardkit.yaml` file, you **must** provide all necessary GCP parameters (like `--gcp-project YOUR_PROJECT_ID`, `--gcp-region YOUR_REGION`) directly in the `eval-protocol deploy` command.
+
+## Deployment Command
+
+It's recommended to run the deployment command from the directory containing the reward function script (`dummy_rewards.py`) and your `rewardkit.yaml` (if used), for example, from `examples/gcp_cloud_run_deployment_example/`.
+
+1.  Ensure your virtual environment is active:
+    ```bash
+    source .venv/bin/activate
+    ```
+2.  Run the deployment command:
+    ```bash
+    eval-protocol deploy \
+        --id my-dummy-gcp-evaluator \
+        --target gcp-cloud-run \
+        --function-ref dummy_rewards.hello_world_reward \
+        --gcp-auth-mode api-key \
+        --verbose
+        # --force # Add if overwriting an existing evaluator
+        # If not using rewardkit.yaml, add required GCP params:
+        # --gcp-project YOUR_PROJECT_ID --gcp-region YOUR_REGION
+    ```
+
+**Command Explanation:**
+*   `--id my-dummy-gcp-evaluator`: A unique ID for your evaluator on the Fireworks AI platform.
+*   `--target gcp-cloud-run`: Specifies deployment to GCP Cloud Run.
+*   `--function-ref dummy_rewards.hello_world_reward`: The Python import path to your reward function. If `dummy_rewards.py` is in the current directory, this reference works.
+*   `--gcp-auth-mode api-key`: Configures the Cloud Run service with API key authentication. `eval-protocol` will generate a key, store it in GCP Secret Manager, and configure the service. The key is also saved to your local `rewardkit.yaml` under `evaluator_endpoint_keys`. This is the default if not specified.
+*   `--verbose`: Shows detailed output, including `gcloud` commands being executed.
+*   `--force`: (Optional) If an evaluator with the same `--id` already exists, this flag will delete the existing one before creating the new one.
+
+## Expected Outcome
+
+If successful, `eval-protocol` will:
+1.  Create an Artifact Registry repository (default: `eval-protocol-evaluators`, or as specified in `rewardkit.yaml`).
+2.  Build a Docker container with your reward function and push it to Artifact Registry.
+3.  If `api-key` auth is used, create a GCP Secret to store the generated API key.
+4.  Deploy the container to Cloud Run, configured for the chosen authentication mode.
+5.  Register the deployed Cloud Run service URL as a remote evaluator with the Fireworks AI platform.
+
+The output will include the Cloud Run service URL and the API key (if newly generated).
+
+## Testing the Deployed Endpoint
+
+You can test the deployed endpoint using `curl` or `eval-protocol preview --remote-url <your-cloud-run-url>`.
+
+If using `curl` with API key authentication:
+1.  Retrieve the API key. It's printed during deployment and saved in `rewardkit.yaml` (if one is used in the command's directory) under `evaluator_endpoint_keys: { "my-dummy-gcp-evaluator": "YOUR_KEY" }`.
+2.  Get your Cloud Run service URL from the deployment output.
+
+```bash
+API_KEY="your_generated_api_key"
+SERVICE_URL="your_cloud_run_service_url"
+
+curl -X POST "$SERVICE_URL/evaluate" \
+     -H "Content-Type: application/json" \
+     -H "X-Api-Key: $API_KEY" \
+     -d '{
+           "messages": [{"role": "user", "content": "Test"}],
+           "kwargs": {}
+         }'
+```
+This should return a JSON response from your `hello_world_reward` function.

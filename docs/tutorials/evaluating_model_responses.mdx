@@ -1,0 +1,711 @@
+# Evaluating Model Responses
+
+This tutorial demonstrates how to use Eval Protocol to evaluate responses from language models, including both programmatic evaluation and using the evaluation preview functionality.
+
+## Prerequisites
+
+Before starting this tutorial, make sure you have:
+
+1. **Python 3.8+** installed on your system
+2. **Eval Protocol** installed: `pip install eval-protocol`
+3. **Fireworks API credentials** (for remote evaluation)
+
+## Overview
+
+Model evaluation typically involves:
+1. Creating or selecting evaluation metrics
+2. Preparing sample conversations
+3. Running the evaluation
+4. Analyzing the results
+
+Let's go through each step in detail.
+
+## Step 1: Creating Evaluation Metrics
+
+First, let's create a simple evaluator that assesses informativeness and accuracy:
+
+```python
+# evaluators/informativeness/main.py
+from eval_protocol import reward_function, EvaluateResult, MetricResult, Message
+from typing import List, Optional
+
+@reward_function
+def evaluate(messages: List[Message], original_messages: List[Message] = list(), **kwargs) -> EvaluateResult:
+    """
+    Evaluate the informativeness of a response.
+
+    Args:
+        messages: List of conversation messages
+        original_messages: Original messages (context)
+        **kwargs: Additional parameters
+
+    Returns:
+        EvaluateResult with score and metrics
+    """
+    # Validate input
+    if not messages or len(messages) < 2:
+        return EvaluateResult(score=0.0, reason="Insufficient messages", metrics={}, is_score_valid=False)
+
+    # Get the query and response
+    user_query = None
+    for msg in messages:
+        if msg.role == "user":
+            user_query = msg.content
+            break
+
+    response = messages[-1].content or ""
+    if messages[-1].role != "assistant":
+        return EvaluateResult(
+            score=0.0,
+            reason="Last message is not from assistant",
+            metrics={},
+            is_score_valid=False
+        )
+
+    # Simple word count metric
+    word_count = len(response.split())
+    word_count_score = min(word_count / 100, 1.0)
+
+    # Check for specific keywords related to informativeness
+    info_keywords = ["example", "specifically", "consider", "research", "study", "data"]
+    keyword_count = sum(1 for keyword in info_keywords if keyword.lower() in response.lower())
+    keyword_score = min(keyword_count / 3, 1.0)
+
+    # Check for uncertainty markers (lower score for more uncertainty)
+    uncertainty_markers = ["maybe", "might", "possibly", "I think", "not sure", "could be"]
+    uncertainty_count = sum(1 for marker in uncertainty_markers if marker.lower() in response.lower())
+    certainty_score = max(0.0, 1.0 - (uncertainty_count * 0.2))
+
+    # Calculate informativeness score (weighted average)
+    informativeness_score = (
+        word_count_score * 0.3 +
+        keyword_score * 0.4 +
+        certainty_score * 0.3
+    )
+
+    metrics = {
+        "word_count": MetricResult(
+            score=word_count_score,
+            is_score_valid=word_count_score > 0.5, # Example is_score_valid
+            reason=f"Word count: {word_count}"
+        ),
+        "keyword_usage": MetricResult(
+            score=keyword_score,
+            is_score_valid=keyword_score > 0.3, # Example is_score_valid
+            reason=f"Information keywords: {keyword_count}/3"
+        ),
+        "certainty": MetricResult(
+            score=certainty_score,
+            is_score_valid=certainty_score > 0.7, # Example is_score_valid
+            reason=f"Certainty score: {certainty_score:.2f} (found {uncertainty_count} uncertainty markers)"
+        )
+    }
+
+    return EvaluateResult(
+        score=informativeness_score,
+        reason="Informativeness score",
+        metrics=metrics,
+        is_score_valid=True
+    )
+```
+
+## Step 2: Preparing Sample Conversations
+
+Next, let's create a JSONL file with sample conversations to evaluate. Create a file called `samples.jsonl`:
+
+```jsonl
+{"messages": [{"role": "user", "content": "What is machine learning?"}, {"role": "assistant", "content": "Machine learning is a method of data analysis that automates analytical model building. It's a branch of artificial intelligence based on the idea that systems can learn from data, identify patterns, and make decisions with minimal human intervention. For example, recommendation systems like those used by Netflix or Amazon use machine learning to personalize content based on user behavior and preferences."}]}
+{"messages": [{"role": "user", "content": "What is machine learning?"}, {"role": "assistant", "content": "Machine learning might be a type of AI, I think. It's possibly related to computers learning from data, but I'm not sure about the exact details."}]}
+{"messages": [{"role": "user", "content": "What is quantum computing?"}, {"role": "assistant", "content": "Quantum computing uses quantum bits or qubits, which can represent 0, 1, or both simultaneously through superposition. This allows quantum computers to process vast amounts of information simultaneously. Research in this field is still developing, but quantum computers could potentially solve certain problems exponentially faster than classical computers. Specifically, they excel at optimization problems, cryptography, and simulating quantum systems."}]}
+```
+
+## Step 3: Creating an Evaluation Script
+
+Let's create a Python script to run the evaluation programmatically:
+
+```python
+# evaluate_samples.py
+import json
+import os
+import sys
+from pathlib import Path
+from typing import List, Dict
+
+# Ensure the evaluators directory is in the path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
+
+from evaluators.informativeness.main import evaluate
+
+def load_samples(file_path: str) -> List[Dict]:
+    """Load sample conversations from a JSONL file."""
+    samples = []
+    with open(file_path, 'r') as f:
+        for line in f:
+            if line.strip():
+                samples.append(json.loads(line))
+    return samples
+
+def evaluate_samples(samples: List[Dict]) -> None:
+    """Evaluate each sample using our evaluator."""
+    print(f"Evaluating {len(samples)} samples...\n")
+
+    results = []
+
+    for i, sample in enumerate(samples):
+        messages = sample.get("messages", [])
+
+        # Find user and assistant messages
+        user_msg = next((msg for msg in messages if msg.get("role") == "user"), None)
+        assistant_msg = next((msg for msg in messages if msg.get("role") == "assistant"), None)
+
+        if user_msg and assistant_msg:
+            print(f"Sample {i+1}:")
+            print(f"User: {user_msg.get('content', '')[:50]}...")
+            print(f"Assistant: {assistant_msg.get('content', '')[:50]}...")
+
+            # Evaluate the sample
+            result = evaluate(messages=messages)
+            results.append(result)
+
+            # Print the results
+            print(f"Overall Score: {result.score:.2f}")
+            print(f"Reason: {result.reason}")
+            print("Metrics:")
+            for name, metric in result.metrics.items():
+                print(f"  {name}: {metric.score:.2f} - {metric.reason}")
+            print()
+        else:
+            print(f"Sample {i+1}: Invalid (missing user or assistant message)")
+            print()
+
+    # Calculate average score
+    if results:
+        avg_score = sum(r.score for r in results) / len(results)
+        print(f"Average Score: {avg_score:.2f}")
+
+def main():
+    # Load sample conversations
+    samples_path = Path("samples.jsonl")
+    if not samples_path.exists():
+        print(f"Error: Sample file {samples_path} not found.")
+        return
+
+    samples = load_samples(samples_path)
+    evaluate_samples(samples)
+
+if __name__ == "__main__":
+    main()
+```
+
+## Step 4: Running the Evaluation
+
+Run your evaluation script:
+
+```bash
+python evaluate_samples.py
+```
+
+You should see output similar to:
+
+```
+Evaluating 3 samples...
+
+Sample 1:
+User: What is machine learning?...
+Assistant: Machine learning is a method of data analysis th...
+Overall Score: 0.87
+Reason: Informativeness score: 0.87
+Metrics:
+  word_count: 0.80 - Word count: 80
+  keyword_usage: 0.67 - Information keywords: 2/3
+  certainty: 1.00 - Certainty score: 1.00 (found 0 uncertainty markers)
+
+Sample 2:
+User: What is machine learning?...
+Assistant: Machine learning might be a type of AI, I think....
+Overall Score: 0.27
+Reason: Informativeness score: 0.27
+Metrics:
+  word_count: 0.20 - Word count: 20
+  keyword_usage: 0.00 - Information keywords: 0/3
+  certainty: 0.60 - Certainty score: 0.60 (found 2 uncertainty markers)
+
+Sample 3:
+User: What is quantum computing?...
+Assistant: Quantum computing uses quantum bits or qubits, w...
+Overall Score: 0.90
+Reason: Informativeness score: 0.90
+Metrics:
+  word_count: 0.70 - Word count: 70
+  keyword_usage: 1.00 - Information keywords: 3/3
+  certainty: 1.00 - Certainty score: 1.00 (found 0 uncertainty markers)
+
+Average Score: 0.68
+```
+
+## Step 5: Using the Evaluation Preview API
+
+For a more integrated experience, use the Eval Protocol's `preview_evaluation` function:
+
+```python
+# preview_evaluation_example.py
+import os
+import sys
+from pathlib import Path
+
+# Ensure API key is set
+if not os.environ.get("FIREWORKS_API_KEY"):
+    print("Warning: FIREWORKS_API_KEY environment variable is not set.")
+    print("Set this variable for API access:")
+    print("export FIREWORKS_API_KEY=your_api_key")
+
+from eval_protocol.evaluation import preview_evaluation
+
+def main():
+    # Get paths
+    current_dir = Path(__file__).parent
+    metrics_path = current_dir / "evaluators" / "informativeness"
+    samples_path = current_dir / "samples.jsonl"
+
+    # Verify paths exist
+    if not metrics_path.exists():
+        print(f"Error: Metrics folder {metrics_path} not found.")
+        return
+
+    if not samples_path.exists():
+        print(f"Error: Samples file {samples_path} not found.")
+        return
+
+    print(f"Previewing evaluation with metric: {metrics_path}")
+    print(f"Using samples from: {samples_path}")
+
+    # Preview the evaluation
+    preview_result = preview_evaluation(
+        metric_folders=[f"informativeness={metrics_path}"],
+        sample_file=str(samples_path),
+        max_samples=10  # Limit to 10 samples max
+    )
+
+    # Display the results
+    preview_result.display()
+
+if __name__ == "__main__":
+    main()
+```
+
+Run the preview script:
+
+```bash
+python preview_evaluation_example.py
+```
+
+This will:
+1. Call the Fireworks API to run the evaluation
+2. Process each sample through your evaluator
+3. Display a formatted summary of the results
+
+## Step 6: Comparing Multiple Models
+
+You can extend the evaluation to compare responses from different models:
+
+```python
+# compare_models.py
+import json
+import os
+from pathlib import Path
+from typing import Dict, List
+
+from eval_protocol.evaluation import preview_evaluation
+
+def load_samples_by_model(base_dir: str) -> Dict[str, str]:
+    """Load sample files for different models."""
+    sample_files = {}
+    base_path = Path(base_dir)
+
+    for file_path in base_path.glob("*.jsonl"):
+        model_name = file_path.stem
+        sample_files[model_name] = str(file_path)
+
+    return sample_files
+
+def compare_models(metric_path: str, sample_files: Dict[str, str]) -> None:
+    """Compare multiple models using the same metric."""
+    results = {}
+
+    print(f"Comparing {len(sample_files)} models using metric: {metric_path}\n")
+
+    for model_name, sample_file in sample_files.items():
+        print(f"Evaluating model: {model_name}")
+
+        # Preview evaluation for this model
+        preview_result = preview_evaluation(
+            metric_folders=[f"informativeness={metric_path}"],
+            sample_file=sample_file
+        )
+
+        # Store results
+        avg_score = preview_result.average_score
+        results[model_name] = avg_score
+
+        print(f"  Average score: {avg_score:.3f}")
+        print(f"  Total samples: {preview_result.total_samples}")
+        print()
+
+    # Print comparison summary
+    print("Model Comparison Summary:")
+    print("------------------------")
+    for model, score in sorted(results.items(), key=lambda x: x[1], reverse=True):
+        print(f"{model}: {score:.3f}")
+
+def main():
+    # Define paths
+    current_dir = Path(__file__).parent
+    metrics_path = current_dir / "evaluators" / "informativeness"
+    samples_dir = current_dir / "model_samples"
+
+    # Verify paths exist
+    if not metrics_path.exists():
+        print(f"Error: Metrics folder {metrics_path} not found.")
+        return
+
+    if not samples_dir.exists():
+        print(f"Error: Samples directory {samples_dir} not found.")
+        return
+
+    # Load sample files for different models
+    sample_files = load_samples_by_model(samples_dir)
+
+    if not sample_files:
+        print(f"Error: No sample files found in {samples_dir}")
+        return
+
+    # Compare models
+    compare_models(str(metrics_path), sample_files)
+
+if __name__ == "__main__":
+    main()
+```
+
+For this script, create a `model_samples` directory with separate sample files for each model:
+
+```
+model_samples/
+  ├── llama_v3.jsonl
+  ├── gpt4.jsonl
+  └── claude.jsonl
+```
+
+## Step 7: Saving Evaluation Results
+
+To save evaluation results for further analysis:
+
+```python
+# save_evaluation_results.py
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+
+from eval_protocol.evaluation import preview_evaluation
+
+def save_results(preview_result, output_path: str) -> None:
+    """Save evaluation results to a JSON file."""
+    # Create results dictionary
+    results_data = {
+        "timestamp": datetime.now().isoformat(),
+        "total_samples": preview_result.total_samples,
+        "average_score": preview_result.average_score,
+        "total_runtime_ms": preview_result.total_runtime_ms,
+        "samples": []
+    }
+
+    # Add individual sample results
+    for i, sample in enumerate(preview_result.sample_results):
+        sample_data = {
+            "sample_id": i + 1,
+            "score": sample.score,
+            "metrics": {name: metric.dict() for name, metric in sample.metrics.items()}
+        }
+        results_data["samples"].append(sample_data)
+
+    # Save to file
+    with open(output_path, 'w') as f:
+        json.dump(results_data, f, indent=2)
+
+    print(f"Results saved to {output_path}")
+
+def main():
+    # Define paths
+    current_dir = Path(__file__).parent
+    metrics_path = current_dir / "evaluators" / "informativeness"
+    samples_path = current_dir / "samples.jsonl"
+    results_dir = current_dir / "evaluation_results"
+
+    # Create results directory if it doesn't exist
+    results_dir.mkdir(exist_ok=True)
+
+    # Generate output filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_path = results_dir / f"evaluation_{timestamp}.json"
+
+    # Preview evaluation
+    preview_result = preview_evaluation(
+        metric_folders=[f"informativeness={metrics_path}"],
+        sample_file=str(samples_path)
+    )
+
+    # Display results
+    preview_result.display()
+
+    # Save results
+    save_results(preview_result, output_path)
+
+if __name__ == "__main__":
+    main()
+```
+
+## Extended Evaluations
+
+### Multi-Metric Evaluation
+
+For more comprehensive evaluation, you can combine multiple metrics:
+
+```python
+# Preview with multiple metrics
+preview_result = preview_evaluation(
+    metric_folders=[
+        f"informativeness={metrics_dir}/informativeness",
+        f"accuracy={metrics_dir}/accuracy",
+        f"helpfulness={metrics_dir}/helpfulness"
+    ],
+    sample_file=sample_file
+)
+```
+
+### Batch Evaluation
+
+For evaluating large numbers of samples, you can use batch processing:
+
+```python
+# process_batches.py
+import os
+from pathlib import Path
+import json
+
+from eval_protocol.evaluation import preview_evaluation
+
+def batch_process(metric_path: str, samples_path: str, batch_size: int = 100) -> None:
+    """Process samples in batches."""
+    # Load all samples
+    with open(samples_path, 'r') as f:
+        all_samples = [json.loads(line) for line in f if line.strip()]
+
+    total_samples = len(all_samples)
+    print(f"Processing {total_samples} samples in batches of {batch_size}")
+
+    # Create temporary batch files
+    temp_dir = Path("temp_batches")
+    temp_dir.mkdir(exist_ok=True)
+
+    try:
+        all_results = []
+
+        # Process in batches
+        for i in range(0, total_samples, batch_size):
+            batch = all_samples[i:i+batch_size]
+            batch_file = temp_dir / f"batch_{i}.jsonl"
+
+            # Write batch to temp file
+            with open(batch_file, 'w') as f:
+                for sample in batch:
+                    f.write(json.dumps(sample) + '\n')
+
+            print(f"Processing batch {i//batch_size + 1}/{(total_samples+batch_size-1)//batch_size}")
+
+            # Evaluate batch
+            batch_result = preview_evaluation(
+                metric_folders=[f"informativeness={metric_path}"],
+                sample_file=str(batch_file)
+            )
+
+            # Collect results
+            all_results.extend(batch_result.sample_results)
+
+            # Clean up batch file
+            batch_file.unlink()
+
+        # Calculate aggregate statistics
+        avg_score = sum(r.score for r in all_results) / len(all_results)
+        print(f"\nProcessed {len(all_results)} samples")
+        print(f"Average Score: {avg_score:.3f}")
+
+    finally:
+        # Clean up temp directory
+        if temp_dir.exists():
+            for file in temp_dir.glob("*.jsonl"):
+                file.unlink(missing_ok=True)
+            temp_dir.rmdir()
+
+def main():
+    # Define paths
+    current_dir = Path(__file__).parent
+    metrics_path = current_dir / "evaluators" / "informativeness"
+    samples_path = current_dir / "large_samples.jsonl"
+
+    # Batch process
+    batch_process(str(metrics_path), str(samples_path), batch_size=50)
+
+if __name__ == "__main__":
+    main()
+```
+
+## Visualizing Evaluation Results
+
+You can visualize your evaluation results with a simple visualization script:
+
+```python
+# visualize_results.py
+import json
+import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
+
+def load_results(results_file: str) -> dict:
+    """Load results from a JSON file."""
+    with open(results_file, 'r') as f:
+        return json.load(f)
+
+def visualize_results(results: dict) -> None:
+    """Create visualizations of evaluation results."""
+    # Extract scores
+    scores = [sample["score"] for sample in results["samples"]]
+
+    # Create figure with multiple subplots
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    fig.suptitle("Evaluation Results Analysis", fontsize=16)
+
+    # 1. Score distribution histogram
+    axes[0, 0].hist(scores, bins=10, color='skyblue', edgecolor='black')
+    axes[0, 0].set_title("Score Distribution")
+    axes[0, 0].set_xlabel("Score")
+    axes[0, 0].set_ylabel("Frequency")
+
+    # 2. Score range breakdown
+    score_ranges = {
+        "Excellent (0.8-1.0)": len([s for s in scores if 0.8 <= s <= 1.0]),
+        "Good (0.6-0.8)": len([s for s in scores if 0.6 <= s < 0.8]),
+        "Average (0.4-0.6)": len([s for s in scores if 0.4 <= s < 0.6]),
+        "Poor (0.2-0.4)": len([s for s in scores if 0.2 <= s < 0.4]),
+        "Very Poor (0-0.2)": len([s for s in scores if 0 <= s < 0.2])
+    }
+
+    categories = list(score_ranges.keys())
+    counts = list(score_ranges.values())
+
+    axes[0, 1].bar(categories, counts, color='lightgreen', edgecolor='black')
+    axes[0, 1].set_title("Score Quality Breakdown")
+    axes[0, 1].set_ylabel("Number of Samples")
+    plt.setp(axes[0, 1].get_xticklabels(), rotation=45, ha="right")
+
+    # 3. Individual metrics comparison (if available)
+    try:
+        # Get all metric names
+        metric_names = set()
+        for sample in results["samples"]:
+            metric_names.update(sample["metrics"].keys())
+
+        metric_names = list(metric_names)
+
+        if metric_names:
+            # Calculate average scores for each metric
+            metric_avgs = {}
+            for metric in metric_names:
+                values = []
+                for sample in results["samples"]:
+                    if metric in sample["metrics"]:
+                        values.append(sample["metrics"][metric].get("score", 0))
+                if values:
+                    metric_avgs[metric] = sum(values) / len(values)
+
+            # Plot metric averages
+            metric_labels = list(metric_avgs.keys())
+            metric_scores = list(metric_avgs.values())
+
+            axes[1, 0].bar(metric_labels, metric_scores, color='salmon', edgecolor='black')
+            axes[1, 0].set_title("Average Metric Scores")
+            axes[1, 0].set_ylabel("Average Score")
+            axes[1, 0].set_ylim(0, 1)
+            plt.setp(axes[1, 0].get_xticklabels(), rotation=45, ha="right")
+
+    except Exception as e:
+        axes[1, 0].text(0.5, 0.5, f"Could not generate metric comparison: {str(e)}",
+                     horizontalalignment='center', verticalalignment='center')
+
+    # 4. Summary statistics
+    axes[1, 1].axis('off')
+    summary_text = (
+        f"Total Samples: {results['total_samples']}\n"
+        f"Average Score: {results['average_score']:.3f}\n"
+        f"Median Score: {np.median(scores):.3f}\n"
+        f"Min Score: {min(scores):.3f}\n"
+        f"Max Score: {max(scores):.3f}\n"
+        f"Standard Deviation: {np.std(scores):.3f}\n"
+        f"Total Runtime: {results['total_runtime_ms']/1000:.2f} seconds"
+    )
+    axes[1, 1].text(0.1, 0.5, summary_text, fontsize=12,
+                 verticalalignment='center')
+    axes[1, 1].set_title("Summary Statistics")
+
+    # Adjust layout and save
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.savefig("evaluation_results_visualization.png", dpi=300)
+    print("Visualization saved as evaluation_results_visualization.png")
+
+    # Show plot
+    plt.show()
+
+def main():
+    # Define paths
+    current_dir = Path(__file__).parent
+    results_dir = current_dir / "evaluation_results"
+
+    # Find the most recent results file
+    results_files = list(results_dir.glob("evaluation_*.json"))
+    if not results_files:
+        print("No evaluation results found.")
+        return
+
+    latest_results_file = max(results_files, key=lambda x: x.stat().st_mtime)
+    print(f"Visualizing results from: {latest_results_file}")
+
+    # Load and visualize results
+    results = load_results(latest_results_file)
+    visualize_results(results)
+
+if __name__ == "__main__":
+    main()
+```
+
+## Best Practices for Model Evaluation
+
+1. **Diverse Samples**: Include a diverse set of examples that cover various topics and complexity levels.
+
+2. **Multiple Metrics**: Evaluate different aspects of responses (helpfulness, accuracy, safety, etc.).
+
+3. **Benchmark Against Humans**: When possible, compare with human-rated samples for calibration.
+
+4. **Consistent Scales**: Use consistent scoring scales (e.g., 0-1) across all metrics.
+
+5. **Detailed Documentation**: Document what each metric measures and how scores are calculated.
+
+6. **Batch Processing**: For large evaluations, process samples in batches to manage memory.
+
+7. **Visualization**: Use visualizations to better understand the distribution of scores.
+
+8. **Version Control**: Track changes to your evaluation metrics over time.
+
+## Next Steps
+
+- Learn about [Best Practices for Reward Functions](best_practices.md)
+- Explore [Advanced Reward Functions](../examples/advanced_reward_functions.md)
+- Discover how to [Integrate with Training Workflows](integrating_with_training_workflows.md)

@@ -1,0 +1,274 @@
+# Reward Function Anatomy
+
+This guide provides a detailed explanation of how reward functions are structured in Eval Protocol, focusing on the `@reward_function` decorator and the components that make up a complete reward function.
+
+## The `@reward_function` Decorator
+
+The `@reward_function` decorator is the core mechanism that transforms a regular Python function into a reward function that can be used for evaluation and deployment.
+
+```python
+from eval_protocol import reward_function, EvaluateResult, MetricResult
+
+@reward_function
+def my_reward_function(messages, original_messages=None, **kwargs):
+    # Your evaluation logic here
+    score = 0.75 # Example score
+    reason = "Overall evaluation reason for my_reward_function"
+    metrics_dict = {"example_metric": MetricResult(score=score, success=True, reason="Metric reason")}
+    return EvaluateResult(score=score, reason=reason, metrics=metrics_dict)
+```
+
+### What the Decorator Does
+
+The `@reward_function` decorator performs several important functions:
+
+1. **Input Validation**: Ensures the function receives the expected parameters
+2. **Output Standardization**: Ensures the function returns a properly formatted `EvaluateResult` object
+3. **Deployment Capability**: Adds a `.deploy()` method to the function for easy deployment
+4. **Backward Compatibility**: Handles legacy return formats (tuples of score and metrics)
+
+### Under the Hood
+
+Internally, the decorator wraps your function with logic that:
+
+1. Processes the input parameters
+2. Calls your function with the standardized inputs
+3. Handles any exceptions that occur during execution
+4. Formats the output as an `EvaluateResult` object
+5. Provides deployment capabilities through the `.deploy()` method
+
+## Function Parameters
+
+A standard reward function has these parameters:
+
+```python
+from typing import List, Dict, Optional
+from eval_protocol import EvaluateResult
+
+def reward_function(
+    messages: List[Dict[str, str]],
+    original_messages: Optional[List[Dict[str, str]]] = None,
+    **kwargs
+) -> EvaluateResult:
+    # ...
+    pass
+```
+
+### Required Parameters
+
+- **`messages`**: A list of message dictionaries in the conversation, where each message has at least `"role"` and `"content"` keys. The last message is typically the one being evaluated.
+
+### Optional Parameters
+
+- **`original_messages`**: The conversation context, usually messages before the response being evaluated. If not provided, it defaults to `messages[:-1]`.
+- **`**kwargs`**: Additional parameters that can be used to customize the evaluation.
+
+## Return Value
+
+A reward function must return an `EvaluateResult` object:
+
+```python
+from eval_protocol import EvaluateResult, MetricResult
+
+# score, clarity_score, accuracy_score would be calculated by your logic
+clarity_score = 0.8
+accuracy_score = 0.7
+final_score = 0.75
+
+return EvaluateResult(
+    score=final_score,  # Overall score between 0.0 and 1.0
+    reason="Overall evaluation based on clarity and accuracy.",
+    metrics={    # Component metrics
+        "clarity": MetricResult(
+            score=clarity_score,
+            success=clarity_score >= 0.7,
+            reason="The response clearly explains the concept"
+        ),
+        "accuracy": MetricResult(
+            score=accuracy_score,
+            success=accuracy_score >= 0.6,
+            reason="Contains one minor factual error"
+        )
+    }
+)
+```
+
+### EvaluateResult Structure
+
+- **`score`**: The final aggregate score (typically between 0.0 and 1.0).
+- **`reason`**: An optional top-level explanation for the overall score.
+- **`metrics`**: A dictionary of component metrics (`MetricResult` objects), each with its own score, success flag, and explanation.
+- **`error`**: An optional string field to convey errors during evaluation.
+
+
+## Multi-Component Reward Functions
+
+Complex reward functions often evaluate multiple aspects of a response:
+
+```python
+from eval_protocol import reward_function, EvaluateResult, MetricResult
+from typing import List, Dict, Optional
+
+# Assume evaluate_clarity and evaluate_accuracy are defined elsewhere
+def evaluate_clarity(response: str) -> float: return 0.8
+def evaluate_accuracy(response: str) -> float: return 0.6
+
+
+@reward_function
+def comprehensive_evaluation(
+    messages: List[Dict[str, str]],
+    original_messages: Optional[List[Dict[str, str]]] = None,
+    **kwargs
+) -> EvaluateResult:
+    response = messages[-1]["content"]
+    metrics = {}
+
+    # Evaluate clarity
+    clarity_score = evaluate_clarity(response)
+    metrics["clarity"] = MetricResult(
+        score=clarity_score,
+        success=clarity_score >= 0.7,
+        reason=f"Clarity score: {clarity_score:.2f}"
+    )
+
+    # Evaluate accuracy
+    accuracy_score = evaluate_accuracy(response)
+    metrics["accuracy"] = MetricResult(
+        score=accuracy_score,
+        success=accuracy_score >= 0.6,
+        reason=f"Accuracy score: {accuracy_score:.2f}"
+    )
+
+    # Combine scores (weighted average)
+    final_score = clarity_score * 0.4 + accuracy_score * 0.6
+
+    return EvaluateResult(score=final_score, reason="Comprehensive evaluation complete.", metrics=metrics)
+```
+
+## Deployment Capabilities
+
+The `@reward_function` decorator adds a `.deploy()` method to your function:
+
+```python
+# Assume my_reward_function is defined as above
+# Deploy the function to Fireworks
+evaluation_id = my_reward_function.deploy(
+    name="my-evaluator",
+    description="Evaluates responses based on custom criteria",
+    force=True  # Overwrite if already exists
+)
+```
+
+### Deploy Method Parameters
+
+- **`name`**: ID for the deployed evaluator (required)
+- **`description`**: Human-readable description (optional)
+- **`force`**: Whether to overwrite an existing evaluator with the same name (optional)
+- **`providers`**: List of model providers to use for evaluation (optional)
+
+## Error Handling
+
+Robust reward functions include proper error handling:
+
+```python
+from eval_protocol import reward_function, EvaluateResult, MetricResult
+from typing import List, Dict, Optional
+
+@reward_function
+def safe_evaluation(
+    messages: List[Dict[str, str]],
+    original_messages: Optional[List[Dict[str, str]]] = None,
+    **kwargs
+) -> EvaluateResult:
+    try:
+        # Ensure we have a valid response to evaluate
+        if not messages or messages[-1].get("role") != "assistant":
+            return EvaluateResult(
+                score=0.0,
+                reason="No assistant response found.",
+                metrics={"error": MetricResult(
+                    score=0.0,
+                    success=False,
+                    reason="No assistant response found"
+                )}
+            )
+
+        # Your evaluation logic here
+        # ...
+        # For example:
+        calculated_score = 0.0 # Placeholder for actual logic
+        if calculated_score == 0 : raise ValueError("Simulated error")
+        return EvaluateResult(score=1.0, reason="Successful evaluation", metrics={})
+
+
+    except Exception as e:
+        # Handle any unexpected errors
+        return EvaluateResult(
+            score=0.0,
+            reason=f"Evaluation error: {str(e)}",
+            metrics={"error": MetricResult(
+                score=0.0,
+                success=False,
+                reason=f"Evaluation error: {str(e)}"
+            )}
+        )
+```
+
+## Working with Metadata
+
+You can pass additional configuration through the `**kwargs` parameter, often via a `metadata` dictionary.
+
+```python
+from eval_protocol import reward_function, EvaluateResult, MetricResult
+from typing import List, Dict, Optional, Any
+
+# Assume base_score and metrics are calculated based on messages
+def calculate_base_score_and_metrics(response_content: str, min_length: int) -> tuple[float, dict]:
+    # Dummy implementation
+    current_length = len(response_content)
+    score = 1.0 if current_length >= min_length else 0.5
+    return score, {"length_check": MetricResult(score=score, success=current_length >= min_length, reason=f"Length {current_length} vs min {min_length}")}
+
+@reward_function
+def configurable_evaluation(
+    messages: List[Dict[str, str]], # Added type hints
+    original_messages: Optional[List[Dict[str, str]]] = None, # Added type hints
+    metadata: Optional[Dict[str, Any]] = None,
+    **kwargs
+) -> EvaluateResult:
+    """Reward function that supports configuration via metadata."""
+    metadata = metadata or {}
+    response_content = messages[-1].get("content", "")
+
+    # Get configurable thresholds from metadata
+    min_length = metadata.get("min_length", 50)
+    max_score_cap = metadata.get("max_score_cap", 1.0) # Renamed to avoid conflict with 'score'
+    weight_factor = metadata.get("weight_factor", 1.0)
+
+    # Use these parameters in your evaluation
+    base_score, metrics = calculate_base_score_and_metrics(response_content, min_length)
+
+    # Apply any metadata-based adjustments to the final score
+    final_score = base_score * weight_factor
+    final_score = min(final_score, max_score_cap) # Cap the score
+
+    return EvaluateResult(score=final_score, reason="Configurable evaluation complete.", metrics=metrics)
+```
+
+When calling the function, you can pass this metadata:
+
+```python
+# Assume test_messages is defined
+# result = configurable_evaluation(
+#     messages=test_messages,
+#     metadata={"min_length": 100, "weight_factor": 1.2}
+# )
+```
+
+## Next Steps
+
+Now that you understand the structure of reward functions:
+
+1. Learn about the [Core Data Types](core_data_types.md) used in reward functions
+2. Explore [Evaluation Workflows](evaluation_workflows.md) for testing and deployment
+3. See [Code Examples](../examples/basic_reward_function.md) for practical implementations

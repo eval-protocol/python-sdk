@@ -1,0 +1,30 @@
+# Configuration for the local GSM8K sample prompt dataset.
+# This dataset is expected to be in the format:
+# {"id": "...", "user_query": "...", "ground_truth_for_eval": "..."}
+defaults:
+  - base_dataset # Inherits from the base dataset schema
+  - _self_
+
+source_type: "jsonl"
+
+# Path to the local JSONL file containing prompts.
+path_or_name: "development/gsm8k_sample.jsonl"
+
+split: "train" # Default split for single JSONL files
+
+description: "Local GSM8K sample prompts (5 examples from test set) for main.py."
+
+# Column mapping for the fields in development/gsm8k_sample.jsonl
+# These names must match the keys in the JSONL objects.
+column_mapping:
+  id: "id"
+  user_query: "user_query" # main.py will use this for the user's question
+  ground_truth_for_eval: "ground_truth_for_eval" # main.py will use this for evaluation
+
+  # Ensure these standard base_dataset fields are nulled if not directly used
+  # or mapped to something relevant from the JSONL if applicable.
+  # For this prompt dataset, 'query' and 'ground_truth' from base_dataset aren't directly
+  # used by main.py in the same way; it uses 'user_query' and 'ground_truth_for_eval'.
+  query: null
+  ground_truth: null
+  solution: null

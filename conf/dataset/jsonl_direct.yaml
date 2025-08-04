@@ -1,0 +1,15 @@
+# conf/dataset/jsonl_direct.yaml
+# Minimal configuration for loading a JSONL dataset directly.
+# The 'path_or_name' should be overridden by the experiment-specific config.
+
+_target_: eval_protocol.datasets.loader.load_and_process_dataset
+dataset_source_type: jsonl
+path_or_name: "PLEASE_OVERRIDE_THIS_PATH" # This will be overridden
+
+# Assuming 'messages' is a top-level key in the JSONL.
+# If ground_truth is outside 'messages', specify its column.
+column_mapping:
+  ground_truth_column: "ground_truth_for_eval" # Example, adjust if your JSONL structure differs
+
+# max_samples: null # Default to processing all samples, can be overridden
+# split: "train" # Default split if applicable, can be overridden

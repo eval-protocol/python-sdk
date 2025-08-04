@@ -1,0 +1,31 @@
+# Example configuration for N-variant generation
+# This configuration will generate 5 different responses for each sample
+
+generation:
+  enabled: true
+  model_name: "accounts/fireworks/models/llama-v3p1-8b-instruct"
+  n: 5  # Generate 5 variants for each sample
+  cache:
+    enabled: true
+  api_params:
+    max_concurrent_requests: 10
+    temperature: 0.8  # Higher temperature for more diverse responses
+    top_p: 0.9
+
+reward:
+  function_path: "eval_protocol.rewards.accuracy.accuracy_reward"
+  params: {}
+
+dataset:
+  _target_: eval_protocol.datasets.loader.load_and_process_dataset
+  path_or_name: "path/to/your/dataset.jsonl"
+
+output:
+  results_file: "n_variant_results.jsonl"
+  preview_pairs_file: "n_variant_preview.jsonl"
+
+evaluation_params:
+  limit_samples: 10  # Limit to 10 samples for testing
+
+logging_params:
+  batch_log_interval: 5

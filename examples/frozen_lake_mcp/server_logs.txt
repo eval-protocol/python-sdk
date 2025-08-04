@@ -1,0 +1,162 @@
+INFO:     Started server process [2975813]
+INFO:     Waiting for application startup.
+INFO:mcp.server.streamable_http_manager:StreamableHTTP session manager started
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:9600 (Press CTRL+C to quit)
+INFO:mcp.server.streamable_http_manager:Created new transport with session ID: 5d7cf096a9e545ab81c5f0c251200c91
+🔍 FrozenLakeAdapter.create_environment_with_seed: config: {'map_name': '4x4', 'is_slippery': False}, seed: None
+🔍 FrozenLakeAdapter.create_environment_with_seed: env_config: {'map_name': '4x4', 'is_slippery': False, 'seed': None}
+🔍 FrozenLakeAdapter.create_environment: config: {'map_name': '4x4', 'is_slippery': False, 'seed': None}
+🔍 FrozenLakeAdapter.create_environment: extracted seed: None (type: <class 'NoneType'>)
+🔍 FrozenLakeAdapter.create_environment: grid_size: 4
+🔍 FrozenLakeAdapter.create_environment: Generating map without seed
+🔍 FrozenLakeAdapter.create_environment: Generated map desc: ['SHFF', 'FFFF', 'FFFF', 'FFHG']
+🔍 FrozenLakeAdapter.create_environment: Created FrozenLakeEnv
+🔍 FrozenLakeAdapter.create_environment_with_seed: created env, calling reset with seed: None
+🔍 FrozenLakeAdapter.create_environment_with_seed: reset returned obs: 0, info: {'prob': 1}
+✅ Registered 3 session-aware control plane endpoints
+  - get_info_endpoint: /control/info
+  - get_reward_endpoint: /control/reward
+  - get_status_endpoint: /control/status
+🚀 Starting FrozenLake MCP server on port 9600
+🌱 Seed: None
+📡 Transport: streamable-http
+🚀 FrozenLake-v1 Production Server Starting...
+📡 Transport: streamable-http
+🎯 MCP Pattern: Resources for initial state, tools for actions
+🔗 Initial state resource: game://initial_state
+INFO:     127.0.0.1:57364 - "POST /mcp/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57380 - "GET /mcp/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57376 - "POST /mcp/ HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:57382 - "POST /mcp/ HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+🔍 _get_session_id: Starting session ID extraction
+🔍 _get_session_id: ctx type: <class 'mcp.server.fastmcp.server.Context'>
+🔍 _get_session_id: hasattr(ctx, 'session'): True
+🔍 _get_session_id: client_params type: <class 'mcp.types.InitializeRequestParams'>
+🔍 _get_session_id: hasattr(client_params, 'clientInfo'): True
+🔍 _get_session_id: client_info: name='test-client' title=None version='1.0.0' _extra={'seed': 42}
+🔍 _get_session_id: hasattr(client_info, '_extra'): True
+🔍 _get_session_id: extra_data: {'seed': 42}
+🔍 _get_session_id: extra_data type: <class 'dict'>
+🔍 _get_session_id: seed_value: 42 (type: <class 'int'>)
+🔍 _get_session_id: config_value: {}
+🔍 _get_session_id: stable_data: {'seed': 42, 'config': {}, 'name': 'test-client', 'version': '1.0.0'}
+🎯 Generated stable session_id: b7ad2af88cfe028efc1bc1ce85ba3050 for seed: 42
+🔍 _get_session_id: Starting session ID extraction
+🔍 _get_session_id: ctx type: <class 'mcp.server.fastmcp.server.Context'>
+🔍 _get_session_id: hasattr(ctx, 'session'): True
+🔍 _get_session_id: client_params type: <class 'mcp.types.InitializeRequestParams'>
+🔍 _get_session_id: hasattr(client_params, 'clientInfo'): True
+🔍 _get_session_id: client_info: name='test-client' title=None version='1.0.0' _extra={'seed': 42}
+🔍 _get_session_id: hasattr(client_info, '_extra'): True
+🔍 _get_session_id: extra_data: {'seed': 42}
+🔍 _get_session_id: extra_data type: <class 'dict'>
+🔍 _get_session_id: seed_value: 42 (type: <class 'int'>)
+🔍 _get_session_id: config_value: {}
+🔍 _get_session_id: stable_data: {'seed': 42, 'config': {}, 'name': 'test-client', 'version': '1.0.0'}
+🎯 Generated stable session_id: b7ad2af88cfe028efc1bc1ce85ba3050 for seed: 42
+🔍 _get_or_create_session: session_id: b7ad2af88cfe028efc1bc1ce85ba3050
+🔍 _get_or_create_session: Creating new session for b7ad2af88cfe028efc1bc1ce85ba3050
+🔍 _get_or_create_session: default_config: {'map_name': '4x4', 'is_slippery': False}
+🔍 _get_or_create_session: extra_data in session creation: {'seed': 42}
+🌱 Extracted seed from client_info: 42 (type: <class 'int'>)
+🔍 _get_or_create_session: About to create environment with seed: 42
+🔍 _get_or_create_session: Calling create_environment_with_seed({'map_name': '4x4', 'is_slippery': False}, seed=42)
+🔍 FrozenLakeAdapter.create_environment_with_seed: config: {'map_name': '4x4', 'is_slippery': False}, seed: 42
+🔍 FrozenLakeAdapter.create_environment_with_seed: env_config: {'map_name': '4x4', 'is_slippery': False, 'seed': 42}
+🔍 FrozenLakeAdapter.create_environment: config: {'map_name': '4x4', 'is_slippery': False, 'seed': 42}
+🔍 FrozenLakeAdapter.create_environment: extracted seed: 42 (type: <class 'int'>)
+🔍 FrozenLakeAdapter.create_environment: grid_size: 4
+🔍 FrozenLakeAdapter.create_environment: Generating map with seed 42
+🔍 FrozenLakeAdapter.create_environment: Generated map desc: ['SFHF', 'FHFF', 'FFFH', 'FHFG']
+🔍 FrozenLakeAdapter.create_environment: Created FrozenLakeEnv
+🔍 FrozenLakeAdapter.create_environment_with_seed: created env, calling reset with seed: 42
+🔍 FrozenLakeAdapter.create_environment_with_seed: reset returned obs: 0, info: {'prob': 1}
+🔍 _get_or_create_session: create_environment_with_seed returned obs: 0, info: {'prob': 1}
+🎮 Created new session b7ad2af88cfe028e... with seed 42, initial obs: 0
+🎛️  Session b7ad2af88cfe028e... control plane: reward=0.0, terminated=False, step=1
+🎮 Session b7ad2af88cfe028e...: RIGHT → position 1
+INFO:     127.0.0.1:57392 - "POST /mcp/ HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:mcp.server.streamable_http:Terminating session: 5d7cf096a9e545ab81c5f0c251200c91
+INFO:     127.0.0.1:57400 - "DELETE /mcp/ HTTP/1.1" 200 OK
+INFO:mcp.server.streamable_http_manager:Created new transport with session ID: b9ce8848c92148d58f9d063fbabc8902
+INFO:     127.0.0.1:57636 - "POST /mcp/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57642 - "GET /mcp/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57640 - "POST /mcp/ HTTP/1.1" 202 Accepted
+INFO:mcp.server.streamable_http:Terminating session: b9ce8848c92148d58f9d063fbabc8902
+INFO:     127.0.0.1:57648 - "DELETE /mcp/ HTTP/1.1" 200 OK
+INFO:mcp.server.streamable_http_manager:Created new transport with session ID: 9dfb0aa465564aeaa44a405a344c4708
+INFO:     127.0.0.1:43002 - "POST /mcp/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43004 - "GET /control/status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43020 - "POST /mcp/ HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:43028 - "GET /mcp/ HTTP/1.1" 200 OK
+INFO:mcp.server.streamable_http:Terminating session: 9dfb0aa465564aeaa44a405a344c4708
+INFO:     127.0.0.1:43038 - "DELETE /mcp/ HTTP/1.1" 200 OK
+INFO:mcp.server.streamable_http_manager:Created new transport with session ID: 48669d1d7aec455a98e34abe52c38722
+INFO:     127.0.0.1:44772 - "POST /mcp/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44786 - "GET /mcp/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44780 - "POST /mcp/ HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:44788 - "POST /mcp/ HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+🔍 _get_session_id: Starting session ID extraction
+🔍 _get_session_id: ctx type: <class 'mcp.server.fastmcp.server.Context'>
+🔍 _get_session_id: hasattr(ctx, 'session'): True
+🔍 _get_session_id: client_params type: <class 'mcp.types.InitializeRequestParams'>
+🔍 _get_session_id: hasattr(client_params, 'clientInfo'): True
+🔍 _get_session_id: client_info: name='reward-kit' title=None version='1.0.0' _extra={'seed': 42, 'config': {'seed': 42}}
+🔍 _get_session_id: hasattr(client_info, '_extra'): True
+🔍 _get_session_id: extra_data: {'seed': 42, 'config': {'seed': 42}}
+🔍 _get_session_id: extra_data type: <class 'dict'>
+🔍 _get_session_id: seed_value: 42 (type: <class 'int'>)
+🔍 _get_session_id: config_value: {'seed': 42}
+🔍 _get_session_id: stable_data: {'seed': 42, 'config': {'seed': 42}, 'name': 'reward-kit', 'version': '1.0.0'}
+🎯 Generated stable session_id: fe37a667350b58f64a60fd1dd8bb90e1 for seed: 42
+🔍 _get_session_id: Starting session ID extraction
+🔍 _get_session_id: ctx type: <class 'mcp.server.fastmcp.server.Context'>
+🔍 _get_session_id: hasattr(ctx, 'session'): True
+🔍 _get_session_id: client_params type: <class 'mcp.types.InitializeRequestParams'>
+🔍 _get_session_id: hasattr(client_params, 'clientInfo'): True
+🔍 _get_session_id: client_info: name='reward-kit' title=None version='1.0.0' _extra={'seed': 42, 'config': {'seed': 42}}
+🔍 _get_session_id: hasattr(client_info, '_extra'): True
+🔍 _get_session_id: extra_data: {'seed': 42, 'config': {'seed': 42}}
+🔍 _get_session_id: extra_data type: <class 'dict'>
+🔍 _get_session_id: seed_value: 42 (type: <class 'int'>)
+🔍 _get_session_id: config_value: {'seed': 42}
+🔍 _get_session_id: stable_data: {'seed': 42, 'config': {'seed': 42}, 'name': 'reward-kit', 'version': '1.0.0'}
+🎯 Generated stable session_id: fe37a667350b58f64a60fd1dd8bb90e1 for seed: 42
+🔍 _get_or_create_session: session_id: fe37a667350b58f64a60fd1dd8bb90e1
+🔍 _get_or_create_session: Creating new session for fe37a667350b58f64a60fd1dd8bb90e1
+🔍 _get_or_create_session: default_config: {'map_name': '4x4', 'is_slippery': False}
+🔍 _get_or_create_session: extra_data in session creation: {'seed': 42, 'config': {'seed': 42}}
+🌱 Extracted seed from client_info: 42 (type: <class 'int'>)
+🔍 _get_or_create_session: updated config: {'map_name': '4x4', 'is_slippery': False, 'seed': 42}
+🔍 _get_or_create_session: About to create environment with seed: 42
+🔍 _get_or_create_session: Calling create_environment_with_seed({'map_name': '4x4', 'is_slippery': False, 'seed': 42}, seed=42)
+🔍 FrozenLakeAdapter.create_environment_with_seed: config: {'map_name': '4x4', 'is_slippery': False, 'seed': 42}, seed: 42
+🔍 FrozenLakeAdapter.create_environment_with_seed: env_config: {'map_name': '4x4', 'is_slippery': False, 'seed': 42}
+🔍 FrozenLakeAdapter.create_environment: config: {'map_name': '4x4', 'is_slippery': False, 'seed': 42}
+🔍 FrozenLakeAdapter.create_environment: extracted seed: 42 (type: <class 'int'>)
+🔍 FrozenLakeAdapter.create_environment: grid_size: 4
+🔍 FrozenLakeAdapter.create_environment: Generating map with seed 42
+🔍 FrozenLakeAdapter.create_environment: Generated map desc: ['SFHF', 'FHFF', 'FFFH', 'FHFG']
+🔍 FrozenLakeAdapter.create_environment: Created FrozenLakeEnv
+🔍 FrozenLakeAdapter.create_environment_with_seed: created env, calling reset with seed: 42
+🔍 FrozenLakeAdapter.create_environment_with_seed: reset returned obs: 0, info: {'prob': 1}
+🔍 _get_or_create_session: create_environment_with_seed returned obs: 0, info: {'prob': 1}
+🎮 Created new session fe37a667350b58f6... with seed 42, initial obs: 0
+🎛️  Session fe37a667350b58f6... control plane: reward=0.0, terminated=False, step=1
+🎮 Session fe37a667350b58f6...: RIGHT → position 1
+INFO:     127.0.0.1:44792 - "POST /mcp/ HTTP/1.1" 200 OK
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:     127.0.0.1:44804 - "GET /control/reward HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44816 - "GET /control/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44818 - "GET /control/status HTTP/1.1" 200 OK
+INFO:mcp.server.streamable_http:Terminating session: 48669d1d7aec455a98e34abe52c38722
+INFO:     127.0.0.1:44824 - "DELETE /mcp/ HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:mcp.server.streamable_http_manager:StreamableHTTP session manager shutting down
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2975813]

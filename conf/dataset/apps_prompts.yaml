@@ -1,0 +1,17 @@
+defaults:
+  - base_dataset
+  - _self_
+
+source_type: "jsonl"
+path_or_name: "development/apps_sample_prompts.jsonl" # Points to the generated sample
+split: "train" # JSONL files typically don't have splits, but schema might expect it
+description: "Sample prompts from APPS dataset, converted to JSONL."
+
+column_mapping:
+  id: "id"
+  user_query: "user_query"
+  ground_truth_for_eval: "ground_truth_for_eval"
+  # These are from base_dataset, set to null if not directly in this JSONL's top level
+  query: null
+  ground_truth: null
+  solution: null

@@ -1,0 +1,200 @@
+# Eval Protocol API Reference
+
+This API reference provides detailed documentation for the key classes, functions, and data models in the Eval Protocol.
+
+## Core Components
+
+### Classes and Decorators
+
+- [RewardFunction Class](reward_function_class.md): Core class for wrapping and calling reward functions
+- [reward_function Decorator](reward_function_decorator.md): Decorator for creating deployable reward functions
+
+### Data Models
+
+- [Data Models](data_models.md): Documentation for Message, EvaluateResult, MetricResult, and other data models
+
+## Modules
+
+### reward_function Module
+
+The `reward_function` module contains the core functionality for creating and using reward functions.
+
+```python
+from eval_protocol.reward_function import RewardFunction, reward_function
+```
+
+### evaluation Module
+
+The `evaluation` module provides the `Evaluator` class for managing evaluation configurations and functions for creating and previewing evaluations.
+
+```python
+from eval_protocol.evaluation import Evaluator, preview_evaluation, create_evaluation
+```
+
+Key components:
+- **`Evaluator` class**: Manages metric loading, sample loading, and evaluator creation on the platform.
+- **`preview_evaluation`**: Previews an evaluation with sample data before deployment.
+- **`create_evaluation`**: Creates and deploys an evaluator to the platform.
+
+### config Module
+
+The `config` module handles loading and managing configurations for the Eval Protocol, typically from a `rewardkit.yaml` file.
+
+```python
+from eval_protocol.config import load_config, get_config, RewardKitConfig
+```
+Key functions and classes:
+- **`load_config()` / `get_config()`**: Load the global Eval Protocol configuration.
+- **`RewardKitConfig`**: Pydantic model for the main configuration structure.
+- Other models like `GCPCloudRunConfig`, `AWSLambdaConfig`.
+
+### models Module
+
+The `models` module contains data models used throughout the Eval Protocol.
+
+```python
+from eval_protocol.models import EvaluateResult, MetricResult, Message
+```
+
+### rewards Module
+
+The `rewards` module contains specialized reward functions for specific use cases.
+
+```python
+from eval_protocol.rewards.function_calling import match_function_call
+```
+
+### server Module
+
+The `server` module provides the `RewardServer` class and `serve` function to host reward functions as a FastAPI application.
+
+```python
+from eval_protocol.server import RewardServer, serve
+```
+Key components:
+- **`RewardServer` class**: A class to encapsulate a reward function and run it as a server.
+- **`serve()` function**: A utility to quickly serve a given reward function.
+
+### auth Module
+
+The `auth` module provides utility functions to retrieve authentication credentials, primarily for Fireworks AI.
+
+```python
+from eval_protocol.auth import get_fireworks_api_key, get_fireworks_account_id
+```
+Key functions:
+- **`get_fireworks_api_key()`**: Retrieves the Fireworks API key.
+- **`get_fireworks_account_id()`**: Retrieves the Fireworks account ID.
+
+### gcp_tools Module
+
+The `gcp_tools` module offers utilities for working with Google Cloud Platform, such as building and pushing Docker images to Artifact Registry and deploying to Cloud Run.
+
+```python
+from eval_protocol.gcp_tools import build_and_push_docker_image, deploy_to_cloud_run
+```
+
+### packaging Module
+
+The `packaging` module assists in preparing reward functions for deployment, for example, by generating Dockerfile content.
+
+```python
+from eval_protocol.packaging import generate_dockerfile_content
+```
+
+### platform_api Module
+
+The `platform_api` module provides functions for direct interaction with the Fireworks AI platform API, such as managing secrets.
+
+```python
+from eval_protocol.platform_api import create_or_update_fireworks_secret
+```
+
+### rl_processing Module
+
+The `rl_processing` module contains tools for processing data for Reinforcement Learning workflows, such as the `RLDataAligner`.
+
+```python
+from eval_protocol.rl_processing import RLDataAligner
+```
+
+### mcp Module (`eval_protocol.mcp`)
+
+This sub-package contains components related to the Model Context Protocol (MCP).
+- **`eval_protocol.mcp.clients`**: Provides clients for interacting with MCP-compliant servers.
+
+### mcp_agent Module (`eval_protocol.mcp_agent`)
+
+This sub-package provides a framework for building and running agents that interact with MCP servers. It includes orchestration logic, various backend implementations, and a collection of pre-built MCP servers for common tasks (e.g., filesystem, git).
+
+## Command Line Interface
+
+The Eval Protocol provides a command-line interface for common operations:
+
+```bash
+# Show help
+eval-protocol --help
+
+# Preview an evaluator
+eval-protocol preview --metrics-folders "metric=./path" --samples ./samples.jsonl
+
+# Deploy an evaluator
+eval-protocol deploy --id my-evaluator --metrics-folders "metric=./path" --force
+```
+
+For detailed CLI documentation, see the [CLI Reference](../cli_reference/cli_overview.mdx).
+
+## Common Patterns
+
+### Creating a Basic Reward Function
+
+```python
+from eval_protocol import reward_function, EvaluateResult, MetricResult
+
+@reward_function
+def my_reward_function(messages, original_messages=None, **kwargs):
+    # Your evaluation logic here
+    response = messages[-1].get("content", "")
+    # Assume calculate_score returns a float between 0.0 and 1.0
+    # and calculate_success returns a boolean
+    score = calculate_score(response)
+    success = calculate_success(response) # Assume calculate_success is defined
+
+    return EvaluateResult(
+        score=score,
+        reason="Overall evaluation reason for my_reward_function", # Added top-level reason
+        metrics={
+            "my_metric": MetricResult(
+                score=score,
+                success=success, # Added success field
+                reason="Explanation for the metric score"
+            )
+        }
+    )
+```
+
+### Using a Deployed Reward Function
+
+```python
+from eval_protocol import RewardFunction
+
+# Create a reference to a deployed reward function
+reward_fn = RewardFunction(
+    name="my-deployed-evaluator",
+    mode="remote"
+)
+
+# Call the reward function
+result = reward_fn(messages=[
+    {"role": "user", "content": "What is machine learning?"},
+    {"role": "assistant", "content": "Machine learning is..."}
+])
+
+print(f"Score: {result.score}")
+```
+
+## Next Steps
+
+- Explore the [Examples](../examples/) for practical implementations
+- Follow the [Tutorials](../tutorials/) for step-by-step guidance
+- Review the [Developer Guide](../developer_guide/) for conceptual understanding

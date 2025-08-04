@@ -1,0 +1,3 @@
+{"id": "fs_move_1", "user_query": "Move the file '/data/source_dir/file_to_move.txt' to '/data/target_dir/file_to_move.txt'", "ground_truth_for_eval": "move /data/source_dir/file_to_move.txt to /data/target_dir/file_to_move.txt"}
+{"id": "fs_list_1", "user_query": "List all files and directories in '/data/source_dir/'", "ground_truth_for_eval": "list contents of /data/source_dir"}
+{"id": "fs_create_1", "user_query": "Create a new file called '/data/report.txt' with content 'Task completed successfully'", "ground_truth_for_eval": "create /data/report.txt with specified content"}

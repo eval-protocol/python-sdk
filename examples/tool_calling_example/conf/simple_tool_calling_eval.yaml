@@ -1,0 +1,63 @@
+# Simplified Tool Calling evaluation configuration
+# This config avoids inheritance to reduce complexity and provide clearer error messages
+
+defaults:
+  - _self_
+  - override hydra/job_logging: default
+  - override hydra/hydra_logging: default
+
+hydra:
+  run:
+    dir: ./outputs/tool_calling_eval/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ./multirun/tool_calling_eval/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+# Dataset Configuration - Simplified without inheritance
+dataset:
+  _target_: eval_protocol.datasets.loader.load_and_process_dataset
+  source_type: "jsonl"
+  path_or_name: "dataset.jsonl"
+  split: "train"
+  max_samples: null
+  column_mapping:
+    messages: messages
+    tools: tools
+    ground_truth_for_eval: ground_truth
+  hf_extra_load_params: {}
+
+# Model Generation Configuration (disabled for evaluation of existing conversations)
+generation:
+  enabled: false
+  _target_: eval_protocol.generation.generate_responses
+  model_name: "accounts/fireworks/models/qwen3-235b-a22b"
+  batch_size: 1
+  max_new_tokens: 512
+  temperature: 0.1
+  cache:
+    enabled: true
+  api_params:
+    rate_limit_qps: 1.0
+    max_retries: 3
+    max_concurrent_requests: 5
+
+# Reward Function Configuration
+reward:
+  function_path: "main.evaluate_tool_calling"
+
+# Evaluation Parameters
+evaluation_params:
+  # To run on all samples, remove or comment out the line below
+  limit_samples: 3
+
+# Output Configuration
+output:
+  results_file: "eval_results.jsonl"
+  preview_pairs_file: "preview_samples.jsonl"
+
+logging_params:
+  batch_log_interval: 10
+
+# Other settings
+seed: 42
+verbose: true

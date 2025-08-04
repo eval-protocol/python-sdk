@@ -1,0 +1,59 @@
+# examples/metrics/word_count/conf/run_word_count_test.yaml
+defaults:
+  - dataset: jsonl_direct # Points to conf/dataset/jsonl_direct.yaml
+  # Standard Hydra logging defaults
+  - override hydra/job_logging: default
+  - override hydra/hydra_logging: default
+  # Include other necessary default groups if your pipeline expects them.
+  # For example, if 'eval_protocol run' needs 'generation', 'output', 'evaluation_params' groups
+  # to be defined even if we override most of their content.
+  # These would point to files like conf/generation/default.yaml etc.
+  # For now, we define these sections fully below.
+  - _self_
+
+# This searchpath helps Hydra find 'jsonl_direct.yaml' in the main 'conf/dataset' directory
+# when this config is used with --config-path examples/metrics/word_count/conf
+# It tells Hydra to also look in <project_root>/conf for items in the 'dataset' group.
+hydra:
+  searchpath:
+    - pkg://eval_protocol.conf # General shared configs within the package
+    - file://${oc.env:PWD}/conf # Project root's conf, for dataset defaults etc.
+
+dataset:
+  # Override path_or_name from jsonl_direct.yaml
+  path_or_name: "examples/metrics/word_count/dummy_sample.jsonl" # Relative to PWD (project root)
+  # max_samples: 2 # Can be set here or in evaluation_params
+
+generation:
+  enabled: false # IMPORTANT: Disable actual LLM calls for this test
+  model_name: "dummy_model_for_word_count_test" # Placeholder
+  # Ensure all required sub-keys for generation are present if 'enabled: false' doesn't bypass them.
+  # Based on pipeline.py, FireworksModelClient is only init'd if enabled=true.
+  # Cache config might still be accessed.
+  cache:
+    enabled: false
+    cache_dir: "dummy_cache" # Placeholder
+  # api_params might be needed if generation config is strictly validated
+  api_params:
+    max_concurrent_requests: 1
+    # Add other minimal required fields for api_params if any
+
+reward:
+  function_path: "examples.metrics.word_count.main.evaluate"
+  params: {} # word_count evaluate function doesn't take extra params
+
+evaluation_params:
+  limit_samples: 2 # Number of samples from dummy_sample.jsonl to process
+
+output: # Output files will be relative to Hydra's run directory
+  results_file: "word_count_test_results.jsonl"
+  preview_pairs_file: "word_count_test_preview_pairs.jsonl" # Optional for this test
+
+# Add any other top-level config groups that are strictly required by the EvaluationPipeline
+# or the default run_eval_config.yaml structure.
+# For example:
+logging_params:
+  batch_log_interval: 1
+
+# Ensure the structure matches what `eval_protocol.cli_commands.run_eval_cmd.py`
+# and `eval_protocol.execution.pipeline.EvaluationPipeline` expect from the DictConfig 'cfg'.

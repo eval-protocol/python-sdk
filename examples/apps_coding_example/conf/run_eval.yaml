@@ -1,0 +1,48 @@
+defaults:
+  - dataset: apps_full_prompts # References conf/dataset/apps_full_prompts.yaml
+  - override hydra/job_logging: default
+  - override hydra/hydra_logging: default
+  - _self_
+
+hydra:
+  run:
+    dir: ./outputs/apps_coding_example/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ./multirun/apps_coding_example/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  searchpath: # Ensure our project's conf directory is found
+    - file://${oc.env:PWD}/conf
+
+system_prompt: "Please write a Python script that solves the following problem. Structure your solution within a main() function. Please read from stdin directly and make sure the code is not interactive. The main() function should print the final result(s) to standard output as required by the problem statement."
+
+generation:
+  enabled: true # Set to false to test reward function with dummy/manual inputs if needed
+  model_name: "accounts/fireworks/models/deepseek-v3-0324"
+  # temperature: 0.6
+  # top_p: 0.95
+  # top_k: 20
+  # min_p: 0.0
+  # reasoning_effort: "none" # Added reasoning_effort
+  temperature: 0.0
+  max_tokens: 4000
+  cache:
+    enabled: true
+    cache_dir: "${oc.env:PWD}/outputs/generated_responses_cache_apps" # Use absolute path for cache
+  api_params:
+    rate_limit_qps: 1.0 # QPS for Fireworks API (Note: client doesn't actively use this for throttling yet)
+    max_retries: 3
+    max_concurrent_requests: 25
+
+reward:
+  # Path to the new reward function in eval_protocol/rewards/
+  function_path: "eval_protocol.rewards.apps_coding_reward.evaluate_apps_solution"
+  params: {} # Any specific parameters for the apps_coding_reward function
+
+evaluation_params:
+  limit_samples: 10 # Process 10 samples
+output:
+  # Results will be saved relative to hydra.run.dir
+  results_file: "apps_coding_example_results.jsonl"
+
+logging_params:
+  batch_log_interval: 25 # Log after every N samples, should be >= max_concurrent_requests for effective concurrency

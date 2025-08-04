@@ -1,0 +1,27 @@
+# Base dataset configuration for Salesforce/xlam-function-calling-60k
+# Defines the connection to the raw Hugging Face dataset.
+
+defaults:
+  - base_dataset # Inherits from base_dataset.yaml
+
+dataset_name: xlam_fc_source
+pretty_name: "XLAM Function Calling Source"
+dataset_type: "huggingface" # Specifies the source type
+
+# Hugging Face specific configuration
+hf_path: "Salesforce/xlam-function-calling-60k"
+hf_name: null # No specific sub-configuration name needed for this dataset
+hf_split: "train" # Dataset has a 'train' split with 60k rows
+hf_revision: null # Use the default revision
+
+# Initial column mapping (optional, can also be done in derived dataset)
+# The raw dataset has 'id', 'query', 'tools', 'answers'
+# We will primarily use 'query', 'tools', and 'answers'
+column_mapping:
+  id: "id"
+  query: "query"
+  tools_str: "tools" # Raw 'tools' column is a JSON string
+  answers_str: "answers" # Raw 'answers' column is a JSON string
+
+# No specific preprocessing steps here, will be handled in derived dataset
+preprocess_functions: null

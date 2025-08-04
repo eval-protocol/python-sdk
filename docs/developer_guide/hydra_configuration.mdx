@@ -1,0 +1,109 @@
+# Hydra Configuration for Examples
+
+Many examples within Eval Protocol, particularly those involving local evaluations (e.g., `examples/math_example/local_eval.py` or CLI-driven runs like `eval-protocol run ...`) and TRL integrations (e.g., `examples/math_example/trl_grpo_integration.py`), leverage [Hydra](https://hydra.cc/) for flexible and powerful configuration management. This guide explains how Hydra is used and how you can interact with it.
+
+## Why Hydra?
+
+Hydra allows for:
+
+*   **Structured Configuration**: Define configurations in YAML files, promoting clarity and organization.
+*   **Composition**: Combine and override configuration files easily.
+*   **Command-Line Overrides**: Change any configuration parameter directly from the command line without modifying code.
+*   **Dynamic Output Directories**: Automatically create organized, timestamped output directories for each run.
+
+## Typical Configuration Structure in Examples
+
+An example using Hydra will typically have a `conf/` subdirectory:
+
+```
+example_directory/
+├── main.py
+├── README.md
+└── conf/
+    ├── config.yaml       # Main configuration for the script (e.g., run_math_eval.yaml, trl_grpo_config.yaml)
+    ├── dataset/               # Dataset specific configurations
+    │   ├── base_dataset.yaml
+    │   └── specific_dataset_prompts.yaml
+    └── ...                    # Other partial configs (e.g., model configs, training params)
+```
+
+*   **Main Config File**: This is the entry point for Hydra (e.g., `run_math_eval.yaml` for `eval-protocol run`, or `trl_grpo_config.yaml` for a TRL script). It often includes defaults and references other configuration files or groups.
+*   **Dataset Configs**: As detailed in the [Dataset Configuration Guide](../dataset_configuration_guide.md), these YAML files define how data is loaded and processed.
+*   **Other Configs**: You might find separate YAML files for model parameters, training arguments, or other components, which are then composed into the main config.
+
+## Running Examples with Hydra
+
+1.  **Activate Your Virtual Environment**:
+    ```bash
+    source .venv/bin/activate
+    ```
+
+2.  **Navigate to the Repository Root**: Most Hydra-based scripts are designed to be run from the root of the `eval-protocol` repository.
+
+3.  **Execute the Script**:
+    *   **For `eval-protocol run` (CLI-driven evaluation)**:
+        The `eval-protocol run` command itself is integrated with Hydra. You specify the path to the configuration directory and the name of the main configuration file.
+        ```bash
+        # Example from math_example
+        python -m eval_protocol.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml
+        ```
+    *   **For Python scripts using Hydra directly (e.g., TRL integration)**:
+        ```bash
+        # Example from math_example
+        .venv/bin/python examples/math_example/trl_grpo_integration.py
+        ```
+        Hydra automatically discovers the `conf/` directory relative to the script if structured correctly, or uses the `--config-path` and `--config-name` arguments if the script is designed to accept them like `eval-protocol run`.
+
+## Overriding Configuration Parameters
+
+This is one of Hydra's most powerful features. You can override any parameter defined in the YAML configuration files directly from the command line using a `key=value` syntax.
+
+*   **Simple Override**:
+    ```bash
+    # Override number of samples for eval-protocol run
+    python -m eval_protocol.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml evaluation_params.limit_samples=10
+
+    # Override model name for a TRL script
+    .venv/bin/python examples/math_example/trl_grpo_integration.py model_name=mistralai/Mistral-7B-Instruct-v0.2
+    ```
+
+*   **Nested Parameter Override**: Use dot notation to access nested parameters.
+    ```bash
+    # Override learning rate within GRPO training arguments for a TRL script
+    .venv/bin/python examples/math_example/trl_grpo_integration.py grpo.learning_rate=5e-5 grpo.num_train_epochs=3
+    ```
+
+*   **Changing Dataset**:
+    If your main config allows choosing different dataset configurations (often via a `defaults` list or a parameter like `dataset_config_name`):
+    ```bash
+    # Assuming run_math_eval.yaml can switch dataset configs
+    python -m eval_protocol.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml dataset=my_custom_dataset_prompts
+    ```
+    (The exact way to switch datasets depends on how the `main_config.yaml` is structured, often using [config groups](https://hydra.cc/docs/patterns/select_between_config_groups/).)
+
+*   **Multiple Overrides**:
+    ```bash
+    python -m eval_protocol.cli run --config-path examples/math_example/conf --config-name run_math_eval.yaml \
+      evaluation_params.limit_samples=5 \
+      generation.model_name="accounts/fireworks/models/llama-v3p1-8b-instruct" \
+      reward.params.tolerance=0.01
+    ```
+
+## Output Directory Management
+
+Hydra automatically manages output directories for each run.
+
+*   **Default Location**: By default, outputs (logs, results, saved models, etc.) are saved to a timestamped directory structure like `outputs/YYYY-MM-DD/HH-MM-SS/` (relative to where the command is run, typically the repository root).
+*   **Configuration**: The base output path can often be configured within the YAML files (e.g., via `hydra.run.dir` or a custom output directory parameter in the main config).
+*   **Contents**: Inside the run-specific output directory, you'll typically find:
+    *   A `.hydra/` subdirectory containing the complete configuration used for that run (including overrides), which is excellent for reproducibility.
+    *   Log files.
+    *   Result files (e.g., `*.jsonl` files with evaluation scores or generated outputs).
+
+## Key Takeaways
+
+*   Look for a `conf/` directory within an example to understand its Hydra setup.
+*   Use command-line overrides for quick experiments without changing YAML files.
+*   Check the `.hydra/` directory in your outputs to see the exact configuration used for any given run.
+
+For more advanced Hydra features, such as multi-run for hyperparameter sweeps or custom plugins, refer to the [official Hydra documentation](https://hydra.cc/).

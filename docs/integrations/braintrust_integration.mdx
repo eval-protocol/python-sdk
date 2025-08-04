@@ -1,0 +1,49 @@
+# Integrating with Braintrust
+
+This guide explains how to bridge Eval Protocol with [Braintrust](https://braintrust.dev/). You can log Eval Protocol evaluations to Braintrust or reuse Braintrust scorers as Eval Protocol reward functions.
+
+## Installation
+
+Install the Braintrust SDK in your environment:
+
+```bash
+pip install braintrust
+```
+
+## Using a Braintrust scorer in Eval Protocol
+
+Convert a Braintrust-style scorer to an Eval Protocol reward function using `scorer_to_reward_fn`:
+
+```python
+from braintrust import Eval
+from eval_protocol.integrations.braintrust import scorer_to_reward_fn
+
+
+def equality_scorer(input: str, output: str, expected: str) -> float:
+    return 1.0 if output == expected else 0.0
+
+reward_fn = scorer_to_reward_fn(equality_scorer)
+
+
+def hi_bot_task(name: str) -> str:
+    return "Hi " + name
+
+
+Eval(
+    "Eval Protocol Braintrust Example",
+    data=lambda: [
+        {"input": "Foo", "expected": "Hi Foo"},
+        {"input": "Bar", "expected": "Hello Bar"},
+    ],
+    task=hi_bot_task,
+    scores=[reward_fn],
+)
+```
+
+Run the script with your Braintrust API key:
+
+```bash
+BRAINTRUST_API_KEY=<your key> braintrust eval examples/braintrust_integration.py
+```
+
+This will create an experiment in Braintrust where you can inspect the scores, outputs and metadata.

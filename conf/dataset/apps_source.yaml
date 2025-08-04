@@ -1,0 +1,14 @@
+defaults:
+  - base_dataset
+  - _self_
+
+source_type: huggingface
+path_or_name: "codeparrot/apps"
+# config_name: "main" # Or appropriate subset if available
+description: "Source configuration for codeparrot/apps dataset."
+
+column_mapping:
+  # These are for convert_apps_to_prompts.py to find the right source data
+  id_col: "problem_id"
+  query_col: "question"
+  ground_truth_col: "input_output"

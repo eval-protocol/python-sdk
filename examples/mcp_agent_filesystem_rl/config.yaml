@@ -1,0 +1,53 @@
+defaults:
+  - _self_
+
+hydra:
+  searchpath:
+    # Add project_root/conf to search for dataset configs
+    - file://${oc.env:PWD}/conf
+
+dataset:
+  _target_: eval_protocol.datasets.loader.load_and_process_dataset
+  source_type: "jsonl"
+  path_or_name: "examples/mcp_agent_filesystem_rl/dataset.jsonl" # Path relative to repo root
+
+generation:
+  enabled: true
+  model_name: "accounts/fireworks/models/llama-v3p3-70b-instruct"
+  temperature: 0.1
+  max_tokens: 2048
+  api_base: "https://api.fireworks.ai/inference/v1"
+  api_params:
+    rate_limit_qps: 1.0
+    max_retries: 3
+    max_concurrent_requests: 4
+  cache:
+    enabled: true
+    cache_dir: "generated_responses_cache"
+
+agent:
+  type: mcp_agent
+  config_path: "../../../mcp_agent_config.yaml" # Relative path from this config to root mcp_agent_config.yaml
+  intermediary_server_url: "http://localhost:8001/mcp"
+  mcp_backend_ref: "filesystem_rl_example" # Must match a backend_name_ref in mcp_agent_config.yaml
+  state_capture_tool: "directory_tree" # Tool to get the final state (removed namespace)
+  state_capture_args: {"path": "/data"} # Args for the state capture tool
+
+# Reward function configuration
+reward:
+  function_path: "examples.mcp_agent_filesystem_rl.main.evaluate"
+
+# Evaluation parameters
+evaluation_params:
+  limit_samples: 3  # Run all 3 tasks
+
+# Output configuration
+output:
+  results_file: "mcp_filesystem_rl_results.jsonl"
+
+# Logging
+logging_params:
+  batch_log_interval: 1
+
+# System prompt for the LLM
+system_prompt: "You are an AI assistant with access to filesystem tools through MCP (Model Context Protocol). You can list directories, read files, write files, and move files. Use these tools to complete the requested tasks accurately and efficiently."

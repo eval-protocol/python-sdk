@@ -1,0 +1,235 @@
+# reward_function Decorator Reference
+
+The `@reward_function` decorator transforms a regular Python function into a reward function with standardized inputs/outputs and deployment capabilities.
+
+## Overview
+
+The decorator serves several key purposes:
+1. Ensures consistent input and output formats
+2. Adds error handling and validation
+3. Provides a `.deploy()` method for deploying the function to Fireworks
+
+## Import
+
+```python
+from eval_protocol import reward_function
+```
+
+## Usage
+
+```python
+@reward_function
+def my_reward_function(
+    messages: List[Dict[str, str]],
+    original_messages: Optional[List[Dict[str, str]]] = None,
+    **kwargs
+) -> EvaluateResult:
+    # Your evaluation logic here
+    score = 0.75  # Example score
+    return EvaluateResult(
+        score=score,
+        reason="Overall evaluation reason",
+        metrics={"example_metric": MetricResult(score=score, success=True, reason="Metric reason")}
+    )
+```
+
+## Parameter Requirements
+
+Functions decorated with `@reward_function` should accept the following parameters:
+
+- **`messages`** (`List[Dict[str, str]]`): Required. List of conversation messages, with the last message typically being the one evaluated.
+
+- **`original_messages`** (`Optional[List[Dict[str, str]]]`): Optional. The conversation context, without the message being evaluated.
+
+- **`**kwargs`**: Optional. Additional parameters (like metadata) that can be passed to the function.
+
+## Return Value Requirements
+
+Functions must return an `EvaluateResult` object or a compatible tuple format:
+
+```python
+# Preferred return format
+return EvaluateResult(
+    score=0.75,  # Overall score
+    reason="Overall evaluation reason",
+    metrics={
+        "clarity": MetricResult(score=0.8, success=True, reason="Good clarity"),
+        "accuracy": MetricResult(score=0.7, success=False, reason="Minor errors")
+    }
+)
+
+# Legacy tuple format (also supported)
+return 0.75, {"clarity": 0.8, "accuracy": 0.7}
+```
+
+## Added Methods
+
+### `.deploy()`
+
+The decorator adds a `.deploy()` method to the function, allowing it to be deployed to Fireworks.
+
+```python
+evaluation_id = my_reward_function.deploy(
+    name="my-evaluator",
+    description="Evaluates responses based on clarity and accuracy",
+    account_id=None,  # Optional, defaults to configured account
+    auth_token=None,  # Optional, defaults to configured token
+    force=False,  # Set to True to overwrite if it already exists
+    providers=None  # Optional model providers configuration
+)
+```
+
+#### Parameters
+
+- **`name`** (`str`): Required. ID for the deployed evaluator.
+
+- **`description`** (`str`): Optional. Human-readable description of the evaluator.
+
+- **`account_id`** (`Optional[str]`): Optional. Fireworks account ID. If not provided, will be read from config or environment.
+
+- **`auth_token`** (`Optional[str]`): Optional. Authentication token. If not provided, will be read from config or environment.
+
+- **`force`** (`bool`): Optional. Whether to overwrite an existing evaluator with the same name. Default is False.
+
+- **`providers`** (`Optional[List[Dict[str, str]]]`): Optional. List of provider configurations. If not provided, uses a default provider.
+
+#### Returns
+
+- **`str`**: The evaluation ID that can be used in RL training.
+
+#### Exceptions
+
+- **`ValueError`**: Raised if authentication fails or required parameters are missing.
+- **`requests.exceptions.HTTPError`**: Raised if the API request fails.
+
+## Implementation Details
+
+### Validation Logic
+
+The decorator performs the following validations:
+1. Ensures the decorated function has the expected parameters
+2. Validates that the return value is an `EvaluateResult` or a compatible tuple
+3. Handles exceptions that occur during function execution
+
+### Backward Compatibility
+
+For backward compatibility, the decorator supports the legacy tuple return format:
+```python
+return score, component_scores_dict
+```
+
+This gets automatically converted to an `EvaluateResult` object.
+
+### Deployment Process
+
+When `.deploy()` is called, the decorator:
+1. Extracts the function's source code
+2. Creates a wrapper that handles the Fireworks evaluation format
+3. Creates a temporary directory with the wrapped function
+4. Uploads and registers the function with the Fireworks API
+
+## Examples
+
+### Basic Usage
+
+```python
+from eval_protocol import reward_function, EvaluateResult, MetricResult
+from typing import List, Dict, Optional
+
+@reward_function
+def word_count_reward(
+    messages: List[Dict[str, str]],
+    original_messages: Optional[List[Dict[str, str]]] = None,
+    **kwargs
+) -> EvaluateResult:
+    """Evaluate response based on word count."""
+    response = messages[-1].get("content", "")
+    word_count = len(response.split())
+    score = min(word_count / 100.0, 1.0)
+    success = word_count > 10 # Example: success if more than 10 words
+
+    return EvaluateResult(
+        score=score,
+        reason=f"Overall word count evaluation: {word_count} words.",
+        metrics={
+            "word_count": MetricResult(
+                score=score,
+                success=success,
+                reason=f"Word count: {word_count}"
+            )
+        }
+    )
+```
+
+### Using Metadata
+
+```python
+@reward_function
+def configurable_reward(
+    messages: List[Dict[str, str]],
+    original_messages: Optional[List[Dict[str, str]]] = None,
+    metadata: Optional[Dict[str, any]] = None,
+    **kwargs
+) -> EvaluateResult:
+    """Reward function that accepts configuration via metadata."""
+    metadata = metadata or {}
+
+    # Get threshold from metadata or use default
+    threshold = metadata.get("threshold", 50)
+
+    response = messages[-1].get("content", "")
+    word_count = len(response.split())
+    score = min(word_count / float(threshold), 1.0)
+    success = word_count >= threshold # Example: success if count meets or exceeds threshold
+
+    return EvaluateResult(
+        score=score,
+        reason=f"Configurable word count. Threshold: {threshold}, Count: {word_count}.",
+        metrics={
+            "configured_word_count": MetricResult(
+                score=score,
+                success=success,
+                reason=f"Word count: {word_count}, threshold: {threshold}"
+            )
+        }
+    )
+```
+
+### Deploying a Reward Function
+
+```python
+# Define and decorate the reward function
+@reward_function
+def clarity_reward(messages, original_messages=None, **kwargs) -> EvaluateResult:
+    # ... evaluation logic ...
+    # Assume score and metric_details are calculated
+    score = 0.8
+    metric_details = {"clarity_metric": MetricResult(score=0.8, success=True, reason="Very clear")}
+    return EvaluateResult(score=score, reason="Clarity evaluation complete.", metrics=metric_details)
+
+# Deploy the function to Fireworks
+evaluation_id = clarity_reward.deploy(
+    name="clarity-evaluator",
+    description="Evaluates the clarity of responses",
+    force=True  # Overwrite if it already exists
+)
+
+print(f"Deployed evaluator with ID: {evaluation_id}")
+```
+
+### Using with Custom Providers
+
+```python
+# Deploy with a specific model provider
+evaluation_id = my_reward_function.deploy(
+    name="my-evaluator-anthropic",
+    description="My evaluator using Claude model",
+    force=True,
+    providers=[
+        {
+            "providerType": "anthropic",
+            "modelId": "claude-3-sonnet-20240229"
+        }
+    ]
+)
+```

@@ -1,0 +1,77 @@
+# Math with Formatting Example
+
+This guide explains how to evaluate models on math word problems using the `eval-protocol run` command, focusing on both the accuracy of the numerical answer and the adherence to a specific response format (e.g., `<think>...</think><answer>...</answer>`). This example uses the GSM8K dataset.
+
+## Overview
+
+The "Math with Formatting" example demonstrates a multi-metric evaluation:
+
+1.  **Accuracy Reward**: Assesses if the extracted numerical answer is correct.
+2.  **Format Reward**: Checks if the model's response follows the prescribed XML-like structure for thoughts and the final answer.
+The final score reported is typically an average of these two rewards.
+
+*   **Dataset**: Uses the `gsm8k` dataset, configured via `gsm8k_math_with_formatting_prompts.yaml` which adds specific system prompts to guide the model's output format.
+*   **Reward Logic**: The core evaluation logic is in `examples/math_with_formatting/main.py`, referenced in the run configuration as `examples.math_with_formatting.main.evaluate`.
+*   **System Prompt Example** (from `gsm8k_math_with_formatting_prompts.yaml`):
+    ```
+    Solve the following math problem. Provide your reasoning and then put the final numerical answer between <answer> and </answer> tags.
+    ```
+
+## Setup
+
+1.  **Environment**: Ensure your Python environment has `eval-protocol` and its development dependencies installed:
+    ```bash
+    # From the root of the repository
+    pip install -e ".[dev]"
+    ```
+2.  **API Key**: The default configuration (`run_math_with_formatting_eval.yaml`) uses a Fireworks AI model (e.g., `accounts/fireworks/models/qwen3-235b-a22b`). Ensure your `FIREWORKS_API_KEY` is set in your environment or a `.env` file.
+
+## Running the Evaluation
+
+The primary configuration for this example is `examples/math_with_formatting/conf/run_math_with_formatting_eval.yaml`.
+
+1.  Activate your virtual environment:
+    ```bash
+    source .venv/bin/activate
+    ```
+2.  Execute the `eval-protocol run` command from the root of the repository:
+    ```bash
+    eval-protocol run --config-path examples/math_with_formatting/conf --config-name run_math_with_formatting_eval
+    ```
+
+### Overriding Parameters
+
+You can modify parameters via the command line. For instance:
+
+*   **Limit samples**:
+    ```bash
+    eval-protocol run --config-path examples/math_with_formatting/conf --config-name run_math_with_formatting_eval evaluation_params.limit_samples=5
+    ```
+    (The default in the example config is `limit_samples: 2`).
+*   **Change generation model**:
+    ```bash
+    eval-protocol run --config-path examples/math_with_formatting/conf --config-name run_math_with_formatting_eval generation.model_name="accounts/fireworks/models/mixtral-8x7b-instruct"
+    ```
+
+For more on Hydra, see the [Hydra Configuration for Examples guide](../../developer_guide/hydra_configuration.mdx).
+
+## Expected Output
+
+The command will:
+1.  Load the GSM8K dataset as configured by `gsm8k_math_with_formatting_prompts.yaml`.
+2.  Generate model responses using the specified model (default: `qwen3-235b-a22b`).
+3.  Evaluate responses using the logic in `examples.math_with_formatting.main.evaluate`, which combines accuracy and format checks.
+4.  Print a summary to the console.
+5.  Save detailed results to a JSONL file (e.g., `math_with_formatting_example_results.jsonl`) in a timestamped directory under `outputs/` (the exact path is determined by Hydra, typically based on the current date/time).
+6.  Save prompt/response pairs to `preview_input_output_pairs.jsonl` in the same output directory.
+
+The results file will include the overall `evaluation_score` (average of accuracy and format) and a breakdown in `evaluation_metrics` for `accuracy_reward` and `format_reward`.
+
+## Key Components
+
+*   **`examples/math_with_formatting/main.py`**: Contains the `evaluate()` function with the core reward logic, including:
+    *   `accuracy_reward_fn`: Extracts and compares numerical answers.
+    *   `format_reward_fn`: Checks for the `<think>...</think><answer>...</answer>` structure.
+*   **Dataset Configuration**: Uses a derived dataset (`gsm8k_math_with_formatting_prompts.yaml`) to add specific system prompts to the base `gsm8k` dataset.
+
+This example highlights how to enforce and evaluate structured output from LLMs alongside correctness for tasks like mathematical reasoning.

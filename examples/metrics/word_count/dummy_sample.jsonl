@@ -1,0 +1,2 @@
+{"id": "sample1", "messages": [{"role": "user", "content": "This is a test prompt."}, {"role": "assistant", "content": "This is a test response with several words."}], "ground_truth_for_eval": "any_string_ok"}
+{"id": "sample2", "messages": [{"role": "user", "content": "Another prompt."}, {"role": "assistant", "content": "Short."}], "ground_truth_for_eval": "any_string_ok"}

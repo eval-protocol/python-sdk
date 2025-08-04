@@ -1,0 +1,76 @@
+# Derived dataset configuration for XLAM Function Calling evaluation.
+# Transforms data from xlam_fc_source and formats it for evaluation.
+
+defaults:
+  - base_derived_dataset # Inherits from base_derived_dataset.yaml
+  - _self_ # Allows for local overrides and additions
+
+dataset_name: xlam_fc_eval_prompts
+pretty_name: "XLAM Function Calling Evaluation Prompts"
+base_dataset: xlam_fc_source # References the base dataset defined in xlam_fc_source.yaml
+derived_max_samples: 100 # Limit samples for faster iteration
+
+# Define how to map and transform columns from the base dataset
+# to the final format needed for evaluation.
+# The target format usually includes 'messages', 'tools', 'ground_truth'.
+
+# Step 1: Parse JSON strings into objects
+# We use custom processors defined in examples/tool_calling_example/custom_processors.py
+column_transformations:
+  # For tool definitions (tools_str), first parse into a list of JSON strings.
+  # This helps with dataset mapping by keeping the column type simple (List[str]).
+  parsed_tools_as_strings:
+    source_columns: ["tools_str"]
+    transform_function: "examples.tool_calling_example.custom_processors.parse_json_list_to_list_of_json_strings"
+  # For tool calls (answers_str), parse into a list of dicts with stringified primitive values.
+  parsed_answers:
+    source_columns: ["answers_str"]
+    transform_function: "examples.tool_calling_example.custom_processors.parse_json_list_to_list_of_stringified_dicts"
+
+# Step 2: Construct the final output columns ('messages', 'tools', 'ground_truth')
+# using the original 'query' and the intermediate parsed columns.
+
+output_columns_creation:
+  messages:
+    # Creates a list with a single user message.
+    # Assumes a processor that can format this.
+    type: "function"
+    transform_function: "examples.tool_calling_example.custom_processors.format_messages_for_eval"
+    source_columns: ["query"] # from base dataset (xlam_fc_source)
+
+  tools:
+    # Convert the list of JSON strings (parsed_tools_as_strings) into the final list of dicts.
+    type: "function"
+    transform_function: "examples.tool_calling_example.custom_processors.parse_list_of_json_strings_to_final_dicts"
+    source_columns: ["parsed_tools_as_strings"] # from column_transformations
+
+  ground_truth:
+    # Formats the ground_truth to be {"role": "assistant", "tool_calls": parsed_answers_array}
+    type: "function"
+    transform_function: "examples.tool_calling_example.custom_processors.format_ground_truth_for_eval"
+    source_columns: ["parsed_answers"] # from column_transformations
+
+# Specify the final columns to keep in the processed dataset.
+# These are the columns that the evaluation script (local_eval.py) will expect.
+final_columns:
+  - messages
+  - tools
+  - ground_truth
+  - id # Keep id for traceability
+
+# Optional: Add system prompts if needed (not explicitly mentioned for this dataset yet)
+system_prompt: null
+
+# derived_column_mapping is not strictly needed here if the base dataset (xlam_fc_source)
+# now correctly creates the 'ground_truth' column via its own preprocessing_steps.
+# load_derived_dataset will use the 'ground_truth' column from the processed base_dataset.
+derived_column_mapping: {} # Keep as empty or remove if not needed for other mappings
+
+# Preprocessing functions to apply after loading and initial mapping from base_dataset
+# but before column_transformations and output_columns_creation.
+# Not used here as parsing is handled in column_transformations.
+preprocess_functions: null
+
+# Postprocessing functions to apply to the final dataset.
+# Not used here.
+postprocess_functions: null

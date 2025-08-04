@@ -1,0 +1,61 @@
+# Simplified Math with Format and Length evaluation
+
+defaults:
+  - _self_
+  - override hydra/job_logging: default
+  - override hydra/hydra_logging: default
+
+hydra:
+  run:
+    dir: ./outputs/math_format_length_eval/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ./multirun/math_format_length_eval/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+dataset:
+  _target_: eval_protocol.datasets.loader.load_and_process_dataset
+  source_type: "huggingface"
+  path_or_name: "openai/gsm8k"
+  config_name: "main"
+  split: "test"
+  max_samples: 5
+  column_mapping:
+    user_query: "question"
+    ground_truth_for_eval: "answer"
+  hf_extra_load_params: {}
+
+system_prompt: "Solve the following math problem. Provide the final answer inside <answer> tags."
+
+generation:
+  enabled: true
+  _target_: eval_protocol.generation.generate_responses
+  model_name: "accounts/fireworks/models/llama-v3p3-70b-reasoning"
+  batch_size: 1
+  max_new_tokens: 1024
+  temperature: 0.0
+  cache:
+    enabled: true
+  api_params:
+    rate_limit_qps: 1.0
+    max_retries: 3
+    max_concurrent_requests: 5
+
+reward:
+  function_path: "main.evaluate"
+  params:
+    tolerance: 0.001
+    require_units: false
+    max_length: 200
+
+evaluation_params:
+  limit_samples: 2
+
+output:
+  results_file: "eval_results.jsonl"
+  preview_pairs_file: "preview_samples.jsonl"
+
+logging_params:
+  batch_log_interval: 10
+
+seed: 42
+verbose: true

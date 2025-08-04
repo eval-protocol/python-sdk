@@ -1,0 +1,31 @@
+defaults:
+  - base_dataset
+  - _self_
+
+source_type: "huggingface" # Changed from jsonl
+path_or_name: "codeparrot/apps"   # Changed to Hugging Face dataset ID
+split: "test"                     # APPS evaluation is typically on the test split
+description: "APPS dataset directly from Hugging Face (codeparrot/apps), test split."
+
+hf_extra_load_params:
+  verification_mode: "no_checks"  # Updated from ignore_verifications
+  # download_mode: "force_redownload" # Removed to enable caching
+
+preprocessing_steps:
+  - "eval_protocol.datasets.loader.transform_codeparrot_apps_sample"
+
+column_mapping:
+  # Map from original (codeparrot/apps or preprocessed) column names to standard pipeline names
+  problem_id: "id"                                # from codeparrot/apps -> id
+  question: "user_query"                          # from codeparrot/apps -> user_query
+  transformed_ground_truth: "ground_truth_for_eval" # from our preprocessor -> ground_truth_for_eval
+
+  # Optional: decide if other columns from codeparrot/apps should be kept, renamed, or removed.
+  # If not mentioned, they will be kept with their original names.
+  # To remove a column, map it to null, e.g., solutions: null
+  # For now, we only map the essential ones.
+  # The base_dataset defaults (query: "query", etc.) will apply if these aren't hit.
+  # We set them to null here to ensure they don't conflict if original names were 'query', etc.
+  query: null
+  ground_truth: null
+  solution: null

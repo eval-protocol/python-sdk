@@ -1,0 +1,234 @@
+# Evaluation Workflows
+
+This guide explains the lifecycle of developing, testing, and deploying reward functions and evaluation setups within Eval Protocol.
+
+## Development Workflow Overview
+
+The typical workflow involves:
+
+1.  **Dataset Configuration**: Defining how your data is loaded and prepared (see [Dataset Configuration Guide](../dataset_configuration_guide.md)).
+2.  **Reward Function Implementation**: Writing the logic to evaluate model responses.
+3.  **Local Evaluation (using `eval-protocol run`)**: Running evaluations locally using Hydra-based configurations to generate responses and score them.
+4.  **Previewing Results (using `eval-protocol preview`)**: Inspecting or re-evaluating generated outputs.
+5.  **Deployment**: Making the reward function or evaluator available as a service.
+6.  **Integration**: Using the deployed evaluator in RLHF training or other workflows.
+
+## 1. Dataset Configuration
+
+Before evaluation, you need to configure your dataset. This involves setting up YAML files (typically in `conf/dataset/` or an example's `conf/dataset/` directory) to define how raw data is sourced, processed, and formatted (e.g., adding system prompts).
+
+Refer to the [Dataset Configuration Guide](../dataset_configuration_guide.md) for detailed instructions.
+
+## 2. Reward Function Implementation
+
+Create your reward function using the `@reward_function` decorator or by structuring your evaluation logic within a script that can be called by an evaluation configuration.
+
+### Example: Basic Reward Function
+
+```python
+from eval_protocol import reward_function, EvaluateResult, MetricResult
+from typing import List, Dict, Optional
+
+@reward_function
+def helpfulness_reward(
+    messages: List[Dict[str, str]],
+    original_messages: Optional[List[Dict[str, str]]] = None,
+    **kwargs
+) -> EvaluateResult:
+    """Evaluate the helpfulness of a response."""
+    # Get the assistant's response
+    response_content = messages[-1].get("content", "").lower()
+
+    # Define helpful keywords
+    helpful_keywords = ["help", "assist", "solve", "solution", "answer", "explain"]
+
+    # Count helpful keywords
+    keyword_count = sum(1 for keyword in helpful_keywords if keyword in response_content)
+
+    # Calculate score based on keyword presence (simple example)
+    score = min(keyword_count / 3.0, 1.0)  # Cap at 1.0
+    success = keyword_count > 0 # Example success condition
+
+    return EvaluateResult(
+        score=score,
+        reason=f"Helpfulness evaluation based on {keyword_count} keywords.",
+        metrics={
+            "helpfulness": MetricResult(
+                score=score,
+                success=success,
+                reason=f"Found {keyword_count} helpful keywords"
+            )
+        }
+    )
+```
+This function can then be referenced in your evaluation configuration.
+
+## 3. Local Evaluation with `eval-protocol run`
+
+The primary method for running local evaluations is the `eval-protocol run` CLI command, which uses Hydra for configuration. This command handles generating model responses (if needed) and evaluating them according to your specified dataset and reward logic.
+
+### Setting up the Configuration
+
+You'll need a main evaluation configuration YAML file (e.g., `run_my_eval.yaml`) that specifies:
+*   The dataset to use (referencing configurations from `conf/dataset/`).
+*   Model generation parameters (model name, API keys, etc.).
+*   The reward function or evaluation script to use.
+*   Other evaluation parameters (e.g., sample limits).
+
+Refer to the [Hydra Configuration for Examples](./hydra_configuration.mdx) guide and specific examples like `examples/math_example/conf/run_math_eval.yaml`.
+
+### Running the Evaluation
+
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run evaluation using eval-protocol run
+python -m eval_protocol.cli run \
+  --config-path ./path/to/your/example/conf \
+  --config-name run_my_eval.yaml \
+  evaluation_params.limit_samples=50 # Example override
+```
+
+This command will:
+*   Load the dataset as per your configuration.
+*   Generate responses from the specified model.
+*   Apply the configured reward function(s).
+*   Save detailed results (e.g., `run_my_eval_results.jsonl`) and prompt/response pairs (e.g., `preview_input_output_pairs.jsonl`) to a timestamped output directory (usually under `outputs/`).
+
+## 4. Previewing and Analyzing Results
+
+After a `eval-protocol run`, you can use `eval-protocol preview` to inspect the generated `preview_input_output_pairs.jsonl` or re-evaluate them with different/updated metrics.
+
+### Using the CLI for Preview
+```bash
+# Preview the outputs of a previous run
+eval-protocol preview \
+  --samples ./outputs/YYYY-MM-DD/HH-MM-SS/preview_input_output_pairs.jsonl \
+  --metrics-folders "new_metric=./path/to/new_metric_script"
+  # Or --remote-url <your_deployed_evaluator_url>
+```
+This is useful for iterating on reward functions or comparing different evaluation approaches on the same set of generated responses.
+
+### Programmatic Analysis
+You can also load the `*.jsonl` result files programmatically (e.g., with Pandas) for custom analysis, plotting, or reporting.
+
+## 5. Deployment
+
+Once your reward function is developed and tested locally, you can deploy it as an evaluator. The primary methods are using the `deploy()` method on a reward function object or the `eval-protocol deploy` CLI command.
+
+### Using the `deploy()` Method (Programmatic)
+
+If you have a reward function object (created with `@reward_function`), you can deploy it directly:
+
+```python
+# Assuming 'helpfulness_reward' is your @reward_function decorated function
+evaluation_id = helpfulness_reward.deploy(
+    name="helpfulness-evaluator", # This will be the evaluator_id
+    description="Evaluates the helpfulness of responses",
+    force=True  # Overwrite if an evaluator with this name already exists
+)
+
+print(f"Deployed helpfulness evaluator with ID: {evaluation_id}")
+```
+
+You can also specify providers if needed:
+```python
+custom_evaluation_id = helpfulness_reward.deploy(
+    name="helpfulness-evaluator-anthropic",
+    description="Helpfulness evaluation using Claude model",
+    force=True,
+    providers=[
+        {
+            "providerType": "anthropic",
+            "modelId": "claude-3-sonnet-20240229"
+        }
+    ]
+)
+print(f"Deployed custom provider evaluator: {custom_evaluation_id}")
+```
+
+### Using the CLI (`eval-protocol deploy`)
+
+The `eval-protocol deploy` command is suitable for deploying reward functions defined in script files. The `--metrics-folders` argument should point to the directory containing your reward function script (e.g., a `main.py` with the `@reward_function` decorator).
+
+```bash
+# Deploy with the CLI
+eval-protocol deploy \
+  --id helpfulness-evaluator \
+  --metrics-folders "helpfulness=./path/to/your/metric_script_directory" \
+  --display-name "Helpfulness Evaluator" \
+  --description "Evaluates the helpfulness of responses" \
+  --force
+```
+For more details on `eval-protocol deploy`, see the [CLI Reference](../cli_reference/cli_overview.mdx).
+
+### Lower-level `create_evaluation` Function
+
+For more direct control, or if not using the `@reward_function` decorator's `deploy` method, you can use the `create_evaluation` function from `eval_protocol.evaluation`. This is generally for more advanced use cases or internal tooling.
+
+```python
+from eval_protocol.evaluation import create_evaluation
+
+# Create an evaluation
+evaluator = create_evaluation(
+    evaluator_id="helpfulness-evaluator-low-level",
+    metric_folders=["helpfulness=./path/to/your/metric_script_directory"], # Note: path to directory
+    display_name="Helpfulness Evaluator (Low-Level)",
+    description="Evaluates the helpfulness of responses, created via create_evaluation",
+    force=True
+)
+
+print(f"Created evaluator: {evaluator['name']}")
+```
+
+## 6. Integration with Training
+
+### Using in an RL Training Job
+
+Once deployed, use the evaluator in an RL training job:
+
+```bash
+# Example of using the evaluator in a Fireworks RL job
+firectl create rl-job \
+  --reward-endpoint "https://api.fireworks.ai/v1/evaluations/helpfulness-evaluator" \
+  --model-id "accounts/fireworks/models/llama-v3-8b-instruct" \
+  --dataset-id "my-training-dataset"
+```
+
+### Programmatic Integration with TRL
+
+For programmatic integration with the Transformer Reinforcement Learning (TRL) library:
+
+```python
+from eval_protocol import RewardFunction
+
+# Create a reward function instance
+reward_fn = RewardFunction(
+    name="helpfulness-evaluator",
+    mode="remote"  # Use the deployed evaluator
+)
+
+# Get a TRL-compatible adapter
+trl_reward_fn = reward_fn.get_trl_adapter()
+
+# Use in your TRL training pipeline
+# ...
+```
+
+## 7. Best Practices
+
+1. **Iterative Development**: Start simple, test thoroughly, and refine your reward function. Use `eval-protocol run` and `eval-protocol preview` extensively.
+2. **Version Control**: Use version control for your reward functions, configurations, and datasets.
+3. **Sample Diversity**: Test with a diverse set of samples to ensure robustness.
+4. **Documentation**: Document the behavior and assumptions of your reward function.
+5. **Error Handling**: Include robust error handling in your reward logic to prevent evaluation failures.
+6. **Logging**: Add detailed logging within your reward functions for easier debugging.
+
+## Next Steps
+
+Now that you understand the complete workflow:
+
+1. Try creating a [Basic Reward Function](../examples/basic_reward_function.md)
+2. Explore [Advanced Reward Functions](../examples/advanced_reward_functions.md) with multiple metrics
+3. Learn about [Best Practices](../tutorials/best_practices.md) for designing effective reward functions

@@ -1,0 +1,102 @@
+# Tool Calling Example
+
+This guide explains how to use the examples in `examples/tool_calling_example/` for evaluating and training models for tool/function calling capabilities. These examples primarily use Hydra for configuration.
+
+## Overview
+
+The `examples/tool_calling_example/` directory contains scripts for:
+1.  **Local Evaluation (`local_eval.py`)**: Evaluating a model's ability to make tool calls against a dataset.
+2.  **TRL GRPO Integration (`trl_grpo_integration.py`)**: Fine-tuning a model for tool calling using TRL (Transformer Reinforcement Learning) with Group Relative Policy Optimization (GRPO).
+
+A sample `dataset.jsonl` is provided in the example directory. For tool calling tasks, each entry in the dataset typically includes:
+*   `messages`: A list of conversation messages.
+*   `tools`: A list of tool definitions available to the model.
+*   `ground_truth`: The expected assistant response, which might include tool calls (e.g., `{"role": "assistant", "tool_calls": [...]}`) or a direct content response.
+
+## Setup
+
+1.  **Environment**: Ensure your Python environment has `eval-protocol` and its development dependencies installed:
+    ```bash
+    # From the root of the repository
+    pip install -e ".[dev]"
+    ```
+2.  **TRL Extras (for `trl_grpo_integration.py`)**:
+    ```bash
+    pip install "eval-protocol[trl]"
+    ```
+3.  **API Keys**: If using models that require API keys (e.g., Fireworks AI models for `local_eval.py` if not using a local model, or for downloading a base model for TRL), ensure necessary keys like `FIREWORKS_API_KEY` are set.
+
+## 1. Local Evaluation (`local_eval.py`)
+
+This script performs local evaluation of a model's tool calling.
+
+### Configuration
+
+*   Uses Hydra and is configured by `examples/tool_calling_example/conf/local_eval_config.yaml`.
+*   The default configuration points to `examples/tool_calling_example/dataset.jsonl`.
+*   The script itself likely contains defaults for the model and reward function, or expects them as CLI overrides.
+
+### How to Run
+
+1.  Activate your virtual environment:
+    ```bash
+    source .venv/bin/activate
+    ```
+2.  Execute from the repository root:
+    ```bash
+    python examples/tool_calling_example/local_eval.py
+    ```
+
+### Overriding Parameters
+
+*   **Change dataset path**:
+    ```bash
+    python examples/tool_calling_example/local_eval.py dataset_file_path=path/to/your/tool_calling_dataset.jsonl
+    ```
+*   Other parameters (e.g., model name, reward function parameters) would typically be added to `local_eval_config.yaml` or passed as CLI overrides if `local_eval.py` is structured to accept them via Hydra.
+
+Outputs are saved to Hydra's default output directory (configured in `local_eval_config.yaml` as `./outputs/local_eval_tool_calling/${now:%Y-%m-%d}/${now:%H-%M-%S}`).
+
+## 2. TRL GRPO Integration (`trl_grpo_integration.py`)
+
+This script provides a scaffold for fine-tuning a model for tool calling using TRL GRPO.
+**Note**: The script defaults to using a MOCK model and tokenizer. Using a real model requires code modifications in `trl_grpo_integration.py` and potentially `conf/trl_grpo_config.yaml`.
+
+### Configuration
+
+*   Uses Hydra and is configured by `examples/tool_calling_example/conf/trl_grpo_config.yaml`.
+*   Default `dataset_file_path`: `dataset.jsonl` (assumed to be in `examples/tool_calling_example/`).
+*   Default `model_name`: `Qwen/Qwen2-0.5B-Instruct`.
+*   Includes various `grpo` training parameters.
+
+### How to Run (with Mock Model by default)
+
+1.  Activate your virtual environment:
+    ```bash
+    source .venv/bin/activate
+    ```
+2.  Execute from the repository root:
+    ```bash
+    python examples/tool_calling_example/trl_grpo_integration.py
+    ```
+
+### Overriding Parameters
+
+*   **Change dataset path or training epochs**:
+    ```bash
+    python examples/tool_calling_example/trl_grpo_integration.py dataset_file_path=my_tool_train.jsonl grpo.num_train_epochs=1
+    ```
+
+### Using a Real Model (Requires Code Changes)
+
+1.  Modify `examples/tool_calling_example/trl_grpo_integration.py` to load your desired Hugging Face model and tokenizer (remove or conditionalize the mock model parts).
+2.  Ensure the prompt formatting in the script is suitable for your chosen model.
+3.  Update `conf/trl_grpo_config.yaml` with the correct `model_name` and adjust training parameters.
+4.  Run the script. If you added a flag like `use_mock_model_tokenizer` in the script/config, you might run:
+    ```bash
+    python examples/tool_calling_example/trl_grpo_integration.py +use_mock_model_tokenizer=false model_name=your-hf-model-name
+    ```
+
+Outputs are saved to Hydra's default output directory (configured in `trl_grpo_config.yaml` as `./outputs/trl_grpo_tool_calling/${now:%Y-%m-%d}/${now:%H-%M-%S}`).
+
+For more general information on Hydra, see the [Hydra Configuration for Examples guide](../../developer_guide/hydra_configuration.mdx).

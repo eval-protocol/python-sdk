@@ -1,0 +1,36 @@
+# Base schema for derived dataset configurations.
+# A derived dataset references a base dataset and applies transformations,
+# such as adding system prompts or converting formats.
+
+# REQUIRED by Hydra for instantiation. Points to the function that loads the derived dataset.
+_target_: eval_protocol.datasets.loader.load_derived_dataset
+
+# REQUIRED: Reference to the base dataset configuration to derive from.
+# This can be a config name (e.g., "gsm8k") that will be loaded from conf/dataset/
+# or a full config object.
+base_dataset: ???
+
+# OPTIONAL: System prompt to add to the dataset.
+# If provided, this will be prepended to user queries during evaluation.
+system_prompt: null
+
+# OPTIONAL: Output format for the derived dataset.
+# - "evaluation_format": Converts to standard evaluation format with user_query/ground_truth_for_eval
+# - "conversation_format": Converts to conversation format with messages
+# - "jsonl": Outputs as JSONL-compatible records
+output_format: "evaluation_format"
+
+# OPTIONAL: Additional transformations to apply to the dataset.
+# These are applied after the base dataset is loaded.
+transformations: []
+
+# OPTIONAL: Column mapping specifically for the derived dataset.
+# This overrides or extends the base dataset's column mapping.
+derived_column_mapping: {}
+
+# OPTIONAL: Maximum number of samples for the derived dataset.
+# If different from base dataset, this takes precedence.
+derived_max_samples: null
+
+# --- Metadata ---
+description: "Base derived dataset configuration. Override fields in specific derived dataset files."

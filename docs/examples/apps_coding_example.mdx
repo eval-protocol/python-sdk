@@ -1,0 +1,90 @@
+# APPS Coding Example
+
+This guide explains how to use the `eval-protocol run` command to evaluate code generation models on a sample of the `codeparrot/apps` dataset. This example focuses on checking the parsability of generated Python code.
+
+## Overview
+
+*   **Dataset**: A sample from `codeparrot/apps`, a dataset of programming problems and solutions. The specific dataset configuration used is `apps_full_prompts` (defined in `conf/dataset/apps_full_prompts.yaml`), which typically points to a pre-generated JSONL file.
+*   **Task**: Given a problem description (question), the model should generate a Python code solution.
+*   **Reward Function**: The evaluation uses `eval_protocol.rewards.apps_coding_reward.evaluate_apps_solution`.
+    *   **Functionality**: In its current form for this example, this reward function performs a basic check to see if the generated Python code is parsable by Python's `ast.parse` module. It scores `1.0` if the code is parsable and `0.0` otherwise.
+    *   It does *not* execute the code or check for functional correctness against test cases in this simplified setup.
+    *   The `ground_truth_for_eval` field (derived from APPS' `input_output` field) is available to the reward function but not utilized by this initial parsability check.
+*   **System Prompt**: A default system prompt is provided in the configuration to guide the model:
+    ```
+    Please write a Python script that solves the following problem. Structure your solution within a main() function. Please read from stdin directly and make sure the code is not interactive. The main() function should print the final result(s) to standard output as required by the problem statement.
+    ```
+
+## Setup
+
+1.  **Environment**: Ensure your Python environment is set up with `eval-protocol` and its development dependencies installed. If you haven't already, install them from the root of the repository:
+    ```bash
+    pip install -e ".[dev]"
+    ```
+2.  **API Key**: The default configuration uses a Fireworks AI model (`accounts/fireworks/models/deepseek-v3-0324`) for code generation. Make sure your `FIREWORKS_API_KEY` is set in your environment or in a `.env` file in the project root.
+
+## Data Preparation (Informational)
+
+The example typically uses a pre-generated sample of prompts from the `codeparrot/apps` dataset. The default run configuration (`run_eval.yaml`) references `apps_full_prompts`, which points to `development/CODING_DATASET.jsonl`.
+
+If you wished to regenerate this sample or create a different one (this is for informational purposes, not required to run the example with defaults):
+1.  The script `scripts/convert_apps_to_prompts.py` can convert the raw Hugging Face `codeparrot/apps` dataset into the JSONL format expected by the pipeline.
+2.  The source dataset configuration for raw APPS data is defined in `conf/dataset/apps_source.yaml`.
+3.  An example command to generate 5 samples from the 'test' split:
+    ```bash
+    python scripts/convert_apps_to_prompts.py \
+        --dataset_name codeparrot/apps \
+        --split test \
+        --output_file development/apps_sample_prompts.jsonl \
+        --max_samples 5 \
+        --id_column problem_id \
+        --query_column question \
+        --ground_truth_column input_output
+    ```
+
+## Running the Evaluation
+
+The evaluation is configured in `examples/apps_coding_example/conf/run_eval.yaml`. This is the main configuration file used by Hydra.
+
+To run the evaluation using the `eval-protocol run` command:
+
+1.  Ensure your virtual environment is activated:
+    ```bash
+    source .venv/bin/activate
+    ```
+2.  Execute the run command from the root of the repository:
+    ```bash
+    eval-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval
+    ```
+
+### Overriding Parameters
+
+You can override parameters from the `run_eval.yaml` configuration directly from the command line. For example:
+
+*   **Limit the number of samples for a quick test**:
+    ```bash
+    eval-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval evaluation_params.limit_samples=2
+    ```
+*   **Disable code generation (to test reward function with cached responses)**:
+    If you have previously run the example and responses are cached (default cache dir: `outputs/generated_responses_cache_apps/`), you can disable new generation:
+    ```bash
+    eval-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval generation.enabled=false
+    ```
+*   **Change the generation model**:
+    ```bash
+    eval-protocol run --config-path examples/apps_coding_example/conf --config-name run_eval generation.model_name="accounts/fireworks/models/another-model"
+    ```
+
+Refer to the [Hydra Configuration for Examples guide](../../developer_guide/hydra_configuration.mdx) for more details on Hydra.
+
+## Expected Output
+
+The `eval-protocol run` command will:
+
+1.  Load prompts based on the `apps_full_prompts` dataset configuration (typically from `development/CODING_DATASET.jsonl`).
+2.  If `generation.enabled` is `true` (default), generate code solutions using the configured model. Responses are cached (default: `outputs/generated_responses_cache_apps/`).
+3.  Evaluate each generated solution using the `evaluate_apps_solution` reward function (checking for Python AST parsability).
+4.  Print a summary of results to the console.
+5.  Save detailed evaluation results to a JSONL file in a timestamped directory. The default output path is configured in `run_eval.yaml` as `./outputs/apps_coding_example/${now:%Y-%m-%d}/${now:%H-%M-%S}`. The results file will be named `apps_coding_example_results.jsonl` within that directory.
+
+The results file will contain the original prompt, generated response, the parsability score (0 or 1), and other metrics from the reward function.

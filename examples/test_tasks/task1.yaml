@@ -1,0 +1,23 @@
+name: "test_task_1"
+description: "A simple test task for the refactored agent evaluation framework"
+resource_type: "PythonStateResource"
+base_resource_config:
+  initial_state:
+    counter: 0
+    items: []
+    status: "initialized"
+tools_module_path: "examples.test_tasks.tools"
+reward_function_path: "examples.test_tasks.reward.evaluate"
+evaluation_criteria:
+  final_state_query: null
+  expected_query_result_transform: null
+  ground_truth_function_calls: null
+  ground_truth_comparable_state:
+    counter: 2
+    items: ["item1", "item2"]
+    status: "completed"
+messages:
+  - role: "user"
+    content: "Add two items to the list and increment the counter twice. When done, set the status to 'completed'."
+poc_max_turns: 1
+num_rollouts: 3

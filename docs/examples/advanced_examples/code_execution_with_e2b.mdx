@@ -1,0 +1,178 @@
+# Code Execution with E2B
+
+This guide demonstrates how to use the E2B code execution reward function to evaluate code by running it in the E2B cloud sandbox.
+
+## Overview
+
+The `e2b_code_execution_reward` function allows you to:
+
+1. Extract code blocks from LLM responses
+2. Execute the code securely in E2B's cloud sandbox
+3. Compare the output with expected results
+4. Generate a score and detailed metrics
+
+## Prerequisites
+
+To use the E2B code execution reward function, you need:
+
+1. An E2B API key from [E2B Dashboard](https://e2b.dev/dashboard)
+2. The `e2b_code_interpreter` Python package installed: `pip install e2b_code_interpreter`
+
+Note: The code will also work with the `e2b` package, but `e2b_code_interpreter` is recommended as it provides a more stable interface specifically designed for code execution.
+
+## Basic Usage
+
+Here's a simple example of how to use the reward function:
+
+```python
+from eval_protocol.rewards.code_execution import e2b_code_execution_reward
+
+# Example conversation with a Python coding task
+messages = [
+    {
+        "role": "user",
+        "content": "Write a Python function to calculate the factorial of a number."
+    },
+    {
+        "role": "assistant",
+        "content": """Here's a Python function to calculate the factorial of a number:
+
+```python
+def factorial(n):
+    if n == 0 or n == 1:
+        return 1
+    else:
+        return n * factorial(n - 1)
+
+# Test the function
+print(factorial(5))  # Should output 120
+```
+
+This function uses recursion to calculate the factorial. For n = 5, it computes 5 * 4 * 3 * 2 * 1 = 120."""
+    }
+]
+
+# Define expected output
+expected_output = "120"
+
+# Evaluate the code using E2B
+result = e2b_code_execution_reward(
+    messages=messages,
+    expected_output=expected_output,
+    language="python",
+    api_key="your_e2b_api_key",
+    timeout=10
+)
+
+# Use the results
+print(f"Score: {result.score}")
+for metric_name, metric in result.metrics.items():
+    print(f"\n{metric_name}: {metric.reason}")
+```
+
+## Supported Languages
+
+The E2B code execution reward function currently supports:
+
+- Python (`language="python"`)
+- JavaScript (`language="javascript"` or `language="js"`)
+
+## Advanced Options
+
+### Automatic Output Extraction
+
+You can let the reward function automatically extract the expected output from the prompt:
+
+```python
+# Conversation with expected output in the prompt
+messages = [
+    {
+        "role": "user",
+        "content": "Write a Python function to find the sum of a list. Expected output: 15 (for [1,2,3,4,5])"
+    },
+    {
+        "role": "assistant",
+        "content": """```python
+def sum_list(numbers):
+    return sum(numbers)
+
+print(sum_list([1, 2, 3, 4, 5]))
+```"""
+    }
+]
+
+# Pass the original messages for expected output extraction
+result = e2b_code_execution_reward(
+    messages=messages,
+    original_messages=messages,
+    language="python",
+    api_key="your_e2b_api_key"
+)
+```
+
+### Fallback to Local Execution
+
+You can gracefully fall back to local execution when an E2B API key is not available:
+
+```python
+from eval_protocol.rewards.code_execution import (
+    e2b_code_execution_reward,
+    local_code_execution_reward
+)
+
+# Try to use E2B if API key is provided
+api_key = os.environ.get("E2B_API_KEY")
+
+if api_key:
+    result = e2b_code_execution_reward(
+        messages=messages,
+        expected_output=expected_output,
+        language="python",
+        api_key=api_key
+    )
+else:
+    # Fall back to local execution
+    result = local_code_execution_reward(
+        messages=messages,
+        expected_output=expected_output,
+        language="python"
+    )
+```
+
+## Parameters
+
+The `e2b_code_execution_reward` function accepts the following parameters:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `messages` | List[Dict[str, str]] | Generated conversation messages (required) |
+| `original_messages` | List[Dict[str, str]] | Original conversation context (optional) |
+| `expected_output` | str | Expected output from code execution (optional) |
+| `language` | str | Programming language of the code (default: "python") |
+| `timeout` | int | Maximum execution time in seconds (default: 30) |
+| `api_key` | str | E2B API key (default: None, uses E2B_API_KEY environment variable) |
+
+## Return Value
+
+The reward function returns an `EvaluateResult` object with:
+
+- `score`: A float between 0.0 and 1.0 indicating how well the code performed.
+- `reason`: An overall explanation for the evaluation.
+- `metrics`: A dictionary of `MetricResult` objects with detailed information about the execution.
+- `error` (optional): A string describing any error during evaluation.
+
+Key metrics include:
+
+- `extracted_code`: The code that was extracted and executed
+- `expected_output`: The expected output (if provided or extracted)
+- `execution_result`: Details about the execution (success or failure)
+- `output_match`: Comparison between actual and expected outputs
+
+## Examples
+
+See the `examples/` directory for complete examples:
+
+- `e2b_reward_example.py`: Basic Python example
+- `e2b_javascript_example.py`: JavaScript example
+- `e2b_auto_extract_example.py`: Automatic output extraction example
+- `e2b_fallback_example.py`: Fallback to local execution example

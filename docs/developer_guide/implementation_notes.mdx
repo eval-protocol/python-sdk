@@ -1,0 +1,243 @@
+# Agent Evaluation Implementation Notes
+
+These implementation notes provide technical details about the Agent Evaluation Framework design.
+
+## CLI Design
+
+The agent evaluation CLI command supports the following key features:
+
+```python
+# agent-eval command in eval_protocol/cli.py
+agent_eval_parser = subparsers.add_parser(
+    "agent-eval",
+    help="Run agent evaluation on task bundles"
+)
+
+# Task bundle specification
+agent_eval_parser.add_argument(
+    "--task-dir", "-t",
+    help="Path to task bundle directory containing reward.py, tools.py, and task.jsonl"
+)
+agent_eval_parser.add_argument(
+    "--dataset", "-d",
+    help="Path to JSONL file containing task dataset (alternative to --task-dir)"
+)
+
+# Output and execution options
+agent_eval_parser.add_argument(
+    "--output-dir", "-o",
+    default="./runs",
+    help="Directory to store evaluation runs (default: ./runs)"
+)
+agent_eval_parser.add_argument(
+    "--max-tasks",
+    type=int,
+    help="Maximum number of tasks to evaluate"
+)
+agent_eval_parser.add_argument(
+    "--task-ids",
+    help="Comma-separated list of task IDs to evaluate (e.g., 'task1,task2')"
+)
+
+# Tool and registry configuration
+agent_eval_parser.add_argument(
+    "--registries",
+    help="Override tool registries in format 'name=path,name2=path2' (e.g., 'flight=flight_tools,hotel=hotel_tools')"
+)
+agent_eval_parser.add_argument(
+    "--registry-override",
+    help="Override all tasks to use a specific registry path"
+)
+agent_eval_parser.add_argument(
+    "--evaluator",
+    help="Override the reward function path (e.g., 'flight_reward.success_evaluator')"
+)
+
+# Model configuration
+agent_eval_parser.add_argument(
+    "--model",
+    help="Override MODEL_AGENT environment variable"
+)
+agent_eval_parser.add_argument(
+    "--sim-model",
+    help="Override MODEL_SIM environment variable for simulated user"
+)
+agent_eval_parser.add_argument(
+    "--no-sim-user",
+    action="store_true",
+    help="Disable simulated user (use static initial messages only)"
+)
+
+# Debugging and testing options
+agent_eval_parser.add_argument(
+    "--test-mode",
+    action="store_true",
+    help="Run in test mode without requiring API keys (validates tool setup only)"
+)
+agent_eval_parser.add_argument(
+    "--mock-response",
+    action="store_true",
+    help="Use a mock agent response (works with --test-mode)"
+)
+agent_eval_parser.add_argument(
+    "--debug",
+    action="store_true",
+    help="Enable debug mode with detailed logging of tool execution"
+)
+agent_eval_parser.add_argument(
+    "--export-tools",
+    help="Export tools as OpenAPI spec to specified directory"
+)
+agent_eval_parser.add_argument(
+    "--validate-only",
+    action="store_true",
+    help="Validate task bundle structure and requirements without running evaluation"
+)
+```
+
+## Implementation Details
+
+### Task Bundle Loading
+
+The CLI supports loading task bundles either as a whole directory or by specifying the task.jsonl file:
+
+```python
+if args.task_dir:
+    # Load from task directory
+    task_dir = Path(args.task_dir)
+    task_file = task_dir / "task.jsonl"
+
+    if not task_file.exists():
+        print(f"Error: Task file not found at {task_file}")
+        return 1
+
+    dataset_path = task_file
+    base_dir = task_dir.parent
+
+elif args.dataset:
+    # Load from dataset file
+    dataset_path = Path(args.dataset)
+    base_dir = dataset_path.parent
+
+    if not dataset_path.exists():
+        print(f"Error: Dataset file '{args.dataset}' not found")
+        return 1
+else:
+    print("Error: Either --task-dir or --dataset is required")
+    return 1
+```
+
+### Tool Registry Management
+
+For multiple tool registries:
+
+```python
+registries = {}
+if args.registries:
+    registry_pairs = args.registries.split(',')
+    for pair in registry_pairs:
+        if '=' not in pair:
+            print(f"Error: Registry specification must be in format 'name=path', got '{pair}'")
+            return 1
+        name, path = pair.split('=', 1)
+        registries[name] = path
+
+# Override all registries if specified
+if args.registry_override:
+    for task in tasks:
+        task["toolset"] = args.registry_override
+```
+
+### Evaluator Path Override
+
+```python
+if args.evaluator:
+    for task in tasks:
+        reward_path = args.evaluator
+else:
+    # Extract reward module path from toolset path
+    reward_path = ".".join(toolset.split(".")[:-1] + ["reward"])
+```
+
+### Task Filtering
+
+```python
+# Filter tasks by ID if specified
+if args.task_ids:
+    task_ids = args.task_ids.split(',')
+    tasks = [task for task in tasks if task.get('id') in task_ids]
+
+    if not tasks:
+        print(f"Error: No tasks found with IDs: {args.task_ids}")
+        return 1
+
+# Limit the number of tasks if specified
+if args.max_tasks and len(tasks) > args.max_tasks:
+    tasks = tasks[:args.max_tasks]
+    print(f"Limiting to {args.max_tasks} tasks")
+```
+
+### Testing and Debugging
+
+```python
+if args.validate_only:
+    # Validate task bundle structure without running evaluation
+    print(f"Validating task bundle: {args.task_dir or args.dataset}")
+    # Validation logic...
+    return 0
+
+if args.export_tools:
+    # Export tool specifications as OpenAPI
+    os.makedirs(args.export_tools, exist_ok=True)
+    for task_id, tools_spec in tool_specs.items():
+        spec_path = os.path.join(args.export_tools, f"{task_id}.json")
+        with open(spec_path, 'w') as f:
+            json.dump(tools_spec, f, indent=2)
+    print(f"Exported tool specifications to {args.export_tools}")
+    return 0
+```
+
+## Core Classes
+
+The framework is built around these core classes:
+
+1. `ToolRegistry`: Manages tool functions with registration decorators and OpenAI tool format conversion
+2. `Database`: Handles SQLite database operations for task state
+3. `AgentEvaluator`: Orchestrates the evaluation process with the agent model and reward function
+
+## Database Management
+
+Each task has a base database that is copied for each evaluation run:
+
+```
+runs/
+└─ <task_id>/              # One directory per task
+   └─ base.db              # Initial seeded database
+      roll_<uuid>.db       # Copy-on-write for each evaluation run
+```
+
+## Reward Function Integration
+
+The reward function follows the standard Eval Protocol interface with an additional `db` parameter:
+
+```python
+@reward_function
+def evaluate(messages, *, db, end_goal_sql, **kwargs):
+    # Ensure imports for EvaluateResult and MetricResult would be available
+    # from eval_protocol import EvaluateResult, MetricResult
+    ok = db.execute(end_goal_sql).scalar_one()
+    score = 1.0 if ok else 0.0
+    reason = "Task completed successfully" if ok else "Task incomplete"
+    success = bool(ok)
+
+    return EvaluateResult(
+        score=score,
+        reason=reason,
+        metrics={
+            "task_completion": MetricResult(
+                score=score,
+                success=success,
+                reason=reason
+            )
+        }
+    )

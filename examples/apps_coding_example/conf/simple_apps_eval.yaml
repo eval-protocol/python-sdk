@@ -1,0 +1,65 @@
+# Simplified APPS Coding evaluation configuration
+# This config avoids inheritance to reduce complexity and provide clearer error messages
+
+defaults:
+  - _self_
+  - override hydra/job_logging: default
+  - override hydra/hydra_logging: default
+
+hydra:
+  run:
+    dir: ./outputs/apps_coding_eval/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ./multirun/apps_coding_eval/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+# Dataset Configuration - Load from existing CODING_DATASET.jsonl
+dataset:
+  _target_: eval_protocol.datasets.loader.load_and_process_dataset
+  source_type: "jsonl"
+  path_or_name: "development/CODING_DATASET.jsonl"
+  max_samples: 5  # Limit for quick testing
+  column_mapping:
+    user_query: "user_query"
+    ground_truth_for_eval: "ground_truth_for_eval"
+
+# System prompt for code generation (applied during generation)
+system_prompt: "Please write a Python script that solves the following problem. Structure your solution within a main() function. Please read from stdin directly and make sure the code is not interactive. The main() function should print the final result(s) to standard output as required by the problem statement."
+
+# Model Generation Configuration (enabled to generate code solutions)
+generation:
+  enabled: true
+  _target_: eval_protocol.generation.generate_responses
+  model_name: "accounts/fireworks/models/deepseek-v3-0324"
+  batch_size: 1
+  max_new_tokens: 4000
+  temperature: 0.0
+  cache:
+    enabled: true
+  api_params:
+    rate_limit_qps: 1.0
+    max_retries: 3
+    max_concurrent_requests: 5
+
+# Reward Function Configuration
+reward:
+  function_path: "main.evaluate"
+  params:
+    execution_timeout: 10  # Timeout for code execution in seconds
+
+# Evaluation Parameters
+evaluation_params:
+  # To run on all samples, remove or comment out the line below
+  limit_samples: 3
+
+# Output Configuration
+output:
+  results_file: "eval_results.jsonl"
+  preview_pairs_file: "preview_samples.jsonl"
+
+logging_params:
+  batch_log_interval: 10
+
+# Other settings
+seed: 42
+verbose: true

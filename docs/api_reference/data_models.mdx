@@ -1,0 +1,178 @@
+# Data Models Reference
+
+This document describes the core data models used in Eval Protocol for representing messages, evaluation results, and metrics.
+
+## Message Models
+
+### Message
+
+The `Message` class represents a single message in a conversation.
+
+```python
+from eval_protocol import Message
+
+message = Message(
+    role="assistant",
+    content="This is the response content",
+    name=None,  # Optional
+    tool_call_id=None,  # Optional
+    tool_calls=None,  # Optional
+    function_call=None  # Optional
+)
+```
+
+#### Attributes
+
+- **`role`** (`str`): The role of the message sender. Typically one of:
+  - `"user"`: Message from the user
+  - `"assistant"`: Message from the assistant
+  - `"system"`: System message providing context/instructions
+
+- **`content`** (`str`): The text content of the message.
+
+- **`name`** (`Optional[str]`): Optional name of the sender (for named system messages).
+
+- **`tool_call_id`** (`Optional[str]`): Optional ID for a tool call (used in tool calling).
+
+- **`tool_calls`** (`Optional[List[Dict[str, Any]]]`): Optional list of tool calls in the message.
+
+- **`function_call`** (`Optional[Dict[str, Any]]`): Optional function call information (legacy format).
+
+#### Compatibility
+
+The `Message` class is compatible with OpenAI's `ChatCompletionMessageParam` interface, allowing for easy integration with OpenAI-compatible APIs.
+
+## Evaluation Models
+
+### EvaluateResult
+
+The `EvaluateResult` class represents the complete result of an evaluator with multiple metrics.
+
+```python
+from eval_protocol import EvaluateResult, MetricResult
+
+result = EvaluateResult(
+    score=0.75,
+    reason="Overall good response with minor issues",
+    metrics={
+        "clarity": MetricResult(score=0.8, reason="Clear and concise", success=True),
+        "accuracy": MetricResult(score=0.7, reason="Contains a minor factual error", success=True)
+    },
+    error=None  # Optional error message
+)
+```
+
+#### Attributes
+
+- **`score`** (`float`): The overall evaluation score, typically between 0.0 and 1.0.
+
+- **`reason`** (`Optional[str]`): Optional explanation for the overall score.
+
+- **`metrics`** (`Dict[str, MetricResult]`): Dictionary of component metrics.
+
+- **`error`** (`Optional[str]`): Optional error message if the evaluation encountered a problem.
+
+### MetricResult
+
+The `MetricResult` class represents a single metric in an evaluation.
+
+```python
+from eval_protocol import MetricResult
+
+metric = MetricResult(
+    score=0.8,
+    reason="The response provides a clear explanation with appropriate examples",
+    success=True
+)
+```
+
+#### Attributes
+
+- **`score`** (`float`): The score for this specific metric, typically between 0.0 and 1.0.
+
+- **`reason`** (`str`): Explanation for why this score was assigned.
+
+- **`success`** (`bool`): Indicates whether the metric condition was met (e.g., pass/fail).
+
+## Example Usages
+
+### Working with Messages
+
+```python
+from eval_protocol import Message
+
+# Create a user message
+user_message = Message(
+    role="user",
+    content="Can you explain how machine learning works?"
+)
+
+# Create an assistant message
+assistant_message = Message(
+    role="assistant",
+    content="Machine learning is a method where computers learn from data without being explicitly programmed."
+)
+
+# Create a system message
+system_message = Message(
+    role="system",
+    content="You are a helpful assistant that provides clear and accurate explanations."
+)
+
+# Create a message with tool calls
+tool_call_message = Message(
+    role="assistant",
+    content=None,
+    tool_calls=[{
+        "id": "call_123",
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "arguments": '{"location": "San Francisco", "unit": "celsius"}'
+        }
+    }]
+)
+```
+
+### Working with EvaluateResult
+
+```python
+from eval_protocol import EvaluateResult, MetricResult
+
+# Create an EvaluateResult
+eval_result = EvaluateResult(
+    score=0.75,
+    reason="Overall good response with some minor issues",
+    metrics={
+        "clarity": MetricResult(score=0.8, reason="Clear and concise explanation", success=True),
+        "accuracy": MetricResult(score=0.7, reason="Contains one minor factual error", success=True),
+        "relevance": MetricResult(score=0.75, reason="Mostly relevant to the query", success=True)
+    }
+)
+
+# Access metrics
+clarity_score = eval_result.metrics["clarity"].score
+print(f"Clarity score: {clarity_score}")  # Clarity score: 0.8
+
+# Check for errors
+if eval_result.error:
+    print(f"Evaluation error: {eval_result.error}")
+else:
+    print(f"Evaluation successful with score: {eval_result.score}")
+```
+
+## Type Compatibility
+
+While the classes provide strong typing for development, Eval Protocol also accepts dictionary representations for flexibility:
+
+```python
+# Using dictionaries instead of Message objects
+messages = [
+    {"role": "user", "content": "What is machine learning?"},
+    {"role": "assistant", "content": "Machine learning is a method..."}
+]
+
+# These are automatically converted to the appropriate types internally
+```
+
+This flexibility makes it easier to integrate with different APIs and data formats.

@@ -1,0 +1,133 @@
+[build-system]
+requires = ["setuptools>=61.0", "versioneer[toml]>=0.29"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eval-protocol"
+dynamic = ["version"]
+authors = [
+    {name = "Fireworks AI", email = "info@fireworks.ai"},
+]
+description = "The official Python SDK for Eval Protocol (EP.) EP is an open protocol that standardizes how developers author evals for large language model (LLM) applications."
+readme = "README.md"
+license         = "Apache-2.0"                # SPDX expression
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "requests>=2.25.0",
+    "pydantic>=2.0.0",
+    "dataclasses-json>=0.5.7",
+    "fastapi>=0.68.0",
+    "uvicorn>=0.15.0",
+    "python-dotenv>=0.19.0",
+    "openai==1.78.1",
+    "aiosqlite",
+    "aiohttp",
+    "mcp>=1.9.2",
+    "PyYAML>=5.0",
+    "datasets",
+    "fsspec",
+    "hydra-core>=1.3.2",
+    "omegaconf>=2.3.0",
+    "gymnasium>=0.29.0",
+    "httpx>=0.24.0",
+    "anthropic>=0.59.0",
+    "ipykernel>=6.30.0",
+    "jupyter>=1.1.1",
+    # Dependencies for vendored tau2 package
+    "toml>=0.10.0",
+    "loguru>=0.6.0",
+    "docstring-parser>=0.15",
+    "rich>=12.0.0",
+    "psutil>=5.8.0",
+    "litellm>=1.0.0",
+    "addict>=2.4.0",
+    "deepdiff>=6.0.0",
+    "pandas>=1.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/fireworks-ai/eval-protocol"
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "twine",
+    "pytest>=6.0.0",
+    "pytest-asyncio",
+    "pytest-httpserver",
+    "werkzeug>=2.0.0",
+    "black>=21.5b2",
+    "isort>=5.0.0",
+    "mypy>=0.812",
+    "flake8>=3.9.2",
+    "autopep8>=1.5.0",
+    "transformers>=4.0.0",
+    "types-setuptools",
+    "types-requests",
+    "types-PyYAML",
+    "types-docker",
+    "versioneer>=0.20",
+    "openai==1.78.1",
+    "pre-commit",
+    "e2b",
+    "pytest-cov",
+    "pytest-xdist",
+    "docker==7.1.0",
+    "ipykernel>=6.30.0",
+    "jupyter>=1.1.1",
+    "pip>=25.1.1",
+    "haikus==0.3.8",
+]
+trl = [
+    "torch>=1.9",
+    "trl>=0.7.0",
+    "peft>=0.7.0",
+    "transformers>=4.0.0",
+    "accelerate>=0.28.0",
+]
+openevals = [
+    "openevals>=0.1.0",
+]
+fireworks = [
+    "fireworks-ai>=0.19.10",
+]
+box2d = [
+    "swig",
+    "gymnasium[box2d]>=0.29.0",
+    "Pillow",
+]
+
+[project.scripts]
+fireworks-reward = "eval_protocol.cli:main"
+eval-protocol = "eval_protocol.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["eval_protocol*", "development*", "vendor*"]
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "eval_protocol/_version.py"
+versionfile_build = "eval_protocol/_version.py"
+tag_prefix = "v"
+parentdir_prefix = "eval-protocol-"
+
+[tool.black]
+line-length = 119
+
+[tool.isort]
+profile = "black"
+line_length = 119
+
+[tool.uv.sources]
+tau2 = { git = "https://github.com/sierra-research/tau2-bench.git" }
+
+[dependency-groups]
+dev = [
+    "haikus==0.3.8",
+    "pytest>=8.4.1",
+]

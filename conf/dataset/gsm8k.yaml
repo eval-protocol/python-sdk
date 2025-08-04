@@ -1,0 +1,28 @@
+# Configuration for the GSM8K dataset from Hugging Face.
+defaults:
+  - base_dataset # Inherits from the base dataset schema
+  - _self_ # Allows overriding defaults from base_dataset here
+
+# Override or set specific values for GSM8K
+source_type: huggingface
+path_or_name: "gsm8k"
+config_name: "main" # GSM8K has a 'main' and 'socratic' config, 'main' is typical
+
+description: "GSM8K (Grade School Math 8K) is a dataset of 8.5K high quality linguistically diverse grade school math word problems created by human problem writers."
+
+# Column mapping for GSM8K.
+# The 'question' and 'answer' fields in GSM8K correspond to our 'query' and 'ground_truth'.
+column_mapping:
+  query: "question"
+  ground_truth: "answer"
+
+# Optional: Specify available splits if you want to document them here.
+# The actual split to load is controlled by the 'split' parameter (defaulted in base_dataset or overridden).
+# available_splits:
+#   train: "train"
+#   test: "test"
+
+# Optional: Add any Hugging Face specific load parameters if needed.
+# For example, if trust_remote_code were needed for this dataset:
+# hf_extra_load_params:
+#   trust_remote_code: True
