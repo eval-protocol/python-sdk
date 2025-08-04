@@ -1,6 +1,6 @@
 # Eval Protocol (EP)
 
-![PyPI - Version](https://img.shields.io/pypi/v/eval-protocol)
+[![PyPI - Version](https://img.shields.io/pypi/v/eval-protocol)](https://pypi.org/project/eval-protocol/)
 
 EP is an open protocol that standardizes how developers author evals for large
 language model (LLM) applications.
