@@ -1,6 +1,7 @@
 import inspect
 from typing import Any, Callable, Dict, List, Optional
 
+from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 import pytest
 
 from eval_protocol.models import EvaluationRow
@@ -32,7 +33,7 @@ def evaluation_test(
     model: List[ModelParam],
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
-    dataset_adapter: Optional[Callable[[List[Dict[str, Any]]], Dataset]] = lambda x: x,
+    dataset_adapter: Optional[Callable[[List[Dict[str, Any]]], Dataset]] = default_dataset_adapter,
     rollout_input_params: Optional[List[RolloutInputParam]] = None,
     rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
@@ -144,17 +145,16 @@ def evaluation_test(
                     for ip in params:
                         for im in messages:
                             for etk in kwargs:
-                                # Skip combinations that don't make sense
-                                # If we have a dataset, we should have params for rollout
-                                if ds is not None and ip is None:
-                                    continue
-                                # If we have messages but no dataset, that's fine
-                                # If we have no dataset and no messages, that's also fine
+                                # if no dataset and no messages, raise an error
+                                if ds is None and im is None:
+                                    raise ValueError("No dataset or messages provided. Please provide at least one of input_dataset or input_messages.")
                                 combinations.append((m, ds, ip, im, etk))
 
             return combinations
 
         combinations = generate_combinations()
+        if len(combinations) == 0:
+            raise ValueError("No combinations of parameters were found. Please provide at least a model and one of input_dataset or input_messages.")
 
         # Create parameter tuples for pytest.mark.parametrize
         param_tuples = []

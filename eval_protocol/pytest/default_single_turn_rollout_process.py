@@ -25,10 +25,17 @@ async def default_single_turn_rollout_processor(
         messages_payload = [{"role": m.role, "content": m.content} for m in row.messages]
 
         response = await client.chat.completions.create(
-            model=config.model, messages=messages_payload, **config.input_params
+            model=config.model, messages=messages_payload, tools=row.tools, **config.input_params
         )
         assistant_content = response.choices[0].message.content or ""
-        messages = list(row.messages) + [Message(role="assistant", content=assistant_content)]
+        tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
+        messages = list(row.messages) + [
+            Message(
+                role="assistant",
+                content=assistant_content,
+                tool_calls=tool_calls,
+            )
+        ]
 
         return EvaluationRow(
             messages=messages,
