@@ -23,8 +23,8 @@ def test_math_dataset(row: EvaluationRow, **kwargs) -> EvaluationRow:
     Evaluate math problem solving considering both accuracy and format.
 
     This function demonstrates how to combine multiple evaluation criteria:
-    - Numerical accuracy using built-in math evaluation
-    - Format compliance checking for <think>...</think><answer>...</answer> structure
+    - Numerical accuracy using built-in math evaluation (80% weight)
+    - Format compliance checking for <think>...</think><answer>...</answer> structure (20% weight)
 
     Args:
         row: EvaluationRow containing the conversation messages and ground truth
@@ -47,12 +47,8 @@ def test_math_dataset(row: EvaluationRow, **kwargs) -> EvaluationRow:
     format_correct = check_think_answer_format(assistant_response)
     format_score = 1.0 if format_correct else 0.0
 
-    # For math_example, accuracy takes priority - if accuracy is 0, overall score is 0
-    # If accuracy is 1, then format can contribute to the score
-    if accuracy_result.score == 0.0:
-        combined_score = 0.0
-    else:
-        combined_score = accuracy_result.score  # Only accuracy matters for math_example
+    # Calculate combined score with 80% accuracy and 20% formatting weight
+    combined_score = (0.8 * accuracy_result.score) + (0.2 * format_score)
 
     # Create metrics structure expected by tests
     metrics = {
