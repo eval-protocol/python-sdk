@@ -26,11 +26,7 @@ def function_calling_to_evaluation_row(rows: List[Dict[str, Any]]) -> List[Evalu
 )
 async def test_pytest_function_calling(row: EvaluationRow) -> EvaluationRow:
     """Run pointwise evaluation on sample dataset using pytest interface."""
-    try:
-        ground_truth = json.loads(row.ground_truth)
-    except Exception as e:
-        print(f"Error loading ground truth: {e}")
-        ground_truth = None
+    ground_truth = json.loads(row.ground_truth)
     result = exact_tool_match_reward(row.messages, ground_truth)
     row.evaluation_result = result
     print(result)
