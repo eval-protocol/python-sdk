@@ -176,7 +176,7 @@ class ExecutionManager:
             messages = [Message.model_validate(msg) for msg in trajectory.conversation_history]
 
             input_metadata = InputMetadata(
-                row_id=trajectory.session.session_id,
+                row_id=trajectory.session.dataset_row.id if trajectory.session.dataset_row else None,
                 dataset_info=asdict(trajectory.session.dataset_row) if trajectory.session.dataset_row else {},
                 completion_params=CompletionParams(
                     model=policy.model_id,

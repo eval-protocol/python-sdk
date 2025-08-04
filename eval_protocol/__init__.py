@@ -17,6 +17,8 @@ from .config import RewardKitConfig, get_config, load_config
 from .mcp_env import (
     AnthropicPolicy,
     OpenAIPolicy,
+    LiteLLMPolicy,
+    FireworksPolicy,
     make,
     rollout,
     test_mcp,
@@ -60,6 +62,7 @@ __all__ = [
     # MCP Environment API
     "make",
     "rollout",
+    "LiteLLMPolicy",
     "AnthropicPolicy",
     "FireworksPolicy",
     "OpenAIPolicy",
@@ -72,10 +75,6 @@ __all__ = [
     "rewards",
     "mcp",
 ]
-
-# Add FireworksPolicy to exports if available
-if _FIREWORKS_AVAILABLE:
-    __all__.insert(__all__.index("OpenAIPolicy") + 1, "FireworksPolicy")
 
 from . import _version
 

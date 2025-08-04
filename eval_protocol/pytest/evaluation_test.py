@@ -41,6 +41,9 @@ def evaluation_test(
     num_runs: int = 1,
     max_dataset_rows: Optional[int] = None,
     mcp_config_path: Optional[str] = None,
+    max_concurrent_rollouts: int = 8,
+    server_script_path: Optional[str] = None,
+    steps: int = 30,
     mode: EvaluationTestMode = "batch",
 ) -> Callable[
     [TestFunction],
@@ -67,6 +70,9 @@ def evaluation_test(
         num_runs: Number of times to repeat the evaluation.
         max_dataset_rows: Limit dataset to the first N rows.
         mcp_config_path: Path to MCP config file that follows MCPMultiClientConfiguration schema
+        max_concurrent_rollouts: Maximum number of concurrent rollouts to run in parallel.
+        server_script_path: Path to the MCP server script to run (default: "examples/tau2_mcp/server.py").
+        steps: Number of rollout steps to execute (default: 30).
         mode: Evaluation mode. "batch" (default) expects test function to handle
             full dataset. "pointwise" applies test function to each row. If your evaluation requires
             the full rollout of all rows to compute the score, use
@@ -198,6 +204,9 @@ def evaluation_test(
                     model=model_name,
                     input_params=kwargs.get("input_params") or {},
                     mcp_config_path=mcp_config_path or "",
+                    max_concurrent_rollouts=max_concurrent_rollouts,
+                    server_script_path=server_script_path,
+                    steps=steps,
                 )
                 input_dataset = execute_function(rollout_processor, rows=data, config=config)
 
