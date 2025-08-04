@@ -12,7 +12,7 @@ from eval_protocol.models import EvaluationRow, Message, InputMetadata, Completi
 logger = logging.getLogger(__name__)
 
 try:
-    from datasets import load_dataset, DatasetDict
+    from datasets import load_dataset, Dataset, DatasetDict
     DATASETS_AVAILABLE = True
 except ImportError:
     DATASETS_AVAILABLE = False
