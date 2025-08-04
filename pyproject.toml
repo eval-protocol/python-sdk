@@ -140,6 +140,7 @@ tau2 = { git = "https://github.com/sierra-research/tau2-bench.git" }
 
 [dependency-groups]
 dev = [
+    "fastmcp>=2.10.6",
     "haikus==0.3.8",
     "pytest>=8.4.1",
 ]
