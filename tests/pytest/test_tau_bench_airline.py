@@ -65,7 +65,7 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
         
         rows.append(row)
     
-    return rows[0:2]
+    return rows
 
 
 def save_single_trajectory(trajectory_record: Dict, row_id: str, output_dir: str = "trajectory_outputs"):
