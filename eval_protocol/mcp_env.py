@@ -282,7 +282,7 @@ async def rollout(
             raise ValueError("Either 'evaluation_rows' or 'dataset' must be provided when envs is a URL")
 
         auto_model_id = model_id or getattr(policy, "model_id", "unknown")
-        envs = make(envs, evaluation_rows=evaluation_rows, dataset=dataset, model_id=auto_model_id)
+        envs = await make(envs, evaluation_rows=evaluation_rows, dataset=dataset, model_id=auto_model_id)
 
     # Use the new ExecutionManager for execution
     execution_manager = ExecutionManager()
