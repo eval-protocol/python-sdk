@@ -8,11 +8,11 @@ from openai import NOT_GIVEN, NotGiven
 from openai.types.chat import ChatCompletionContentPartTextParam, ChatCompletionMessage, ChatCompletionToolParam
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
+from eval_protocol.dataset_logger import default_logger
 from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
-from eval_protocol.dataset_logger import default_logger
 
 
 class Agent:
@@ -106,7 +106,7 @@ class Agent:
             return [TextContent(text=json.dumps(tool_result.structuredContent), type="text")]
         if not all(isinstance(content, TextContent) for content in tool_result.content):
             raise NotImplementedError("Non-text content is not supported yet")
-        return tool_result.content[0].text
+        return tool_result.content
 
 
 async def default_agent_rollout_processor(
