@@ -1,6 +1,4 @@
 import { useEffect, useState, useRef } from "react";
-import { Link } from "react-router-dom";
-
 interface FileUpdate {
   type: "file_changed" | "file_created" | "file_deleted";
   path: string;
@@ -99,12 +97,7 @@ function App() {
             <h1>Eval Protocol Logs</h1>
             <div>{isConnected ? "Connected" : "Disconnected"}</div>
           </div>
-          <div>
-            <Link to="/">Home</Link>
-            <Link to="/logs">Logs</Link>
-            <Link to="/about">About</Link>
-            <Link to="/dashboard">Dashboard</Link>
-          </div>
+          <div>TODO</div>
         </div>
       </nav>
 
