@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import "./index.css";
 
 interface FileUpdate {
   type: "file_changed" | "file_created" | "file_deleted";
