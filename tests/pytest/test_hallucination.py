@@ -16,6 +16,7 @@ from eval_protocol.pytest import default_single_turn_rollout_processor, evaluati
 
 judge_llm = LLM(model="accounts/fireworks/models/kimi-k2-instruct", deployment_type="serverless")
 
+
 def hallucination_dataset_adapter(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
     """Convert HaluEval dataset to EvaluationRow objects."""
     return [
