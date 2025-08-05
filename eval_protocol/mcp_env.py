@@ -104,17 +104,17 @@ def make(
     if evaluation_rows:
         for i, row in enumerate(evaluation_rows):
             dataset_info = row.input_metadata.dataset_info if row.input_metadata else {}
-            
+
             system_message = row.get_system_message()
             system_prompt = system_message.content or ""
-            
+
             dataset_entry = {
                 "id": row.input_metadata.row_id if row.input_metadata and row.input_metadata.row_id else f"task_{i}",
                 "system_prompt": system_prompt,
                 "user_prompt_template": dataset_info.get("user_prompt_template", ""),
                 "environment_context": dataset_info.get("environment_context", {}),
                 "user_simulation": dataset_info.get("user_simulation", {}),
-                "evaluation_criteria": dataset_info.get("evaluation_criteria", {})
+                "evaluation_criteria": dataset_info.get("evaluation_criteria", {}),
             }
             internal_dataset.append(dataset_entry)
     elif dataset:
