@@ -7,7 +7,10 @@ from eval_protocol.pytest import default_agent_rollout_processor, evaluation_tes
         [
             Message(
                 role="system",
-                content="You are a helpful assistant that can answer questions about Fireworks. Whenever possible provide code or commands to execute to answer the question.",
+                content=(
+                    "You are a helpful assistant that can answer questions about Fireworks.\n"
+                    "ALWAYS provide code or commands to execute to answer the question."
+                ),
             ),
             Message(
                 role="user",
