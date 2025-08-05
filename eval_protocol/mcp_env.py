@@ -17,7 +17,7 @@ Usage remains the same:
     policy = ep.FireworksPolicy(model_id="accounts/fireworks/models/qwen3-235b-a22b")
 
     # Create environments with evaluation_rows configuration
-    envs = await await ep.make("http://localhost:8000/mcp", evaluation_rows=evaluation_rows)
+    envs = await ep.make("http://localhost:8000/mcp", evaluation_rows=evaluation_rows)
 
     # Execute tool-calling rollouts
     evaluation_rows = await ep.rollout(envs, policy=policy, steps=512)
@@ -92,13 +92,13 @@ async def make(
 
     Example:
         # EvaluationRow approach (preferred)
-        envs = await await ep.make("http://localhost:8000/mcp", evaluation_rows=evaluation_rows)
+        envs = await ep.make("http://localhost:8000/mcp", evaluation_rows=evaluation_rows)
 
         # Dataset approach (backward compatibility)
-        envs = await await ep.make("http://localhost:8000/mcp", dataset=dataset)
+        envs = await ep.make("http://localhost:8000/mcp", dataset=dataset)
 
         # Legacy approach (backward compatibility)
-        envs = await await ep.make("http://localhost:8000/mcp", n=10, seeds=seeds)
+        envs = await ep.make("http://localhost:8000/mcp", n=10, seeds=seeds)
     """
     # Parse environment specification - make sure URL format is correct
     base_url = env_spec
