@@ -47,6 +47,8 @@ dependencies = [
     "addict>=2.4.0",
     "deepdiff>=6.0.0",
     "pandas>=1.5.0",
+    "watchdog>=2.1.0",
+    "websockets>=15.0.1",
 ]
 
 [project.urls]
