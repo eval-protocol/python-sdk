@@ -26,6 +26,7 @@ import uvicorn
 from mcp.server.fastmcp import Context, FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from .adapter import EnvironmentAdapter
 
@@ -562,11 +563,18 @@ class McpGym(ABC):
             async def run_with_high_concurrency():
                 starlette_app = self.mcp.streamable_http_app()
 
+                if not kwargs.get("redirect_slashes", True) and hasattr(starlette_app, "router"):
+                    starlette_app.router.redirect_slashes = False
+
+                starlette_app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
                 config = uvicorn.Config(
                     starlette_app,
                     host=self.mcp.settings.host,
                     port=self.mcp.settings.port,
                     log_level=self.mcp.settings.log_level.lower(),
+                    proxy_headers=True,
+                    forwarded_allow_ips="*",
                     # HIGH CONCURRENCY SETTINGS
                     limit_concurrency=200,  # Increase for HTTP endpoints + MCP
                     limit_max_requests=100000,  # Higher request limit
