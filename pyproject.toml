@@ -10,7 +10,7 @@ authors = [
 ]
 description = "The official Python SDK for Eval Protocol (EP.) EP is an open protocol that standardizes how developers author evals for large language model (LLM) applications."
 readme = "README.md"
-license         = "Apache-2.0"                # SPDX expression
+license         = "MIT"                # SPDX expression
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
