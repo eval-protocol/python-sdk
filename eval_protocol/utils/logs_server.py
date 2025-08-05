@@ -3,17 +3,17 @@ import json
 import logging
 import os
 import time
-from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import List, Optional
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from watchdog.observers import Observer
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi import WebSocket, WebSocketDisconnect
 
-from .vite_server import ViteServer
+from eval_protocol.dataset_logger import default_logger
+from eval_protocol.utils.vite_server import ViteServer
+
+default_logger
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class FileWatcher(FileSystemEventHandler):
     """File system watcher that tracks file changes."""
 
     def __init__(self, websocket_manager):
-        self.websocket_manager = websocket_manager
+        self.websocket_manager: WebSocketManager = websocket_manager
         self.ignored_patterns = {
             ".git",
             "__pycache__",
@@ -83,7 +83,21 @@ class WebSocketManager:
 
     def broadcast_file_update(self, update_type: str, file_path: str):
         """Broadcast file update to all connected clients."""
+        if not file_path.startswith(default_logger.datasets_dir):
+            return
+
         message = {"type": update_type, "path": file_path, "timestamp": time.time()}
+        # Include file contents for created and modified events
+        if update_type in ["file_created", "file_changed"] and os.path.exists(file_path):
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    message["contents"] = f.read()
+            except Exception as e:
+                logger.warning(f"Failed to read file contents for {file_path}: {e}")
+                message["contents"] = None
+        elif update_type == "file_deleted":
+            message["contents"] = None
+
         json_message = json.dumps(message)
 
         # Broadcast to all active connections
@@ -194,9 +208,17 @@ class LogsServer(ViteServer):
             # Store the event loop for WebSocket manager
             self.websocket_manager._loop = asyncio.get_running_loop()
 
-            config = uvicorn.Config(self.app, host=self.host, port=self.port, reload=reload, log_level="info")
+            config = uvicorn.Config(
+                self.app,
+                host=self.host,
+                port=self.port,
+                reload=reload,
+                reload_dirs=self.watch_paths,
+                log_level="info",
+            )
             server = uvicorn.Server(config)
             await server.serve()
+
         except KeyboardInterrupt:
             logger.info("Shutting down LogsServer...")
         finally:
@@ -231,3 +253,7 @@ def serve_logs(
     """
     server = LogsServer(host=host, port=port, watch_paths=watch_paths)
     server.run(reload=reload)
+
+
+if __name__ == "__main__":
+    serve_logs(reload=True)
