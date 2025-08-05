@@ -49,6 +49,7 @@ dependencies = [
     "pandas>=1.5.0",
     "watchdog>=2.1.0",
     "websockets>=15.0.1",
+    "fireworks-ai>=0.19.12",
 ]
 
 [project.urls]
