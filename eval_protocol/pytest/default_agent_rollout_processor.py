@@ -3,9 +3,9 @@ import json
 import os
 from typing import Any, List, Optional, Union
 
-from mcp.types import CallToolResult
+from mcp.types import CallToolResult, TextContent
 from openai import NOT_GIVEN, NotGiven
-from openai.types.chat import ChatCompletionMessage, ChatCompletionToolParam
+from openai.types.chat import ChatCompletionContentPartTextParam, ChatCompletionMessage, ChatCompletionToolParam
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
 from eval_protocol.mcp.execution.policy import LiteLLMPolicy
@@ -57,16 +57,16 @@ class Agent:
                 tool_tasks.append(task)
 
             # Execute all tool calls in parallel
-            tool_results = await asyncio.gather(*tool_tasks)
+            tool_results: List[List[TextContent]] = await asyncio.gather(*tool_tasks)
 
             # Add all tool results to messages (they will be in the same order as tool_calls)
             for tool_call, (tool_call_id, content) in zip(message["tool_calls"], tool_results):
                 self.messages.append(
-                    {
-                        "role": "tool",
-                        "content": content,
-                        "tool_call_id": tool_call_id,
-                    }
+                    Message(
+                        role="tool",
+                        content=content,
+                        tool_call_id=tool_call_id,
+                    )
                 )
             return await self.call_agent()
         return message["content"]
@@ -88,15 +88,12 @@ class Agent:
         content = self._get_content_from_tool_result(tool_result)
         return tool_call_id, content
 
-    def _get_content_from_tool_result(self, tool_result: CallToolResult) -> str:
+    def _get_content_from_tool_result(self, tool_result: CallToolResult) -> List[TextContent]:
         if tool_result.structuredContent:
             return json.dumps(tool_result.structuredContent)
-        if len(tool_result.content) > 1:
-            raise NotImplementedError("Multiple content is not supported yet")
-        first_content = tool_result.content[0]
-        if first_content.type != "text":
+        if not all(isinstance(content, TextContent) for content in tool_result.content):
             raise NotImplementedError("Non-text content is not supported yet")
-        return first_content.text
+        return tool_result.content[0].text
 
 
 async def default_agent_rollout_processor(
@@ -108,4 +105,5 @@ async def default_agent_rollout_processor(
         await agent.setup()
         await agent.call_agent()
         dataset.append(EvaluationRow(messages=agent.messages, ground_truth=row.ground_truth))
+        await agent.mcp_client.cleanup()
     return dataset

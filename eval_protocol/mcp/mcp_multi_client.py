@@ -2,16 +2,21 @@ import json
 import os
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamablehttp_client
 from mcp.types import CallToolResult
 from openai.types import FunctionDefinition
 from openai.types.chat import ChatCompletionToolParam
 
-from eval_protocol.types.types import MCPMultiClientConfiguration
+from eval_protocol.models import (
+    MCPConfigurationServerStdio,
+    MCPConfigurationServerUrl,
+    MCPMultiClientConfiguration,
+)
 
 load_dotenv()  # load environment variables from .env
 
@@ -38,10 +43,10 @@ class MCPMultiClient:
         """Load MCP server configuration from file or use default"""
         if config_path and os.path.exists(config_path):
             with open(config_path, "r") as f:
-                return json.load(f)
+                return MCPMultiClientConfiguration(**json.load(f))
 
         # Default configuration - can be overridden by config file
-        return {"mcpServers": {}}
+        return MCPMultiClientConfiguration(mcpServers={})
 
     def _validate_environment_variables(self, server_name: str, required_env: List[str]) -> None:
         """Validate that required environment variables are set in os.environ"""
@@ -59,35 +64,54 @@ class MCPMultiClient:
 
     async def connect_to_servers(self):
         """Connect to all configured MCP servers"""
-        if not self.config.get("mcpServers"):
+        if not self.config.mcpServers:
             print("No MCP servers configured. Please provide a configuration file.")
             return
 
-        for server_name, server_config in self.config["mcpServers"].items():
+        for server_name, server_config in self.config.mcpServers.items():
             try:
                 await self._connect_to_server(server_name, server_config)
             except Exception as e:
                 print(f"Failed to connect to server '{server_name}': {e}")
 
-    async def _connect_to_server(self, server_name: str, server_config: Dict[str, Any]):
+    async def _connect_to_server(
+        self, server_name: str, server_config: Union[MCPConfigurationServerStdio, MCPConfigurationServerUrl]
+    ):
         """Connect to a specific MCP server using its configuration"""
-        command = server_config.get("command")
-        args = server_config.get("args", [])
-        env_config = server_config.get("env", [])
+        session: ClientSession
 
-        if not command:
-            raise ValueError(f"Server '{server_name}' must have a 'command' specified")
+        if isinstance(server_config, MCPConfigurationServerStdio):
+            # Handle stdio-based MCP server
+            command = server_config.command
+            args = server_config.args
+            env_config = server_config.env
 
-        # Validate that required environment variables are set
-        if env_config:
-            self._validate_environment_variables(server_name, env_config)
+            if not command:
+                raise ValueError(f"Server '{server_name}' must have a 'command' specified")
 
-        # Use the current system environment (os.environ) - don't override with config
-        server_params = StdioServerParameters(command=command, args=args, env=os.environ)
+            # Validate that required environment variables are set
+            if env_config:
+                self._validate_environment_variables(server_name, env_config)
 
-        stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
-        stdio, write = stdio_transport
-        session = await self.exit_stack.enter_async_context(ClientSession(stdio, write))
+            # Use the current system environment (os.environ) - don't override with config
+            server_params = StdioServerParameters(command=command, args=args, env=os.environ)
+
+            stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
+            stdio, write = stdio_transport
+            session = await self.exit_stack.enter_async_context(ClientSession(stdio, write))
+
+        elif isinstance(server_config, MCPConfigurationServerUrl):
+            # Handle HTTP-based MCP server
+            url = server_config.url
+            if not url:
+                raise ValueError(f"Server '{server_name}' must have a 'url' specified")
+
+            # Connect using streamable HTTP client - manage resources manually
+            http_transport = await self.exit_stack.enter_async_context(streamablehttp_client(url))
+            read_stream, write_stream, get_session_id = http_transport
+            session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+        else:
+            raise ValueError(f"Unsupported server configuration type: {type(server_config)}")
 
         await session.initialize()
         self.sessions[server_name] = session

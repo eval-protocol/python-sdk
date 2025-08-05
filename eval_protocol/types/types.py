@@ -71,19 +71,3 @@ class Trajectory:
     termination_reason: str
     conversation_history: List[Dict[str, Any]]
     usage: Dict[str, int] = field(default_factory=dict)
-
-
-@dataclass
-class MCPConfigurationServer:
-    """Represents a MCP configuration server."""
-
-    command: str  # command to run the MCP server
-    args: List[str]  # to pass to the command
-    env: List[str]  # List of environment variables to verify exist in the environment
-
-
-@dataclass
-class MCPMultiClientConfiguration:
-    """Represents a MCP configuration."""
-
-    mcp_servers: Dict[str, MCPConfigurationServer]
