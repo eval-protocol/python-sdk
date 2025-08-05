@@ -92,38 +92,23 @@ function App() {
   }, []);
 
   return (
-    <div className="app">
-      <nav className="navbar">
-        <div className="nav-container">
-          <div className="nav-brand">
+    <div>
+      <nav>
+        <div>
+          <div>
             <h1>Eval Protocol Logs</h1>
-            <div className="connection-status">
-              <span
-                className={`status-dot ${
-                  isConnected ? "connected" : "disconnected"
-                }`}
-              ></span>
-              {isConnected ? "Connected" : "Disconnected"}
-            </div>
+            <div>{isConnected ? "Connected" : "Disconnected"}</div>
           </div>
-          <div className="nav-links">
-            <Link to="/" className="nav-link">
-              Home
-            </Link>
-            <Link to="/logs" className="nav-link">
-              Logs
-            </Link>
-            <Link to="/about" className="nav-link">
-              About
-            </Link>
-            <Link to="/dashboard" className="nav-link">
-              Dashboard
-            </Link>
+          <div>
+            <Link to="/">Home</Link>
+            <Link to="/logs">Logs</Link>
+            <Link to="/about">About</Link>
+            <Link to="/dashboard">Dashboard</Link>
           </div>
         </div>
       </nav>
 
-      <main className="main-content">TODO</main>
+      <main>TODO</main>
     </div>
   );
 }
