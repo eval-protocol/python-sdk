@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 
 interface FileUpdate {
@@ -9,14 +9,24 @@ interface FileUpdate {
 
 function App() {
   const [isConnected, setIsConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<number | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
+  const baseDelay = 1000; // 1 second
 
-  useEffect(() => {
-    // Connect to WebSocket for file updates
-    const ws = new WebSocket("ws://localhost:4789/ws");
+  const connectWebSocket = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      return; // Already connected
+    }
+
+    const ws = new WebSocket("ws://localhost:8000/ws");
+    wsRef.current = ws;
 
     ws.onopen = () => {
       console.log("Connected to file watcher");
       setIsConnected(true);
+      reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
     };
 
     ws.onmessage = (event) => {
@@ -28,18 +38,56 @@ function App() {
       }
     };
 
-    ws.onclose = () => {
-      console.log("Disconnected from file watcher");
+    ws.onclose = (event) => {
+      console.log("Disconnected from file watcher", event.code, event.reason);
       setIsConnected(false);
+
+      // Attempt to reconnect if not a normal closure
+      if (
+        event.code !== 1000 &&
+        reconnectAttemptsRef.current < maxReconnectAttempts
+      ) {
+        scheduleReconnect();
+      }
     };
 
     ws.onerror = (error) => {
       console.error("WebSocket error:", error);
       setIsConnected(false);
     };
+  };
+
+  const scheduleReconnect = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    const delay = baseDelay * Math.pow(2, reconnectAttemptsRef.current); // Exponential backoff
+    console.log(
+      `Scheduling reconnect attempt ${
+        reconnectAttemptsRef.current + 1
+      } in ${delay}ms`
+    );
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      reconnectAttemptsRef.current++;
+      console.log(
+        `Attempting to reconnect (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`
+      );
+      connectWebSocket();
+    }, delay);
+  };
+
+  useEffect(() => {
+    connectWebSocket();
 
     return () => {
-      ws.close();
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     };
   }, []);
 

@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 import json
 import logging
 import os
@@ -8,7 +9,7 @@ from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from watchdog.observers import Observer
 
 import uvicorn
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.utils.vite_server import ViteServer
@@ -85,6 +86,7 @@ class WebSocketManager:
         """Broadcast file update to all connected clients."""
         if not file_path.startswith(default_logger.datasets_dir):
             return
+        logger.info(f"Broadcasting file update: {update_type} {file_path}")
 
         message = {"type": update_type, "path": file_path, "timestamp": time.time()}
         # Include file contents for created and modified events
@@ -126,12 +128,10 @@ class LogsServer(ViteServer):
             os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "vite-app", "dist")
         ),
         host: str = "localhost",
-        port: int = 4789,
+        port: Optional[int] = None,
         index_file: str = "index.html",
         watch_paths: Optional[List[str]] = None,
     ):
-        super().__init__(build_dir, host, port, index_file)
-
         # Initialize WebSocket manager
         self.websocket_manager = WebSocketManager()
 
@@ -139,6 +139,18 @@ class LogsServer(ViteServer):
         self.watch_paths = watch_paths or [os.getcwd()]
         self.observer = Observer()
         self.file_watcher = FileWatcher(self.websocket_manager)
+        self._file_watching_started = False
+
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            print("before")
+            self.start_file_watching()
+            self.websocket_manager._loop = asyncio.get_running_loop()
+            yield
+            print("after")
+            self.stop_file_watching()
+
+        super().__init__(build_dir, host, port, index_file, lifespan=lifespan)
 
         # Add WebSocket endpoint
         self._setup_websocket_routes()
@@ -174,6 +186,11 @@ class LogsServer(ViteServer):
 
     def start_file_watching(self):
         """Start watching file system for changes."""
+        # Check if file watching has already been started
+        if self._file_watching_started:
+            logger.info("File watching already started, skipping")
+            return
+
         for path in self.watch_paths:
             if os.path.exists(path):
                 self.observer.schedule(self.file_watcher, path, recursive=True)
@@ -182,15 +199,18 @@ class LogsServer(ViteServer):
                 logger.warning(f"Watch path does not exist: {path}")
 
         self.observer.start()
+        self._file_watching_started = True
         logger.info("File watching started")
 
     def stop_file_watching(self):
         """Stop watching file system."""
-        self.observer.stop()
-        self.observer.join()
-        logger.info("File watching stopped")
+        if self._file_watching_started:
+            self.observer.stop()
+            self.observer.join()
+            self._file_watching_started = False
+            logger.info("File watching stopped")
 
-    async def run_async(self, reload: bool = False):
+    async def run_async(self):
         """
         Run the logs server asynchronously with file watching.
 
@@ -212,10 +232,9 @@ class LogsServer(ViteServer):
                 self.app,
                 host=self.host,
                 port=self.port,
-                reload=reload,
-                reload_dirs=self.watch_paths,
                 log_level="info",
             )
+
             server = uvicorn.Server(config)
             await server.serve()
 
@@ -224,22 +243,21 @@ class LogsServer(ViteServer):
         finally:
             self.stop_file_watching()
 
-    def run(self, reload: bool = False):
+    def run(self):
         """
         Run the logs server with file watching.
 
         Args:
             reload: Whether to enable auto-reload (default: False)
         """
-        asyncio.run(self.run_async(reload))
+        asyncio.run(self.run_async())
 
 
-def serve_logs(
-    host: str = "localhost",
-    port: int = 4789,
-    watch_paths: Optional[List[str]] = None,
-    reload: bool = False,
-):
+server = LogsServer()
+app = server.app
+
+
+def serve_logs():
     """
     Convenience function to create and run a LogsServer.
 
@@ -251,9 +269,8 @@ def serve_logs(
         watch_paths: List of paths to watch for file changes
         reload: Whether to enable auto-reload
     """
-    server = LogsServer(host=host, port=port, watch_paths=watch_paths)
-    server.run(reload=reload)
+    server.run()
 
 
 if __name__ == "__main__":
-    serve_logs(reload=True)
+    serve_logs()

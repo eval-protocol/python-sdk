@@ -1,7 +1,7 @@
 import os
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import AsyncGenerator, Callable, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -27,13 +27,18 @@ class ViteServer:
     """
 
     def __init__(
-        self, build_dir: str = "dist", host: str = "localhost", port: int = 8000, index_file: str = "index.html"
+        self,
+        build_dir: str = "dist",
+        host: str = "localhost",
+        port: int = 8000,
+        index_file: str = "index.html",
+        lifespan: Optional[Callable[[FastAPI], AsyncGenerator[None, None]]] = None,
     ):
         self.build_dir = Path(build_dir)
         self.host = host
         self.port = port
         self.index_file = index_file
-        self.app = FastAPI(title="Vite SPA Server")
+        self.app = FastAPI(title="Vite SPA Server", lifespan=lifespan)
 
         # Validate build directory exists
         if not self.build_dir.exists():
