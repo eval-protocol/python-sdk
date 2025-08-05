@@ -66,14 +66,16 @@ class Agent:
                 tool_tasks.append(task)
 
             # Execute all tool calls in parallel
-            tool_results: List[List[TextContent]] = await asyncio.gather(*tool_tasks)
+            tool_results: List[tuple[str, List[TextContent]]] = await asyncio.gather(*tool_tasks)
 
             # Add all tool results to messages (they will be in the same order as tool_calls)
             for tool_call, (tool_call_id, content) in zip(message["tool_calls"], tool_results):
                 self.append_message_and_log(
                     Message(
                         role="tool",
-                        content=content,
+                        content=[
+                            ChatCompletionContentPartTextParam(text=content.text, type="text") for content in content
+                        ],
                         tool_call_id=tool_call_id,
                     )
                 )
@@ -88,7 +90,9 @@ class Agent:
         response = await self._policy._make_llm_call(messages=messages, tools=tools)
         return response["choices"][0]["message"]
 
-    async def _execute_tool_call(self, tool_call_id: str, tool_name: str, tool_args_dict: dict) -> tuple[str, str]:
+    async def _execute_tool_call(
+        self, tool_call_id: str, tool_name: str, tool_args_dict: dict
+    ) -> tuple[str, List[TextContent]]:
         """
         Execute a single tool call and return the tool_call_id and content.
         This method is designed to be used with asyncio.gather() for parallel execution.

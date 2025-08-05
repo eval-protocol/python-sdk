@@ -190,7 +190,7 @@ class InputMetadata(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    row_id: str = Field(default_factory=generate_id, description="Unique string to ID the row")
+    row_id: Optional[str] = Field(default_factory=generate_id, description="Unique string to ID the row")
     completion_params: Optional[CompletionParams] = Field(None, description="Completion endpoint parameters used")
     dataset_info: Optional[Dict[str, Any]] = Field(
         None, description="Dataset row details: seed, system_prompt, environment_context, etc"
