@@ -75,6 +75,7 @@ class Agent:
         self, messages: list[Message], tools: Optional[list[ChatCompletionToolParam]]
     ) -> ChatCompletionMessage:
         messages = [message.model_dump() if hasattr(message, "model_dump") else message for message in messages]
+        tools = [{"function": tool["function"].model_dump(), "type": "function"} for tool in tools] if tools else []
         response = await self._policy._make_llm_call(messages=messages, tools=tools)
         return response["choices"][0]["message"]
 
