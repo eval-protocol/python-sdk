@@ -219,6 +219,7 @@ async def default_mcp_gym_rollout_processor(rows: List[EvaluationRow], config: R
         evaluation_rows = await ep.rollout(
             envs, 
             policy=policy, 
+            evaluation_rows=rows,
             steps=config.steps, 
             max_concurrent_rollouts=config.max_concurrent_rollouts
         )

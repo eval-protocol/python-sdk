@@ -272,7 +272,7 @@ async def rollout(
     execution_manager = ExecutionManager()
 
     return await execution_manager.execute_rollouts(
-        envs, policy, steps, openai_format_log_file, max_concurrent_rollouts
+        envs, policy, steps, openai_format_log_file, max_concurrent_rollouts, evaluation_rows
     )
 
 

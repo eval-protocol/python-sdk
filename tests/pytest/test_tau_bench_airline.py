@@ -63,13 +63,13 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
 @evaluation_test(
     input_dataset=["tests/pytest/data/airline_dataset.jsonl"],
     dataset_adapter=tau_bench_airline_to_evaluation_row,
-    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
-    rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
+    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
+    rollout_input_params=[{"temperature": 0.8, "max_tokens": 4096}],
     rollout_processor=default_mcp_gym_rollout_processor,
     threshold_of_success=0.4,
     num_runs=1,
     mode="pointwise",
-    max_concurrent_rollouts=32,
+    max_concurrent_rollouts=16,
     server_script_path="examples/tau2_mcp/server.py",
 )
 def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
@@ -80,12 +80,10 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
     extracts evaluation criteria from dataset entries. No wrapper needed!
     
     Args:
-        input_dataset: List of EvaluationRow objects from tau bench airline dataset
-        input_params: Model parameters (temperature, max_tokens, etc.)
-        model: Model identifier
+        row: EvaluationRow object from tau bench airline dataset after rollout
     
     Returns:
-        List of evaluated EvaluationRow objects with scores and feedback
+        EvaluationRow with tau2 evaluation results
     """
     messages = row.messages
     
@@ -131,9 +129,7 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
         communicate_info=communicate_info,
         actions=actions,
         reward_basis=[
-            RewardType.NL_ASSERTION,
             RewardType.DB,
-            RewardType.COMMUNICATE,
             RewardType.ACTION,
         ],
     )
