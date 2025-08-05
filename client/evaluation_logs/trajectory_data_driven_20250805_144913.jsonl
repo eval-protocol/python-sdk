@@ -1,2 +1,0 @@
-{"type": "summary", "task_id": "data_driven", "timestamp": "2025-08-05T14:49:13.783963", "num_rollouts": 1, "successful_rollouts": 1, "failed_rollouts": 0, "success_rate": 1.0, "avg_score": 1.0, "std_dev": 0.0, "min_score": 1.0, "max_score": 1.0}
-{"type": "individual_result", "task_id": "data_driven", "rollout_index": 0, "timestamp": "2025-08-05T14:49:13.784559", "score": 1.0}
