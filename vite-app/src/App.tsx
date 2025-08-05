@@ -2,12 +2,8 @@ import { useEffect, useRef } from "react";
 import { makeAutoObservable } from "mobx";
 import { observer } from "mobx-react";
 import Dashboard from "./components/Dashboard";
-import type { EvaluationRow } from "./types/eval-protocol";
-interface FileUpdate {
-  type: "file_changed" | "file_created" | "file_deleted";
-  path: string;
-  timestamp: string;
-}
+import { EvaluationRowSchema, type EvaluationRow } from "./types/eval-protocol";
+import { WebSocketServerMessageSchema } from "./types/websocket";
 
 class GlobalState {
   isConnected: boolean = false;
@@ -21,7 +17,7 @@ class GlobalState {
   }
 }
 
-const state = new GlobalState();
+export const state = new GlobalState();
 
 const BASE_DELAY = 1000; // 1 second
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -47,8 +43,15 @@ const App = observer(() => {
 
     ws.onmessage = (event) => {
       try {
-        const update: FileUpdate = JSON.parse(event.data);
-        console.log(update);
+        const update = WebSocketServerMessageSchema.parse(
+          JSON.parse(event.data)
+        );
+        if (update.type === "initialize_logs") {
+          const rows: EvaluationRow[] = update.logs.map((log) => {
+            return EvaluationRowSchema.parse(JSON.parse(log));
+          });
+          state.setDataset(rows);
+        }
       } catch (error) {
         console.error("Failed to parse WebSocket message:", error);
       }

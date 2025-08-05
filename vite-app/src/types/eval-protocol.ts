@@ -81,7 +81,10 @@ export const EvaluationRowSchema = z.object({
   ground_truth: z.string().optional().describe('Optional ground truth reference for this evaluation.'),
   evaluation_result: EvaluateResultSchema.optional().describe('The evaluation result for this row/trajectory.'),
   usage: CompletionUsageSchema.optional().describe('Token usage statistics from LLM calls during execution.'),
-  created_at: z.date().default(() => new Date()).describe('The timestamp when the row was created.')
+  created_at: z.preprocess(
+    (val) => typeof val === "string" ? new Date(val) : val,
+    z.date()
+  ).describe('The timestamp when the row was created. Accepts string and parses to Date.')
 });
 
 // Agent Evaluation Framework (V2) schemas

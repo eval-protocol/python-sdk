@@ -1,15 +1,15 @@
 import asyncio
-from contextlib import asynccontextmanager
 import json
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
 from typing import List, Optional
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
-from watchdog.observers import Observer
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers import Observer
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.utils.vite_server import ViteServer
@@ -79,7 +79,9 @@ class WebSocketManager:
         logs = default_logger.read()
         asyncio.run_coroutine_threadsafe(
             websocket.send_text(
-                json.dumps({"type": "initialize_logs", "logs": [log.model_dump_json() for log in logs]})
+                json.dumps(
+                    {"type": "initialize_logs", "logs": [log.model_dump_json(exclude_none=True) for log in logs]}
+                )
             ),
             self._loop,
         )
