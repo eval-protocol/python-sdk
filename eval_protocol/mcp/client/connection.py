@@ -12,8 +12,10 @@ import logging
 from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional, Tuple
 
+from mcp.types import EmptyResult
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
+from pydantic import BaseModel
 
 from ...types import MCPSession
 
@@ -101,7 +103,7 @@ class MCPConnectionManager:
 
                 # Update the session ID to match what the server generated
                 session.session_id = server_session_id
-                logger.debug(f"Updated session ID to match server: {server_session_id}")
+                logger.info(f"Updated session ID to match server: {server_session_id}")
 
         # PRE-WARM: Discover and cache tools immediately after session initialization
         # This prevents concurrent list_tools() calls later
@@ -132,6 +134,24 @@ class MCPConnectionManager:
 
                 self._tools_cache[cache_key] = tool_schemas
                 logger.debug(f"✅ PRE-WARMED {len(tool_schemas)} tools for{cache_key}")
+
+    async def reset_session(self, session: MCPSession) -> None:
+        """
+        Clean session data in remote mcp server for the given session
+        """
+        import httpx
+
+        base_url = session.base_url.rstrip("/").removesuffix("/mcp")
+        url = f"{base_url}/control/reset_session"
+
+        headers = {"mcp-session-id": session.session_id}
+        body = {"seed": session.seed}
+
+        timeout = httpx.Timeout(3.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(url, headers=headers, json=body)
+            resp.raise_for_status()
+            logger.debug(f"Session {session.session_id}: reset_session -> {resp.json()}")
 
     async def discover_tools(self, session: MCPSession) -> List[Dict]:
         """
@@ -422,6 +442,8 @@ class MCPConnectionManager:
         mcp_session = session._mcp_session
 
         # 1. Execute the tool call via MCP protocol (DATA PLANE)
+        print("session.session_id", session._mcp_session)
+        print(session._mcp_session._write_stream._closed)
         tool_result = await mcp_session.call_tool(tool_name, arguments)
 
         # Extract data plane results (observation only)

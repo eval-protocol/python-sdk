@@ -7,17 +7,17 @@ from werkzeug.wrappers import Response
 import eval_protocol as ep
 
 
-# Sync tests for the ep.make() function
+# Sync tests for the await ep.make() function
 def test_mcp_env_make_appends_trailing_slash():
     """
-    Verify that ep.make() appends a trailing slash to the MCP server URL if it's missing.
+    Verify that await ep.make() appends a trailing slash to the MCP server URL if it's missing.
     This prevents 307 redirects that can break HTTP clients.
     """
     base_url = "http://localhost:8000/mcp"
     corrected_url = "http://localhost:8000/mcp/"
 
     # Use n and seeds to avoid needing a full dataset
-    envs = ep.make(base_url, n=1, seeds=[42])
+    envs = await ep.make(base_url, n=1, seeds=[42])
 
     assert len(envs.sessions) == 1
     # The session's base_url should have the trailing slash
@@ -26,12 +26,12 @@ def test_mcp_env_make_appends_trailing_slash():
 
 def test_mcp_env_make_keeps_existing_trailing_slash():
     """
-    Verify that ep.make() does not add an extra slash if one is already present.
+    Verify that await ep.make() does not add an extra slash if one is already present.
     """
     base_url = "http://localhost:8000/mcp/"
 
     # Use n and seeds to avoid needing a full dataset
-    envs = ep.make(base_url, n=1, seeds=[42])
+    envs = await ep.make(base_url, n=1, seeds=[42])
 
     assert len(envs.sessions) == 1
     # The session's base_url should remain unchanged

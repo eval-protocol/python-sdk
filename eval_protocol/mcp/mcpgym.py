@@ -231,14 +231,23 @@ class McpGym(ABC):
     def _register_session_reset_endpoint(self):
 
         @self.mcp.custom_route("/control/reset_session", methods=["POST"])
-        async def reset_session_endpoint(request: Request, ctx: Context) -> JSONResponse:
+        async def reset_session_endpoint(request: Request) -> JSONResponse:
             session_id = request.headers.get("mcp-session-id")
+            body = await request.json()
+            seed = body.get("seed", None)
+            print(f"🔍 _register_session_reset_endpoint: Resetting session, session_id: {session_id}, seed: {seed}")
             if not session_id:
                 return JSONResponse({"error": "Missing mcp-session-id header"}, status_code=400)
             with self.session_lock:
                 if session_id in self.sessions:
-                    del self.sessions[session_id]
-            self.sessions[session_id] = self._get_or_create_session(ctx)
+                    env, obs, _ = self._new_env(seed=seed)
+                    self.sessions[session_id] = {
+                        "env": env,
+                        "obs": obs,
+                        "session_data": {},
+                        "session_id": session_id,
+                    }
+                    print(f"🔍 _register_session_reset_endpoint: Finished reset session, session_id: {session_id}")
             return JSONResponse({"message": "Session reset successfully"})
 
     def _discover_and_register_control_plane_endpoints(self):
@@ -337,7 +346,7 @@ class McpGym(ABC):
 
         # Log control plane update (for debugging)
         print(
-            f"🎛️  Control plane updated: reward={reward}, terminated={terminated}, step={self.control_plane_state['step_count']}"
+            f"🎛️  Control plane updated: reward={reward}, terminated={terminated}, step={self.control_plane_state['step_count']}, total_reward={self.control_plane_state['total_reward']}"
         )
 
     def _get_or_create_session_control_plane(self, session_id: str) -> Dict[str, Any]:
@@ -379,7 +388,7 @@ class McpGym(ABC):
 
         # Log control plane update
         print(
-            f"🎛️  Session {session_id[:16]}... control plane: reward={reward}, terminated={terminated}, step={control_plane['step_count']}"
+            f"🎛️  Session {session_id[:16]}... control plane: reward={reward}, terminated={terminated}, step={control_plane['step_count']}, total_reward={control_plane['total_reward']}"
         )
 
     def get_control_plane_state(self, session_id: str) -> Optional[Dict[str, Any]]:
