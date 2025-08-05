@@ -116,6 +116,7 @@ class McpGym(ABC):
         # Register tools and control plane endpoints
         self._register_tools()
         self._discover_and_register_control_plane_endpoints()
+        self._register_session_reset_endpoint()
 
     def _get_session_id(self, ctx: Context) -> str:
         """
@@ -226,6 +227,19 @@ class McpGym(ABC):
                 print(f"🔍 _get_or_create_session: Returning existing session {session_id}")
 
             return self.sessions[session_id]
+
+    def _register_session_reset_endpoint(self):
+
+        @self.mcp.custom_route("/control/reset_session", methods=["POST"])
+        async def reset_session_endpoint(request: Request, ctx: Context) -> JSONResponse:
+            session_id = request.headers.get("mcp-session-id")
+            if not session_id:
+                return JSONResponse({"error": "Missing mcp-session-id header"}, status_code=400)
+            with self.session_lock:
+                if session_id in self.sessions:
+                    del self.sessions[session_id]
+            self.sessions[session_id] = self._get_or_create_session(ctx)
+            return JSONResponse({"message": "Session reset successfully"})
 
     def _discover_and_register_control_plane_endpoints(self):
         """

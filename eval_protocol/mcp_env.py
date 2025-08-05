@@ -51,11 +51,12 @@ from .mcp.execution.policy import AnthropicPolicy, FireworksPolicy, LLMBasePolic
 from .mcp.session.manager import GeneralMCPVectorEnv
 from .models import EvaluationRow
 from .types import DatasetRow, MCPSession, MCPToolCall
+import asyncio
 
 logger = logging.getLogger(__name__)
 
 
-def make(
+async def make(
     env_spec: str,
     evaluation_rows: Optional[List[EvaluationRow]] = None,
     dataset: Optional[List[Dict]] = None,
@@ -198,7 +199,10 @@ def make(
             )
             sessions.append(session)
 
-        return GeneralMCPVectorEnv(sessions, dataset_rows, user_prompt_formatter)
+        mcp_envs = GeneralMCPVectorEnv(sessions, dataset_rows, user_prompt_formatter)
+        tasks = [mcp_envs.connection_manager.initialize_session(session) for session in sessions]
+        await asyncio.gather(*tasks)
+        return mcp_envs
 
 
 async def rollout(
