@@ -56,7 +56,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 
-async def make(
+def make(
     env_spec: str,
     evaluation_rows: Optional[List[EvaluationRow]] = None,
     dataset: Optional[List[Dict]] = None,
@@ -201,7 +201,7 @@ async def make(
 
         mcp_envs = GeneralMCPVectorEnv(sessions, dataset_rows, user_prompt_formatter)
         tasks = [mcp_envs.connection_manager.initialize_session(session) for session in sessions]
-        await asyncio.gather(*tasks)
+        asyncio.run(asyncio.gather(*tasks))
         return mcp_envs
 
 
