@@ -1,4 +1,4 @@
-import { EvaluationRow, Message } from './eval-protocol';
+import type { EvaluationRow, Message } from './eval-protocol';
 
 /**
  * Utility functions for working with EvaluationRow data
@@ -173,4 +173,4 @@ export const evaluateResultUtils = {
   getStepCount: (result: any): number => {
     return result.step_outputs?.length || 0;
   }
-}; 
+};

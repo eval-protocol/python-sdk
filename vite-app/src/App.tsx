@@ -1,17 +1,35 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
+import { makeAutoObservable } from "mobx";
+import { observer } from "mobx-react";
+import Dashboard from "./components/Dashboard";
+import type { EvaluationRow } from "./types/eval-protocol";
 interface FileUpdate {
   type: "file_changed" | "file_created" | "file_deleted";
   path: string;
   timestamp: string;
 }
 
-function App() {
-  const [isConnected, setIsConnected] = useState(false);
+class GlobalState {
+  isConnected: boolean = false;
+  dataset: EvaluationRow[] = [];
+  constructor() {
+    makeAutoObservable(this);
+  }
+
+  setDataset(dataset: EvaluationRow[]) {
+    this.dataset = dataset;
+  }
+}
+
+const state = new GlobalState();
+
+const BASE_DELAY = 1000; // 1 second
+const MAX_RECONNECT_ATTEMPTS = 5;
+
+const App = observer(() => {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 5;
-  const baseDelay = 1000; // 1 second
 
   const connectWebSocket = () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -23,7 +41,7 @@ function App() {
 
     ws.onopen = () => {
       console.log("Connected to file watcher");
-      setIsConnected(true);
+      state.isConnected = true;
       reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
     };
 
@@ -38,12 +56,12 @@ function App() {
 
     ws.onclose = (event) => {
       console.log("Disconnected from file watcher", event.code, event.reason);
-      setIsConnected(false);
+      state.isConnected = false;
 
       // Attempt to reconnect if not a normal closure
       if (
         event.code !== 1000 &&
-        reconnectAttemptsRef.current < maxReconnectAttempts
+        reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS
       ) {
         scheduleReconnect();
       }
@@ -51,7 +69,7 @@ function App() {
 
     ws.onerror = (error) => {
       console.error("WebSocket error:", error);
-      setIsConnected(false);
+      state.isConnected = false;
     };
   };
 
@@ -60,7 +78,7 @@ function App() {
       clearTimeout(reconnectTimeoutRef.current);
     }
 
-    const delay = baseDelay * Math.pow(2, reconnectAttemptsRef.current); // Exponential backoff
+    const delay = BASE_DELAY * Math.pow(2, reconnectAttemptsRef.current); // Exponential backoff
     console.log(
       `Scheduling reconnect attempt ${
         reconnectAttemptsRef.current + 1
@@ -70,7 +88,7 @@ function App() {
     reconnectTimeoutRef.current = setTimeout(() => {
       reconnectAttemptsRef.current++;
       console.log(
-        `Attempting to reconnect (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`
+        `Attempting to reconnect (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`
       );
       connectWebSocket();
     }, delay);
@@ -95,15 +113,17 @@ function App() {
         <div>
           <div>
             <h1>Eval Protocol Logs</h1>
-            <div>{isConnected ? "Connected" : "Disconnected"}</div>
+            <div>{state.isConnected ? "Connected" : "Disconnected"}</div>
           </div>
-          <div>TODO</div>
+          <div>
+            <Dashboard />
+          </div>
         </div>
       </nav>
 
       <main>TODO</main>
     </div>
   );
-}
+});
 
 export default App;
