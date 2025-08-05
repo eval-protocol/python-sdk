@@ -48,8 +48,8 @@ class LocalFSDatasetLoggerAdapter(DatasetLogger):
         os.makedirs(self.datasets_dir, exist_ok=True)
 
         # ensure that log file exists
-        if not os.path.exists(self.jsonl_path):
-            with open(self.jsonl_path, "w") as f:
+        if not os.path.exists(self.current_jsonl_path):
+            with open(self.current_jsonl_path, "w") as f:
                 f.write("")
 
     @property
@@ -58,7 +58,10 @@ class LocalFSDatasetLoggerAdapter(DatasetLogger):
         return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     @property
-    def jsonl_path(self) -> str:
+    def current_jsonl_path(self) -> str:
+        """
+        The current JSONL file path. Based on the current date.
+        """
         return os.path.join(self.datasets_dir, f"{self.current_date}.jsonl")
 
     def log(self, row: "EvaluationRow") -> None:
@@ -66,8 +69,8 @@ class LocalFSDatasetLoggerAdapter(DatasetLogger):
         row_id = row.input_metadata.row_id
 
         # Check if row with this ID already exists
-        if os.path.exists(self.jsonl_path):
-            with open(self.jsonl_path, "r") as f:
+        if os.path.exists(self.current_jsonl_path):
+            with open(self.current_jsonl_path, "r") as f:
                 lines = f.readlines()
 
             # Find the line with matching ID
@@ -77,26 +80,35 @@ class LocalFSDatasetLoggerAdapter(DatasetLogger):
                     if line_data["input_metadata"]["row_id"] == row_id:
                         # Update existing row
                         lines[i] = row.model_dump_json(exclude_none=True) + os.linesep
-                        with open(self.jsonl_path, "w") as f:
+                        with open(self.current_jsonl_path, "w") as f:
                             f.writelines(lines)
                         return
                 except json.JSONDecodeError:
                     continue
 
         # If no existing row found, append new row
-        with open(self.jsonl_path, "a") as f:
+        with open(self.current_jsonl_path, "a") as f:
             f.write(row.model_dump_json(exclude_none=True) + os.linesep)
 
     def read(self, row_id: Optional[str] = None) -> List["EvaluationRow"]:
-        """Read rows from the JSONL file."""
-        if not os.path.exists(self.jsonl_path):
+        """Read rows from all JSONL files in the datasets directory."""
+        from eval_protocol.models import EvaluationRow
+
+        if not os.path.exists(self.datasets_dir):
             return []
 
-        data = load_jsonl(self.jsonl_path)
-        rows = [EvaluationRow(**r) for r in data]
+        all_rows = []
+        for filename in os.listdir(self.datasets_dir):
+            if filename.endswith(".jsonl"):
+                file_path = os.path.join(self.datasets_dir, filename)
+                try:
+                    data = load_jsonl(file_path)
+                    all_rows.extend([EvaluationRow(**r) for r in data])
+                except Exception:
+                    continue  # skip files that can't be read/parsed
 
         if row_id:
             # Filter by row_id if specified
-            return [row for row in rows if row.id == row_id]
+            return [row for row in all_rows if getattr(row.input_metadata, "row_id", None) == row_id]
         else:
-            return rows
+            return all_rows

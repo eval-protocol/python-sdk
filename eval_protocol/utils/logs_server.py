@@ -76,6 +76,13 @@ class WebSocketManager:
         await websocket.accept()
         self.active_connections.append(websocket)
         logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+        logs = default_logger.read()
+        asyncio.run_coroutine_threadsafe(
+            websocket.send_text(
+                json.dumps({"type": "initialize_logs", "logs": [log.model_dump_json() for log in logs]})
+            ),
+            self._loop,
+        )
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
@@ -143,11 +150,9 @@ class LogsServer(ViteServer):
 
         @asynccontextmanager
         async def lifespan(app: FastAPI):
-            print("before")
             self.start_file_watching()
             self.websocket_manager._loop = asyncio.get_running_loop()
             yield
-            print("after")
             self.stop_file_watching()
 
         super().__init__(build_dir, host, port, index_file, lifespan=lifespan)
