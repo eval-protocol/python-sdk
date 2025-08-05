@@ -12,10 +12,8 @@ import logging
 from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional, Tuple
 
-from mcp.types import EmptyResult
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
-from pydantic import BaseModel
 
 from ...types import MCPSession
 
