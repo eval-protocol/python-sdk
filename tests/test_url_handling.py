@@ -1,5 +1,4 @@
-import asyncio
-
+from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 from werkzeug.wrappers import Response
@@ -17,11 +16,17 @@ async def test_mcp_env_make_appends_trailing_slash():
     base_url = "http://localhost:8000/mcp"
     corrected_url = "http://localhost:8000/mcp/"
 
-    # Use n and seeds to avoid needing a full dataset
-    envs = await ep.make(base_url, n=1, seeds=[42])
+    with patch(
+        "eval_protocol.mcp.client.connection.MCPConnectionManager.initialize_session",
+        new_callable=AsyncMock,
+    ) as mock_init:
+        mock_init.return_value = None
+
+        envs = await ep.make(base_url, n=1, seeds=[42])
+
+        mock_init.assert_awaited_once()
 
     assert len(envs.sessions) == 1
-    # The session's base_url should have the trailing slash
     assert envs.sessions[0].base_url == corrected_url
 
 
@@ -32,8 +37,15 @@ async def test_mcp_env_make_keeps_existing_trailing_slash():
     """
     base_url = "http://localhost:8000/mcp/"
 
-    # Use n and seeds to avoid needing a full dataset
-    envs = await ep.make(base_url, n=1, seeds=[42])
+    with patch(
+        "eval_protocol.mcp.client.connection.MCPConnectionManager.initialize_session",
+        new_callable=AsyncMock,
+    ) as mock_init:
+        mock_init.return_value = None
+
+        envs = await ep.make(base_url, n=1, seeds=[42])
+
+        mock_init.assert_awaited_once()
 
     assert len(envs.sessions) == 1
     # The session's base_url should remain unchanged
