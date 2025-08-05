@@ -1,12 +1,12 @@
-import os
 import logging
+import os
 from pathlib import Path
 from typing import AsyncGenerator, Callable, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class ViteServer:
             """Health check endpoint."""
             return {"status": "ok", "build_dir": str(self.build_dir)}
 
-    def run(self, reload: bool = False):
+    def run(self):
         """
         Run the Vite server.
 
@@ -109,4 +109,4 @@ class ViteServer:
         logger.info(f"Starting Vite server on {self.host}:{self.port}")
         logger.info(f"Serving files from: {self.build_dir}")
 
-        uvicorn.run(self.app, host=self.host, port=self.port, reload=reload, log_level="info")
+        uvicorn.run(self.app, host=self.host, port=self.port, log_level="info")
