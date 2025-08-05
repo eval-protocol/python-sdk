@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from openai.types import CompletionUsage
@@ -6,6 +7,8 @@ from openai.types.chat.chat_completion_message import (
     FunctionCall,
 )
 from pydantic import BaseModel, ConfigDict, Field
+
+from eval_protocol.human_id import generate_id
 
 
 class ChatCompletionContentPartTextParam(BaseModel):
@@ -187,7 +190,7 @@ class InputMetadata(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    row_id: Optional[str] = Field(None, description="Unique string to ID the row")
+    row_id: str = Field(default_factory=generate_id, description="Unique string to ID the row")
     completion_params: Optional[CompletionParams] = Field(None, description="Completion endpoint parameters used")
     dataset_info: Optional[Dict[str, Any]] = Field(
         None, description="Dataset row details: seed, system_prompt, environment_context, etc"
@@ -216,8 +219,9 @@ class EvaluationRow(BaseModel):
     )
 
     # Input-related metadata (grouped together for cleaner organization)
-    input_metadata: Optional[InputMetadata] = Field(
-        default=None, description="Metadata related to the input (dataset info, model config, session data, etc.)."
+    input_metadata: InputMetadata = Field(
+        default_factory=InputMetadata,
+        description="Metadata related to the input (dataset info, model config, session data, etc.).",
     )
 
     # Ground truth reference (moved from EvaluateResult to top level)
@@ -234,6 +238,8 @@ class EvaluationRow(BaseModel):
     usage: Optional[CompletionUsage] = Field(
         default=None, description="Token usage statistics from LLM calls during execution."
     )
+
+    created_at: datetime = Field(default_factory=datetime.now, description="The timestamp when the row was created.")
 
     def is_trajectory_evaluation(self) -> bool:
         """

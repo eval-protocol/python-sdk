@@ -12,6 +12,7 @@ from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
+from eval_protocol.dataset_logger import default_logger
 
 
 class Agent:
@@ -21,7 +22,7 @@ class Agent:
 
     def __init__(self, model: str, initial_messages: list[Message], config_path: str):
         self.model = model
-        self.messages: list[Message] = initial_messages
+        self.evaluation_row: EvaluationRow = EvaluationRow(messages=initial_messages)
         self._policy = LiteLLMPolicy(model_id=model)
         self.mcp_client = MCPMultiClient(config_path=config_path) if config_path else None
         self.tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN
@@ -35,6 +36,14 @@ class Agent:
             self.tools = await self.mcp_client.get_available_tools() if self.mcp_client else None
         return self.tools
 
+    @property
+    def messages(self) -> list[Message]:
+        return self.evaluation_row.messages
+
+    def append_message_and_log(self, message: Message):
+        self.messages.append(message)
+        default_logger.log(self.evaluation_row)
+
     async def call_agent(self) -> str:
         """
         Call the assistant with the user query.
@@ -42,7 +51,7 @@ class Agent:
         tools = await self._get_tools() if self.mcp_client else None
 
         message = await self._call_model(self.messages, tools)
-        self.messages.append(message)
+        self.append_message_and_log(message)
         if message["tool_calls"]:
             # Create tasks for all tool calls to run them in parallel
             tool_tasks = []
@@ -61,7 +70,7 @@ class Agent:
 
             # Add all tool results to messages (they will be in the same order as tool_calls)
             for tool_call, (tool_call_id, content) in zip(message["tool_calls"], tool_results):
-                self.messages.append(
+                self.append_message_and_log(
                     Message(
                         role="tool",
                         content=content,
@@ -90,7 +99,7 @@ class Agent:
 
     def _get_content_from_tool_result(self, tool_result: CallToolResult) -> List[TextContent]:
         if tool_result.structuredContent:
-            return json.dumps(tool_result.structuredContent)
+            return [TextContent(text=json.dumps(tool_result.structuredContent), type="text")]
         if not all(isinstance(content, TextContent) for content in tool_result.content):
             raise NotImplementedError("Non-text content is not supported yet")
         return tool_result.content[0].text
@@ -104,7 +113,9 @@ async def default_agent_rollout_processor(
         agent = Agent(model=config.model, initial_messages=row.messages, config_path=config.mcp_config_path)
         await agent.setup()
         await agent.call_agent()
-        dataset.append(EvaluationRow(messages=agent.messages, ground_truth=row.ground_truth))
+        dataset.append(
+            EvaluationRow(ground_truth=row.ground_truth, **agent.evaluation_row.model_dump(exclude_none=True))
+        )
         if agent.mcp_client:
             await agent.mcp_client.cleanup()
     return dataset
