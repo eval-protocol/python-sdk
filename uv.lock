@@ -903,7 +903,7 @@ version = "3.22.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
-    { name = "docstring-parser", marker = "python_full_version < '4.0'" },
+    { name = "docstring-parser", marker = "python_full_version < '4'" },
     { name = "rich" },
     { name = "rich-rst" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
@@ -1130,6 +1130,7 @@ dependencies = [
     { name = "deepdiff" },
     { name = "docstring-parser" },
     { name = "fastapi" },
+    { name = "fireworks-ai" },
     { name = "fsspec" },
     { name = "gymnasium" },
     { name = "httpx" },
@@ -1239,6 +1240,7 @@ requires-dist = [
     { name = "docstring-parser", specifier = ">=0.15" },
     { name = "e2b", marker = "extra == 'dev'" },
     { name = "fastapi", specifier = ">=0.68.0" },
+    { name = "fireworks-ai", specifier = ">=0.19.12" },
     { name = "fireworks-ai", marker = "extra == 'fireworks'", specifier = ">=0.19.10" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=3.9.2" },
     { name = "fsspec" },
