@@ -8,7 +8,8 @@ import eval_protocol as ep
 
 
 # Sync tests for the await ep.make() function
-def test_mcp_env_make_appends_trailing_slash():
+@pytest.mark.asyncio
+async def test_mcp_env_make_appends_trailing_slash():
     """
     Verify that await ep.make() appends a trailing slash to the MCP server URL if it's missing.
     This prevents 307 redirects that can break HTTP clients.
@@ -24,7 +25,8 @@ def test_mcp_env_make_appends_trailing_slash():
     assert envs.sessions[0].base_url == corrected_url
 
 
-def test_mcp_env_make_keeps_existing_trailing_slash():
+@pytest.mark.asyncio
+async def test_mcp_env_make_keeps_existing_trailing_slash():
     """
     Verify that await ep.make() does not add an extra slash if one is already present.
     """
