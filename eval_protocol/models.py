@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from openai.types import CompletionUsage
 from openai.types.chat.chat_completion_message import (
@@ -8,11 +8,18 @@ from openai.types.chat.chat_completion_message import (
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ChatCompletionContentPartTextParam(BaseModel):
+    text: str = Field(..., description="The text content.")
+    type: Literal["text"] = Field("text", description="The type of the content part.")
+
+
 class Message(BaseModel):
     """Chat message model with trajectory evaluation support."""
 
-    role: str
-    content: Optional[str] = ""  # Content can be None for tool calls in OpenAI API
+    role: str  # assistant, user, system, tool
+    content: Optional[Union[str, List[ChatCompletionContentPartTextParam]]] = Field(
+        default="", description="The content of the message."
+    )
     name: Optional[str] = None
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionMessageToolCall]] = None
@@ -426,3 +433,23 @@ class TaskDefinitionModel(BaseModel):
         # from pydantic import ConfigDict
         # model_config = ConfigDict(extra='allow')
         # For Pydantic v1, `Config.extra = "allow"` is correct.
+
+
+class MCPConfigurationServerStdio(BaseModel):
+    """Represents a MCP configuration server."""
+
+    command: str  # command to run the MCP server
+    args: List[str] = Field(default_factory=list)  # to pass to the command
+    env: List[str] = Field(default_factory=list)  # List of environment variables to verify exist in the environment
+
+
+class MCPConfigurationServerUrl(BaseModel):
+    """Represents a Remote MCP configuration server."""
+
+    url: str  # url to the MCP server
+
+
+class MCPMultiClientConfiguration(BaseModel):
+    """Represents a MCP configuration."""
+
+    mcpServers: Dict[str, Union[MCPConfigurationServerStdio, MCPConfigurationServerUrl]]
