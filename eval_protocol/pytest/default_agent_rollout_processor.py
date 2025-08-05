@@ -105,5 +105,6 @@ async def default_agent_rollout_processor(
         await agent.setup()
         await agent.call_agent()
         dataset.append(EvaluationRow(messages=agent.messages, ground_truth=row.ground_truth))
-        await agent.mcp_client.cleanup()
+        if agent.mcp_client:
+            await agent.mcp_client.cleanup()
     return dataset
