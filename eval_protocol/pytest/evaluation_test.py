@@ -1,6 +1,7 @@
 import inspect
 from typing import Any, Callable, Dict, List, Optional
 
+from eval_protocol.dataset_logger import default_logger
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 import pytest
 
@@ -33,7 +34,7 @@ def evaluation_test(
     model: List[ModelParam],
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
-    dataset_adapter: Optional[Callable[[List[Dict[str, Any]]], Dataset]] = default_dataset_adapter,
+    dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
     rollout_input_params: Optional[List[RolloutInputParam]] = None,
     rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
@@ -147,14 +148,18 @@ def evaluation_test(
                             for etk in kwargs:
                                 # if no dataset and no messages, raise an error
                                 if ds is None and im is None:
-                                    raise ValueError("No dataset or messages provided. Please provide at least one of input_dataset or input_messages.")
+                                    raise ValueError(
+                                        "No dataset or messages provided. Please provide at least one of input_dataset or input_messages."
+                                    )
                                 combinations.append((m, ds, ip, im, etk))
 
             return combinations
 
         combinations = generate_combinations()
         if len(combinations) == 0:
-            raise ValueError("No combinations of parameters were found. Please provide at least a model and one of input_dataset or input_messages.")
+            raise ValueError(
+                "No combinations of parameters were found. Please provide at least a model and one of input_dataset or input_messages."
+            )
 
         # Create parameter tuples for pytest.mark.parametrize
         param_tuples = []
@@ -249,6 +254,9 @@ def evaluation_test(
                                 f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
                             )
                         all_results.extend(results)
+
+                for r in all_results:
+                    default_logger.log(r)
 
                 scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
                 agg_score = aggregate(scores, aggregation_method)
@@ -347,7 +355,6 @@ def evaluation_test(
             import functools
 
             functools.update_wrapper(dual_mode_wrapper, pytest_wrapper)
-            dual_mode_wrapper.original_evaluation_test_func = test_func
 
             return dual_mode_wrapper
 
