@@ -6,6 +6,7 @@ import StatusIndicator from "./components/StatusIndicator";
 import { EvaluationRowSchema, type EvaluationRow } from "./types/eval-protocol";
 import { WebSocketServerMessageSchema } from "./types/websocket";
 import { GlobalState } from "./GlobalState";
+import logoLight from "./assets/logo-light.png";
 
 export const state = new GlobalState();
 
@@ -119,9 +120,7 @@ const App = observer(() => {
         <div className="max-w-7xl mx-auto px-3">
           <div className="flex justify-between items-center h-10">
             <div className="flex items-center space-x-2">
-              <h1 className="text-sm font-medium text-gray-900">
-                Eval Protocol Logs
-              </h1>
+              <img src={logoLight} alt="Eval Protocol" className="h-6 w-auto" />
             </div>
             <div className="flex items-center gap-2">
               <StatusIndicator isConnected={state.isConnected} />
