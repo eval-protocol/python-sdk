@@ -8,7 +8,7 @@ interface ChatInterfaceProps {
 
 export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
   const [chatWidth, setChatWidth] = useState(600); // Default width in pixels
-  const [chatHeight, setChatHeight] = useState(512); // Default height in pixels (32rem = 512px)
+  const [chatHeight, setChatHeight] = useState(400); // Default height in pixels
   const [isResizingWidth, setIsResizingWidth] = useState(false);
   const [isResizingHeight, setIsResizingHeight] = useState(false);
   const [initialWidth, setInitialWidth] = useState(0);

@@ -115,12 +115,14 @@ export const Row = observer(
                     <MetadataSection
                       title="Eval Metadata"
                       data={row.eval_metadata}
+                      defaultExpanded={true}
                     />
 
                     {/* Evaluation Result */}
                     <MetadataSection
                       title="Evaluation Result"
                       data={row.evaluation_result}
+                      defaultExpanded={true}
                     />
 
                     {/* Ground Truth */}
