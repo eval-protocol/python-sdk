@@ -19,23 +19,31 @@ export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const resizeHandleRef = useRef<HTMLDivElement>(null);
   const heightResizeHandleRef = useRef<HTMLDivElement>(null);
-  const isInitialMountRef = useRef(true);
+  const prevMessagesLengthRef = useRef(0);
 
   // Auto-scroll to bottom when new messages come in
   useEffect(() => {
-    // Skip scrolling on initial mount
-    if (isInitialMountRef.current) {
-      isInitialMountRef.current = false;
+    // On first render, just set the initial length without scrolling
+    if (prevMessagesLengthRef.current === 0) {
+      prevMessagesLengthRef.current = messages.length;
       return;
     }
 
-    // Scroll to bottom when messages change (after initial mount)
-    if (messages.length > 0 && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({
-        top: scrollContainerRef.current.scrollHeight,
-        behavior: "smooth",
-      });
+    // Only scroll if we have messages and the number of messages has increased
+    // This prevents scrolling on initial mount or when messages are removed
+    if (
+      messages.length > 0 &&
+      messages.length > prevMessagesLengthRef.current
+    ) {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
     }
+    // Update the previous length for the next comparison
+    prevMessagesLengthRef.current = messages.length;
   }, [messages]);
 
   // Handle horizontal resizing
