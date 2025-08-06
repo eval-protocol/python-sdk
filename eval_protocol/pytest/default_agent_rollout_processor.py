@@ -52,13 +52,13 @@ class Agent:
 
         message = await self._call_model(self.messages, tools)
         self.append_message_and_log(message)
-        if message["tool_calls"]:
+        if message.tool_calls:
             # Create tasks for all tool calls to run them in parallel
             tool_tasks = []
-            for tool_call in message["tool_calls"]:
-                tool_call_id = tool_call["id"]
-                tool_name = tool_call["function"]["name"]
-                tool_args = tool_call["function"]["arguments"]
+            for tool_call in message.tool_calls:
+                tool_call_id = tool_call.id
+                tool_name = tool_call.function.name
+                tool_args = tool_call.function.arguments
                 tool_args_dict = json.loads(tool_args)
 
                 # Create a task for each tool call
@@ -69,7 +69,7 @@ class Agent:
             tool_results: List[tuple[str, List[TextContent]]] = await asyncio.gather(*tool_tasks)
 
             # Add all tool results to messages (they will be in the same order as tool_calls)
-            for tool_call, (tool_call_id, content) in zip(message["tool_calls"], tool_results):
+            for tool_call, (tool_call_id, content) in zip(message.tool_calls, tool_results):
                 self.append_message_and_log(
                     Message(
                         role="tool",
@@ -80,7 +80,7 @@ class Agent:
                     )
                 )
             return await self.call_agent()
-        return message["content"]
+        return message.content
 
     async def _call_model(self, messages: list[Message], tools: Optional[list[ChatCompletionToolParam]]) -> Message:
         messages = [message.model_dump() if hasattr(message, "model_dump") else message for message in messages]
