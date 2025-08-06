@@ -74,6 +74,13 @@ export const CompletionUsageSchema = z.object({
   total_tokens: z.number()
 });
 
+export const EvalMetadataSchema = z.object({
+  name: z.string().describe('Name of the evaluation'),
+  description: z.string().optional().describe('Description of the evaluation'),
+  version: z.string().describe('Version of the evaluation. By default, we will populate this with the current commit hash.'),
+  status: z.enum(['running', 'finished', 'error']).default('running').describe('Status of the evaluation')
+});
+
 export const EvaluationRowSchema = z.object({
   messages: z.array(MessageSchema).describe('List of messages in the conversation/trajectory.'),
   tools: z.array(z.record(z.string(), z.any())).optional().describe('Available tools/functions that were provided to the agent.'),
@@ -84,7 +91,8 @@ export const EvaluationRowSchema = z.object({
   created_at: z.preprocess(
     (val) => typeof val === "string" ? new Date(val) : val,
     z.date()
-  ).describe('The timestamp when the row was created. Accepts string and parses to Date.')
+  ).describe('The timestamp when the row was created. Accepts string and parses to Date.'),
+  eval_metadata: EvalMetadataSchema.optional().describe('Metadata about the evaluation that was run.')
 });
 
 // Agent Evaluation Framework (V2) schemas
@@ -142,6 +150,7 @@ export type EvaluateResult = z.infer<typeof EvaluateResultSchema>;
 export type CompletionParams = z.infer<typeof CompletionParamsSchema>;
 export type InputMetadata = z.infer<typeof InputMetadataSchema>;
 export type CompletionUsage = z.infer<typeof CompletionUsageSchema>;
+export type EvalMetadata = z.infer<typeof EvalMetadataSchema>;
 export type EvaluationRow = z.infer<typeof EvaluationRowSchema>;
 export type ResourceServerConfig = z.infer<typeof ResourceServerConfigSchema>;
 export type EvaluationCriteriaModel = z.infer<typeof EvaluationCriteriaModelSchema>;

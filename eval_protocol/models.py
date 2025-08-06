@@ -200,6 +200,17 @@ class InputMetadata(BaseModel):
     )
 
 
+class EvalMetadata(BaseModel):
+    """Metadata about the evaluation that was run."""
+
+    name: str = Field(..., description="Name of the evaluation")
+    description: Optional[str] = Field(None, description="Description of the evaluation")
+    version: str = Field(
+        ..., description="Version of the evaluation. By default, we will populate this with the current commit hash."
+    )
+    status: Literal["running", "finished", "error"] = Field("running", description="Status of the evaluation")
+
+
 class EvaluationRow(BaseModel):
     """
     Unified data structure for a single evaluation unit that contains messages,
@@ -240,6 +251,10 @@ class EvaluationRow(BaseModel):
     )
 
     created_at: datetime = Field(default_factory=datetime.now, description="The timestamp when the row was created.")
+
+    eval_metadata: Optional[EvalMetadata] = Field(
+        default=None, description="Metadata about the evaluation that was run."
+    )
 
     def is_trajectory_evaluation(self) -> bool:
         """

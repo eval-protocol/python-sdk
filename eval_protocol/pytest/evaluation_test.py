@@ -1,11 +1,13 @@
 import inspect
 from typing import Any, Callable, Dict, List, Optional
 
-from eval_protocol.dataset_logger import default_logger
-from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 import pytest
 
-from eval_protocol.models import EvaluationRow
+# Import versioneer for getting version information
+import versioneer
+from eval_protocol.dataset_logger import default_logger
+from eval_protocol.models import EvalMetadata, EvaluationRow
+from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
 from eval_protocol.pytest.types import (
     Dataset,
@@ -255,7 +257,17 @@ def evaluation_test(
                             )
                         all_results.extend(results)
 
+                # Create eval metadata with test function info and current commit hash
+                eval_metadata = EvalMetadata(
+                    name=test_func.__name__,
+                    description=test_func.__doc__,
+                    version=versioneer.get_version(),
+                    status="finished",
+                )
+
+                # Add metadata to all results before logging
                 for r in all_results:
+                    r.eval_metadata = eval_metadata
                     default_logger.log(r)
 
                 scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
