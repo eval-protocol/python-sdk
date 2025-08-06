@@ -27,13 +27,14 @@ export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
         const deltaX = e.clientX - initialMouseX;
         const newWidth = initialWidth + deltaX;
 
-        // Calculate max width as 80% of container width
+        // Calculate max width as 66% of available width
+        // Get the parent container that has the flex layout
+        const parentContainer = chatContainerRef.current?.closest(".flex");
         const containerWidth =
-          chatContainerRef.current?.parentElement?.clientWidth ||
-          window.innerWidth;
-        const maxWidth = containerWidth * 0.8;
+          parentContainer?.clientWidth || window.innerWidth;
+        const maxWidth = containerWidth * 0.66;
 
-        setChatWidth(Math.max(300, Math.min(maxWidth, newWidth))); // Min 300px, max 80% of container
+        setChatWidth(Math.max(300, Math.min(maxWidth, newWidth))); // Min 300px, max 70% of container
       }
     };
 
