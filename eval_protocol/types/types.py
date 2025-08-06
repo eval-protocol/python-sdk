@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from mcp.client.session import ClientSession
+from contextlib import AsyncExitStack
 
 
 class TerminationReason(str, Enum):
@@ -50,8 +52,8 @@ class MCPSession:
     last_observation: Any = None
 
     # Persistent MCP connection components
-    _exit_stack: Optional[Any] = None
-    _mcp_session: Optional[Any] = None
+    _exit_stack: Optional[AsyncExitStack] = None
+    _mcp_session: Optional[ClientSession] = None
 
 
 @dataclass

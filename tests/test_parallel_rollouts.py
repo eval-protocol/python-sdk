@@ -138,7 +138,7 @@ async def _test_seed_handling_and_type_compatibility_impl():
             )
 
         # 3. Test that environments are created with proper seed isolation
-        envs = ep.make("http://127.0.0.1:8001/mcp/", dataset=dataset)
+        envs = await ep.make("http://127.0.0.1:8001/mcp/", dataset=dataset)
 
         # Verify we have the right number of environments
         assert len(envs.sessions) == len(test_seeds), f"Expected {len(test_seeds)} sessions, got {len(envs.sessions)}"
@@ -273,7 +273,7 @@ async def _run_simplified_compatibility_test():
         )
 
     # This should work even without a server (just creates session objects)
-    envs = ep.make("http://127.0.0.1:8001/mcp/", dataset=dataset)
+    envs = await ep.make("http://127.0.0.1:8001/mcp/", dataset=dataset)
     assert len(envs.sessions) == len(test_seeds)
     print("✅ Environment creation works")
 

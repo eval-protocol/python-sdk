@@ -22,7 +22,6 @@ from vendor.tau2.user.user_simulator import UserSimulator
 
 from ...models import CompletionParams, EvaluationRow, InputMetadata, Message
 from ...types import MCPSession, MCPToolCall, TerminationReason, Trajectory
-from ..client.connection import MCPConnectionManager
 
 if TYPE_CHECKING:
     from ..session.manager import GeneralMCPVectorEnv
@@ -33,42 +32,8 @@ logger = logging.getLogger(__name__)
 
 class ExecutionManager:
     """
-    Unified manager that handles both MCP session lifecycle and rollout execution.
-
-    Combines the functionality of SessionManager and RolloutManager for better
-    organization and reduced complexity.
+    Manage rollout for MCP environments.
     """
-
-    def __init__(self):
-        """Initialize the execution manager."""
-        self.connection_manager = MCPConnectionManager()
-
-    async def initialize_sessions(self, sessions: List[MCPSession]) -> None:
-        """
-        Initialize multiple MCP sessions in parallel.
-
-        Args:
-            sessions: List of MCPSessions to initialize
-        """
-        tasks = [self.connection_manager.initialize_session(session) for session in sessions]
-        await asyncio.gather(*tasks)
-
-    async def close_sessions(self, sessions: List[MCPSession]) -> None:
-        """
-        Close multiple MCP sessions in parallel.
-
-        Args:
-            sessions: List of MCPSessions to close
-        """
-        tasks = [asyncio.create_task(self.connection_manager.close_session(session)) for session in sessions]
-
-        if tasks:
-            try:
-                # Wait for all close operations to complete
-                await asyncio.gather(*tasks, return_exceptions=True)
-            except asyncio.CancelledError:
-                # Handle cancellation gracefully (especially important for Python 3.12)
-                logger.debug("Close operation was cancelled, but sessions are marked as closed")
 
     async def execute_rollouts(
         self,
@@ -178,7 +143,7 @@ class ExecutionManager:
             for msg in trajectory.conversation_history:
                 # Create a copy to avoid modifying the original
                 msg_dict = dict(msg)
-                
+
                 # Handle multimodal content (list of content blocks) by extracting text
                 if isinstance(msg_dict.get("content"), list):
                     text_content = None
@@ -187,7 +152,7 @@ class ExecutionManager:
                             text_content = content_block.get("text")
                             break
                     msg_dict["content"] = text_content or ""
-                
+
                 messages.append(Message.model_validate(msg_dict))
 
             input_metadata = InputMetadata(

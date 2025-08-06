@@ -182,49 +182,47 @@ class MCPServerManager:
         return False  # Don't suppress exceptions
 
 
-
-async def default_mcp_gym_rollout_processor(rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[EvaluationRow]:
+async def default_mcp_gym_rollout_processor(
+    rows: List[EvaluationRow], config: RolloutProcessorConfig
+) -> List[EvaluationRow]:
     """
     Rollout processor for tau bench environments.
-    
+
     This processor starts an MCP server, creates tau bench environments, and runs rollouts
     using the eval_protocol framework, following the pattern from test_tau2_e2e.py.
-    
+
     Args:
         rows: List of EvaluationRow objects containing messages and dataset info in input_metadata
         config: RolloutProcessorConfig with model and other parameters
-    
+
     Returns:
         List of EvaluationRow objects with completed conversations
     """
     server = MCPServerManager(config.server_script_path, port=9700)
-    
+
     try:
         server.start()
-        
+
         policy = ep.LiteLLMPolicy(
             model_id=config.model,
-            temperature=config.input_params.get('temperature', 0.0),
-            max_tokens=config.input_params.get('max_tokens', 4096),
+            temperature=config.input_params.get("temperature", 0.0),
+            max_tokens=config.input_params.get("max_tokens", 4096),
         )
-        
+
         # Create MCP environments directly from evaluation_rows
-        envs = ep.make(
-            'http://localhost:9700/mcp/',
+        envs = await ep.make(
+            "http://localhost:9700/mcp/",
             evaluation_rows=rows,
             model_id=policy.model_id,
         )
-        
+
         # Run rollout with environments and policy
         evaluation_rows = await ep.rollout(
-            envs, 
-            policy=policy, 
-            steps=config.steps, 
-            max_concurrent_rollouts=config.max_concurrent_rollouts
+            envs, policy=policy, steps=config.steps, max_concurrent_rollouts=config.max_concurrent_rollouts
         )
-        
+
         return evaluation_rows
-        
+
     finally:
         # Always clean up the server
         server.stop()

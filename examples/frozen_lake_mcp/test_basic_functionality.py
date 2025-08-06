@@ -46,7 +46,7 @@ async def test_basic_server_functionality():
         policy = ep.FireworksPolicy(model_id="accounts/fireworks/models/qwen3-235b-a22b", temperature=0.2)
 
         # Create environment pointing to local server
-        envs = ep.make("http://localhost:8000/mcp/", dataset=test_dataset, model_id=policy.model_id)
+        envs = await ep.make("http://localhost:8000/mcp/", dataset=test_dataset, model_id=policy.model_id)
         print("✅ Successfully connected to MCP server")
 
         # Test 2: Try to make tool calls (we'll simulate this for now)

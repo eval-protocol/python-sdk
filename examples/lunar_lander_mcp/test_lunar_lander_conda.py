@@ -119,7 +119,7 @@ async def test_lunar_lander_with_conda_isolation():
         ]
 
         # Configure for MCP environment
-        envs = ep.make("http://localhost:9004/mcp", dataset=dataset)
+        envs = await ep.make("http://localhost:9004/mcp", dataset=dataset)
 
         # Simple policy that takes random actions
         class RandomLunarLanderPolicy:

@@ -165,7 +165,7 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
     assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
     # Create environments
-    envs = ep.make("http://localhost:9500/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
+    envs = await ep.make("http://localhost:9500/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
 
     # Record evaluation rows (Taxi typically needs more steps)
     start_time = time.time()
@@ -196,7 +196,7 @@ async def test_production_server_record_and_replay(production_server, taxi_datas
     assert playback_policy.is_playback_mode(), "Should be in playback mode"
 
     # Create new environments for playback
-    playback_envs = ep.make(
+    playback_envs = await ep.make(
         "http://localhost:9500/mcp/",
         dataset=taxi_dataset,
         model_id=playback_policy.model_id,
@@ -242,7 +242,7 @@ async def test_simulation_server_record_and_replay(simulation_server, taxi_datas
     )
 
     # Create environments pointing to simulation server
-    envs = ep.make("http://localhost:9501/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
+    envs = await ep.make("http://localhost:9501/mcp/", dataset=taxi_dataset, model_id=policy.model_id)
 
     # Record evaluation rows
     start_time = time.time()
@@ -266,7 +266,7 @@ async def test_simulation_server_record_and_replay(simulation_server, taxi_datas
     )
 
     # Create new environments for playback
-    playback_envs = ep.make(
+    playback_envs = await ep.make(
         "http://localhost:9501/mcp/",
         dataset=taxi_dataset,
         model_id=playback_policy.model_id,
