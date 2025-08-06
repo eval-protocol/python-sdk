@@ -63,8 +63,8 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
       {state.dataset.length === 0 ? (
         <EmptyState onRefresh={onRefresh} />
       ) : (
-        <div className="bg-white border border-gray-200">
-          <table className="w-full">
+        <div className="bg-white border border-gray-200 overflow-x-auto">
+          <table className="w-full min-w-max">
             {/* Table Header */}
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>

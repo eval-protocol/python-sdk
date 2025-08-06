@@ -20,23 +20,11 @@ export const Row = observer(
         >
           {/* Expand/Collapse Icon */}
           <td className="px-3 py-3 w-8">
-            {isExpanded ? (
+            <div className="w-4 h-4 flex items-center justify-center">
               <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            ) : (
-              <svg
-                className="h-4 w-4 text-gray-500"
+                className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                  isExpanded ? "rotate-90" : ""
+                }`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -48,31 +36,33 @@ export const Row = observer(
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-            )}
+            </div>
           </td>
 
           {/* Name */}
           <td className="px-3 py-3 text-xs">
-            <span className="text-gray-900">
+            <span className="text-gray-900 truncate block">
               {row.eval_metadata?.name || "N/A"}
             </span>
           </td>
 
           {/* Status */}
           <td className="px-3 py-3 text-xs">
-            <StatusIndicator status={row.eval_metadata?.status || "N/A"} />
+            <div className="whitespace-nowrap">
+              <StatusIndicator status={row.eval_metadata?.status || "N/A"} />
+            </div>
           </td>
 
           {/* Row ID */}
           <td className="px-3 py-3 text-xs">
-            <span className="font-mono text-gray-900">
+            <span className="font-mono text-gray-900 whitespace-nowrap">
               {row.input_metadata.row_id}
             </span>
           </td>
 
           {/* Model */}
           <td className="px-3 py-3 text-xs">
-            <span className="text-gray-900">
+            <span className="text-gray-900 truncate block">
               {row.input_metadata.completion_params?.model || "N/A"}
             </span>
           </td>
@@ -80,7 +70,7 @@ export const Row = observer(
           {/* Score */}
           <td className="px-3 py-3 text-xs">
             <span
-              className={`font-mono ${
+              className={`font-mono whitespace-nowrap ${
                 row.evaluation_result?.score
                   ? row.evaluation_result.score >= 0.8
                     ? "text-green-700"
@@ -96,7 +86,7 @@ export const Row = observer(
 
           {/* Created */}
           <td className="px-3 py-3 text-xs">
-            <span className="text-gray-600">
+            <span className="text-gray-600 whitespace-nowrap">
               {row.created_at instanceof Date
                 ? row.created_at.toLocaleDateString() +
                   " " +
@@ -113,12 +103,14 @@ export const Row = observer(
           <tr>
             <td colSpan={8} className="p-0">
               <div className="p-4 bg-gray-50 border-t border-gray-200">
-                <div className="flex gap-6">
+                <div className="flex gap-3 w-fit">
                   {/* Left Column - Chat Interface */}
-                  <ChatInterface messages={row.messages} />
+                  <div className="min-w-0">
+                    <ChatInterface messages={row.messages} />
+                  </div>
 
                   {/* Right Column - Metadata */}
-                  <div className="flex-1 space-y-3 min-w-0">
+                  <div className="w-[500px] flex-shrink-0 space-y-3">
                     {/* Eval Metadata */}
                     <MetadataSection
                       title="Eval Metadata"
