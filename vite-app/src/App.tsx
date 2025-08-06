@@ -40,6 +40,7 @@ const App = observer(() => {
           const rows: EvaluationRow[] = update.logs.map((log) => {
             return EvaluationRowSchema.parse(JSON.parse(log));
           });
+          console.log(rows);
           state.setDataset(rows);
         }
       } catch (error) {
