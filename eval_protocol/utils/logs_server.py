@@ -97,6 +97,18 @@ class WebSocketManager:
             return
         logger.info(f"Broadcasting file update: {update_type} {file_path}")
 
+        logs = default_logger.read()
+        # send initialize_logs message to all connected clients
+        for connection in self.active_connections:
+            asyncio.run_coroutine_threadsafe(
+                connection.send_text(
+                    json.dumps(
+                        {"type": "initialize_logs", "logs": [log.model_dump_json(exclude_none=True) for log in logs]}
+                    )
+                ),
+                self._loop,
+            )
+
         message = {"type": update_type, "path": file_path, "timestamp": time.time()}
         # Include file contents for created and modified events
         if update_type in ["file_created", "file_changed"] and os.path.exists(file_path):
@@ -137,7 +149,7 @@ class LogsServer(ViteServer):
             os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "vite-app", "dist")
         ),
         host: str = "localhost",
-        port: Optional[int] = None,
+        port: Optional[int] = 8000,
         index_file: str = "index.html",
         watch_paths: Optional[List[str]] = None,
     ):

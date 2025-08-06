@@ -1,11 +1,35 @@
 import type { Message } from "../types/eval-protocol";
+import { useState } from "react";
 
 export const MessageBubble = ({ message }: { message: Message }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const isTool = message.role === "tool";
   const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
   const hasFunctionCall = message.function_call;
+
+  // Get the message content as a string
+  const getMessageContent = () => {
+    if (typeof message.content === "string") {
+      return message.content;
+    } else if (Array.isArray(message.content)) {
+      return message.content
+        .map((part, i) =>
+          part.type === "text" ? part.text : JSON.stringify(part)
+        )
+        .join("");
+    } else {
+      return JSON.stringify(message.content);
+    }
+  };
+
+  const messageContent = getMessageContent();
+  const isLongMessage = messageContent.length > 200; // Threshold for considering a message "long"
+  const displayContent =
+    isLongMessage && !isExpanded
+      ? messageContent.substring(0, 200) + "..."
+      : messageContent;
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-1`}>
@@ -24,16 +48,24 @@ export const MessageBubble = ({ message }: { message: Message }) => {
           {message.role}
         </div>
         <div className="whitespace-pre-wrap break-words overflow-hidden text-xs">
-          {typeof message.content === "string"
-            ? message.content
-            : Array.isArray(message.content)
-            ? message.content
-                .map((part, i) =>
-                  part.type === "text" ? part.text : JSON.stringify(part)
-                )
-                .join("")
-            : JSON.stringify(message.content)}
+          {displayContent}
         </div>
+        {isLongMessage && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={`mt-1 text-xs underline hover:no-underline ${
+              isUser
+                ? "text-blue-700"
+                : isSystem
+                ? "text-gray-600"
+                : isTool
+                ? "text-green-700"
+                : "text-yellow-700"
+            }`}
+          >
+            {isExpanded ? "Show less" : "Show more"}
+          </button>
+        )}
         {hasToolCalls && message.tool_calls && (
           <div
             className={`mt-2 pt-1 border-t ${

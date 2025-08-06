@@ -25,9 +25,9 @@ from .cli_commands.common import (
 )
 from .cli_commands.deploy import deploy_command
 from .cli_commands.deploy_mcp import deploy_mcp_command
+from .cli_commands.logs import logs_command
 from .cli_commands.preview import preview_command
 from .cli_commands.run_eval_cmd import hydra_cli_entry_point
-from .cli_commands.logs import logs_command
 
 
 def parse_args(args=None):
@@ -289,36 +289,6 @@ def parse_args(args=None):
 
     # Logs command
     logs_parser = subparsers.add_parser("logs", help="Serve logs with file watching and real-time updates")
-    logs_parser.add_argument(
-        "--build-dir",
-        default="dist",
-        help="Path to the Vite build output directory (default: dist)",
-    )
-    logs_parser.add_argument(
-        "--host",
-        default="localhost",
-        help="Host to bind the server to (default: localhost)",
-    )
-    logs_parser.add_argument(
-        "--port",
-        type=int,
-        default=4789,
-        help="Port to bind the server to (default: 4789)",
-    )
-    logs_parser.add_argument(
-        "--index-file",
-        default="index.html",
-        help="Name of the main index file (default: index.html)",
-    )
-    logs_parser.add_argument(
-        "--watch-paths",
-        help="Comma-separated list of paths to watch for file changes (default: current directory)",
-    )
-    logs_parser.add_argument(
-        "--reload",
-        action="store_true",
-        help="Enable auto-reload (default: False)",
-    )
 
     # Run command (for Hydra-based evaluations)
     # This subparser intentionally defines no arguments itself.

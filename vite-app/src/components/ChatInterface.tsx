@@ -8,7 +8,7 @@ interface ChatInterfaceProps {
 
 export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
   const [chatWidth, setChatWidth] = useState(600); // Default width in pixels
-  const [chatHeight, setChatHeight] = useState(512); // Default height in pixels (32rem = 512px)
+  const [chatHeight, setChatHeight] = useState(400); // Default height in pixels
   const [isResizingWidth, setIsResizingWidth] = useState(false);
   const [isResizingHeight, setIsResizingHeight] = useState(false);
   const [initialWidth, setInitialWidth] = useState(0);
@@ -16,8 +16,35 @@ export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
   const [initialMouseX, setInitialMouseX] = useState(0);
   const [initialMouseY, setInitialMouseY] = useState(0);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const resizeHandleRef = useRef<HTMLDivElement>(null);
   const heightResizeHandleRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLengthRef = useRef(0);
+
+  // Auto-scroll to bottom when new messages come in
+  useEffect(() => {
+    // On first render, just set the initial length without scrolling
+    if (prevMessagesLengthRef.current === 0) {
+      prevMessagesLengthRef.current = messages.length;
+      return;
+    }
+
+    // Only scroll if we have messages and the number of messages has increased
+    // This prevents scrolling on initial mount or when messages are removed
+    if (
+      messages.length > 0 &&
+      messages.length > prevMessagesLengthRef.current
+    ) {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }
+    // Update the previous length for the next comparison
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages]);
 
   // Handle horizontal resizing
   useEffect(() => {
@@ -113,6 +140,7 @@ export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
       style={{ width: `${chatWidth}px` }}
     >
       <div
+        ref={scrollContainerRef}
         className="bg-white border border-gray-200 p-4 overflow-y-auto relative"
         style={{ height: `${chatHeight}px` }}
       >
