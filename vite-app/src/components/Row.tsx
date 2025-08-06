@@ -119,10 +119,6 @@ export const Row = observer(
 
                   {/* Right Column - Metadata */}
                   <div className="flex-1 space-y-3 min-w-0">
-                    <h4 className="font-semibold text-sm text-gray-700 mb-2 pb-1">
-                      Metadata
-                    </h4>
-
                     {/* Eval Metadata */}
                     <MetadataSection
                       title="Eval Metadata"
