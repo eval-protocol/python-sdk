@@ -440,8 +440,6 @@ class MCPConnectionManager:
         mcp_session = session._mcp_session
 
         # 1. Execute the tool call via MCP protocol (DATA PLANE)
-        print("session.session_id", session._mcp_session)
-        print(session._mcp_session._write_stream._closed)
         tool_result = await mcp_session.call_tool(tool_name, arguments)
 
         # Extract data plane results (observation only)
