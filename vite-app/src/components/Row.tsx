@@ -107,7 +107,7 @@ export const Row = observer(
 
           {/* Created */}
           <td className="px-3 py-3 text-xs">
-            <span className="text-gray-900">
+            <span className="text-gray-600">
               {row.created_at instanceof Date
                 ? row.created_at.toLocaleDateString() +
                   " " +
