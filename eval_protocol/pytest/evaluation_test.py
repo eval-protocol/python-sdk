@@ -194,122 +194,146 @@ def evaluation_test(
             # Create the function body that will be used
             def wrapper_body(**kwargs):
                 model_name = kwargs["model"]
-
-                # Handle dataset loading
-                if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
-                    data = load_jsonl(kwargs["dataset_path"])
-                    if max_dataset_rows is not None:
-                        data = data[:max_dataset_rows]
-                    data = dataset_adapter(data)
-                elif "input_messages" in kwargs and kwargs["input_messages"] is not None:
-                    data: List[EvaluationRow] = [EvaluationRow(messages=kwargs["input_messages"])]
-                else:
-                    raise ValueError("No input dataset or input messages provided")
-
-                input_params = kwargs.get("input_params") or {}
-
-                # Create eval metadata with test function info and current commit hash
-                eval_metadata = EvalMetadata(
-                    name=test_func.__name__,
-                    description=test_func.__doc__,
-                    version=versioneer.get_version(),
-                    status="running",
-                    num_runs=num_runs,
-                    aggregation_method=aggregation_method,
-                    threshold_of_success=threshold_of_success,
-                    passed=None,
-                )
-
-                # Populate completion_params in input_metadata for all rows and initialize eval_metadata BEFORE rollouts
-                completion_params = CompletionParams(
-                    model=model_name,
-                    temperature=input_params.get("temperature"),
-                    max_tokens=input_params.get("max_tokens"),
-                    max_tool_calls=input_params.get("max_tool_calls"),
-                )
-
-                for row in data:
-                    if row.input_metadata is None:
-                        row.input_metadata = InputMetadata()
-                    row.input_metadata.completion_params = completion_params
-                    # Add mode to session_data
-                    if row.input_metadata.session_data is None:
-                        row.input_metadata.session_data = {}
-                    row.input_metadata.session_data["mode"] = mode
-                    # Initialize eval_metadata for each row
-                    row.eval_metadata = eval_metadata
-
-                # Now run the rollout processor with metadata-initialized data
-                config = RolloutProcessorConfig(
-                    model=model_name,
-                    input_params=input_params,
-                    mcp_config_path=mcp_config_path or "",
-                    max_concurrent_rollouts=max_concurrent_rollouts,
-                    server_script_path=server_script_path,
-                    steps=steps,
-                )
-                input_dataset = execute_function(rollout_processor, rows=data, config=config)
-
+                eval_metadata = None
                 all_results: List[EvaluationRow] = []
-                for _ in range(num_runs):
-                    if mode == "pointwise":
-                        # Pointwise mode: apply the evaluator function to each row
-                        for row in input_dataset:
-                            result = execute_with_params(
+
+                try:
+                    # Handle dataset loading
+                    data: List[EvaluationRow] = []
+                    if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
+                        data_jsonl = load_jsonl(kwargs["dataset_path"])
+                        if max_dataset_rows is not None:
+                            data_jsonl = data_jsonl[:max_dataset_rows]
+                        data = dataset_adapter(data_jsonl)
+                    elif "input_messages" in kwargs and kwargs["input_messages"] is not None:
+                        data: List[EvaluationRow] = [EvaluationRow(messages=kwargs["input_messages"])]
+                    else:
+                        raise ValueError("No input dataset or input messages provided")
+
+                    input_params = kwargs.get("input_params") or {}
+
+                    # Create eval metadata with test function info and current commit hash
+                    eval_metadata = EvalMetadata(
+                        name=test_func.__name__,
+                        description=test_func.__doc__,
+                        version=versioneer.get_version(),
+                        status="running",
+                        num_runs=num_runs,
+                        aggregation_method=aggregation_method,
+                        threshold_of_success=threshold_of_success,
+                        passed=None,
+                    )
+
+                    # Populate completion_params in input_metadata for all rows and initialize eval_metadata BEFORE rollouts
+                    completion_params = CompletionParams(
+                        model=model_name,
+                        temperature=input_params.get("temperature"),
+                        max_tokens=input_params.get("max_tokens"),
+                        max_tool_calls=input_params.get("max_tool_calls"),
+                    )
+
+                    for row in data:
+                        if row.input_metadata is None:
+                            row.input_metadata = InputMetadata()
+                        row.input_metadata.completion_params = completion_params
+                        # Add mode to session_data
+                        if row.input_metadata.session_data is None:
+                            row.input_metadata.session_data = {}
+                        row.input_metadata.session_data["mode"] = mode
+                        # Initialize eval_metadata for each row
+                        row.eval_metadata = eval_metadata
+
+                    # Now run the rollout processor with metadata-initialized data
+                    config = RolloutProcessorConfig(
+                        model=model_name,
+                        input_params=input_params,
+                        mcp_config_path=mcp_config_path or "",
+                        max_concurrent_rollouts=max_concurrent_rollouts,
+                        server_script_path=server_script_path,
+                        steps=steps,
+                    )
+                    input_dataset = execute_function(rollout_processor, rows=data, config=config)
+
+                    for _ in range(num_runs):
+                        if mode == "pointwise":
+                            # Pointwise mode: apply the evaluator function to each row
+                            for row in input_dataset:
+                                result = execute_with_params(
+                                    test_func,
+                                    row=row,
+                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                )
+                                if result is None or not isinstance(result, EvaluationRow):
+                                    raise ValueError(
+                                        f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
+                                    )
+                                all_results.append(result)
+                        else:
+                            # Batch mode: call the test function with the full dataset
+                            results = execute_with_params(
                                 test_func,
-                                row=row,
+                                input_dataset=input_dataset,
                                 evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                             )
-                            if result is None or not isinstance(result, EvaluationRow):
+                            if results is None:
                                 raise ValueError(
                                     f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
                                 )
-                            all_results.append(result)
-                    else:
-                        # Batch mode: call the test function with the full dataset
-                        results = execute_with_params(
-                            test_func,
-                            input_dataset=input_dataset,
-                            evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
-                        )
-                        if results is None:
-                            raise ValueError(
-                                f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
-                            )
-                        if not isinstance(results, list):
-                            raise ValueError(
-                                f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                            )
-                        if not results:
-                            raise ValueError(
-                                f"Test function {test_func.__name__} returned an empty list. You must return a non-empty list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                            )
-                        if not all(isinstance(r, EvaluationRow) for r in results):
-                            raise ValueError(
-                                f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                            )
-                        all_results.extend(results)
+                            if not isinstance(results, list):
+                                raise ValueError(
+                                    f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                                )
+                            if not results:
+                                raise ValueError(
+                                    f"Test function {test_func.__name__} returned an empty list. You must return a non-empty list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                                )
+                            if not all(isinstance(r, EvaluationRow) for r in results):
+                                raise ValueError(
+                                    f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                                )
+                            all_results.extend(results)
 
-                scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
-                agg_score = aggregate(scores, aggregation_method)
+                    scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
+                    agg_score = aggregate(scores, aggregation_method)
 
-                # Determine if the evaluation passed based on threshold
-                passed = None
-                if threshold_of_success is not None:
-                    passed = agg_score >= threshold_of_success
+                    # Determine if the evaluation passed based on threshold
+                    passed = None
+                    if threshold_of_success is not None:
+                        passed = agg_score >= threshold_of_success
 
-                # Update eval metadata status and passed field for all results
-                for r in all_results:
-                    if r.eval_metadata is not None:
-                        r.eval_metadata.status = "finished"
-                        r.eval_metadata.passed = passed
-                    default_logger.log(r)
+                    # Update eval metadata status and passed field for all results
+                    for r in all_results:
+                        if r.eval_metadata is not None:
+                            r.eval_metadata.status = "finished"
+                            r.eval_metadata.passed = passed
+                        default_logger.log(r)
 
-                # Check threshold after logging
-                if threshold_of_success is not None and not passed:
-                    assert (
-                        agg_score >= threshold_of_success
-                    ), f"Aggregated score {agg_score:.3f} below threshold {threshold_of_success}"
+                    # Check threshold after logging
+                    if threshold_of_success is not None and not passed:
+                        assert (
+                            agg_score >= threshold_of_success
+                        ), f"Aggregated score {agg_score:.3f} below threshold {threshold_of_success}"
+
+                except Exception as e:
+                    # Update eval metadata status to error and log it
+                    if eval_metadata is not None:
+                        eval_metadata.status = "error"
+                        eval_metadata.passed = False
+
+                        # Create a minimal result row to log the error if we don't have any results yet
+                        if not data:
+                            error_row = EvaluationRow(messages=[], eval_metadata=eval_metadata, evaluation_result=None)
+                            default_logger.log(error_row)
+                        else:
+                            # Update existing results with error status
+                            for r in data:
+                                if r.eval_metadata is not None:
+                                    r.eval_metadata.status = "error"
+                                    r.eval_metadata.passed = False
+                                default_logger.log(r)
+
+                    # Re-raise the exception to maintain pytest behavior
+                    raise
 
             return create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names)
 
