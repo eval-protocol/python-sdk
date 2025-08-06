@@ -12,6 +12,12 @@ sophisticated agent evaluations that work across real-world scenarios, from
 markdown generation tasks to customer service agents with tool calling
 capabilities.
 
+<p align="center">
+	<img src="./assets/ui.png" alt="UI" />
+	<br>
+	<sub><b>Log Viewer: Monitor your evaluation rollouts in real time.</b></sub>
+</p>
+
 ## Quick Example
 
 Here's a simple test function that checks if a model's response contains **bold** text formatting:
@@ -35,17 +41,17 @@ def test_bold_format(row: EvaluationRow) -> EvaluationRow:
     """
     Simple evaluation that checks if the model's response contains bold text.
     """
-    
+
     assistant_response = row.messages[-1].content
-    
+
     # Check if response contains **bold** text
     has_bold = "**" in assistant_response
-    
+
     if has_bold:
         result = EvaluateResult(score=1.0, reason="✅ Response contains bold text")
     else:
         result = EvaluateResult(score=0.0, reason="❌ No bold text found")
-    
+
     row.evaluation_result = result
     return row
 ```
