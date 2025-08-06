@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { makeAutoObservable } from "mobx";
 import { observer } from "mobx-react";
 import Dashboard from "./components/Dashboard";
+import Button from "./components/Button";
+import StatusIndicator from "./components/StatusIndicator";
 import { EvaluationRowSchema, type EvaluationRow } from "./types/eval-protocol";
 import { WebSocketServerMessageSchema } from "./types/websocket";
 
@@ -97,6 +99,18 @@ const App = observer(() => {
     }, delay);
   };
 
+  // Manual refresh handler
+  const handleManualRefresh = () => {
+    if (wsRef.current) {
+      try {
+        wsRef.current.onclose = null; // Prevent triggering reconnect logic
+        wsRef.current.close();
+      } catch (e) {}
+      wsRef.current = null;
+    }
+    connectWebSocket();
+  };
+
   useEffect(() => {
     connectWebSocket();
 
@@ -120,21 +134,11 @@ const App = observer(() => {
                 Eval Protocol Logs
               </h1>
             </div>
-            <div className="flex items-center">
-              <div
-                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                  state.isConnected
-                    ? "bg-green-100 text-green-700"
-                    : "bg-red-100 text-red-700"
-                }`}
-              >
-                <div
-                  className={`w-1 h-1 rounded-full mr-1 ${
-                    state.isConnected ? "bg-green-500" : "bg-red-500"
-                  }`}
-                ></div>
-                {state.isConnected ? "Connected" : "Disconnected"}
-              </div>
+            <div className="flex items-center gap-2">
+              <StatusIndicator isConnected={state.isConnected} />
+              <Button onClick={handleManualRefresh} className="ml-2">
+                Refresh
+              </Button>
             </div>
           </div>
         </div>
