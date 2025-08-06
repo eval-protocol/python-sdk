@@ -209,6 +209,9 @@ class EvalMetadata(BaseModel):
         ..., description="Version of the evaluation. By default, we will populate this with the current commit hash."
     )
     status: Literal["running", "finished", "error"] = Field("running", description="Status of the evaluation")
+    num_runs: int = Field(..., description="Number of times the evaluation was repeated")
+    aggregation_method: str = Field(..., description="Method used to aggregate scores across runs")
+    threshold_of_success: Optional[float] = Field(None, description="Threshold score for test success")
 
 
 class EvaluationRow(BaseModel):

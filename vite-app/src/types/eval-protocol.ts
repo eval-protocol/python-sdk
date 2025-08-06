@@ -78,7 +78,10 @@ export const EvalMetadataSchema = z.object({
   name: z.string().describe('Name of the evaluation'),
   description: z.string().optional().describe('Description of the evaluation'),
   version: z.string().describe('Version of the evaluation. By default, we will populate this with the current commit hash.'),
-  status: z.enum(['running', 'finished', 'error']).default('running').describe('Status of the evaluation')
+  status: z.enum(['running', 'finished', 'error']).default('running').describe('Status of the evaluation'),
+  num_runs: z.number().int().describe('Number of times the evaluation was repeated'),
+  aggregation_method: z.string().describe('Method used to aggregate scores across runs'),
+  threshold_of_success: z.number().optional().describe('Threshold score for test success')
 });
 
 export const EvaluationRowSchema = z.object({

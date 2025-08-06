@@ -6,7 +6,7 @@ import pytest
 # Import versioneer for getting version information
 import versioneer
 from eval_protocol.dataset_logger import default_logger
-from eval_protocol.models import EvalMetadata, EvaluationRow
+from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, InputMetadata
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
 from eval_protocol.pytest.types import (
@@ -207,15 +207,33 @@ def evaluation_test(
                     raise ValueError("No input dataset or input messages provided")
 
                 input_dataset: List[EvaluationRow] = []
+                input_params = kwargs.get("input_params") or {}
                 config = RolloutProcessorConfig(
                     model=model_name,
-                    input_params=kwargs.get("input_params") or {},
+                    input_params=input_params,
                     mcp_config_path=mcp_config_path or "",
                     max_concurrent_rollouts=max_concurrent_rollouts,
                     server_script_path=server_script_path,
                     steps=steps,
                 )
                 input_dataset = execute_function(rollout_processor, rows=data, config=config)
+
+                # Populate completion_params in input_metadata for all rows
+                completion_params = CompletionParams(
+                    model=model_name,
+                    temperature=input_params.get("temperature"),
+                    max_tokens=input_params.get("max_tokens"),
+                    max_tool_calls=input_params.get("max_tool_calls"),
+                )
+
+                for row in input_dataset:
+                    if row.input_metadata is None:
+                        row.input_metadata = InputMetadata()
+                    row.input_metadata.completion_params = completion_params
+                    # Add mode to session_data
+                    if row.input_metadata.session_data is None:
+                        row.input_metadata.session_data = {}
+                    row.input_metadata.session_data["mode"] = mode
 
                 all_results: List[EvaluationRow] = []
                 for _ in range(num_runs):
@@ -263,6 +281,9 @@ def evaluation_test(
                     description=test_func.__doc__,
                     version=versioneer.get_version(),
                     status="finished",
+                    num_runs=num_runs,
+                    aggregation_method=aggregation_method,
+                    threshold_of_success=threshold_of_success,
                 )
 
                 # Add metadata to all results before logging
