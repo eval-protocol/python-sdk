@@ -111,20 +111,38 @@ const App = observer(() => {
   }, []);
 
   return (
-    <div>
-      <nav>
-        <div>
-          <div>
-            <h1>Eval Protocol Logs</h1>
-            <div>{state.isConnected ? "Connected" : "Disconnected"}</div>
-          </div>
-          <div>
-            <Dashboard />
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-3">
+          <div className="flex justify-between items-center h-10">
+            <div className="flex items-center space-x-2">
+              <h1 className="text-sm font-medium text-gray-900">
+                Eval Protocol Logs
+              </h1>
+            </div>
+            <div className="flex items-center">
+              <div
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                  state.isConnected
+                    ? "bg-green-100 text-green-700"
+                    : "bg-red-100 text-red-700"
+                }`}
+              >
+                <div
+                  className={`w-1 h-1 rounded-full mr-1 ${
+                    state.isConnected ? "bg-green-500" : "bg-red-500"
+                  }`}
+                ></div>
+                {state.isConnected ? "Connected" : "Disconnected"}
+              </div>
+            </div>
           </div>
         </div>
       </nav>
 
-      <main>TODO</main>
+      <main className="max-w-7xl mx-auto px-3 py-4">
+        <Dashboard />
+      </main>
     </div>
   );
 });
