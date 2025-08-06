@@ -1,7 +1,7 @@
 import { observer } from "mobx-react";
 import { useState } from "react";
 import type { EvaluationRow } from "../types/eval-protocol";
-import { MessageBubble } from "./MessageBubble";
+import { ChatInterface } from "./ChatInterface";
 import { MetadataSection } from "./MetadataSection";
 
 export const Row = observer(
@@ -52,7 +52,6 @@ export const Row = observer(
 
           {/* Row ID */}
           <td className="px-3 py-3 text-xs">
-            <span className="font-semibold text-gray-600">ID:</span>{" "}
             <span className="font-mono text-gray-900">
               {row.input_metadata.row_id}
             </span>
@@ -60,7 +59,6 @@ export const Row = observer(
 
           {/* Model */}
           <td className="px-3 py-3 text-xs">
-            <span className="font-semibold text-gray-600">Model:</span>{" "}
             <span className="text-gray-900">
               {row.input_metadata.completion_params?.model || "N/A"}
             </span>
@@ -68,7 +66,6 @@ export const Row = observer(
 
           {/* Score */}
           <td className="px-3 py-3 text-xs">
-            <span className="font-semibold text-gray-600">Score:</span>{" "}
             <span
               className={`font-mono ${
                 row.evaluation_result?.score
@@ -86,7 +83,6 @@ export const Row = observer(
 
           {/* Messages */}
           <td className="px-3 py-3 text-xs">
-            <span className="font-semibold text-gray-600">Messages:</span>{" "}
             <span className="text-gray-900">{row.messages.length}</span>
           </td>
         </tr>
@@ -96,21 +92,12 @@ export const Row = observer(
           <tr>
             <td colSpan={5} className="p-0">
               <div className="p-4 bg-gray-50 border-t border-gray-200">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="flex gap-6">
                   {/* Left Column - Chat Interface */}
-                  <div className="lg:col-span-2">
-                    <h4 className="font-semibold text-sm text-gray-700 mb-2 pb-1">
-                      Conversation ({row.messages.length} messages)
-                    </h4>
-                    <div className="bg-white border border-gray-200 p-4 max-h-[32rem] overflow-y-auto">
-                      {row.messages.map((message, msgIndex) => (
-                        <MessageBubble key={msgIndex} message={message} />
-                      ))}
-                    </div>
-                  </div>
+                  <ChatInterface messages={row.messages} />
 
                   {/* Right Column - Metadata */}
-                  <div className="space-y-3">
+                  <div className="flex-1 space-y-3 min-w-0">
                     <h4 className="font-semibold text-sm text-gray-700 mb-2 pb-1">
                       Metadata
                     </h4>
