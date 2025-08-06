@@ -1,23 +1,11 @@
 import { useEffect, useRef } from "react";
-import { makeAutoObservable } from "mobx";
 import { observer } from "mobx-react";
 import Dashboard from "./components/Dashboard";
 import Button from "./components/Button";
 import StatusIndicator from "./components/StatusIndicator";
 import { EvaluationRowSchema, type EvaluationRow } from "./types/eval-protocol";
 import { WebSocketServerMessageSchema } from "./types/websocket";
-
-class GlobalState {
-  isConnected: boolean = false;
-  dataset: EvaluationRow[] = [];
-  constructor() {
-    makeAutoObservable(this);
-  }
-
-  setDataset(dataset: EvaluationRow[]) {
-    this.dataset = dataset;
-  }
-}
+import { GlobalState } from "./GlobalState";
 
 export const state = new GlobalState();
 
