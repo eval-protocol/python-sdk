@@ -19,10 +19,18 @@ export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const resizeHandleRef = useRef<HTMLDivElement>(null);
   const heightResizeHandleRef = useRef<HTMLDivElement>(null);
+  const isInitialMountRef = useRef(true);
 
   // Auto-scroll to bottom when new messages come in
   useEffect(() => {
-    if (scrollContainerRef.current) {
+    // Skip scrolling on initial mount
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+
+    // Scroll to bottom when messages change (after initial mount)
+    if (messages.length > 0 && scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({
         top: scrollContainerRef.current.scrollHeight,
         behavior: "smooth",
