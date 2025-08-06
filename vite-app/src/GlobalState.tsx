@@ -3,45 +3,47 @@ import type { EvaluationRow } from "./types/eval-protocol";
 
 export class GlobalState {
   isConnected: boolean = false;
-  dataset: EvaluationRow[] = [];
-  expandedRows: Set<string> = new Set();
+  dataset: Record<string, EvaluationRow> = {};
+  expandedRows: Record<string, boolean> = {};
 
   constructor() {
     makeAutoObservable(this);
   }
 
   setDataset(dataset: EvaluationRow[]) {
-    // Preserve expansion state for existing rows
-    const newExpandedRows = new Set<string>();
+    // Create new dataset object to avoid multiple re-renders
     dataset.forEach((row) => {
-      if (this.expandedRows.has(row.input_metadata.row_id)) {
-        newExpandedRows.add(row.input_metadata.row_id);
-      }
+      this.dataset[row.input_metadata.row_id] = row;
     });
-    this.expandedRows = newExpandedRows;
-    this.dataset = dataset;
   }
 
   toggleRowExpansion(rowId: string) {
-    if (this.expandedRows.has(rowId)) {
-      this.expandedRows.delete(rowId);
+    if (this.expandedRows[rowId]) {
+      this.expandedRows[rowId] = false;
     } else {
-      this.expandedRows.add(rowId);
+      this.expandedRows[rowId] = true;
     }
   }
 
   isRowExpanded(rowId: string): boolean {
-    return this.expandedRows.has(rowId);
+    return this.expandedRows[rowId];
   }
 
-  // Method to expand/collapse all rows
   setAllRowsExpanded(expanded: boolean) {
-    if (expanded) {
-      this.dataset.forEach((row) => {
-        this.expandedRows.add(row.input_metadata.row_id);
-      });
-    } else {
-      this.expandedRows.clear();
-    }
+    Object.keys(this.dataset).forEach((rowId) => {
+      this.expandedRows[rowId] = expanded;
+    });
+  }
+
+  // Computed values following MobX best practices
+  get sortedDataset() {
+    return Object.values(this.dataset).sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
+
+  get totalCount() {
+    return Object.keys(this.dataset).length;
   }
 }

@@ -1,7 +1,7 @@
 import { observer } from "mobx-react";
 import { state } from "../App";
 import Button from "./Button";
-import { Row } from "./Row";
+import { EvaluationTable } from "./EvaluationTable";
 
 interface DashboardProps {
   onRefresh: () => void;
@@ -49,8 +49,6 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
   const expandAll = () => state.setAllRowsExpanded(true);
   const collapseAll = () => state.setAllRowsExpanded(false);
 
-  const expandedCount = state.expandedRows.size;
-
   return (
     <div className="text-sm">
       {/* Summary Stats */}
@@ -59,7 +57,7 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
           <h2 className="text-sm font-semibold text-gray-900">
             Dataset Summary
           </h2>
-          {state.dataset.length > 0 && (
+          {state.totalCount > 0 && (
             <div className="flex gap-2">
               <Button onClick={expandAll} size="sm" variant="secondary">
                 Expand All
@@ -73,69 +71,16 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
         <div className="text-xs space-y-1">
           <div>
             <span className="font-semibold text-gray-700">Total Rows:</span>{" "}
-            {state.dataset.length}
+            {state.totalCount}
           </div>
-          {state.dataset.length > 0 && (
-            <div>
-              <span className="font-semibold text-gray-700">Expanded:</span>{" "}
-              {expandedCount} of {state.dataset.length}
-            </div>
-          )}
         </div>
       </div>
 
       {/* Show empty state or main table */}
-      {state.dataset.length === 0 ? (
+      {state.totalCount === 0 ? (
         <EmptyState onRefresh={onRefresh} />
       ) : (
-        <div className="bg-white border border-gray-200 overflow-x-auto">
-          <table className="w-full min-w-max">
-            {/* Table Header */}
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 w-8">
-                  {/* Expand/Collapse column */}
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                  Name
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                  Status
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                  Row ID
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                  Model
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                  Score
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                  Created
-                </th>
-              </tr>
-            </thead>
-
-            {/* Table Body */}
-            <tbody className="divide-y divide-gray-200">
-              {state.dataset
-                .slice()
-                .sort(
-                  (a, b) =>
-                    new Date(b.created_at).getTime() -
-                    new Date(a.created_at).getTime()
-                )
-                .map((row, index) => (
-                  <Row
-                    key={row.input_metadata.row_id}
-                    row={row}
-                    index={index}
-                  />
-                ))}
-            </tbody>
-          </table>
-        </div>
+        <EvaluationTable />
       )}
     </div>
   );
