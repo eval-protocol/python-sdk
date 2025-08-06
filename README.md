@@ -12,12 +12,11 @@ sophisticated agent evaluations that work across real-world scenarios, from
 markdown generation tasks to customer service agents with tool calling
 capabilities.
 
-<figure>
+<p align="center">
 	<img src="./assets/ui.png" alt="UI" />
-	<figcaption align="center" style="text-align:center;">
-		Log Viewer: Monitor your evaluation rollouts in real time.
-	</figcaption>
-</figure>
+	<br>
+	<sub><b>Log Viewer: Monitor your evaluation rollouts in real time.</b></sub>
+</p>
 
 ## Quick Example
 
