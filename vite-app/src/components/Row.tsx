@@ -11,13 +11,14 @@ export const Row = observer(
     const toggleExpanded = () => setIsExpanded(!isExpanded);
 
     return (
-      <div className="border-b border-gray-200">
-        {/* Collapsed Row - Shows Metadata */}
-        <div
-          className="flex items-center p-3 hover:bg-gray-50 cursor-pointer text-sm"
+      <>
+        {/* Main Table Row */}
+        <tr
+          className="hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-200"
           onClick={toggleExpanded}
         >
-          <div className="mr-2">
+          {/* Expand/Collapse Icon */}
+          <td className="px-3 py-3 w-8">
             {isExpanded ? (
               <svg
                 className="h-4 w-4 text-gray-500"
@@ -47,209 +48,221 @@ export const Row = observer(
                 />
               </svg>
             )}
-          </div>
-          <div className="flex-1 grid grid-cols-4 gap-4 text-xs">
-            <div className="font-mono">
-              <span className="font-semibold text-gray-600">ID:</span>{" "}
-              <span className="text-gray-900">{row.input_metadata.row_id}</span>
-            </div>
-            <div>
-              <span className="font-semibold text-gray-600">Model:</span>{" "}
-              <span className="text-gray-900">
-                {row.input_metadata.completion_params?.model || "N/A"}
-              </span>
-            </div>
-            <div>
-              <span className="font-semibold text-gray-600">Score:</span>{" "}
-              <span
-                className={`font-mono ${
-                  row.evaluation_result?.score
-                    ? row.evaluation_result.score >= 0.8
-                      ? "text-green-700"
-                      : row.evaluation_result.score >= 0.6
-                      ? "text-yellow-700"
-                      : "text-red-700"
-                    : "text-gray-500"
-                }`}
-              >
-                {row.evaluation_result?.score?.toFixed(3) || "N/A"}
-              </span>
-            </div>
-            <div>
-              <span className="font-semibold text-gray-600">Messages:</span>{" "}
-              <span className="text-gray-900">{row.messages.length}</span>
-            </div>
-          </div>
-        </div>
+          </td>
 
-        {/* Expanded Content */}
+          {/* Row ID */}
+          <td className="px-3 py-3 text-xs">
+            <span className="font-semibold text-gray-600">ID:</span>{" "}
+            <span className="font-mono text-gray-900">
+              {row.input_metadata.row_id}
+            </span>
+          </td>
+
+          {/* Model */}
+          <td className="px-3 py-3 text-xs">
+            <span className="font-semibold text-gray-600">Model:</span>{" "}
+            <span className="text-gray-900">
+              {row.input_metadata.completion_params?.model || "N/A"}
+            </span>
+          </td>
+
+          {/* Score */}
+          <td className="px-3 py-3 text-xs">
+            <span className="font-semibold text-gray-600">Score:</span>{" "}
+            <span
+              className={`font-mono ${
+                row.evaluation_result?.score
+                  ? row.evaluation_result.score >= 0.8
+                    ? "text-green-700"
+                    : row.evaluation_result.score >= 0.6
+                    ? "text-yellow-700"
+                    : "text-red-700"
+                  : "text-gray-500"
+              }`}
+            >
+              {row.evaluation_result?.score?.toFixed(3) || "N/A"}
+            </span>
+          </td>
+
+          {/* Messages */}
+          <td className="px-3 py-3 text-xs">
+            <span className="font-semibold text-gray-600">Messages:</span>{" "}
+            <span className="text-gray-900">{row.messages.length}</span>
+          </td>
+        </tr>
+
+        {/* Expanded Content Row */}
         {isExpanded && (
-          <div className="p-4 bg-gray-50 border-t border-gray-200">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - Chat Interface */}
-              <div className="lg:col-span-2">
-                <h4 className="font-semibold text-sm text-gray-700 mb-2 pb-1">
-                  Conversation ({row.messages.length} messages)
-                </h4>
-                <div className="bg-white border border-gray-200 p-4 max-h-[32rem] overflow-y-auto">
-                  {row.messages.map((message, msgIndex) => (
-                    <MessageBubble key={msgIndex} message={message} />
-                  ))}
+          <tr>
+            <td colSpan={5} className="p-0">
+              <div className="p-4 bg-gray-50 border-t border-gray-200">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Column - Chat Interface */}
+                  <div className="lg:col-span-2">
+                    <h4 className="font-semibold text-sm text-gray-700 mb-2 pb-1">
+                      Conversation ({row.messages.length} messages)
+                    </h4>
+                    <div className="bg-white border border-gray-200 p-4 max-h-[32rem] overflow-y-auto">
+                      {row.messages.map((message, msgIndex) => (
+                        <MessageBubble key={msgIndex} message={message} />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Right Column - Metadata */}
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm text-gray-700 mb-2 pb-1">
+                      Metadata
+                    </h4>
+
+                    {/* Evaluation Result - Most Important */}
+                    {row.evaluation_result && (
+                      <div className="mb-4">
+                        <h5 className="font-semibold text-sm text-gray-700 mb-2">
+                          Evaluation Result
+                        </h5>
+                        <div className="bg-gray-50 border border-gray-200 p-3 text-xs">
+                          <div className="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                              <span className="font-semibold text-gray-600">
+                                Score:
+                              </span>{" "}
+                              <span
+                                className={`font-mono text-sm ${
+                                  row.evaluation_result.score >= 0.8
+                                    ? "text-green-700"
+                                    : row.evaluation_result.score >= 0.6
+                                    ? "text-yellow-700"
+                                    : "text-red-700"
+                                }`}
+                              >
+                                {row.evaluation_result.score}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-600">
+                                Valid:
+                              </span>{" "}
+                              <span
+                                className={
+                                  row.evaluation_result.is_score_valid
+                                    ? "text-green-700"
+                                    : "text-red-700"
+                                }
+                              >
+                                {row.evaluation_result.is_score_valid
+                                  ? "Yes"
+                                  : "No"}
+                              </span>
+                            </div>
+                          </div>
+                          {row.evaluation_result.reason && (
+                            <div className="mb-3 p-3 bg-white border border-gray-200">
+                              <span className="font-semibold text-gray-600">
+                                Reason:
+                              </span>{" "}
+                              <span className="text-gray-900">
+                                {row.evaluation_result.reason}
+                              </span>
+                            </div>
+                          )}
+                          {row.evaluation_result.metrics &&
+                            Object.keys(row.evaluation_result.metrics).length >
+                              0 && (
+                              <div>
+                                <span className="font-semibold text-gray-600">
+                                  Metrics:
+                                </span>
+                                <pre className="mt-2 p-3 bg-white border border-gray-200 whitespace-pre-wrap overflow-x-auto text-xs">
+                                  {JSON.stringify(
+                                    row.evaluation_result.metrics,
+                                    null,
+                                    1
+                                  )}
+                                </pre>
+                              </div>
+                            )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ground Truth - Secondary Importance */}
+                    {row.ground_truth && (
+                      <div className="mb-3">
+                        <h5 className="font-semibold text-xs text-gray-700 mb-1">
+                          Ground Truth
+                        </h5>
+                        <div className="bg-gray-50 border border-gray-200 p-2 text-xs">
+                          <div className="whitespace-pre-wrap text-gray-900">
+                            {row.ground_truth}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Usage Stats - Compact */}
+                    {row.usage && (
+                      <div className="mb-2">
+                        <h5 className="font-semibold text-xs text-gray-700 mb-1">
+                          Token Usage
+                        </h5>
+                        <div className="bg-gray-50 border border-gray-200 p-2 text-xs">
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <span className="font-semibold text-gray-600">
+                                Prompt:
+                              </span>{" "}
+                              <span className="font-mono text-gray-900">
+                                {row.usage.prompt_tokens}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-600">
+                                Completion:
+                              </span>{" "}
+                              <span className="font-mono text-gray-900">
+                                {row.usage.completion_tokens}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-600">
+                                Total:
+                              </span>{" "}
+                              <span className="font-mono text-gray-900">
+                                {row.usage.total_tokens}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Input Metadata - Less Important */}
+                    <MetadataSection
+                      title="Input Metadata"
+                      data={row.input_metadata}
+                    />
+
+                    {/* Tools - Least Important */}
+                    {row.tools && row.tools.length > 0 && (
+                      <div className="mb-2">
+                        <h5 className="font-semibold text-xs text-gray-700 mb-1">
+                          Available Tools
+                        </h5>
+                        <div className="bg-gray-50 border border-gray-200 p-2 text-xs">
+                          <pre className="whitespace-pre-wrap overflow-x-auto text-gray-900">
+                            {JSON.stringify(row.tools, null, 1)}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              {/* Right Column - Metadata */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-sm text-gray-700 mb-2 pb-1">
-                  Metadata
-                </h4>
-
-                {/* Evaluation Result - Most Important */}
-                {row.evaluation_result && (
-                  <div className="mb-4">
-                    <h5 className="font-semibold text-sm text-gray-700 mb-2">
-                      Evaluation Result
-                    </h5>
-                    <div className="bg-gray-50 border border-gray-200 p-3 text-xs">
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div>
-                          <span className="font-semibold text-gray-600">
-                            Score:
-                          </span>{" "}
-                          <span
-                            className={`font-mono text-sm ${
-                              row.evaluation_result.score >= 0.8
-                                ? "text-green-700"
-                                : row.evaluation_result.score >= 0.6
-                                ? "text-yellow-700"
-                                : "text-red-700"
-                            }`}
-                          >
-                            {row.evaluation_result.score}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-semibold text-gray-600">
-                            Valid:
-                          </span>{" "}
-                          <span
-                            className={
-                              row.evaluation_result.is_score_valid
-                                ? "text-green-700"
-                                : "text-red-700"
-                            }
-                          >
-                            {row.evaluation_result.is_score_valid
-                              ? "Yes"
-                              : "No"}
-                          </span>
-                        </div>
-                      </div>
-                      {row.evaluation_result.reason && (
-                        <div className="mb-3 p-3 bg-white border border-gray-200">
-                          <span className="font-semibold text-gray-600">
-                            Reason:
-                          </span>{" "}
-                          <span className="text-gray-900">
-                            {row.evaluation_result.reason}
-                          </span>
-                        </div>
-                      )}
-                      {row.evaluation_result.metrics &&
-                        Object.keys(row.evaluation_result.metrics).length >
-                          0 && (
-                          <div>
-                            <span className="font-semibold text-gray-600">
-                              Metrics:
-                            </span>
-                            <pre className="mt-2 p-3 bg-white border border-gray-200 whitespace-pre-wrap overflow-x-auto text-xs">
-                              {JSON.stringify(
-                                row.evaluation_result.metrics,
-                                null,
-                                1
-                              )}
-                            </pre>
-                          </div>
-                        )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Ground Truth - Secondary Importance */}
-                {row.ground_truth && (
-                  <div className="mb-3">
-                    <h5 className="font-semibold text-xs text-gray-700 mb-1">
-                      Ground Truth
-                    </h5>
-                    <div className="bg-gray-50 border border-gray-200 p-2 text-xs">
-                      <div className="whitespace-pre-wrap text-gray-900">
-                        {row.ground_truth}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Usage Stats - Compact */}
-                {row.usage && (
-                  <div className="mb-2">
-                    <h5 className="font-semibold text-xs text-gray-700 mb-1">
-                      Token Usage
-                    </h5>
-                    <div className="bg-gray-50 border border-gray-200 p-2 text-xs">
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <span className="font-semibold text-gray-600">
-                            Prompt:
-                          </span>{" "}
-                          <span className="font-mono text-gray-900">
-                            {row.usage.prompt_tokens}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-semibold text-gray-600">
-                            Completion:
-                          </span>{" "}
-                          <span className="font-mono text-gray-900">
-                            {row.usage.completion_tokens}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-semibold text-gray-600">
-                            Total:
-                          </span>{" "}
-                          <span className="font-mono text-gray-900">
-                            {row.usage.total_tokens}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Input Metadata - Less Important */}
-                <MetadataSection
-                  title="Input Metadata"
-                  data={row.input_metadata}
-                />
-
-                {/* Tools - Least Important */}
-                {row.tools && row.tools.length > 0 && (
-                  <div className="mb-2">
-                    <h5 className="font-semibold text-xs text-gray-700 mb-1">
-                      Available Tools
-                    </h5>
-                    <div className="bg-gray-50 border border-gray-200 p-2 text-xs">
-                      <pre className="whitespace-pre-wrap overflow-x-auto text-gray-900">
-                        {JSON.stringify(row.tools, null, 1)}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+            </td>
+          </tr>
         )}
-      </div>
+      </>
     );
   }
 );

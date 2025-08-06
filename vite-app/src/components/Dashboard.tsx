@@ -53,27 +53,36 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
         <h2 className="text-sm font-semibold text-gray-900 mb-2">
           Dataset Summary
         </h2>
-        <div className="grid grid-cols-4 gap-4 text-xs">
-          <div>
-            <span className="font-semibold text-gray-700">Total Rows:</span>{" "}
-            {state.dataset.length}
-          </div>
-          <div>
-            <span className="font-semibold text-gray-700">Avg Score:</span>{" "}
-            {state.dataset.length > 0
-              ? (
-                  state.dataset.reduce(
-                    (sum, row) => sum + (row.evaluation_result?.score || 0),
-                    0
-                  ) / state.dataset.length
-                ).toFixed(3)
-              : "N/A"}
-          </div>
-          <div>
-            <span className="font-semibold text-gray-700">Total Messages:</span>{" "}
-            {state.dataset.reduce((sum, row) => sum + row.messages.length, 0)}
-          </div>
-        </div>
+        <table className="w-full text-xs">
+          <tbody>
+            <tr>
+              <td className="pr-4">
+                <span className="font-semibold text-gray-700">Total Rows:</span>{" "}
+                {state.dataset.length}
+              </td>
+              <td className="pr-4">
+                <span className="font-semibold text-gray-700">Avg Score:</span>{" "}
+                {state.dataset.length > 0
+                  ? (
+                      state.dataset.reduce(
+                        (sum, row) => sum + (row.evaluation_result?.score || 0),
+                        0
+                      ) / state.dataset.length
+                    ).toFixed(3)
+                  : "N/A"}
+              </td>
+              <td>
+                <span className="font-semibold text-gray-700">
+                  Total Messages:
+                </span>{" "}
+                {state.dataset.reduce(
+                  (sum, row) => sum + row.messages.length,
+                  0
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       {/* Show empty state or main table */}
@@ -81,22 +90,35 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
         <EmptyState onRefresh={onRefresh} />
       ) : (
         <div className="bg-white border border-gray-200">
-          {/* Table Header */}
-          <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
-            <div className="grid grid-cols-4 gap-4 text-xs font-semibold text-gray-700">
-              <div>Row ID</div>
-              <div>Model</div>
-              <div>Score</div>
-              <div>Messages</div>
-            </div>
-          </div>
+          <table className="w-full">
+            {/* Table Header */}
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 w-8">
+                  {/* Expand/Collapse column */}
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
+                  Row ID
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
+                  Model
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
+                  Score
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
+                  Messages
+                </th>
+              </tr>
+            </thead>
 
-          {/* Table Rows */}
-          <div className="divide-y divide-gray-200">
-            {state.dataset.map((row, index) => (
-              <Row key={index} row={row} index={index} />
-            ))}
-          </div>
+            {/* Table Body */}
+            <tbody className="divide-y divide-gray-200">
+              {state.dataset.map((row, index) => (
+                <Row key={index} row={row} index={index} />
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
