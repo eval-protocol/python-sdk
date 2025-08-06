@@ -1,0 +1,3 @@
+from eval_protocol.dataset_logger.local_fs_dataset_logger_adapter import LocalFSDatasetLoggerAdapter
+
+default_logger = LocalFSDatasetLoggerAdapter()

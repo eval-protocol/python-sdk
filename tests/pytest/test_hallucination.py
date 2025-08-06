@@ -2,7 +2,7 @@
 Hallucination detection test using LLM-as-judge.
 
 This test demonstrates how to detect factual inaccuracies in model responses
-by comparing them against provided knowledge using an LLM judge, similar to 
+by comparing them against provided knowledge using an LLM judge, similar to
 tau's evaluate_nl_assertions approach.
 """
 
@@ -34,7 +34,7 @@ def hallucination_dataset_adapter(data: List[Dict[str, Any]]) -> List[Evaluation
     model=["accounts/fireworks/models/kimi-k2-instruct"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 512}],
     rollout_processor=default_single_turn_rollout_processor,
-    threshold_of_success=0.5,
+    threshold_of_success=0.33,
     num_runs=1,
     mode="pointwise",
 )

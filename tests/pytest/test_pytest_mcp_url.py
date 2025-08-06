@@ -31,12 +31,12 @@ def test_pytest_mcp_url(row: EvaluationRow) -> EvaluationRow:
     if len(tool_calls) == 0:
         row.evaluation_result = EvaluateResult(
             score=0,
-            feedback="No tool calls made",
+            reason="No tool calls made",
         )
         return row
 
     row.evaluation_result = EvaluateResult(
         score=1,
-        feedback="At least one tool call was made",
+        reason="At least one tool call was made",
     )
     return row

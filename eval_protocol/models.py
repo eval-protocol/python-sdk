@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from openai.types import CompletionUsage
@@ -6,6 +7,8 @@ from openai.types.chat.chat_completion_message import (
     FunctionCall,
 )
 from pydantic import BaseModel, ConfigDict, Field
+
+from eval_protocol.human_id import generate_id
 
 
 class ChatCompletionContentPartTextParam(BaseModel):
@@ -187,7 +190,7 @@ class InputMetadata(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    row_id: Optional[str] = Field(None, description="Unique string to ID the row")
+    row_id: Optional[str] = Field(default_factory=generate_id, description="Unique string to ID the row")
     completion_params: Optional[CompletionParams] = Field(None, description="Completion endpoint parameters used")
     dataset_info: Optional[Dict[str, Any]] = Field(
         None, description="Dataset row details: seed, system_prompt, environment_context, etc"
@@ -195,6 +198,21 @@ class InputMetadata(BaseModel):
     session_data: Optional[Dict[str, Any]] = Field(
         None, description="Session metadata like timestamp (input only, no duration/usage)"
     )
+
+
+class EvalMetadata(BaseModel):
+    """Metadata about the evaluation that was run."""
+
+    name: str = Field(..., description="Name of the evaluation")
+    description: Optional[str] = Field(None, description="Description of the evaluation")
+    version: str = Field(
+        ..., description="Version of the evaluation. By default, we will populate this with the current commit hash."
+    )
+    status: Literal["running", "finished", "error"] = Field("running", description="Status of the evaluation")
+    num_runs: int = Field(..., description="Number of times the evaluation was repeated")
+    aggregation_method: str = Field(..., description="Method used to aggregate scores across runs")
+    threshold_of_success: Optional[float] = Field(None, description="Threshold score for test success")
+    passed: Optional[bool] = Field(None, description="Whether the evaluation passed based on the threshold")
 
 
 class EvaluationRow(BaseModel):
@@ -216,8 +234,9 @@ class EvaluationRow(BaseModel):
     )
 
     # Input-related metadata (grouped together for cleaner organization)
-    input_metadata: Optional[InputMetadata] = Field(
-        default=None, description="Metadata related to the input (dataset info, model config, session data, etc.)."
+    input_metadata: InputMetadata = Field(
+        default_factory=InputMetadata,
+        description="Metadata related to the input (dataset info, model config, session data, etc.).",
     )
 
     # Ground truth reference (moved from EvaluateResult to top level)
@@ -233,6 +252,12 @@ class EvaluationRow(BaseModel):
     # LLM usage statistics
     usage: Optional[CompletionUsage] = Field(
         default=None, description="Token usage statistics from LLM calls during execution."
+    )
+
+    created_at: datetime = Field(default_factory=datetime.now, description="The timestamp when the row was created.")
+
+    eval_metadata: Optional[EvalMetadata] = Field(
+        default=None, description="Metadata about the evaluation that was run."
     )
 
     def is_trajectory_evaluation(self) -> bool:
