@@ -25,12 +25,7 @@ def logs_command(args):
     print("-" * 50)
 
     try:
-        serve_logs(
-            host=args.host,
-            port=args.port,
-            watch_paths=watch_paths,
-            reload=args.reload,
-        )
+        serve_logs()
         return 0
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
