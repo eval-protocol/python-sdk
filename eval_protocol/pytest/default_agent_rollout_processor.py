@@ -20,9 +20,9 @@ class Agent:
     A really simple agent that calls the model until no more tool calls are needed.
     """
 
-    def __init__(self, model: str, initial_messages: list[Message], config_path: str):
+    def __init__(self, model: str, row: EvaluationRow, config_path: str):
         self.model = model
-        self.evaluation_row: EvaluationRow = EvaluationRow(messages=initial_messages)
+        self.evaluation_row: EvaluationRow = row
         self._policy = LiteLLMPolicy(model_id=model)
         self.mcp_client = MCPMultiClient(config_path=config_path) if config_path else None
         self.tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN
@@ -82,13 +82,15 @@ class Agent:
             return await self.call_agent()
         return message["content"]
 
-    async def _call_model(
-        self, messages: list[Message], tools: Optional[list[ChatCompletionToolParam]]
-    ) -> ChatCompletionMessage:
+    async def _call_model(self, messages: list[Message], tools: Optional[list[ChatCompletionToolParam]]) -> Message:
         messages = [message.model_dump() if hasattr(message, "model_dump") else message for message in messages]
         tools = [{"function": tool["function"].model_dump(), "type": "function"} for tool in tools] if tools else []
         response = await self._policy._make_llm_call(messages=messages, tools=tools)
-        return response["choices"][0]["message"]
+        return Message(
+            role=response["choices"][0]["message"]["role"],
+            content=response["choices"][0]["message"]["content"],
+            tool_calls=response["choices"][0]["message"]["tool_calls"],
+        )
 
     async def _execute_tool_call(
         self, tool_call_id: str, tool_name: str, tool_args_dict: dict
@@ -114,12 +116,10 @@ async def default_agent_rollout_processor(
 ) -> List[EvaluationRow]:
     dataset: Dataset = []
     for row in rows:
-        agent = Agent(model=config.model, initial_messages=row.messages, config_path=config.mcp_config_path)
+        agent = Agent(model=config.model, row=row, config_path=config.mcp_config_path)
         await agent.setup()
         await agent.call_agent()
-        dataset.append(
-            EvaluationRow(ground_truth=row.ground_truth, **agent.evaluation_row.model_dump(exclude_none=True))
-        )
+        dataset.append(agent.evaluation_row)
         if agent.mcp_client:
             await agent.mcp_client.cleanup()
     return dataset

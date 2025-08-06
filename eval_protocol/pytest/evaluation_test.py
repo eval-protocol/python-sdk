@@ -206,8 +206,40 @@ def evaluation_test(
                 else:
                     raise ValueError("No input dataset or input messages provided")
 
-                input_dataset: List[EvaluationRow] = []
                 input_params = kwargs.get("input_params") or {}
+
+                # Create eval metadata with test function info and current commit hash
+                eval_metadata = EvalMetadata(
+                    name=test_func.__name__,
+                    description=test_func.__doc__,
+                    version=versioneer.get_version(),
+                    status="running",
+                    num_runs=num_runs,
+                    aggregation_method=aggregation_method,
+                    threshold_of_success=threshold_of_success,
+                    passed=None,
+                )
+
+                # Populate completion_params in input_metadata for all rows and initialize eval_metadata BEFORE rollouts
+                completion_params = CompletionParams(
+                    model=model_name,
+                    temperature=input_params.get("temperature"),
+                    max_tokens=input_params.get("max_tokens"),
+                    max_tool_calls=input_params.get("max_tool_calls"),
+                )
+
+                for row in data:
+                    if row.input_metadata is None:
+                        row.input_metadata = InputMetadata()
+                    row.input_metadata.completion_params = completion_params
+                    # Add mode to session_data
+                    if row.input_metadata.session_data is None:
+                        row.input_metadata.session_data = {}
+                    row.input_metadata.session_data["mode"] = mode
+                    # Initialize eval_metadata for each row
+                    row.eval_metadata = eval_metadata
+
+                # Now run the rollout processor with metadata-initialized data
                 config = RolloutProcessorConfig(
                     model=model_name,
                     input_params=input_params,
@@ -217,23 +249,6 @@ def evaluation_test(
                     steps=steps,
                 )
                 input_dataset = execute_function(rollout_processor, rows=data, config=config)
-
-                # Populate completion_params in input_metadata for all rows
-                completion_params = CompletionParams(
-                    model=model_name,
-                    temperature=input_params.get("temperature"),
-                    max_tokens=input_params.get("max_tokens"),
-                    max_tool_calls=input_params.get("max_tool_calls"),
-                )
-
-                for row in input_dataset:
-                    if row.input_metadata is None:
-                        row.input_metadata = InputMetadata()
-                    row.input_metadata.completion_params = completion_params
-                    # Add mode to session_data
-                    if row.input_metadata.session_data is None:
-                        row.input_metadata.session_data = {}
-                    row.input_metadata.session_data["mode"] = mode
 
                 all_results: List[EvaluationRow] = []
                 for _ in range(num_runs):
@@ -283,21 +298,11 @@ def evaluation_test(
                 if threshold_of_success is not None:
                     passed = agg_score >= threshold_of_success
 
-                # Create eval metadata with test function info and current commit hash
-                eval_metadata = EvalMetadata(
-                    name=test_func.__name__,
-                    description=test_func.__doc__,
-                    version=versioneer.get_version(),
-                    status="finished",
-                    num_runs=num_runs,
-                    aggregation_method=aggregation_method,
-                    threshold_of_success=threshold_of_success,
-                    passed=passed,
-                )
-
-                # Add metadata to all results before logging
+                # Update eval metadata status and passed field for all results
                 for r in all_results:
-                    r.eval_metadata = eval_metadata
+                    if r.eval_metadata is not None:
+                        r.eval_metadata.status = "finished"
+                        r.eval_metadata.passed = passed
                     default_logger.log(r)
 
                 # Check threshold after logging
