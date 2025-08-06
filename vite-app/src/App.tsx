@@ -123,7 +123,9 @@ const App = observer(() => {
               <img src={logoLight} alt="Eval Protocol" className="h-6 w-auto" />
             </div>
             <div className="flex items-center gap-2">
-              <StatusIndicator isConnected={state.isConnected} />
+              <StatusIndicator
+                status={state.isConnected ? "connected" : "disconnected"}
+              />
               <Button onClick={handleManualRefresh} className="ml-2">
                 Refresh
               </Button>

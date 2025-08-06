@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { EvaluationRow } from "../types/eval-protocol";
 import { ChatInterface } from "./ChatInterface";
 import { MetadataSection } from "./MetadataSection";
+import StatusIndicator from "./StatusIndicator";
 
 export const Row = observer(
   ({ row }: { row: EvaluationRow; index: number }) => {
@@ -59,19 +60,7 @@ export const Row = observer(
 
           {/* Status */}
           <td className="px-3 py-3 text-xs">
-            <span
-              className={`px-2 py-1 rounded text-xs font-medium ${
-                row.eval_metadata?.status === "finished"
-                  ? "bg-green-100 text-green-800"
-                  : row.eval_metadata?.status === "running"
-                  ? "bg-blue-100 text-blue-800"
-                  : row.eval_metadata?.status === "error"
-                  ? "bg-red-100 text-red-800"
-                  : "bg-gray-100 text-gray-800"
-              }`}
-            >
-              {row.eval_metadata?.status || "N/A"}
-            </span>
+            <StatusIndicator status={row.eval_metadata?.status || "N/A"} />
           </td>
 
           {/* Row ID */}
