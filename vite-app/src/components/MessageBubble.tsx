@@ -8,9 +8,9 @@ export const MessageBubble = ({ message }: { message: Message }) => {
   const hasFunctionCall = message.function_call;
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-2`}>
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-1`}>
       <div
-        className={`max-w-sm lg:max-w-md xl:max-w-lg px-3 py-2 border text-sm ${
+        className={`max-w-sm lg:max-w-md xl:max-w-lg px-2 py-1 border text-xs ${
           isUser
             ? "bg-blue-50 border-blue-200 text-blue-900"
             : isSystem
@@ -20,10 +20,10 @@ export const MessageBubble = ({ message }: { message: Message }) => {
             : "bg-yellow-50 border-yellow-200 text-yellow-900"
         }`}
       >
-        <div className="font-semibold text-xs mb-1 capitalize">
+        <div className="font-semibold text-xs mb-0.5 capitalize">
           {message.role}
         </div>
-        <div className="whitespace-pre-wrap break-words overflow-hidden">
+        <div className="whitespace-pre-wrap break-words overflow-hidden text-xs">
           {typeof message.content === "string"
             ? message.content
             : Array.isArray(message.content)
@@ -36,12 +36,12 @@ export const MessageBubble = ({ message }: { message: Message }) => {
         </div>
         {hasToolCalls && message.tool_calls && (
           <div
-            className={`mt-3 pt-2 border-t ${
+            className={`mt-2 pt-1 border-t ${
               isTool ? "border-green-200" : "border-yellow-200"
             }`}
           >
             <div
-              className={`font-semibold text-xs mb-1 ${
+              className={`font-semibold text-xs mb-0.5 ${
                 isTool ? "text-green-700" : "text-yellow-700"
               }`}
             >
@@ -50,14 +50,14 @@ export const MessageBubble = ({ message }: { message: Message }) => {
             {message.tool_calls.map((call, i) => (
               <div
                 key={i}
-                className={`mb-2 p-2 border rounded text-xs ${
+                className={`mb-1 p-1 border rounded text-xs ${
                   isTool
                     ? "bg-green-100 border-green-200"
                     : "bg-yellow-100 border-yellow-200"
                 }`}
               >
                 <div
-                  className={`font-semibold mb-1 ${
+                  className={`font-semibold mb-0.5 text-xs ${
                     isTool ? "text-green-800" : "text-yellow-800"
                   }`}
                 >
@@ -76,26 +76,26 @@ export const MessageBubble = ({ message }: { message: Message }) => {
         )}
         {hasFunctionCall && message.function_call && (
           <div
-            className={`mt-3 pt-2 border-t ${
+            className={`mt-2 pt-1 border-t ${
               isTool ? "border-green-200" : "border-yellow-200"
             }`}
           >
             <div
-              className={`font-semibold text-xs mb-1 ${
+              className={`font-semibold text-xs mb-0.5 ${
                 isTool ? "text-green-700" : "text-yellow-700"
               }`}
             >
               Function Call:
             </div>
             <div
-              className={`p-2 border rounded text-xs ${
+              className={`p-1 border rounded text-xs ${
                 isTool
                   ? "bg-green-100 border-green-200"
                   : "bg-yellow-100 border-yellow-200"
               }`}
             >
               <div
-                className={`font-semibold mb-1 ${
+                className={`font-semibold mb-0.5 text-xs ${
                   isTool ? "text-green-800" : "text-yellow-800"
                 }`}
               >
