@@ -1,15 +1,16 @@
 import { observer } from "mobx-react";
-import { useState } from "react";
 import type { EvaluationRow } from "../types/eval-protocol";
 import { ChatInterface } from "./ChatInterface";
 import { MetadataSection } from "./MetadataSection";
 import StatusIndicator from "./StatusIndicator";
+import { state } from "../App";
 
 export const Row = observer(
   ({ row }: { row: EvaluationRow; index: number }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+    const rowId = row.input_metadata.row_id;
+    const isExpanded = state.isRowExpanded(rowId);
 
-    const toggleExpanded = () => setIsExpanded(!isExpanded);
+    const toggleExpanded = () => state.toggleRowExpansion(rowId);
 
     return (
       <>

@@ -46,16 +46,41 @@ const EmptyState = ({ onRefresh }: { onRefresh: () => void }) => {
 };
 
 const Dashboard = observer(({ onRefresh }: DashboardProps) => {
+  const expandAll = () => state.setAllRowsExpanded(true);
+  const collapseAll = () => state.setAllRowsExpanded(false);
+
+  const expandedCount = state.expandedRows.size;
+
   return (
     <div className="text-sm">
       {/* Summary Stats */}
       <div className="mb-4 bg-white border border-gray-200 p-3">
-        <h2 className="text-sm font-semibold text-gray-900 mb-2">
-          Dataset Summary
-        </h2>
-        <div className="text-xs">
-          <span className="font-semibold text-gray-700">Total Rows:</span>{" "}
-          {state.dataset.length}
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-sm font-semibold text-gray-900">
+            Dataset Summary
+          </h2>
+          {state.dataset.length > 0 && (
+            <div className="flex gap-2">
+              <Button onClick={expandAll} size="sm" variant="secondary">
+                Expand All
+              </Button>
+              <Button onClick={collapseAll} size="sm" variant="secondary">
+                Collapse All
+              </Button>
+            </div>
+          )}
+        </div>
+        <div className="text-xs space-y-1">
+          <div>
+            <span className="font-semibold text-gray-700">Total Rows:</span>{" "}
+            {state.dataset.length}
+          </div>
+          {state.dataset.length > 0 && (
+            <div>
+              <span className="font-semibold text-gray-700">Expanded:</span>{" "}
+              {expandedCount} of {state.dataset.length}
+            </div>
+          )}
         </div>
       </div>
 
@@ -102,7 +127,11 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
                     new Date(a.created_at).getTime()
                 )
                 .map((row, index) => (
-                  <Row key={index} row={row} index={index} />
+                  <Row
+                    key={row.input_metadata.row_id}
+                    row={row}
+                    index={index}
+                  />
                 ))}
             </tbody>
           </table>
