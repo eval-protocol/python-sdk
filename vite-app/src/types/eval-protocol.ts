@@ -81,7 +81,8 @@ export const EvalMetadataSchema = z.object({
   status: z.enum(['running', 'finished', 'error']).default('running').describe('Status of the evaluation'),
   num_runs: z.number().int().describe('Number of times the evaluation was repeated'),
   aggregation_method: z.string().describe('Method used to aggregate scores across runs'),
-  threshold_of_success: z.number().optional().describe('Threshold score for test success')
+  threshold_of_success: z.number().optional().describe('Threshold score for test success'),
+  passed: z.boolean().optional().describe('Whether the evaluation passed based on the threshold')
 });
 
 export const EvaluationRowSchema = z.object({

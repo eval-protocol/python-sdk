@@ -275,6 +275,14 @@ def evaluation_test(
                             )
                         all_results.extend(results)
 
+                scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
+                agg_score = aggregate(scores, aggregation_method)
+
+                # Determine if the evaluation passed based on threshold
+                passed = None
+                if threshold_of_success is not None:
+                    passed = agg_score >= threshold_of_success
+
                 # Create eval metadata with test function info and current commit hash
                 eval_metadata = EvalMetadata(
                     name=test_func.__name__,
@@ -284,6 +292,7 @@ def evaluation_test(
                     num_runs=num_runs,
                     aggregation_method=aggregation_method,
                     threshold_of_success=threshold_of_success,
+                    passed=passed,
                 )
 
                 # Add metadata to all results before logging
@@ -291,9 +300,8 @@ def evaluation_test(
                     r.eval_metadata = eval_metadata
                     default_logger.log(r)
 
-                scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
-                agg_score = aggregate(scores, aggregation_method)
-                if threshold_of_success is not None:
+                # Check threshold after logging
+                if threshold_of_success is not None and not passed:
                     assert (
                         agg_score >= threshold_of_success
                     ), f"Aggregated score {agg_score:.3f} below threshold {threshold_of_success}"
