@@ -43,6 +43,44 @@ class MCPServerManager:
         if self.process:
             return
 
+        # Find an available port if the current one is in use
+        import socket
+        import subprocess as sp
+        
+        def find_free_port(start_port: int, max_attempts: int = 100) -> int:
+            """Find the next available port starting from start_port."""
+            for port_candidate in range(start_port, start_port + max_attempts):
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.bind(('localhost', port_candidate))
+                        return port_candidate
+                except OSError:
+                    continue
+            raise RuntimeError(f"❌ Could not find an available port in range {start_port}-{start_port + max_attempts}")
+        
+        original_port = self.port
+        self.port = find_free_port(self.port)
+        
+        if self.port != original_port:
+            # Get info about what was using the original port
+            try:
+                result = sp.run(['lsof', '-i', f':{original_port}'], 
+                               capture_output=True, text=True)
+                if result.stdout:
+                    lines = result.stdout.strip().split('\n')
+                    if len(lines) > 1:  # Skip header
+                        process_info = lines[1].split()
+                        process_name = process_info[0] if len(process_info) > 0 else "unknown"
+                        pid = process_info[1] if len(process_info) > 1 else "unknown"
+                        print(f"⚠️  Port {original_port} was in use by {process_name} (PID: {pid}), switched to port {self.port}")
+                    else:
+                        print(f"⚠️  Port {original_port} was in use, switched to port {self.port}")
+                else:
+                    print(f"⚠️  Port {original_port} was in use, switched to port {self.port}")
+            except FileNotFoundError:
+                # lsof not available
+                print(f"⚠️  Port {original_port} was in use, switched to port {self.port}")
+
         # Set environment for server
         env = os.environ.copy()
         env["PORT"] = str(self.port)
