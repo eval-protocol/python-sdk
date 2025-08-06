@@ -6,3 +6,8 @@
 
 # For now, allow direct import of modules like:
 # from eval_protocol.utils.dataset_helpers import ...
+
+# Export ViteServer for easier access
+from .logs_server import LogsServer
+
+__all__ = ["LogsServer"]

@@ -20,7 +20,6 @@ dependencies = [
     "requests>=2.25.0",
     "pydantic>=2.0.0",
     "dataclasses-json>=0.5.7",
-    "fastapi>=0.68.0",
     "uvicorn>=0.15.0",
     "python-dotenv>=0.19.0",
     "openai==1.78.1",
@@ -47,7 +46,10 @@ dependencies = [
     "addict>=2.4.0",
     "deepdiff>=6.0.0",
     "pandas>=1.5.0",
+    "watchdog>=2.1.0",
+    "websockets>=15.0.1",
     "fireworks-ai>=0.19.12",
+    "fastapi>=0.116.1",
 ]
 
 [project.urls]
@@ -141,6 +143,7 @@ tau2 = { git = "https://github.com/sierra-research/tau2-bench.git" }
 
 [dependency-groups]
 dev = [
+    "fastapi[standard]>=0.116.1",
     "fastmcp>=2.10.6",
     "haikus==0.3.8",
     "pytest>=8.4.1",

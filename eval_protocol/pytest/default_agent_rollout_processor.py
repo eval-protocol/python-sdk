@@ -8,6 +8,7 @@ from openai import NOT_GIVEN, NotGiven
 from openai.types.chat import ChatCompletionContentPartTextParam, ChatCompletionMessage, ChatCompletionToolParam
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
+from eval_protocol.dataset_logger import default_logger
 from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message
@@ -19,9 +20,9 @@ class Agent:
     A really simple agent that calls the model until no more tool calls are needed.
     """
 
-    def __init__(self, model: str, initial_messages: list[Message], config_path: str):
+    def __init__(self, model: str, row: EvaluationRow, config_path: str):
         self.model = model
-        self.messages: list[Message] = initial_messages
+        self.evaluation_row: EvaluationRow = row
         self._policy = LiteLLMPolicy(model_id=model)
         self.mcp_client = MCPMultiClient(config_path=config_path) if config_path else None
         self.tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN
@@ -35,6 +36,14 @@ class Agent:
             self.tools = await self.mcp_client.get_available_tools() if self.mcp_client else None
         return self.tools
 
+    @property
+    def messages(self) -> list[Message]:
+        return self.evaluation_row.messages
+
+    def append_message_and_log(self, message: Message):
+        self.messages.append(message)
+        default_logger.log(self.evaluation_row)
+
     async def call_agent(self) -> str:
         """
         Call the assistant with the user query.
@@ -42,14 +51,14 @@ class Agent:
         tools = await self._get_tools() if self.mcp_client else None
 
         message = await self._call_model(self.messages, tools)
-        self.messages.append(message)
-        if message["tool_calls"]:
+        self.append_message_and_log(message)
+        if message.tool_calls:
             # Create tasks for all tool calls to run them in parallel
             tool_tasks = []
-            for tool_call in message["tool_calls"]:
-                tool_call_id = tool_call["id"]
-                tool_name = tool_call["function"]["name"]
-                tool_args = tool_call["function"]["arguments"]
+            for tool_call in message.tool_calls:
+                tool_call_id = tool_call.id
+                tool_name = tool_call.function.name
+                tool_args = tool_call.function.arguments
                 tool_args_dict = json.loads(tool_args)
 
                 # Create a task for each tool call
@@ -57,29 +66,35 @@ class Agent:
                 tool_tasks.append(task)
 
             # Execute all tool calls in parallel
-            tool_results: List[List[TextContent]] = await asyncio.gather(*tool_tasks)
+            tool_results: List[tuple[str, List[TextContent]]] = await asyncio.gather(*tool_tasks)
 
             # Add all tool results to messages (they will be in the same order as tool_calls)
-            for tool_call, (tool_call_id, content) in zip(message["tool_calls"], tool_results):
-                self.messages.append(
+            for tool_call, (tool_call_id, content) in zip(message.tool_calls, tool_results):
+                self.append_message_and_log(
                     Message(
                         role="tool",
-                        content=content,
+                        content=[
+                            ChatCompletionContentPartTextParam(text=content.text, type="text") for content in content
+                        ],
                         tool_call_id=tool_call_id,
                     )
                 )
             return await self.call_agent()
-        return message["content"]
+        return message.content
 
-    async def _call_model(
-        self, messages: list[Message], tools: Optional[list[ChatCompletionToolParam]]
-    ) -> ChatCompletionMessage:
+    async def _call_model(self, messages: list[Message], tools: Optional[list[ChatCompletionToolParam]]) -> Message:
         messages = [message.model_dump() if hasattr(message, "model_dump") else message for message in messages]
         tools = [{"function": tool["function"].model_dump(), "type": "function"} for tool in tools] if tools else []
         response = await self._policy._make_llm_call(messages=messages, tools=tools)
-        return response["choices"][0]["message"]
+        return Message(
+            role=response["choices"][0]["message"]["role"],
+            content=response["choices"][0]["message"]["content"],
+            tool_calls=response["choices"][0]["message"]["tool_calls"],
+        )
 
-    async def _execute_tool_call(self, tool_call_id: str, tool_name: str, tool_args_dict: dict) -> tuple[str, str]:
+    async def _execute_tool_call(
+        self, tool_call_id: str, tool_name: str, tool_args_dict: dict
+    ) -> tuple[str, List[TextContent]]:
         """
         Execute a single tool call and return the tool_call_id and content.
         This method is designed to be used with asyncio.gather() for parallel execution.
@@ -90,10 +105,10 @@ class Agent:
 
     def _get_content_from_tool_result(self, tool_result: CallToolResult) -> List[TextContent]:
         if tool_result.structuredContent:
-            return json.dumps(tool_result.structuredContent)
+            return [TextContent(text=json.dumps(tool_result.structuredContent), type="text")]
         if not all(isinstance(content, TextContent) for content in tool_result.content):
             raise NotImplementedError("Non-text content is not supported yet")
-        return tool_result.content[0].text
+        return tool_result.content
 
 
 async def default_agent_rollout_processor(
@@ -101,10 +116,10 @@ async def default_agent_rollout_processor(
 ) -> List[EvaluationRow]:
     dataset: Dataset = []
     for row in rows:
-        agent = Agent(model=config.model, initial_messages=row.messages, config_path=config.mcp_config_path)
+        agent = Agent(model=config.model, row=row, config_path=config.mcp_config_path)
         await agent.setup()
         await agent.call_agent()
-        dataset.append(EvaluationRow(messages=agent.messages, ground_truth=row.ground_truth))
+        dataset.append(agent.evaluation_row)
         if agent.mcp_client:
             await agent.mcp_client.cleanup()
     return dataset
