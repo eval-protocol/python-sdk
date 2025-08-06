@@ -16,8 +16,19 @@ export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
   const [initialMouseX, setInitialMouseX] = useState(0);
   const [initialMouseY, setInitialMouseY] = useState(0);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const resizeHandleRef = useRef<HTMLDivElement>(null);
   const heightResizeHandleRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages come in
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages]);
 
   // Handle horizontal resizing
   useEffect(() => {
@@ -113,6 +124,7 @@ export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
       style={{ width: `${chatWidth}px` }}
     >
       <div
+        ref={scrollContainerRef}
         className="bg-white border border-gray-200 p-4 overflow-y-auto relative"
         style={{ height: `${chatHeight}px` }}
       >
