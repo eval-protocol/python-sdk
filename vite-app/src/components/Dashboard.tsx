@@ -53,36 +53,10 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
         <h2 className="text-sm font-semibold text-gray-900 mb-2">
           Dataset Summary
         </h2>
-        <table className="w-full text-xs">
-          <tbody>
-            <tr>
-              <td className="pr-4">
-                <span className="font-semibold text-gray-700">Total Rows:</span>{" "}
-                {state.dataset.length}
-              </td>
-              <td className="pr-4">
-                <span className="font-semibold text-gray-700">Avg Score:</span>{" "}
-                {state.dataset.length > 0
-                  ? (
-                      state.dataset.reduce(
-                        (sum, row) => sum + (row.evaluation_result?.score || 0),
-                        0
-                      ) / state.dataset.length
-                    ).toFixed(3)
-                  : "N/A"}
-              </td>
-              <td>
-                <span className="font-semibold text-gray-700">
-                  Total Messages:
-                </span>{" "}
-                {state.dataset.reduce(
-                  (sum, row) => sum + row.messages.length,
-                  0
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="text-xs">
+          <span className="font-semibold text-gray-700">Total Rows:</span>{" "}
+          {state.dataset.length}
+        </div>
       </div>
 
       {/* Show empty state or main table */}
