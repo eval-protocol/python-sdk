@@ -85,13 +85,13 @@ export const Row = observer(
         {/* Expanded Content */}
         {isExpanded && (
           <div className="p-4 bg-gray-50 border-t border-gray-200">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Column - Chat Interface */}
-              <div>
+              <div className="lg:col-span-2">
                 <h4 className="font-semibold text-sm text-gray-700 mb-2 pb-1">
                   Conversation ({row.messages.length} messages)
                 </h4>
-                <div className="bg-white border border-gray-200 p-4 max-h-96 overflow-y-auto">
+                <div className="bg-white border border-gray-200 p-4 max-h-[32rem] overflow-y-auto">
                   {row.messages.map((message, msgIndex) => (
                     <MessageBubble key={msgIndex} message={message} />
                   ))}

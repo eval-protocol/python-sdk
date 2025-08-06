@@ -70,14 +70,6 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
               : "N/A"}
           </div>
           <div>
-            <span className="font-semibold text-gray-700">Connected:</span>{" "}
-            {
-              state.dataset.filter(
-                (row) => row.evaluation_result?.is_score_valid
-              ).length
-            }
-          </div>
-          <div>
             <span className="font-semibold text-gray-700">Total Messages:</span>{" "}
             {state.dataset.reduce((sum, row) => sum + row.messages.length, 0)}
           </div>
