@@ -112,7 +112,7 @@ export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
       style={{ width: `${chatWidth}px` }}
     >
       <div
-        className="bg-white border border-gray-200 p-4 overflow-y-auto"
+        className="bg-white border border-gray-200 p-4 overflow-y-auto relative"
         style={{ height: `${chatHeight}px` }}
       >
         {messages.map((message, msgIndex) => (
@@ -120,25 +120,28 @@ export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
         ))}
       </div>
 
-      {/* Horizontal resize handle */}
-      <div
-        ref={resizeHandleRef}
-        className="absolute top-0 right-0 w-1 h-full bg-gray-300 cursor-col-resize hover:bg-gray-400 transition-colors select-none"
-        onMouseDown={startWidthResize}
-        onDragStart={(e) => e.preventDefault()}
-      />
-
-      {/* Vertical resize handle */}
+      {/* Vertical resize handle - positioned outside the scrollable container */}
       <div
         ref={heightResizeHandleRef}
-        className="absolute bottom-0 left-0 w-full h-1 bg-gray-300 cursor-row-resize hover:bg-gray-400 transition-colors select-none"
+        className="absolute left-0 w-full h-1 bg-gray-300 cursor-row-resize hover:bg-gray-400 transition-colors select-none"
+        style={{ top: `${chatHeight}px` }}
         onMouseDown={startHeightResize}
         onDragStart={(e) => e.preventDefault()}
       />
 
-      {/* Corner resize handle */}
+      {/* Horizontal resize handle */}
       <div
-        className="absolute bottom-0 right-0 w-3 h-3 bg-gray-300 cursor-nw-resize hover:bg-gray-400 transition-colors select-none"
+        ref={resizeHandleRef}
+        className="absolute top-0 right-0 w-1 bg-gray-300 cursor-col-resize hover:bg-gray-400 transition-colors select-none"
+        style={{ height: `${chatHeight}px` }}
+        onMouseDown={startWidthResize}
+        onDragStart={(e) => e.preventDefault()}
+      />
+
+      {/* Corner resize handle - positioned outside the scrollable container */}
+      <div
+        className="absolute w-3 h-3 bg-gray-300 cursor-nw-resize hover:bg-gray-400 transition-colors select-none"
+        style={{ top: `${chatHeight - 8}px`, right: "0px" }}
         onMouseDown={startCornerResize}
         onDragStart={(e) => e.preventDefault()}
       />
