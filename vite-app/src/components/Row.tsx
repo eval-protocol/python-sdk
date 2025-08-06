@@ -102,90 +102,17 @@ export const Row = observer(
                       Metadata
                     </h4>
 
-                    {/* Evaluation Result - Most Important */}
-                    {row.evaluation_result && (
-                      <div className="mb-4">
-                        <h5 className="font-semibold text-sm text-gray-700 mb-2">
-                          Evaluation Result
-                        </h5>
-                        <div className="bg-gray-50 border border-gray-200 p-3 text-xs">
-                          <div className="grid grid-cols-2 gap-3 mb-3">
-                            <div>
-                              <span className="font-semibold text-gray-600">
-                                Score:
-                              </span>{" "}
-                              <span
-                                className={`font-mono text-sm ${
-                                  row.evaluation_result.score >= 0.8
-                                    ? "text-green-700"
-                                    : row.evaluation_result.score >= 0.6
-                                    ? "text-yellow-700"
-                                    : "text-red-700"
-                                }`}
-                              >
-                                {row.evaluation_result.score}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="font-semibold text-gray-600">
-                                Valid:
-                              </span>{" "}
-                              <span
-                                className={
-                                  row.evaluation_result.is_score_valid
-                                    ? "text-green-700"
-                                    : "text-red-700"
-                                }
-                              >
-                                {row.evaluation_result.is_score_valid
-                                  ? "Yes"
-                                  : "No"}
-                              </span>
-                            </div>
-                          </div>
-                          {row.evaluation_result.reason && (
-                            <div className="mb-3 p-3 bg-white border border-gray-200">
-                              <span className="font-semibold text-gray-600">
-                                Reason:
-                              </span>{" "}
-                              <span className="text-gray-900">
-                                {row.evaluation_result.reason}
-                              </span>
-                            </div>
-                          )}
-                          {row.evaluation_result.metrics &&
-                            Object.keys(row.evaluation_result.metrics).length >
-                              0 && (
-                              <div>
-                                <span className="font-semibold text-gray-600">
-                                  Metrics:
-                                </span>
-                                <pre className="mt-2 p-3 bg-white border border-gray-200 whitespace-pre-wrap overflow-x-auto text-xs">
-                                  {JSON.stringify(
-                                    row.evaluation_result.metrics,
-                                    null,
-                                    1
-                                  )}
-                                </pre>
-                              </div>
-                            )}
-                        </div>
-                      </div>
-                    )}
+                    {/* Evaluation Result */}
+                    <MetadataSection
+                      title="Evaluation Result"
+                      data={row.evaluation_result}
+                    />
 
-                    {/* Ground Truth - Secondary Importance */}
-                    {row.ground_truth && (
-                      <div className="mb-3">
-                        <h5 className="font-semibold text-xs text-gray-700 mb-1">
-                          Ground Truth
-                        </h5>
-                        <div className="bg-gray-50 border border-gray-200 p-2 text-xs">
-                          <div className="whitespace-pre-wrap text-gray-900">
-                            {row.ground_truth}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    {/* Ground Truth */}
+                    <MetadataSection
+                      title="Ground Truth"
+                      data={row.ground_truth}
+                    />
 
                     {/* Usage Stats - Compact */}
                     {row.usage && (
