@@ -26,7 +26,14 @@ export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
         e.preventDefault();
         const deltaX = e.clientX - initialMouseX;
         const newWidth = initialWidth + deltaX;
-        setChatWidth(Math.max(300, Math.min(1200, newWidth))); // Min 300px, max 1200px
+
+        // Calculate max width as 80% of container width
+        const containerWidth =
+          chatContainerRef.current?.parentElement?.clientWidth ||
+          window.innerWidth;
+        const maxWidth = containerWidth * 0.8;
+
+        setChatWidth(Math.max(300, Math.min(maxWidth, newWidth))); // Min 300px, max 80% of container
       }
     };
 
