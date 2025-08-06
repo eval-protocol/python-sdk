@@ -145,7 +145,7 @@ const App = observer(() => {
       </nav>
 
       <main className="max-w-7xl mx-auto px-3 py-4">
-        <Dashboard />
+        <Dashboard onRefresh={handleManualRefresh} />
       </main>
     </div>
   );
