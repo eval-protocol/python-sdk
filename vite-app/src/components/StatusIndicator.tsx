@@ -3,11 +3,19 @@ import React from "react";
 interface StatusIndicatorProps {
   status: string;
   className?: string;
+  showSpinner?: boolean;
 }
+
+const Spinner: React.FC<{ color: string }> = ({ color }) => (
+  <div
+    className={`animate-spin w-1.5 h-1.5 rounded-full border border-current ${color} border-t-transparent`}
+  />
+);
 
 const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   status,
   className = "",
+  showSpinner = false,
 }) => {
   const getStatusConfig = (status: string) => {
     switch (status.toLowerCase()) {
@@ -51,12 +59,17 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   };
 
   const config = getStatusConfig(status);
+  const shouldShowSpinner = showSpinner && status.toLowerCase() === "running";
 
   return (
     <div
       className={`inline-flex items-center gap-1.5 text-xs font-medium ${config.textColor} ${className}`}
     >
-      <div className={`w-1.5 h-1.5 rounded-full ${config.dotColor}`} />
+      {shouldShowSpinner ? (
+        <Spinner color={config.textColor} />
+      ) : (
+        <div className={`w-1.5 h-1.5 rounded-full ${config.dotColor}`} />
+      )}
       {config.text}
     </div>
   );

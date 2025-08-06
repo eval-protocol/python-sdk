@@ -49,7 +49,10 @@ export const Row = observer(
           {/* Status */}
           <td className="px-3 py-3 text-xs">
             <div className="whitespace-nowrap">
-              <StatusIndicator status={row.eval_metadata?.status || "N/A"} />
+              <StatusIndicator
+                showSpinner={row.eval_metadata?.status === "running"}
+                status={row.eval_metadata?.status || "N/A"}
+              />
             </div>
           </td>
 
