@@ -13,7 +13,7 @@ markdown generation tasks to customer service agents with tool calling
 capabilities.
 
 <p align="center">
-	<img src="./assets/ui.png" alt="UI" style="border: 1px solid #000;" />
+	<img src="./assets/ui.png" alt="UI" />
 	<br>
 	<sub><b>Log Viewer: Monitor your evaluation rollouts in real time.</b></sub>
 </p>
