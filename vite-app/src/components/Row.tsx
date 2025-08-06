@@ -5,7 +5,7 @@ import { ChatInterface } from "./ChatInterface";
 import { MetadataSection } from "./MetadataSection";
 
 export const Row = observer(
-  ({ row, index }: { row: EvaluationRow; index: number }) => {
+  ({ row }: { row: EvaluationRow; index: number }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     const toggleExpanded = () => setIsExpanded(!isExpanded);
@@ -50,6 +50,30 @@ export const Row = observer(
             )}
           </td>
 
+          {/* Name */}
+          <td className="px-3 py-3 text-xs">
+            <span className="text-gray-900">
+              {row.eval_metadata?.name || "N/A"}
+            </span>
+          </td>
+
+          {/* Status */}
+          <td className="px-3 py-3 text-xs">
+            <span
+              className={`px-2 py-1 rounded text-xs font-medium ${
+                row.eval_metadata?.status === "finished"
+                  ? "bg-green-100 text-green-800"
+                  : row.eval_metadata?.status === "running"
+                  ? "bg-blue-100 text-blue-800"
+                  : row.eval_metadata?.status === "error"
+                  ? "bg-red-100 text-red-800"
+                  : "bg-gray-100 text-gray-800"
+              }`}
+            >
+              {row.eval_metadata?.status || "N/A"}
+            </span>
+          </td>
+
           {/* Row ID */}
           <td className="px-3 py-3 text-xs">
             <span className="font-mono text-gray-900">
@@ -81,16 +105,24 @@ export const Row = observer(
             </span>
           </td>
 
-          {/* Messages */}
+          {/* Created */}
           <td className="px-3 py-3 text-xs">
-            <span className="text-gray-900">{row.messages.length}</span>
+            <span className="text-gray-900">
+              {row.created_at instanceof Date
+                ? row.created_at.toLocaleDateString() +
+                  " " +
+                  row.created_at.toLocaleTimeString()
+                : new Date(row.created_at).toLocaleDateString() +
+                  " " +
+                  new Date(row.created_at).toLocaleTimeString()}
+            </span>
           </td>
         </tr>
 
         {/* Expanded Content Row */}
         {isExpanded && (
           <tr>
-            <td colSpan={5} className="p-0">
+            <td colSpan={8} className="p-0">
               <div className="p-4 bg-gray-50 border-t border-gray-200">
                 <div className="flex gap-6">
                   {/* Left Column - Chat Interface */}
@@ -101,6 +133,12 @@ export const Row = observer(
                     <h4 className="font-semibold text-sm text-gray-700 mb-2 pb-1">
                       Metadata
                     </h4>
+
+                    {/* Eval Metadata */}
+                    <MetadataSection
+                      title="Eval Metadata"
+                      data={row.eval_metadata}
+                    />
 
                     {/* Evaluation Result */}
                     <MetadataSection
@@ -115,41 +153,7 @@ export const Row = observer(
                     />
 
                     {/* Usage Stats - Compact */}
-                    {row.usage && (
-                      <div className="mb-2">
-                        <h5 className="font-semibold text-xs text-gray-700 mb-1">
-                          Token Usage
-                        </h5>
-                        <div className="bg-gray-50 border border-gray-200 p-2 text-xs">
-                          <div className="grid grid-cols-3 gap-2">
-                            <div>
-                              <span className="font-semibold text-gray-600">
-                                Prompt:
-                              </span>{" "}
-                              <span className="font-mono text-gray-900">
-                                {row.usage.prompt_tokens}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="font-semibold text-gray-600">
-                                Completion:
-                              </span>{" "}
-                              <span className="font-mono text-gray-900">
-                                {row.usage.completion_tokens}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="font-semibold text-gray-600">
-                                Total:
-                              </span>{" "}
-                              <span className="font-mono text-gray-900">
-                                {row.usage.total_tokens}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    <MetadataSection title="Usage Stats" data={row.usage} />
 
                     {/* Input Metadata - Less Important */}
                     <MetadataSection
@@ -158,18 +162,7 @@ export const Row = observer(
                     />
 
                     {/* Tools - Least Important */}
-                    {row.tools && row.tools.length > 0 && (
-                      <div className="mb-2">
-                        <h5 className="font-semibold text-xs text-gray-700 mb-1">
-                          Available Tools
-                        </h5>
-                        <div className="bg-gray-50 border border-gray-200 p-2 text-xs">
-                          <pre className="whitespace-pre-wrap overflow-x-auto text-gray-900">
-                            {JSON.stringify(row.tools, null, 1)}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
+                    <MetadataSection title="Tools" data={row.tools} />
                   </div>
                 </div>
               </div>

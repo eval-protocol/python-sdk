@@ -72,6 +72,12 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
                   {/* Expand/Collapse column */}
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
+                  Name
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
+                  Status
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                   Row ID
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
@@ -81,16 +87,23 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
                   Score
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-                  Messages
+                  Created
                 </th>
               </tr>
             </thead>
 
             {/* Table Body */}
             <tbody className="divide-y divide-gray-200">
-              {state.dataset.map((row, index) => (
-                <Row key={index} row={row} index={index} />
-              ))}
+              {state.dataset
+                .slice()
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime()
+                )
+                .map((row, index) => (
+                  <Row key={index} row={row} index={index} />
+                ))}
             </tbody>
           </table>
         </div>
