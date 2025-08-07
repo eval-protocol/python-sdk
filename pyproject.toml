@@ -49,6 +49,7 @@ dependencies = [
     "watchdog>=2.1.0",
     "websockets>=15.0.1",
     "fastapi>=0.116.1",
+    "pytest>=6.0.0",
 ]
 
 [project.urls]
@@ -58,7 +59,6 @@ Homepage = "https://github.com/fireworks-ai/eval-protocol"
 dev = [
     "build",
     "twine",
-    "pytest>=6.0.0",
     "pytest-asyncio",
     "pytest-httpserver",
     "werkzeug>=2.0.0",
