@@ -12,6 +12,7 @@ import logging
 from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional, Tuple
 
+import httpx
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
@@ -26,6 +27,9 @@ class MCPConnectionManager:
     def __init__(self):
         self._tools_cache: Dict[str, List[Dict]] = {}
         self._tools_cache_lock = asyncio.Lock()
+        # Shared HTTP client for control plane requests with high connection limits
+        self._shared_client: Optional[httpx.AsyncClient] = None
+        self._client_lock = asyncio.Lock()
 
     async def initialize_session(self, session: MCPSession) -> None:
         """
@@ -114,6 +118,12 @@ class MCPConnectionManager:
         """
         cache_key = session.base_url
 
+        # Fast path: if cache already exists, return immediately (no lock)
+        if cache_key in self._tools_cache:
+            logger.debug(f"Tools cache already exists for {cache_key}")
+            return
+
+        # Slow path: need to create cache (use lock only for creation)
         async with self._tools_cache_lock:
             # Only fetch tools if not already cached for this base_url
             if cache_key not in self._tools_cache:
@@ -244,21 +254,33 @@ class MCPConnectionManager:
                     # Use shorter timeout for playback mode, longer timeout for high-concurrency initialization
                     # (50+ concurrent sessions need more time for initial state setup)
                     timeout = 3.0 if hasattr(session, "_is_playback_mode") and session._is_playback_mode else 15.0
-                    async with httpx.AsyncClient(timeout=timeout) as client:
-                        initial_state_response = await client.get(
-                            f"{base_url}/control/initial_state",
-                            headers=headers,
-                            timeout=timeout,
+
+                    # TIMING: Get shared client
+                    client_start = __import__("time").time()
+                    client = await self._get_shared_client(timeout)
+                    client_time = __import__("time").time() - client_start
+                    logger.info(
+                        f"DEBUG_CLIENT: Getting shared client took {client_time:.3f}s for {session.session_id}"
+                    )
+
+                    # TIMING: HTTP request with shared client
+                    request_start = __import__("time").time()
+                    initial_state_response = await client.get(
+                        f"{base_url}/control/initial_state",
+                        headers=headers,
+                        timeout=timeout,
+                    )
+                    request_time = __import__("time").time() - request_start
+                    logger.info(f"DEBUG_REQUEST: HTTP request took {request_time:.3f}s for {session.session_id}")
+                    if initial_state_response.status_code == 200:
+                        initial_observation = initial_state_response.json()
+                        logger.info(
+                            f"Session {session.session_id}: ✅ Successfully fetched session-aware initial state from control plane endpoint"
                         )
-                        if initial_state_response.status_code == 200:
-                            initial_observation = initial_state_response.json()
-                            logger.info(
-                                f"Session {session.session_id}: ✅ Successfully fetched session-aware initial state from control plane endpoint"
-                            )
-                        else:
-                            logger.warning(
-                                f"Control plane initial state endpoint returned {initial_state_response.status_code}"
-                            )
+                    else:
+                        logger.warning(
+                            f"Control plane initial state endpoint returned {initial_state_response.status_code}"
+                        )
                 except httpx.TimeoutException:
                     logger.warning(f"Control plane initial state endpoint timed out after {timeout}s")
                 except Exception as e:
@@ -579,3 +601,47 @@ class MCPConnectionManager:
             finally:
                 session._exit_stack = None
                 session._mcp_session = None
+
+    async def _get_shared_client(self, timeout: float) -> httpx.AsyncClient:
+        """
+        Get or create a shared HTTP client with high connection limits for concurrent requests.
+
+        Args:
+            timeout: Timeout for requests
+
+        Returns:
+            Shared httpx.AsyncClient instance
+        """
+        # Fast path: if client exists and is not closed, return it immediately
+        if self._shared_client is not None and not self._shared_client.is_closed:
+            return self._shared_client
+
+        # Slow path: need to create client (use lock only for creation)
+        async with self._client_lock:
+            # Double-check pattern: another task might have created it while we waited
+            if self._shared_client is None or self._shared_client.is_closed:
+                # Create HTTP client with high connection limits for concurrent initial state requests
+                limits = httpx.Limits(
+                    max_keepalive_connections=None,  # Unlimited keep-alive connections
+                    max_connections=None,  # Unlimited total connection pool size
+                    keepalive_expiry=30.0,  # Keep connections alive for 30s
+                )
+
+                self._shared_client = httpx.AsyncClient(
+                    timeout=timeout,
+                    limits=limits,
+                    # Enable connection pooling and keep-alive
+                    http2=False,  # Disable HTTP/2 for better connection pooling with many concurrent requests
+                )
+                logger.info(
+                    "Created shared HTTP client with unlimited connection limits for MCP control plane requests"
+                )
+
+        return self._shared_client
+
+    async def close_shared_client(self):
+        """Close the shared HTTP client when shutting down."""
+        async with self._client_lock:
+            if self._shared_client and not self._shared_client.is_closed:
+                await self._shared_client.aclose()
+                self._shared_client = None

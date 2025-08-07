@@ -13,6 +13,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from openai.types import CompletionUsage
@@ -188,6 +189,11 @@ class ExecutionManager:
         """
         session = envs.sessions[rollout_idx]
         dataset_row = envs.dataset_rows[rollout_idx]
+        rollout_start = time.time()
+        elapsed_from_main_start = rollout_start - start_time
+        logger.info(
+            f"DEBUG4. Starting rollout {dataset_row.id} at {datetime.fromtimestamp(rollout_start).strftime('%H:%M:%S.%f')[:-3]} (+{elapsed_from_main_start:.3f}s from start)"
+        )
 
         # Initialize trajectory
         trajectory = Trajectory(
@@ -210,7 +216,11 @@ class ExecutionManager:
             },
         )
 
+        temp_start = time.time()
         current_observation, tool_schema = await envs.reset(session)
+        logger.info(
+            f"DEBUG6: User simulator get_init_state took {time.time() - temp_start:.3f}s for {session.session_id}"
+        )
         system_prompt = dataset_row.system_prompt
 
         # Record initial observation
@@ -244,7 +254,9 @@ class ExecutionManager:
 
         usage_stats_list: List[CompletionUsage] = []
 
-        logger.info(f"🎯 Starting rollout {rollout_idx} in thread {threading.current_thread().name}")
+        logger.info(
+            f"DEBUG7: 🎯 Starting rollout {dataset_row.id} in thread {threading.current_thread().name}, {datetime.fromtimestamp(time.time()).strftime('%H:%M:%S.%f')[:-3]} (+{time.time() - rollout_start:.3f}s from start)"
+        )
 
         # Run rollout loop for this specific environment
         step = 0
@@ -264,8 +276,12 @@ class ExecutionManager:
                 # Last message was agent, simulated user response
                 if user_simulator_messages and isinstance(user_simulator_messages[-1], AssistantMessage):
                     # Generate user response using the simulator
+                    temp_start1 = time.time()
                     user_message, user_simulator_state = user_simulator.generate_next_message(
                         user_simulator_messages[-1], user_simulator_state
+                    )
+                    logger.info(
+                        f"DEBUG8: User simulator generate_next_message took {time.time() - temp_start1:.3f}s for {dataset_row.id}"
                     )
                     user_content = user_message.content if user_message.content else ""
 
@@ -279,7 +295,9 @@ class ExecutionManager:
 
             # In each turn: keep looping until assistant is ready to provide final response
             while not turn_completed and not trajectory.terminated:
+                temp_start2 = time.time()
                 tool_calls, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
+                logger.info(f"DEBUG9: Policy took {time.time() - temp_start2:.3f}s for {dataset_row.id}")
 
                 # If no tool call is generated, turn is finished
                 if len(tool_calls) == 1:
@@ -296,7 +314,9 @@ class ExecutionManager:
                 for tool_call in tool_calls:
 
                     # Execute tool call for this environment
+                    temp_start3 = time.time()
                     observation, reward, rollout_end, info = await envs.step(rollout_idx, tool_call)
+                    logger.info(f"DEBUG10: Env step took {time.time() - temp_start3:.3f}s for {dataset_row.id}")
 
                     tool_response = envs.format_tool_response(observation)
 
@@ -443,6 +463,9 @@ class ExecutionManager:
 
         logger.info(
             f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}"
+        )
+        logger.info(
+            f"DEBUG11: Rollout {dataset_row.id} completed at {datetime.fromtimestamp(time.time()).strftime('%H:%M:%S.%f')[:-3]} (+{time.time() - rollout_start:.3f}s from start)"
         )
         return trajectory
 

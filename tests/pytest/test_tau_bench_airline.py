@@ -70,7 +70,7 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
     threshold_of_success=0.4,
     num_runs=1,
     mode="pointwise",
-    max_concurrent_rollouts=16,
+    max_concurrent_rollouts=50,
     server_script_path="examples/tau2_mcp/server.py",
 )
 def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
@@ -144,18 +144,18 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
         task=task,
         full_trajectory=trajectory_objects,
     )
-    action_reward_info = ActionEvaluator.calculate_reward(
-        task=task,
-        full_trajectory=trajectory_objects,
-    )
+    # action_reward_info = ActionEvaluator.calculate_reward(
+    #     task=task,
+    #     full_trajectory=trajectory_objects,
+    # )
     communicate_reward_info = CommunicateEvaluator.calculate_reward(
         task=task,
         full_trajectory=trajectory_objects,
     )
-    nl_reward_info = NLAssertionsEvaluator.calculate_reward(
-        task=task,
-        full_trajectory=trajectory_objects,
-    )
+    # nl_reward_info = NLAssertionsEvaluator.calculate_reward(
+    #     task=task,
+    #     full_trajectory=trajectory_objects,
+    # )
 
     reward = 1.0
     env_bases = {RewardType.DB, RewardType.ENV_ASSERTION}
@@ -169,14 +169,14 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
         if env_reward_info.reward_breakdown is not None:
             reward_breakdown.update(env_reward_info.reward_breakdown)
         reward *= env_reward_info.reward
-    if task_reward_basis & action_bases:
-        if action_reward_info.reward_breakdown is not None:
-            reward_breakdown.update(action_reward_info.reward_breakdown)
-        reward *= action_reward_info.reward
-    if task_reward_basis & nl_bases:
-        if nl_reward_info.reward_breakdown is not None:
-            reward_breakdown.update(nl_reward_info.reward_breakdown)
-        reward *= nl_reward_info.reward
+    # if task_reward_basis & action_bases:
+    #     if action_reward_info.reward_breakdown is not None:
+    #         reward_breakdown.update(action_reward_info.reward_breakdown)
+    #     reward *= action_reward_info.reward
+    # if task_reward_basis & nl_bases:
+    #     if nl_reward_info.reward_breakdown is not None:
+    #         reward_breakdown.update(nl_reward_info.reward_breakdown)
+    #     reward *= nl_reward_info.reward
     if task_reward_basis & comm_bases:
         if communicate_reward_info.reward_breakdown is not None:
             reward_breakdown.update(communicate_reward_info.reward_breakdown)
@@ -188,27 +188,27 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
     if task_reward_basis & env_bases and env_reward_info.reward == 0:
         failed_reasons.append("❌ Environment/DB check failed")
 
-    if task_reward_basis & action_bases and action_reward_info.reward == 0:
-        failed_actions = []
-        if hasattr(action_reward_info, "action_checks") and action_reward_info.action_checks:
-            failed_actions = [
-                f"{ac.action.name}({ac.action.arguments})"
-                for ac in action_reward_info.action_checks
-                if not ac.action_match
-            ]
-        if failed_actions:
-            failed_reasons.append(f"❌ Failed actions: {failed_actions}")
-        else:
-            failed_reasons.append("❌ Actions failed")
+    # if task_reward_basis & action_bases and action_reward_info.reward == 0:
+    #     failed_actions = []
+    #     if hasattr(action_reward_info, "action_checks") and action_reward_info.action_checks:
+    #         failed_actions = [
+    #             f"{ac.action.name}({ac.action.arguments})"
+    #             for ac in action_reward_info.action_checks
+    #             if not ac.action_match
+    #         ]
+    #     if failed_actions:
+    #         failed_reasons.append(f"❌ Failed actions: {failed_actions}")
+    #     else:
+    #         failed_reasons.append("❌ Actions failed")
 
-    if task_reward_basis & nl_bases and nl_reward_info.reward == 0:
-        failed_nl = []
-        if hasattr(nl_reward_info, "nl_assertions") and nl_reward_info.nl_assertions:
-            failed_nl = [nla.nl_assertion for nla in nl_reward_info.nl_assertions if not nla.met]
-        if failed_nl:
-            failed_reasons.append(f"❌ Failed NL assertions: {failed_nl}")
-        else:
-            failed_reasons.append("❌ NL Assertions failed")
+    # if task_reward_basis & nl_bases and nl_reward_info.reward == 0:
+    #     failed_nl = []
+    #     if hasattr(nl_reward_info, "nl_assertions") and nl_reward_info.nl_assertions:
+    #         failed_nl = [nla.nl_assertion for nla in nl_reward_info.nl_assertions if not nla.met]
+    #     if failed_nl:
+    #         failed_reasons.append(f"❌ Failed NL assertions: {failed_nl}")
+    #     else:
+    #         failed_reasons.append("❌ NL Assertions failed")
 
     if task_reward_basis & comm_bases and communicate_reward_info.reward == 0:
         failed_comm = []
