@@ -111,7 +111,7 @@ huggingface = [
 ]
 adapters = [
     "langfuse>=2.0.0",
-    "datasets>=2.0.0", 
+    "datasets>=2.0.0",
     "transformers>=4.0.0",
 ]
 
@@ -121,6 +121,9 @@ eval-protocol = "eval_protocol.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["eval_protocol*", "development*", "vendor*"]
+
+[tool.setuptools.package-data]
+"eval_protocol" = ["../vite-app/dist/**/*"]
 
 [tool.versioneer]
 VCS = "git"
