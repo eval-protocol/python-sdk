@@ -2,6 +2,7 @@ import asyncio
 from typing import List
 
 from litellm import acompletion
+from openai.types.chat.chat_completion_message import ChatCompletionMessageToolCall
 
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.types import RolloutProcessorConfig
@@ -28,11 +29,26 @@ async def default_single_turn_rollout_processor(
 
         assistant_content = response.choices[0].message.content or ""
         tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
+
+        converted_tool_calls = None
+        if tool_calls:
+            converted_tool_calls = [
+                ChatCompletionMessageToolCall(
+                    id=tool_call.id,
+                    type=tool_call.type,
+                    function={
+                        "name": tool_call.function.name,
+                        "arguments": tool_call.function.arguments,
+                    },
+                )
+                for tool_call in tool_calls
+            ]
+
         messages = list(row.messages) + [
             Message(
                 role="assistant",
                 content=assistant_content,
-                tool_calls=tool_calls,
+                tool_calls=converted_tool_calls,
             )
         ]
 
