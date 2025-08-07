@@ -93,7 +93,7 @@ class WebSocketManager:
 
     def broadcast_file_update(self, update_type: str, file_path: str):
         """Broadcast file update to all connected clients."""
-        if not file_path.startswith(default_logger.datasets_dir) and not file_path.endswith(".jsonl"):
+        if not file_path.startswith(default_logger.datasets_dir) or not file_path.endswith(".jsonl"):
             """
             .lock files are often created and deleted by the singleton lock
             mechanism so we only broadcast .jsonl files
