@@ -3,8 +3,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 import pytest
 
-# Import versioneer for getting version information
-import versioneer
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, InputMetadata
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
@@ -216,7 +214,6 @@ def evaluation_test(
                     eval_metadata = EvalMetadata(
                         name=test_func.__name__,
                         description=test_func.__doc__,
-                        version=versioneer.get_version(),
                         status="running",
                         num_runs=num_runs,
                         aggregation_method=aggregation_method,
