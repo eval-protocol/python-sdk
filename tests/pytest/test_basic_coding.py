@@ -28,7 +28,7 @@ def coding_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluat
 @evaluation_test(
     input_dataset=["tests/pytest/data/basic_coding_dataset.jsonl"],
     dataset_adapter=coding_dataset_to_evaluation_row,
-    model=["accounts/fireworks/models/kimi-k2-instruct"],
+    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
     threshold_of_success=0.8,
     rollout_processor=default_single_turn_rollout_processor,

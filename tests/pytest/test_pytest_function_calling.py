@@ -19,7 +19,7 @@ def function_calling_to_evaluation_row(rows: List[Dict[str, Any]]) -> List[Evalu
 
 @evaluation_test(
     input_dataset=["tests/pytest/data/function_calling.jsonl"],
-    model=["accounts/fireworks/models/kimi-k2-instruct"],
+    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
     mode="pointwise",
     dataset_adapter=function_calling_to_evaluation_row,
     rollout_processor=default_single_turn_rollout_processor,

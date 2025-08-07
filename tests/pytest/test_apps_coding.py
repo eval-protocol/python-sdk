@@ -29,7 +29,7 @@ def apps_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluatio
 @evaluation_test(
     input_dataset=["tests/pytest/data/apps_sample_dataset.jsonl"],
     dataset_adapter=apps_dataset_to_evaluation_row,
-    model=["accounts/fireworks/models/kimi-k2-instruct"],
+    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
     threshold_of_success=0.33,
     rollout_processor=default_single_turn_rollout_processor,

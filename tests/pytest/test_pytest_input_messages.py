@@ -10,7 +10,7 @@ from eval_protocol.pytest import default_single_turn_rollout_processor, evaluati
             Message(role="user", content="What is the capital of France?"),
         ]
     ],
-    model=["accounts/fireworks/models/kimi-k2-instruct"],
+    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
     rollout_processor=default_single_turn_rollout_processor,
 )
 def test_input_messages_in_decorator(rows: List[EvaluationRow]) -> List[EvaluationRow]:
