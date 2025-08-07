@@ -13,6 +13,7 @@ from terminated processes.
 """
 
 import os
+import time
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -124,7 +125,7 @@ def release_singleton_lock(base_dir: Path, lock_name: str) -> None:
         pass
 
 
-def is_process_running(pid: int) -> bool:
+def is_process_running(pid: int, timeout: float = 10.0) -> bool:
     """
     Check if a process is still running.
 
@@ -134,11 +135,19 @@ def is_process_running(pid: int) -> bool:
     Returns:
         True if the process is running, False otherwise
     """
-    try:
-        os.kill(pid, 0)
-        return True
-    except OSError:
-        return False
+    start = time.time()
+
+    def _is_process_running(pid: int) -> bool:
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+
+    while time.time() - start < timeout:
+        if not _is_process_running(pid):
+            return False
+    return True
 
 
 def is_lock_held(base_dir: Path, lock_name: str) -> bool:

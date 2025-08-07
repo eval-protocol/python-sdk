@@ -23,7 +23,7 @@ from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.directory_utils import find_eval_protocol_dir
 from eval_protocol.logging_utils import get_logger
 from eval_protocol.models import EvaluationRow
-from eval_protocol.utils.singleton_lock import (
+from eval_protocol.singleton_lock import (
     acquire_singleton_lock,
     get_lock_file_paths,
     get_lock_holder_pid,
@@ -213,7 +213,7 @@ def _start_watcher_process(check_interval: float) -> Optional[int]:
         return None
 
 
-def ensure_singleton_watcher(check_interval: float = 2.0) -> bool:
+def ensure_singleton_watcher(check_interval: float = 2.0) -> Optional[int]:
     """
     Ensure the singleton EvaluationWatcher instance exists and is running.
     This function is OS-level global - only one watcher will run across all processes.
@@ -223,43 +223,17 @@ def ensure_singleton_watcher(check_interval: float = 2.0) -> bool:
         check_interval: How often to check for terminated processes (seconds)
 
     Returns:
-        True if watcher was started successfully, False if another watcher is already running
+        PID of the watcher process if it was started successfully, None if it failed to start
     """
-
     # Check if a watcher is already running before attempting to start a new one
     if is_watcher_running():
         logger.info("🔍 Evaluation watcher is already running")
-        return False
+        return None
 
     # Start the watcher in a completely independent background process
-    try:
-        pid = _start_watcher_process(check_interval)
-        if pid is None:
-            logger.error("❌ Failed to start evaluation watcher: process creation failed")
-            return False
-
-        logger.info(f"🔍 Started evaluation watcher in independent background process (PID: {pid})")
-
-        # Spin until the watcher is running, or timeout after 10 seconds
-        timeout = 10.0
-        interval = 0.1
-        waited = 0.0
-        while waited < timeout:
-            if is_watcher_running():
-                break
-            time.sleep(interval)
-            waited += interval
-        else:
-            logger.error(
-                f"❌ Watcher process (PID: {pid}) started but didn't acquire the lock after {timeout} seconds"
-            )
-            return False
-
-        # Don't wait for the process - let it run independently
-        return True
-    except Exception as e:
-        logger.error(f"❌ Failed to start evaluation watcher: {e}")
-        return False
+    pid = _start_watcher_process(check_interval)
+    logger.info(f"🔍 Started evaluation watcher in independent background process (PID: {pid})")
+    return pid
 
 
 def is_watcher_running() -> bool:
@@ -267,9 +241,16 @@ def is_watcher_running() -> bool:
     return is_lock_held(get_eval_protocol_dir(), LOCK_NAME)
 
 
-def get_watcher_pid() -> Optional[int]:
-    """Get the PID of the currently running evaluation watcher."""
-    return get_lock_holder_pid(get_eval_protocol_dir(), LOCK_NAME)
+def get_watcher_pid(timeout: float = 10.0) -> Optional[int]:
+    """Get the PID of the currently running evaluation watcher. Tries for 10 seconds."""
+    interval = 0.1
+    started = time.time()
+    while time.time() - started < timeout:
+        pid = get_lock_holder_pid(get_eval_protocol_dir(), LOCK_NAME)
+        if pid is not None:
+            return pid
+        time.sleep(interval)
+    return None
 
 
 def stop_watcher() -> bool:
@@ -280,7 +261,7 @@ def stop_watcher() -> bool:
         return False
 
     try:
-        os.kill(pid, signal.SIGTERM)
+        os.kill(pid, signal.SIGKILL)
         logger.info(f"🔍 Sent SIGTERM to evaluation watcher process {pid}")
         return True
     except OSError as e:
