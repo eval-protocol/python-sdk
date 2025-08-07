@@ -70,7 +70,8 @@ class LocalFSDatasetLoggerAdapter(DatasetLogger):
             f.write(row.model_dump_json(exclude_none=True) + os.linesep)
 
     def read(self, row_id: Optional[str] = None) -> List["EvaluationRow"]:
-        """Read rows from all JSONL files in the datasets directory."""
+        """Read rows from all JSONL files in the datasets directory. Also
+        ensures that there are no duplicate row IDs."""
         from eval_protocol.models import EvaluationRow
 
         if not os.path.exists(self.datasets_dir):
