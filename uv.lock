@@ -1142,6 +1142,7 @@ dependencies = [
     { name = "omegaconf" },
     { name = "openai" },
     { name = "pandas" },
+    { name = "peewee" },
     { name = "psutil" },
     { name = "pydantic" },
     { name = "pytest" },
@@ -1266,6 +1267,7 @@ requires-dist = [
     { name = "openai", marker = "extra == 'dev'", specifier = "==1.78.1" },
     { name = "openevals", marker = "extra == 'openevals'", specifier = ">=0.1.0" },
     { name = "pandas", specifier = ">=1.5.0" },
+    { name = "peewee", specifier = ">=3.18.2" },
     { name = "peft", marker = "extra == 'trl'", specifier = ">=0.7.0" },
     { name = "pillow", marker = "extra == 'box2d'" },
     { name = "pip", marker = "extra == 'dev'", specifier = ">=25.1.1" },
@@ -3891,6 +3893,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/ca/bc/f35b8446f4531a7cb
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl", hash = "sha256:a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08", size = 31191, upload-time = "2023-12-10T22:30:43.14Z" },
 ]
+
+[[package]]
+name = "peewee"
+version = "3.18.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/04/89/76f6f1b744c8608e0d416b588b9d63c2a500ff800065ae610f7c80f532d6/peewee-3.18.2.tar.gz", hash = "sha256:77a54263eb61aff2ea72f63d2eeb91b140c25c1884148e28e4c0f7c4f64996a0", size = 949220, upload-time = "2025-07-08T12:52:03.941Z" }
 
 [[package]]
 name = "peft"
