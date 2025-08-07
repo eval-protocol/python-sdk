@@ -8,6 +8,7 @@ for consistent logging across the eval_protocol package.
 
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -41,6 +42,11 @@ def setup_logger(
 
     # Create logger
     logger = logging.getLogger(name)
+
+    # Only configure if not already configured (has handlers and proper level)
+    if logger.handlers and logger.level != logging.NOTSET:
+        return logger
+
     logger.setLevel(level)
 
     # Clear existing handlers to avoid duplicates
@@ -50,19 +56,22 @@ def setup_logger(
     file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     console_formatter = logging.Formatter("%(levelname)s - %(message)s")
 
-    # Console handler
-    console_handler = logging.StreamHandler()
+    # Console handler - explicitly write to sys.stdout
+    console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(console_level)
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
 
-    # File handler (if log_file specified)
+    # File handler (if log_file specified) - explicitly write to file only
     if log_file:
         log_file_path = logs_dir / log_file
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(file_level)
         file_handler.setFormatter(file_formatter)
         logger.addHandler(file_handler)
+
+    # Prevent propagation to avoid duplicate logging
+    logger.propagate = False
 
     return logger
 
@@ -81,7 +90,19 @@ def get_logger(name: str) -> logging.Logger:
 
     # If logger doesn't have handlers, set it up with defaults
     if not logger.handlers:
-        logger = setup_logger(name, f"{name}.log")
+        # For eval_watcher, check if running in daemon mode
+        if name == "eval_watcher":
+            import sys
+
+            # Check if running in daemon mode (subprocess)
+            if "--daemon" in sys.argv:
+                # Subprocess: log to file only
+                logger = setup_logger(name, f"{name}.log", console_level=logging.CRITICAL)
+            else:
+                # Top-level: log to console only
+                logger = setup_logger(name, None)
+        else:
+            logger = setup_logger(name, f"{name}.log")
 
     return logger
 

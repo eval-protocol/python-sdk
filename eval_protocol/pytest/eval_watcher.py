@@ -11,85 +11,37 @@ Usage:
 
 import argparse
 import fcntl
-import multiprocessing
 import os
+import signal
+import subprocess
+import sys
 import time
 from pathlib import Path
-from typing import List, Optional
-
-# Add freeze_support for multiprocessing compatibility
-if __name__ == "__main__":
-    multiprocessing.freeze_support()
+from typing import Any, List, Optional
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.directory_utils import find_eval_protocol_dir
 from eval_protocol.logging_utils import get_logger
 from eval_protocol.models import EvaluationRow
+from eval_protocol.utils.singleton_lock import (
+    acquire_singleton_lock,
+    get_lock_file_paths,
+    get_lock_holder_pid,
+    is_lock_held,
+    is_process_running,
+    release_singleton_lock,
+)
 
 # Initialize logger
 logger = get_logger("eval_watcher")
 
-
-def get_lock_file_paths() -> tuple[Path, Path]:
-    """Get the lock file paths using the same directory discovery logic."""
-    eval_protocol_dir = Path(find_eval_protocol_dir())
-    lock_file_path = eval_protocol_dir / "watcher.lock"
-    pid_file_path = eval_protocol_dir / "watcher.pid"
-    return lock_file_path, pid_file_path
+# Lock configuration
+LOCK_NAME = "eval_watcher"
 
 
-def acquire_singleton_lock() -> Optional[int]:
-    """
-    Try to acquire the singleton lock. Returns the PID of the current holder if failed.
-
-    Returns:
-        None if lock acquired successfully, otherwise the PID of the current holder
-    """
-    lock_file_path, pid_file_path = get_lock_file_paths()
-
-    try:
-        # Try to acquire an exclusive lock on the lock file
-        with open(lock_file_path, "w") as lock_file:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-
-            # Write our PID to the PID file
-            with open(pid_file_path, "w") as pid_file:
-                pid_file.write(str(os.getpid()))
-
-            return None  # Successfully acquired lock
-
-    except (IOError, OSError):
-        # Lock is held by another process
-        try:
-            if pid_file_path.exists():
-                with open(pid_file_path, "r") as pid_file:
-                    content = pid_file.read().strip()
-                    if content.isdigit():
-                        return int(content)
-        except (IOError, OSError):
-            pass
-        return None
-
-
-def release_singleton_lock():
-    """Release the singleton lock."""
-    lock_file_path, pid_file_path = get_lock_file_paths()
-    try:
-        if pid_file_path.exists():
-            pid_file_path.unlink()
-        if lock_file_path.exists():
-            lock_file_path.unlink()
-    except (IOError, OSError):
-        pass
-
-
-def is_process_running(pid: int) -> bool:
-    """Check if a process is still running."""
-    try:
-        os.kill(pid, 0)
-        return True
-    except OSError:
-        return False
+def get_eval_protocol_dir() -> Path:
+    """Get the evaluation protocol directory for lock files."""
+    return Path(find_eval_protocol_dir())
 
 
 def find_running_evaluations() -> List[EvaluationRow]:
@@ -156,11 +108,26 @@ def check_and_update_terminated_evaluations() -> int:
     return terminated_count
 
 
+def signal_handler(signum, frame):
+    """Handle termination signals gracefully."""
+    signal_name = signal.Signals(signum).name
+    logger.info(f"\n🛑 Evaluation watcher received signal {signum} (Signal: {signal_name})")
+    if signum == signal.SIGTERM:
+        logger.info("SIGTERM received: ignoring to avoid exit during VSCode pytest debugging.")
+        return
+    logger.info("Shutting down gracefully.")
+    sys.exit(0)
+
+
 def run_watcher_loop(check_interval: float) -> None:
     """Main monitoring loop."""
     logger.info(f"🔍 Starting evaluation watcher (PID: {os.getpid()})")
     logger.info(f"  Check interval: {check_interval} seconds")
     logger.info("  Monitoring all evaluation rows for terminated processes")
+
+    # Set up signal handlers for graceful shutdown
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
 
     consecutive_empty_checks = 0
     max_empty_checks = 3
@@ -194,39 +161,75 @@ def run_watcher_loop(check_interval: float) -> None:
         logger.info("🔍 Evaluation watcher stopped")
 
 
-def _start_watcher_process(check_interval: float) -> multiprocessing.Process:
-    """Start the watcher in a background process."""
-    # Ensure we're not in a frozen state and multiprocessing is properly initialized
-    if multiprocessing.current_process().name != "MainProcess":
-        raise RuntimeError("Cannot start watcher process from within another process")
-
-    process = multiprocessing.Process(target=_watcher_process_main, args=(check_interval,), name="eval-watcher")
-    process.start()
-    return process
-
-
-def _watcher_process_main(check_interval: float) -> None:
-    """Main entry point for the watcher process - acquires lock and runs the loop."""
-    # Try to acquire the lock in this process
-    current_holder_pid = acquire_singleton_lock()
-
-    if current_holder_pid is not None:
-        # Another process is already running
-        logger.info(f"🔍 Evaluation watcher already running in process {current_holder_pid}")
-        return
-
-    # We acquired the lock, run the watcher loop
+def _watcher_process_target(check_interval: float) -> None:
+    """Target function for the watcher process."""
     try:
-        run_watcher_loop(check_interval)
-    finally:
-        # Always release the lock when we exit
-        release_singleton_lock()
+        # Detach from parent process group to become independent
+        try:
+            os.setsid()
+        except OSError:
+            # On Windows or if already detached, this might fail
+            pass
+
+        # Try to acquire the lock
+        current_holder_pid = acquire_singleton_lock(get_eval_protocol_dir(), LOCK_NAME)
+
+        if current_holder_pid is not None:
+            # Another process is already running
+            logger.info(f"🔍 Evaluation watcher already running in process {current_holder_pid}")
+            return
+
+        # We acquired the lock, run the watcher loop
+        try:
+            run_watcher_loop(check_interval)
+        except SystemExit:
+            # Graceful shutdown
+            pass
+        finally:
+            # Always release the lock when we exit
+            release_singleton_lock(get_eval_protocol_dir(), LOCK_NAME)
+
+    except Exception as e:
+        logger.error(f"❌ Error in watcher process: {e}")
 
 
-def ensure_singleton_watcher(check_interval: float = 5.0) -> bool:
+def _start_watcher_process(check_interval: float) -> Optional[int]:
+    """Start the watcher in a completely independent background process using subprocess.
+
+    We use subprocess.Popen with start_new_session=True instead of multiprocessing.Process
+    because VSCode's test debugger kill button sends SIGTERM/SIGKILL to the entire process
+    tree, including child processes. By using subprocess with a new session, we create
+    a truly independent process that survives when the parent pytest process is killed.
+    """
+
+    # Use subprocess to create a completely independent process
+    # This ensures the process survives even if the parent pytest process is killed
+    try:
+        # Get the current script path
+        current_script = __file__
+
+        # Create the subprocess with complete independence
+        process = subprocess.Popen(
+            [sys.executable, current_script, "--daemon", "--check-interval", str(check_interval)],
+            # These flags make the process completely independent
+            start_new_session=True,  # Creates a new session, detaching from parent
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+        )
+
+        return process.pid
+
+    except Exception as e:
+        logger.error(f"❌ Failed to start watcher process: {e}")
+        return None
+
+
+def ensure_singleton_watcher(check_interval: float = 2.0) -> bool:
     """
     Ensure the singleton EvaluationWatcher instance exists and is running.
     This function is OS-level global - only one watcher will run across all processes.
+    The watcher runs as a completely independent process that survives if the main process dies.
 
     Args:
         check_interval: How often to check for terminated processes (seconds)
@@ -234,14 +237,37 @@ def ensure_singleton_watcher(check_interval: float = 5.0) -> bool:
     Returns:
         True if watcher was started successfully, False if another watcher is already running
     """
-    # Check if we're already in a subprocess
-    if multiprocessing.current_process().name != "MainProcess":
+
+    # Check if a watcher is already running before attempting to start a new one
+    if is_watcher_running():
+        logger.info("🔍 Evaluation watcher is already running")
         return False
 
-    # Start the watcher in a background process
+    # Start the watcher in a completely independent background process
     try:
-        process = _start_watcher_process(check_interval)
-        logger.info(f"🔍 Started evaluation watcher in background process (PID: {process.pid})")
+        pid = _start_watcher_process(check_interval)
+        if pid is None:
+            logger.error("❌ Failed to start evaluation watcher: process creation failed")
+            return False
+
+        logger.info(f"🔍 Started evaluation watcher in independent background process (PID: {pid})")
+
+        # Spin until the watcher is running, or timeout after 10 seconds
+        timeout = 10.0
+        interval = 0.1
+        waited = 0.0
+        while waited < timeout:
+            if is_watcher_running():
+                break
+            time.sleep(interval)
+            waited += interval
+        else:
+            logger.error(
+                f"❌ Watcher process (PID: {pid}) started but didn't acquire the lock after {timeout} seconds"
+            )
+            return False
+
+        # Don't wait for the process - let it run independently
         return True
     except Exception as e:
         logger.error(f"❌ Failed to start evaluation watcher: {e}")
@@ -250,36 +276,28 @@ def ensure_singleton_watcher(check_interval: float = 5.0) -> bool:
 
 def is_watcher_running() -> bool:
     """Check if the evaluation watcher is currently running."""
-    current_holder_pid = acquire_singleton_lock()
-    if current_holder_pid is None:
-        # We acquired the lock, so no one else is running
-        release_singleton_lock()
-        return False
-
-    # Check if the holder is still alive
-    assert current_holder_pid is not None  # For type checker
-    is_alive = is_process_running(current_holder_pid)
-    if not is_alive:
-        # Clean up stale lock
-        release_singleton_lock()
-
-    return is_alive
+    return is_lock_held(get_eval_protocol_dir(), LOCK_NAME)
 
 
 def get_watcher_pid() -> Optional[int]:
     """Get the PID of the currently running evaluation watcher."""
-    _, pid_file_path = get_lock_file_paths()
+    return get_lock_holder_pid(get_eval_protocol_dir(), LOCK_NAME)
+
+
+def stop_watcher() -> bool:
+    """Stop the currently running evaluation watcher."""
+    pid = get_watcher_pid()
+    if pid is None:
+        logger.info("🔍 No evaluation watcher is currently running")
+        return False
+
     try:
-        if pid_file_path.exists():
-            with open(pid_file_path, "r") as pid_file:
-                content = pid_file.read().strip()
-                if content.isdigit():
-                    pid = int(content)
-                    if is_process_running(pid):
-                        return pid
-    except (IOError, OSError):
-        pass
-    return None
+        os.kill(pid, signal.SIGTERM)
+        logger.info(f"🔍 Sent SIGTERM to evaluation watcher process {pid}")
+        return True
+    except OSError as e:
+        logger.error(f"❌ Failed to stop evaluation watcher process {pid}: {e}")
+        return False
 
 
 def main():
@@ -293,14 +311,50 @@ def main():
         default=1.0,
         help="How often to check for terminated processes (seconds, default: 1.0)",
     )
+    parser.add_argument(
+        "--daemon",
+        action="store_true",
+        help="Run in daemon mode (internal use only)",
+    )
+    parser.add_argument(
+        "--stop",
+        action="store_true",
+        help="Stop the currently running evaluation watcher",
+    )
 
     args = parser.parse_args()
 
-    # Run the watcher directly (not as a background process)
-    run_watcher_loop(args.check_interval)
+    # Handle stop command
+    if args.stop:
+        stop_watcher()
+        return
+
+    # If running in daemon mode, try to acquire the lock and run the watcher loop
+    if args.daemon:
+        logger.info(f"🔍 Daemon mode: attempting to acquire lock (PID: {os.getpid()})")
+        # Try to acquire the lock in this process
+        current_holder_pid = acquire_singleton_lock(get_eval_protocol_dir(), LOCK_NAME)
+
+        if current_holder_pid is not None:
+            # Another process is already running
+            logger.info(f"🔍 Evaluation watcher already running in process {current_holder_pid}")
+            return
+
+        logger.info(f"🔍 Daemon mode: acquired lock successfully (PID: {os.getpid()})")
+        # We acquired the lock, run the watcher loop
+        try:
+            run_watcher_loop(args.check_interval)
+        except SystemExit:
+            # Graceful shutdown
+            pass
+        finally:
+            # Always release the lock when we exit
+            logger.info(f"🔍 Daemon mode: releasing lock (PID: {os.getpid()})")
+            release_singleton_lock(get_eval_protocol_dir(), LOCK_NAME)
+    else:
+        # Run the watcher directly (not as a background process)
+        run_watcher_loop(args.check_interval)
 
 
 if __name__ == "__main__":
-    # Ensure multiprocessing is properly initialized
-    multiprocessing.freeze_support()
     main()
