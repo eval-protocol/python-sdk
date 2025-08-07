@@ -1,4 +1,5 @@
 import inspect
+import os
 from typing import Any, Callable, Dict, List, Optional
 
 import pytest
@@ -243,6 +244,10 @@ def evaluation_test(
                         row.input_metadata.session_data["mode"] = mode
                         # Initialize eval_metadata for each row
                         row.eval_metadata = eval_metadata
+
+                        # has to be done in the pytest main process since it's
+                        # used to determine whether this eval has stopped
+                        row.pid = os.getpid()
 
                     # Now run the rollout processor with metadata-initialized data
                     config = RolloutProcessorConfig(

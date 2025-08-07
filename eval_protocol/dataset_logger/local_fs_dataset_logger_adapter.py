@@ -43,25 +43,29 @@ class LocalFSDatasetLoggerAdapter(DatasetLogger):
         """Log a row, updating existing row with same ID or appending new row."""
         row_id = row.input_metadata.row_id
 
-        # Check if row with this ID already exists
-        if os.path.exists(self.current_jsonl_path):
-            with open(self.current_jsonl_path, "r") as f:
-                lines = f.readlines()
+        # Check if row with this ID already exists in any JSONL file
+        if os.path.exists(self.datasets_dir):
+            for filename in os.listdir(self.datasets_dir):
+                if filename.endswith(".jsonl"):
+                    file_path = os.path.join(self.datasets_dir, filename)
+                    if os.path.exists(file_path):
+                        with open(file_path, "r") as f:
+                            lines = f.readlines()
 
-            # Find the line with matching ID
-            for i, line in enumerate(lines):
-                try:
-                    line_data = json.loads(line.strip())
-                    if line_data["input_metadata"]["row_id"] == row_id:
-                        # Update existing row
-                        lines[i] = row.model_dump_json(exclude_none=True) + os.linesep
-                        with open(self.current_jsonl_path, "w") as f:
-                            f.writelines(lines)
-                        return
-                except json.JSONDecodeError:
-                    continue
+                        # Find the line with matching ID
+                        for i, line in enumerate(lines):
+                            try:
+                                line_data = json.loads(line.strip())
+                                if line_data["input_metadata"]["row_id"] == row_id:
+                                    # Update existing row
+                                    lines[i] = row.model_dump_json(exclude_none=True) + os.linesep
+                                    with open(file_path, "w") as f:
+                                        f.writelines(lines)
+                                    return
+                            except json.JSONDecodeError:
+                                continue
 
-        # If no existing row found, append new row
+        # If no existing row found, append new row to current file
         with open(self.current_jsonl_path, "a") as f:
             f.write(row.model_dump_json(exclude_none=True) + os.linesep)
 
@@ -73,14 +77,18 @@ class LocalFSDatasetLoggerAdapter(DatasetLogger):
             return []
 
         all_rows = []
+        existing_row_ids = set()
         for filename in os.listdir(self.datasets_dir):
             if filename.endswith(".jsonl"):
                 file_path = os.path.join(self.datasets_dir, filename)
-                try:
-                    data = load_jsonl(file_path)
-                    all_rows.extend([EvaluationRow(**r) for r in data])
-                except Exception:
-                    continue  # skip files that can't be read/parsed
+                data = load_jsonl(file_path)
+                for r in data:
+                    row = EvaluationRow(**r)
+                    if row.input_metadata.row_id not in existing_row_ids:
+                        existing_row_ids.add(row.input_metadata.row_id)
+                    else:
+                        raise ValueError(f"Duplicate Row ID {row.input_metadata.row_id} already exists")
+                    all_rows.append(row)
 
         if row_id:
             # Filter by row_id if specified

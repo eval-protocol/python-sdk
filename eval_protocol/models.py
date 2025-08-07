@@ -211,8 +211,8 @@ class EvalMetadata(BaseModel):
         default_factory=get_pep440_version,
         description="Version of the evaluation. Should be populated with a PEP 440 version string.",
     )
-    status: Literal["running", "finished", "error", "stopped"] = Field(
-        "running", description="Status of the evaluation"
+    status: Optional[Literal["running", "finished", "error", "stopped"]] = Field(
+        None, description="Status of the evaluation"
     )
     num_runs: int = Field(..., description="Number of times the evaluation was repeated")
     aggregation_method: str = Field(..., description="Method used to aggregate scores across runs")
@@ -266,7 +266,7 @@ class EvaluationRow(BaseModel):
     )
 
     pid: Optional[int] = Field(
-        default_factory=os.getpid,
+        None,
         description="The PID of the process that created the row. This is used by the evaluation watcher to detect stopped evaluations.",
     )
 

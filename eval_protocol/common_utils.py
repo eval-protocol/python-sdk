@@ -15,6 +15,10 @@ def load_jsonl(file_path: str) -> List[Dict[str, Any]]:
     """
     data: List[Dict[str, Any]] = []
     with open(file_path, "r", encoding="utf-8") as f:
-        for line in f:
-            data.append(json.loads(line.strip()))
+        for line_number, line in enumerate(f):
+            try:
+                data.append(json.loads(line.strip()))
+            except json.JSONDecodeError as e:
+                print(f"Error parsing JSON line for file {file_path} at line {line_number}")
+                raise e
     return data
