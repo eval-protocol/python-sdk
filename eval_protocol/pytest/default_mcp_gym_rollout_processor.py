@@ -1,17 +1,16 @@
 import asyncio
+import atexit
 import os
+import signal
+import socket
 import subprocess
 import time
-import socket
 from pathlib import Path
 from typing import List, Optional
 
 import eval_protocol as ep
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.types import RolloutProcessorConfig
-
-import atexit
-import signal
 
 
 class MCPServerManager:
@@ -188,12 +187,15 @@ async def default_mcp_gym_rollout_processor(
     """
     Rollout processor for tau bench environments.
 
+
     This processor starts an MCP server, creates tau bench environments, and runs rollouts
     using the eval_protocol framework, following the pattern from test_tau2_e2e.py.
+
 
     Args:
         rows: List of EvaluationRow objects containing messages and dataset info in input_metadata
         config: RolloutProcessorConfig with model and other parameters
+
 
     Returns:
         List of EvaluationRow objects with completed conversations
@@ -207,6 +209,7 @@ async def default_mcp_gym_rollout_processor(
             model_id=config.model,
             temperature=config.input_params.get("temperature", 0.0),
             max_tokens=config.input_params.get("max_tokens", 4096),
+            reasoning_effort=config.input_params.get("reasoning_effort", None),
         )
 
         # Create MCP environments directly from evaluation_rows
@@ -218,7 +221,11 @@ async def default_mcp_gym_rollout_processor(
 
         # Run rollout with environments and policy
         evaluation_rows = await ep.rollout(
-            envs, policy=policy, steps=config.steps, max_concurrent_rollouts=config.max_concurrent_rollouts
+            envs,
+            policy=policy,
+            evaluation_rows=rows,
+            steps=config.steps,
+            max_concurrent_rollouts=config.max_concurrent_rollouts,
         )
 
         return evaluation_rows

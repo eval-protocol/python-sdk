@@ -519,6 +519,7 @@ class TestRolloutControlPlaneIntegration:
                 5,
                 None,
                 8,
+                None,
             )
 
             assert result == ["ok"]

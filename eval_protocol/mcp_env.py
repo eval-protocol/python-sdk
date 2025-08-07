@@ -40,6 +40,8 @@ MCP Integration:
 - Resources provide static/configuration data, tools provide dynamic actions
 """
 
+import asyncio
+
 # For legacy compatibility - import the facade functions
 import logging
 import random
@@ -47,11 +49,10 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 # Import all functionality from the new modular components
 from .mcp.execution.manager import ExecutionManager
-from .mcp.execution.policy import AnthropicPolicy, FireworksPolicy, LLMBasePolicy, OpenAIPolicy, LiteLLMPolicy
+from .mcp.execution.policy import AnthropicPolicy, FireworksPolicy, LiteLLMPolicy, LLMBasePolicy, OpenAIPolicy
 from .mcp.session.manager import GeneralMCPVectorEnv
 from .models import EvaluationRow
 from .types import DatasetRow, MCPSession, MCPToolCall
-import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +289,7 @@ async def rollout(
     execution_manager = ExecutionManager()
 
     return await execution_manager.execute_rollouts(
-        envs, policy, steps, openai_format_log_file, max_concurrent_rollouts
+        envs, policy, steps, openai_format_log_file, max_concurrent_rollouts, evaluation_rows
     )
 
 

@@ -42,6 +42,7 @@ class ExecutionManager:
         steps: int = 512,
         openai_format_log_file: Optional[str] = None,
         max_concurrent_rollouts: int = 8,
+        evaluation_rows: Optional[List[EvaluationRow]] = None,
     ) -> List[EvaluationRow]:
         """
         Execute general rollouts using tool calling interface with automatic record/playback.
@@ -135,9 +136,11 @@ class ExecutionManager:
             # Add note about control plane separation
             logger.info(f"🎛️  Trajectories include control plane separation")
 
-        # Convert trajectories to unified EvaluationRow format
-        evaluation_rows = []
-        for trajectory in trajectories:
+        # Convert trajectories to unified EvaluationRow format. If no evaluation_rows are provided, create empty ones for backwards compatibility.
+        if evaluation_rows is None:
+            evaluation_rows = [EvaluationRow(messages=[], input_metadata=InputMetadata()) for _ in trajectories]
+
+        for idx, trajectory in enumerate(trajectories):
             # Handle multimodal content by extracting text from complex content structures
             messages = []
             for msg in trajectory.conversation_history:
@@ -155,26 +158,15 @@ class ExecutionManager:
 
                 messages.append(Message.model_validate(msg_dict))
 
-            input_metadata = InputMetadata(
-                row_id=trajectory.session.dataset_row.id if trajectory.session.dataset_row else None,
-                dataset_info=asdict(trajectory.session.dataset_row) if trajectory.session.dataset_row else {},
-                completion_params=CompletionParams(
-                    model=policy.model_id,
-                    temperature=getattr(policy, "temperature", None),
-                    max_tokens=getattr(policy, "max_tokens", None),
-                    max_tool_calls=getattr(policy, "max_tools_per_turn", None),
-                ),
-                session_data={
-                    "timestamp": time.time(),
-                },
+            evaluation_rows[idx].messages = messages
+            evaluation_rows[idx].tools = shared_tool_schema
+            evaluation_rows[idx].usage = trajectory.usage
+            evaluation_rows[idx].input_metadata.completion_params = CompletionParams(
+                model=policy.model_id,
+                temperature=getattr(policy, "temperature", None),
+                max_tokens=getattr(policy, "max_tokens", None),
+                max_tool_calls=getattr(policy, "max_tools_per_turn", None),
             )
-            evaluation_row = EvaluationRow(
-                messages=messages,
-                tools=shared_tool_schema,
-                input_metadata=input_metadata,
-                usage=trajectory.usage,
-            )
-            evaluation_rows.append(evaluation_row)
 
         return evaluation_rows
 
