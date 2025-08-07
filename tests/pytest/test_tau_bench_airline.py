@@ -10,10 +10,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message, InputMetadata, CompletionParams
+from eval_protocol.models import CompletionParams, EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import default_mcp_gym_rollout_processor
-
 from vendor.tau2.data_model.message import (
     AssistantMessage,
     SystemMessage,
@@ -28,20 +27,21 @@ from vendor.tau2.evaluator.evaluator_communicate import CommunicateEvaluator
 from vendor.tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
 from vendor.tau2.registry import registry
 
+
 def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
     """
     Convert entries from airline dataset to EvaluationRow objects.
     """
     rows = []
     test_dir = Path(__file__).parent.parent.parent / "examples" / "tau2_mcp" / "tests"
-    
+
     # Load system prompt from file so we can change it in one place
     domain = data[0]["environment_context"]["domain"]
     prompt_file = test_dir / f"system_prompts/{domain}_agent_system_prompt.md"
-    
+
     with open(prompt_file, "r") as f:
         system_prompt = f.read().strip()
-    
+
     for row in data:
         eval_row = EvaluationRow(
             messages=[Message(role="system", content=system_prompt)],
@@ -52,19 +52,20 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
                     "user_simulation": row["user_simulation"],
                     "evaluation_criteria": row["evaluation_criteria"],
                     "user_prompt_template": row["user_prompt_template"],
-                }
+                },
             ),
         )
-        
+
         rows.append(eval_row)
-    
+
     return rows
+
 
 @evaluation_test(
     input_dataset=["tests/pytest/data/airline_dataset.jsonl"],
     dataset_adapter=tau_bench_airline_to_evaluation_row,
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
-    rollout_input_params=[{"temperature": 0.8, "max_tokens": 4096}],
+    rollout_input_params=[{"temperature": 0.8, "max_tokens": 4096, "reasoning_effort": "high"}],
     rollout_processor=default_mcp_gym_rollout_processor,
     threshold_of_success=0.4,
     num_runs=1,
@@ -75,22 +76,22 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
 def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
     Test tau bench airline evaluation using the pytest framework.
-    
+
     This test now uses the tau_bench_airline_reward function which automatically
     extracts evaluation criteria from dataset entries. No wrapper needed!
-    
+
     Args:
         row: EvaluationRow object from tau bench airline dataset after rollout
-    
+
     Returns:
         EvaluationRow with tau2 evaluation results
     """
     messages = row.messages
-    
+
     # Get evaluation criteria and user_simulation from input_metadata.dataset_info
     dataset_info = row.input_metadata.dataset_info if row.input_metadata else {}
     evaluation_criteria = dataset_info.get("evaluation_criteria", {})
-    
+
     nl_assertions = evaluation_criteria.get("nl_assertions", [])
     communicate_info = evaluation_criteria.get("communicate_info", [])
     actions = evaluation_criteria.get("actions", [])
@@ -130,7 +131,7 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
         actions=actions,
         reward_basis=[
             RewardType.DB,
-            RewardType.ACTION,
+            RewardType.COMMUNICATE,
         ],
     )
 

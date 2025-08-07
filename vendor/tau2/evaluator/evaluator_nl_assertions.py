@@ -1,10 +1,27 @@
 import json
+from typing import List
+
+from pydantic import BaseModel
 
 from vendor.tau2.config import DEFAULT_LLM_NL_ASSERTIONS, DEFAULT_LLM_NL_ASSERTIONS_ARGS
 from vendor.tau2.data_model.message import Message, SystemMessage, UserMessage
 from vendor.tau2.data_model.simulation import NLAssertionCheck, RewardInfo
 from vendor.tau2.data_model.tasks import RewardType, Task
 from vendor.tau2.utils.llm_utils import generate
+
+
+class NLAssertionResult(BaseModel):
+    """Individual NL assertion evaluation result."""
+
+    expectedOutcome: str
+    reasoning: str
+    metExpectation: bool
+
+
+class NLAssertionsResponse(BaseModel):
+    """Complete NL assertions evaluation response."""
+
+    results: List[NLAssertionResult]
 
 
 class NLAssertionsEvaluator:
@@ -37,9 +54,7 @@ class NLAssertionsEvaluator:
                 reward_breakdown={RewardType.NL_ASSERTION: 1.0},
             )
 
-        nl_assertions_checks = cls.evaluate_nl_assertions(
-            full_trajectory, nl_assertions
-        )
+        nl_assertions_checks = cls.evaluate_nl_assertions(full_trajectory, nl_assertions)
 
         # Calculate reward: 1 if all expectations are met, 0 otherwise
         all_expectations_met = all(result.met for result in nl_assertions_checks)
@@ -70,9 +85,7 @@ class NLAssertionsEvaluator:
             - metExpectation: Boolean indicating if the assertion was met
             - reasoning: Explanation for the evaluation
         """
-        trajectory_str = "\n".join(
-            [f"{message.role}: {message.content}" for message in trajectory]
-        )
+        trajectory_str = "\n".join([f"{message.role}: {message.content}" for message in trajectory])
         # System prompt similar to the TypeScript implementation
         system_prompt = """
         TASK
@@ -86,7 +99,7 @@ class NLAssertionsEvaluator:
         - `reasoning`: a short explanation for your classification
         - `metExpectation`: `true` if the agent satisfies the expected outcomes, `false` otherwise
         - `expectedOutcome`: repeat the expectation from the input that you are grading
-        
+
         Example response structure:
         {
             "results": [
@@ -102,7 +115,7 @@ class NLAssertionsEvaluator:
         user_prompt = f"""
         conversation:
         {trajectory_str}
-        
+
         expectedOutcomes:
         {nl_assertions}
         """
@@ -115,8 +128,12 @@ class NLAssertionsEvaluator:
         assistant_message = generate(
             model=DEFAULT_LLM_NL_ASSERTIONS,
             messages=messages,
-            **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
-        )
+            temperature=0.0,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {"name": "NLAssertionsResponse", "schema": NLAssertionsResponse.model_json_schema()},
+            },
+        )  # Adding constrained generation to ensure the response is a valid JSON object
         result_data = json.loads(assistant_message.content)
         return [
             NLAssertionCheck(
