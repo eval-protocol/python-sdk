@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Dict, List
 
 
@@ -20,5 +21,10 @@ def load_jsonl(file_path: str) -> List[Dict[str, Any]]:
                 data.append(json.loads(line.strip()))
             except json.JSONDecodeError as e:
                 print(f"Error parsing JSON line for file {file_path} at line {line_number}")
+                # attempt to find "row_id" in the line by finding index of "row_id" and performing regex of `"row_id": (.*),`
+                row_id_index = line.find("row_id")
+                if row_id_index != -1:
+                    row_id = re.search(r'"row_id": (.*),', line[row_id_index:])
+                    raise ValueError(f"{e.msg} at line {line_number}: {line} ({row_id})")
                 raise e
     return data
