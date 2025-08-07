@@ -1,17 +1,16 @@
 import asyncio
+import atexit
 import os
+import signal
+import socket
 import subprocess
 import time
-import socket
 from pathlib import Path
 from typing import List, Optional
 
 import eval_protocol as ep
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.types import RolloutProcessorConfig
-
-import atexit
-import signal
 
 
 class MCPServerManager:
@@ -198,6 +197,8 @@ async def default_mcp_gym_rollout_processor(
     Returns:
         List of EvaluationRow objects with completed conversations
     """
+    if config.server_script_path is None:
+        raise ValueError("server_script_path is required for default_mcp_gym_rollout_processor")
     server = MCPServerManager(config.server_script_path, port=9700)
 
     try:
