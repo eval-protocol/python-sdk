@@ -1,10 +1,9 @@
 import inspect
+import os
 from typing import Any, Callable, Dict, List, Optional
 
 import pytest
 
-# Import versioneer for getting version information
-import versioneer
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, InputMetadata
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
@@ -216,7 +215,6 @@ def evaluation_test(
                     eval_metadata = EvalMetadata(
                         name=test_func.__name__,
                         description=test_func.__doc__,
-                        version=versioneer.get_version(),
                         status="running",
                         num_runs=num_runs,
                         aggregation_method=aggregation_method,
@@ -242,6 +240,10 @@ def evaluation_test(
                         row.input_metadata.session_data["mode"] = mode
                         # Initialize eval_metadata for each row
                         row.eval_metadata = eval_metadata
+
+                        # has to be done in the pytest main process since it's
+                        # used to determine whether this eval has stopped
+                        row.pid = os.getpid()
 
                     # Now run the rollout processor with metadata-initialized data
                     config = RolloutProcessorConfig(

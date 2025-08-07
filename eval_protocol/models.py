@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -8,6 +9,7 @@ from openai.types.chat.chat_completion_message import (
 )
 from pydantic import BaseModel, ConfigDict, Field
 
+from eval_protocol.get_pep440_version import get_pep440_version
 from eval_protocol.human_id import generate_id
 
 
@@ -206,9 +208,12 @@ class EvalMetadata(BaseModel):
     name: str = Field(..., description="Name of the evaluation")
     description: Optional[str] = Field(None, description="Description of the evaluation")
     version: str = Field(
-        ..., description="Version of the evaluation. By default, we will populate this with the current commit hash."
+        default_factory=get_pep440_version,
+        description="Version of the evaluation. Should be populated with a PEP 440 version string.",
     )
-    status: Literal["running", "finished", "error"] = Field("running", description="Status of the evaluation")
+    status: Optional[Literal["running", "finished", "error", "stopped"]] = Field(
+        None, description="Status of the evaluation"
+    )
     num_runs: int = Field(..., description="Number of times the evaluation was repeated")
     aggregation_method: str = Field(..., description="Method used to aggregate scores across runs")
     threshold_of_success: Optional[float] = Field(None, description="Threshold score for test success")
@@ -258,6 +263,11 @@ class EvaluationRow(BaseModel):
 
     eval_metadata: Optional[EvalMetadata] = Field(
         default=None, description="Metadata about the evaluation that was run."
+    )
+
+    pid: Optional[int] = Field(
+        None,
+        description="The PID of the process that created the row. This is used by the evaluation watcher to detect stopped evaluations.",
     )
 
     def is_trajectory_evaluation(self) -> bool:
