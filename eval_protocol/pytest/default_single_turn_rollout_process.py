@@ -4,6 +4,7 @@ from typing import List
 from openai import AsyncOpenAI
 
 from eval_protocol.auth import get_fireworks_api_base, get_fireworks_api_key
+from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
@@ -38,13 +39,12 @@ async def default_single_turn_rollout_processor(
             )
         ]
 
-        return EvaluationRow(
-            messages=messages,
-            **row.model_dump(exclude={"messages"}),
-        )
+        row.messages = messages
+        default_logger.log(row)
+        return row
 
     # Process all rows concurrently
     tasks = [process_row(row) for row in rows]
-    dataset = await asyncio.gather(*tasks)
+    dataset = list(await asyncio.gather(*tasks))
 
     return dataset
