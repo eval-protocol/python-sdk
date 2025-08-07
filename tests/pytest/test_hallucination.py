@@ -9,12 +9,13 @@ tau's evaluate_nl_assertions approach.
 import json
 from typing import Any, Dict, List
 
-from fireworks import LLM
+import litellm
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
 
-judge_llm = LLM(model="accounts/fireworks/models/kimi-k2-instruct", deployment_type="serverless")
+# Configure the judge model for LiteLLM
+JUDGE_MODEL = "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"
 
 
 def hallucination_dataset_adapter(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
@@ -31,7 +32,7 @@ def hallucination_dataset_adapter(data: List[Dict[str, Any]]) -> List[Evaluation
 @evaluation_test(
     input_dataset=["tests/pytest/data/halueval_sample_dataset.jsonl"],
     dataset_adapter=hallucination_dataset_adapter,
-    model=["accounts/fireworks/models/kimi-k2-instruct"],
+    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 512}],
     rollout_processor=default_single_turn_rollout_processor,
     threshold_of_success=0.33,
@@ -77,7 +78,8 @@ def test_hallucination_detection(row: EvaluationRow) -> EvaluationRow:
     """
 
     try:
-        response = judge_llm.chat.completions.create(
+        response = litellm.completion(
+            model=JUDGE_MODEL,
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             temperature=0.1,
             max_tokens=500,
