@@ -39,6 +39,25 @@ logger = get_logger("eval_watcher")
 LOCK_NAME = "eval_watcher"
 
 
+# Signal handler to automatically reap zombie processes
+def _reap_zombies(signum, frame):
+    """Reap zombie child processes to prevent them from accumulating."""
+    try:
+        while True:
+            # Wait for any child process, but don't block
+            pid, status = os.waitpid(-1, os.WNOHANG)
+            if pid == 0:  # No more children to reap
+                break
+    except OSError:
+        # No child processes
+        pass
+
+
+# Set up signal handler for SIGCHLD if available
+if hasattr(signal, "SIGCHLD"):
+    signal.signal(signal.SIGCHLD, _reap_zombies)
+
+
 def get_eval_protocol_dir() -> Path:
     """Get the evaluation protocol directory for lock files."""
     return Path(find_eval_protocol_dir())
@@ -184,6 +203,7 @@ def _start_watcher_process(check_interval: float) -> Optional[int]:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
+            close_fds=True,
         )
 
         return process.pid
