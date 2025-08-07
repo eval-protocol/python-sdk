@@ -11,13 +11,11 @@ Usage:
 
 import argparse
 import fcntl
-import json
 import multiprocessing
 import os
-import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 # Add freeze_support for multiprocessing compatibility
 if __name__ == "__main__":
@@ -25,7 +23,11 @@ if __name__ == "__main__":
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.directory_utils import find_eval_protocol_dir
+from eval_protocol.logging_utils import get_logger
 from eval_protocol.models import EvaluationRow
+
+# Initialize logger
+logger = get_logger("eval_watcher")
 
 
 def get_lock_file_paths() -> tuple[Path, Path]:
@@ -119,12 +121,12 @@ def update_evaluation_to_stopped(row: EvaluationRow, reason: str) -> None:
             )
 
         default_logger.log(row)
-        print(
+        logger.info(
             f"  📝 Updated evaluation '{row.eval_metadata.name if row.eval_metadata else 'Unknown'}' (Row ID: {row.input_metadata.row_id}) (PID: {row.pid}) to stopped status"
         )
 
     except Exception as e:
-        print(f"  ⚠️  Error updating evaluation row: {e}")
+        logger.error(f"  ⚠️  Error updating evaluation row: {e}")
 
 
 def check_and_update_terminated_evaluations() -> int:
@@ -134,9 +136,9 @@ def check_and_update_terminated_evaluations() -> int:
     if not running_evaluations:
         return 0
 
-    print(f"🔍 Checking {len(running_evaluations)} running evaluations for terminated processes...")
+    logger.info(f"🔍 Checking {len(running_evaluations)} running evaluations for terminated processes...")
     for row in running_evaluations:
-        print(f" Row ID: {row.input_metadata.row_id}  PID: {row.pid}")
+        logger.info(f" Row ID: {row.input_metadata.row_id}  PID: {row.pid}")
 
     terminated_count = 0
     for row in running_evaluations:
@@ -149,16 +151,16 @@ def check_and_update_terminated_evaluations() -> int:
             terminated_count += 1
 
     if terminated_count > 0:
-        print(f"  ✅ Updated {terminated_count} evaluations to stopped status")
+        logger.info(f"  ✅ Updated {terminated_count} evaluations to stopped status")
 
     return terminated_count
 
 
 def run_watcher_loop(check_interval: float) -> None:
     """Main monitoring loop."""
-    print(f"🔍 Starting evaluation watcher (PID: {os.getpid()})")
-    print(f"  Check interval: {check_interval} seconds")
-    print("  Monitoring all evaluation rows for terminated processes")
+    logger.info(f"🔍 Starting evaluation watcher (PID: {os.getpid()})")
+    logger.info(f"  Check interval: {check_interval} seconds")
+    logger.info("  Monitoring all evaluation rows for terminated processes")
 
     consecutive_empty_checks = 0
     max_empty_checks = 3
@@ -173,23 +175,23 @@ def run_watcher_loop(check_interval: float) -> None:
             else:
                 consecutive_empty_checks += 1
                 if consecutive_empty_checks >= max_empty_checks:
-                    print(
+                    logger.info(
                         f"🔍 No running evaluations found for {consecutive_empty_checks} consecutive checks. Exiting watcher."
                     )
                     break
                 else:
-                    print(
+                    logger.info(
                         f"🔍 No running evaluations found ({consecutive_empty_checks}/{max_empty_checks} consecutive checks)"
                     )
 
             time.sleep(check_interval)
 
     except KeyboardInterrupt:
-        print("\n🛑 Evaluation watcher interrupted by user")
+        logger.info("\n🛑 Evaluation watcher interrupted by user")
     except Exception as e:
-        print(f"\n❌ Evaluation watcher error: {e}")
+        logger.error(f"\n❌ Evaluation watcher error: {e}")
     finally:
-        print("🔍 Evaluation watcher stopped")
+        logger.info("🔍 Evaluation watcher stopped")
 
 
 def _start_watcher_process(check_interval: float) -> multiprocessing.Process:
@@ -210,7 +212,7 @@ def _watcher_process_main(check_interval: float) -> None:
 
     if current_holder_pid is not None:
         # Another process is already running
-        print(f"🔍 Evaluation watcher already running in process {current_holder_pid}")
+        logger.info(f"🔍 Evaluation watcher already running in process {current_holder_pid}")
         return
 
     # We acquired the lock, run the watcher loop
@@ -239,10 +241,10 @@ def ensure_singleton_watcher(check_interval: float = 5.0) -> bool:
     # Start the watcher in a background process
     try:
         process = _start_watcher_process(check_interval)
-        print(f"🔍 Started evaluation watcher in background process (PID: {process.pid})")
+        logger.info(f"🔍 Started evaluation watcher in background process (PID: {process.pid})")
         return True
     except Exception as e:
-        print(f"❌ Failed to start evaluation watcher: {e}")
+        logger.error(f"❌ Failed to start evaluation watcher: {e}")
         return False
 
 
