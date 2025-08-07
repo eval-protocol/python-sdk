@@ -96,7 +96,8 @@ export const EvaluationRowSchema = z.object({
     (val) => typeof val === "string" ? new Date(val) : val,
     z.date()
   ).describe('The timestamp when the row was created. Accepts string and parses to Date.'),
-  eval_metadata: EvalMetadataSchema.optional().describe('Metadata about the evaluation that was run.')
+  eval_metadata: EvalMetadataSchema.optional().describe('Metadata about the evaluation that was run.'),
+  pid: z.number().optional().describe('The PID of the process that created the row. This is used by the evaluation watcher to detect stopped evaluations.')
 });
 
 // Agent Evaluation Framework (V2) schemas
