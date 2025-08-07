@@ -14,6 +14,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 from eval_protocol.evaluation import create_evaluation, preview_evaluation
 
 from .cli_commands.agent_eval_cmd import agent_eval_command
@@ -24,6 +25,7 @@ from .cli_commands.common import (
 )
 from .cli_commands.deploy import deploy_command
 from .cli_commands.deploy_mcp import deploy_mcp_command
+from .cli_commands.logs import logs_command
 from .cli_commands.preview import preview_command
 from .cli_commands.run_eval_cmd import hydra_cli_entry_point
 
@@ -285,6 +287,9 @@ def parse_args(args=None):
         help="Override the number of parallel rollouts to execute for each task.",
     )
 
+    # Logs command
+    logs_parser = subparsers.add_parser("logs", help="Serve logs with file watching and real-time updates")
+
     # Run command (for Hydra-based evaluations)
     # This subparser intentionally defines no arguments itself.
     # All arguments after 'run' will be passed to Hydra by parse_known_args.
@@ -338,6 +343,8 @@ def main():
         return deploy_mcp_command(args)
     elif args.command == "agent-eval":
         return agent_eval_command(args)
+    elif args.command == "logs":
+        return logs_command(args)
     elif args.command == "run":
         # For the 'run' command, Hydra takes over argument parsing.
 

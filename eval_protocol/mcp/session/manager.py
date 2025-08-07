@@ -11,7 +11,7 @@ import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from ...types import DatasetRow, MCPSession, MCPToolCall
-from ..execution.manager import ExecutionManager
+from ..client.connection import MCPConnectionManager
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class GeneralMCPVectorEnv:
         self.user_prompt_formatter = user_prompt_formatter or self._default_formatter
         self.n = len(sessions)
         self.tool_schemas = []  # Discovered from MCP servers
-        self.execution_manager = ExecutionManager()
+        self.connection_manager = MCPConnectionManager()
         self.usage_stats = {}  # llm usage stats for monitoring
 
         if len(sessions) != len(dataset_rows):
@@ -58,17 +58,14 @@ class GeneralMCPVectorEnv:
 
         This is thread-safe and can be called from worker threads.
         """
-        # Establish a persistent session for each environment.
-        await self.execution_manager.connection_manager.initialize_session(session)
-
         # Get available tools from MCP server
-        tool_schemas = await self.execution_manager.connection_manager.discover_tools(session)
+        tool_schemas = await self.connection_manager.discover_tools(session)
 
         if not self.tool_schemas:
             self.tool_schemas = tool_schemas
 
         # PROPER MCP PATTERN: Get initial state from resources during session establishment
-        initial_observation = await self.execution_manager.connection_manager.get_initial_state(session)
+        initial_observation = await self.connection_manager.get_initial_state(session)
 
         # Update session state
         session.terminated = False
@@ -119,7 +116,7 @@ class GeneralMCPVectorEnv:
             )
 
         # Execute the tool call via MCP protocol
-        observation, reward, done, info = await self.execution_manager.connection_manager.call_tool(
+        observation, reward, done, info = await self.connection_manager.call_tool(
             session, tool_call.tool_name, tool_call.arguments
         )
 
@@ -223,5 +220,6 @@ class GeneralMCPVectorEnv:
     async def close(self):
         """Closes all MCP sessions."""
         print(f"🧹 Closing {self.n} MCP sessions...")
-        await self.execution_manager.close_sessions(self.sessions)
+        tasks = [self.connection_manager.close_session(session) for session in self.sessions]
+        await asyncio.gather(*tasks)
         print(f"✅ All MCP sessions closed.")

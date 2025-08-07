@@ -160,6 +160,7 @@ cython_debug/
 # Specific to this project (can be kept or reviewed)
 firectl
 references
+.eval_protocol
 
 
 samples.json # If this is a specific file to ignore

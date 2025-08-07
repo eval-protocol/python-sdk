@@ -187,12 +187,15 @@ async def default_mcp_gym_rollout_processor(
     """
     Rollout processor for tau bench environments.
 
+
     This processor starts an MCP server, creates tau bench environments, and runs rollouts
     using the eval_protocol framework, following the pattern from test_tau2_e2e.py.
+
 
     Args:
         rows: List of EvaluationRow objects containing messages and dataset info in input_metadata
         config: RolloutProcessorConfig with model and other parameters
+
 
     Returns:
         List of EvaluationRow objects with completed conversations
@@ -210,7 +213,7 @@ async def default_mcp_gym_rollout_processor(
         )
 
         # Create MCP environments directly from evaluation_rows
-        envs = ep.make(
+        envs = await ep.make(
             "http://localhost:9700/mcp/",
             evaluation_rows=rows,
             model_id=policy.model_id,

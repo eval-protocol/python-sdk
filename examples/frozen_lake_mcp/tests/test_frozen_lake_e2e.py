@@ -232,7 +232,7 @@ async def test_production_server_record_and_replay(production_server, frozen_lak
         assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
 
         # Create environments for playback
-        playback_envs = ep.make(
+        playback_envs = await ep.make(
             "http://localhost:9500/mcp/",
             dataset=frozen_lake_dataset,
             model_id=playback_policy.model_id,
@@ -268,7 +268,7 @@ async def test_production_server_record_and_replay(production_server, frozen_lak
     assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
     # Create environments
-    envs = ep.make(
+    envs = await ep.make(
         "http://localhost:9500/mcp/",
         dataset=frozen_lake_dataset,
         model_id=policy.model_id,
@@ -335,7 +335,7 @@ async def test_production_server_record_and_replay(production_server, frozen_lak
     assert playback_policy.is_playback_mode(), "Should be in playback mode"
 
     # Create new environments for playback
-    playback_envs = ep.make(
+    playback_envs = await ep.make(
         "http://localhost:9500/mcp/",
         dataset=frozen_lake_dataset,
         model_id=playback_policy.model_id,
@@ -488,7 +488,7 @@ async def test_frozen_lake_step_by_step(conda_isolation_recording_file):
         ]
 
         # Create environment pointing to conda-isolated server
-        envs = ep.make(
+        envs = await ep.make(
             f"http://localhost:{port}/mcp/",
             dataset=test_dataset,
             model_id=policy.model_id,
@@ -593,7 +593,7 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
         policy = create_frozen_lake_static_policy(action_sequence=["RIGHT", "RIGHT", "RIGHT", "DOWN", "DOWN", "DOWN"])
 
         # Create multiple environments
-        envs = ep.make(
+        envs = await ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_dataset,
             model_id=policy.model_id,
@@ -1071,7 +1071,7 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
         assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
 
         # Create environments for playback
-        playback_envs = ep.make(
+        playback_envs = await ep.make(
             "http://localhost:9500/mcp/",
             dataset=multi_env_dataset,
             model_id=playback_policy.model_id,
@@ -1113,7 +1113,7 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
         assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
         # Create multiple environments
-        envs = ep.make(
+        envs = await ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_dataset,
             model_id=policy.model_id,
@@ -1232,7 +1232,7 @@ async def test_control_plane_state_querying(multi_env_dataset):
         policy = create_frozen_lake_static_policy(action_sequence=["RIGHT", "DOWN"])
 
         # Create environments
-        envs = ep.make(
+        envs = await ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_dataset[:2],  # Use only 2 environments for faster testing
             model_id=policy.model_id,
@@ -1283,7 +1283,7 @@ async def _run_playback_only(recording_file: str, dataset: List[Dict], server_ur
     assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
 
     # Create environments for playback
-    playback_envs = ep.make(
+    playback_envs = await ep.make(
         server_url,
         dataset=dataset,
         model_id=playback_policy.model_id,

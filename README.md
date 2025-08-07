@@ -2,8 +2,8 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/eval-protocol)](https://pypi.org/project/eval-protocol/)
 
-EP is an open specification, Python SDK, and pytest wrapper that provides a
-standardized way to write evaluations for large language model (LLM)
+EP is an open specification, Python SDK, pytest wrapper, and suite of tools that
+provides a standardized way to write evaluations for large language model (LLM)
 applications. Start with simple single-turn evals for model selection and prompt
 engineering, then scale up to complex multi-turn reinforcement learning (RL) for
 agents using Model Context Protocol (MCP). EP ensures consistent patterns for
@@ -11,6 +11,12 @@ writing evals, storing traces, and saving results—enabling you to build
 sophisticated agent evaluations that work across real-world scenarios, from
 markdown generation tasks to customer service agents with tool calling
 capabilities.
+
+<p align="center">
+	<img src="./assets/ui.png" alt="UI" />
+	<br>
+	<sub><b>Log Viewer: Monitor your evaluation rollouts in real time.</b></sub>
+</p>
 
 ## Quick Example
 
@@ -35,17 +41,17 @@ def test_bold_format(row: EvaluationRow) -> EvaluationRow:
     """
     Simple evaluation that checks if the model's response contains bold text.
     """
-    
+
     assistant_response = row.messages[-1].content
-    
+
     # Check if response contains **bold** text
     has_bold = "**" in assistant_response
-    
+
     if has_bold:
         result = EvaluateResult(score=1.0, reason="✅ Response contains bold text")
     else:
         result = EvaluateResult(score=0.0, reason="❌ No bold text found")
-    
+
     row.evaluation_result = result
     return row
 ```

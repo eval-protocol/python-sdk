@@ -60,7 +60,7 @@ async def test_multi_session():
 
     try:
         # Create environments (assumes server is running on localhost:8000)
-        envs = ep.make(
+        envs = await ep.make(
             "http://localhost:8000/mcp/",
             dataset=test_dataset,
             model_id=policy.model_id,

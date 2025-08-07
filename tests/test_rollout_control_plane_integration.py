@@ -489,7 +489,7 @@ class TestRolloutControlPlaneIntegration:
         policy = MockPolicy(["right"])
 
         with (
-            patch("eval_protocol.mcp_env.make") as mock_make,
+            patch("eval_protocol.mcp_env.make", new_callable=AsyncMock) as mock_make,
             patch("eval_protocol.mcp_env.ExecutionManager") as MockManager,
         ):
             mock_env = MagicMock()
@@ -512,7 +512,15 @@ class TestRolloutControlPlaneIntegration:
                 dataset=dataset,
                 model_id="test_model",
             )
-            manager_instance.execute_rollouts.assert_called_once_with(mock_env, policy, 5, None, 8)
+
+            manager_instance.execute_rollouts.assert_called_once_with(
+                mock_make.return_value,
+                policy,
+                5,
+                None,
+                8,
+            )
+
             assert result == ["ok"]
 
     def test_control_plane_trajectory_serialization(self):
