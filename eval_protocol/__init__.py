@@ -10,15 +10,16 @@ tool-augmented models using self-contained task bundles.
 
 import warnings
 
-from .adapters.braintrust import reward_fn_to_scorer, scorer_to_reward_fn
+from eval_protocol.adapters.braintrust import reward_fn_to_scorer, scorer_to_reward_fn
+
 from .auth import get_fireworks_account_id, get_fireworks_api_key
 from .common_utils import load_jsonl
 from .config import RewardKitConfig, get_config, load_config
 from .mcp_env import (
     AnthropicPolicy,
-    OpenAIPolicy,
-    LiteLLMPolicy,
     FireworksPolicy,
+    LiteLLMPolicy,
+    OpenAIPolicy,
     make,
     rollout,
     test_mcp,
