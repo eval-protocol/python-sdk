@@ -130,7 +130,7 @@ def run_watcher_loop(check_interval: float) -> None:
     signal.signal(signal.SIGINT, signal_handler)
 
     consecutive_empty_checks = 0
-    max_empty_checks = 3
+    max_empty_checks = 30
 
     try:
         while True:
@@ -159,38 +159,6 @@ def run_watcher_loop(check_interval: float) -> None:
         logger.error(f"\n❌ Evaluation watcher error: {e}")
     finally:
         logger.info("🔍 Evaluation watcher stopped")
-
-
-def _watcher_process_target(check_interval: float) -> None:
-    """Target function for the watcher process."""
-    try:
-        # Detach from parent process group to become independent
-        try:
-            os.setsid()
-        except OSError:
-            # On Windows or if already detached, this might fail
-            pass
-
-        # Try to acquire the lock
-        current_holder_pid = acquire_singleton_lock(get_eval_protocol_dir(), LOCK_NAME)
-
-        if current_holder_pid is not None:
-            # Another process is already running
-            logger.info(f"🔍 Evaluation watcher already running in process {current_holder_pid}")
-            return
-
-        # We acquired the lock, run the watcher loop
-        try:
-            run_watcher_loop(check_interval)
-        except SystemExit:
-            # Graceful shutdown
-            pass
-        finally:
-            # Always release the lock when we exit
-            release_singleton_lock(get_eval_protocol_dir(), LOCK_NAME)
-
-    except Exception as e:
-        logger.error(f"❌ Error in watcher process: {e}")
 
 
 def _start_watcher_process(check_interval: float) -> Optional[int]:
