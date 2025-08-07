@@ -8,7 +8,6 @@ from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, InputMetadata
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
-from eval_protocol.pytest.eval_watcher import ensure_singleton_watcher
 from eval_protocol.pytest.types import (
     Dataset,
     DatasetPathParam,
@@ -196,9 +195,6 @@ def evaluation_test(
                 model_name = kwargs["model"]
                 eval_metadata = None
                 all_results: List[EvaluationRow] = []
-
-                # Ensure the evaluation watcher is running (OS-level singleton)
-                ensure_singleton_watcher()
 
                 try:
                     # Handle dataset loading
