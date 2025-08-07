@@ -1,11 +1,13 @@
-from datetime import datetime, timezone
 import json
 import os
-import tempfile
 import shutil
+import tempfile
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
+
 from eval_protocol.common_utils import load_jsonl
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
+from eval_protocol.dataset_logger.directory_utils import find_eval_protocol_datasets_dir
 
 if TYPE_CHECKING:
     from eval_protocol.models import EvaluationRow
@@ -16,36 +18,9 @@ class LocalFSDatasetLoggerAdapter(DatasetLogger):
     Logger that stores logs in the local filesystem.
     """
 
-    EVAL_PROTOCOL_DIR = ".eval_protocol"
-    PYTHON_FILES = ["pyproject.toml", "requirements.txt"]
-    DATASETS_DIR = "datasets"
-
     def __init__(self):
-        # recursively look up for a .eval_protocol directory
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        while current_dir != "/":
-            if os.path.exists(os.path.join(current_dir, self.EVAL_PROTOCOL_DIR)):
-                self.log_dir = os.path.join(current_dir, self.EVAL_PROTOCOL_DIR)
-                break
-            current_dir = os.path.dirname(current_dir)
-
-        # if not found, recursively look up until a pyproject.toml or requirements.txt is found
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        while current_dir != "/":
-            if any(os.path.exists(os.path.join(current_dir, f)) for f in self.PYTHON_FILES):
-                self.log_dir = os.path.join(current_dir, self.EVAL_PROTOCOL_DIR)
-                break
-            current_dir = os.path.dirname(current_dir)
-
-        # get the PWD that this python process is running in
-        self.log_dir = os.path.join(os.getcwd(), self.EVAL_PROTOCOL_DIR)
-
-        # create the .eval_protocol directory if it doesn't exist
-        os.makedirs(self.log_dir, exist_ok=True)
-
-        # create the datasets subdirectory
-        self.datasets_dir = os.path.join(self.log_dir, self.DATASETS_DIR)
-        os.makedirs(self.datasets_dir, exist_ok=True)
+        self.log_dir = os.path.dirname(find_eval_protocol_datasets_dir())
+        self.datasets_dir = find_eval_protocol_datasets_dir()
 
         # ensure that log file exists
         if not os.path.exists(self.current_jsonl_path):
