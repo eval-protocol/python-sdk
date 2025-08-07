@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -262,6 +263,11 @@ class EvaluationRow(BaseModel):
 
     eval_metadata: Optional[EvalMetadata] = Field(
         default=None, description="Metadata about the evaluation that was run."
+    )
+
+    pid: Optional[int] = Field(
+        default_factory=os.getpid,
+        description="The PID of the process that created the row. This is used by the evaluation watcher to detect stopped evaluations.",
     )
 
     def is_trajectory_evaluation(self) -> bool:
