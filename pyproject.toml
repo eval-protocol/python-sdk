@@ -118,6 +118,7 @@ adapters = [
 [project.scripts]
 fireworks-reward = "eval_protocol.cli:main"
 eval-protocol = "eval_protocol.cli:main"
+ep = "eval_protocol.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["eval_protocol*", "development*", "vendor*"]
