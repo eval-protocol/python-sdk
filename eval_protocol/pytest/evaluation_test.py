@@ -30,9 +30,6 @@ from eval_protocol.pytest.utils import (
 
 from ..common_utils import load_jsonl
 
-# Ensure the evaluation watcher is running (OS-level singleton)
-ensure_singleton_watcher()
-
 
 def evaluation_test(
     *,
@@ -199,6 +196,9 @@ def evaluation_test(
                 model_name = kwargs["model"]
                 eval_metadata = None
                 all_results: List[EvaluationRow] = []
+
+                # Ensure the evaluation watcher is running (OS-level singleton)
+                ensure_singleton_watcher()
 
                 try:
                     # Handle dataset loading
