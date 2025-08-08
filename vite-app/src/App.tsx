@@ -41,8 +41,12 @@ const App = observer(() => {
           const rows: EvaluationRow[] = update.logs.map((log) => {
             return EvaluationRowSchema.parse(JSON.parse(log));
           });
-          console.log(rows);
+          console.log("initialize_logs", rows);
           state.setDataset(rows);
+        } else if (update.type === "log") {
+          const row: EvaluationRow = EvaluationRowSchema.parse(update.row);
+          console.log("log", row);
+          state.setDataset([row]);
         }
       } catch (error) {
         console.error("Failed to parse WebSocket message:", error);

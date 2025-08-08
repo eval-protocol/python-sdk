@@ -2,67 +2,25 @@ import asyncio
 import json
 import logging
 import os
+import threading
 import time
 from contextlib import asynccontextmanager
-from typing import List, Optional
+from queue import Queue
+from typing import TYPE_CHECKING, Any, List, Optional
 
+import psutil
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
 
 from eval_protocol.dataset_logger import default_logger
+from eval_protocol.dataset_logger.dataset_logger import LOG_EVENT_TYPE
+from eval_protocol.event_bus import event_bus
 from eval_protocol.utils.vite_server import ViteServer
 
-default_logger
+if TYPE_CHECKING:
+    from eval_protocol.models import EvaluationRow
 
 logger = logging.getLogger(__name__)
-
-
-class FileWatcher(FileSystemEventHandler):
-    """File system watcher that tracks file changes."""
-
-    def __init__(self, websocket_manager):
-        self.websocket_manager: WebSocketManager = websocket_manager
-        self.ignored_patterns = {
-            ".git",
-            "__pycache__",
-            ".pytest_cache",
-            "node_modules",
-            ".DS_Store",
-            "*.pyc",
-            "*.pyo",
-            "*.pyd",
-            ".coverage",
-            "*.log",
-            "*.tmp",
-            "*.swp",
-            "*.swo",
-            "*~",
-        }
-
-    def should_ignore(self, path: str) -> bool:
-        """Check if a path should be ignored."""
-        path_lower = path.lower()
-        for pattern in self.ignored_patterns:
-            if pattern.startswith("*"):
-                if path_lower.endswith(pattern[1:]):
-                    return True
-            elif pattern in path_lower:
-                return True
-        return False
-
-    def on_created(self, event: FileSystemEvent):
-        if not event.is_directory and not self.should_ignore(event.src_path):
-            self.websocket_manager.broadcast_file_update("file_created", event.src_path)
-
-    def on_modified(self, event: FileSystemEvent):
-        if not event.is_directory and not self.should_ignore(event.src_path):
-            self.websocket_manager.broadcast_file_update("file_changed", event.src_path)
-
-    def on_deleted(self, event: FileSystemEvent):
-        if not event.is_directory and not self.should_ignore(event.src_path):
-            self.websocket_manager.broadcast_file_update("file_deleted", event.src_path)
 
 
 class WebSocketManager:
@@ -70,71 +28,176 @@ class WebSocketManager:
 
     def __init__(self):
         self.active_connections: List[WebSocket] = []
-        self._loop = None
+        self._broadcast_queue: Queue = Queue()
+        self._broadcast_task: Optional[asyncio.Task] = None
+        self._lock = threading.Lock()
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
-        self.active_connections.append(websocket)
-        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+        with self._lock:
+            self.active_connections.append(websocket)
+            connection_count = len(self.active_connections)
+        logger.info(f"WebSocket connected. Total connections: {connection_count}")
         logs = default_logger.read()
-        asyncio.run_coroutine_threadsafe(
-            websocket.send_text(
-                json.dumps(
-                    {"type": "initialize_logs", "logs": [log.model_dump_json(exclude_none=True) for log in logs]}
-                )
-            ),
-            self._loop,
+        await websocket.send_text(
+            json.dumps({"type": "initialize_logs", "logs": [log.model_dump_json(exclude_none=True) for log in logs]})
         )
 
     def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-        logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+        with self._lock:
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
+            connection_count = len(self.active_connections)
+        logger.info(f"WebSocket disconnected. Total connections: {connection_count}")
 
-    def broadcast_file_update(self, update_type: str, file_path: str):
-        """Broadcast file update to all connected clients."""
-        if not file_path.startswith(default_logger.datasets_dir) or not file_path.endswith(".jsonl"):
-            """
-            .lock files are often created and deleted by the singleton lock
-            mechanism so we only broadcast .jsonl files
-            """
+    def broadcast_row_upserted(self, row: "EvaluationRow"):
+        """Broadcast a row-upsert event to all connected clients.
+
+        Safe no-op if server loop is not running or there are no connections.
+        """
+        try:
+            # Serialize pydantic model
+            json_message = json.dumps({"type": "log", "row": json.loads(row.model_dump_json(exclude_none=True))})
+            # Queue the message for broadcasting in the main event loop
+            self._broadcast_queue.put(json_message)
+        except Exception as e:
+            logger.error(f"Failed to serialize row for broadcast: {e}")
+
+    async def _start_broadcast_loop(self):
+        """Start the broadcast loop that processes queued messages."""
+        while True:
+            try:
+                # Wait for a message to be queued
+                message = await asyncio.get_event_loop().run_in_executor(None, self._broadcast_queue.get)
+                await self._send_text_to_all_connections(message)
+            except Exception as e:
+                logger.error(f"Error in broadcast loop: {e}")
+                await asyncio.sleep(0.1)
+            except asyncio.CancelledError:
+                logger.info("Broadcast loop cancelled")
+                break
+
+    async def _send_text_to_all_connections(self, text: str):
+        with self._lock:
+            connections = list(self.active_connections)
+
+        if not connections:
             return
-        logger.info(f"Broadcasting file update: {update_type} {file_path}")
 
-        logs = default_logger.read()
-        # send initialize_logs message to all connected clients
-        for connection in self.active_connections:
-            asyncio.run_coroutine_threadsafe(
-                connection.send_text(
-                    json.dumps(
-                        {"type": "initialize_logs", "logs": [log.model_dump_json(exclude_none=True) for log in logs]}
-                    )
-                ),
-                self._loop,
-            )
-
-        message = {"type": update_type, "path": file_path, "timestamp": time.time()}
-        # Include file contents for created and modified events
-        if update_type in ["file_created", "file_changed"] and os.path.exists(file_path):
+        tasks = []
+        for connection in connections:
             try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    message["contents"] = f.read()
+                tasks.append(connection.send_text(text))
             except Exception as e:
-                logger.warning(f"Failed to read file contents for {file_path}: {e}")
-                message["contents"] = None
-        elif update_type == "file_deleted":
-            message["contents"] = None
+                logger.error(f"Failed to send text to WebSocket: {e}")
+                with self._lock:
+                    try:
+                        self.active_connections.remove(connection)
+                    except ValueError:
+                        pass
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
-        json_message = json.dumps(message)
+    def start_broadcast_loop(self):
+        """Start the broadcast loop in the current event loop."""
+        if self._broadcast_task is None or self._broadcast_task.done():
+            self._broadcast_task = asyncio.create_task(self._start_broadcast_loop())
 
-        # Broadcast to all active connections
-        for connection in self.active_connections:
+    def stop_broadcast_loop(self):
+        """Stop the broadcast loop."""
+        if self._broadcast_task and not self._broadcast_task.done():
+            self._broadcast_task.cancel()
+
+
+class EvaluationWatcher:
+    """Monitors running evaluations and updates their status when processes stop."""
+
+    def __init__(self, websocket_manager: "WebSocketManager"):
+        self.websocket_manager = websocket_manager
+        self._running = False
+        self._thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+
+    def start(self):
+        """Start the evaluation watcher thread."""
+        if self._running:
+            return
+
+        self._running = True
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._watch_loop, daemon=True)
+        self._thread.start()
+        logger.info("Evaluation watcher started")
+
+    def stop(self):
+        """Stop the evaluation watcher thread."""
+        if not self._running:
+            return
+
+        self._running = False
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=5)
+        logger.info("Evaluation watcher stopped")
+
+    def _watch_loop(self):
+        """Main loop that checks for stopped processes every 2 seconds."""
+        while self._running and not self._stop_event.is_set():
             try:
-                asyncio.run_coroutine_threadsafe(connection.send_text(json_message), self._loop)
+                self._check_running_evaluations()
+                # Wait 2 seconds before next check
+                self._stop_event.wait(2)
             except Exception as e:
-                logger.error(f"Failed to send message to WebSocket: {e}")
-                # Remove broken connection
-                self.active_connections.remove(connection)
+                logger.error(f"Error in evaluation watcher loop: {e}")
+                # Continue running even if there's an error
+                time.sleep(1)
+
+    def _check_running_evaluations(self):
+        """Check all running evaluations and update status for stopped processes."""
+        try:
+            logs = default_logger.read()
+            updated_rows = []
+
+            for row in logs:
+                if self._should_update_status(row):
+                    logger.info(f"Updating status to 'stopped' for row {row.input_metadata.row_id} (PID {row.pid})")
+                    if row.eval_metadata is not None:
+                        row.eval_metadata.status = "stopped"
+                    updated_rows.append(row)
+
+            # Log all updated rows
+            for row in updated_rows:
+                default_logger.log(row)
+                # Broadcast the update to connected clients
+                self.websocket_manager.broadcast_row_upserted(row)
+
+        except Exception as e:
+            logger.error(f"Error checking running evaluations: {e}")
+
+    def _should_update_status(self, row: "EvaluationRow") -> bool:
+        """Check if a row's status should be updated to 'stopped'."""
+        # Check if the row has running status and a PID
+        if row.eval_metadata and row.eval_metadata.status == "running" and row.pid is not None:
+
+            # Check if the process is still running
+            try:
+                process = psutil.Process(row.pid)
+                # Check if process is still running
+                if not process.is_running():
+                    return True
+            except psutil.NoSuchProcess:
+                # Process no longer exists
+                return True
+            except psutil.AccessDenied:
+                # Can't access process info, assume it's stopped
+                logger.warning(f"Access denied to process {row.pid}, assuming stopped")
+                return True
+            except Exception as e:
+                logger.error(f"Error checking process {row.pid}: {e}")
+                # On error, assume process is still running to be safe
+                return False
+
+        return False
 
 
 class LogsServer(ViteServer):
@@ -142,7 +205,6 @@ class LogsServer(ViteServer):
     Enhanced server for serving Vite-built SPA with file watching and WebSocket support.
 
     This server extends ViteServer to add:
-    - File system watching
     - WebSocket connections for real-time updates
     - Live log streaming
     """
@@ -155,31 +217,23 @@ class LogsServer(ViteServer):
         host: str = "localhost",
         port: Optional[int] = 8000,
         index_file: str = "index.html",
-        watch_paths: Optional[List[str]] = None,
     ):
         # Initialize WebSocket manager
         self.websocket_manager = WebSocketManager()
 
-        # Set up file watching
-        self.watch_paths = watch_paths or [os.getcwd()]
-        self.observer = Observer()
-        self.file_watcher = FileWatcher(self.websocket_manager)
-        self._file_watching_started = False
+        super().__init__(build_dir, host, port, index_file)
 
-        @asynccontextmanager
-        async def lifespan(app: FastAPI):
-            self.start_file_watching()
-            self.websocket_manager._loop = asyncio.get_running_loop()
-            yield
-            self.stop_file_watching()
-
-        super().__init__(build_dir, host, port, index_file, lifespan=lifespan)
+        # Initialize evaluation watcher
+        self.evaluation_watcher = EvaluationWatcher(self.websocket_manager)
 
         # Add WebSocket endpoint
         self._setup_websocket_routes()
 
+        # Subscribe to events and start listening for cross-process events
+        event_bus.subscribe(self._handle_event)
+        event_bus.start_listening()
+
         logger.info(f"LogsServer initialized on {host}:{port}")
-        logger.info(f"Watching paths: {self.watch_paths}")
 
     def _setup_websocket_routes(self):
         """Set up WebSocket routes for real-time communication."""
@@ -200,38 +254,22 @@ class LogsServer(ViteServer):
         @self.app.get("/api/status")
         async def status():
             """Get server status including active connections."""
+            with self.websocket_manager._lock:
+                active_connections_count = len(self.websocket_manager.active_connections)
             return {
                 "status": "ok",
                 "build_dir": str(self.build_dir),
-                "active_connections": len(self.websocket_manager.active_connections),
+                "active_connections": active_connections_count,
                 "watch_paths": self.watch_paths,
             }
 
-    def start_file_watching(self):
-        """Start watching file system for changes."""
-        # Check if file watching has already been started
-        if self._file_watching_started:
-            logger.info("File watching already started, skipping")
-            return
+    def _handle_event(self, event_type: str, data: Any) -> None:
+        """Handle events from the event bus."""
+        if event_type in [LOG_EVENT_TYPE]:
+            from eval_protocol.models import EvaluationRow
 
-        for path in self.watch_paths:
-            if os.path.exists(path):
-                self.observer.schedule(self.file_watcher, path, recursive=True)
-                logger.info(f"Started watching: {path}")
-            else:
-                logger.warning(f"Watch path does not exist: {path}")
-
-        self.observer.start()
-        self._file_watching_started = True
-        logger.info("File watching started")
-
-    def stop_file_watching(self):
-        """Stop watching file system."""
-        if self._file_watching_started:
-            self.observer.stop()
-            self.observer.join()
-            self._file_watching_started = False
-            logger.info("File watching stopped")
+            data = EvaluationRow(**data)
+            self.websocket_manager.broadcast_row_upserted(data)
 
     async def run_async(self):
         """
@@ -241,15 +279,15 @@ class LogsServer(ViteServer):
             reload: Whether to enable auto-reload (default: False)
         """
         try:
-            # Start file watching
-            self.start_file_watching()
-
             logger.info(f"Starting LogsServer on {self.host}:{self.port}")
             logger.info(f"Serving files from: {self.build_dir}")
             logger.info("WebSocket endpoint available at /ws")
 
-            # Store the event loop for WebSocket manager
-            self.websocket_manager._loop = asyncio.get_running_loop()
+            # Start the broadcast loop
+            self.websocket_manager.start_broadcast_loop()
+
+            # Start the evaluation watcher
+            self.evaluation_watcher.start()
 
             config = uvicorn.Config(
                 self.app,
@@ -264,7 +302,10 @@ class LogsServer(ViteServer):
         except KeyboardInterrupt:
             logger.info("Shutting down LogsServer...")
         finally:
-            self.stop_file_watching()
+            # Clean up evaluation watcher
+            self.evaluation_watcher.stop()
+            # Clean up broadcast loop
+            self.websocket_manager.stop_broadcast_loop()
 
     def run(self):
         """
@@ -283,15 +324,11 @@ app = server.app
 def serve_logs():
     """
     Convenience function to create and run a LogsServer.
-
-    Args:
-        build_dir: Path to the Vite build output directory
-        host: Host to bind the server to
-        port: Port to bind the server to (default: 4789 for logs)
-        index_file: Name of the main index file
-        watch_paths: List of paths to watch for file changes
-        reload: Whether to enable auto-reload
     """
+    global server, app
+    if server is None:
+        server = LogsServer()
+        app = server.app
     server.run()
 
 
