@@ -32,7 +32,7 @@ class SqliteEventBus(EventBus):
         """Emit an event to all subscribers.
 
         Args:
-            event_type: Type of event (e.g., "row_upserted")
+            event_type: Type of event (e.g., "log")
             data: Event data
         """
         # Call local listeners immediately

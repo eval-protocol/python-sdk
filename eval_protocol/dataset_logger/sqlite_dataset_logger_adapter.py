@@ -2,13 +2,12 @@ import os
 from turtle import st
 from typing import TYPE_CHECKING, List, Optional
 
-from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
+from eval_protocol.dataset_logger.dataset_logger import LOG_EVENT_TYPE, DatasetLogger
 from eval_protocol.dataset_logger.sqlite_evaluation_row_store import SqliteEvaluationRowStore
 from eval_protocol.directory_utils import find_eval_protocol_dir
 from eval_protocol.event_bus import event_bus
-
-if TYPE_CHECKING:
-    from eval_protocol.models import EvaluationRow
+from eval_protocol.event_bus.logger import logger
+from eval_protocol.models import EvaluationRow
 
 
 class SqliteDatasetLoggerAdapter(DatasetLogger):
@@ -28,9 +27,10 @@ class SqliteDatasetLoggerAdapter(DatasetLogger):
         data = row.model_dump(exclude_none=True, mode="json")
         self._store.upsert_row(row_id=row_id, data=data)
         try:
-            event_bus.emit("row_upserted", EvaluationRow(**data))
-        except Exception:
+            event_bus.emit(LOG_EVENT_TYPE, EvaluationRow(**data))
+        except Exception as e:
             # Avoid breaking storage due to event emission issues
+            logger.error(f"Failed to emit row_upserted event: {e}")
             pass
 
     def read(self, row_id: Optional[str] = None) -> List["EvaluationRow"]:

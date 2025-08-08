@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, List, Optional
 if TYPE_CHECKING:
     from eval_protocol.models import EvaluationRow
 
+LOG_EVENT_TYPE = "log"
+
 
 class DatasetLogger(ABC):
     """
