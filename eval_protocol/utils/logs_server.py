@@ -2,14 +2,17 @@ import asyncio
 import json
 import logging
 import os
+import threading
 import time
 from contextlib import asynccontextmanager
+from queue import Queue
 from typing import TYPE_CHECKING, Any, List, Optional
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from eval_protocol.dataset_logger import default_logger
+from eval_protocol.dataset_logger.dataset_logger import LOG_EVENT_TYPE
 from eval_protocol.event_bus import event_bus
 from eval_protocol.utils.vite_server import ViteServer
 
@@ -24,54 +27,85 @@ class WebSocketManager:
 
     def __init__(self):
         self.active_connections: List[WebSocket] = []
-        self._loop = None
+        self._broadcast_queue: Queue = Queue()
+        self._broadcast_task: Optional[asyncio.Task] = None
+        self._lock = threading.Lock()
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
-        self.active_connections.append(websocket)
-        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+        with self._lock:
+            self.active_connections.append(websocket)
+            connection_count = len(self.active_connections)
+        logger.info(f"WebSocket connected. Total connections: {connection_count}")
         logs = default_logger.read()
-        asyncio.run_coroutine_threadsafe(
-            websocket.send_text(
-                json.dumps(
-                    {
-                        "type": "initialize_logs",
-                        "logs": [log.model_dump_json(exclude_none=True) for log in logs],
-                    }
-                )
-            ),
-            self._loop,
+        await websocket.send_text(
+            json.dumps({"type": "initialize_logs", "logs": [log.model_dump_json(exclude_none=True) for log in logs]})
         )
 
     def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-        logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+        with self._lock:
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
+            connection_count = len(self.active_connections)
+        logger.info(f"WebSocket disconnected. Total connections: {connection_count}")
 
     def broadcast_row_upserted(self, row: "EvaluationRow"):
         """Broadcast a row-upsert event to all connected clients.
 
         Safe no-op if server loop is not running or there are no connections.
         """
-        if not self._loop or not self.active_connections:
-            return
-
         try:
             # Serialize pydantic model
             json_message = json.dumps({"type": "log", "row": json.loads(row.model_dump_json(exclude_none=True))})
+            # Queue the message for broadcasting in the main event loop
+            self._broadcast_queue.put(json_message)
         except Exception as e:
             logger.error(f"Failed to serialize row for broadcast: {e}")
+
+    async def _start_broadcast_loop(self):
+        """Start the broadcast loop that processes queued messages."""
+        while True:
+            try:
+                # Wait for a message to be queued
+                message = await asyncio.get_event_loop().run_in_executor(None, self._broadcast_queue.get)
+                await self._send_text_to_all_connections(message)
+            except Exception as e:
+                logger.error(f"Error in broadcast loop: {e}")
+                await asyncio.sleep(0.1)
+            except asyncio.CancelledError:
+                logger.info("Broadcast loop cancelled")
+                break
+
+    async def _send_text_to_all_connections(self, text: str):
+        with self._lock:
+            connections = list(self.active_connections)
+
+        if not connections:
             return
 
-        for connection in list(self.active_connections):
+        tasks = []
+        for connection in connections:
             try:
-                asyncio.run_coroutine_threadsafe(connection.send_text(json_message), self._loop)
+                tasks.append(connection.send_text(text))
             except Exception as e:
-                logger.error(f"Failed to send row_upserted to WebSocket: {e}")
-                try:
-                    self.active_connections.remove(connection)
-                except ValueError:
-                    pass
+                logger.error(f"Failed to send text to WebSocket: {e}")
+                with self._lock:
+                    try:
+                        self.active_connections.remove(connection)
+                    except ValueError:
+                        pass
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    def start_broadcast_loop(self):
+        """Start the broadcast loop in the current event loop."""
+        if self._broadcast_task is None or self._broadcast_task.done():
+            self._broadcast_task = asyncio.create_task(self._start_broadcast_loop())
+
+    def stop_broadcast_loop(self):
+        """Stop the broadcast loop."""
+        if self._broadcast_task and not self._broadcast_task.done():
+            self._broadcast_task.cancel()
 
 
 class LogsServer(ViteServer):
@@ -95,12 +129,7 @@ class LogsServer(ViteServer):
         # Initialize WebSocket manager
         self.websocket_manager = WebSocketManager()
 
-        @asynccontextmanager
-        async def lifespan(app: FastAPI):
-            self.websocket_manager._loop = asyncio.get_running_loop()
-            yield
-
-        super().__init__(build_dir, host, port, index_file, lifespan=lifespan)
+        super().__init__(build_dir, host, port, index_file)
 
         # Add WebSocket endpoint
         self._setup_websocket_routes()
@@ -130,16 +159,18 @@ class LogsServer(ViteServer):
         @self.app.get("/api/status")
         async def status():
             """Get server status including active connections."""
+            with self.websocket_manager._lock:
+                active_connections_count = len(self.websocket_manager.active_connections)
             return {
                 "status": "ok",
                 "build_dir": str(self.build_dir),
-                "active_connections": len(self.websocket_manager.active_connections),
+                "active_connections": active_connections_count,
                 "watch_paths": self.watch_paths,
             }
 
     def _handle_event(self, event_type: str, data: Any) -> None:
         """Handle events from the event bus."""
-        if event_type in ["log"]:
+        if event_type in [LOG_EVENT_TYPE]:
             from eval_protocol.models import EvaluationRow
 
             data = EvaluationRow(**data)
@@ -157,8 +188,8 @@ class LogsServer(ViteServer):
             logger.info(f"Serving files from: {self.build_dir}")
             logger.info("WebSocket endpoint available at /ws")
 
-            # Store the event loop for WebSocket manager
-            self.websocket_manager._loop = asyncio.get_running_loop()
+            # Start the broadcast loop
+            self.websocket_manager.start_broadcast_loop()
 
             config = uvicorn.Config(
                 self.app,
@@ -172,6 +203,9 @@ class LogsServer(ViteServer):
 
         except KeyboardInterrupt:
             logger.info("Shutting down LogsServer...")
+        finally:
+            # Clean up broadcast loop
+            self.websocket_manager.stop_broadcast_loop()
 
     def run(self):
         """
