@@ -104,6 +104,7 @@ class ExecutionManager:
 
         tasks = [_execute_with_semaphore(i) for i in range(envs.n)]
         # exceptions should be try catched inside single _execute_rollout
+        # exceptions should be try catched inside single _execute_rollout
         trajectories = await asyncio.gather(*tasks)
 
         # Calculate durations
@@ -383,6 +384,9 @@ class ExecutionManager:
                     conversation_history[-1]["control_plane_step"] = control_plane_step
                     trajectory.control_plane_steps.append(control_plane_step)
 
+                    # Log conversation state for playback if in recording mode
+                    if recording_mode:
+                        policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
                     # Log conversation state for playback if in recording mode
                     if recording_mode:
                         policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
