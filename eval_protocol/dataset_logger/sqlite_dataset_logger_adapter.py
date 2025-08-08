@@ -3,8 +3,8 @@ from turtle import st
 from typing import TYPE_CHECKING, List, Optional
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
-from eval_protocol.dataset_logger.directory_utils import find_eval_protocol_dir
 from eval_protocol.dataset_logger.sqlite_evaluation_row_store import SqliteEvaluationRowStore
+from eval_protocol.directory_utils import find_eval_protocol_dir
 from eval_protocol.event_bus import event_bus
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class SqliteDatasetLoggerAdapter(DatasetLogger):
         data = row.model_dump(exclude_none=True, mode="json")
         self._store.upsert_row(row_id=row_id, data=data)
         try:
-            event_bus.emit("log", EvaluationRow(**data))
+            event_bus.emit("row_upserted", EvaluationRow(**data))
         except Exception:
             # Avoid breaking storage due to event emission issues
             pass

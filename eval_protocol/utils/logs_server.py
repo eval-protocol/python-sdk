@@ -10,7 +10,7 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from eval_protocol.dataset_logger import default_logger
-from eval_protocol.events import event_bus
+from eval_protocol.event_bus import event_bus
 from eval_protocol.utils.vite_server import ViteServer
 
 if TYPE_CHECKING:
@@ -58,9 +58,7 @@ class WebSocketManager:
 
         try:
             # Serialize pydantic model
-            json_message = json.dumps(
-                {"type": "row_upserted", "row": json.loads(row.model_dump_json(exclude_none=True))}
-            )
+            json_message = json.dumps({"type": "log", "row": json.loads(row.model_dump_json(exclude_none=True))})
         except Exception as e:
             logger.error(f"Failed to serialize row for broadcast: {e}")
             return
@@ -107,8 +105,9 @@ class LogsServer(ViteServer):
         # Add WebSocket endpoint
         self._setup_websocket_routes()
 
-        # Subscribe to events
+        # Subscribe to events and start listening for cross-process events
         event_bus.subscribe(self._handle_event)
+        event_bus.start_listening()
 
         logger.info(f"LogsServer initialized on {host}:{port}")
 
@@ -140,9 +139,11 @@ class LogsServer(ViteServer):
 
     def _handle_event(self, event_type: str, data: Any) -> None:
         """Handle events from the event bus."""
-        if event_type == "row_upserted":
+        if event_type in ["log"]:
+            from eval_protocol.models import EvaluationRow
+
+            data = EvaluationRow(**data)
             self.websocket_manager.broadcast_row_upserted(data)
-        # Add more event types here as needed
 
     async def run_async(self):
         """

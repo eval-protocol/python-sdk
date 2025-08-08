@@ -1,11 +1,10 @@
-import logging
 from typing import Any, Callable, List
 
-logger = logging.getLogger(__name__)
+from eval_protocol.event_bus.logger import logger
 
 
 class EventBus:
-    """Simple event bus for decoupling components in the evaluation system."""
+    """Core event bus interface for decoupling components in the evaluation system."""
 
     def __init__(self):
         self._listeners: List[Callable[[str, Any], None]] = []
@@ -42,6 +41,10 @@ class EventBus:
             except Exception as e:
                 logger.debug(f"Event listener failed for {event_type}: {e}")
 
+    def start_listening(self) -> None:
+        """Start listening for cross-process events. Override in subclasses."""
+        pass
 
-# Global event bus instance
-event_bus = EventBus()
+    def stop_listening(self) -> None:
+        """Stop listening for cross-process events. Override in subclasses."""
+        pass
