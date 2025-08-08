@@ -1,4 +1,5 @@
 import os
+from turtle import st
 from typing import TYPE_CHECKING, List, Optional
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
@@ -10,10 +11,16 @@ if TYPE_CHECKING:
 
 
 class SqliteDatasetLoggerAdapter(DatasetLogger):
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: Optional[str] = None, store: Optional[SqliteEvaluationRowStore] = None):
         eval_protocol_dir = find_eval_protocol_dir()
-        self.db_path = db_path or os.path.join(eval_protocol_dir, "logs.db")
-        self._store = SqliteEvaluationRowStore(self.db_path)
+        if db_path is not None and store is not None:
+            raise ValueError("Provide only one of db_path or store, not both.")
+        if store is not None:
+            self.db_path = store.db_path
+            self._store = store
+        else:
+            self.db_path = db_path if db_path is not None else os.path.join(eval_protocol_dir, "logs.db")
+            self._store = SqliteEvaluationRowStore(self.db_path)
 
     def log(self, row: "EvaluationRow") -> None:
         row_id = row.input_metadata.row_id

@@ -4,6 +4,9 @@ from typing import List, Optional
 from peewee import CharField, Model, SqliteDatabase
 from playhouse.sqlite_ext import JSONField
 
+from eval_protocol.events import event_bus
+from eval_protocol.models import EvaluationRow
+
 
 class SqliteEvaluationRowStore:
     """
@@ -40,6 +43,13 @@ class SqliteEvaluationRowStore:
         else:
             self._EvaluationRow.create(row_id=row_id, data=data)
 
+        # Emit event for the upserted row
+        try:
+            event_bus.emit("row_upserted", EvaluationRow(**data))
+        except Exception:
+            # Avoid breaking storage due to event emission issues
+            pass
+
     def read_rows(self, row_id: Optional[str] = None) -> List[dict]:
         if row_id is None:
             query = self._EvaluationRow.select().dicts()
@@ -48,8 +58,8 @@ class SqliteEvaluationRowStore:
         results = list(query)
         return [result["data"] for result in results]
 
-    def delete_row(self, row_id: Optional[str] = None) -> None:
-        if row_id is None:
-            self._EvaluationRow.delete().execute()
-        else:
-            self._EvaluationRow.delete().where(self._EvaluationRow.row_id == row_id).execute()
+    def delete_row(self, row_id: str) -> int:
+        return self._EvaluationRow.delete().where(self._EvaluationRow.row_id == row_id).execute()
+
+    def delete_all_rows(self) -> int:
+        return self._EvaluationRow.delete().execute()
