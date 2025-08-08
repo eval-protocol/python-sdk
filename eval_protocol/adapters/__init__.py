@@ -10,38 +10,24 @@ Available adapters:
 - TRL integration (legacy)
 """
 
-# Conditional imports based on available dependencies
-try:
-    from .langfuse import LangfuseAdapter, create_langfuse_adapter
-    __all__ = ["LangfuseAdapter", "create_langfuse_adapter"]
-except ImportError:
-    __all__ = []
+from importlib import import_module
+from typing import Any
 
-try:
-    from .huggingface import (
-        HuggingFaceAdapter, 
-        create_huggingface_adapter,
-        create_gsm8k_adapter,
-        create_math_adapter,
-    )
-    __all__.extend([
-        "HuggingFaceAdapter", 
-        "create_huggingface_adapter",
-        "create_gsm8k_adapter",
-        "create_math_adapter",
-    ])
-except ImportError:
-    pass
+__all__ = []
 
-# Legacy adapters (always available)
-try:
-    from .braintrust import reward_fn_to_scorer, scorer_to_reward_fn
-    __all__.extend(["scorer_to_reward_fn", "reward_fn_to_scorer"])
-except ImportError:
-    pass
 
-try:
-    from .trl import create_trl_adapter
-    __all__.extend(["create_trl_adapter"])
-except ImportError:
-    pass
+def __getattr__(name: str) -> Any:
+    # Lazy import optional adapters to avoid import-time side effects and heavy deps
+    if name in {"LangfuseAdapter", "create_langfuse_adapter"}:
+        m = import_module(".langfuse", __name__)
+        return getattr(m, name)
+    if name in {"HuggingFaceAdapter", "create_huggingface_adapter", "create_gsm8k_adapter", "create_math_adapter"}:
+        m = import_module(".huggingface", __name__)
+        return getattr(m, name)
+    if name in {"reward_fn_to_scorer", "scorer_to_reward_fn"}:
+        m = import_module(".braintrust", __name__)
+        return getattr(m, name)
+    if name in {"create_trl_adapter"}:
+        m = import_module(".trl", __name__)
+        return getattr(m, name)
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

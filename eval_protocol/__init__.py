@@ -8,32 +8,17 @@ The library also provides an agent evaluation framework for testing and evaluati
 tool-augmented models using self-contained task bundles.
 """
 
+from importlib import import_module
+from typing import Any
 import warnings
 
-from eval_protocol.adapters.braintrust import reward_fn_to_scorer, scorer_to_reward_fn
-
+# Lightweight imports (no heavy optional dependencies)
+from .integrations.braintrust import reward_fn_to_scorer, scorer_to_reward_fn
 from .auth import get_fireworks_account_id, get_fireworks_api_key
 from .common_utils import load_jsonl
 from .config import RewardKitConfig, get_config, load_config
-from .mcp_env import (
-    AnthropicPolicy,
-    FireworksPolicy,
-    LiteLLMPolicy,
-    OpenAIPolicy,
-    make,
-    rollout,
-    test_mcp,
-)
 
-# Try to import FireworksPolicy if available
-try:
-    from .mcp_env import FireworksPolicy
-
-    _FIREWORKS_AVAILABLE = True
-except (ImportError, AttributeError):
-    _FIREWORKS_AVAILABLE = False
 # Import submodules to make them available via eval_protocol.rewards, etc.
-from . import mcp, rewards
 from .models import EvaluateResult, Message, MetricResult
 from .playback_policy import PlaybackPolicyBase
 from .resources import create_llm_resource
@@ -42,6 +27,7 @@ from .typed_interface import reward_function
 
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
+# Public API (static exports only; dynamic MCP symbols are provided via __getattr__)
 __all__ = [
     # Core interfaces
     "Message",
@@ -60,14 +46,6 @@ __all__ = [
     "RewardKitConfig",
     # Utilities
     "load_jsonl",
-    # MCP Environment API
-    "make",
-    "rollout",
-    "LiteLLMPolicy",
-    "AnthropicPolicy",
-    "FireworksPolicy",
-    "OpenAIPolicy",
-    "test_mcp",
     # Playback functionality
     "PlaybackPolicyBase",
     # Resource management
@@ -76,6 +54,30 @@ __all__ = [
     "rewards",
     "mcp",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Lazily import heavy MCP environment symbols to speed up package import.
+
+    This defers importing modules that depend on optional or heavy dependencies
+    (e.g., vendored tau2, OpenAI clients) until they are actually used.
+    """
+    if name in {
+        "make",
+        "rollout",
+        "LiteLLMPolicy",
+        "AnthropicPolicy",
+        "FireworksPolicy",
+        "OpenAIPolicy",
+        "test_mcp",
+    }:
+        m = import_module(".mcp_env", __name__)
+        return getattr(m, name)
+    if name in {"mcp", "rewards"}:
+        # Lazy-load subpackages for attribute access like eval_protocol.mcp
+        return import_module(f".{name}", __name__)
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
 
 from . import _version
 
