@@ -144,7 +144,9 @@ class ExecutionManager:
             evaluation_rows[idx].input_metadata.row_id = envs.dataset_rows[idx].id
             evaluation_rows[idx].input_metadata.dataset_info = asdict(envs.dataset_rows[idx])
             if isinstance(trajectory, Exception):
+                logger.error(f"🚨 Error in rollout id {envs.dataset_rows[idx].id}: {trajectory}")
                 evaluation_rows[idx].input_metadata.session_data["error"] = True
+                evaluation_rows[idx].input_metadata.session_data["error_message"] = str(trajectory)
                 continue
 
             # Handle multimodal content by extracting text from complex content structures
