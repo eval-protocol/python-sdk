@@ -337,6 +337,7 @@ class ExecutionManager:
                                 "tool_calls": [f"{tool_call.tool_name}({tool_call.arguments})"],
                                 "num_tool_calls": 1,
                             }
+                            print(f"🔍 control_plane_step: {control_plane_step}")
                             conversation_history[-1]["control_plane_step"] = control_plane_step
                             trajectory.control_plane_steps.append(control_plane_step)
 
@@ -344,6 +345,7 @@ class ExecutionManager:
                             if recording_mode:
                                 policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
 
+                        # tool indicates rollout should be terminated, call policy one last time to get the final response
                         if rollout_end:
                             trajectory.terminated = True
                             trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
@@ -389,6 +391,9 @@ class ExecutionManager:
                 if rollout_end:
                     trajectory.terminated = True
                     trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
+
+                    _, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
+                    usage_stats_list.append(usage_stats)
 
                     # Add final control plane summary
                     trajectory.control_plane_summary.update(
