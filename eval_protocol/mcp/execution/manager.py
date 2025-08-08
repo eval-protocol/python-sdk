@@ -346,7 +346,6 @@ class ExecutionManager:
                             if recording_mode:
                                 policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
 
-                        # tool indicates rollout should be terminated, call policy one last time to get the final response
                         if rollout_end:
                             trajectory.terminated = True
                             trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
@@ -387,15 +386,13 @@ class ExecutionManager:
                     # Log conversation state for playback if in recording mode
                     if recording_mode:
                         policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
-                    # Log conversation state for playback if in recording mode
-                    if recording_mode:
-                        policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
 
                 # Use control plane information for termination decision
                 if rollout_end:
                     trajectory.terminated = True
                     trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
 
+                    # tool indicates rollout should be terminated, call policy one last time to get the final response
                     _, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
                     if usage_stats:
                         usage_stats_list.append(usage_stats)
