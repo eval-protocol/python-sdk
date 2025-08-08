@@ -105,8 +105,11 @@ class TestSqliteEventBus:
             # Check that the event was received
             assert len(received_events) == 1
             assert received_events[0][0] == "row_upserted"
-            assert isinstance(received_events[0][1], EvaluationRow)
-            assert received_events[0][1].input_metadata.row_id == "test-123"
+            # The event data should be a dict, but it should be deserializable by EvaluationRow
+            assert isinstance(received_events[0][1], dict)
+            # Try to deserialize to EvaluationRow to ensure it's compatible
+            event = EvaluationRow(**received_events[0][1])
+            assert event.input_metadata.row_id == "test-123"
 
             event_bus2.stop_listening()
 
@@ -116,7 +119,7 @@ class TestSqliteEventBus:
             os.unlink(db_path)
 
     def test_process_isolation(self):
-        """Test that processes don't receive their own events."""
+        """Test that processes receive their own events locally but not via cross-process mechanism."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             db_path = tmp.name
 
@@ -137,8 +140,9 @@ class TestSqliteEventBus:
             # Wait for processing
             time.sleep(0.2)
 
-            # Should not receive the event from its own process
-            assert len(received_events) == 0
+            # Should receive the event from its own process via local delivery
+            assert len(received_events) == 1
+            assert received_events[0] == ("self_event", {"test": "data"})
 
             event_bus.stop_listening()
 

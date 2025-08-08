@@ -36,7 +36,7 @@ class SqliteEventBusDatabase:
         try:
             # Serialize data, handling pydantic models
             if hasattr(data, "model_dump"):
-                serialized_data = data.model_dump(mode="json")
+                serialized_data = data.model_dump(mode="json", exclude_none=True)
             else:
                 serialized_data = data
 
