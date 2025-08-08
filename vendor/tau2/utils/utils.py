@@ -9,8 +9,10 @@ from deepdiff import DeepDiff
 from dotenv import load_dotenv
 from loguru import logger
 
+_TAU2_VERBOSE = os.getenv("TAU2_VERBOSE") == "1"
+
 res = load_dotenv()
-if not res:
+if not res and _TAU2_VERBOSE:
     logger.warning("No .env file found")
 
 # Try to get data directory from environment variable first
@@ -19,15 +21,17 @@ DATA_DIR_ENV = os.getenv("TAU2_DATA_DIR")
 if DATA_DIR_ENV:
     # Use environment variable if set
     DATA_DIR = Path(DATA_DIR_ENV)
-    logger.info(f"Using data directory from environment: {DATA_DIR}")
+    if _TAU2_VERBOSE:
+        logger.info(f"Using data directory from environment: {DATA_DIR}")
 else:
     # Fallback to vendored tau2 directory
     SOURCE_DIR = Path(__file__).parents[1]  # vendor/tau2/
     DATA_DIR = SOURCE_DIR / "data"
-    logger.info(f"Using data directory from vendored tau2: {DATA_DIR}")
+    if _TAU2_VERBOSE:
+        logger.info(f"Using data directory from vendored tau2: {DATA_DIR}")
 
 # Check if data directory exists and is accessible
-if not DATA_DIR.exists():
+if not DATA_DIR.exists() and _TAU2_VERBOSE:
     logger.warning(f"Data directory does not exist: {DATA_DIR}")
     logger.warning(
         "Set TAU2_DATA_DIR environment variable to point to your data directory"

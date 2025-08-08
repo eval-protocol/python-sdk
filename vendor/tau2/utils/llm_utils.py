@@ -7,6 +7,7 @@ from litellm import completion, completion_cost
 from litellm.caching.caching import Cache
 from litellm.main import ModelResponse, Usage
 from loguru import logger
+import os
 
 from vendor.tau2.config import (
     DEFAULT_LLM_CACHE_TYPE,
@@ -70,9 +71,8 @@ from vendor.tau2.environment.tool import Tool
 
 
 ALLOW_SONNET_THINKING = False
-
-if not ALLOW_SONNET_THINKING:
-    logger.warning("Sonnet thinking is disabled")
+if os.getenv("TAU2_VERBOSE") == "1" and not ALLOW_SONNET_THINKING:
+    logger.info("Sonnet thinking is disabled")
 
 
 def _parse_ft_model_name(model: str) -> str:
