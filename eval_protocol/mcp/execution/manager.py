@@ -103,7 +103,7 @@ class ExecutionManager:
                 )
 
         tasks = [_execute_with_semaphore(i) for i in range(envs.n)]
-        trajectories = await asyncio.gather(*tasks)
+        trajectories = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Calculate durations
         total_duration = time.time() - start_time
@@ -141,6 +141,12 @@ class ExecutionManager:
             evaluation_rows = [EvaluationRow(messages=[], input_metadata=InputMetadata()) for _ in trajectories]
 
         for idx, trajectory in enumerate(trajectories):
+            evaluation_rows[idx].input_metadata.row_id = envs.dataset_rows[idx].id
+            evaluation_rows[idx].input_metadata.dataset_info = asdict(envs.dataset_rows[idx])
+            if isinstance(trajectory, Exception):
+                evaluation_rows[idx].input_metadata.session_data["error"] = True
+                continue
+
             # Handle multimodal content by extracting text from complex content structures
             messages = []
             for msg in trajectory.conversation_history:
