@@ -146,7 +146,12 @@ class McpGym(ABC):
                     print(f"🔍 _get_session_id: extra_data type: {type(extra_data)}")
 
                     if extra_data and isinstance(extra_data, dict):
-                        # Create a stable session ID based on seed and other config
+                        # use the client generated session id
+                        if "session_id" in extra_data:
+                            print(f"🔍 _get_session_id: using client generated session_id: {extra_data['session_id']}")
+                            return extra_data["session_id"]
+
+                        # fallback to create a stable session ID based on seed and other config
                         seed_value = extra_data.get("seed")
                         config_value = extra_data.get("config", {})
                         dataset_row_id_value = extra_data.get("dataset_row_id")
