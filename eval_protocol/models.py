@@ -220,6 +220,21 @@ class EvalMetadata(BaseModel):
     passed: Optional[bool] = Field(None, description="Whether the evaluation passed based on the threshold")
 
 
+class RolloutStatus(BaseModel):
+    """Status of the rollout."""
+
+    """
+    running: Unfinished rollout which is still in progress.
+    finished: Rollout finished successfully.
+    error: Rollout failed.
+    stopped: Rollout terminated unexpectedly (e.g. max step, control plane signal, user stop).
+    """
+    status: Literal["running", "finished", "error", "stopped"] = Field(
+        "finished", description="Status of the rollout."
+    )
+    error_message: Optional[str] = Field(None, description="Error message if the rollout failed.")
+
+
 class EvaluationRow(BaseModel):
     """
     Unified data structure for a single evaluation unit that contains messages,
@@ -242,6 +257,11 @@ class EvaluationRow(BaseModel):
     input_metadata: InputMetadata = Field(
         default_factory=InputMetadata,
         description="Metadata related to the input (dataset info, model config, session data, etc.).",
+    )
+
+    rollout_status: RolloutStatus = Field(
+        default_factory=RolloutStatus,
+        description="The status of the rollout.",
     )
 
     # Ground truth reference (moved from EvaluateResult to top level)

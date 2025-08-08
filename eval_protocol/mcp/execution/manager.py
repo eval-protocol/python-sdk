@@ -103,8 +103,7 @@ class ExecutionManager:
                 )
 
         tasks = [_execute_with_semaphore(i) for i in range(envs.n)]
-        # exceptions should be try catched inside single _execute_rollout
-        # exceptions should be try catched inside single _execute_rollout
+        # exceptions will be try catched inside single _execute_rollout
         trajectories = await asyncio.gather(*tasks)
 
         # Calculate durations
@@ -171,6 +170,21 @@ class ExecutionManager:
                 max_tokens=getattr(policy, "max_tokens", None),
                 max_tool_calls=getattr(policy, "max_tools_per_turn", None),
             )
+            if trajectory.terminated:
+                if trajectory.termination_reason in {
+                    TerminationReason.CONTROL_PLANE_SIGNAL,
+                    TerminationReason.USER_STOP,
+                }:
+                    evaluation_rows[idx].rollout_status.status = "finished"
+                elif trajectory.termination_reason == TerminationReason.MAX_STEPS:
+                    evaluation_rows[idx].rollout_status.status = "stopped"
+                else:
+                    evaluation_rows[idx].rollout_status.status = "error"
+                    evaluation_rows[idx].rollout_status.error_message = trajectory.control_plane_summary.get(
+                        "error_message", None
+                    )
+            else:
+                evaluation_rows[idx].rollout_status.status = "running"
 
         return evaluation_rows
 
@@ -458,8 +472,7 @@ class ExecutionManager:
             logger.error(f"🚨 Error in rollout {rollout_idx}: {e}", exc_info=True)
             trajectory.terminated = True
             trajectory.termination_reason = TerminationReason.ERROR
-            trajectory.input_metadata.session_data["error"] = True
-            trajectory.input_metadata.session_data["error_message"] = str(e)
+            trajectory.control_plane_summary.update({"error_message": str(e)})
         return trajectory
 
     async def _get_control_plane_status(self, session) -> Optional[Dict[str, Any]]:
