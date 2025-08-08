@@ -397,7 +397,8 @@ class ExecutionManager:
                     trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
 
                     _, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
-                    usage_stats_list.append(usage_stats)
+                    if usage_stats:
+                        usage_stats_list.append(usage_stats)
 
                     # Add final control plane summary
                     trajectory.control_plane_summary.update(
