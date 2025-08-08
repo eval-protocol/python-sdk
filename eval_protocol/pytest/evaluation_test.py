@@ -244,6 +244,7 @@ def evaluation_test(
                         # has to be done in the pytest main process since it's
                         # used to determine whether this eval has stopped
                         row.pid = os.getpid()
+                        default_logger.log(row)
 
                     # Now run the rollout processor with metadata-initialized data
                     config = RolloutProcessorConfig(
