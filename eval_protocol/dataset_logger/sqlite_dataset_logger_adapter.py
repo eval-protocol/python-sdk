@@ -1,6 +1,5 @@
 import os
-from turtle import st
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
 from eval_protocol.dataset_logger.dataset_logger import LOG_EVENT_TYPE, DatasetLogger
 from eval_protocol.dataset_logger.sqlite_evaluation_row_store import SqliteEvaluationRowStore

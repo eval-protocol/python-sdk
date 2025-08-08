@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from queue import Queue
 from typing import TYPE_CHECKING, Any, List, Optional
 
+import psutil
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
@@ -108,6 +109,97 @@ class WebSocketManager:
             self._broadcast_task.cancel()
 
 
+class EvaluationWatcher:
+    """Monitors running evaluations and updates their status when processes stop."""
+
+    def __init__(self, websocket_manager: "WebSocketManager"):
+        self.websocket_manager = websocket_manager
+        self._running = False
+        self._thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+
+    def start(self):
+        """Start the evaluation watcher thread."""
+        if self._running:
+            return
+
+        self._running = True
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._watch_loop, daemon=True)
+        self._thread.start()
+        logger.info("Evaluation watcher started")
+
+    def stop(self):
+        """Stop the evaluation watcher thread."""
+        if not self._running:
+            return
+
+        self._running = False
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=5)
+        logger.info("Evaluation watcher stopped")
+
+    def _watch_loop(self):
+        """Main loop that checks for stopped processes every 2 seconds."""
+        while self._running and not self._stop_event.is_set():
+            try:
+                self._check_running_evaluations()
+                # Wait 2 seconds before next check
+                self._stop_event.wait(2)
+            except Exception as e:
+                logger.error(f"Error in evaluation watcher loop: {e}")
+                # Continue running even if there's an error
+                time.sleep(1)
+
+    def _check_running_evaluations(self):
+        """Check all running evaluations and update status for stopped processes."""
+        try:
+            logs = default_logger.read()
+            updated_rows = []
+
+            for row in logs:
+                if self._should_update_status(row):
+                    logger.info(f"Updating status to 'stopped' for row {row.input_metadata.row_id} (PID {row.pid})")
+                    if row.eval_metadata is not None:
+                        row.eval_metadata.status = "stopped"
+                    updated_rows.append(row)
+
+            # Log all updated rows
+            for row in updated_rows:
+                default_logger.log(row)
+                # Broadcast the update to connected clients
+                self.websocket_manager.broadcast_row_upserted(row)
+
+        except Exception as e:
+            logger.error(f"Error checking running evaluations: {e}")
+
+    def _should_update_status(self, row: "EvaluationRow") -> bool:
+        """Check if a row's status should be updated to 'stopped'."""
+        # Check if the row has running status and a PID
+        if row.eval_metadata and row.eval_metadata.status == "running" and row.pid is not None:
+
+            # Check if the process is still running
+            try:
+                process = psutil.Process(row.pid)
+                # Check if process is still running
+                if not process.is_running():
+                    return True
+            except psutil.NoSuchProcess:
+                # Process no longer exists
+                return True
+            except psutil.AccessDenied:
+                # Can't access process info, assume it's stopped
+                logger.warning(f"Access denied to process {row.pid}, assuming stopped")
+                return True
+            except Exception as e:
+                logger.error(f"Error checking process {row.pid}: {e}")
+                # On error, assume process is still running to be safe
+                return False
+
+        return False
+
+
 class LogsServer(ViteServer):
     """
     Enhanced server for serving Vite-built SPA with file watching and WebSocket support.
@@ -130,6 +222,9 @@ class LogsServer(ViteServer):
         self.websocket_manager = WebSocketManager()
 
         super().__init__(build_dir, host, port, index_file)
+
+        # Initialize evaluation watcher
+        self.evaluation_watcher = EvaluationWatcher(self.websocket_manager)
 
         # Add WebSocket endpoint
         self._setup_websocket_routes()
@@ -191,6 +286,9 @@ class LogsServer(ViteServer):
             # Start the broadcast loop
             self.websocket_manager.start_broadcast_loop()
 
+            # Start the evaluation watcher
+            self.evaluation_watcher.start()
+
             config = uvicorn.Config(
                 self.app,
                 host=self.host,
@@ -204,6 +302,8 @@ class LogsServer(ViteServer):
         except KeyboardInterrupt:
             logger.info("Shutting down LogsServer...")
         finally:
+            # Clean up evaluation watcher
+            self.evaluation_watcher.stop()
             # Clean up broadcast loop
             self.websocket_manager.stop_broadcast_loop()
 
