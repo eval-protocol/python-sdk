@@ -190,5 +190,12 @@ server = LogsServer()
 app = server.app
 
 
-if __name__ == "__main__":
+def serve_logs():
+    """
+    Convenience function to create and run a LogsServer.
+    """
     server.run()
+
+
+if __name__ == "__main__":
+    serve_logs()
