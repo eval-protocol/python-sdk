@@ -19,11 +19,14 @@ import json
 import logging
 import os
 import threading
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import uvicorn
-from mcp.server.fastmcp import Context, FastMCP
+
+# from mcp.server.fastmcp import Context, FastMCP
+from fastmcp import Context, FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -87,11 +90,11 @@ class McpGym(ABC):
         self.adapter = adapter
 
         # Create FastMCP server
-        self.mcp = FastMCP(
-            server_name,
-            host="0.0.0.0",
-            port=int(os.environ.get("PORT", 8000)),
-        )
+        self.mcp = FastMCP(name=server_name)
+
+        # Store host and port for later use in run() method
+        self.host = "0.0.0.0"
+        self.port = int(os.environ.get("PORT", 8000))
 
         # Multi-session support
         self.sessions = {}  # session_id -> {"env": env, "obs": obs, "session_data": data}
@@ -117,6 +120,7 @@ class McpGym(ABC):
         self._register_tools()
         self._discover_and_register_control_plane_endpoints()
         self._register_session_reset_endpoint()
+        # self._register_health_check_endpoint()
 
     def _get_session_id(self, ctx: Context) -> str:
         """
@@ -184,6 +188,7 @@ class McpGym(ABC):
         """
         session_id = self._get_session_id(ctx)
         print(f"🔍 _get_or_create_session: session_id: {session_id}")
+        return self.sessions[session_id]
 
         with self.session_lock:
             if session_id not in self.sessions:
@@ -238,17 +243,55 @@ class McpGym(ABC):
             print(f"🔍 _register_session_reset_endpoint: Resetting session, session_id: {session_id}, seed: {seed}")
             if not session_id:
                 return JSONResponse({"error": "Missing mcp-session-id header"}, status_code=400)
-            with self.session_lock:
-                if session_id in self.sessions:
-                    env, obs, _ = self._new_env(seed=seed)
-                    self.sessions[session_id] = {
-                        "env": env,
-                        "obs": obs,
-                        "session_data": {},
-                        "session_id": session_id,
-                    }
-                    print(f"🔍 _register_session_reset_endpoint: Finished reset session, session_id: {session_id}")
+            # with self.session_lock:
+            #    if session_id in self.sessions:
+            #        env, obs, _ = self._new_env(seed=seed)
+            #        self.sessions[session_id] = {
+            #            "env": env,
+            #            "obs": obs,
+            #            "session_data": {},
+            #            "session_id": session_id,
+            #        }
+            #        print(f"🔍 _register_session_reset_endpoint: Finished reset session, session_id: {session_id}")
             return JSONResponse({"message": "Session reset successfully"})
+
+    # def _register_health_check_endpoint(self):
+    #     """Register a simple health check endpoint for diagnostics."""
+
+    #     @self.mcp.custom_route("/health", methods=["GET"])
+    #     async def health_check_endpoint(request: Request) -> JSONResponse:
+    #         """Simple health check that returns immediately."""
+    #         return JSONResponse({"ok": True, "timestamp": time.time()})
+
+    # def _add_timing_middleware(self, starlette_app):
+    #     """Add ASGI middleware to log request arrival times."""
+
+    #     class TimingMiddleware:
+    #         def __init__(self, app):
+    #             self.app = app
+
+    #         async def __call__(self, scope, receive, send):
+    #             if scope["type"] != "http":
+    #                 await self.app(scope, receive, send)
+    #                 return
+
+    #             # Log immediately when request arrives at server
+    #             start_time = time.time()
+    #             path = scope.get("path", "")
+    #             method = scope.get("method", "")
+
+    #             print(f"🚀 REQUEST ARRIVED: {method} {path} at {start_time}")
+
+    #             async def send_wrapper(message):
+    #                 if message["type"] == "http.response.start":
+    #                     # Log completion time for comparison
+    #                     end_time = time.time()
+    #                     if path in ["/health", "/control/initial_state"]:
+    #                         print(f"✅ REQUEST took: {end_time - start_time:.3f}s")
+    #                 await send(message)
+
+    #             await self.app(scope, receive, send_wrapper)
+    #     starlette_app.add_middleware(TimingMiddleware)
 
     def _discover_and_register_control_plane_endpoints(self):
         """
@@ -271,6 +314,9 @@ class McpGym(ABC):
             # Create session-aware handler for this endpoint
             def create_endpoint_handler(func: Callable):
                 async def endpoint_handler(request: Request) -> JSONResponse:
+
+                    if func.__name__ == "get_initial_state_endpoint":
+                        logger.info(f"===== starting to handle endpoint: {func.__name__}, time: {time.time()}")
                     try:
                         # Extract session ID from request headers (similar to StreamableHTTP pattern)
                         session_id = request.headers.get("mcp-session-id")
@@ -284,30 +330,42 @@ class McpGym(ABC):
                         with self.session_lock:
                             session_data = self.sessions.get(session_id)
                             if not session_data:
-                                # For initial state endpoint, we need to create the session
-                                # based on the session ID and available information
-                                if func.__name__ == "get_initial_state_endpoint":
-                                    env, obs, info = self._new_env(seed=None)
-                                    # Initialize session state with extracted seed from session ID
-                                    session_data = {
-                                        "env": env,
-                                        "obs": obs,
-                                        "session_data": {},  # Subclasses can store additional data here
-                                        "session_id": session_id,
-                                    }
-                                    # Store the session
-                                    self.sessions[session_id] = session_data
-                                else:
-                                    return JSONResponse(
-                                        {"error": f"Session {session_id} not found"},
-                                        status_code=404,
-                                    )
+                                # create a placeholder session data
+                                self.sessions[session_id] = {"placeholder": True}
+                        # For initial state endpoint, we need to create the session
+                        # based on the session ID and available information
+                        if func.__name__ == "get_initial_state_endpoint":
+                            env, obs, info = self._new_env(seed=None)
+                            # Initialize session state with extracted seed from session ID
+                            session_data = {
+                                "env": env,
+                                "obs": obs,
+                                "session_data": {},  # Subclasses can store additional data here
+                                "session_id": session_id,
+                            }
+                            # Store the session
+                            with self.session_lock:
+                                self.sessions[session_id] = session_data
+
+                        else:
+                            return JSONResponse(
+                                {"error": f"Session {session_id} not found"},
+                                status_code=404,
+                            )
 
                         # Call the endpoint function with session data
+                        method_start = time.time()
+                        if func.__name__ == "get_initial_state_endpoint":
+                            print(f"🎯 METHOD START: {func.__name__} at {method_start}")
+
                         if inspect.iscoroutinefunction(func):
                             result = await func(session_data=session_data)
                         else:
                             result = func(session_data=session_data)
+
+                        # method_end = time.time()
+                        # if func.__name__ == "get_initial_state_endpoint":
+                        #     print(f"🎯 METHOD END: {func.__name__} at {method_end} (took {method_end - method_start:.3f}s)")
 
                         return JSONResponse(result)
 
@@ -351,22 +409,25 @@ class McpGym(ABC):
 
     def _get_or_create_session_control_plane(self, session_id: str) -> Dict[str, Any]:
         """Get or create control plane state for a specific session."""
-        with self.session_lock:
-            if session_id not in self.sessions:
-                return {}
+        if session_id not in self.sessions:
+            raise Exception(f"Session {session_id} not found")
 
-            session_data = self.sessions[session_id]
-            if "control_plane" not in session_data["session_data"]:
-                session_data["session_data"]["control_plane"] = {
-                    "reward": 0.0,
-                    "terminated": False,
-                    "truncated": False,
-                    "info": {},
-                    "step_count": 0,
-                    "total_reward": 0.0,
-                }
+        # with self.session_lock:
+        # if session_id not in self.sessions:
+        #    return {}
 
-            return session_data["session_data"]["control_plane"]
+        session_data = self.sessions[session_id]
+        if "control_plane" not in session_data["session_data"]:
+            session_data["session_data"]["control_plane"] = {
+                "reward": 0.0,
+                "terminated": False,
+                "truncated": False,
+                "info": {},
+                "step_count": 0,
+                "total_reward": 0.0,
+            }
+
+        return session_data["session_data"]["control_plane"]
 
     def _update_session_control_plane(
         self,
@@ -391,12 +452,12 @@ class McpGym(ABC):
             f"🎛️  Session {session_id[:16]}... control plane: reward={reward}, terminated={terminated}, step={control_plane['step_count']}, total_reward={control_plane['total_reward']}"
         )
 
-    def get_control_plane_state(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Get control plane state for a specific session (for rollout system)."""
-        with self.session_lock:
-            if session_id in self.sessions:
-                return self._get_or_create_session_control_plane(session_id).copy()
-            return None
+    # def get_control_plane_state(self, session_id: str) -> Optional[Dict[str, Any]]:
+    #    """Get control plane state for a specific session (for rollout system)."""
+    #    with self.session_lock:
+    #        if session_id in self.sessions:
+    #            return self._get_or_create_session_control_plane(session_id).copy()
+    #        return None
 
     def _execute_environment_step(self, action_int: int) -> Dict[str, Any]:
         """
@@ -507,6 +568,7 @@ class McpGym(ABC):
     @control_plane_endpoint("/control/initial_state")
     def get_initial_state_endpoint(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
         """Get initial state for this session."""
+        print(f"🔍 STARTING get_initial_state_endpoint: {time.time()}")
         env = session_data.get("env")
         obs = session_data.get("obs")
 
@@ -593,14 +655,14 @@ class McpGym(ABC):
 
                 config = uvicorn.Config(
                     starlette_app,
-                    host=self.mcp.settings.host,
-                    port=self.mcp.settings.port,
-                    log_level=self.mcp.settings.log_level.lower(),
+                    host=self.host,
+                    port=self.port,
+                    log_level="info",  # Use default log level instead of accessing settings
                     proxy_headers=True,
                     forwarded_allow_ips="*",
                     # HIGH CONCURRENCY SETTINGS
-                    limit_concurrency=200,  # Increase for HTTP endpoints + MCP
-                    limit_max_requests=100000,  # Higher request limit
+                    limit_concurrency=None,  # Increase for HTTP endpoints + MCP
+                    limit_max_requests=None,  # Higher request limit
                     timeout_keep_alive=120,  # Longer keep-alive for control plane
                     timeout_notify=180,
                     h11_max_incomplete_event_size=4 * 1024 * 1024,  # Handle larger events

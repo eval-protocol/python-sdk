@@ -49,6 +49,7 @@ dependencies = [
     "watchdog>=2.1.0",
     "websockets>=15.0.1",
     "fastapi>=0.116.1",
+    "fastmcp>=2.10.6",
 ]
 
 [project.urls]
