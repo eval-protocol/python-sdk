@@ -8,8 +8,6 @@ from typing import List, Optional
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.utils.vite_server import ViteServer
@@ -17,52 +15,6 @@ from eval_protocol.utils.vite_server import ViteServer
 default_logger
 
 logger = logging.getLogger(__name__)
-
-
-class FileWatcher(FileSystemEventHandler):
-    """File system watcher that tracks file changes."""
-
-    def __init__(self, websocket_manager):
-        self.websocket_manager: WebSocketManager = websocket_manager
-        self.ignored_patterns = {
-            ".git",
-            "__pycache__",
-            ".pytest_cache",
-            "node_modules",
-            ".DS_Store",
-            "*.pyc",
-            "*.pyo",
-            "*.pyd",
-            ".coverage",
-            "*.log",
-            "*.tmp",
-            "*.swp",
-            "*.swo",
-            "*~",
-        }
-
-    def should_ignore(self, path: str) -> bool:
-        """Check if a path should be ignored."""
-        path_lower = path.lower()
-        for pattern in self.ignored_patterns:
-            if pattern.startswith("*"):
-                if path_lower.endswith(pattern[1:]):
-                    return True
-            elif pattern in path_lower:
-                return True
-        return False
-
-    def on_created(self, event: FileSystemEvent):
-        if not event.is_directory and not self.should_ignore(event.src_path):
-            self.websocket_manager.broadcast_file_update("file_created", event.src_path)
-
-    def on_modified(self, event: FileSystemEvent):
-        if not event.is_directory and not self.should_ignore(event.src_path):
-            self.websocket_manager.broadcast_file_update("file_changed", event.src_path)
-
-    def on_deleted(self, event: FileSystemEvent):
-        if not event.is_directory and not self.should_ignore(event.src_path):
-            self.websocket_manager.broadcast_file_update("file_deleted", event.src_path)
 
 
 class WebSocketManager:
@@ -142,7 +94,6 @@ class LogsServer(ViteServer):
     Enhanced server for serving Vite-built SPA with file watching and WebSocket support.
 
     This server extends ViteServer to add:
-    - File system watching
     - WebSocket connections for real-time updates
     - Live log streaming
     """
@@ -155,23 +106,14 @@ class LogsServer(ViteServer):
         host: str = "localhost",
         port: Optional[int] = 8000,
         index_file: str = "index.html",
-        watch_paths: Optional[List[str]] = None,
     ):
         # Initialize WebSocket manager
         self.websocket_manager = WebSocketManager()
 
-        # Set up file watching
-        self.watch_paths = watch_paths or [os.getcwd()]
-        self.observer = Observer()
-        self.file_watcher = FileWatcher(self.websocket_manager)
-        self._file_watching_started = False
-
         @asynccontextmanager
         async def lifespan(app: FastAPI):
-            self.start_file_watching()
             self.websocket_manager._loop = asyncio.get_running_loop()
             yield
-            self.stop_file_watching()
 
         super().__init__(build_dir, host, port, index_file, lifespan=lifespan)
 
@@ -179,7 +121,6 @@ class LogsServer(ViteServer):
         self._setup_websocket_routes()
 
         logger.info(f"LogsServer initialized on {host}:{port}")
-        logger.info(f"Watching paths: {self.watch_paths}")
 
     def _setup_websocket_routes(self):
         """Set up WebSocket routes for real-time communication."""
@@ -207,32 +148,6 @@ class LogsServer(ViteServer):
                 "watch_paths": self.watch_paths,
             }
 
-    def start_file_watching(self):
-        """Start watching file system for changes."""
-        # Check if file watching has already been started
-        if self._file_watching_started:
-            logger.info("File watching already started, skipping")
-            return
-
-        for path in self.watch_paths:
-            if os.path.exists(path):
-                self.observer.schedule(self.file_watcher, path, recursive=True)
-                logger.info(f"Started watching: {path}")
-            else:
-                logger.warning(f"Watch path does not exist: {path}")
-
-        self.observer.start()
-        self._file_watching_started = True
-        logger.info("File watching started")
-
-    def stop_file_watching(self):
-        """Stop watching file system."""
-        if self._file_watching_started:
-            self.observer.stop()
-            self.observer.join()
-            self._file_watching_started = False
-            logger.info("File watching stopped")
-
     async def run_async(self):
         """
         Run the logs server asynchronously with file watching.
@@ -241,9 +156,6 @@ class LogsServer(ViteServer):
             reload: Whether to enable auto-reload (default: False)
         """
         try:
-            # Start file watching
-            self.start_file_watching()
-
             logger.info(f"Starting LogsServer on {self.host}:{self.port}")
             logger.info(f"Serving files from: {self.build_dir}")
             logger.info("WebSocket endpoint available at /ws")
@@ -263,8 +175,6 @@ class LogsServer(ViteServer):
 
         except KeyboardInterrupt:
             logger.info("Shutting down LogsServer...")
-        finally:
-            self.stop_file_watching()
 
     def run(self):
         """
@@ -280,20 +190,5 @@ server = LogsServer()
 app = server.app
 
 
-def serve_logs():
-    """
-    Convenience function to create and run a LogsServer.
-
-    Args:
-        build_dir: Path to the Vite build output directory
-        host: Host to bind the server to
-        port: Port to bind the server to (default: 4789 for logs)
-        index_file: Name of the main index file
-        watch_paths: List of paths to watch for file changes
-        reload: Whether to enable auto-reload
-    """
-    server.run()
-
-
 if __name__ == "__main__":
-    serve_logs()
+    server.run()
