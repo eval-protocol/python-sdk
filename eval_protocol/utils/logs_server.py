@@ -4,15 +4,17 @@ import logging
 import os
 import time
 from contextlib import asynccontextmanager
-from typing import List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from eval_protocol.dataset_logger import default_logger
+from eval_protocol.events import event_bus
 from eval_protocol.utils.vite_server import ViteServer
 
-default_logger
+if TYPE_CHECKING:
+    from eval_protocol.models import EvaluationRow
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,10 @@ class WebSocketManager:
         asyncio.run_coroutine_threadsafe(
             websocket.send_text(
                 json.dumps(
-                    {"type": "initialize_logs", "logs": [log.model_dump_json(exclude_none=True) for log in logs]}
+                    {
+                        "type": "initialize_logs",
+                        "logs": [log.model_dump_json(exclude_none=True) for log in logs],
+                    }
                 )
             ),
             self._loop,
@@ -43,50 +48,32 @@ class WebSocketManager:
             self.active_connections.remove(websocket)
         logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
 
-    def broadcast_file_update(self, update_type: str, file_path: str):
-        """Broadcast file update to all connected clients."""
-        if not file_path.startswith(default_logger.datasets_dir) or not file_path.endswith(".jsonl"):
-            """
-            .lock files are often created and deleted by the singleton lock
-            mechanism so we only broadcast .jsonl files
-            """
+    def broadcast_row_upserted(self, row: "EvaluationRow"):
+        """Broadcast a row-upsert event to all connected clients.
+
+        Safe no-op if server loop is not running or there are no connections.
+        """
+        if not self._loop or not self.active_connections:
             return
-        logger.info(f"Broadcasting file update: {update_type} {file_path}")
 
-        logs = default_logger.read()
-        # send initialize_logs message to all connected clients
-        for connection in self.active_connections:
-            asyncio.run_coroutine_threadsafe(
-                connection.send_text(
-                    json.dumps(
-                        {"type": "initialize_logs", "logs": [log.model_dump_json(exclude_none=True) for log in logs]}
-                    )
-                ),
-                self._loop,
+        try:
+            # Serialize pydantic model
+            json_message = json.dumps(
+                {"type": "row_upserted", "row": json.loads(row.model_dump_json(exclude_none=True))}
             )
+        except Exception as e:
+            logger.error(f"Failed to serialize row for broadcast: {e}")
+            return
 
-        message = {"type": update_type, "path": file_path, "timestamp": time.time()}
-        # Include file contents for created and modified events
-        if update_type in ["file_created", "file_changed"] and os.path.exists(file_path):
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    message["contents"] = f.read()
-            except Exception as e:
-                logger.warning(f"Failed to read file contents for {file_path}: {e}")
-                message["contents"] = None
-        elif update_type == "file_deleted":
-            message["contents"] = None
-
-        json_message = json.dumps(message)
-
-        # Broadcast to all active connections
-        for connection in self.active_connections:
+        for connection in list(self.active_connections):
             try:
                 asyncio.run_coroutine_threadsafe(connection.send_text(json_message), self._loop)
             except Exception as e:
-                logger.error(f"Failed to send message to WebSocket: {e}")
-                # Remove broken connection
-                self.active_connections.remove(connection)
+                logger.error(f"Failed to send row_upserted to WebSocket: {e}")
+                try:
+                    self.active_connections.remove(connection)
+                except ValueError:
+                    pass
 
 
 class LogsServer(ViteServer):
@@ -120,6 +107,9 @@ class LogsServer(ViteServer):
         # Add WebSocket endpoint
         self._setup_websocket_routes()
 
+        # Subscribe to events
+        event_bus.subscribe(self._handle_event)
+
         logger.info(f"LogsServer initialized on {host}:{port}")
 
     def _setup_websocket_routes(self):
@@ -147,6 +137,12 @@ class LogsServer(ViteServer):
                 "active_connections": len(self.websocket_manager.active_connections),
                 "watch_paths": self.watch_paths,
             }
+
+    def _handle_event(self, event_type: str, data: Any) -> None:
+        """Handle events from the event bus."""
+        if event_type == "row_upserted":
+            self.websocket_manager.broadcast_row_upserted(data)
+        # Add more event types here as needed
 
     async def run_async(self):
         """
@@ -194,6 +190,10 @@ def serve_logs():
     """
     Convenience function to create and run a LogsServer.
     """
+    global server, app
+    if server is None:
+        server = LogsServer()
+        app = server.app
     server.run()
 
 
