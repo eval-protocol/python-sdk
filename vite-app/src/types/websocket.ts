@@ -7,7 +7,7 @@ import { EvaluationRowSchema } from './eval-protocol';
 // Initialize logs message schema
 export const InitializeLogsMessageSchema = z.object({
   type: z.literal('initialize_logs'),
-  logs: z.array(z.string()),
+  logs: z.array(z.any()),
 });
 
 export const LogMessageSchema = z.object({

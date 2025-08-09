@@ -39,7 +39,7 @@ const App = observer(() => {
         );
         if (update.type === "initialize_logs") {
           const rows: EvaluationRow[] = update.logs.map((log) => {
-            return EvaluationRowSchema.parse(JSON.parse(log));
+            return EvaluationRowSchema.parse(log);
           });
           console.log("initialize_logs", rows);
           state.setDataset(rows);

@@ -5,7 +5,7 @@ This test demonstrates how to check if model responses contain the required numb
 """
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
@@ -39,7 +39,8 @@ def test_markdown_highlighting_evaluation(row: EvaluationRow) -> EvaluationRow:
     assistant_response = row.messages[-1].content
 
     if not assistant_response:
-        return EvaluateResult(score=0.0, reason="❌ No assistant response found")
+        row.evaluation_result = EvaluateResult(score=0.0, reason="❌ No assistant response found")
+        return row
 
     required_highlights = int(row.ground_truth)
 
