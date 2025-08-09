@@ -1,5 +1,6 @@
 import inspect
 import os
+import os
 from typing import Any, Callable, Dict, List, Optional
 
 import pytest
@@ -132,13 +133,34 @@ def evaluation_test(
             return execute_function(test_func, **kwargs)
 
         # Calculate all possible combinations of parameters
+        def _parse_ep_max_rows(default_value: int | None) -> int | None:
+            """Read EP_MAX_DATASET_ROWS env override as int or None."""
+            raw = os.getenv("EP_MAX_DATASET_ROWS")
+            if raw is None:
+                return default_value
+            s = raw.strip().lower()
+            if s == "none":
+                return None
+            try:
+                return int(s)
+            except ValueError:
+                return default_value
+
         def generate_combinations():
             combinations = []
 
             # Handle optional parameters with defaults
             datasets: List[Optional[DatasetPathParam]] = input_dataset if input_dataset is not None else [None]  # type: ignore
             params: List[Optional[RolloutInputParam]] = rollout_input_params if rollout_input_params is not None else [None]  # type: ignore
-            messages: List[Optional[InputMessagesParam]] = input_messages if input_messages is not None else [None]  # type: ignore
+            # Apply EP_MAX_DATASET_ROWS to input_messages to uniformly control row count when messages are provided
+            if input_messages is not None and isinstance(input_messages, list):
+                effective_max_rows = _parse_ep_max_rows(max_dataset_rows)
+                if effective_max_rows is not None:
+                    messages: List[Optional[InputMessagesParam]] = input_messages[:effective_max_rows]  # type: ignore
+                else:
+                    messages = input_messages  # type: ignore
+            else:
+                messages = [None]  # type: ignore
             kwargs: List[Optional[EvaluationInputParam]] = evaluation_test_kwargs if evaluation_test_kwargs is not None else [None]  # type: ignore
 
             # Generate all combinations
@@ -201,8 +223,10 @@ def evaluation_test(
                     data: List[EvaluationRow] = []
                     if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
                         data_jsonl = load_jsonl(kwargs["dataset_path"])
-                        if max_dataset_rows is not None:
-                            data_jsonl = data_jsonl[:max_dataset_rows]
+                        # Apply env override for max rows if present
+                        effective_max_rows = _parse_ep_max_rows(max_dataset_rows)
+                        if effective_max_rows is not None:
+                            data_jsonl = data_jsonl[:effective_max_rows]
                         data = dataset_adapter(data_jsonl)
                     elif "input_messages" in kwargs and kwargs["input_messages"] is not None:
                         data: List[EvaluationRow] = [EvaluationRow(messages=kwargs["input_messages"])]
