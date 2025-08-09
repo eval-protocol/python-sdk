@@ -1,9 +1,10 @@
 import asyncio
 from typing import List
 
-from openai import AsyncOpenAI
+from litellm import acompletion
+from openai.types.chat.chat_completion_message import ChatCompletionMessageToolCall
 
-from eval_protocol.auth import get_fireworks_api_base, get_fireworks_api_key
+from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
@@ -11,11 +12,7 @@ from eval_protocol.pytest.types import RolloutProcessorConfig
 async def default_single_turn_rollout_processor(
     rows: List[EvaluationRow], config: RolloutProcessorConfig
 ) -> List[EvaluationRow]:
-    """Generate a single response from a Fireworks model concurrently."""
-
-    api_key = get_fireworks_api_key()
-    api_base = get_fireworks_api_base()
-    client = AsyncOpenAI(api_key=api_key, base_url=f"{api_base}/inference/v1")
+    """Generate a single response from any supported model provider using LiteLLM."""
 
     async def process_row(row: EvaluationRow) -> EvaluationRow:
         """Process a single row asynchronously."""
@@ -24,27 +21,44 @@ async def default_single_turn_rollout_processor(
 
         messages_payload = [{"role": m.role, "content": m.content} for m in row.messages]
 
-        create_kwargs = dict(model=config.model, messages=messages_payload, **config.input_params)
+        request_params = {"model": config.model, "messages": messages_payload, **config.input_params}
+
         if row.tools is not None:
-            create_kwargs["tools"] = row.tools
-        response = await client.chat.completions.create(**create_kwargs)
+            request_params["tools"] = row.tools
+
+        response = await acompletion(**request_params)
+
         assistant_content = response.choices[0].message.content or ""
         tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
+
+        converted_tool_calls = None
+        if tool_calls:
+            converted_tool_calls = [
+                ChatCompletionMessageToolCall(
+                    id=tool_call.id,
+                    type=tool_call.type,
+                    function={
+                        "name": tool_call.function.name,
+                        "arguments": tool_call.function.arguments,
+                    },
+                )
+                for tool_call in tool_calls
+            ]
+
         messages = list(row.messages) + [
             Message(
                 role="assistant",
                 content=assistant_content,
-                tool_calls=tool_calls,
+                tool_calls=converted_tool_calls,
             )
         ]
 
-        return EvaluationRow(
-            messages=messages,
-            **row.model_dump(exclude={"messages"}),
-        )
+        row.messages = messages
+        default_logger.log(row)
+        return row
 
     # Process all rows concurrently
     tasks = [process_row(row) for row in rows]
-    dataset = await asyncio.gather(*tasks)
+    dataset = list(await asyncio.gather(*tasks))
 
     return dataset

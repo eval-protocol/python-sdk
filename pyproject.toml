@@ -46,9 +46,10 @@ dependencies = [
     "addict>=2.4.0",
     "deepdiff>=6.0.0",
     "pandas>=1.5.0",
-    "watchdog>=2.1.0",
     "websockets>=15.0.1",
     "fastapi>=0.116.1",
+    "pytest>=6.0.0",
+    "peewee>=3.18.2",
 ]
 
 [project.urls]
@@ -58,7 +59,6 @@ Homepage = "https://github.com/fireworks-ai/eval-protocol"
 dev = [
     "build",
     "twine",
-    "pytest>=6.0.0",
     "pytest-asyncio",
     "pytest-httpserver",
     "werkzeug>=2.0.0",
@@ -111,16 +111,20 @@ huggingface = [
 ]
 adapters = [
     "langfuse>=2.0.0",
-    "datasets>=2.0.0", 
+    "datasets>=2.0.0",
     "transformers>=4.0.0",
 ]
 
 [project.scripts]
 fireworks-reward = "eval_protocol.cli:main"
 eval-protocol = "eval_protocol.cli:main"
+ep = "eval_protocol.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["eval_protocol*", "development*", "vendor*"]
+
+[tool.setuptools.package-data]
+"eval_protocol" = ["../vite-app/dist/**/*"]
 
 [tool.versioneer]
 VCS = "git"

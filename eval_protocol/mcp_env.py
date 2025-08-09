@@ -40,6 +40,8 @@ MCP Integration:
 - Resources provide static/configuration data, tools provide dynamic actions
 """
 
+import asyncio
+
 # For legacy compatibility - import the facade functions
 import logging
 import random
@@ -47,13 +49,36 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 # Import all functionality from the new modular components
 from .mcp.execution.manager import ExecutionManager
-from .mcp.execution.policy import AnthropicPolicy, FireworksPolicy, LLMBasePolicy, OpenAIPolicy, LiteLLMPolicy
+from .mcp.execution.policy import AnthropicPolicy, FireworksPolicy, LiteLLMPolicy, LLMBasePolicy, OpenAIPolicy
 from .mcp.session.manager import GeneralMCPVectorEnv
 from .models import EvaluationRow
 from .types import DatasetRow, MCPSession, MCPToolCall
 import asyncio
+import hashlib
+import json
 
 logger = logging.getLogger(__name__)
+
+
+def gen_session_id(dataset_row: DatasetRow, model_id: str) -> str:
+    """
+    Generate a session ID for a dataset row
+    """
+    seed_value = dataset_row.seed
+    config_value = dataset_row.environment_context
+    dataset_row_id_value = dataset_row.id
+    model_id_value = model_id
+
+    stable_data = {
+        "seed": seed_value,
+        "config": config_value,
+        "dataset_row_id": dataset_row_id_value,
+        "model_id": model_id_value,
+    }
+
+    stable_str = json.dumps(stable_data, sort_keys=True)
+
+    return hashlib.md5(stable_str.encode()).hexdigest()
 
 
 async def reset_mcp_sessions(envs: GeneralMCPVectorEnv):
@@ -161,9 +186,10 @@ async def make(
 
             dataset_rows.append(dataset_row)
 
+            session_id = gen_session_id(dataset_row, model_id)
             # Create MCP session
             session = MCPSession(
-                session_id=dataset_row.id,
+                session_id=session_id,
                 base_url=base_url,
                 seed=dataset_row.seed,
                 model_id=model_id,
@@ -197,9 +223,11 @@ async def make(
             )
             dataset_rows.append(dataset_row)
 
+            session_id = gen_session_id(dataset_row, model_id)
+
             # Create MCP session
             session = MCPSession(
-                session_id=f"session_{i}",
+                session_id=session_id,
                 base_url=base_url,
                 seed=seeds[i],
                 model_id=model_id,
@@ -288,7 +316,7 @@ async def rollout(
     execution_manager = ExecutionManager()
 
     return await execution_manager.execute_rollouts(
-        envs, policy, steps, openai_format_log_file, max_concurrent_rollouts
+        envs, policy, steps, openai_format_log_file, max_concurrent_rollouts, evaluation_rows
     )
 
 

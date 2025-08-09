@@ -64,6 +64,9 @@ class LiteLLMPolicy(LLMBasePolicy):
         self.num_retries = num_retries
         self.retry_strategy = retry_strategy
 
+        # Store additional API parameters from kwargs
+        self.additional_params = kwargs
+
         # Only initialize LiteLLM in live mode (not in playback mode)
         if not self._is_playback:
             self._setup_litellm_caching(use_caching, cache_type, redis_url)
@@ -165,6 +168,14 @@ class LiteLLMPolicy(LLMBasePolicy):
             "retry_strategy": self.retry_strategy,
             "base_url": self.base_url,
         }
+
+        # Add additional parameters from kwargs (like reasoning_effort)
+        if self.additional_params:
+            request_params.update(self.additional_params)
+
+            # Tell LiteLLM to allow reasoning_effort if it's present
+            if "reasoning_effort" in self.additional_params:
+                request_params["allowed_openai_params"] = ["reasoning_effort"]
 
         # Add tools if provided
         if tools:

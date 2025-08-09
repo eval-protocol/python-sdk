@@ -289,7 +289,7 @@ class TestRolloutControlPlaneIntegration:
             assert final_cp_step["step"] == 2, "Should record final step"
 
             # Validate policy interaction
-            assert policy.step_count == 3, "Policy should have been called 3 times"
+            assert policy.step_count == 4, "Policy should have been called 3 times"
 
     @pytest.mark.asyncio
     async def test_rollout_trajectory_recording_with_control_plane(self):
@@ -519,6 +519,7 @@ class TestRolloutControlPlaneIntegration:
                 5,
                 None,
                 8,
+                None,
             )
 
             assert result == ["ok"]

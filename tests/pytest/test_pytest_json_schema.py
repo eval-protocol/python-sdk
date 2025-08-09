@@ -23,7 +23,7 @@ def json_schema_to_evaluation_row(rows: List[Dict[str, Any]]) -> List[Evaluation
 
 @evaluation_test(
     input_dataset=["tests/pytest/data/json_schema.jsonl"],
-    model=["accounts/fireworks/models/kimi-k2-instruct"],
+    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
     mode="pointwise",
     rollout_processor=default_single_turn_rollout_processor,
     dataset_adapter=json_schema_to_evaluation_row,
