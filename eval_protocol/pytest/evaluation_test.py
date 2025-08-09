@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List, Optional
 import pytest
 
 from eval_protocol.dataset_logger import default_logger
+from eval_protocol.human_id import generate_id
 from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, InputMetadata
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
@@ -191,6 +192,8 @@ def evaluation_test(
         # Create wrapper function with exact signature that pytest expects
         def create_wrapper_with_signature() -> Callable:
             # Create the function body that will be used
+            run_id = generate_id()
+
             def wrapper_body(**kwargs):
                 model_name = kwargs["model"]
                 eval_metadata = None
@@ -220,6 +223,7 @@ def evaluation_test(
                         aggregation_method=aggregation_method,
                         threshold_of_success=threshold_of_success,
                         passed=None,
+                        run_id=run_id,
                     )
 
                     # Populate completion_params in input_metadata for all rows and initialize eval_metadata BEFORE rollouts

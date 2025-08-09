@@ -40,7 +40,9 @@ class WebSocketManager:
         logger.info(f"WebSocket connected. Total connections: {connection_count}")
         logs = default_logger.read()
         await websocket.send_text(
-            json.dumps({"type": "initialize_logs", "logs": [log.model_dump_json(exclude_none=True) for log in logs]})
+            json.dumps(
+                {"type": "initialize_logs", "logs": [log.model_dump(exclude_none=True, mode="json") for log in logs]}
+            )
         )
 
     def disconnect(self, websocket: WebSocket):
@@ -57,7 +59,7 @@ class WebSocketManager:
         """
         try:
             # Serialize pydantic model
-            json_message = json.dumps({"type": "log", "row": json.loads(row.model_dump_json(exclude_none=True))})
+            json_message = json.dumps({"type": "log", "row": row.model_dump(exclude_none=True, mode="json")})
             # Queue the message for broadcasting in the main event loop
             self._broadcast_queue.put(json_message)
         except Exception as e:

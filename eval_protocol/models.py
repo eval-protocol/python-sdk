@@ -214,6 +214,14 @@ class EvalMetadata(BaseModel):
     status: Optional[Literal["running", "finished", "error", "stopped"]] = Field(
         None, description="Status of the evaluation"
     )
+    run_id: Optional[str] = Field(
+        None,
+        description=(
+            "Unique identifier for the run. A 'run' is a group of rows"
+            "that were evaluated together in single configuration of a @evaluation_test."
+            " This means that running the save @evaluation_test with "
+        ),
+    )
     num_runs: int = Field(..., description="Number of times the evaluation was repeated")
     aggregation_method: str = Field(..., description="Method used to aggregate scores across runs")
     threshold_of_success: Optional[float] = Field(None, description="Threshold score for test success")
