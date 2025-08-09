@@ -39,11 +39,11 @@ class WebSocketManager:
             connection_count = len(self.active_connections)
         logger.info(f"WebSocket connected. Total connections: {connection_count}")
         logs = default_logger.read()
-        await websocket.send_text(
-            json.dumps(
-                {"type": "initialize_logs", "logs": [log.model_dump(exclude_none=True, mode="json") for log in logs]}
-            )
-        )
+        data = {
+            "type": "initialize_logs",
+            "logs": [log.model_dump(exclude_none=True, mode="json") for log in logs],
+        }
+        await websocket.send_text(json.dumps(data))
 
     def disconnect(self, websocket: WebSocket):
         with self._lock:
