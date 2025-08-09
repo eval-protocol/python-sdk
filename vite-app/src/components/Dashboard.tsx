@@ -1,7 +1,10 @@
 import { observer } from "mobx-react";
+import { useMemo, useState } from "react";
 import { state } from "../App";
 import Button from "./Button";
 import { EvaluationTable } from "./EvaluationTable";
+import PivotTable from "./PivotTable";
+import flattenJson from "../util/flatten-json";
 
 interface DashboardProps {
   onRefresh: () => void;
@@ -49,6 +52,14 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
   const expandAll = () => state.setAllRowsExpanded(true);
   const collapseAll = () => state.setAllRowsExpanded(false);
 
+  const [activeTab, setActiveTab] = useState<"table" | "pivot">("table");
+
+  const flattened = useMemo(() => {
+    const flattenedDataset = state.sortedDataset.map((row) => flattenJson(row));
+    console.log(flattenedDataset);
+    return flattenedDataset;
+  }, [state.sortedDataset]);
+
   return (
     <div className="text-sm">
       {/* Summary Stats */}
@@ -59,11 +70,19 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
           </h2>
           {state.totalCount > 0 && (
             <div className="flex gap-2">
-              <Button onClick={expandAll} size="sm" variant="secondary">
-                Expand All
+              <Button
+                onClick={() => setActiveTab("table")}
+                size="sm"
+                variant="secondary"
+              >
+                Table
               </Button>
-              <Button onClick={collapseAll} size="sm" variant="secondary">
-                Collapse All
+              <Button
+                onClick={() => setActiveTab("pivot")}
+                size="sm"
+                variant="secondary"
+              >
+                Pivot
               </Button>
             </div>
           )}
@@ -73,14 +92,51 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
             <span className="font-semibold text-gray-700">Total Rows:</span>{" "}
             {state.totalCount}
           </div>
+          {activeTab === "table" && state.totalCount > 0 && (
+            <div className="flex gap-2">
+              <Button onClick={expandAll} size="sm" variant="secondary">
+                Expand All
+              </Button>
+              <Button onClick={collapseAll} size="sm" variant="secondary">
+                Collapse All
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Show empty state or main table */}
       {state.totalCount === 0 ? (
         <EmptyState onRefresh={onRefresh} />
-      ) : (
+      ) : activeTab === "table" ? (
         <EvaluationTable />
+      ) : (
+        <div className="bg-white border border-gray-200 p-3">
+          <div className="text-xs text-gray-600 mb-2">
+            Showing pivot of flattened rows (JSONPath keys). Defaults: rows by
+            eval name and status; columns by model; values average score.
+          </div>
+          <PivotTable
+            // Flattened object list
+            data={flattened}
+            // Row keys
+            rowFields={[
+              "$.eval_metadata.name" as keyof (typeof flattened)[number],
+              "$.eval_metadata.status" as keyof (typeof flattened)[number],
+            ]}
+            // Column keys
+            columnFields={[
+              "$.input_metadata.completion_params.model" as keyof (typeof flattened)[number],
+            ]}
+            // Value and aggregation
+            valueField={
+              "$.evaluation_result.score" as keyof (typeof flattened)[number]
+            }
+            aggregator="avg"
+            showRowTotals
+            showColumnTotals
+          />
+        </div>
       )}
     </div>
   );
