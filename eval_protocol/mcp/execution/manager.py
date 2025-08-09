@@ -297,6 +297,12 @@ class ExecutionManager:
                 while not turn_completed and not trajectory.terminated:
                     tool_calls, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
 
+                    # calc llm usage stats happened in this turn if there is aany
+                    if usage_stats:
+                        trajectory.usage["prompt_tokens"] += usage_stats.prompt_tokens
+                        trajectory.usage["completion_tokens"] += usage_stats.completion_tokens
+                        trajectory.usage["total_tokens"] += usage_stats.total_tokens
+
                     # If no tool call is generated, turn is finished
                     if len(tool_calls) == 1:
                         # If there's a user simulator, no tool call means the policy is ready to provide final response on this turn
@@ -372,12 +378,6 @@ class ExecutionManager:
                     # Update current observation for potential next turn
                     if observation is not None:
                         current_observation = observation
-
-                    # calc llm usage stats happened in this turn if there is aany
-                    if usage_stats:
-                        trajectory.usage["prompt_tokens"] += usage_stats.prompt_tokens
-                        trajectory.usage["completion_tokens"] += usage_stats.completion_tokens
-                        trajectory.usage["total_tokens"] += usage_stats.total_tokens
 
                 # With user simulator, increment step after an entire conversation step
                 if user_simulator is not None:
