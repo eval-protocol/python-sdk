@@ -264,6 +264,11 @@ class EvaluationRow(BaseModel):
         description="The status of the rollout.",
     )
 
+    invocation_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the invocation that this row belongs to.",
+    )
+
     cohort_id: Optional[str] = Field(
         default_factory=generate_id,
         description="The ID of the cohort that this row belongs to.",

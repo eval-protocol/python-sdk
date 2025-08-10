@@ -99,6 +99,7 @@ export const EvaluationRowSchema = z.object({
   tools: z.array(z.record(z.string(), z.any())).optional().describe('Available tools/functions that were provided to the agent.'),
   input_metadata: InputMetadataSchema.describe('Metadata related to the input (dataset info, model config, session data, etc.).'),
   rollout_status: RolloutStatusSchema.default({ status: 'finished' }).describe('The status of the rollout.'),
+  invocation_id: z.string().optional().describe('The ID of the invocation that this row belongs to.'),
   cohort_id: z.string().optional().describe('The ID of the cohort that this row belongs to.'),
   rollout_id: z.string().optional().describe('The ID of the rollout that this row belongs to.'),
   run_id: z.string().optional().describe('The ID of the run that this row belongs to.'),
