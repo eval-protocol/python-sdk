@@ -63,7 +63,11 @@ def evaluation_test(  # noqa: C901
 
     Here are some key concepts to understand the terminology in EP:
 
-    - "cohort" is a group of runs with a static set of parameters. A single
+    - "invocation" is a single execution of a test function. An invocation can
+        generate 1 or more cohorts. Grouping by invocation might be useful to
+        aggregate eval scores across multiple invocations when you want to aggregate
+        scores across multiple datasets.
+    - "cohort" is a group of runs with for a combination of parameters. A single
         cohort will have multiple runs if num_runs > 1.
         1. If your evaluation_test has combinations of parameters, it will generate
         multiple cohorts per combination of parameters.
@@ -85,8 +89,8 @@ def evaluation_test(  # noqa: C901
         decorated test. It simply produces a score from 0 to 1 and attached it
         to the row as the "evaluation_result" field.
 
-    A "cohort", "run", "rollout", and "row" each have a unique ID which can be
-    used to easily group and identify them.
+    "invocation", "cohort", "run", "rollout", and "row" each have a unique ID
+    which can be used to easily group and identify your dataset by.
 
     Args:
         model: Model identifiers to query.
@@ -205,7 +209,7 @@ def evaluation_test(  # noqa: C901
                         datasets = [[input_dataset]]  # type: ignore
             else:
                 datasets = [None]
-            params: List[Optional[RolloutInputParam]] = rollout_input_params if rollout_input_params is not None else [None]  # type: ignore
+            rips: List[Optional[RolloutInputParam]] = rollout_input_params if rollout_input_params is not None else [None]  # type: ignore
             # Apply EP_MAX_DATASET_ROWS to input_messages, but do NOT parameterize over
             # each row. Instead, pass the entire sliced list through in a single test run
             # so summaries aggregate all rows together (AIME-style behavior).
@@ -224,7 +228,7 @@ def evaluation_test(  # noqa: C901
             # Generate all combinations
             for m in model:
                 for ds in datasets:
-                    for ip in params:
+                    for rip in rips:
                         for im in messages:
                             for etk in kwargs:
                                 # if no dataset and no messages, raise an error
@@ -232,7 +236,7 @@ def evaluation_test(  # noqa: C901
                                     raise ValueError(
                                         "No dataset or messages provided. Please provide at least one of input_dataset or input_messages."
                                     )
-                                combinations.append((m, ds, ip, im, etk))
+                                combinations.append((m, ds, rip, im, etk))
 
             return combinations
 
@@ -245,12 +249,12 @@ def evaluation_test(  # noqa: C901
         # Create parameter tuples for pytest.mark.parametrize
         param_tuples = []
         for combo in combinations:
-            model_name, dataset, params, messages, etk = combo
+            model_name, dataset, rip, messages, etk = combo
             param_tuple = [model_name]
             if input_dataset is not None:
                 param_tuple.append(dataset)
             if rollout_input_params is not None:
-                param_tuple.append(params)
+                param_tuple.append(rip)
             if input_messages is not None:
                 param_tuple.append(messages)
             if evaluation_test_kwargs is not None:
@@ -271,12 +275,14 @@ def evaluation_test(  # noqa: C901
         # Create wrapper function with exact signature that pytest expects
         def create_wrapper_with_signature() -> Callable:
             # Create the function body that will be used
-            cohort_id = generate_id()
+            invocation_id = generate_id()
 
             def wrapper_body(**kwargs):
                 model_name = kwargs["model"]
                 eval_metadata = None
                 all_results: List[EvaluationRow] = []
+
+                cohort_id = generate_id()
 
                 def _log_eval_error(
                     status: Literal["finished", "error"], rows: Optional[List[EvaluationRow]] | None, passed: bool
@@ -358,6 +364,7 @@ def evaluation_test(  # noqa: C901
                         # Initialize eval_metadata for each row
                         row.eval_metadata = eval_metadata
                         row.cohort_id = cohort_id
+                        row.invocation_id = invocation_id
 
                         # has to be done in the pytest main process since it's
                         # used to determine whether this eval has stopped

@@ -7,7 +7,7 @@ This test demonstrates how to check if model responses contain the required numb
 import re
 from typing import Any, Dict, List
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message
+from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
 
 
@@ -16,7 +16,11 @@ def markdown_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     Convert entries from markdown dataset to EvaluationRow objects.
     """
     return [
-        EvaluationRow(messages=[Message(role="user", content=row["prompt"])], ground_truth=str(row["num_highlights"]))
+        EvaluationRow(
+            messages=[Message(role="user", content=row["prompt"])],
+            ground_truth=str(row["num_highlights"]),
+            input_metadata=InputMetadata(row_id=str(row["key"])),
+        )
         for row in data
     ]
 
