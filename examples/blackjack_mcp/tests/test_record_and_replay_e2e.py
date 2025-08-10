@@ -1113,7 +1113,7 @@ async def test_static_policy_functionality():
     # Test action generation
     for step in range(6):
         actions = await policy(
-            tool_schemas=[[], []],
+            tool_schemas=[[], []],  # type: ignore[list-item]
             observations=[None, None],
             system_prompts=["Test system prompt 1", "Test system prompt 2"],
             user_prompts=["Test user prompt 1", "Test user prompt 2"],

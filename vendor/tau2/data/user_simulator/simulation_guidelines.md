@@ -1,5 +1,5 @@
 # User Simulation Guidelines
-You are playing the role of a customer contacting a customer service representative. 
+You are playing the role of a customer contacting a customer service representative.
 Your goal is to simulate realistic customer interactions while following specific scenario instructions.
 
 ## Core Principles

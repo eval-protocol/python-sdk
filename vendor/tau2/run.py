@@ -8,8 +8,7 @@ from typing import Optional
 from loguru import logger
 
 from vendor.tau2.agent.llm_agent import LLMAgent, LLMGTAgent, LLMSoloAgent
-from vendor.tau2.data_model.simulation import (AgentInfo, Info, Results, RunConfig,
-                                        SimulationRun, UserInfo)
+from vendor.tau2.data_model.simulation import AgentInfo, Info, Results, RunConfig, SimulationRun, UserInfo
 from vendor.tau2.data_model.tasks import Task
 from vendor.tau2.environment.environment import Environment, EnvironmentInfo
 from vendor.tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
@@ -29,9 +28,7 @@ def get_options() -> RegistryInfo:
     return registry.get_info()
 
 
-def get_environment_info(
-    domain_name: str, include_tool_info: bool = False
-) -> EnvironmentInfo:
+def get_environment_info(domain_name: str, include_tool_info: bool = False) -> EnvironmentInfo:
     """Get information about the environment for a registered Domain"""
     global registry
     env_constructor = registry.get_env_constructor(domain_name)
@@ -59,14 +56,10 @@ def get_tasks(
     if task_ids is None:
         tasks = load_tasks(task_set_name=task_set_name)
     else:
-        tasks = [
-            task for task in load_tasks(task_set_name=task_set_name) if task.id in task_ids
-        ]
+        tasks = [task for task in load_tasks(task_set_name=task_set_name) if task.id in task_ids]
     if task_ids is not None and len(tasks) != len(task_ids):
         missing_tasks = set(task_ids) - set([task.id for task in tasks])
-        raise ValueError(
-            f"Not all tasks were found for task set {task_set_name}: {missing_tasks}"
-        )
+        raise ValueError(f"Not all tasks were found for task set {task_set_name}: {missing_tasks}")
     if num_tasks is not None:
         tasks = tasks[:num_tasks]
     return tasks
@@ -100,13 +93,17 @@ def run_domain(config: RunConfig) -> Results:
         total_num_tasks = len(tasks)
         tasks = [task for task in tasks if LLMGTAgent.check_valid_task(task)]
         num_tasks = len(tasks)
-        console_text = Text(text=f"Running {num_tasks} out of {total_num_tasks} tasks for GT agent.", style="bold green")
+        console_text = Text(
+            text=f"Running {num_tasks} out of {total_num_tasks} tasks for GT agent.", style="bold green"
+        )
         ConsoleDisplay.console.print(console_text)
     if "solo" in config.agent:
         total_num_tasks = len(tasks)
         tasks = [task for task in tasks if LLMSoloAgent.check_valid_task(task)]
         num_tasks = len(tasks)
-        console_text = Text(text=f"Running {num_tasks} out of {total_num_tasks} tasks for solo agent.", style="bold green")
+        console_text = Text(
+            text=f"Running {num_tasks} out of {total_num_tasks} tasks for solo agent.", style="bold green"
+        )
         ConsoleDisplay.console.print(console_text)
 
     num_trials = config.num_trials
@@ -244,9 +241,7 @@ def run_tasks(
             with open(save_to, "r") as fp:
                 prev_simulation_results = Results.model_validate_json(fp.read())
                 # Check if the run config has changed
-                if get_pydantic_hash(prev_simulation_results.info) != get_pydantic_hash(
-                    simulation_results.info
-                ):
+                if get_pydantic_hash(prev_simulation_results.info) != get_pydantic_hash(simulation_results.info):
                     diff = show_dict_diff(
                         prev_simulation_results.info.model_dump(),
                         simulation_results.info.model_dump(),
@@ -279,14 +274,12 @@ def run_tasks(
                         "The task set has changed. Please delete the existing file or use a different save_to name."
                     )
                 # Check which of the runs have already been done
-                done_runs = set(
-                    [
-                        (sim.trial, sim.task_id, sim.seed)
-                        for sim in prev_simulation_results.simulations
-                    ]
-                )
+                done_runs = set([(sim.trial, sim.task_id, sim.seed) for sim in prev_simulation_results.simulations])
                 simulation_results = prev_simulation_results
-                console_text = Text(text=f"Resuming run from {len(done_runs)} runs. {len(tasks) * num_trials - len(done_runs)} runs remaining.", style="bold yellow")
+                console_text = Text(
+                    text=f"Resuming run from {len(done_runs)} runs. {len(tasks) * num_trials - len(done_runs)} runs remaining.",
+                    style="bold yellow",
+                )
                 ConsoleDisplay.console.print(console_text)
         # Create new save file
         else:
@@ -338,7 +331,10 @@ def run_tasks(
     for trial in range(num_trials):
         for i, task in enumerate(tasks):
             if (trial, task.id, seeds[trial]) in done_runs:
-                console_text = Text(text=f"Skipping task {task.id}, trial {trial} because it has already been run.", style="bold yellow")
+                console_text = Text(
+                    text=f"Skipping task {task.id}, trial {trial} because it has already been run.",
+                    style="bold yellow",
+                )
                 ConsoleDisplay.console.print(console_text)
                 continue
             progress_str = f"{i}/{len(tasks)} (trial {trial + 1}/{num_trials})"
@@ -394,9 +390,7 @@ def run_task(
     if max_errors <= 0:
         raise ValueError("Max errors must be greater than 0")
     global registry
-    logger.info(
-        f"STARTING SIMULATION: Domain: {domain}, Task: {task.id}, Agent: {agent}, User: {user}"
-    )
+    logger.info(f"STARTING SIMULATION: Domain: {domain}, Task: {task.id}, Agent: {agent}, User: {user}")
     environment_constructor = registry.get_env_constructor(domain)
     environment = environment_constructor()
     AgentConstructor = registry.get_agent_constructor(agent)
@@ -429,9 +423,7 @@ def run_task(
             task=task,
         )
     else:
-        raise ValueError(
-            f"Unknown agent type: {AgentConstructor}. Should be LLMAgent or LLMSoloAgent"
-        )
+        raise ValueError(f"Unknown agent type: {AgentConstructor}. Should be LLMAgent or LLMSoloAgent")
     try:
         user_tools = environment.get_user_tools()
     except Exception:
@@ -439,9 +431,7 @@ def run_task(
 
     UserConstructor = registry.get_user_constructor(user)
     if issubclass(UserConstructor, DummyUser):
-        assert isinstance(agent, LLMSoloAgent), (
-            "Dummy user can only be used with solo agent"
-        )
+        assert isinstance(agent, LLMSoloAgent), "Dummy user can only be used with solo agent"
 
     user = UserConstructor(
         tools=user_tools,

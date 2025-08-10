@@ -23,9 +23,7 @@ def get_available_simulations():
     return sorted([f for f in sim_dir.glob("*.json")])
 
 
-def display_simulation_list(
-    results: Results, only_show_failed: bool = False, only_show_all_failed: bool = False
-):
+def display_simulation_list(results: Results, only_show_failed: bool = False, only_show_all_failed: bool = False):
     """Display a numbered list of simulations with basic info."""
     ConsoleDisplay.console.print("\n[bold blue]Available Simulations:[/]")
 
@@ -74,9 +72,7 @@ def display_available_files(files):
         ConsoleDisplay.console.print(f"[cyan]{i}.[/] {file.name}")
 
 
-def display_simulation_with_task(
-    simulation, task, results_file: str, sim_index: int, show_details: bool = True
-):
+def display_simulation_with_task(simulation, task, results_file: str, sim_index: int, show_details: bool = True):
     """Display a simulation along with its associated task."""
     ConsoleDisplay.console.print("\n" + "=" * 80)  # Separator
     ConsoleDisplay.console.print("[bold blue]Task Details:[/]")
@@ -113,18 +109,12 @@ def find_task_by_id(tasks, task_id):
 def find_simulation_by_task_id_and_trial(results, task_id, trial):
     """Get a simulation by its task ID and trial number."""
     return next(
-        (
-            sim
-            for sim in results.simulations
-            if sim.task_id == task_id and sim.trial == trial
-        ),
+        (sim for sim in results.simulations if sim.task_id == task_id and sim.trial == trial),
         None,
     )
 
 
-def save_simulation_note(
-    simulation, task, note: str, results_file: str, sim_index: int
-):
+def save_simulation_note(simulation, task, note: str, results_file: str, sim_index: int):
     """Save a note about a simulation to a CSV file."""
     notes_file = Path(DATA_DIR) / "simulations" / "simulation_notes.csv"
     file_exists = notes_file.exists()
@@ -137,9 +127,11 @@ def save_simulation_note(
         "trial": simulation.trial,
         "duration": simulation.duration,
         "reward": simulation.reward_info.reward if simulation.reward_info else None,
-        "db_match": simulation.reward_info.db_check.db_match
-        if simulation.reward_info and simulation.reward_info.db_check
-        else None,
+        "db_match": (
+            simulation.reward_info.db_check.db_match
+            if simulation.reward_info and simulation.reward_info.db_check
+            else None
+        ),
         "results_file": results_file,
         "sim_index": sim_index,
         "note": note,
@@ -165,9 +157,7 @@ def main(
         sim_files = [Path(sim_file)]
 
     if not sim_files:
-        ConsoleDisplay.console.print(
-            "[red]No simulation files found in data/simulations/[/]"
-        )
+        ConsoleDisplay.console.print("[red]No simulation files found in data/simulations/[/]")
         return
 
     results = None
@@ -176,20 +166,14 @@ def main(
         # Show main menu
         ConsoleDisplay.console.print("\n[bold yellow]Main Menu:[/]")
         ConsoleDisplay.console.print("1. Select simulation file")
-        ConsoleDisplay.console.print(
-            "   [dim]Choose a simulation results file to load and analyze[/]"
-        )
+        ConsoleDisplay.console.print("   [dim]Choose a simulation results file to load and analyze[/]")
         if results:
             ConsoleDisplay.console.print("2. View agent performance metrics")
             ConsoleDisplay.console.print("   [dim]Display agent performance metrics[/]")
             ConsoleDisplay.console.print("3. View simulation")
-            ConsoleDisplay.console.print(
-                "   [dim]Examine a specific simulation in detail with all its data[/]"
-            )
+            ConsoleDisplay.console.print("   [dim]Examine a specific simulation in detail with all its data[/]")
             ConsoleDisplay.console.print("4. View task details")
-            ConsoleDisplay.console.print(
-                "   [dim]Look at the configuration and parameters of a specific task[/]"
-            )
+            ConsoleDisplay.console.print("   [dim]Look at the configuration and parameters of a specific task[/]")
             ConsoleDisplay.console.print("5. Exit")
             ConsoleDisplay.console.print("   [dim]Close the simulation viewer[/]")
             choices = ["1", "2", "3", "4", "5"]
@@ -200,17 +184,13 @@ def main(
             choices = ["1", "2"]
             default_choice = "1"
 
-        choice = Prompt.ask(
-            "\nWhat would you like to do?", choices=choices, default=default_choice
-        )
+        choice = Prompt.ask("\nWhat would you like to do?", choices=choices, default=default_choice)
 
         if choice == "1":
             # Show available files and get selection
             display_available_files(sim_files)
             # default to view the last file
-            file_num = IntPrompt.ask(
-                f"\nSelect file number (1-{len(sim_files)})", default=len(sim_files)
-            )
+            file_num = IntPrompt.ask(f"\nSelect file number (1-{len(sim_files)})", default=len(sim_files))
 
             if 1 <= file_num <= len(sim_files):
                 try:
@@ -219,13 +199,9 @@ def main(
                     ConsoleDisplay.console.print(
                         f"\n[bold green]Loaded {len(results.simulations)} simulations from {current_file}[/]"
                     )
-                    results.simulations = sorted(
-                        results.simulations, key=lambda x: (x.task_id, x.trial)
-                    )
+                    results.simulations = sorted(results.simulations, key=lambda x: (x.task_id, x.trial))
                 except Exception as e:
-                    ConsoleDisplay.console.print(
-                        f"[red]Error loading results:[/] {str(e)}"
-                    )
+                    ConsoleDisplay.console.print(f"[red]Error loading results:[/] {str(e)}")
             else:
                 ConsoleDisplay.console.print("[red]Invalid file number[/]")
 
@@ -245,21 +221,15 @@ def main(
 
             # Get simulation selection by index
             sim_count = len(results.simulations)
-            sim_index = IntPrompt.ask(
-                f"\nEnter simulation number (1-{sim_count})", default=1
-            )
+            sim_index = IntPrompt.ask(f"\nEnter simulation number (1-{sim_count})", default=1)
 
             if 1 <= sim_index <= sim_count:
                 sim = results.simulations[sim_index - 1]
                 task = find_task_by_id(results.tasks, sim.task_id)
                 if task:
-                    display_simulation_with_task(
-                        sim, task, current_file, sim_index, show_details=True
-                    )
+                    display_simulation_with_task(sim, task, current_file, sim_index, show_details=True)
                 else:
-                    ConsoleDisplay.console.print(
-                        f"[red]Warning: Could not find task for simulation {sim.id}[/]"
-                    )
+                    ConsoleDisplay.console.print(f"[red]Warning: Could not find task for simulation {sim.id}[/]")
                     ConsoleDisplay.display_simulation(sim, show_details=True)
                 continue
             else:

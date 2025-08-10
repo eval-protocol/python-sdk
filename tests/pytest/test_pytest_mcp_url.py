@@ -1,4 +1,4 @@
-from eval_protocol.models import EvaluateResult, Message, EvaluationRow
+from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import default_agent_rollout_processor, evaluation_test
 
 

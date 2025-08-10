@@ -193,9 +193,7 @@ def main():
     start_parser.set_defaults(func=lambda args: run_start_servers())
 
     # Check data command
-    check_data_parser = subparsers.add_parser(
-        "check-data", help="Check if data directory is properly configured"
-    )
+    check_data_parser = subparsers.add_parser("check-data", help="Check if data directory is properly configured")
     check_data_parser.set_defaults(func=lambda args: run_check_data())
 
     args = parser.parse_args()

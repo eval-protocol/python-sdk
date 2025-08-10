@@ -4,11 +4,11 @@ This adapter allows pulling data from Langfuse deployments and converting it
 to EvaluationRow format for use in evaluation pipelines.
 """
 
-from typing import Any, Dict, Iterator, List, Optional
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Any, Dict, Iterator, List, Optional
 
-from eval_protocol.models import EvaluationRow, Message, InputMetadata, CompletionParams
+from eval_protocol.models import CompletionParams, EvaluationRow, InputMetadata, Message
 
 logger = logging.getLogger(__name__)
 

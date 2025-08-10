@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List
 
-from eval_protocol.models import Message, EvaluationRow
+from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import default_agent_rollout_processor, evaluation_test
 
 

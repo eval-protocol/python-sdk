@@ -1,8 +1,8 @@
 """
 GSM8K Replacement Example
 
-This example shows how to replace the static GSM8K JSONL file 
-(development/gsm8k_sample.jsonl) with the dynamic HuggingFace adapter 
+This example shows how to replace the static GSM8K JSONL file
+(development/gsm8k_sample.jsonl) with the dynamic HuggingFace adapter
 to get fresh data from the GSM8K dataset.
 """
 
@@ -18,17 +18,17 @@ from eval_protocol.rewards.math import math_reward
 def load_original_gsm8k_sample() -> List[dict]:
     """Load the original GSM8K sample file for comparison."""
     sample_file = Path("development/gsm8k_sample.jsonl")
-    
+
     if not sample_file.exists():
         print(f"⚠️ Original sample file not found: {sample_file}")
         return []
-    
+
     data = []
-    with open(sample_file, 'r') as f:
+    with open(sample_file, "r") as f:
         for line in f:
             if line.strip():
                 data.append(json.loads(line))
-    
+
     return data
 
 
@@ -36,52 +36,52 @@ def demonstrate_old_vs_new_approach():
     """Compare the old static file approach with the new adapter approach."""
     print("📊 Comparing Old vs New Approach")
     print("=" * 50)
-    
+
     # OLD APPROACH: Static JSONL file
     print("🗂️  OLD APPROACH: Static JSONL File")
     print("-" * 35)
-    
+
     original_data = load_original_gsm8k_sample()
     print(f"Loaded {len(original_data)} items from static file")
-    
+
     if original_data:
         sample = original_data[0]
         print(f"Sample item fields: {list(sample.keys())}")
         print(f"Sample question: {sample.get('user_query', '')[:100]}...")
         print(f"Sample ground truth: {sample.get('ground_truth_for_eval', '')[:100]}...")
-    
-    print("\n" + "="*50 + "\n")
-    
+
+    print("\n" + "=" * 50 + "\n")
+
     # NEW APPROACH: HuggingFace Adapter
     print("🤗 NEW APPROACH: HuggingFace Adapter")
     print("-" * 38)
-    
+
     try:
         # Create adapter
         adapter = create_gsm8k_adapter(
             system_prompt="You are a helpful assistant that solves math problems step by step."
         )
-        
+
         print("✅ GSM8K adapter created successfully")
-        
+
         # Get the same number of items as the original file
         num_items = len(original_data) if original_data else 6
         rows = list(adapter.get_evaluation_rows(limit=num_items))
-        
+
         print(f"Retrieved {len(rows)} evaluation rows from HuggingFace")
-        
+
         if rows:
             sample_row = rows[0]
             print(f"Sample EvaluationRow fields: messages, tools, input_metadata, ground_truth")
-            
+
             # Show the question from messages
             user_msg = next((msg for msg in sample_row.messages if msg.role == "user"), None)
             if user_msg:
                 print(f"Sample question: {user_msg.content[:100]}...")
-            
+
             if sample_row.ground_truth:
                 print(f"Sample ground truth: {sample_row.ground_truth[:100]}...")
-    
+
     except ImportError as e:
         print(f"❌ Error: {e}")
         print("Install HuggingFace dependencies: pip install 'eval-protocol[huggingface]'")
@@ -89,9 +89,9 @@ def demonstrate_old_vs_new_approach():
     except Exception as e:
         print(f"❌ Error with adapter: {e}")
         return
-    
-    print("\n" + "="*50 + "\n")
-    
+
+    print("\n" + "=" * 50 + "\n")
+
     # COMPARISON
     print("🔍 Key Differences")
     print("-" * 20)
@@ -101,7 +101,7 @@ def demonstrate_old_vs_new_approach():
     print("  ❌ Manual data preparation required")
     print("  ❌ Limited to pre-selected subset")
     print("  ❌ Requires manual format conversion")
-    
+
     print("\nNEW APPROACH:")
     print("  ✅ Access to full GSM8K dataset (8,792 test problems)")
     print("  ✅ Automatic format conversion to EvaluationRow")
@@ -115,10 +115,11 @@ def show_migration_example():
     """Show how to migrate existing code from JSONL to adapter."""
     print("\n🔄 Code Migration Example")
     print("=" * 30)
-    
+
     print("OLD CODE:")
     print("-" * 10)
-    print("""
+    print(
+        """
 # Old way with static JSONL file
 input_dataset = ["development/gsm8k_sample.jsonl"]
 
@@ -134,11 +135,13 @@ with open("development/gsm8k_sample.jsonl", 'r') as f:
         ]
         ground_truth = item["ground_truth_for_eval"]
         # ... more manual processing
-""")
-    
+"""
+    )
+
     print("\nNEW CODE:")
     print("-" * 10)
-    print("""
+    print(
+        """
 # New way with HuggingFace adapter
 from eval_protocol.adapters.huggingface import create_gsm8k_adapter
 
@@ -149,7 +152,7 @@ adapter = create_gsm8k_adapter(
 
 # Get evaluation rows (already in correct format)
 evaluation_rows = list(adapter.get_evaluation_rows(
-    split="test",  # or "train" 
+    split="test",  # or "train"
     limit=100,  # Can get much more data than static file
     model_name="gpt-4",
     temperature=0.0,
@@ -175,8 +178,9 @@ custom_adapter = create_huggingface_adapter(
     config_name="main",
     transform_fn=custom_gsm8k_transform
 )
-""")
-    
+"""
+    )
+
     print("\n✅ Benefits of Migration:")
     print("  - More data available (6 → 8,792 problems)")
     print("  - Automatic format handling")
@@ -189,30 +193,30 @@ def practical_migration_demo():
     """Show a practical example of using the adapter in evaluation."""
     print("\n🧪 Practical Evaluation Example")
     print("=" * 35)
-    
+
     try:
         # Create adapter
         adapter = create_gsm8k_adapter()
-        
+
         # Get a few problems for evaluation
         print("Loading GSM8K problems...")
         rows = list(adapter.get_evaluation_rows(limit=3))
         print(f"✅ Loaded {len(rows)} problems from GSM8K test set")
-        
+
         # Simulate evaluation workflow
         for i, row in enumerate(rows):
             print(f"\n📝 Problem {i+1}:")
-            
+
             # Show the problem
             user_msg = next((msg for msg in row.messages if msg.role == "user"), None)
             if user_msg:
                 print(f"   Question: {user_msg.content[:150]}...")
-            
+
             # In a real scenario, you'd generate a response with your LLM
             # For this demo, we'll add a dummy response
             dummy_response = "Let me solve this step by step. After working through the math, the answer is 42."
             row.messages.append(Message(role="assistant", content=dummy_response))
-            
+
             # Evaluate with math reward function
             if row.ground_truth:
                 try:
@@ -222,7 +226,7 @@ def practical_migration_demo():
                     )
                     print(f"   📊 Math evaluation score: {result.score:.2f}")
                     print(f"   💭 Evaluation reason: {result.reason[:100]}...")
-                    
+
                     # Show metadata
                     if row.input_metadata:
                         print(f"   🏷️  Row ID: {row.input_metadata.row_id}")
@@ -230,12 +234,12 @@ def practical_migration_demo():
                             dataset_info = row.input_metadata.dataset_info
                             print(f"   📚 Dataset: {dataset_info.get('dataset_name', 'N/A')}")
                             print(f"   📍 Row index: {dataset_info.get('row_index', 'N/A')}")
-                    
+
                 except Exception as e:
                     print(f"   ❌ Evaluation error: {e}")
-        
+
         print(f"\n✅ Successfully processed {len(rows)} problems using the new adapter approach!")
-        
+
     except Exception as e:
         print(f"❌ Error in practical demo: {e}")
 
@@ -244,9 +248,9 @@ def performance_comparison():
     """Compare performance characteristics of both approaches."""
     print("\n⚡ Performance Considerations")
     print("=" * 35)
-    
+
     import time
-    
+
     # Time the old approach (if file exists)
     original_data = load_original_gsm8k_sample()
     if original_data:
@@ -259,7 +263,7 @@ def performance_comparison():
         print("📁 Static file not available for timing")
         old_time = 0
         processed_old = 0
-    
+
     # Time the new approach
     try:
         start_time = time.time()
@@ -267,9 +271,9 @@ def performance_comparison():
         rows = list(adapter.get_evaluation_rows(split="test", limit=max(6, processed_old)))
         new_time = time.time() - start_time
         processed_new = len(rows)
-        
+
         print(f"🤗 HuggingFace adapter: {processed_new} items in {new_time:.4f}s")
-        
+
         if old_time > 0:
             if new_time > old_time:
                 factor = new_time / old_time
@@ -277,11 +281,11 @@ def performance_comparison():
             else:
                 factor = old_time / new_time
                 print(f"   📊 Adapter is {factor:.1f}x faster!")
-        
+
         print(f"\n💡 Trade-offs:")
         print(f"   Static file: Fast ({old_time:.4f}s) but limited data ({processed_old} items)")
         print(f"   Adapter: Slower ({new_time:.4f}s) but access to full dataset ({processed_new}+ items)")
-        
+
     except Exception as e:
         print(f"❌ Error timing adapter: {e}")
 
@@ -293,16 +297,16 @@ def main():
     print("This example shows how to replace the static GSM8K JSONL file")
     print("with the dynamic HuggingFace adapter for better data access.")
     print()
-    
+
     # Run all demonstrations
     demonstrate_old_vs_new_approach()
     show_migration_example()
     practical_migration_demo()
     performance_comparison()
-    
-    print("\n" + "="*50)
+
+    print("\n" + "=" * 50)
     print("🎯 MIGRATION SUMMARY")
-    print("="*50)
+    print("=" * 50)
     print("1. ✅ Replace static JSONL with HuggingFace adapter")
     print("2. ✅ Get access to full GSM8K dataset (8,792 test problems)")
     print("3. ✅ Automatic conversion to EvaluationRow format")

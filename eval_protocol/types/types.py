@@ -1,8 +1,9 @@
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
+
 from mcp.client.session import ClientSession
-from contextlib import AsyncExitStack
 
 
 class TerminationReason(str, Enum):

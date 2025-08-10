@@ -47,9 +47,7 @@ class TelecomEnvironment(Environment):
         phone_number = self.user_tools.db.surroundings.phone_number
         line = self.tools._get_line_by_phone(phone_number)
         if line is None:
-            raise ValueError(
-                f"Wrong scenario, line not found for phone number: {phone_number}"
-            )
+            raise ValueError(f"Wrong scenario, line not found for phone number: {phone_number}")
         # Check if the line is active
         if line.status == LineStatus.ACTIVE:
             self.user_tools.db.surroundings.line_active = True
@@ -65,9 +63,7 @@ class TelecomEnvironment(Environment):
         # Check if the user has exceeded their data usage limit
         plan = self.tools._get_plan_by_id(line.plan_id)
         if plan is None:
-            raise ValueError(
-                f"Wrong scenario, invalid plan id ({line.plan_id}) for the phone number {phone_number}"
-            )
+            raise ValueError(f"Wrong scenario, invalid plan id ({line.plan_id}) for the phone number {phone_number}")
         if line.data_used_gb >= plan.data_limit_gb + line.data_refueling_gb:
             self.user_tools.db.surroundings.mobile_data_usage_exceeded = True
         else:
@@ -82,9 +78,7 @@ class TelecomEnvironment(Environment):
 
         # Check if the user has a payment request
         current_payment_request = self.user_tools.db.surroundings.payment_request
-        if (
-            current_payment_request is None
-        ):  # If there already is a payment request, do nothing
+        if current_payment_request is None:  # If there already is a payment request, do nothing
             customer = self.tools.get_customer_by_phone(phone_number)
             bills = self.tools._get_bills_awaiting_payment(customer)
             if len(bills) != 0:
