@@ -20,7 +20,6 @@ import json
 import logging
 import os
 import threading
-import time
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime

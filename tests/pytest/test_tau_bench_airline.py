@@ -58,7 +58,7 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
 
         rows.append(eval_row)
 
-    return rows[0:3]
+    return rows
 
 
 @evaluation_test(

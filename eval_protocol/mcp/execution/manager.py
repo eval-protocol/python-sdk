@@ -11,9 +11,7 @@ import logging
 import os
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import asdict, dataclass
-from datetime import datetime
+from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from openai.types import CompletionUsage
@@ -260,6 +258,7 @@ class ExecutionManager:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ]
+
             logger.info(f"🎯 Starting rollout {rollout_idx} in thread {threading.current_thread().name}")
 
             # Run rollout loop for this specific environment

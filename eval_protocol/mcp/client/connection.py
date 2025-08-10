@@ -214,14 +214,12 @@ class MCPConnectionManager:
                     # Use shorter timeout for playback mode, longer timeout for high-concurrency initialization
                     # (50+ concurrent sessions need more time for initial state setup)
                     timeout = 3.0 if hasattr(session, "_is_playback_mode") and session._is_playback_mode else 15.0
-
                     async with httpx.AsyncClient(timeout=timeout) as client:
                         initial_state_response = await client.get(
                             f"{base_url}/control/initial_state",
                             headers=headers,
                             timeout=timeout,
                         )
-
                         if initial_state_response.status_code == 200:
                             initial_observation = initial_state_response.json()
                             logger.info(
@@ -234,7 +232,8 @@ class MCPConnectionManager:
                 except httpx.TimeoutException:
                     logger.warning(f"Control plane initial state endpoint timed out after {timeout}s")
                 except Exception as e:
-                    logger.warning(f"Failed to query control plane initial state endpoint: {e}")
+                    logger.warning(f"Failed to query initial state endpoint: {e}")
+
         except Exception as e:
             logger.warning(f"Failed to query control plane initial state endpoint: {e}")
 
