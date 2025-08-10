@@ -374,7 +374,6 @@ def evaluation_test(  # noqa: C901
                         # has to be done in the pytest main process since it's
                         # used to determine whether this eval has stopped
                         row.pid = os.getpid()
-                        active_logger.log(row)
 
                     # Prepare rollout processor config once; we will generate fresh outputs per run
                     config = RolloutProcessorConfig(
@@ -400,6 +399,10 @@ def evaluation_test(  # noqa: C901
                         # generate new rollout_id for each row
                         for row in fresh_dataset:
                             row.rollout_id = generate_id()
+
+                        # log the fresh_dataset
+                        for row in fresh_dataset:
+                            active_logger.log(row)
 
                         processed_dataset = execute_function(rollout_processor, rows=fresh_dataset, config=config)
 
