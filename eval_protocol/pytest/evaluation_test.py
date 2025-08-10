@@ -3,7 +3,7 @@ import inspect
 import math
 import os
 import statistics
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 
 import pytest
 
@@ -29,6 +29,7 @@ from eval_protocol.pytest.utils import (
     aggregate,
     create_dynamically_parameterized_wrapper,
     execute_function,
+    log_eval_status_and_rows,
 )
 from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
 
@@ -76,7 +77,7 @@ def evaluation_test(  # noqa: C901
         aggregation_method: How to aggregate scores across rows.
         threshold_of_success: If set, fail the test if the aggregated score is
             below this threshold.
-        num_runs: Number of times to repeat the evaluation.
+        num_runs: Number of times to repeat the rollout and evaluations.
         max_dataset_rows: Limit dataset to the first N rows.
         mcp_config_path: Path to MCP config file that follows MCPMultiClientConfiguration schema
         max_concurrent_rollouts: Maximum number of concurrent rollouts to run in parallel.
@@ -249,6 +250,11 @@ def evaluation_test(  # noqa: C901
                 model_name = kwargs["model"]
                 eval_metadata = None
                 all_results: List[EvaluationRow] = []
+
+                def _log_eval_error(
+                    status: Literal["finished", "error"], rows: Optional[List[EvaluationRow]] | None, passed: bool
+                ) -> None:
+                    log_eval_status_and_rows(eval_metadata, rows, status, passed, default_logger)
 
                 try:
                     # Handle dataset loading
@@ -542,25 +548,11 @@ def evaluation_test(  # noqa: C901
                             agg_score >= threshold_of_success
                         ), f"Aggregated score {agg_score:.3f} below threshold {threshold_of_success}"
 
+                except AssertionError:
+                    _log_eval_error("finished", data if "data" in locals() else None, passed=False)
+                    raise
                 except Exception:
-                    # Update eval metadata status to error and log it
-                    if eval_metadata is not None:
-                        eval_metadata.status = "error"
-                        eval_metadata.passed = False
-
-                        # Create a minimal result row to log the error if we don't have any results yet
-                        if not data:
-                            error_row = EvaluationRow(messages=[], eval_metadata=eval_metadata, evaluation_result=None)
-                            default_logger.log(error_row)
-                        else:
-                            # Update existing results with error status
-                            for r in data:
-                                if r.eval_metadata is not None:
-                                    r.eval_metadata.status = "error"
-                                    r.eval_metadata.passed = False
-                                default_logger.log(r)
-
-                    # Re-raise the exception to maintain pytest behavior
+                    _log_eval_error("error", data if "data" in locals() else None, passed=False)
                     raise
 
             return create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names)
