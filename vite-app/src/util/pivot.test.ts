@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { computePivot, type Aggregator } from './pivot'
+import { readFileSync } from 'fs'
+import flattenJson from './flatten-json'
 
 type Row = {
   region: string
@@ -98,5 +100,57 @@ describe('computePivot', () => {
     const rKeyWest = 'West'
     const cKeyWidget = 'Widget'
     expect(res.cells[rKeyWest][cKeyWidget].value).toBe(120)
+  })
+
+  it('skips records with undefined row field values', () => {
+    type LooseRow = {
+      region?: string
+      rep?: string
+      product?: string
+      amount?: number | string
+    }
+
+    const mixed: LooseRow[] = [
+      { region: 'West', rep: 'A', product: 'Widget', amount: 120 },
+      // Missing region should be excluded from cells entirely
+      { rep: 'B', product: 'Gadget', amount: 90 },
+    ]
+
+    const res = computePivot<LooseRow>({
+      data: mixed,
+      rowFields: ['region'],
+      columnFields: ['product'],
+    })
+
+    // Only 'West' row should be present; no 'undefined' row key
+    expect(res.rowKeyTuples.map((t) => String(t))).toEqual(['West'])
+    expect(Object.keys(res.cells)).toEqual(['West'])
+
+    const rKeyWest = 'West'
+    const cKeyWidget = 'Widget'
+
+    // Count aggregator by default; only the valid record should be counted
+    expect(res.cells[rKeyWest][cKeyWidget].value).toBe(1)
+
+    // Grand total reflects only included records
+    expect(res.grandTotal).toBe(1)
+  })
+
+  it("markdown-highlighter-test", () => {
+    // read logs.json from data/logs.json
+    const logsUrl = new URL('../../data/logs.json', import.meta.url)
+    const raw = readFileSync(logsUrl, 'utf-8')
+    const parsed = JSON.parse(raw) as { logs?: unknown[] }
+    const rows = (parsed.logs ?? []).map((entry) => flattenJson(entry))
+
+    const res = computePivot({
+      data: rows,
+      rowFields: ['$.eval_metadata.run_id'],
+      columnFields: [],
+      valueField: '$.eval_metadata.passed',
+      aggregator: 'avg',
+    })
+
+    console.log(res)
   })
 })
