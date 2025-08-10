@@ -1,4 +1,5 @@
 from typing import Any, Dict, List
+import os
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
@@ -61,7 +62,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
         "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
     ],
     dataset_adapter=aime2025_dataset_adapter,
-    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}, {}, {"extra_body": {"reasoning_effort": "high"}}],
+    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     threshold_of_success=None,

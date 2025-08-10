@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional
 import pytest
 
 from eval_protocol.dataset_logger import default_logger
-from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, InputMetadata
+from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
 from eval_protocol.pytest.types import (
@@ -31,6 +31,7 @@ from eval_protocol.pytest.utils import (
 )
 
 from ..common_utils import load_jsonl
+from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
 
 
 def evaluation_test(
@@ -51,6 +52,7 @@ def evaluation_test(
     server_script_path: Optional[str] = None,
     steps: int = 30,
     mode: EvaluationTestMode = "batch",
+    combine_datasets: bool = True,
 ) -> Callable[
     [TestFunction],
     TestFunction,
@@ -148,25 +150,44 @@ def evaluation_test(
             except ValueError:
                 return default_value
 
+        def _deep_update_dict(base: dict, override: dict) -> dict:
+            """Recursively update nested dictionaries in-place and return base."""
+            for key, value in override.items():
+                if isinstance(value, dict) and isinstance(base.get(key), dict):
+                    _deep_update_dict(base[key], value)
+                else:
+                    base[key] = value
+            return base
+
         def generate_combinations():
             combinations = []
 
             # Handle optional parameters with defaults
-            # Treat multiple dataset paths as a single combined dataset rather than
-            # parameterizing over each path separately. This produces one summary
-            # that reflects the aggregate of all provided files (e.g., AIME I+II).
+            # Optionally combine multiple dataset paths into one logical dataset,
+            # or parameterize to run one dataset per test invocation.
             if input_dataset is not None:
-                datasets: List[Optional[List[DatasetPathParam]]] = [input_dataset]  # type: ignore
+                if combine_datasets:
+                    datasets: List[Optional[List[DatasetPathParam]]] = [input_dataset]  # type: ignore
+                else:
+                    # Fan out: one dataset path per parameterization
+                    if isinstance(input_dataset, list):  # type: ignore
+                        datasets = [[p] for p in input_dataset]  # type: ignore
+                    else:
+                        datasets = [[input_dataset]]  # type: ignore
             else:
                 datasets = [None]
             params: List[Optional[RolloutInputParam]] = rollout_input_params if rollout_input_params is not None else [None]  # type: ignore
-            # Apply EP_MAX_DATASET_ROWS to input_messages to uniformly control row count when messages are provided
+            # Apply EP_MAX_DATASET_ROWS to input_messages, but do NOT parameterize over
+            # each row. Instead, pass the entire sliced list through in a single test run
+            # so summaries aggregate all rows together (AIME-style behavior).
             if input_messages is not None and isinstance(input_messages, list):
                 effective_max_rows = _parse_ep_max_rows(max_dataset_rows)
                 if effective_max_rows is not None:
-                    messages: List[Optional[InputMessagesParam]] = input_messages[:effective_max_rows]  # type: ignore
+                    sliced_messages = input_messages[:effective_max_rows]  # type: ignore
                 else:
-                    messages = input_messages  # type: ignore
+                    sliced_messages = input_messages  # type: ignore
+                # Wrap as a single parameter payload
+                messages = [sliced_messages]  # type: ignore
             else:
                 messages = [None]  # type: ignore
             kwargs: List[Optional[EvaluationInputParam]] = evaluation_test_kwargs if evaluation_test_kwargs is not None else [None]  # type: ignore
@@ -245,11 +266,30 @@ def evaluation_test(
                             data_jsonl = data_jsonl[:effective_max_rows]
                         data = dataset_adapter(data_jsonl)
                     elif "input_messages" in kwargs and kwargs["input_messages"] is not None:
-                        data: List[EvaluationRow] = [EvaluationRow(messages=kwargs["input_messages"])]
+                        # Support either a single row (List[Message]) or many rows (List[List[Message]])
+                        im = kwargs["input_messages"]
+                        if isinstance(im, list) and len(im) > 0 and isinstance(im[0], Message):
+                            # Single row of Message objects
+                            data = [EvaluationRow(messages=im)]
+                        else:
+                            # Multiple rows: list of List[Message]
+                            data = [EvaluationRow(messages=m) for m in im]
                     else:
                         raise ValueError("No input dataset or input messages provided")
 
                     input_params = kwargs.get("input_params") or {}
+                    # Optional global overrides via environment for ad-hoc experimentation
+                    # EP_INPUT_PARAMS_JSON can contain a JSON object that will be deep-merged
+                    # into input_params (e.g., '{"temperature":0,"extra_body":{"reasoning":{"effort":"low"}}}').
+                    try:
+                        import json as _json
+                        _env_override = os.getenv("EP_INPUT_PARAMS_JSON")
+                        if _env_override:
+                            override_obj = _json.loads(_env_override)
+                            if isinstance(override_obj, dict):
+                                input_params = _deep_update_dict(dict(input_params), override_obj)
+                    except Exception:
+                        pass
 
                     # Create eval metadata with test function info and current commit hash
                     eval_metadata = EvalMetadata(
@@ -342,22 +382,20 @@ def evaluation_test(
                     scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
                     agg_score = aggregate(scores, aggregation_method)
 
-                    # Compute 95% confidence interval for mean aggregation
-                    # TODO bchen: remove after Derek has his stuff
+                    # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
                     ci_low: float | None = None
                     ci_high: float | None = None
                     if aggregation_method == "mean":
-                        n = len(scores)
-                        if n >= 2:
-                            try:
-                                sample_std = statistics.stdev(scores)
-                                se = sample_std / math.sqrt(n)
-                                margin = 1.96 * se
-                                ci_low = float(max(0.0, (agg_score or 0.0) - margin)) if agg_score is not None else None
-                                ci_high = float(min(1.0, (agg_score or 0.0) + margin)) if agg_score is not None else None
-                            except Exception:
-                                ci_low = None
-                                ci_high = None
+                        try:
+                            result_ci = compute_fixed_set_mu_ci(all_results)
+                            mu_ci_low, mu_ci_high = result_ci[1], result_ci[2]
+                            if mu_ci_low is not None and mu_ci_high is not None:
+                                ci_low = float(mu_ci_low)
+                                ci_high = float(mu_ci_high)
+                                # Keep agg_score as-is (mean over scores). For equal repeats per question these match.
+                        except Exception:
+                            ci_low = None
+                            ci_high = None
 
                     # Determine if the evaluation passed based on threshold
                     passed = None
@@ -430,22 +468,56 @@ def evaluation_test(
                                 print(
                                     f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
                                 )
-                            # Print per-metric aggregations concisely (only names present)
-                            if metrics_summary:
-                                parts = []
-                                for m_name, entry in metrics_summary.items():
-                                    if "ci_low" in entry and "ci_high" in entry:
-                                        parts.append(f"{m_name}={entry['mean']:.3f} ci95=[{entry['ci_low']:.3f},{entry['ci_high']:.3f}]")
-                                    else:
-                                        parts.append(f"{m_name}={entry['mean']:.3f}")
-                                print(f"EP Metrics | " + ", ".join(parts))
+                            # As per project convention, avoid printing per-metric CI lines to reduce noise
                         if summary_path:
-                            import json, pathlib, time
+                            import json, pathlib, time, re
+
+                            def _sanitize_filename(text: str) -> str:
+                                safe = re.sub(r"[^A-Za-z0-9._-]+", "-", text.strip())
+                                return safe[:120]
+
+                            def _extract_effort_tag(params: dict) -> str | None:
+                                try:
+                                    if not isinstance(params, dict):
+                                        return None
+                                    # Common locations
+                                    if "extra_body" in params and isinstance(params["extra_body"], dict):
+                                        eb = params["extra_body"]
+                                        if isinstance(eb.get("reasoning"), dict) and "effort" in eb["reasoning"]:
+                                            return str(eb["reasoning"]["effort"]).lower()
+                                        if "reasoning_effort" in eb:
+                                            return str(eb["reasoning_effort"]).lower()
+                                    if "reasoning" in params and isinstance(params["reasoning"], dict) and "effort" in params["reasoning"]:
+                                        return str(params["reasoning"]["effort"]).lower()
+                                except Exception:
+                                    return None
+                                return None
+
+                            model_slug = _sanitize_filename(model_used)
+                            effort_tag = _extract_effort_tag(input_params) or ""
+                            effort_suffix = f"__effort-{_sanitize_filename(effort_tag)}" if effort_tag else ""
+                            base_name = f"{suite_name}__{model_slug}{effort_suffix}__{mode}__runs{num_runs}.json"
 
                             p = pathlib.Path(summary_path)
-                            p.parent.mkdir(parents=True, exist_ok=True)
                             summary_obj["timestamp"] = int(time.time())
-                            with p.open("w", encoding="utf-8") as f:
+
+                            # When a directory is provided (or a path without .json), write per-combination files inside it
+                            if p.suffix.lower() != ".json" or summary_path.endswith("/") or p.is_dir():
+                                out_dir = p
+                                out_dir.mkdir(parents=True, exist_ok=True)
+                                out_file = out_dir / base_name
+                            else:
+                                # A file path was provided
+                                # If multiple parameterizations exist, write side-by-side files with suffixes based on base name
+                                parent = p.parent
+                                parent.mkdir(parents=True, exist_ok=True)
+                                # If we detected an effort tag, fan out to separate files; otherwise write to the exact file
+                                if effort_tag:
+                                    out_file = parent / f"{p.stem}__{_sanitize_filename(effort_tag)}{p.suffix}"
+                                else:
+                                    out_file = p
+
+                            with open(out_file, "w", encoding="utf-8") as f:
                                 json.dump(summary_obj, f)
                     except Exception:
                         # Do not fail evaluation if summary writing fails
@@ -457,7 +529,7 @@ def evaluation_test(
                             agg_score >= threshold_of_success
                         ), f"Aggregated score {agg_score:.3f} below threshold {threshold_of_success}"
 
-                except Exception as e:
+                except Exception:
                     # Update eval metadata status to error and log it
                     if eval_metadata is not None:
                         eval_metadata.status = "error"

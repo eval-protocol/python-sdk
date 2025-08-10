@@ -1,6 +1,9 @@
-from typing import Any, Dict, List
+from typing import List
 
+import csv
+import io
 import re
+import requests
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.evaluation_test import evaluation_test
@@ -22,20 +25,18 @@ def extract_abcd_letter(text: str) -> str | None:
     return m.group(1) if m else None
 
 
-def _build_gpqa_messages_from_hf(max_samples: int | None = 2) -> List[List[Message]]:
+def _load_gpqa_messages_from_csv() -> List[List[Message]]:
     """
-    Load GPQA (diamond) from the reference blob CSV and construct prompts.
-    For full dataset, call with max_samples=None.
+    Load GPQA (diamond) from the reference CSV and construct prompts.
+    No built-in row limit; use --ep-max-rows to control how many are evaluated.
     """
-    from datasets import load_dataset  # type: ignore
-
     url = "https://openaipublic.blob.core.windows.net/simple-evals/gpqa_diamond.csv"
-    ds = load_dataset("csv", data_files=url, split="train")
+    resp = requests.get(url, timeout=60)
+    resp.raise_for_status()
+
     messages_list: List[List[Message]] = []
-    # We will store the correct letter in a trailing system message for lookup (not given to the model)
-    for ex in ds:
-        if max_samples is not None and len(messages_list) >= max_samples:
-            break
+    reader = csv.DictReader(io.StringIO(resp.text))
+    for ex in reader:
         q = str(ex.get("Question", ""))
         correct = str(ex.get("Correct Answer", "")).strip()
         inc1 = str(ex.get("Incorrect Answer 1", ""))
@@ -49,7 +50,8 @@ def _build_gpqa_messages_from_hf(max_samples: int | None = 2) -> List[List[Messa
             [
                 Message(role="system", content=SYSTEM_PROMPT),
                 Message(role="user", content=user_content),
-                Message(role="system", content=f"__GT__:A"),
+                # Correct answer is always option A by construction
+                Message(role="system", content="__GT__:A"),
             ]
         )
     if not messages_list:
@@ -57,18 +59,17 @@ def _build_gpqa_messages_from_hf(max_samples: int | None = 2) -> List[List[Messa
     return messages_list
 
 
-_GPQA_INPUT_MESSAGES = _build_gpqa_messages_from_hf(max_samples=2)
+_GPQA_INPUT_MESSAGES = _load_gpqa_messages_from_csv()
 
 
 @evaluation_test(
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     input_messages=_GPQA_INPUT_MESSAGES,
-    rollout_input_params=[{"temperature": 0.0, "max_tokens": 512}],
+    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}], # default to low effort; override via CLI plugin
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     threshold_of_success=None,
-    num_runs=1,
-    max_dataset_rows=2,
+    num_runs=8,
     mode="pointwise",
 )
 def test_gpqa_pointwise(row: EvaluationRow) -> EvaluationRow:
