@@ -1,11 +1,13 @@
+import copy
 import inspect
 import os
-from typing import Any, Callable, Dict, List, Optional
+import statistics
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import pytest
 
 from eval_protocol.dataset_logger import default_logger
-from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, InputMetadata
+from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, EvaluationThreshold, InputMetadata
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
 from eval_protocol.pytest.types import (
@@ -40,7 +42,7 @@ def evaluation_test(
     rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
     aggregation_method: AggregationMethod = "mean",
-    threshold_of_success: Optional[float] = None,
+    threshold: Optional[EvaluationThreshold] = None,
     num_runs: int = 1,
     max_dataset_rows: Optional[int] = None,
     mcp_config_path: Optional[str] = None,
@@ -68,8 +70,8 @@ def evaluation_test(
         rollout_processor: Function used to perform the rollout.
         evaluation_test_kwargs: Kwargs for the evaluation function.
         aggregation_method: How to aggregate scores across rows.
-        threshold_of_success: If set, fail the test if the aggregated score is
-            below this threshold.
+        threshold: Threshold configuration for test success.
+            Success rate must be above success, and if set, standard deviation must be below standard_deviation.
         num_runs: Number of times to repeat the evaluation.
         max_dataset_rows: Limit dataset to the first N rows.
         mcp_config_path: Path to MCP config file that follows MCPMultiClientConfiguration schema
@@ -194,7 +196,7 @@ def evaluation_test(
             def wrapper_body(**kwargs):
                 model_name = kwargs["model"]
                 eval_metadata = None
-                all_results: List[EvaluationRow] = []
+                all_results: List[List[EvaluationRow]] = [[] for _ in range(num_runs)]
 
                 try:
                     # Handle dataset loading
@@ -218,7 +220,7 @@ def evaluation_test(
                         status="running",
                         num_runs=num_runs,
                         aggregation_method=aggregation_method,
-                        threshold_of_success=threshold_of_success,
+                        threshold=threshold,
                         passed=None,
                     )
 
@@ -255,9 +257,13 @@ def evaluation_test(
                         server_script_path=server_script_path,
                         steps=steps,
                     )
-                    input_dataset = execute_function(rollout_processor, rows=data, config=config)
 
-                    for _ in range(num_runs):
+                    for i in range(num_runs):
+                        # Regenerate outputs each run by deep-copying the pristine dataset
+                        # so model responses are not reused across runs.
+                        fresh_rows = [copy.deepcopy(r) for r in data]
+                        input_dataset = execute_function(rollout_processor, rows=fresh_rows, config=config)
+
                         if mode == "pointwise":
                             # Pointwise mode: apply the evaluator function to each row
                             for row in input_dataset:
@@ -270,7 +276,7 @@ def evaluation_test(
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
                                     )
-                                all_results.append(result)
+                                all_results[i].append(result)
                         else:
                             # Batch mode: call the test function with the full dataset
                             results = execute_with_params(
@@ -294,28 +300,45 @@ def evaluation_test(
                                 raise ValueError(
                                     f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
                                 )
-                            all_results.extend(results)
+                            all_results[i] = results
 
-                    scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
+                    scores = [
+                        sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
+                        for result in all_results
+                    ]
                     agg_score = aggregate(scores, aggregation_method)
+                    score_std = statistics.stdev(scores) if len(scores) > 1 else 0.0
 
                     # Determine if the evaluation passed based on threshold
                     passed = None
-                    if threshold_of_success is not None:
-                        passed = agg_score >= threshold_of_success
+
+                    if threshold is not None:
+                        success_passed, std_passed = True, True
+
+                        success_passed = agg_score >= threshold["success"]
+
+                        if threshold["standard_deviation"] is not None:
+                            std_passed = score_std <= threshold["standard_deviation"]
+
+                        passed = success_passed and std_passed
 
                     # Update eval metadata status and passed field for all results
-                    for r in all_results:
-                        if r.eval_metadata is not None:
-                            r.eval_metadata.status = "finished"
-                            r.eval_metadata.passed = passed
+                    for result in all_results:
+                        for r in result:
+                            if r.eval_metadata is not None:
+                                r.eval_metadata.status = "finished"
+                                r.eval_metadata.passed = passed
                         default_logger.log(r)
 
                     # Check threshold after logging
-                    if threshold_of_success is not None and not passed:
+                    if threshold is not None and not passed:
                         assert (
-                            agg_score >= threshold_of_success
-                        ), f"Aggregated score {agg_score:.3f} below threshold {threshold_of_success}"
+                            agg_score >= threshold["success"]
+                        ), f"Aggregated score {agg_score:.3f} below threshold {threshold["success"]}"
+                        if threshold["standard_deviation"] is not None:
+                            assert (
+                                score_std <= threshold["standard_deviation"]
+                            ), f"Standard deviation {score_std:.3f} above threshold {threshold["standard_deviation"]}"
 
                 except Exception as e:
                     # Update eval metadata status to error and log it
