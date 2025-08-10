@@ -88,12 +88,6 @@ class MCPConnectionManager:
         """
         cache_key = session.base_url
 
-        # Fast path: if cache already exists, return immediately (no lock)
-        if cache_key in self._tools_cache:
-            logger.debug(f"Tools cache already exists for {cache_key}")
-            return
-
-        # Slow path: need to create cache (use lock only for creation)
         async with self._tools_cache_lock:
             # Only fetch tools if not already cached for this base_url
             if cache_key not in self._tools_cache:
@@ -123,7 +117,7 @@ class MCPConnectionManager:
         headers = {"mcp-session-id": session.session_id}
         body = {"seed": session.seed}
 
-        timeout = httpx.Timeout(3.0)
+        timeout = httpx.Timeout(15.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(url, headers=headers, json=body)
             resp.raise_for_status()
@@ -145,23 +139,16 @@ class MCPConnectionManager:
 
         cache_key = session.base_url
 
-        # Fast path: Check cache first without lock (safe for reads)
-        if cache_key in self._tools_cache:
-            cached_tools = self._tools_cache[cache_key]
-            logger.debug(f"Using cached tools for session {session.session_id} ({len(cached_tools)} tools)")
-            return cached_tools
-
-        # Slow path: Cache miss - use lock only for writing
+        # Check cache first (should be pre-warmed during initialization)
         async with self._tools_cache_lock:
-            # Double-check pattern: another task might have cached it while we waited
             if cache_key in self._tools_cache:
                 cached_tools = self._tools_cache[cache_key]
                 logger.debug(f"Using cached tools for session {session.session_id} ({len(cached_tools)} tools)")
                 return cached_tools
 
-            # Fallback: if cache miss (shouldn't happen with pre-warming), fetch directly
-            logger.warning(f"Cache miss for {cache_key} - this shouldn't happen with pre-warming")
-            mcp_session = session._mcp_session
+        # Fallback: if cache miss (shouldn't happen with pre-warming), fetch directly
+        logger.warning(f"Cache miss for {cache_key} - this shouldn't happen with pre-warming")
+        mcp_session = session._mcp_session
 
         tools_response = await mcp_session.list_tools()
         tools = tools_response.tools if hasattr(tools_response, "tools") else []
@@ -213,7 +200,6 @@ class MCPConnectionManager:
         logger.info(f"### 🌟 GET_INITIAL_STATE_START: timestamp: {method_start}, session_id: {session_id_short}...")
 
         if not session._mcp_session:
-            logger.error(f"### ❌ SESSION_NOT_INITIALIZED: session_id: {session_id_short}")
             raise RuntimeError("Session not initialized")
 
         # Try to get initial state from control plane endpoint first

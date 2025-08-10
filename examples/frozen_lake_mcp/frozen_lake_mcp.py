@@ -19,8 +19,8 @@ Example usage:
 
 from typing import Any, Dict, Optional
 
-from fastmcp import Context
 from frozen_lake_adapter import FrozenLakeAdapter
+from mcp.server.fastmcp import Context
 
 from eval_protocol.mcp import McpGym
 from eval_protocol.mcp.mcpgym import control_plane_endpoint

@@ -12,9 +12,7 @@ import os
 from typing import Annotated, Any, Dict, List, Optional
 
 from airplane_environment.airline_environment import AirlineEnvironment
-
-# from mcp.server.fastmcp import Context
-from fastmcp import Context
+from mcp.server.fastmcp import Context
 from mock_environment.mock_environment import MockEnvironment
 from pydantic import Field
 from retail_environment.retail_environment import RetailEnvironment

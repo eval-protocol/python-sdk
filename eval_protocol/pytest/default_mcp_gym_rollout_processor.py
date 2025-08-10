@@ -224,14 +224,11 @@ async def default_mcp_gym_rollout_processor(
         )
 
         # Create MCP environments directly from evaluation_rows
-        print("DEBUG1", time.time())
         envs = await ep.make(
             "http://localhost:9700/mcp/",
             evaluation_rows=rows,
             model_id=policy.model_id,
         )
-        print("DEBUG2", time.time())
-        print("max_concurrent_rollouts", config.max_concurrent_rollouts)
 
         # Run rollout with environments and policy
         evaluation_rows = await ep.rollout(

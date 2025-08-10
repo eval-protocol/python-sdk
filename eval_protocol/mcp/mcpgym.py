@@ -28,9 +28,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import uvicorn
-
-# from mcp.server.fastmcp import Context, FastMCP
-from fastmcp import Context, FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -104,8 +102,11 @@ class McpGym(ABC):
         self.adapter = adapter
 
         # Create FastMCP server
-        self.mcp = FastMCP(name=server_name)
-
+        self.mcp = FastMCP(
+            server_name,
+            host="0.0.0.0",
+            port=int(os.environ.get("PORT", 8000)),
+        )
         # Store host and port for later use in run() method
         self.host = "0.0.0.0"
         self.port = int(os.environ.get("PORT", 8000))
@@ -129,6 +130,7 @@ class McpGym(ABC):
 
         self.pool = ThreadPoolExecutor(max_workers=max_workers)
 
+        # Reset with seed if provided
         self.env, self.obs, _info = self._new_env(seed=seed)
 
         # Register tools and control plane endpoints
@@ -220,7 +222,8 @@ class McpGym(ABC):
             if not session_id:
                 return JSONResponse({"error": "Missing mcp-session-id header"}, status_code=400)
             if session_id in self.sessions:
-                env, obs, _ = self._new_env(seed=seed)
+                loop = asyncio.get_running_loop()
+                env, obs, info = await loop.run_in_executor(self.pool, self._new_env, seed)
                 with self.session_lock:
                     self.sessions[session_id] = {
                         "env": env,
@@ -269,17 +272,10 @@ class McpGym(ABC):
                                     {"error": f"Session {session_id} not found"},
                                     status_code=404,
                                 )
-                            start_time = time.time()
-                            logger.info(
-                                f"### 🔍 NEW_ENV_START: timestamp: {start_time}, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-                            )
+
                             loop = asyncio.get_running_loop()
                             env, obs, info = await loop.run_in_executor(self.pool, self._new_env, None)
-                            # env, obs, info = self._new_env(None)
-                            end_time = time.time()
-                            logger.info(
-                                f"### 🔍 NEW_ENV_END: timestamp: {end_time}, elapsed: {end_time - start_time:.6f}s, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-                            )
+
                             # Initialize session state with extracted seed from session ID
                             session_data = {
                                 "env": env,
@@ -294,6 +290,7 @@ class McpGym(ABC):
                             result = await func(session_data=session_data)
                         else:
                             result = func(session_data=session_data)
+
                         return JSONResponse(result)
 
                     except Exception as e:
@@ -484,78 +481,26 @@ class McpGym(ABC):
     @control_plane_endpoint("/control/initial_state")
     async def get_initial_state_endpoint(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
         """Get initial state for this session."""
-        endpoint_start = time.time()
         session_id = session_data.get("session_id", "unknown")
-        logger.info(
-            f"### 🌟 ENDPOINT_START: get_initial_state_endpoint, timestamp: {endpoint_start}, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-        )
-
-        env_check_start = time.time()
-        logger.info(
-            f"### 🔍 ENV_CHECK_START: timestamp: {env_check_start}, elapsed: {env_check_start - endpoint_start:.6f}s, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-        )
-
         env = session_data.get("env")
         obs = session_data.get("obs")
-
-        env_check_end = time.time()
-        logger.info(
-            f"### 🔍 ENV_CHECK_END: timestamp: {env_check_end}, elapsed: {env_check_end - endpoint_start:.6f}s, duration: {env_check_end - env_check_start:.6f}s, env: {env is not None}, obs: {obs is not None}, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-        )
-
         if env and obs is not None:
-            format_start = time.time()
-            logger.info(
-                f"### 🔄 FORMAT_OBS_START: timestamp: {format_start}, elapsed: {format_start - endpoint_start:.6f}s, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-            )
-
             try:
                 formatted_obs = self.format_observation(obs, env)
-
-                format_end = time.time()
-                logger.info(
-                    f"### 🔄 FORMAT_OBS_END: timestamp: {format_end}, elapsed: {format_end - endpoint_start:.6f}s, duration: {format_end - format_start:.6f}s, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-                )
-
-                endpoint_end = time.time()
-                logger.info(
-                    f"### ✅ ENDPOINT_SUCCESS_END: timestamp: {endpoint_end}, total_duration: {endpoint_end - endpoint_start:.6f}s, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-                )
-
                 return formatted_obs
             except Exception as e:
-                error_time = time.time()
-                logger.error(
-                    f"### ❌ FORMAT_OBS_ERROR: timestamp: {error_time}, elapsed: {error_time - endpoint_start:.6f}s, error: {str(e)}, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-                )
-
+                logger.error(f"❌ Error in format_observation: {e}")
                 return {
                     "error": f"Failed to format observation: {str(e)}",
                     "observation_type": str(type(obs)),
                     "session_id": session_data.get("session_id", "unknown"),
                 }
         else:
-            fallback_start = time.time()
-            logger.info(
-                f"### 🔄 FALLBACK_START: timestamp: {fallback_start}, elapsed: {fallback_start - endpoint_start:.6f}s, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-            )
-
             # Fallback if session data is not available
             result = {
                 "observation": "session_not_initialized",
                 "session_id": session_data.get("session_id", "unknown"),
             }
-
-            fallback_end = time.time()
-            logger.info(
-                f"### 🔄 FALLBACK_END: timestamp: {fallback_end}, elapsed: {fallback_end - endpoint_start:.6f}s, duration: {fallback_end - fallback_start:.6f}s, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-            )
-
-            endpoint_end = time.time()
-            logger.info(
-                f"### ✅ ENDPOINT_FALLBACK_END: timestamp: {endpoint_end}, total_duration: {endpoint_end - endpoint_start:.6f}s, session_id: {session_id[:8] if len(session_id) > 8 else session_id}..."
-            )
-
             return result
 
     def _get_session_control_plane_from_data(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -623,9 +568,9 @@ class McpGym(ABC):
 
                 config = uvicorn.Config(
                     starlette_app,
-                    host=self.host,
-                    port=self.port,
-                    log_level="info",  # Use default log level instead of accessing settings
+                    host=self.mcp.settings.host,
+                    port=self.mcp.settings.port,
+                    log_level=self.mcp.settings.log_level.lower(),  # Use default log level instead of accessing settings
                     proxy_headers=True,
                     forwarded_allow_ips="*",
                     # HIGH CONCURRENCY SETTINGS

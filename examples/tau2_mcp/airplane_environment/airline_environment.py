@@ -37,12 +37,8 @@ class AirlineEnvironment:
     def reset(self, seed: Optional[int] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Reset the environment to initial state"""
         logger.info("🔄 Resetting airline environment - reloading database from disk")
-        start_time = time.time()
         self.db = FlightDB.load(AIRLINE_DB_PATH)
         self.airline_tools = AirlineTools(self.db)
-
-        end_time = time.time()
-        logger.info(f"11RESET TOOK {end_time - start_time:.2f} seconds, called at {start_time}")
 
         return {}, {}
 

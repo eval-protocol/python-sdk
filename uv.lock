@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -1130,7 +1130,6 @@ dependencies = [
     { name = "deepdiff" },
     { name = "docstring-parser" },
     { name = "fastapi" },
-    { name = "fastmcp" },
     { name = "fsspec" },
     { name = "gymnasium" },
     { name = "httpx" },
@@ -1243,7 +1242,6 @@ requires-dist = [
     { name = "docstring-parser", specifier = ">=0.15" },
     { name = "e2b", marker = "extra == 'dev'" },
     { name = "fastapi", specifier = ">=0.116.1" },
-    { name = "fastmcp", specifier = ">=2.10.6" },
     { name = "fireworks-ai", marker = "extra == 'fireworks'", specifier = ">=0.19.12" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=3.9.2" },
     { name = "fsspec" },

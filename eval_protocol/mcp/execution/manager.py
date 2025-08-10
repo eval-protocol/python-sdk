@@ -288,13 +288,13 @@ class ExecutionManager:
                         )
                         user_content = user_message.content if user_message.content else ""
 
-                    user_prompt = envs.format_user_prompt(rollout_idx, user_content)
-                    conversation_history.append({"role": "user", "content": user_prompt})
+                        user_prompt = envs.format_user_prompt(rollout_idx, user_content)
+                        conversation_history.append({"role": "user", "content": user_prompt})
 
-                    # Check if user simulator signaled termination
-                    if UserSimulator.is_stop(user_message):
-                        trajectory.terminated = True
-                        trajectory.termination_reason = TerminationReason.USER_STOP
+                        # Check if user simulator signaled termination
+                        if UserSimulator.is_stop(user_message):
+                            trajectory.terminated = True
+                            trajectory.termination_reason = TerminationReason.USER_STOP
 
                 # In each turn: keep looping until assistant is ready to provide final response
                 while not turn_completed and not trajectory.terminated:
