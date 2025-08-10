@@ -86,6 +86,12 @@ def evaluation_test(
     def decorator(
         test_func: TestFunction,
     ):
+        if threshold is not None:
+            if isinstance(threshold, dict):
+                evaluation_threshold = EvaluationThreshold(**threshold)
+            elif isinstance(threshold, float):
+                evaluation_threshold = EvaluationThreshold(success=threshold)
+
         sig = inspect.signature(test_func)
 
         # For pointwise/rowwise mode, we expect a different signature
@@ -220,7 +226,7 @@ def evaluation_test(
                         status="running",
                         num_runs=num_runs,
                         aggregation_method=aggregation_method,
-                        threshold=threshold,
+                        threshold=evaluation_threshold,
                         passed=None,
                     )
 
@@ -312,13 +318,13 @@ def evaluation_test(
                     # Determine if the evaluation passed based on threshold
                     passed = None
 
-                    if threshold is not None:
+                    if evaluation_threshold is not None:
                         success_passed, std_passed = True, True
 
-                        success_passed = agg_score >= threshold["success"]
+                        success_passed = agg_score >= evaluation_threshold.success
 
-                        if threshold["standard_deviation"] is not None:
-                            std_passed = score_std <= threshold["standard_deviation"]
+                        if evaluation_threshold.standard_deviation is not None:
+                            std_passed = score_std <= evaluation_threshold.standard_deviation
 
                         passed = success_passed and std_passed
 
@@ -331,14 +337,14 @@ def evaluation_test(
                         default_logger.log(r)
 
                     # Check threshold after logging
-                    if threshold is not None and not passed:
+                    if evaluation_threshold is not None and not passed:
                         assert (
-                            agg_score >= threshold["success"]
-                        ), f"Aggregated score {agg_score:.3f} below threshold {threshold["success"]}"
-                        if threshold["standard_deviation"] is not None:
+                            agg_score >= evaluation_threshold.success
+                        ), f"Aggregated score {agg_score:.3f} below threshold {evaluation_threshold.success}"
+                        if evaluation_threshold.standard_deviation is not None:
                             assert (
-                                score_std <= threshold["standard_deviation"]
-                            ), f"Standard deviation {score_std:.3f} above threshold {threshold["standard_deviation"]}"
+                                score_std <= evaluation_threshold.standard_deviation
+                            ), f"Standard deviation {score_std:.3f} above threshold {evaluation_threshold.standard_deviation}"
 
                 except Exception as e:
                     # Update eval metadata status to error and log it
