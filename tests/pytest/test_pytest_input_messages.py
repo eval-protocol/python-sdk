@@ -1,6 +1,6 @@
 from typing import List
 
-from eval_protocol.models import Message, EvaluationRow
+from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
 
 

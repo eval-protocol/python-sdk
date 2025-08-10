@@ -1,32 +1,45 @@
 PYTHON_DIRS = tests examples scripts eval_protocol
 
-.PHONY: clean build dist upload test lint typecheck format release sync-docs version tag-version show-version bump-major bump-minor bump-patch full-release quick-release
+# Prefer tools from local virtualenv if present
+VENV ?= .venv
+VENV_BIN := $(VENV)/bin
+PYTHON := $(if $(wildcard $(VENV_BIN)/python),$(VENV_BIN)/python,python)
+FLAKE8 := $(if $(wildcard $(VENV_BIN)/flake8),$(VENV_BIN)/flake8,flake8)
+MYPY := $(if $(wildcard $(VENV_BIN)/mypy),$(VENV_BIN)/mypy,mypy)
+BLACK := $(if $(wildcard $(VENV_BIN)/black),$(VENV_BIN)/black,black)
+PRE_COMMIT := $(if $(wildcard $(VENV_BIN)/pre-commit),$(VENV_BIN)/pre-commit,pre-commit)
+PYTEST := $(if $(wildcard $(VENV_BIN)/pytest),$(VENV_BIN)/pytest,pytest)
+TWINE := $(if $(wildcard $(VENV_BIN)/twine),$(VENV_BIN)/twine,twine)
+
+.PHONY: clean build dist upload test lint typecheck format release sync-docs version tag-version show-version bump-major bump-minor bump-patch full-release quick-release pre-commit help
 
 clean:
 	rm -rf build/ dist/ *.egg-info/
 
+# Run all pre-commit hooks (if installed)
 pre-commit:
-	pre-commit run --all-files
+	$(PRE_COMMIT) run --all-files
 
 build: clean
-	python -m build
+	$(PYTHON) -m build
 
 dist: build
 
 upload:
-	twine upload dist/*
+	$(TWINE) upload dist/*
 
 test:
-	pytest
+	$(PYTEST)
 
 lint:
-	flake8 $(PYTHON_DIRS)
+	$(PRE_COMMIT) run flake8 --all-files
 
 typecheck:
-	mypy $(PYTHON_DIRS)
+	$(PRE_COMMIT) run mypy --all-files
 
 format:
-	black $(PYTHON_DIRS)
+	$(PRE_COMMIT) run black --all-files && \
+	$(PRE_COMMIT) run isort --all-files
 
 validate-docs:
 	@echo "Validating documentation links..."
@@ -140,9 +153,9 @@ help:
 	@echo "  dist          - Alias for build"
 	@echo "  upload        - Upload to PyPI (make sure to bump version first)"
 	@echo "  test          - Run tests"
-	@echo "  lint          - Run flake8 linter"
-	@echo "  typecheck     - Run mypy type checker"
-	@echo "  format        - Run black code formatter"
+	@echo "  lint          - Run flake8 via pre-commit"
+	@echo "  typecheck     - Run mypy via pre-commit"
+	@echo "  format        - Run black + isort via pre-commit"
 	@echo "  validate-docs - Validate all documentation links in docs.json"
 	@echo "  sync-docs     - Sync docs to ~/home/docs with links under 'evaluators'"
 	@echo "  release       - Run lint, typecheck, test, build, then upload"

@@ -29,6 +29,7 @@ repos:
     rev: 7.3.0
     hooks:
     -   id: flake8
+        exclude: ^vendor/
         args: [--max-line-length=119, --max-complexity=100, "--ignore=E402,F401,F541,W503,E203,F811,E226,F841,E704,E713,E712,E231,E731,E501"]
         # additional_dependencies: [flake8-docstrings, flake8-import-order] # Optional: add flake8 plugins
 
@@ -36,6 +37,7 @@ repos:
     rev: v1.17.0
     hooks:
     -   id: mypy
+        exclude: ^vendor/
         args: [--ignore-missing-imports, --install-types, --non-interactive]
         additional_dependencies:
         - types-requests

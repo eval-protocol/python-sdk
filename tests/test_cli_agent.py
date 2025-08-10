@@ -41,7 +41,7 @@ class TestAgentEvalCommand:
     def test_agent_eval_success_yaml(self, MockPath, MockTaskManager, caplog):
         # Configure caplog to capture logs from the agent_eval logger
         caplog.set_level(logging.INFO, logger="agent_eval")
-        
+
         # Setup Path mock
         mock_path_instance = Mock()
         MockPath.return_value = mock_path_instance

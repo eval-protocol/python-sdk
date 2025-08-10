@@ -216,15 +216,11 @@ def main():
 
                         if message == ":n":
                             console.print("[info]Starting new session...[/]")
-                            interface_agent, message_history = init_session(
-                                current_domain
-                            )
+                            interface_agent, message_history = init_session(current_domain)
                             continue
 
                         with console.status("[info]Processing query...[/]"):
-                            response, message_history = interface_agent.respond(
-                                message, message_history
-                            )
+                            response, message_history = interface_agent.respond(message, message_history)
 
                         # Try to parse response as markdown for better formatting
                         try:
@@ -232,9 +228,7 @@ def main():
                             console.print("\n[bold]Response:[/]")
                             console.print(md)
                         except Exception as e:
-                            console.print(
-                                f"\n[error]Error parsing response:[/] {str(e)}"
-                            )
+                            console.print(f"\n[error]Error parsing response:[/] {str(e)}")
                             console.print("\n[bold]Response:[/]", response.content)
 
                     except KeyboardInterrupt:
@@ -244,9 +238,7 @@ def main():
                         console.print(f"\n[error]Error processing message:[/] {str(e)}")
 
             except Exception as e:
-                console.print(
-                    f"\n[error]Error initializing domain '{current_domain}':[/] {str(e)}"
-                )
+                console.print(f"\n[error]Error initializing domain '{current_domain}':[/] {str(e)}")
                 new_domain = change_domain(console)
                 if new_domain is None:
                     return

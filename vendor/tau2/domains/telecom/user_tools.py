@@ -28,9 +28,7 @@ class TelecomUserTools(ToolKitBase):
 
     db: TelecomUserDB
 
-    network_mode_preference: NetworkModePreference = (
-        NetworkModePreference.FOUR_G_5G_PREFERRED
-    )
+    network_mode_preference: NetworkModePreference = NetworkModePreference.FOUR_G_5G_PREFERRED
 
     default_vpn_details: VpnDetails = VpnDetails(
         server_address="192.168.1.1",
@@ -100,19 +98,14 @@ class TelecomUserTools(ToolKitBase):
                 SignalStrength.GOOD: "📶³ Good",
                 SignalStrength.EXCELLENT: "📶⁴ Excellent",
             }
-            indicators.append(
-                signal_map.get(device.network_signal_strength, "📵 No Signal")
-            )
+            indicators.append(signal_map.get(device.network_signal_strength, "📵 No Signal"))
 
             # Network technology
             if device.network_technology_connected != NetworkTechnology.NONE:
                 indicators.append(device.network_technology_connected.value)
 
             # Data enabled indicator
-            if (
-                device.data_enabled
-                and device.network_technology_connected != NetworkTechnology.NONE
-            ):
+            if device.data_enabled and device.network_technology_connected != NetworkTechnology.NONE:
                 indicators.append("📱 Data Enabled")
                 if device.data_saver_mode:
                     indicators.append("🔽 Data Saver")
@@ -186,9 +179,7 @@ class TelecomUserTools(ToolKitBase):
         return self.device.network_mode_preference
 
     @is_tool(ToolType.WRITE)
-    def set_network_mode_preference(
-        self, mode: Union[NetworkModePreference, str]
-    ) -> str:
+    def set_network_mode_preference(self, mode: Union[NetworkModePreference, str]) -> str:
         """Changes the type of cellular network your phone prefers to connect to (e.g., 5G, LTE/4G, 3G). Higher-speed networks (LTE/5G) provide faster data but may use more battery."""
         valid_mode = self._set_network_mode_preference(mode)
         if valid_mode is None:
@@ -196,9 +187,7 @@ class TelecomUserTools(ToolKitBase):
         status_update = f"Preferred Network Mode set to: {valid_mode.value}"
         return f"{status_update}\nStatus Bar: {self._check_status_bar()}"
 
-    def _set_network_mode_preference(
-        self, mode: Union[NetworkModePreference, str]
-    ) -> Optional[NetworkModePreference]:
+    def _set_network_mode_preference(self, mode: Union[NetworkModePreference, str]) -> Optional[NetworkModePreference]:
         """Sets the preferred network mode.
         This will trigger a network search.
         """
@@ -222,10 +211,7 @@ class TelecomUserTools(ToolKitBase):
         - Data is not enabled
         - Data usage is exceeded
         """
-        if (
-            self.device.airplane_mode
-            or self.device.network_signal_strength == SignalStrength.NONE
-        ):
+        if self.device.airplane_mode or self.device.network_signal_strength == SignalStrength.NONE:
             return False
 
         if self.device.network_connection_status == NetworkStatus.NO_SERVICE:
@@ -255,9 +241,7 @@ class TelecomUserTools(ToolKitBase):
         if description == "Very Poor":
             advice = "Connection is very slow. Basic web browsing might be difficult."
         elif description == "Poor":
-            advice = (
-                "Connection is slow. Web browsing may be sluggish, streaming difficult."
-            )
+            advice = "Connection is slow. Web browsing may be sluggish, streaming difficult."
         elif description == "Fair":
             advice = "Connection is okay for web browsing and some standard definition streaming."
         elif description == "Good":
@@ -328,9 +312,7 @@ class TelecomUserTools(ToolKitBase):
             NetworkTechnology.FIVE_G: (50.0, 500.0),
             NetworkTechnology.NONE: (0.0, 0.0),
         }
-        min_speed, max_speed = tech_speed_map.get(
-            self.device.network_technology_connected, (0.0, 0.0)
-        )
+        min_speed, max_speed = tech_speed_map.get(self.device.network_technology_connected, (0.0, 0.0))
 
         # Adjust speed based on signal strength
         signal_factor_map = {
@@ -343,9 +325,7 @@ class TelecomUserTools(ToolKitBase):
         signal_factor = signal_factor_map.get(self.device.network_signal_strength, 0.0)
 
         # Calculate simulated speed
-        simulated_speed = (
-            (min_speed + max_speed) / 2.0 * signal_factor * base_speed_factor
-        )
+        simulated_speed = (min_speed + max_speed) / 2.0 * signal_factor * base_speed_factor
         simulated_speed = round(simulated_speed, 2)
 
         # Determine description
@@ -634,7 +614,9 @@ class TelecomUserTools(ToolKitBase):
         if not status["enabled"]:
             return "Wi-Fi is turned OFF."
         if status["connected"]:
-            return f"Wi-Fi is ON and connected to '{status['ssid']}'. Signal strength: {status['signal_strength'].value}."
+            return (
+                f"Wi-Fi is ON and connected to '{status['ssid']}'. Signal strength: {status['signal_strength'].value}."
+            )
         else:
             return "Wi-Fi is ON but not connected to any network."
 
@@ -702,9 +684,7 @@ class TelecomUserTools(ToolKitBase):
         self.device.wifi_calling_enabled = new_state
         return new_state
 
-    def set_wifi_calling(
-        self, enabled: bool, mms_over_wifi: Optional[bool] = None
-    ) -> str:
+    def set_wifi_calling(self, enabled: bool, mms_over_wifi: Optional[bool] = None) -> str:
         """Set the Wi-Fi Calling setting. Set MMS over WIFI accordingly if provided."""
         if self.device.wifi_calling_enabled != enabled:
             self._toggle_wifi_calling()
@@ -736,9 +716,7 @@ class TelecomUserTools(ToolKitBase):
             "enabled_setting": self.device.vpn_enabled_setting,
             "connected": self.device.vpn_connected,
             "details": (
-                self.device.vpn_details.model_dump()
-                if self.device.vpn_details and self.device.vpn_connected
-                else None
+                self.device.vpn_details.model_dump() if self.device.vpn_details and self.device.vpn_connected else None
             ),
         }
 
@@ -748,11 +726,7 @@ class TelecomUserTools(ToolKitBase):
         connected = self._connect_vpn()
         if connected is None:
             return "VPN already connected."
-        status_update = (
-            "VPN connected successfully."
-            if connected
-            else "No VPN connection to connect."
-        )
+        status_update = "VPN connected successfully." if connected else "No VPN connection to connect."
         return f"{status_update}\nStatus Bar: {self._check_status_bar()}"
 
     def _connect_vpn(self) -> Optional[bool]:
@@ -769,11 +743,7 @@ class TelecomUserTools(ToolKitBase):
     def disconnect_vpn(self) -> str:
         """Disconnects any active VPN (Virtual Private Network) connection. Stops routing your internet traffic through a VPN server, which might affect connection speed or access to content."""
         disconnected = self._disconnect_vpn()
-        status_update = (
-            "VPN disconnected successfully."
-            if disconnected
-            else "No active VPN connection to disconnect."
-        )
+        status_update = "VPN disconnected successfully." if disconnected else "No active VPN connection to disconnect."
         return f"{status_update}\nStatus Bar: {self._check_status_bar()}"
 
     def _disconnect_vpn(self) -> bool:
@@ -975,46 +945,34 @@ class TelecomUserTools(ToolKitBase):
             self.device.network_connection_status = NetworkStatus.CONNECTED
             pref = self.device.network_mode_preference
             if pref == NetworkModePreference.FOUR_G_5G_PREFERRED:
-                five_g_signal = self.surroundings.signal_strength.get(
-                    NetworkTechnology.FIVE_G, SignalStrength.NONE
-                )
+                five_g_signal = self.surroundings.signal_strength.get(NetworkTechnology.FIVE_G, SignalStrength.NONE)
                 if five_g_signal == SignalStrength.NONE:
                     self.device.network_technology_connected = NetworkTechnology.FOUR_G
-                    self.device.network_signal_strength = (
-                        self.surroundings.signal_strength.get(
-                            NetworkTechnology.FOUR_G, SignalStrength.NONE
-                        )
+                    self.device.network_signal_strength = self.surroundings.signal_strength.get(
+                        NetworkTechnology.FOUR_G, SignalStrength.NONE
                     )
                 else:
                     self.device.network_technology_connected = NetworkTechnology.FIVE_G
                     self.device.network_signal_strength = five_g_signal
             elif pref == NetworkModePreference.FOUR_G_ONLY:
                 self.device.network_technology_connected = NetworkTechnology.FOUR_G
-                self.device.network_signal_strength = (
-                    self.surroundings.signal_strength.get(
-                        NetworkTechnology.FOUR_G, SignalStrength.NONE
-                    )
+                self.device.network_signal_strength = self.surroundings.signal_strength.get(
+                    NetworkTechnology.FOUR_G, SignalStrength.NONE
                 )
             elif pref == NetworkModePreference.THREE_G_ONLY:
                 self.device.network_technology_connected = NetworkTechnology.THREE_G
-                self.device.network_signal_strength = (
-                    self.surroundings.signal_strength.get(
-                        NetworkTechnology.THREE_G, SignalStrength.NONE
-                    )
+                self.device.network_signal_strength = self.surroundings.signal_strength.get(
+                    NetworkTechnology.THREE_G, SignalStrength.NONE
                 )
             elif pref == NetworkModePreference.TWO_G_ONLY:
                 self.device.network_technology_connected = NetworkTechnology.TWO_G
-                self.device.network_signal_strength = (
-                    self.surroundings.signal_strength.get(
-                        NetworkTechnology.TWO_G, SignalStrength.NONE
-                    )
+                self.device.network_signal_strength = self.surroundings.signal_strength.get(
+                    NetworkTechnology.TWO_G, SignalStrength.NONE
                 )
             else:  # Default fallback
                 self.device.network_technology_connected = NetworkTechnology.FOUR_G
-                self.device.network_signal_strength = (
-                    self.surroundings.signal_strength.get(
-                        NetworkTechnology.FOUR_G, SignalStrength.NONE
-                    )
+                self.device.network_signal_strength = self.surroundings.signal_strength.get(
+                    NetworkTechnology.FOUR_G, SignalStrength.NONE
                 )
 
         elif sim_status in [SimStatus.MISSING]:
@@ -1120,9 +1078,7 @@ class TelecomUserTools(ToolKitBase):
         """
         return self.device.data_saver_mode == expected_status
 
-    def assert_internet_speed(
-        self, expected_speed: float, expected_desc: Optional[str] = None
-    ) -> bool:
+    def assert_internet_speed(self, expected_speed: float, expected_desc: Optional[str] = None) -> bool:
         """
         Assert that the internet speed is as expected.
         """
