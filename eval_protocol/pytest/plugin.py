@@ -29,6 +29,22 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Pass an integer (e.g., 2, 50) or 'all' for no limit."
         ),
     )
+    group.addoption(
+        "--ep-print-summary",
+        action="store_true",
+        default=False,
+        help=(
+            "Print a concise summary line (suite/model/effort/agg score) at the end of each evaluation_test."
+        ),
+    )
+    group.addoption(
+        "--ep-summary-json",
+        action="store",
+        default=None,
+        help=(
+            "Write a JSON summary artifact at the given path (e.g., ./outputs/aime_low.json)."
+        ),
+    )
 
 
 def _normalize_max_rows(val: Optional[str]) -> Optional[str]:
@@ -50,5 +66,12 @@ def pytest_configure(config: pytest.Config) -> None:
     norm = _normalize_max_rows(cli_val)
     if norm is not None:
         os.environ["EP_MAX_DATASET_ROWS"] = norm
+
+    if config.getoption("--ep-print-summary"):
+        os.environ["EP_PRINT_SUMMARY"] = "1"
+
+    summary_json_path = config.getoption("--ep-summary-json")
+    if summary_json_path:
+        os.environ["EP_SUMMARY_JSON"] = summary_json_path
 
 

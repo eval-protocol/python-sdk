@@ -61,12 +61,13 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
         "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
     ],
     dataset_adapter=aime2025_dataset_adapter,
-    rollout_input_params=[{"temperature": 0.0, "max_tokens": 1024}],
+    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}, {}, {"extra_body": {"reasoning_effort": "high"}}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     threshold_of_success=None,
-    num_runs=1,
+    num_runs=2,
     max_dataset_rows=2,
+    max_concurrent_rollouts=4,
     mode="pointwise",
 )
 def test_aime2025_pointwise(row: EvaluationRow) -> EvaluationRow:

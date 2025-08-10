@@ -1,6 +1,8 @@
 import inspect
 import os
-import os
+import copy
+import math
+import statistics
 from typing import Any, Callable, Dict, List, Optional
 
 import pytest
@@ -91,11 +93,11 @@ def evaluation_test(
         if mode == "pointwise":
             # Pointwise mode: function should accept messages and other row-level params
             if "row" not in sig.parameters:
-                raise ValueError(f"In pointwise mode, your eval function must have a parameter named 'row'")
+                raise ValueError("In pointwise mode, your eval function must have a parameter named 'row'")
 
             # validate that "Row" is of type EvaluationRow
             if sig.parameters["row"].annotation is not EvaluationRow:
-                raise ValueError(f"In pointwise mode, the 'row' parameter must be of type EvaluationRow")
+                raise ValueError("In pointwise mode, the 'row' parameter must be of type EvaluationRow")
 
             # validate that the function has a return type of EvaluationRow
             if sig.return_annotation is not EvaluationRow:
@@ -107,7 +109,7 @@ def evaluation_test(
 
             # validate that "Rows" is of type List[EvaluationRow]
             if sig.parameters["rows"].annotation is not List[EvaluationRow]:
-                raise ValueError(f"In batch mode, the 'rows' parameter must be of type List[EvaluationRow]")
+                raise ValueError("In batch mode, the 'rows' parameter must be of type List[EvaluationRow")
 
             # validate that the function has a return type of List[EvaluationRow]
             if sig.return_annotation is not List[EvaluationRow]:
@@ -150,7 +152,13 @@ def evaluation_test(
             combinations = []
 
             # Handle optional parameters with defaults
-            datasets: List[Optional[DatasetPathParam]] = input_dataset if input_dataset is not None else [None]  # type: ignore
+            # Treat multiple dataset paths as a single combined dataset rather than
+            # parameterizing over each path separately. This produces one summary
+            # that reflects the aggregate of all provided files (e.g., AIME I+II).
+            if input_dataset is not None:
+                datasets: List[Optional[List[DatasetPathParam]]] = [input_dataset]  # type: ignore
+            else:
+                datasets = [None]
             params: List[Optional[RolloutInputParam]] = rollout_input_params if rollout_input_params is not None else [None]  # type: ignore
             # Apply EP_MAX_DATASET_ROWS to input_messages to uniformly control row count when messages are provided
             if input_messages is not None and isinstance(input_messages, list):
@@ -222,7 +230,15 @@ def evaluation_test(
                     # Handle dataset loading
                     data: List[EvaluationRow] = []
                     if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
-                        data_jsonl = load_jsonl(kwargs["dataset_path"])
+                        ds_arg = kwargs["dataset_path"]
+                        # Support either a single path or a list of paths; if a list is provided,
+                        # concatenate the rows from each file in order.
+                        if isinstance(ds_arg, list):
+                            data_jsonl = []
+                            for p in ds_arg:
+                                data_jsonl.extend(load_jsonl(p))
+                        else:
+                            data_jsonl = load_jsonl(ds_arg)
                         # Apply env override for max rows if present
                         effective_max_rows = _parse_ep_max_rows(max_dataset_rows)
                         if effective_max_rows is not None:
@@ -270,7 +286,7 @@ def evaluation_test(
                         row.pid = os.getpid()
                         default_logger.log(row)
 
-                    # Now run the rollout processor with metadata-initialized data
+                    # Prepare rollout processor config once; we will generate fresh outputs per run
                     config = RolloutProcessorConfig(
                         model=model_name,
                         input_params=input_params,
@@ -279,9 +295,12 @@ def evaluation_test(
                         server_script_path=server_script_path,
                         steps=steps,
                     )
-                    input_dataset = execute_function(rollout_processor, rows=data, config=config)
 
                     for _ in range(num_runs):
+                        # Regenerate outputs each run by deep-copying the pristine dataset
+                        # so model responses are not reused across runs.
+                        fresh_rows = [copy.deepcopy(r) for r in data]
+                        input_dataset = execute_function(rollout_processor, rows=fresh_rows, config=config)
                         if mode == "pointwise":
                             # Pointwise mode: apply the evaluator function to each row
                             for row in input_dataset:
@@ -323,6 +342,23 @@ def evaluation_test(
                     scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
                     agg_score = aggregate(scores, aggregation_method)
 
+                    # Compute 95% confidence interval for mean aggregation
+                    # TODO bchen: remove after Derek has his stuff
+                    ci_low: float | None = None
+                    ci_high: float | None = None
+                    if aggregation_method == "mean":
+                        n = len(scores)
+                        if n >= 2:
+                            try:
+                                sample_std = statistics.stdev(scores)
+                                se = sample_std / math.sqrt(n)
+                                margin = 1.96 * se
+                                ci_low = float(max(0.0, (agg_score or 0.0) - margin)) if agg_score is not None else None
+                                ci_high = float(min(1.0, (agg_score or 0.0) + margin)) if agg_score is not None else None
+                            except Exception:
+                                ci_low = None
+                                ci_high = None
+
                     # Determine if the evaluation passed based on threshold
                     passed = None
                     if threshold_of_success is not None:
@@ -334,6 +370,86 @@ def evaluation_test(
                             r.eval_metadata.status = "finished"
                             r.eval_metadata.passed = passed
                         default_logger.log(r)
+
+                    # Optional: print and/or persist a summary artifact for CI
+                    try:
+                        should_print = os.getenv("EP_PRINT_SUMMARY") == "1"
+                        summary_path = os.getenv("EP_SUMMARY_JSON")
+                        suite_name = test_func.__name__
+                        model_used = model_name
+                        total_rows = len(all_results)
+                        summary_obj = {
+                            "suite": suite_name,
+                            "model": model_used,
+                            "agg_score": float(agg_score) if agg_score is not None else None,
+                            "num_runs": num_runs,
+                            "rows": total_rows,
+                        }
+                        if ci_low is not None and ci_high is not None:
+                            summary_obj["agg_ci_low"] = ci_low
+                            summary_obj["agg_ci_high"] = ci_high
+
+                        # Aggregate per-metric mean and 95% CI when available
+                        metrics_summary: Dict[str, Dict[str, float]] = {}
+                        from collections import defaultdict
+                        metric_scores: Dict[str, list] = defaultdict(list)
+                        for r in all_results:
+                            if r.evaluation_result and r.evaluation_result.metrics:
+                                for m_name, m_res in r.evaluation_result.metrics.items():
+                                    if m_res is not None and getattr(m_res, "score", None) is not None:
+                                        metric_scores[m_name].append(m_res.score)
+                        for m_name, vals in metric_scores.items():
+                            if len(vals) == 0:
+                                continue
+                            m_mean = sum(vals) / len(vals)
+                            m_low = None
+                            m_high = None
+                            if len(vals) >= 2:
+                                try:
+                                    m_std = statistics.stdev(vals)
+                                    m_se = m_std / math.sqrt(len(vals))
+                                    m_margin = 1.96 * m_se
+                                    m_low = max(0.0, m_mean - m_margin)
+                                    m_high = min(1.0, m_mean + m_margin)
+                                except Exception:
+                                    m_low = None
+                                    m_high = None
+                            entry: Dict[str, float] = {"mean": float(m_mean)}
+                            if m_low is not None and m_high is not None:
+                                entry["ci_low"] = float(m_low)
+                                entry["ci_high"] = float(m_high)
+                            metrics_summary[m_name] = entry
+                        if metrics_summary:
+                            summary_obj["metrics_agg"] = metrics_summary
+                        if should_print:
+                            if ci_low is not None and ci_high is not None:
+                                print(
+                                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
+                                )
+                            else:
+                                print(
+                                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
+                                )
+                            # Print per-metric aggregations concisely (only names present)
+                            if metrics_summary:
+                                parts = []
+                                for m_name, entry in metrics_summary.items():
+                                    if "ci_low" in entry and "ci_high" in entry:
+                                        parts.append(f"{m_name}={entry['mean']:.3f} ci95=[{entry['ci_low']:.3f},{entry['ci_high']:.3f}]")
+                                    else:
+                                        parts.append(f"{m_name}={entry['mean']:.3f}")
+                                print(f"EP Metrics | " + ", ".join(parts))
+                        if summary_path:
+                            import json, pathlib, time
+
+                            p = pathlib.Path(summary_path)
+                            p.parent.mkdir(parents=True, exist_ok=True)
+                            summary_obj["timestamp"] = int(time.time())
+                            with p.open("w", encoding="utf-8") as f:
+                                json.dump(summary_obj, f)
+                    except Exception:
+                        # Do not fail evaluation if summary writing fails
+                        pass
 
                     # Check threshold after logging
                     if threshold_of_success is not None and not passed:
