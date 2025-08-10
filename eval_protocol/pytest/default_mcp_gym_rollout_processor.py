@@ -200,6 +200,8 @@ async def default_mcp_gym_rollout_processor(
     Returns:
         List of EvaluationRow objects with completed conversations
     """
+    if config.server_script_path is None:
+        raise ValueError("server_script_path is required for default_mcp_gym_rollout_processor")
     server = MCPServerManager(config.server_script_path, port=9700)
 
     try:

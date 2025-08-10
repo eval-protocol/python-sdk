@@ -1,18 +1,15 @@
-from typing import Any, Dict, List
 import os
+from typing import Any, Dict, List
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     default_single_turn_rollout_processor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
-
 from examples.aime2025_chat_completion.main import _extract_boxed_text, _normalize_to_int_or_none
 
-
 SYSTEM_PROMPT = (
-    "You are a helpful math assistant. Please reason step by step, and put your "
-    "final answer within \\boxed{...}."
+    "You are a helpful math assistant. Please reason step by step, and put your " "final answer within \\boxed{...}."
 )
 
 """
@@ -34,8 +31,6 @@ def _ep_int(var_name: str, default_value: int | None) -> int | None:
         return int(raw_stripped)
     except ValueError:
         return default_value
-
-
 
 
 def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
@@ -94,9 +89,7 @@ def test_aime2025_pointwise(row: EvaluationRow) -> EvaluationRow:
             reason=(
                 "Parsed both integers and they matched"
                 if score == 1.0
-                else (
-                    "Parsed integers did not match" if is_valid else "Failed to parse integer"
-                )
+                else ("Parsed integers did not match" if is_valid else "Failed to parse integer")
             ),
             data={
                 "extracted_text": extracted_text,
@@ -113,5 +106,3 @@ def test_aime2025_pointwise(row: EvaluationRow) -> EvaluationRow:
         metrics=metrics,
     )
     return row
-
-
