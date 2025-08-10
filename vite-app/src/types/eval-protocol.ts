@@ -78,7 +78,7 @@ export const EvalMetadataSchema = z.object({
   name: z.string().describe('Name of the evaluation'),
   description: z.string().optional().describe('Description of the evaluation'),
   version: z.string().describe('Version of the evaluation. By default, we will populate this with the current commit hash.'),
-  status: z.enum(['running', 'finished', 'error']).default('running').describe('Status of the evaluation'),
+  status: z.enum(['running', 'finished', 'error', 'stopped']).default('running').describe('Status of the evaluation'),
   num_runs: z.number().int().describe('Number of times the evaluation was repeated'),
   aggregation_method: z.string().describe('Method used to aggregate scores across runs'),
   threshold_of_success: z.number().optional().describe('Threshold score for test success'),
@@ -96,7 +96,8 @@ export const EvaluationRowSchema = z.object({
     (val) => typeof val === "string" ? new Date(val) : val,
     z.date()
   ).describe('The timestamp when the row was created. Accepts string and parses to Date.'),
-  eval_metadata: EvalMetadataSchema.optional().describe('Metadata about the evaluation that was run.')
+  eval_metadata: EvalMetadataSchema.optional().describe('Metadata about the evaluation that was run.'),
+  pid: z.number().optional().describe('The PID of the process that created the row. This is used by the evaluation watcher to detect stopped evaluations.')
 });
 
 // Agent Evaluation Framework (V2) schemas

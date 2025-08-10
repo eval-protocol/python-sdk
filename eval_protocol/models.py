@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -8,6 +9,7 @@ from openai.types.chat.chat_completion_message import (
 )
 from pydantic import BaseModel, ConfigDict, Field
 
+from eval_protocol.get_pep440_version import get_pep440_version
 from eval_protocol.human_id import generate_id
 
 
@@ -206,13 +208,31 @@ class EvalMetadata(BaseModel):
     name: str = Field(..., description="Name of the evaluation")
     description: Optional[str] = Field(None, description="Description of the evaluation")
     version: str = Field(
-        ..., description="Version of the evaluation. By default, we will populate this with the current commit hash."
+        default_factory=get_pep440_version,
+        description="Version of the evaluation. Should be populated with a PEP 440 version string.",
     )
-    status: Literal["running", "finished", "error"] = Field("running", description="Status of the evaluation")
+    status: Optional[Literal["running", "finished", "error", "stopped"]] = Field(
+        None, description="Status of the evaluation"
+    )
     num_runs: int = Field(..., description="Number of times the evaluation was repeated")
     aggregation_method: str = Field(..., description="Method used to aggregate scores across runs")
     threshold_of_success: Optional[float] = Field(None, description="Threshold score for test success")
     passed: Optional[bool] = Field(None, description="Whether the evaluation passed based on the threshold")
+
+
+class RolloutStatus(BaseModel):
+    """Status of the rollout."""
+
+    """
+    running: Unfinished rollout which is still in progress.
+    finished: Rollout finished successfully.
+    error: Rollout failed.
+    stopped: Rollout terminated unexpectedly (e.g. max step, control plane signal, user stop).
+    """
+    status: Literal["running", "finished", "error", "stopped"] = Field(
+        "finished", description="Status of the rollout."
+    )
+    error_message: Optional[str] = Field(None, description="Error message if the rollout failed.")
 
 
 class EvaluationRow(BaseModel):
@@ -239,6 +259,11 @@ class EvaluationRow(BaseModel):
         description="Metadata related to the input (dataset info, model config, session data, etc.).",
     )
 
+    rollout_status: RolloutStatus = Field(
+        default_factory=RolloutStatus,
+        description="The status of the rollout.",
+    )
+
     # Ground truth reference (moved from EvaluateResult to top level)
     ground_truth: Optional[str] = Field(
         default=None, description="Optional ground truth reference for this evaluation."
@@ -258,6 +283,11 @@ class EvaluationRow(BaseModel):
 
     eval_metadata: Optional[EvalMetadata] = Field(
         default=None, description="Metadata about the evaluation that was run."
+    )
+
+    pid: Optional[int] = Field(
+        None,
+        description="The PID of the process that created the row. This is used by the evaluation watcher to detect stopped evaluations.",
     )
 
     def is_trajectory_evaluation(self) -> bool:

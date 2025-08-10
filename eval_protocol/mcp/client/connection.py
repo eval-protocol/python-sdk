@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
+from mcp.types import Implementation
 
 from ...types import MCPSession
 
@@ -52,19 +53,16 @@ class MCPConnectionManager:
 
         exit_stack = AsyncExitStack()
 
-        client_info = None
-        if session.seed is not None or (session.dataset_row and session.dataset_row.environment_context):
-            from mcp.types import Implementation
-
-            client_info = Implementation(name="reward-kit", version="1.0.0", _extra={})
-            if session.seed is not None:
-                client_info._extra["seed"] = session.seed
-            if session.dataset_row and session.dataset_row.environment_context:
-                client_info._extra["config"] = session.dataset_row.environment_context
-            if session.dataset_row and session.dataset_row.id:
-                client_info._extra["dataset_row_id"] = session.dataset_row.id
-            if session.model_id:
-                client_info._extra["model_id"] = session.model_id
+        client_info = Implementation(name="reward-kit", version="1.0.0", _extra={})
+        client_info._extra["session_id"] = session.session_id
+        if session.seed is not None:
+            client_info._extra["seed"] = session.seed
+        if session.dataset_row and session.dataset_row.environment_context:
+            client_info._extra["config"] = session.dataset_row.environment_context
+        if session.dataset_row and session.dataset_row.id:
+            client_info._extra["dataset_row_id"] = session.dataset_row.id
+        if session.model_id:
+            client_info._extra["model_id"] = session.model_id
 
         read_stream, write_stream, _ = await exit_stack.enter_async_context(
             streamablehttp_client(session.base_url, terminate_on_close=True)
@@ -78,32 +76,6 @@ class MCPConnectionManager:
 
         session._mcp_session = mcp_session
         session._exit_stack = exit_stack
-
-        # Update session ID to match server's calculation (for control plane sync)
-        if client_info and hasattr(client_info, "_extra"):
-            extra_data = client_info._extra
-            if extra_data and isinstance(extra_data, dict):
-
-                seed_value = extra_data.get("seed")
-                config_value = extra_data.get("config", {})
-                dataset_row_id_value = extra_data.get("dataset_row_id")
-                model_id_value = extra_data.get("model_id")
-
-                stable_data = {
-                    "seed": seed_value,
-                    "config": config_value,
-                    "dataset_row_id": dataset_row_id_value,
-                    "model_id": model_id_value,
-                    "name": client_info.name,
-                    "version": client_info.version,
-                }
-
-                stable_str = json.dumps(stable_data, sort_keys=True)
-                server_session_id = hashlib.md5(stable_str.encode()).hexdigest()
-
-                # Update the session ID to match what the server generated
-                session.session_id = server_session_id
-                logger.info(f"Updated session ID to match server: {server_session_id}")
 
         # PRE-WARM: Discover and cache tools immediately after session initialization
         # This prevents concurrent list_tools() calls later

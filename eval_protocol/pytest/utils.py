@@ -2,8 +2,6 @@ import asyncio
 import inspect
 from typing import Any, Callable, List, Literal
 
-from ..models import EvaluateResult, EvaluationRow
-
 
 def execute_function(func: Callable, **kwargs) -> Any:
     """

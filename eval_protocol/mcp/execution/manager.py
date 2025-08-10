@@ -104,6 +104,7 @@ class ExecutionManager:
                 )
 
         tasks = [_execute_with_semaphore(i) for i in range(envs.n)]
+        # exceptions will be try catched inside single _execute_rollout
         trajectories = await asyncio.gather(*tasks)
 
         # Calculate durations
@@ -160,14 +161,31 @@ class ExecutionManager:
                 messages.append(Message.model_validate(msg_dict))
 
             evaluation_rows[idx].messages = messages
+            evaluation_rows[idx].input_metadata.row_id = envs.dataset_rows[idx].id
+            evaluation_rows[idx].input_metadata.dataset_info = asdict(envs.dataset_rows[idx])
             evaluation_rows[idx].tools = shared_tool_schema
-            evaluation_rows[idx].usage = trajectory.usage
+            evaluation_rows[idx].usage = CompletionUsage(**trajectory.usage)
             evaluation_rows[idx].input_metadata.completion_params = CompletionParams(
                 model=policy.model_id,
                 temperature=getattr(policy, "temperature", None),
                 max_tokens=getattr(policy, "max_tokens", None),
                 max_tool_calls=getattr(policy, "max_tools_per_turn", None),
             )
+            if trajectory.terminated:
+                if trajectory.termination_reason in {
+                    TerminationReason.CONTROL_PLANE_SIGNAL,
+                    TerminationReason.USER_STOP,
+                }:
+                    evaluation_rows[idx].rollout_status.status = "finished"
+                elif trajectory.termination_reason == TerminationReason.MAX_STEPS:
+                    evaluation_rows[idx].rollout_status.status = "stopped"
+                else:
+                    evaluation_rows[idx].rollout_status.status = "error"
+                    evaluation_rows[idx].rollout_status.error_message = trajectory.control_plane_summary.get(
+                        "error_message", None
+                    )
+            else:
+                evaluation_rows[idx].rollout_status.status = "running"
 
         return evaluation_rows
 
@@ -213,75 +231,62 @@ class ExecutionManager:
                 "total_tokens": 0,
             },
         )
+        try:
+            current_observation, tool_schema = await envs.reset(session)
+            system_prompt = dataset_row.system_prompt
 
-        temp_start = time.time()
-        current_observation, tool_schema = await envs.reset(session)
-        logger.info(
-            f"DEBUG6: User simulator get_init_state took {time.time() - temp_start:.3f}s for {session.session_id}, started at {temp_start}"
-        )
-        system_prompt = dataset_row.system_prompt
+            # Record initial observation
+            trajectory.observations.append(current_observation)
 
-        # Record initial observation
-        trajectory.observations.append(current_observation)
+            # Create user simulator for this rollout if configured in dataset
+            user_simulator = None
+            user_simulator_state = None
 
-        # Create user simulator for this rollout if configured in dataset
-        user_simulator = None
-        user_simulator_state = None
+            # If user simulation is enabled, initial message is from the simulated user
+            if dataset_row.user_simulation and dataset_row.user_simulation.get("enabled", False):
+                user_simulator = UserSimulator(
+                    instructions=dataset_row.user_simulation.get("system_prompt"),
+                    llm=dataset_row.user_simulation.get("llm", "gpt-4.1"),
+                    llm_args=dataset_row.user_simulation.get("llm_args", {"temperature": 0.0}),
+                )
 
-        # If user simulation is enabled, initial message is from the simulated user
-        if dataset_row.user_simulation and dataset_row.user_simulation.get("enabled", False):
-            user_simulator = UserSimulator(
-                instructions=dataset_row.user_simulation.get("system_prompt"),
-                llm=dataset_row.user_simulation.get("llm", "gpt-4.1"),
-                llm_args=dataset_row.user_simulation.get("llm_args", {"temperature": 0.0}),
-            )
+                # Get initial messages in tau2-bench format for user simulator
+                user_simulator_state = user_simulator.get_init_state()
+                user_message, user_simulator_state = await user_simulator.generate_next_message(
+                    AssistantMessage(role="assistant", content="Hi! How can I help you today?"),
+                    user_simulator_state,
+                )
+                current_observation = user_message.content if user_message.content else ""
 
-            # Get initial messages in tau2-bench format for user simulator
-            user_simulator_state = user_simulator.get_init_state()
-            user_message, user_simulator_state = await user_simulator.generate_next_message(
-                AssistantMessage(role="assistant", content="Hi! How can I help you today?"),
-                user_simulator_state,
-            )
-            current_observation = user_message.content if user_message.content else ""
+            user_prompt = envs.format_user_prompt(rollout_idx, current_observation)
+            conversation_history = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+            logger.info(f"🎯 Starting rollout {rollout_idx} in thread {threading.current_thread().name}")
 
-        user_prompt = envs.format_user_prompt(rollout_idx, current_observation)
-        conversation_history = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+            # Run rollout loop for this specific environment
+            step = 0
+            rollout_end = False
 
-        usage_stats_list: List[CompletionUsage] = []
+            while step < steps and not trajectory.terminated:
+                turn_completed = False
+                info = {}
+                reward = 0.0
+                observation = current_observation
+                tool_calls = []
 
-        logger.info(
-            f"DEBUG7: 🎯 Starting rollout {dataset_row.id} in thread {threading.current_thread().name}, {datetime.fromtimestamp(time.time()).strftime('%H:%M:%S.%f')[:-3]} (+{time.time() - rollout_start:.3f}s from start)"
-        )
+                if user_simulator and user_simulator_state:
+                    # Get user simulator messages and find the last assistant message
+                    user_simulator_messages = self._get_user_simulator_messages(conversation_history)
 
-        # Run rollout loop for this specific environment
-        step = 0
-        rollout_end = False
-
-        while step < steps and not trajectory.terminated:
-            turn_completed = False
-            info = {}
-            reward = 0.0
-            observation = current_observation
-            tool_calls = []
-
-            if user_simulator and user_simulator_state:
-                # Get user simulator messages and find the last assistant message
-                user_simulator_messages = self._get_user_simulator_messages(conversation_history)
-
-                # Last message was agent, simulated user response
-                if user_simulator_messages and isinstance(user_simulator_messages[-1], AssistantMessage):
-                    # Generate user response using the simulator
-                    temp_start1 = time.time()
-                    user_message, user_simulator_state = await user_simulator.generate_next_message(
-                        user_simulator_messages[-1], user_simulator_state
-                    )
-                    logger.info(
-                        f"DEBUG8: User simulator generate_next_message took {time.time() - temp_start1:.3f}s for {dataset_row.id}, started at {temp_start1}"
-                    )
-                    user_content = user_message.content if user_message.content else ""
+                    # Last message was agent, simulated user response
+                    if user_simulator_messages and isinstance(user_simulator_messages[-1], AssistantMessage):
+                        # Generate user response using the simulator
+                        user_message, user_simulator_state = await user_simulator.generate_next_message(
+                            user_simulator_messages[-1], user_simulator_state
+                        )
+                        user_content = user_message.content if user_message.content else ""
 
                     user_prompt = envs.format_user_prompt(rollout_idx, user_content)
                     conversation_history.append({"role": "user", "content": user_prompt})
@@ -291,182 +296,185 @@ class ExecutionManager:
                         trajectory.terminated = True
                         trajectory.termination_reason = TerminationReason.USER_STOP
 
-            # In each turn: keep looping until assistant is ready to provide final response
-            while not turn_completed and not trajectory.terminated:
-                temp_start2 = time.time()
-                tool_calls, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
-                logger.info(
-                    f"DEBUG9: Policy took {time.time() - temp_start2:.3f}s for {dataset_row.id}, started at {temp_start2}"
-                )
+                # In each turn: keep looping until assistant is ready to provide final response
+                while not turn_completed and not trajectory.terminated:
+                    tool_calls, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
 
-                # If no tool call is generated, turn is finished
-                if len(tool_calls) == 1:
-                    # If there's a user simulator, no tool call means the policy is ready to provide final response on this turn
-                    if tool_calls[0].tool_name == "_no_tool_call" and user_simulator:
-                        turn_completed = True
-                        break
-                    # If there's no user simulator, no tool call means policy failed and we should terminate the rollout
-                    elif tool_calls[0].tool_name in ["_playback_terminate", "_no_tool_call"]:
-                        trajectory.terminated = True
-                        break
+                    # calc llm usage stats happened in this turn if there is aany
+                    if usage_stats:
+                        trajectory.usage["prompt_tokens"] += usage_stats.prompt_tokens
+                        trajectory.usage["completion_tokens"] += usage_stats.completion_tokens
+                        trajectory.usage["total_tokens"] += usage_stats.total_tokens
 
-                # Execute each tool call sequentially
-                for tool_call in tool_calls:
+                    # If no tool call is generated, turn is finished
+                    if len(tool_calls) == 1:
+                        # If there's a user simulator, no tool call means the policy is ready to provide final response on this turn
+                        if tool_calls[0].tool_name == "_no_tool_call" and user_simulator:
+                            turn_completed = True
+                            break
+                        # If there's no user simulator, no tool call means policy failed and we should terminate the rollout
+                        elif tool_calls[0].tool_name in ["_playback_terminate", "_no_tool_call"]:
+                            trajectory.terminated = True
+                            trajectory.termination_reason = TerminationReason.ERROR
+                            trajectory.control_plane_summary.update({"error_message": "No expected tool call"})
+                            break
 
-                    # Execute tool call for this environment
-                    temp_start3 = time.time()
-                    observation, reward, rollout_end, info = await envs.step(rollout_idx, tool_call)
-                    logger.info(
-                        f"DEBUG10: Env step took {time.time() - temp_start3:.3f}s for {dataset_row.id}, started at {temp_start3}"
-                    )
+                    # Execute each tool call sequentially
+                    for tool_call in tool_calls:
 
-                    tool_response = envs.format_tool_response(observation)
+                        # Execute tool call for this environment
+                        observation, reward, rollout_end, info = await envs.step(rollout_idx, tool_call)
 
-                    policy.add_tool_response(
-                        rollout_idx,
-                        tool_call,
-                        tool_response,
-                        conversation_history,
-                        reward,
-                        rollout_end,
-                        info,
-                    )
+                        tool_response = envs.format_tool_response(observation)
 
-                    # Update trajectory with both data and control plane information
-                    trajectory.observations.append(observation)
-
-                    # Record action (tool call)
-                    action_str = f"{tool_call.tool_name}({tool_call.arguments})"
-                    trajectory.actions.append(action_str)
-
-                    # Record control plane (reward/termination)
-                    trajectory.rewards.append(reward)
-                    trajectory.total_reward += reward
-
-                    # Non-user simulator step counter: each tool call is a step
-                    if user_simulator is None:
-                        step += 1
-                        trajectory.steps = step
-
-                        control_plane_step = {
-                            "step": step - 1,
-                            "reward": reward,
-                            "terminated": rollout_end,
-                            "info": info.get("control_plane", {}),
-                            "tool_calls": [f"{tool_call.tool_name}({tool_call.arguments})"],
-                            "num_tool_calls": 1,
-                        }
-                        conversation_history[-1]["control_plane_step"] = control_plane_step
-                        trajectory.control_plane_steps.append(control_plane_step)
-
-                        # Log conversation state for playback if in recording mode
-                        if recording_mode:
-                            policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
-
-                    if rollout_end:
-                        trajectory.terminated = True
-                        trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
-                        break
-                    elif step >= steps:
-                        trajectory.terminated = True
-                        trajectory.termination_reason = TerminationReason.MAX_STEPS
-                        break
-
-                # Update current observation for potential next turn
-                if observation is not None:
-                    current_observation = observation
-
-                # calc llm usage stats happened in this turn if there is aany
-                if usage_stats:
-                    usage_stats_list.append(usage_stats)
-
-            # With user simulator, increment step after an entire conversation step
-            if user_simulator is not None:
-                step += 1
-                trajectory.steps = step
-
-                # Enhanced trajectory recording with control plane info
-                # Create summary of all tool calls executed in this step
-                tool_calls_summary = [f"{tc.tool_name}({tc.arguments})" for tc in tool_calls]
-
-                control_plane_step = {
-                    "step": step - 1,
-                    "reward": reward,
-                    "terminated": rollout_end,
-                    "info": info.get("control_plane", {}),
-                    "tool_calls": tool_calls_summary,
-                    "num_tool_calls": len(tool_calls),
-                }
-                conversation_history[-1]["control_plane_step"] = control_plane_step
-                trajectory.control_plane_steps.append(control_plane_step)
-
-                # Log conversation state for playback if in recording mode
-                if recording_mode:
-                    policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
-
-            # Use control plane information for termination decision
-            if rollout_end:
-                trajectory.terminated = True
-                trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
-
-                # Add final control plane summary
-                trajectory.control_plane_summary.update(
-                    {
-                        "total_reward": trajectory.total_reward,
-                        "termination_reason": trajectory.termination_reason,
-                        "final_step": step - 1,
-                        "control_plane_source": info.get("control_plane", {}),
-                    }
-                )
-
-                # Log final OpenAI conversation for terminated trajectories only
-                if openai_logger:
-                    if conversation_history and len(conversation_history) > 0:
-                        openai_logger(
-                            {
-                                "messages": conversation_history,
-                                "metadata": {
-                                    "session_id": session.session_id,
-                                    "seed": session.seed,
-                                    "total_steps": trajectory.steps,
-                                    "total_reward": trajectory.total_reward,
-                                    "terminated": True,
-                                    "success": reward > 0,
-                                    "control_plane_summary": trajectory.control_plane_summary,
-                                },
-                            }
+                        policy.add_tool_response(
+                            rollout_idx,
+                            tool_call,
+                            tool_response,
+                            conversation_history,
+                            reward,
+                            rollout_end,
+                            info,
                         )
 
-                logger.info(
-                    f"🏁 Rollout {rollout_idx} terminated at step {step} (reward: {trajectory.total_reward}) in thread {threading.current_thread().name}"
-                )
-                break
+                        # Update trajectory with both data and control plane information
+                        trajectory.observations.append(observation)
 
-            # Progress logging
-            if step % 10 == 0:
-                logger.debug(f"Rollout {rollout_idx} step {step}, reward: {trajectory.total_reward:.2f}")
+                        # Record action (tool call)
+                        action_str = f"{tool_call.tool_name}({tool_call.arguments})"
+                        trajectory.actions.append(action_str)
 
-        # Set termination reason if not already set (e.g., due to step limit)
-        if not trajectory.termination_reason and step >= steps:
-            trajectory.termination_reason = TerminationReason.MAX_STEPS
+                        # Record control plane (reward/termination)
+                        trajectory.rewards.append(reward)
+                        trajectory.total_reward += reward
 
-        trajectory.conversation_history = conversation_history
+                        # Non-user simulator step counter: each tool call is a step
+                        if user_simulator is None:
+                            step += 1
+                            trajectory.steps = step
 
-        # Add termination_reason to the final control_plane_step
-        for msg in reversed(trajectory.conversation_history):
-            if msg.get("control_plane_step"):
-                msg["control_plane_step"]["termination_reason"] = trajectory.termination_reason
-                break
+                            control_plane_step = {
+                                "step": step - 1,
+                                "reward": reward,
+                                "terminated": rollout_end,
+                                "info": info.get("control_plane", {}),
+                                "tool_calls": [f"{tool_call.tool_name}({tool_call.arguments})"],
+                                "num_tool_calls": 1,
+                            }
+                            print(f"🔍 control_plane_step: {control_plane_step}")
+                            conversation_history[-1]["control_plane_step"] = control_plane_step
+                            trajectory.control_plane_steps.append(control_plane_step)
 
-        for usage_stats in usage_stats_list:
-            trajectory.usage["prompt_tokens"] += usage_stats.prompt_tokens
-            trajectory.usage["completion_tokens"] += usage_stats.completion_tokens
-            trajectory.usage["total_tokens"] += usage_stats.total_tokens
+                            # Log conversation state for playback if in recording mode
+                            if recording_mode:
+                                policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
 
-        logger.info(
-            f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}"
-        )
-        logger.info(f"DEBUG11: Rollout {dataset_row.id} completed at {time.time()}, started at {rollout_start}")
+                        if rollout_end:
+                            trajectory.terminated = True
+                            trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
+                            break
+                        elif step >= steps:
+                            trajectory.terminated = True
+                            trajectory.termination_reason = TerminationReason.MAX_STEPS
+                            break
+
+                    # Update current observation for potential next turn
+                    if observation is not None:
+                        current_observation = observation
+
+                # With user simulator, increment step after an entire conversation step
+                if user_simulator is not None:
+                    step += 1
+                    trajectory.steps = step
+
+                    # Enhanced trajectory recording with control plane info
+                    # Create summary of all tool calls executed in this step
+                    tool_calls_summary = [f"{tc.tool_name}({tc.arguments})" for tc in tool_calls]
+
+                    control_plane_step = {
+                        "step": step - 1,
+                        "reward": reward,
+                        "terminated": rollout_end,
+                        "info": info.get("control_plane", {}),
+                        "tool_calls": tool_calls_summary,
+                        "num_tool_calls": len(tool_calls),
+                    }
+                    conversation_history[-1]["control_plane_step"] = control_plane_step
+                    trajectory.control_plane_steps.append(control_plane_step)
+
+                    # Log conversation state for playback if in recording mode
+                    if recording_mode:
+                        policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
+
+                # Use control plane information for termination decision
+                if rollout_end:
+                    trajectory.terminated = True
+                    trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
+
+                    # tool indicates rollout should be terminated, call policy one last time to get the final response
+                    _, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
+                    if usage_stats:
+                        trajectory.usage["prompt_tokens"] += usage_stats.prompt_tokens
+                        trajectory.usage["completion_tokens"] += usage_stats.completion_tokens
+                        trajectory.usage["total_tokens"] += usage_stats.total_tokens
+
+                    # Add final control plane summary
+                    trajectory.control_plane_summary.update(
+                        {
+                            "total_reward": trajectory.total_reward,
+                            "termination_reason": trajectory.termination_reason,
+                            "final_step": step - 1,
+                            "control_plane_source": info.get("control_plane", {}),
+                        }
+                    )
+
+                    # Log final OpenAI conversation for terminated trajectories only
+                    if openai_logger:
+                        if conversation_history and len(conversation_history) > 0:
+                            openai_logger(
+                                {
+                                    "messages": conversation_history,
+                                    "metadata": {
+                                        "session_id": session.session_id,
+                                        "seed": session.seed,
+                                        "total_steps": trajectory.steps,
+                                        "total_reward": trajectory.total_reward,
+                                        "terminated": True,
+                                        "success": reward > 0,
+                                        "control_plane_summary": trajectory.control_plane_summary,
+                                    },
+                                }
+                            )
+
+                    logger.info(
+                        f"🏁 Rollout {rollout_idx} terminated at step {step} (reward: {trajectory.total_reward}) in thread {threading.current_thread().name}"
+                    )
+                    break
+
+                # Progress logging
+                if step % 10 == 0:
+                    logger.debug(f"Rollout {rollout_idx} step {step}, reward: {trajectory.total_reward:.2f}")
+
+            # Set termination reason if not already set (e.g., due to step limit)
+            if not trajectory.termination_reason and step >= steps:
+                trajectory.termination_reason = TerminationReason.MAX_STEPS
+
+            trajectory.conversation_history = conversation_history
+
+            # Add termination_reason to the final control_plane_step
+            for msg in reversed(trajectory.conversation_history):
+                if msg.get("control_plane_step"):
+                    msg["control_plane_step"]["termination_reason"] = trajectory.termination_reason
+                    break
+
+            logger.info(
+                f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}"
+            )
+        except Exception as e:
+            logger.error(f"🚨 Error in rollout {rollout_idx}: {e}", exc_info=True)
+            trajectory.terminated = True
+            trajectory.termination_reason = TerminationReason.ERROR
+            trajectory.control_plane_summary.update({"error_message": str(e)})
         return trajectory
 
     async def _get_control_plane_status(self, session) -> Optional[Dict[str, Any]]:

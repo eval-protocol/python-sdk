@@ -49,6 +49,12 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
           textColor: "text-red-700",
           text: "error",
         };
+      case "stopped":
+        return {
+          dotColor: "bg-yellow-500",
+          textColor: "text-yellow-700",
+          text: "stopped",
+        };
       default:
         return {
           dotColor: "bg-gray-500",

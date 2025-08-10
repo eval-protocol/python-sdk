@@ -1,6 +1,7 @@
-import random
 import itertools
+import random
 from typing import Hashable
+
 from . import dictionary
 
 __all__ = ["generate_id"]
@@ -8,7 +9,7 @@ __all__ = ["generate_id"]
 system_random = random.SystemRandom()
 
 
-def generate_id(separator="-", seed: int | float | str | bytes | bytearray | None = None, word_count=4) -> str:
+def generate_id(separator="-", seed: int | float | str | bytes | bytearray | None = None, word_count=5) -> str:
     """
     Generate a human readable ID
 

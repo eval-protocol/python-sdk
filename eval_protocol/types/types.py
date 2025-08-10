@@ -16,6 +16,7 @@ class TerminationReason(str, Enum):
     MAX_STEPS = "max_steps"
     CONTROL_PLANE_SIGNAL = "control_plane_signal"
     USER_STOP = "user_stop"
+    ERROR = "error"
 
 
 @dataclass

@@ -219,6 +219,9 @@ class GeneralMCPVectorEnv:
 
     async def close(self):
         """Closes all MCP sessions."""
+        print(f"🧹 Resetting {self.n} MCP sessions in MCP server...")
+        cleanup_tasks = [self.connection_manager.reset_session(session) for session in self.sessions]
+        await asyncio.gather(*cleanup_tasks)
         print(f"🧹 Closing {self.n} MCP sessions...")
         tasks = [self.connection_manager.close_session(session) for session in self.sessions]
         await asyncio.gather(*tasks)
