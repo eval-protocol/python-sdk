@@ -191,9 +191,7 @@ class ExecutionManager:
         dataset_row = envs.dataset_rows[rollout_idx]
         rollout_start = time.time()
         elapsed_from_main_start = rollout_start - start_time
-        logger.info(
-            f"DEBUG4. Starting rollout {dataset_row.id} at {datetime.fromtimestamp(rollout_start).strftime('%H:%M:%S.%f')[:-3]} (+{elapsed_from_main_start:.3f}s from start)"
-        )
+        logger.info(f"DEBUG4. Starting rollout {dataset_row.id} at {rollout_start}")
 
         # Initialize trajectory
         trajectory = Trajectory(
@@ -219,7 +217,7 @@ class ExecutionManager:
         temp_start = time.time()
         current_observation, tool_schema = await envs.reset(session)
         logger.info(
-            f"DEBUG6: User simulator get_init_state took {time.time() - temp_start:.3f}s for {session.session_id}"
+            f"DEBUG6: User simulator get_init_state took {time.time() - temp_start:.3f}s for {session.session_id}, started at {temp_start}"
         )
         system_prompt = dataset_row.system_prompt
 
@@ -240,7 +238,7 @@ class ExecutionManager:
 
             # Get initial messages in tau2-bench format for user simulator
             user_simulator_state = user_simulator.get_init_state()
-            user_message, user_simulator_state = user_simulator.generate_next_message(
+            user_message, user_simulator_state = await user_simulator.generate_next_message(
                 AssistantMessage(role="assistant", content="Hi! How can I help you today?"),
                 user_simulator_state,
             )
@@ -277,11 +275,11 @@ class ExecutionManager:
                 if user_simulator_messages and isinstance(user_simulator_messages[-1], AssistantMessage):
                     # Generate user response using the simulator
                     temp_start1 = time.time()
-                    user_message, user_simulator_state = user_simulator.generate_next_message(
+                    user_message, user_simulator_state = await user_simulator.generate_next_message(
                         user_simulator_messages[-1], user_simulator_state
                     )
                     logger.info(
-                        f"DEBUG8: User simulator generate_next_message took {time.time() - temp_start1:.3f}s for {dataset_row.id}"
+                        f"DEBUG8: User simulator generate_next_message took {time.time() - temp_start1:.3f}s for {dataset_row.id}, started at {temp_start1}"
                     )
                     user_content = user_message.content if user_message.content else ""
 
@@ -297,7 +295,9 @@ class ExecutionManager:
             while not turn_completed and not trajectory.terminated:
                 temp_start2 = time.time()
                 tool_calls, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
-                logger.info(f"DEBUG9: Policy took {time.time() - temp_start2:.3f}s for {dataset_row.id}")
+                logger.info(
+                    f"DEBUG9: Policy took {time.time() - temp_start2:.3f}s for {dataset_row.id}, started at {temp_start2}"
+                )
 
                 # If no tool call is generated, turn is finished
                 if len(tool_calls) == 1:
@@ -316,7 +316,9 @@ class ExecutionManager:
                     # Execute tool call for this environment
                     temp_start3 = time.time()
                     observation, reward, rollout_end, info = await envs.step(rollout_idx, tool_call)
-                    logger.info(f"DEBUG10: Env step took {time.time() - temp_start3:.3f}s for {dataset_row.id}")
+                    logger.info(
+                        f"DEBUG10: Env step took {time.time() - temp_start3:.3f}s for {dataset_row.id}, started at {temp_start3}"
+                    )
 
                     tool_response = envs.format_tool_response(observation)
 
@@ -464,9 +466,7 @@ class ExecutionManager:
         logger.info(
             f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}"
         )
-        logger.info(
-            f"DEBUG11: Rollout {dataset_row.id} completed at {datetime.fromtimestamp(time.time()).strftime('%H:%M:%S.%f')[:-3]} (+{time.time() - rollout_start:.3f}s from start)"
-        )
+        logger.info(f"DEBUG11: Rollout {dataset_row.id} completed at {time.time()}, started at {rollout_start}")
         return trajectory
 
     async def _get_control_plane_status(self, session) -> Optional[Dict[str, Any]]:

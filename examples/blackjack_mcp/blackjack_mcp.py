@@ -39,10 +39,10 @@ class BlackjackMcp(McpGym):
     - Multi-session support with session-based control plane state
     """
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: Optional[int] = None, **kwargs):
         """Initialize Blackjack MCP-Gym environment."""
         adapter = BlackjackAdapter()
-        super().__init__("Blackjack-v1", adapter, seed)
+        super().__init__("Blackjack-v1", adapter, seed, **kwargs)
 
         # Multi-session support is now handled by the base class
 

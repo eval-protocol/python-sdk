@@ -19,8 +19,8 @@ Example usage:
 
 from typing import Any, Dict, Optional
 
+from fastmcp import Context
 from frozen_lake_adapter import FrozenLakeAdapter
-from mcp.server.fastmcp import Context
 
 from eval_protocol.mcp import McpGym
 from eval_protocol.mcp.mcpgym import control_plane_endpoint
@@ -38,10 +38,10 @@ class FrozenLakeMcp(McpGym):
     - Multi-session support with session-based control plane state
     """
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: Optional[int] = None, **kwargs):
         """Initialize FrozenLake MCP-Gym environment."""
         adapter = FrozenLakeAdapter()
-        super().__init__("FrozenLake-v1", adapter, seed)
+        super().__init__("FrozenLake-v1", adapter, seed, **kwargs)
 
         # Multi-session support is now handled by the base class
 

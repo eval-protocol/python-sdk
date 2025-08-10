@@ -27,7 +27,7 @@ from vendor.tau2.domains.airline.data_model import CabinClass, FlightInfo, Fligh
 class AirlineDomainMcp(McpGym):
     """Airline booking MCP server for τ²-Bench integration"""
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: Optional[int] = None, **kwargs):
         """Initialize Airline MCP-Gym environment."""
         # Use EnvironmentAdapter directly as the default adapter
         default_config = {
@@ -37,7 +37,7 @@ class AirlineDomainMcp(McpGym):
 
         self.adapter = EnvironmentAdapter(env_class=AirlineEnvironment, default_config=default_config)
 
-        super().__init__("airline", self.adapter, seed)
+        super().__init__("airline", self.adapter, seed, **kwargs)
 
     def _register_tools(self):
         """Register airline-specific MCP tools matching τ²-Bench schemas"""
@@ -399,7 +399,7 @@ class AirlineDomainMcp(McpGym):
 class MockDomainMcp(McpGym):
     """Mock domain MCP server for τ²-Bench integration"""
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: Optional[int] = None, **kwargs):
         """Initialize Mock MCP-Gym environment."""
         # Use EnvironmentAdapter directly as the default adapter
         default_config = {
@@ -409,7 +409,7 @@ class MockDomainMcp(McpGym):
 
         self.adapter = EnvironmentAdapter(env_class=MockEnvironment, default_config=default_config)
 
-        super().__init__("mock", self.adapter, seed)
+        super().__init__("mock", self.adapter, seed, **kwargs)
 
     def _register_tools(self):
         """Register mock-specific MCP tools matching τ²-Bench schemas"""
@@ -490,7 +490,7 @@ class MockDomainMcp(McpGym):
 class RetailDomainMcp(McpGym):
     """Retail domain MCP server for τ²-Bench integration"""
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: Optional[int] = None, **kwargs):
         """Initialize Retail MCP-Gym environment."""
         # Use EnvironmentAdapter directly as the default adapter
         default_config = {
@@ -500,7 +500,7 @@ class RetailDomainMcp(McpGym):
 
         self.adapter = EnvironmentAdapter(env_class=RetailEnvironment, default_config=default_config)
 
-        super().__init__("retail", self.adapter, seed)
+        super().__init__("retail", self.adapter, seed, **kwargs)
 
     def _register_tools(self):
         """Register retail-specific MCP tools matching τ²-Bench schemas"""
