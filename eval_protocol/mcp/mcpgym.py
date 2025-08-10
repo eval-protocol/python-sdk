@@ -107,9 +107,6 @@ class McpGym(ABC):
             host="0.0.0.0",
             port=int(os.environ.get("PORT", 8000)),
         )
-        # Store host and port for later use in run() method
-        self.host = "0.0.0.0"
-        self.port = int(os.environ.get("PORT", 8000))
 
         # Multi-session support
         self.sessions = {}  # session_id -> {"env": env, "obs": obs, "session_data": data}
@@ -497,11 +494,10 @@ class McpGym(ABC):
                 }
         else:
             # Fallback if session data is not available
-            result = {
+            return {
                 "observation": "session_not_initialized",
                 "session_id": session_data.get("session_id", "unknown"),
             }
-            return result
 
     def _get_session_control_plane_from_data(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
         """Extract control plane state from session data."""
@@ -570,7 +566,7 @@ class McpGym(ABC):
                     starlette_app,
                     host=self.mcp.settings.host,
                     port=self.mcp.settings.port,
-                    log_level=self.mcp.settings.log_level.lower(),  # Use default log level instead of accessing settings
+                    log_level=self.mcp.settings.log_level.lower(),
                     proxy_headers=True,
                     forwarded_allow_ips="*",
                     # HIGH CONCURRENCY SETTINGS

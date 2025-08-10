@@ -195,10 +195,6 @@ class MCPConnectionManager:
         Returns:
             Initial observation/state
         """
-        method_start = time.time()
-        session_id_short = session.session_id[:8] if len(session.session_id) > 8 else session.session_id
-        logger.info(f"### 🌟 GET_INITIAL_STATE_START: timestamp: {method_start}, session_id: {session_id_short}...")
-
         if not session._mcp_session:
             raise RuntimeError("Session not initialized")
 
@@ -207,57 +203,16 @@ class MCPConnectionManager:
 
         try:
             # Extract base URL and session ID from the MCP session
-            url_extract_start = time.time()
-            logger.info(
-                f"### 🔍 URL_EXTRACT_START: timestamp: {url_extract_start}, elapsed: {url_extract_start - method_start:.6f}s, session_id: {session_id_short}..."
-            )
-
             base_url = session.base_url.rstrip("/").removesuffix("/mcp")
             session_id = session.session_id
 
-            url_extract_end = time.time()
-            logger.info(
-                f"### 🔍 URL_EXTRACT_END: timestamp: {url_extract_end}, elapsed: {url_extract_end - method_start:.6f}s, duration: {url_extract_end - url_extract_start:.6f}s, base_url: {base_url}, session_id: {session_id_short}..."
-            )
-
             if session_id:
-                headers_start = time.time()
-                logger.info(
-                    f"### 🔍 HEADERS_CREATE_START: timestamp: {headers_start}, elapsed: {headers_start - method_start:.6f}s, session_id: {session_id_short}..."
-                )
-
                 headers = {"mcp-session-id": session_id}
-
-                headers_end = time.time()
-                logger.info(
-                    f"### 🔍 HEADERS_CREATE_END: timestamp: {headers_end}, elapsed: {headers_end - method_start:.6f}s, duration: {headers_end - headers_start:.6f}s, session_id: {session_id_short}..."
-                )
 
                 # Query initial state endpoint
                 try:
-                    timeout_start = time.time()
-                    logger.info(
-                        f"### 🔍 TIMEOUT_CONFIG_START: timestamp: {timeout_start}, elapsed: {timeout_start - method_start:.6f}s, session_id: {session_id_short}..."
-                    )
-
                     # Use shorter timeout for playback mode, longer timeout for high-concurrency initialization
                     # (50+ concurrent sessions need more time for initial state setup)
-                    timeout = 3.0 if hasattr(session, "_is_playback_mode") and session._is_playback_mode else 15.0
-
-                    timeout_end = time.time()
-                    logger.info(
-                        f"### 🔍 TIMEOUT_CONFIG_END: timestamp: {timeout_end}, elapsed: {timeout_end - method_start:.6f}s, duration: {timeout_end - timeout_start:.6f}s, timeout: {timeout}s, session_id: {session_id_short}..."
-                    )
-
-                    # TIMING: Get shared client
-                    # client = await self._get_shared_client(timeout)
-
-                    # TIMING: HTTP request with shared client
-                    request_start = time.time()
-                    logger.info(
-                        f"### 🌐 HTTP_REQUEST_START: timestamp: {request_start}, elapsed: {request_start - method_start:.6f}s, url: {base_url}/control/initial_state, session_id: {session_id_short}..."
-                    )
-
                     timeout = 3.0 if hasattr(session, "_is_playback_mode") and session._is_playback_mode else 15.0
 
                     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -266,46 +221,35 @@ class MCPConnectionManager:
                             headers=headers,
                             timeout=timeout,
                         )
-                        request_time = time.time() - request_start
-
-                        request_end = time.time()
-                        logger.info(
-                            f"### 🌐 HTTP_REQUEST_END: timestamp: {request_end}, elapsed: {request_end - method_start:.6f}s, duration: {request_time:.6f}s, status_code: {initial_state_response.status_code}, session_id: {session_id_short}..."
-                        )
 
                         if initial_state_response.status_code == 200:
                             initial_observation = initial_state_response.json()
-                            success_end = time.time()
                             logger.info(
-                                f"### ✅ RETURN: timestamp: {success_end}, total_duration: {success_end - method_start:.6f}s, session_id: {session_id_short}..."
+                                f"Session {session.session_id}: ✅ Successfully fetched session-aware initial state from control plane endpoint"
                             )
-                            # return initial_observation
                         else:
-                            error_time = time.time()
                             logger.warning(
-                                f"### ⚠️ HTTP_ERROR_RESPONSE: timestamp: {error_time}, elapsed: {error_time - method_start:.6f}s, status_code: {initial_state_response.status_code}, session_id: {session_id_short}"
+                                f"Control plane initial state endpoint returned {initial_state_response.status_code}"
                             )
                 except httpx.TimeoutException:
-                    timeout_error_time = time.time()
-                    logger.warning(
-                        f"### ⏰ HTTP_TIMEOUT: timestamp: {timeout_error_time}, elapsed: {timeout_error_time - method_start:.6f}s, timeout: {timeout}s, session_id: {session_id_short}"
-                    )
+                    logger.warning(f"Control plane initial state endpoint timed out after {timeout}s")
                 except Exception as e:
-                    http_error_time = time.time()
-                    logger.warning(
-                        f"### ❌ HTTP_ERROR: timestamp: {http_error_time}, elapsed: {http_error_time - method_start:.6f}s, error: {str(e)}, session_id: {session_id_short}"
-                    )
-
+                    logger.warning(f"Failed to query control plane initial state endpoint: {e}")
         except Exception as e:
-            general_error_time = time.time()
-            logger.warning(
-                f"### ❌ GENERAL_ERROR: timestamp: {general_error_time}, elapsed: {general_error_time - method_start:.6f}s, error: {str(e)}, session_id: {session_id_short}"
-            )
+            logger.warning(f"Failed to query control plane initial state endpoint: {e}")
 
-        method_end = time.time()
-        logger.info(
-            f"### 🔴 GET_INITIAL_STATE_END: timestamp: {method_end}, total_duration: {method_end - method_start:.6f}s, session_id: {session_id_short}..."
-        )
+        # Fallback to MCP resource if control plane endpoint fails (backward compatibility)
+        if initial_observation is None:
+            logger.debug(f"Session {session.session_id}: Falling back to MCP resource for initial state")
+            initial_observation = await self._get_initial_state_from_mcp_resource(session)
+
+        # Ensure we have some observation
+        if initial_observation is None:
+            logger.debug(f"Session {session.session_id}: Using default initial state")
+            initial_observation = {
+                "observation": "default_initial_state",
+                "session_id": session.session_id,
+            }
 
         return initial_observation
 

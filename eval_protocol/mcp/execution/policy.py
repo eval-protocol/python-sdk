@@ -19,7 +19,6 @@ from litellm.caching import Cache, DualCache, InMemoryCache, RedisCache
 from .base_policy import LLMBasePolicy
 
 logger = logging.getLogger(__name__)
-litellm._turn_on_debug()
 
 
 class LiteLLMPolicy(LLMBasePolicy):

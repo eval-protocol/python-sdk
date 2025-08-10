@@ -207,9 +207,6 @@ class ExecutionManager:
         """
         session = envs.sessions[rollout_idx]
         dataset_row = envs.dataset_rows[rollout_idx]
-        rollout_start = time.time()
-        elapsed_from_main_start = rollout_start - start_time
-        logger.info(f"DEBUG4. Starting rollout {dataset_row.id} at {rollout_start}")
 
         # Initialize trajectory
         trajectory = Trajectory(
