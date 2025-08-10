@@ -1,16 +1,15 @@
-from typing import List
-
 import csv
 import io
 import re
+from typing import List
+
 import requests
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
-from eval_protocol.pytest.evaluation_test import evaluation_test
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     default_single_turn_rollout_processor,
 )
-
+from eval_protocol.pytest.evaluation_test import evaluation_test
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant. Read the question and options carefully. "
@@ -65,7 +64,9 @@ _GPQA_INPUT_MESSAGES = _load_gpqa_messages_from_csv()
 @evaluation_test(
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     input_messages=_GPQA_INPUT_MESSAGES,
-    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}], # default to low effort; override via CLI plugin
+    rollout_input_params=[
+        {"extra_body": {"reasoning_effort": "low"}}
+    ],  # default to low effort; override via CLI plugin
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     threshold_of_success=None,
@@ -98,5 +99,3 @@ def test_gpqa_pointwise(row: EvaluationRow) -> EvaluationRow:
         },
     )
     return row
-
-
