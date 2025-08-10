@@ -16,6 +16,7 @@ const rows: Row[] = [
   { region: 'East', rep: 'A', product: 'Widget', amount: 200 },
   { region: 'East', rep: 'B', product: 'Gadget', amount: '10' },
   { region: 'East', rep: 'B', product: 'Gadget', amount: 'not-a-number' },
+
 ]
 
 describe('computePivot', () => {
@@ -100,6 +101,44 @@ describe('computePivot', () => {
     const rKeyWest = 'West'
     const cKeyWidget = 'Widget'
     expect(res.cells[rKeyWest][cKeyWidget].value).toBe(120)
+  })
+
+  it('supports multiple column fields (composite columns)', () => {
+    const res = computePivot<Row>({
+      data: rows,
+      rowFields: ['region'],
+      columnFields: ['product', 'rep'],
+      valueField: 'amount',
+      aggregator: 'sum',
+    })
+
+    // Row and column key tuples
+    expect(res.rowKeyTuples).toEqual([
+      ['East'],
+      ['West'],
+    ])
+    expect(res.colKeyTuples).toEqual([
+      ['Gadget', 'B'],
+      ['Widget', 'A'],
+    ])
+
+    const rEast = 'East'
+    const rWest = 'West'
+    const cGadgetB = 'Gadget||B'
+    const cWidgetA = 'Widget||A'
+
+    // Cell values (sum of numeric amounts)
+    expect(res.cells[rEast][cGadgetB].value).toBe(10)
+    expect(res.cells[rWest][cGadgetB].value).toBe(90)
+    expect(res.cells[rEast][cWidgetA].value).toBe(200)
+    expect(res.cells[rWest][cWidgetA].value).toBe(120)
+
+    // Totals
+    expect(res.rowTotals[rEast]).toBe(210)
+    expect(res.rowTotals[rWest]).toBe(210)
+    expect(res.colTotals[cGadgetB]).toBe(100)
+    expect(res.colTotals[cWidgetA]).toBe(320)
+    expect(res.grandTotal).toBe(420)
   })
 
   it('skips records with undefined row field values', () => {
