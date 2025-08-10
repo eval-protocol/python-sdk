@@ -61,6 +61,33 @@ def evaluation_test(  # noqa: C901
 ]:
     """Decorator to create pytest-based evaluation tests.
 
+    Here are some key concepts to understand the terminology in EP:
+
+    - "cohort" is a group of runs with a static set of parameters. A single
+        cohort will have multiple runs if num_runs > 1.
+        1. If your evaluation_test has combinations of parameters, it will generate
+        multiple cohorts per combination of parameters.
+        2. A new execution of a test function will generate a new cohort.
+    - "run" is a group of rollouts. For multiple num_runs > 1, there will be
+        multiple "run_id"s.
+    - "rollout" is the execution/process that produces a "trajectory". You
+        "execute" multiple rollouts to generate a dataset of trajectories.
+    - "trajectory" is the result produced by a rollout — a list of OpenAI Chat
+        Completion messages (e.g. the "messages" field in EvaluationRow).
+    - "row" both the input and output of an evaluation. For example, in
+        tau-bench, a row is a task within the dataset that can be identified as
+        "airline_task_0" or "airline_task_1" etc. The "row_id" can be populated from
+        the dataset itself to identify a particular task you want to evaluate.  If
+        not provided, EP will generate a "row_id" for each row whenever you call the
+        evaluation test.
+    - "dataset" is a collection of rows (e.g. List[EvauluationRow])
+    - "eval" is a rubric implemented in the body of an @evaluation_test
+        decorated test. It simply produces a score from 0 to 1 and attached it
+        to the row as the "evaluation_result" field.
+
+    A "cohort", "run", "rollout", and "row" each have a unique ID which can be
+    used to easily group and identify them.
+
     Args:
         model: Model identifiers to query.
         input_messages: Messages to send to the model. This is useful if you
@@ -121,15 +148,15 @@ def evaluation_test(  # noqa: C901
 
         def execute_with_params(
             test_func: TestFunction,
-            row: EvaluationRow | None = None,
-            input_dataset: List[EvaluationRow] | None = None,
+            processed_row: EvaluationRow | None = None,
+            processed_dataset: List[EvaluationRow] | None = None,
             evaluation_test_kwargs: Optional[EvaluationInputParam] = None,
         ):
             kwargs = {}
-            if input_dataset is not None:
-                kwargs["rows"] = input_dataset
-            if row is not None:
-                kwargs["row"] = row
+            if processed_dataset is not None:
+                kwargs["rows"] = processed_dataset
+            if processed_row is not None:
+                kwargs["row"] = processed_row
             if evaluation_test_kwargs is not None:
                 if "row" in evaluation_test_kwargs:
                     raise ValueError("'row' is a reserved parameter for the evaluation function")
@@ -244,7 +271,7 @@ def evaluation_test(  # noqa: C901
         # Create wrapper function with exact signature that pytest expects
         def create_wrapper_with_signature() -> Callable:
             # Create the function body that will be used
-            run_id = generate_id()
+            cohort_id = generate_id()
 
             def wrapper_body(**kwargs):
                 model_name = kwargs["model"]
@@ -310,7 +337,6 @@ def evaluation_test(  # noqa: C901
                         aggregation_method=aggregation_method,
                         threshold_of_success=threshold_of_success,
                         passed=None,
-                        run_id=run_id,
                     )
 
                     # Populate completion_params in input_metadata for all rows and initialize eval_metadata BEFORE rollouts
@@ -331,6 +357,7 @@ def evaluation_test(  # noqa: C901
                         row.input_metadata.session_data["mode"] = mode
                         # Initialize eval_metadata for each row
                         row.eval_metadata = eval_metadata
+                        row.cohort_id = cohort_id
 
                         # has to be done in the pytest main process since it's
                         # used to determine whether this eval has stopped
@@ -350,14 +377,25 @@ def evaluation_test(  # noqa: C901
                     for _ in range(num_runs):
                         # Regenerate outputs each run by deep-copying the pristine dataset
                         # so model responses are not reused across runs.
-                        fresh_rows = [copy.deepcopy(r) for r in data]
-                        input_dataset = execute_function(rollout_processor, rows=fresh_rows, config=config)
+                        run_id = generate_id()
+                        fresh_dataset = [copy.deepcopy(r) for r in data]
+
+                        # apply new run_id to fresh_dataset
+                        for row in fresh_dataset:
+                            row.run_id = run_id
+
+                        # generate new rollout_id for each row
+                        for row in fresh_dataset:
+                            row.rollout_id = generate_id()
+
+                        processed_dataset = execute_function(rollout_processor, rows=fresh_dataset, config=config)
+
                         if mode == "pointwise":
                             # Pointwise mode: apply the evaluator function to each row
-                            for row in input_dataset:
+                            for row in processed_dataset:
                                 result = execute_with_params(
                                     test_func,
-                                    row=row,
+                                    processed_row=row,
                                     evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                                 )
                                 if result is None or not isinstance(result, EvaluationRow):
@@ -369,7 +407,7 @@ def evaluation_test(  # noqa: C901
                             # Batch mode: call the test function with the full dataset
                             results = execute_with_params(
                                 test_func,
-                                input_dataset=input_dataset,
+                                processed_dataset=processed_dataset,
                                 evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                             )
                             if results is None:

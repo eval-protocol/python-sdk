@@ -214,14 +214,6 @@ class EvalMetadata(BaseModel):
     status: Optional[Literal["running", "finished", "error", "stopped"]] = Field(
         None, description="Status of the evaluation"
     )
-    run_id: Optional[str] = Field(
-        None,
-        description=(
-            "Unique identifier for the run. A 'run' is a group of rows"
-            "that were evaluated together in single configuration of a @evaluation_test."
-            " This means that running the save @evaluation_test with "
-        ),
-    )
     num_runs: int = Field(..., description="Number of times the evaluation was repeated")
     aggregation_method: str = Field(..., description="Method used to aggregate scores across runs")
     threshold_of_success: Optional[float] = Field(None, description="Threshold score for test success")
@@ -253,8 +245,8 @@ class EvaluationRow(BaseModel):
     supporting both row-wise batch evaluation and trajectory-based RL evaluation.
     """
 
-    # Core conversation data
-    messages: List[Message] = Field(description="List of messages in the conversation/trajectory.")
+    # Core OpenAI ChatCompletion compatible conversation data
+    messages: List[Message] = Field(description="List of messages in the conversation. Also known as a trajectory.")
 
     # Tool and function call information
     tools: Optional[List[Dict[str, Any]]] = Field(
@@ -270,6 +262,21 @@ class EvaluationRow(BaseModel):
     rollout_status: RolloutStatus = Field(
         default_factory=RolloutStatus,
         description="The status of the rollout.",
+    )
+
+    cohort_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the cohort that this row belongs to.",
+    )
+
+    rollout_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the rollout that this row belongs to.",
+    )
+
+    run_id: Optional[str] = Field(
+        None,
+        description=("The ID of the run that this row belongs to."),
     )
 
     # Ground truth reference (moved from EvaluateResult to top level)
