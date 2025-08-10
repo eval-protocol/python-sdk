@@ -1,7 +1,8 @@
-import inspect
-import os
+import asyncio
 import copy
+import inspect
 import math
+import os
 import statistics
 from typing import Any, Callable, Dict, List, Optional
 
@@ -33,7 +34,7 @@ from eval_protocol.pytest.utils import (
 from ..common_utils import load_jsonl
 
 
-def evaluation_test(
+def evaluation_test(  # noqa: C901
     *,
     model: List[ModelParam],
     input_messages: Optional[List[InputMessagesParam]] = None,
@@ -221,7 +222,7 @@ def evaluation_test(
         # Create wrapper function with exact signature that pytest expects
         def create_wrapper_with_signature() -> Callable:
             # Create the function body that will be used
-            def wrapper_body(**kwargs):
+            async def wrapper_body(**kwargs):
                 model_name = kwargs["model"]
                 eval_metadata = None
                 all_results: List[EvaluationRow] = []
@@ -300,10 +301,14 @@ def evaluation_test(
                         # Regenerate outputs each run by deep-copying the pristine dataset
                         # so model responses are not reused across runs.
                         fresh_rows = [copy.deepcopy(r) for r in data]
-                        input_dataset = execute_function(rollout_processor, rows=fresh_rows, config=config)
+
+                        # All rollout processors now return AsyncIterator for pipelining
+                        rollout_result = rollout_processor(fresh_rows, config)
+
                         if mode == "pointwise":
-                            # Pointwise mode: apply the evaluator function to each row
-                            for row in input_dataset:
+                            # Pointwise mode: true pipelining with concurrent evaluations
+                            async def process_evaluation(row):
+                                """Process a single evaluation and return the result."""
                                 result = execute_with_params(
                                     test_func,
                                     row=row,
@@ -313,8 +318,25 @@ def evaluation_test(
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
                                     )
-                                all_results.append(result)
+                                return result
+
+                            # Start evaluations as rollouts complete - true pipelining
+                            eval_tasks = []
+                            async for row in rollout_result:
+                                # Start evaluation immediately when rollout completes
+                                eval_task = asyncio.create_task(process_evaluation(row))
+                                eval_tasks.append(eval_task)
+
+                            # Collect all evaluation results
+                            if eval_tasks:
+                                eval_results = await asyncio.gather(*eval_tasks)
+                                all_results.extend(eval_results)
                         else:
+                            # Batch mode: collect all results first, then evaluate
+                            input_dataset = []
+                            async for row in rollout_result:
+                                input_dataset.append(row)
+
                             # Batch mode: call the test function with the full dataset
                             results = execute_with_params(
                                 test_func,
@@ -353,8 +375,12 @@ def evaluation_test(
                                 sample_std = statistics.stdev(scores)
                                 se = sample_std / math.sqrt(n)
                                 margin = 1.96 * se
-                                ci_low = float(max(0.0, (agg_score or 0.0) - margin)) if agg_score is not None else None
-                                ci_high = float(min(1.0, (agg_score or 0.0) + margin)) if agg_score is not None else None
+                                ci_low = (
+                                    float(max(0.0, (agg_score or 0.0) - margin)) if agg_score is not None else None
+                                )
+                                ci_high = (
+                                    float(min(1.0, (agg_score or 0.0) + margin)) if agg_score is not None else None
+                                )
                             except Exception:
                                 ci_low = None
                                 ci_high = None
@@ -392,6 +418,7 @@ def evaluation_test(
                         # Aggregate per-metric mean and 95% CI when available
                         metrics_summary: Dict[str, Dict[str, float]] = {}
                         from collections import defaultdict
+
                         metric_scores: Dict[str, list] = defaultdict(list)
                         for r in all_results:
                             if r.evaluation_result and r.evaluation_result.metrics:
@@ -435,12 +462,16 @@ def evaluation_test(
                                 parts = []
                                 for m_name, entry in metrics_summary.items():
                                     if "ci_low" in entry and "ci_high" in entry:
-                                        parts.append(f"{m_name}={entry['mean']:.3f} ci95=[{entry['ci_low']:.3f},{entry['ci_high']:.3f}]")
+                                        parts.append(
+                                            f"{m_name}={entry['mean']:.3f} ci95=[{entry['ci_low']:.3f},{entry['ci_high']:.3f}]"
+                                        )
                                     else:
                                         parts.append(f"{m_name}={entry['mean']:.3f}")
                                 print(f"EP Metrics | " + ", ".join(parts))
                         if summary_path:
-                            import json, pathlib, time
+                            import json
+                            import pathlib
+                            import time
 
                             p = pathlib.Path(summary_path)
                             p.parent.mkdir(parents=True, exist_ok=True)
@@ -483,6 +514,7 @@ def evaluation_test(
         # Create the pytest wrapper
         pytest_wrapper = create_wrapper_with_signature()
         pytest_wrapper = pytest.mark.parametrize(test_param_names, param_tuples)(pytest_wrapper)
+        pytest_wrapper = pytest.mark.asyncio(pytest_wrapper)
 
         def create_dual_mode_wrapper() -> Callable:
             """
@@ -500,17 +532,21 @@ def evaluation_test(
             """
             import asyncio
 
-            # Check if the test function is async
-            is_async = asyncio.iscoroutinefunction(test_func)
+            # Check if the pytest wrapper is async (it should be now)
+            is_pytest_wrapper_async = asyncio.iscoroutinefunction(pytest_wrapper)
+            is_test_func_async = asyncio.iscoroutinefunction(test_func)
 
-            if is_async:
+            if is_pytest_wrapper_async:
 
                 async def dual_mode_wrapper(*args, **kwargs):
                     # Check if this is a direct call with the expected signature
                     if mode == "pointwise":
                         # For pointwise mode, check if called with a single row argument
                         if len(args) == 1 and isinstance(args[0], EvaluationRow) and not kwargs:
-                            return await test_func(row=args[0])
+                            if is_test_func_async:
+                                return await test_func(row=args[0])
+                            else:
+                                return test_func(row=args[0])
                     else:
                         # For batch mode, check if called with rows argument
                         if (
@@ -519,7 +555,10 @@ def evaluation_test(
                             and all(isinstance(r, EvaluationRow) for r in args[0])
                             and not kwargs
                         ):
-                            return await test_func(rows=args[0])
+                            if is_test_func_async:
+                                return await test_func(rows=args[0])
+                            else:
+                                return test_func(rows=args[0])
                         # Also check if called with keyword argument 'rows'
                         if (
                             len(args) == 0
@@ -527,10 +566,13 @@ def evaluation_test(
                             and isinstance(kwargs["rows"], list)
                             and all(isinstance(r, EvaluationRow) for r in kwargs["rows"])
                         ):
-                            return await test_func(**kwargs)
+                            if is_test_func_async:
+                                return await test_func(**kwargs)
+                            else:
+                                return test_func(**kwargs)
 
                     # If not a direct call, use the pytest wrapper
-                    return pytest_wrapper(*args, **kwargs)
+                    return await pytest_wrapper(*args, **kwargs)
 
             else:
 

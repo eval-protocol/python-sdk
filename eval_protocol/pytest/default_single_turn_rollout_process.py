@@ -1,18 +1,22 @@
 import asyncio
-from typing import List
+import logging
+import time
+from typing import AsyncIterator, List
 
-from litellm import acompletion
 import litellm
+from litellm import acompletion
 from openai.types.chat.chat_completion_message import ChatCompletionMessageToolCall
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
+logger = logging.getLogger(__name__)
+
 
 async def default_single_turn_rollout_processor(
     rows: List[EvaluationRow], config: RolloutProcessorConfig
-) -> List[EvaluationRow]:
+) -> AsyncIterator[EvaluationRow]:
     """Generate a single response from any supported model provider using LiteLLM."""
 
     # Explicitly disable LiteLLM caching to avoid reused responses across runs
@@ -70,9 +74,10 @@ async def default_single_turn_rollout_processor(
 
         row.messages = messages
         default_logger.log(row)
+        logger.info(f"FINISHED PROCESSING ROW: {row.input_metadata.row_id} at time {time.time()}")
         return row
 
-    # Process rows with bounded concurrency if configured
+    # Process rows with bounded concurrency and yield as they complete
     max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
     semaphore = asyncio.Semaphore(max_concurrent)
 
@@ -80,7 +85,34 @@ async def default_single_turn_rollout_processor(
         async with semaphore:
             return await process_row(r)
 
-    tasks = [_sem_wrapper(row) for row in rows]
-    dataset = list(await asyncio.gather(*tasks))
+    # Create all tasks
+    tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
 
-    return dataset
+    # Yield results as they complete (not in original order)
+    try:
+        while tasks:
+            # Wait for at least one task to complete
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+            # Yield completed results
+            for task in done:
+                try:
+                    result = await task
+                    yield result
+                except Exception as e:
+                    # Log error but continue processing other tasks
+                    print(f"Error processing row: {e}")
+                    # Could yield an error row or skip
+
+            # Update tasks list to only pending tasks
+            tasks = list(pending)
+
+    finally:
+        # Clean up any remaining tasks
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
