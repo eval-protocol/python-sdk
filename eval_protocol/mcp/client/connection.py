@@ -544,10 +544,10 @@ class MCPConnectionManager:
                 await session._exit_stack.aclose()
             except asyncio.CancelledError:
                 # Handle cancellation gracefully (especially important for Python 3.12)
-                logger.debug(f"Session {session.session_id} close was cancelled")
+                logger.error(f"Session {session.session_id} close was cancelled")
             except Exception as e:
                 # Hitting this error, probably because of use of threads: "Attempted to exit cancel scope in a different task than it was entered in"
-                logger.debug(f"Error closing session {session.session_id}: {e}")
+                logger.error(f"Error closing session {session.session_id}: {e}")
             finally:
                 session._exit_stack = None
                 session._mcp_session = None

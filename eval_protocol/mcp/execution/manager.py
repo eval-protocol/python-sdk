@@ -98,9 +98,11 @@ class ExecutionManager:
 
         async def _execute_with_semaphore(idx):
             async with semaphore:
-                return await self._execute_rollout(
+                result = await self._execute_rollout(
                     envs, policy, idx, steps, openai_logger, recording_mode, playback_mode, start_time
                 )
+
+                return result
 
         tasks = [_execute_with_semaphore(i) for i in range(envs.n)]
         # exceptions will be try catched inside single _execute_rollout
@@ -114,7 +116,7 @@ class ExecutionManager:
         shared_tool_schema = envs.tool_schemas
 
         # Clean up
-        await envs.close()
+        # await envs.close()
 
         # Enhanced reporting with control plane info
         successful = sum(1 for traj in trajectories if traj.total_reward > 0)
@@ -227,6 +229,7 @@ class ExecutionManager:
                 "total_tokens": 0,
             },
         )
+        failure_reason = None
         try:
             current_observation, tool_schema = await envs.reset(session)
             system_prompt = dataset_row.system_prompt
@@ -467,11 +470,25 @@ class ExecutionManager:
             logger.info(
                 f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}"
             )
+
+        except asyncio.CancelledError:
+            logger.error(f"🚨 AsyncIO Cancel Error in roll out {rollout_idx}", exc_info=True)
+            failure_reason = "asyncio context cancelled"
         except Exception as e:
             logger.error(f"🚨 Error in rollout {rollout_idx}: {e}", exc_info=True)
+            failure_reason = str(e)
+        finally:
             trajectory.terminated = True
             trajectory.termination_reason = TerminationReason.ERROR
-            trajectory.control_plane_summary.update({"error_message": str(e)})
+            trajectory.control_plane_summary.update({"error_message": f"{failure_reason}"})
+            try:
+                await envs.connection_manager.reset_session(session)
+            except:
+                logger.error(f"Error resetting session {session.session_id}")
+            try:
+                await envs.connection_manager.close_session(session)
+            except:
+                logger.error(f"Error closing session {session.session_id}")
         return trajectory
 
     async def _get_control_plane_status(self, session) -> Optional[Dict[str, Any]]:

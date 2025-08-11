@@ -86,7 +86,7 @@ async def reset_mcp_sessions(envs: GeneralMCPVectorEnv):
     Reset mcp server sessions
     """
     tasks = [envs.connection_manager.reset_session(session) for session in envs.sessions]
-    await asyncio.gather(*tasks)
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def make(
@@ -236,12 +236,6 @@ async def make(
             sessions.append(session)
 
     mcp_envs = GeneralMCPVectorEnv(sessions, dataset_rows, user_prompt_formatter)
-    tasks = [mcp_envs.connection_manager.initialize_session(session) for session in sessions]
-    await asyncio.gather(*tasks)
-
-    if reset_sessions:
-        await reset_mcp_sessions(mcp_envs)
-
     return mcp_envs
 
 

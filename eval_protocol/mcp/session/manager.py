@@ -58,6 +58,7 @@ class GeneralMCPVectorEnv:
 
         This is thread-safe and can be called from worker threads.
         """
+        await self.connection_manager.initialize_session(session)
         # Get available tools from MCP server
         tool_schemas = await self.connection_manager.discover_tools(session)
 

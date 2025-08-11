@@ -220,7 +220,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             return mcp_tool_calls, usage_stats
         else:
             # No tool calls in response - this is normal when episode ends or LLM provides only text
-            logger.info(f"No tool calls in response for env {env_index}, message content: {message.get('content')}")
+            logger.debug(f"No tool calls in response for env {env_index}, message content: {message.get('content')}")
             return [
                 MCPToolCall(
                     tool_name="_no_tool_call",
