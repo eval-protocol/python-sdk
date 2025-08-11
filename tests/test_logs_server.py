@@ -378,21 +378,22 @@ class TestLogsServerIntegration:
 
     @pytest.fixture
     def temp_build_dir_with_files(self):
-        """Create a temporary build directory with various test files."""
+        """Create a temporary build directory with index.html and assets/ directory."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
             # Create index.html
             (temp_path / "index.html").write_text("<html><body>Test</body></html>")
 
-            # Create some static assets
-            (temp_path / "static").mkdir()
-            (temp_path / "static" / "app.js").write_text("console.log('test');")
-            (temp_path / "static" / "style.css").write_text("body { color: black; }")
+            # Create assets directory and some files inside it
+            assets_dir = temp_path / "assets"
+            assets_dir.mkdir()
+            (assets_dir / "app.js").write_text("console.log('test');")
+            (assets_dir / "style.css").write_text("body { color: black; }")
 
-            # Create a nested directory structure
-            (temp_path / "nested").mkdir()
-            (temp_path / "nested" / "file.txt").write_text("nested content")
+            # Optionally, create a nested directory inside assets
+            (assets_dir / "nested").mkdir()
+            (assets_dir / "nested" / "file.txt").write_text("nested content")
 
             yield temp_path
 
@@ -407,11 +408,11 @@ class TestLogsServerIntegration:
         assert "Test" in response.text
 
         # Test serving static files
-        response = client.get("/static/app.js")
+        response = client.get("/assets/app.js")
         assert response.status_code == 200
         assert "console.log('test')" in response.text
 
-        response = client.get("/static/style.css")
+        response = client.get("/assets/style.css")
         assert response.status_code == 200
         assert "color: black" in response.text
 
@@ -442,7 +443,7 @@ class TestLogsServerIntegration:
         response = client.get("/health")
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "healthy"
+        assert data["status"] == "ok"
 
 
 @pytest.mark.asyncio

@@ -97,7 +97,17 @@ window.SERVER_CONFIG = {{
         # Mount static files
         self.app.mount("/assets", StaticFiles(directory=self.build_dir / "assets"), name="assets")
 
-        # Serve other static files from build directory
+        @self.app.get("/")
+        async def root():
+            """Serve the main index.html file with injected configuration."""
+            return self._serve_index_with_config()
+
+        @self.app.get("/health")
+        async def health():
+            """Health check endpoint."""
+            return {"status": "ok", "build_dir": str(self.build_dir)}
+
+        # Serve other static files from build directory - this must be last
         @self.app.get("/{path:path}")
         async def serve_spa(path: str):
             """
@@ -114,21 +124,11 @@ window.SERVER_CONFIG = {{
 
             # For SPA routing, serve index.html for non-existent routes
             # but exclude API routes and asset requests
-            if not path.startswith(("api/", "assets/")):
+            if not path.startswith(("api/", "assets/", "health")):
                 return self._serve_index_with_config()
 
             # If we get here, the file doesn't exist and it's not a SPA route
             raise HTTPException(status_code=404, detail="File not found")
-
-        @self.app.get("/")
-        async def root():
-            """Serve the main index.html file with injected configuration."""
-            return self._serve_index_with_config()
-
-        @self.app.get("/health")
-        async def health():
-            """Health check endpoint."""
-            return {"status": "ok", "build_dir": str(self.build_dir)}
 
     def run(self):
         """
