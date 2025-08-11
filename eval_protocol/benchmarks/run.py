@@ -44,11 +44,26 @@ def _parse_args() -> argparse.Namespace:
 def main() -> int:
     args = _parse_args()
     # Auto-import all suite modules so their @export_benchmark decorators register
-    try:
-        for modinfo in pkgutil.iter_modules(suites_pkg.__path__):
-            import_module(f"{suites_pkg.__name__}.{modinfo.name}")
-    except Exception:
-        pass
+    # Import all suite modules so their @export_benchmark decorators register
+    import sys, traceback
+    for modinfo in pkgutil.iter_modules(suites_pkg.__path__):
+        mod_name = f"{suites_pkg.__name__}.{modinfo.name}"
+        try:
+            import_module(mod_name)
+        except Exception as e:
+            print(f"[bench] failed to import suite module: {mod_name}: {e}", file=sys.stderr)
+            traceback.print_exc()
+    # Fallback: if nothing registered yet and a known suite was requested, try explicit import
+    if not list_benchmarks():
+        known_map = {
+            "aime25_low": "eval_protocol.benchmarks.suites.aime25",
+        }
+        forced = known_map.get(args.name)
+        if forced:
+            try:
+                import_module(forced)
+            except Exception as e:
+                print(f"[bench] explicit import failed for {forced}: {e}", file=sys.stderr)
     runner = get_benchmark_runner(args.name)
     max_rows: int | str | None = None
     if args.max_rows is not None:
