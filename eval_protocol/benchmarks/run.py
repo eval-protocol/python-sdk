@@ -38,6 +38,8 @@ def _parse_args() -> argparse.Namespace:
         help="Limit rows: integer or 'all' for no limit (maps to EP_MAX_DATASET_ROWS)",
     )
     parser.add_argument("--num-runs", type=int, help="Override num_runs if provided")
+    # Allow overriding reasoning effort explicitly (low/medium/high). If omitted, suite default is used.
+    # Already mapped by --reasoning-effort above.
     return parser.parse_args()
 
 
