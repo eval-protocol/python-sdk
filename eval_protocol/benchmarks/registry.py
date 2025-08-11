@@ -83,9 +83,8 @@ def export_benchmark(name: str) -> Callable[[Callable[..., Any]], Callable[..., 
             # Merge reasoning effort and arbitrary overrides into EP_INPUT_PARAMS_JSON
             merged: Dict[str, Any] = {}
             if reasoning_effort:
-                merged.setdefault("extra_body", {}).setdefault("reasoning", {})[
-                    "effort"
-                ] = str(reasoning_effort)
+                # Fireworks OpenAI-compatible endpoint expects extra_body.reasoning_effort, not nested reasoning dict
+                merged.setdefault("extra_body", {})["reasoning_effort"] = str(reasoning_effort)
             if input_params_override:
                 def _deep_update(base: Dict[str, Any], over: Dict[str, Any]) -> Dict[str, Any]:
                     for k, v in over.items():
