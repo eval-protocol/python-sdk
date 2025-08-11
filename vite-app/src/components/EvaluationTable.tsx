@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { state } from "../App";
 import { EvaluationRow } from "./EvaluationRow";
 import Button from "./Button";
+import Select from "./Select";
 
 const TableBody = observer(
   ({ currentPage, pageSize }: { currentPage: number; pageSize: number }) => {
@@ -58,16 +59,16 @@ export const EvaluationTable = observer(() => {
           </div>
           <div className="flex items-center gap-2">
             <label className="text-xs text-gray-600">Page size:</label>
-            <select
+            <Select
               value={pageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-              className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+              size="sm"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
               <option value={200}>200</option>
-            </select>
+            </Select>
           </div>
         </div>
         <div className="flex items-center gap-2">
