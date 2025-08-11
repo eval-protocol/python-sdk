@@ -18,13 +18,13 @@ def test_update_log_and_read():
     messages = [Message(role="user", content="Hello")]
     input_metadata = InputMetadata(row_id="1")
     row = EvaluationRow(input_metadata=input_metadata, messages=messages)
-    store.upsert_row(row_id="1", data=row.model_dump(exclude_none=True, mode="json"))
+    store.upsert_row(data=row.model_dump(exclude_none=True, mode="json"))
 
     row.messages.append(Message(role="assistant", content="Hello"))
 
-    logger = SqliteDatasetLoggerAdapter()
+    logger = SqliteDatasetLoggerAdapter(store=store)
     logger.log(row)
-    saved = logger.read(rollout_id="1")[0]
+    saved = logger.read(row.rollout_id)[0]
     assert row.messages == saved.messages
     assert row.input_metadata == saved.input_metadata
 
@@ -42,7 +42,7 @@ def test_create_log_and_read():
     row = EvaluationRow(input_metadata=input_metadata, messages=messages)
 
     logger.log(row)
-    saved = logger.read(rollout_id="1")[0]
+    saved = logger.read(rollout_id=row.rollout_id)[0]
     assert row.messages == saved.messages
     assert row.input_metadata == saved.input_metadata
 

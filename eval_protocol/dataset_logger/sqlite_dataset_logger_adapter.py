@@ -22,9 +22,8 @@ class SqliteDatasetLoggerAdapter(DatasetLogger):
             self._store = SqliteEvaluationRowStore(self.db_path)
 
     def log(self, row: "EvaluationRow") -> None:
-        rollout_id = row.rollout_id
         data = row.model_dump(exclude_none=True, mode="json")
-        self._store.upsert_row(rollout_id=rollout_id, data=data)
+        self._store.upsert_row(data=data)
         try:
             event_bus.emit(LOG_EVENT_TYPE, EvaluationRow(**data))
         except Exception as e:

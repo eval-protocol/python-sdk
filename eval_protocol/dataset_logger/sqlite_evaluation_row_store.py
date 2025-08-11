@@ -36,7 +36,10 @@ class SqliteEvaluationRowStore:
     def db_path(self) -> str:
         return self._db_path
 
-    def upsert_row(self, rollout_id: str, data: dict) -> None:
+    def upsert_row(self, data: dict) -> None:
+        rollout_id = data["rollout_id"]
+        if "rollout_id" not in data:
+            raise ValueError("rollout_id is required to upsert a row")
         if self._EvaluationRow.select().where(self._EvaluationRow.rollout_id == rollout_id).exists():
             self._EvaluationRow.update(data=data).where(self._EvaluationRow.rollout_id == rollout_id).execute()
         else:
