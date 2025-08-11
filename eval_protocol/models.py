@@ -202,6 +202,21 @@ class InputMetadata(BaseModel):
     )
 
 
+class EvaluationThreshold(BaseModel):
+    """Threshold configuration for evaluation tests.
+
+    The success field is required - tests must specify a minimum success rate.
+    The standard_deviation field is optional - if provided, tests must also meet the maximum standard deviation requirement.
+    """
+
+    success: float = Field(
+        ..., description="Minimum success rate threshold (fraction of total score, 0.0 to 1.0)", ge=0.0, le=1.0
+    )
+    standard_deviation: Optional[float] = Field(
+        None, description="Maximum standard deviation threshold (fraction of total score, 0.0 to 1.0)", ge=0.0, le=1.0
+    )
+
+
 class EvalMetadata(BaseModel):
     """Metadata about the evaluation that was run."""
 
@@ -216,7 +231,9 @@ class EvalMetadata(BaseModel):
     )
     num_runs: int = Field(..., description="Number of times the evaluation was repeated")
     aggregation_method: str = Field(..., description="Method used to aggregate scores across runs")
-    threshold_of_success: Optional[float] = Field(None, description="Threshold score for test success")
+    passed_threshold: Optional[EvaluationThreshold] = Field(
+        None, description="Threshold configuration for test success"
+    )
     passed: Optional[bool] = Field(None, description="Whether the evaluation passed based on the threshold")
 
 
