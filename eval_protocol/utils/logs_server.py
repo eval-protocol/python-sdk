@@ -319,20 +319,52 @@ class LogsServer(ViteServer):
         asyncio.run(self.run_async())
 
 
-server = LogsServer()
-app = server.app
+def create_app(host: str = "localhost", port: int = 8000, build_dir: Optional[str] = None) -> FastAPI:
+    """
+    Factory function to create a FastAPI app instance.
+
+    This allows uvicorn to call it with parameters and avoids top-level variable instantiation.
+
+    Args:
+        host: Host to bind to
+        port: Port to bind to
+        build_dir: Optional custom build directory path
+
+    Returns:
+        FastAPI app instance
+    """
+    if build_dir is None:
+        build_dir = os.path.abspath(
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "vite-app", "dist")
+        )
+
+    server = LogsServer(host=host, port=port, build_dir=build_dir)
+    return server.app
 
 
-def serve_logs():
+# For backward compatibility and direct usage
+def serve_logs(port: Optional[int] = None):
     """
     Convenience function to create and run a LogsServer.
     """
-    global server, app
-    if server is None:
-        server = LogsServer()
-        app = server.app
+    server = LogsServer(port=port)
     server.run()
 
 
 if __name__ == "__main__":
-    serve_logs()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Start the evaluation logs server")
+    parser.add_argument("--host", default="localhost", help="Host to bind to (default: localhost)")
+    parser.add_argument("--port", type=int, default=8000, help="Port to bind to (default: 8000)")
+    parser.add_argument("--build-dir", help="Path to Vite build directory")
+
+    args = parser.parse_args()
+
+    # Create server with command line arguments
+    if args.build_dir:
+        server = LogsServer(host=args.host, port=args.port, build_dir=args.build_dir)
+    else:
+        server = LogsServer(host=args.host, port=args.port)
+
+    server.run()

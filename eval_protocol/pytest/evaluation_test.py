@@ -3,14 +3,21 @@ import inspect
 import math
 import os
 import statistics
-from typing import Any, Callable, Dict, List, Literal, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 import pytest
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.human_id import generate_id
-from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, InputMetadata, Message
+from eval_protocol.models import (
+    CompletionParams,
+    EvalMetadata,
+    EvaluationRow,
+    EvaluationThreshold,
+    InputMetadata,
+    Message,
+)
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
 from eval_protocol.pytest.types import (
@@ -47,7 +54,7 @@ def evaluation_test(  # noqa: C901
     rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
     aggregation_method: AggregationMethod = "mean",
-    threshold_of_success: Optional[float] = None,
+    passed_threshold: Optional[Union[EvaluationThreshold, float]] = None,
     num_runs: int = 1,
     max_dataset_rows: Optional[int] = None,
     mcp_config_path: Optional[str] = None,
@@ -108,8 +115,8 @@ def evaluation_test(  # noqa: C901
         rollout_processor: Function used to perform the rollout.
         evaluation_test_kwargs: Kwargs for the evaluation function.
         aggregation_method: How to aggregate scores across rows.
-        threshold_of_success: If set, fail the test if the aggregated score is
-            below this threshold.
+        passed_threshold: Threshold configuration for test success.
+            Success rate must be above success, and if set, standard deviation must be below standard_deviation.
         num_runs: Number of times to repeat the rollout and evaluations.
         max_dataset_rows: Limit dataset to the first N rows.
         mcp_config_path: Path to MCP config file that follows MCPMultiClientConfiguration schema
@@ -127,6 +134,14 @@ def evaluation_test(  # noqa: C901
     def decorator(
         test_func: TestFunction,
     ):
+        if passed_threshold is not None:
+            if isinstance(passed_threshold, float):
+                threshold = EvaluationThreshold(success=passed_threshold)
+            else:
+                threshold = EvaluationThreshold(**passed_threshold)
+        else:
+            threshold = None
+
         sig = inspect.signature(test_func)
 
         # For pointwise/rowwise mode, we expect a different signature
@@ -285,7 +300,7 @@ def evaluation_test(  # noqa: C901
             def wrapper_body(**kwargs):
                 model_name = kwargs["model"]
                 eval_metadata = None
-                all_results: List[EvaluationRow] = []
+                all_results: List[List[EvaluationRow]] = [[] for _ in range(num_runs)]
 
                 cohort_id = generate_id()
 
@@ -346,7 +361,7 @@ def evaluation_test(  # noqa: C901
                         status="running",
                         num_runs=num_runs,
                         aggregation_method=aggregation_method,
-                        threshold_of_success=threshold_of_success,
+                        passed_threshold=threshold,
                         passed=None,
                     )
 
@@ -386,11 +401,11 @@ def evaluation_test(  # noqa: C901
                         logger=active_logger,
                     )
 
-                    for _ in range(num_runs):
+                    for i in range(num_runs):
                         # Regenerate outputs each run by deep-copying the pristine dataset
                         # so model responses are not reused across runs.
                         run_id = generate_id()
-                        fresh_dataset = [copy.deepcopy(r) for r in data]
+                        fresh_dataset = [r.model_copy(deep=True) for r in data]
 
                         # apply new run_id to fresh_dataset
                         for row in fresh_dataset:
@@ -445,7 +460,7 @@ def evaluation_test(  # noqa: C901
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
                                     )
-                                all_results.append(result)
+                                all_results[i].append(result)
                         else:
                             # Batch mode: call the test function with the full dataset
                             results = execute_with_params(
@@ -469,17 +484,21 @@ def evaluation_test(  # noqa: C901
                                 raise ValueError(
                                     f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
                                 )
-                            all_results.extend(results)
+                            all_results[i] = results
 
-                    scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
+                    scores = [
+                        sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
+                        for result in all_results
+                    ]
                     agg_score = aggregate(scores, aggregation_method)
+                    score_std = statistics.stdev(scores) if len(scores) > 1 else 0.0
 
                     # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
                     ci_low: float | None = None
                     ci_high: float | None = None
                     if aggregation_method == "mean":
                         try:
-                            result_ci = compute_fixed_set_mu_ci(all_results)
+                            result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
                             mu_ci_low, mu_ci_high = result_ci[1], result_ci[2]
                             if mu_ci_low is not None and mu_ci_high is not None:
                                 ci_low = float(mu_ci_low)
@@ -491,15 +510,24 @@ def evaluation_test(  # noqa: C901
 
                     # Determine if the evaluation passed based on threshold
                     passed = None
-                    if threshold_of_success is not None:
-                        passed = agg_score >= threshold_of_success
+
+                    if threshold is not None:
+                        success_passed, std_passed = True, True
+
+                        success_passed = agg_score >= threshold.success
+
+                        if threshold.standard_deviation is not None:
+                            std_passed = score_std <= threshold.standard_deviation
+
+                        passed = success_passed and std_passed
 
                     # Update eval metadata status and passed field for all results
-                    for r in all_results:
-                        if r.eval_metadata is not None:
-                            r.eval_metadata.status = "finished"
-                            r.eval_metadata.passed = passed
-                        active_logger.log(r)
+                    for result in all_results:
+                        for r in result:
+                            if r.eval_metadata is not None:
+                                r.eval_metadata.status = "finished"
+                                r.eval_metadata.passed = passed
+                        default_logger.log(r)
 
                     # Optional: print and/or persist a summary artifact for CI
                     try:
@@ -507,7 +535,7 @@ def evaluation_test(  # noqa: C901
                         summary_path = os.getenv("EP_SUMMARY_JSON")
                         suite_name = test_func.__name__
                         model_used = model_name
-                        total_rows = len(all_results)
+                        total_rows = len([item for sublist in all_results for item in sublist])
                         summary_obj = {
                             "suite": suite_name,
                             "model": model_used,
@@ -524,7 +552,7 @@ def evaluation_test(  # noqa: C901
                         from collections import defaultdict
 
                         metric_scores: Dict[str, list] = defaultdict(list)
-                        for r in all_results:
+                        for r in [item for sublist in all_results for item in sublist]:
                             if r.evaluation_result and r.evaluation_result.metrics:
                                 for m_name, m_res in r.evaluation_result.metrics.items():
                                     if m_res is not None and getattr(m_res, "score", None) is not None:
@@ -641,10 +669,14 @@ def evaluation_test(  # noqa: C901
                     #     pass
 
                     # Check threshold after logging
-                    if threshold_of_success is not None and not passed:
+                    if threshold is not None and not passed:
                         assert (
-                            agg_score >= threshold_of_success
-                        ), f"Aggregated score {agg_score:.3f} below threshold {threshold_of_success}"
+                            agg_score >= threshold.success
+                        ), f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
+                        if threshold.standard_deviation is not None:
+                            assert (
+                                score_std <= threshold.standard_deviation
+                            ), f"Standard deviation {score_std:.3f} above threshold {threshold.standard_deviation}"
 
                 except AssertionError:
                     _log_eval_error("finished", data if "data" in locals() else None, passed=False)

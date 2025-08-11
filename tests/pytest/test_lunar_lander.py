@@ -7,7 +7,7 @@ similar to the test_lunar_lander_e2e test but integrated with the pytest evaluat
 
 from typing import Any, Dict, List
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message, InputMetadata, CompletionParams
+from eval_protocol.models import CompletionParams, EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import default_mcp_gym_rollout_processor
 
@@ -17,7 +17,7 @@ def lunar_lander_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluatio
     Convert entries from lunar lander dataset to EvaluationRow objects.
     """
     rows = []
-    
+
     for row in data:
         eval_row = EvaluationRow(
             messages=[Message(role="system", content=row["system_prompt"])],
@@ -26,12 +26,12 @@ def lunar_lander_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluatio
                 dataset_info={
                     "environment_context": row["environment_context"],
                     "user_prompt_template": row["user_prompt_template"],
-                }
-            )
+                },
+            ),
         )
-        
+
         rows.append(eval_row)
-    
+
     return rows
 
 
@@ -41,7 +41,7 @@ def lunar_lander_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluatio
     model=["gpt-4.1"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
     rollout_processor=default_mcp_gym_rollout_processor,
-    threshold_of_success=0.0,
+    passed_threshold=0.0,
     num_runs=1,
     mode="pointwise",
     max_concurrent_rollouts=3,
@@ -51,24 +51,28 @@ def lunar_lander_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluatio
 def test_lunar_lander_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
     Test lunar lander evaluation using the pytest framework.
-    
+
     This test evaluates how well the model can control the lunar lander to achieve
     a successful landing by checking the final reward and termination status.
-    
+
     Args:
         row: EvaluationRow object from lunar lander dataset
-        
+
     Returns:
         EvaluationRow object with evaluation results
     """
     score = row.get_total_reward()
 
     evaluation_score = 1.0 if score >= 200 else 0.0
-    reason = f"✅ Successful landing with reward {score:.2f}" if score >= 200 else f"❌ Failed landing with reward {score:.2f}"
+    reason = (
+        f"✅ Successful landing with reward {score:.2f}"
+        if score >= 200
+        else f"❌ Failed landing with reward {score:.2f}"
+    )
 
     row.evaluation_result = EvaluateResult(
         score=evaluation_score,
         reason=reason,
     )
-    
-    return row 
+
+    return row

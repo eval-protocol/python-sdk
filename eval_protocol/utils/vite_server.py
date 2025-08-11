@@ -5,7 +5,7 @@ from typing import AsyncGenerator, Callable, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 logger = logging.getLogger(__name__)
@@ -57,6 +57,40 @@ class ViteServer:
         # Setup routes
         self._setup_routes()
 
+    def _inject_config_into_html(self, html_content: str) -> str:
+        """Inject server configuration into the HTML content."""
+        config_script = f"""
+<script>
+// Server-injected configuration
+window.SERVER_CONFIG = {{
+    host: "{self.host}",
+    port: "{self.port}",
+    protocol: "ws",
+    apiProtocol: "http"
+}};
+</script>
+"""
+
+        # Insert the config script before the closing </head> tag
+        if "</head>" in html_content:
+            return html_content.replace("</head>", f"{config_script}</head>")
+        else:
+            # If no </head> tag, insert at the beginning
+            return f"{config_script}{html_content}"
+
+    def _serve_index_with_config(self) -> HTMLResponse:
+        """Serve the index.html file with injected configuration."""
+        index_path = self.build_dir / self.index_file
+        if index_path.exists():
+            with open(index_path, "r", encoding="utf-8") as f:
+                html_content = f.read()
+
+            # Inject server configuration
+            enhanced_html = self._inject_config_into_html(html_content)
+            return HTMLResponse(content=enhanced_html)
+
+        raise HTTPException(status_code=404, detail="Index file not found")
+
     def _setup_routes(self):
         """Set up the API routes for serving the SPA."""
 
@@ -81,18 +115,15 @@ class ViteServer:
             # For SPA routing, serve index.html for non-existent routes
             # but exclude API routes and asset requests
             if not path.startswith(("api/", "assets/")):
-                index_path = self.build_dir / self.index_file
-                if index_path.exists():
-                    return FileResponse(index_path)
+                return self._serve_index_with_config()
 
             # If we get here, the file doesn't exist and it's not a SPA route
             raise HTTPException(status_code=404, detail="File not found")
 
         @self.app.get("/")
         async def root():
-            """Serve the main index.html file."""
-            index_path = self.build_dir / self.index_file
-            return FileResponse(index_path)
+            """Serve the main index.html file with injected configuration."""
+            return self._serve_index_with_config()
 
         @self.app.get("/health")
         async def health():

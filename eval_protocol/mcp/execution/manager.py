@@ -158,8 +158,8 @@ class ExecutionManager:
                 messages.append(Message.model_validate(msg_dict))
 
             evaluation_rows[idx].messages = messages
-            evaluation_rows[idx].input_metadata.row_id = envs.dataset_rows[idx].id
-            evaluation_rows[idx].input_metadata.dataset_info = asdict(envs.dataset_rows[idx])
+            # evaluation_rows[idx].input_metadata.row_id = envs.dataset_rows[idx].id
+            # evaluation_rows[idx].input_metadata.dataset_info = asdict(envs.dataset_rows[idx])
             evaluation_rows[idx].tools = shared_tool_schema
             evaluation_rows[idx].usage = CompletionUsage(**trajectory.usage)
             evaluation_rows[idx].input_metadata.completion_params = CompletionParams(
@@ -482,11 +482,11 @@ class ExecutionManager:
                 trajectory.control_plane_summary.update({"error_message": f"{failure_reason}"})
             try:
                 await envs.connection_manager.reset_session(session)
-            except:
+            except:  # noqa: E722
                 logger.error(f"Error resetting session {session.session_id}")
             try:
                 await envs.connection_manager.close_session(session)
-            except:
+            except:  # noqa: E722
                 logger.error(f"Error closing session {session.session_id}")
         return trajectory
 
