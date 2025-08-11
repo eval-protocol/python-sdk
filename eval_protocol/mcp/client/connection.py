@@ -9,14 +9,16 @@ import asyncio
 import hashlib
 import json
 import logging
+import time
 from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional, Tuple
 
+import httpx
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
+from mcp.types import Implementation
 
 from ...types import MCPSession
-from mcp.types import Implementation
 
 logger = logging.getLogger(__name__)
 
@@ -109,15 +111,13 @@ class MCPConnectionManager:
         """
         Clean session data in remote mcp server for the given session
         """
-        import httpx
-
         base_url = session.base_url.rstrip("/").removesuffix("/mcp")
         url = f"{base_url}/control/reset_session"
 
         headers = {"mcp-session-id": session.session_id}
         body = {"seed": session.seed}
 
-        timeout = httpx.Timeout(3.0)
+        timeout = httpx.Timeout(15.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(url, headers=headers, json=body)
             resp.raise_for_status()
@@ -202,8 +202,6 @@ class MCPConnectionManager:
         initial_observation = None
 
         try:
-            import httpx
-
             # Extract base URL and session ID from the MCP session
             base_url = session.base_url.rstrip("/").removesuffix("/mcp")
             session_id = session.session_id
@@ -459,9 +457,6 @@ class MCPConnectionManager:
         control_plane_info = {}
 
         try:
-            # Query control plane endpoints following the new architecture
-            import httpx
-
             # Extract base URL and session ID from the MCP session
             base_url = session.base_url.rstrip("/").removesuffix("/mcp")
             # Use the session ID from the established MCP session
@@ -544,10 +539,10 @@ class MCPConnectionManager:
                 await session._exit_stack.aclose()
             except asyncio.CancelledError:
                 # Handle cancellation gracefully (especially important for Python 3.12)
-                logger.debug(f"Session {session.session_id} close was cancelled")
+                logger.error(f"Session {session.session_id} close was cancelled")
             except Exception as e:
                 # Hitting this error, probably because of use of threads: "Attempted to exit cancel scope in a different task than it was entered in"
-                logger.debug(f"Error closing session {session.session_id}: {e}")
+                logger.error(f"Error closing session {session.session_id}: {e}")
             finally:
                 session._exit_stack = None
                 session._mcp_session = None

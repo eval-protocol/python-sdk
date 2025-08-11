@@ -70,7 +70,7 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
     threshold_of_success=0.4,
     num_runs=1,
     mode="pointwise",
-    max_concurrent_rollouts=16,
+    max_concurrent_rollouts=50,
     server_script_path="examples/tau2_mcp/server.py",
 )
 def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
@@ -139,23 +139,27 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
         id="Filler", evaluation_criteria=evaluation_criteria, user_scenario=UserScenario(instructions="Filler")
     )  # id and user_scenario are required for the Task type but not used in calculating reward
 
-    env_reward_info = EnvironmentEvaluator.calculate_reward(
-        environment_constructor=registry.get_env_constructor("airline"),
-        task=task,
-        full_trajectory=trajectory_objects,
-    )
-    action_reward_info = ActionEvaluator.calculate_reward(
-        task=task,
-        full_trajectory=trajectory_objects,
-    )
-    communicate_reward_info = CommunicateEvaluator.calculate_reward(
-        task=task,
-        full_trajectory=trajectory_objects,
-    )
-    nl_reward_info = NLAssertionsEvaluator.calculate_reward(
-        task=task,
-        full_trajectory=trajectory_objects,
-    )
+    if RewardType.DB in task.evaluation_criteria.reward_basis:
+        env_reward_info = EnvironmentEvaluator.calculate_reward(
+            environment_constructor=registry.get_env_constructor("airline"),
+            task=task,
+            full_trajectory=trajectory_objects,
+        )
+    if RewardType.ACTION in task.evaluation_criteria.reward_basis:
+        action_reward_info = ActionEvaluator.calculate_reward(
+            task=task,
+            full_trajectory=trajectory_objects,
+        )
+    if RewardType.COMMUNICATE in task.evaluation_criteria.reward_basis:
+        communicate_reward_info = CommunicateEvaluator.calculate_reward(
+            task=task,
+            full_trajectory=trajectory_objects,
+        )
+    if RewardType.NL_ASSERTION in task.evaluation_criteria.reward_basis:
+        nl_reward_info = NLAssertionsEvaluator.calculate_reward(
+            task=task,
+            full_trajectory=trajectory_objects,
+        )
 
     reward = 1.0
     env_bases = {RewardType.DB, RewardType.ENV_ASSERTION}

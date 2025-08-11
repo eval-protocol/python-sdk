@@ -886,7 +886,7 @@ async def test_fireworks_multi_airline_environment_sessions(
         assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
 
         # Create environments for playback
-        playback_envs = await ep.make(
+        playback_envs = ep.make(
             "http://localhost:9500/mcp/",
             dataset=multi_env_airline_dataset,
             model_id=playback_policy.model_id,
@@ -928,7 +928,7 @@ async def test_fireworks_multi_airline_environment_sessions(
         assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
         # Create multiple environments
-        envs = await ep.make(
+        envs = ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_airline_dataset,
             model_id=policy.model_id,
@@ -1029,7 +1029,7 @@ async def test_entire_airline_dataset(multi_env_airline_full_dataset, fireworks_
         assert playback_policy.is_playback_mode(), "Should be in playback mode in CI"
 
         # Create environments for playback
-        playback_envs = await ep.make(
+        playback_envs = ep.make(
             "http://localhost:9500/mcp/",
             dataset=multi_env_airline_full_dataset,
             model_id=playback_policy.model_id,
@@ -1076,7 +1076,7 @@ async def test_entire_airline_dataset(multi_env_airline_full_dataset, fireworks_
         assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
         # Create multiple environments
-        envs = await ep.make(
+        envs = ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_airline_full_dataset,
             model_id=policy.model_id,
@@ -1425,7 +1425,7 @@ async def test_fireworks_multi_mock_environment_sessions(
         server = _create_test_server(8021, domain="mock")  # Use unique port for mock
 
         try:
-            envs = await ep.make(
+            envs = ep.make(
                 f"http://localhost:{server.port}/mcp/",
                 dataset=multi_env_mock_dataset,
                 model_id=playback_policy.model_id,
@@ -1469,7 +1469,7 @@ async def test_fireworks_multi_mock_environment_sessions(
         assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
         # Create multiple environments
-        envs = await ep.make(
+        envs = ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_mock_dataset,
             model_id=policy.model_id,
@@ -1559,7 +1559,7 @@ async def test_fireworks_multi_retail_environment_sessions(
         server = _create_test_server(8022, domain="retail")  # Use unique port for retail
 
         try:
-            envs = await ep.make(
+            envs = ep.make(
                 f"http://localhost:{server.port}/mcp/",
                 dataset=multi_env_retail_dataset,
                 model_id=playback_policy.model_id,
@@ -1603,7 +1603,7 @@ async def test_fireworks_multi_retail_environment_sessions(
         assert not policy.is_playback_mode(), "Should be in recording mode initially"
 
         # Create multiple environments
-        envs = await ep.make(
+        envs = ep.make(
             f"http://localhost:{server.port}/mcp/",
             dataset=multi_env_retail_dataset,
             model_id=policy.model_id,

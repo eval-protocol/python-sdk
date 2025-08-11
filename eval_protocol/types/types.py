@@ -11,11 +11,14 @@ class TerminationReason(str, Enum):
     MAX_STEPS: Trajectory ends because we hit the step limit
     CONTROL_PLANE_SIGNAL: Trajectory ends because the control plane signals termination (e.g. env goal reached or failure condition)
     USER_STOP: Trajectory ends because the simulated user signals to stop
+    INTERRUPTED: Trajectory ends unexpectedly, for example, expecting tool call but there is no tool call
+    ERROR: Trajectory ends because of an error
     """
 
     MAX_STEPS = "max_steps"
     CONTROL_PLANE_SIGNAL = "control_plane_signal"
     USER_STOP = "user_stop"
+    INTERRUPTED = "interrupted"
     ERROR = "error"
 
 

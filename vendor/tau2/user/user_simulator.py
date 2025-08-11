@@ -120,10 +120,12 @@ class UserSimulator(BaseUser):
         assert message.content is not None
         return STOP in message.content or TRANSFER in message.content or OUT_OF_SCOPE in message.content
 
-    def generate_next_message(self, message: ValidUserInputMessage, state: UserState) -> Tuple[UserMessage, UserState]:
-        return self._generate_next_message(message, state)
+    async def generate_next_message(
+        self, message: ValidUserInputMessage, state: UserState
+    ) -> Tuple[UserMessage, UserState]:
+        return await self._generate_next_message(message, state)
 
-    def _generate_next_message(
+    async def _generate_next_message(
         self, message: ValidUserInputMessage, state: UserState
     ) -> Tuple[UserMessage, UserState]:
         """Get the response from the user simulator.
@@ -143,7 +145,7 @@ class UserSimulator(BaseUser):
         messages = state.system_messages + state.flip_roles()
 
         # Generate response
-        assistant_message = generate(
+        assistant_message = await generate(
             model=self.llm,
             messages=messages,
             tools=self.tools,
@@ -192,5 +194,7 @@ class DummyUser(UserSimulator):
     def set_seed(self, seed: int):
         pass
 
-    def generate_next_message(self, message: ValidUserInputMessage, state: UserState) -> tuple[UserMessage, UserState]:
+    async def generate_next_message(
+        self, message: ValidUserInputMessage, state: UserState
+    ) -> tuple[UserMessage, UserState]:
         raise NotImplementedError("DummyUser does not support generate_next_message")
