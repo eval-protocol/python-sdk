@@ -207,7 +207,7 @@ class PlaybackPolicyBase(ABC):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List["MCPToolCall"], CompletionUsage]:
+    ) -> Tuple[List["MCPToolCall"], CompletionUsage, str]:
         """
         Generate tool calls in live mode. Concrete classes must implement this.
 
