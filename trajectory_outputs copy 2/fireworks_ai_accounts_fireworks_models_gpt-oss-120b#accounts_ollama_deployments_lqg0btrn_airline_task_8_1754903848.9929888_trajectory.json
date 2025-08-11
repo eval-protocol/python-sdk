@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_8",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 8_0\n\tRequestor: assistant\n\tName: get_user_details\n\tArguments:\n\t{\n\t  \"user_id\": \"sophia_silva_7557\"\n\t}\n\tAction ID: 8_1\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"WUNA5K\"\n\t}\n\tAction ID: 8_2\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"ORD\",\n\t  \"destination\": \"PHL\",\n\t  \"date\": \"2024-05-26\"\n\t}\n\tAction ID: 8_3\n\tRequestor: assistant\n\tName: book_reservation\n\tArguments:\n\t{\n\t  \"user_id\": \"sophia_silva_7557\",\n\t  \"origin\": \"ORD\",\n\t  \"destination\": \"PHL\",\n\t  \"flight_type\": \"one_way\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT271\",\n\t      \"date\": \"2024-05-26\"\n\t    }\n\t  ],\n\t  \"passengers\": [\n\t    {\n\t      \"first_name\": \"Sophia\",\n\t      \"last_name\": \"Silva\",\n\t      \"dob\": \"1957-10-05\"\n\t    },\n\t    {\n\t      \"first_name\": \"Kevin\",\n\t      \"last_name\": \"Smith\",\n\t      \"dob\": \"2001-04-12\"\n\t    }\n\t  ],\n\t  \"payment_methods\": [\n\t    {\n\t      \"payment_id\": \"certificate_8045380\",\n\t      \"amount\": 348\n\t    }\n\t  ],\n\t  \"total_baggages\": 0,\n\t  \"nonfree_baggages\": 0,\n\t  \"insurance\": \"no\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent get sophia_silva_7557 user details.\n\tAgent identifies reservation id as WUNA5K.\n\tAgent books one-way flight HAT271, May 26, in economy, no travel insurance, no baggage. Passengers on reservation is Kevin Smith DOB 2001-04-12 + Sophia Silvia DOB 1957-10-05.\n\tAgent uses single certificate for payment.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:17:28.992923"
+}

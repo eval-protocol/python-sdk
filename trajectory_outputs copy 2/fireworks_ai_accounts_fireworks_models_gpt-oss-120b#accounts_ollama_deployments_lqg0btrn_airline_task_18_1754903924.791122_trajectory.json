@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_18",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed\n\u274c Failed communication: ['23553']",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 0.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 18_0\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"JG7FMM\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT028\",\n\t      \"date\": \"2024-05-21\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT277\",\n\t      \"date\": \"2024-05-21\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"credit_card_2929732\"\n\t}\n\tAction ID: 18_1\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"2FBBAH\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT080\",\n\t      \"date\": \"2024-05-28\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT076\",\n\t      \"date\": \"2024-05-28\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT255\",\n\t      \"date\": \"2024-05-30\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT148\",\n\t      \"date\": \"2024-05-30\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"gift_card_3481935\"\n\t}\n\tAction ID: 18_2\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"X7BYG1\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT232\",\n\t      \"date\": \"2024-05-24\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT228\",\n\t      \"date\": \"2024-05-24\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"credit_card_2929732\"\n\t}\n\tAction ID: 18_3\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"EQ1G6C\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT084\",\n\t      \"date\": \"2024-05-23\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT175\",\n\t      \"date\": \"2024-05-23\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"gift_card_6847880\"\n\t}\n\tAction ID: 18_4\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"BOH180\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT276\",\n\t      \"date\": \"2024-05-21\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT279\",\n\t      \"date\": \"2024-05-22\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"credit_card_9525117\"\n\t}\nCommunicate Info:\n\t23553\nNL Assertions:\n\tReservation JG7FMM is updated to economy.\n\tReservation 2FBBAH is updated to economy.\n\tReservation X7BYG1 is updated to economy. \n\tReservation BOH180 is updated to economy. \n\tReservation EQ1G6C is updated to economy.\n\tAgent communicates that user will save $23553 in total.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:18:44.791069"
+}

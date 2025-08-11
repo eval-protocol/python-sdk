@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_13",
+  "messages": [],
+  "evaluation": {
+    "score": 1.0,
+    "reason": "\u2705 All checks passed",
+    "metrics": {
+      "env_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.DB: 'DB'>: 1.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 13_0\n\tRequestor: assistant\n\tName: transfer_to_human_agents\n\tArguments:\n\t{\n\t  \"summary\": \"User wants to change my upcoming one stop flight from ATL to LAX within reservation XEWRD9 to a nonstop flight from ATL to LAS (Las Vegas). Origin and destination of a reservation cannot be modified.\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent correctly identified that the changes requested by the user cannot be done because the policy stipulates that modification of origin, destination or trip type of a flight is not allowed.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:17:11.893689"
+}

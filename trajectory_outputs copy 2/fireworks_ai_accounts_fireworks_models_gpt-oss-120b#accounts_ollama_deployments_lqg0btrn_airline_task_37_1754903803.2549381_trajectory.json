@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_37",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 37_0\n\tRequestor: assistant\n\tName: cancel_reservation\n\tArguments:\n\t{\n\t  \"reservation_id\": \"NQNU5R\"\n\t}\n\tAction ID: 37_1\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"M20IZO\"\n\t}\n\tAction ID: 37_2\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"JFK\",\n\t  \"destination\": \"ATL\",\n\t  \"date\": \"2024-05-22\"\n\t}\n\tAction ID: 37_3\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"ATL\",\n\t  \"destination\": \"MCO\",\n\t  \"date\": \"2024-05-22\"\n\t}\n\tAction ID: 37_4\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"M20IZO\",\n\t  \"cabin\": \"business\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT268\",\n\t      \"date\": \"2024-05-22\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT010\",\n\t      \"date\": \"2024-05-22\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"credit_card_9074831\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent cancels reservation NQNU5R since it's business.\n\tAgent does not cancel reservation IFOYYZ since it doesn't meet criteria.\n\tAgent upgrades M20IZO to business class.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:16:43.254874"
+}

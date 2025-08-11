@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_3",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Failed communication: ['4']",
+    "metrics": {
+      "env_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.DB: 'DB'>: 1.0}"
+      },
+      "comm_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 0.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 3_0\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"JMO1MG\"\n\t}\n\tAction ID: 3_1\n\tRequestor: assistant\n\tName: get_user_details\n\tArguments:\n\t{\n\t  \"user_id\": \"anya_garcia_5901\"\n\t}\nCommunicate Info:\n\t4\nNL Assertions:\n\tAgent detects that user is actually a Silver member.\n\tAgent communicate to user that she can bring 4 suitcases (silver member with economy flights = 2 free suitcases per passengers).",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:15:36.400637"
+}

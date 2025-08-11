@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
-
+import time
 from eval_protocol.models import CompletionParams, EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import default_mcp_gym_rollout_processor
@@ -61,11 +61,31 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
     return rows
 
 
+def save_single_trajectory(trajectory_record: Dict, row_id: str, output_dir: str = "trajectory_outputs"):
+    """Save a single trajectory record to file."""
+    output_path = Path(output_dir)
+    output_path.mkdir(exist_ok=True)
+
+    # Sanitize model_id for filename (replace slashes with underscores)
+    safe_model_id = trajectory_record["model_id"].replace("/", "_").replace("\\", "_")
+    
+    # Use row_id if provided, otherwise fall back to scenario_id
+    curr_time = time.time()
+    filename = f"{safe_model_id}_{row_id}_{curr_time}_trajectory.json"
+    filepath = output_path / filename
+
+    with open(filepath, "w") as f:
+        json.dump(trajectory_record, f, indent=2, default=str)
+
+    print(f"💾 Saved trajectory: {filepath}")
+    return filepath
+
 @evaluation_test(
     input_dataset=["tests/pytest/data/airline_dataset.jsonl"],
     dataset_adapter=tau_bench_airline_to_evaluation_row,
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
-    rollout_input_params=[{"temperature": 0.8, "max_tokens": 4096, "reasoning_effort": "low"}],
+    # model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn"],
+    rollout_input_params=[{"temperature": 0.8, "max_tokens": 4096, "reasoning_effort": "high"}],
     rollout_processor=default_mcp_gym_rollout_processor,
     passed_threshold={"success": 0.4, "standard_deviation": 0.1},
     num_runs=8,
@@ -225,6 +245,52 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
 
     # If everything passed, show success
     reason = "\n".join(failed_reasons) if failed_reasons else "✅ All checks passed"
+
+    # DELETE FROM HERE
+    row_id = row.input_metadata.row_id
+
+    # Create trajectory record similar to test_entire_airline_dataset
+    trajectory_record = {
+        "model_id": row.input_metadata.completion_params.model if row.input_metadata else "unknown",
+        "row_id": row_id,
+        "messages": [
+            {
+                "role": msg.role, 
+                "content": msg.content, 
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": getattr(tc, 'type', 'function'),
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    } for tc in msg.tool_calls
+                ] if hasattr(msg, 'tool_calls') and msg.tool_calls else None
+            }
+            for msg in messages
+        ],
+        "evaluation": {
+            "score": reward,
+            "reason": reason,
+            "metrics": {
+                "env_reward": {"score": env_reward_info.reward, "success": env_reward_info.reward > 0, "reason": str(env_reward_info.reward_breakdown)},
+                # "action_reward": {"score": action_reward_info.reward, "success": action_reward_info.reward > 0, "reason": str(action_reward_info.reward_breakdown)},
+                # "nl_reward": {"score": nl_reward_info.reward, "success": nl_reward_info.reward > 0, "reason": str(nl_reward_info.reward_breakdown)},
+                "comm_reward": {"score": communicate_reward_info.reward, "success": communicate_reward_info.reward > 0, "reason": str(communicate_reward_info.reward_breakdown)},
+            },
+        },
+        "evaluation_criteria": evaluation_criteria,
+        "conversation_length": len(messages),
+        "trajectory_steps": len([msg for msg in messages if msg.role == "assistant"]),  # Approximate step count
+        # "cost_info": {
+        #     "total_cost": 0.0,
+        #     "total_tokens": 0,  # Could be extracted from usage stats if available
+        #     "cost_source": "not_tracked",
+        # },
+        "timestamp": datetime.now().isoformat(),
+    }
+    save_single_trajectory(trajectory_record, row_id=row_id)
 
     row.evaluation_result = EvaluateResult(
         score=reward,

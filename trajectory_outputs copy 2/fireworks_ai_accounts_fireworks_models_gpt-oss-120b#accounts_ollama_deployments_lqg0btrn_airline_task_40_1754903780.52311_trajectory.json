@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_40",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 40_0\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"3RK2T9\"\n\t}\n\tAction ID: 40_1\n\tRequestor: assistant\n\tName: update_reservation_passengers\n\tArguments:\n\t{\n\t  \"reservation_id\": \"3RK2T9\",\n\t  \"passengers\": [\n\t    {\n\t      \"first_name\": \"Anya\",\n\t      \"last_name\": \"Garcia\",\n\t      \"dob\": \"1992-11-12\"\n\t    },\n\t    {\n\t      \"first_name\": \"Mei\",\n\t      \"last_name\": \"Garcia\",\n\t      \"dob\": \"1989-12-13\"\n\t    }\n\t  ]\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent updates reservation 3RK2T9 to passenger Mei Garcia.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:16:20.523046"
+}

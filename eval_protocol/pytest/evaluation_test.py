@@ -454,6 +454,7 @@ def evaluation_test(  # noqa: C901
                         sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
                         for result in all_results
                     ]
+                    print(f"SCORES: {scores}")
                     agg_score = aggregate(scores, aggregation_method)
                     score_std = statistics.stdev(scores) if len(scores) > 1 else 0.0
 

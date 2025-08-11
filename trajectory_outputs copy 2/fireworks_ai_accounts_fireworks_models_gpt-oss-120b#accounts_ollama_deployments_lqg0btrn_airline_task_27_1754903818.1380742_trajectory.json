@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_27",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 27_0\n\tRequestor: assistant\n\tName: get_user_details\n\tArguments:\n\t{\n\t  \"user_id\": \"ethan_martin_2396\"\n\t}\n\tAction ID: 27_1\n\tRequestor: assistant\n\tName: send_certificate\n\tArguments:\n\t{\n\t  \"user_id\": \"ethan_martin_2396\",\n\t  \"amount\": 150\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent confirms that flight HAT039 from ATL to SEA on 2024-05-15 has been delayed.\n\tAgent confirms that user can receive compensation because he has Silver status.\n\tAgent issues a $150 certificate to the user.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:16:58.138008"
+}

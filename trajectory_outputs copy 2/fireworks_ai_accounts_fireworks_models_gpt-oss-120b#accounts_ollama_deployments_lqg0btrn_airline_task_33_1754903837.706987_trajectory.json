@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_33",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 33_0\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"HXDUBJ\"\n\t}\n\tAction ID: 33_1\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"IAH\",\n\t  \"destination\": \"SFO\",\n\t  \"date\": \"2024-05-19\"\n\t}\n\tAction ID: 33_2\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"SFO\",\n\t  \"destination\": \"IAH\",\n\t  \"date\": \"2024-05-21\"\n\t}\n\tAction ID: 33_3\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"HXDUBJ\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT072\",\n\t      \"date\": \"2024-05-19\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT278\",\n\t      \"date\": \"2024-05-23\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"gift_card_6941833\"\n\t}\n\tAction ID: 33_4\n\tRequestor: assistant\n\tName: update_reservation_baggages\n\tArguments:\n\t{\n\t  \"reservation_id\": \"HXDUBJ\",\n\t  \"total_baggages\": 2,\n\t  \"nonfree_baggages\": 2,\n\t  \"payment_id\": \"gift_card_6941833\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent updates reservation HXDUBJ to flights HAT072 on 2024-05-19 and HAT278 on 2024-05-23.\n\tAgent does not allow change to business class for only one leg of the flight.\n\tAgent add 2 non-free baggages to reservation HXDUBJ.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:17:17.706905"
+}
