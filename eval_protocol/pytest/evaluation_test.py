@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Literal, Optional
 import pytest
 
 from eval_protocol.dataset_logger import default_logger
+from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.human_id import generate_id
 from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
@@ -55,6 +56,7 @@ def evaluation_test(  # noqa: C901
     steps: int = 30,
     mode: EvaluationTestMode = "batch",
     combine_datasets: bool = True,
+    logger: Optional[DatasetLogger] = None,
 ) -> Callable[
     [TestFunction],
     TestFunction,
@@ -117,7 +119,10 @@ def evaluation_test(  # noqa: C901
         mode: Evaluation mode. "batch" (default) expects test function to handle
             full dataset. "pointwise" applies test function to each row. If your evaluation requires
             the full rollout of all rows to compute the score, use
+        logger: DatasetLogger to use for logging. If not provided, a default logger will be used.
     """
+
+    active_logger: DatasetLogger = logger if logger else default_logger
 
     def decorator(
         test_func: TestFunction,
@@ -287,7 +292,7 @@ def evaluation_test(  # noqa: C901
                 def _log_eval_error(
                     status: Literal["finished", "error"], rows: Optional[List[EvaluationRow]] | None, passed: bool
                 ) -> None:
-                    log_eval_status_and_rows(eval_metadata, rows, status, passed, default_logger)
+                    log_eval_status_and_rows(eval_metadata, rows, status, passed, active_logger)
 
                 try:
                     # Handle dataset loading
@@ -369,7 +374,6 @@ def evaluation_test(  # noqa: C901
                         # has to be done in the pytest main process since it's
                         # used to determine whether this eval has stopped
                         row.pid = os.getpid()
-                        default_logger.log(row)
 
                     # Prepare rollout processor config once; we will generate fresh outputs per run
                     config = RolloutProcessorConfig(
@@ -379,6 +383,7 @@ def evaluation_test(  # noqa: C901
                         max_concurrent_rollouts=max_concurrent_rollouts,
                         server_script_path=server_script_path,
                         steps=steps,
+                        logger=active_logger,
                     )
 
                     for _ in range(num_runs):
@@ -394,6 +399,10 @@ def evaluation_test(  # noqa: C901
                         # generate new rollout_id for each row
                         for row in fresh_dataset:
                             row.rollout_id = generate_id()
+
+                        # log the fresh_dataset
+                        for row in fresh_dataset:
+                            active_logger.log(row)
 
                         processed_dataset = execute_function(rollout_processor, rows=fresh_dataset, config=config)
 
@@ -463,7 +472,7 @@ def evaluation_test(  # noqa: C901
                         if r.eval_metadata is not None:
                             r.eval_metadata.status = "finished"
                             r.eval_metadata.passed = passed
-                        default_logger.log(r)
+                        active_logger.log(r)
 
                     # Optional: print and/or persist a summary artifact for CI
                     try:
@@ -586,6 +595,23 @@ def evaluation_test(  # noqa: C901
                     except Exception:
                         # Do not fail evaluation if summary writing fails
                         pass
+
+                    # # Write all rows from active_logger.read() to a JSONL file in the same directory as the summary
+                    # try:
+                    #     if active_logger is not None:
+                    #         rows = active_logger.read()
+                    #         # Write to a .jsonl file alongside the summary file
+                    #         jsonl_path = "logs.jsonl"
+                    #         import json
+
+                    #         with open(jsonl_path, "w", encoding="utf-8") as f_jsonl:
+                    #             for row in rows:
+                    #                 json.dump(row.model_dump(exclude_none=True, mode="json"), f_jsonl)
+                    #                 f_jsonl.write("\n")
+                    # except Exception as e:
+                    #     # Do not fail evaluation if log writing fails
+                    #     print(e)
+                    #     pass
 
                     # Check threshold after logging
                     if threshold_of_success is not None and not passed:

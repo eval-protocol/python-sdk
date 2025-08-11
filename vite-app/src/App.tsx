@@ -42,11 +42,11 @@ const App = observer(() => {
             return EvaluationRowSchema.parse(log);
           });
           console.log("initialize_logs", rows);
-          state.setDataset(rows);
+          state.upsertRows(rows);
         } else if (update.type === "log") {
           const row: EvaluationRow = EvaluationRowSchema.parse(update.row);
           console.log("log", row);
-          state.setDataset([row]);
+          state.upsertRows([row]);
         }
       } catch (error) {
         console.error("Failed to parse WebSocket message:", error);

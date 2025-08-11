@@ -5,6 +5,9 @@ Parameter types
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Literal, Optional
 
+from eval_protocol.dataset_logger import default_logger
+from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
+
 from ..models import EvaluationRow, Message
 
 ModelParam = str  # gpt-4o, gpt-4o-mini, accounts/fireworks/models/llama-3.1-8b-instruct
@@ -39,10 +42,13 @@ Rollout processor types
 class RolloutProcessorConfig:
     model: ModelParam
     input_params: RolloutInputParam  # optional input parameters for inference
-    mcp_config_path: str  
-    server_script_path: Optional[str] = None  # TODO: change from server_script_path to mcp_config_path for agent rollout processor
+    mcp_config_path: str
+    server_script_path: Optional[str] = (
+        None  # TODO: change from server_script_path to mcp_config_path for agent rollout processor
+    )
     max_concurrent_rollouts: int = 8  # maximum number of concurrent rollouts
     steps: int = 30  # max number of rollout steps
+    logger: DatasetLogger = default_logger  # logger to use during rollout for mid-rollout logs
 
 
 RolloutProcessor = Callable[[List[EvaluationRow], RolloutProcessorConfig], List[EvaluationRow]]

@@ -6,8 +6,11 @@ import StatusIndicator from "./StatusIndicator";
 import { state } from "../App";
 
 // Small, focused components following "dereference values late" principle
-const ExpandIcon = observer(({ rowId }: { rowId: string }) => {
-  const isExpanded = state.isRowExpanded(rowId);
+const ExpandIcon = observer(({ rolloutId }: { rolloutId?: string }) => {
+  if (!rolloutId) {
+    throw new Error("Rollout ID is required");
+  }
+  const isExpanded = state.isRowExpanded(rolloutId);
   return (
     <div className="w-4 h-4 flex items-center justify-center">
       <svg
@@ -47,9 +50,18 @@ const RowStatus = observer(
   )
 );
 
-const RowId = observer(({ rowId }: { rowId: string }) => (
-  <span className="font-mono text-gray-900 whitespace-nowrap">{rowId}</span>
-));
+const RolloutId = observer(
+  ({ rolloutId: rolloutId }: { rolloutId?: string }) => {
+    if (!rolloutId) {
+      return null;
+    }
+    return (
+      <span className="font-mono text-gray-900 whitespace-nowrap">
+        {rolloutId}
+      </span>
+    );
+  }
+);
 
 const RowModel = observer(({ model }: { model: string | undefined }) => (
   <span className="text-gray-900 truncate block">{model || "N/A"}</span>
@@ -116,6 +128,18 @@ const InputMetadataSection = observer(
   )
 );
 
+const IdSection = observer(({ data }: { data: EvaluationRowType }) => (
+  <MetadataSection
+    title="IDs"
+    data={{
+      rollout_id: data.rollout_id,
+      cohort_id: data.cohort_id,
+      invocation_id: data.invocation_id,
+      run_id: data.run_id,
+    }}
+  />
+));
+
 const ToolsSection = observer(
   ({ data }: { data: EvaluationRowType["tools"] }) => (
     <MetadataSection title="Tools" data={data} />
@@ -130,6 +154,7 @@ const ChatInterfaceSection = observer(
 
 const ExpandedContent = observer(
   ({
+    row,
     messages,
     eval_metadata,
     evaluation_result,
@@ -138,6 +163,7 @@ const ExpandedContent = observer(
     input_metadata,
     tools,
   }: {
+    row: EvaluationRowType;
     messages: EvaluationRowType["messages"];
     eval_metadata: EvaluationRowType["eval_metadata"];
     evaluation_result: EvaluationRowType["evaluation_result"];
@@ -157,6 +183,7 @@ const ExpandedContent = observer(
         <div className="w-[500px] flex-shrink-0 space-y-3">
           <EvalMetadataSection data={eval_metadata} />
           <EvaluationResultSection data={evaluation_result} />
+          <IdSection data={row} />
           <GroundTruthSection data={ground_truth} />
           <UsageStatsSection data={usage} />
           <InputMetadataSection data={input_metadata} />
@@ -169,10 +196,10 @@ const ExpandedContent = observer(
 
 export const EvaluationRow = observer(
   ({ row }: { row: EvaluationRowType; index: number }) => {
-    const rowId = row.input_metadata.row_id;
-    const isExpanded = state.isRowExpanded(rowId);
+    const rolloutId = row.rollout_id;
+    const isExpanded = state.isRowExpanded(rolloutId);
 
-    const toggleExpanded = () => state.toggleRowExpansion(rowId);
+    const toggleExpanded = () => state.toggleRowExpansion(rolloutId);
 
     return (
       <>
@@ -183,7 +210,7 @@ export const EvaluationRow = observer(
         >
           {/* Expand/Collapse Icon */}
           <td className="px-3 py-3 w-8">
-            <ExpandIcon rowId={rowId} />
+            <ExpandIcon rolloutId={rolloutId} />
           </td>
 
           {/* Name */}
@@ -199,9 +226,9 @@ export const EvaluationRow = observer(
             />
           </td>
 
-          {/* Row ID */}
+          {/* Rollout ID */}
           <td className="px-3 py-3 text-xs">
-            <RowId rowId={row.input_metadata.row_id} />
+            <RolloutId rolloutId={row.rollout_id} />
           </td>
 
           {/* Model */}
@@ -225,6 +252,7 @@ export const EvaluationRow = observer(
           <tr>
             <td colSpan={8} className="p-0">
               <ExpandedContent
+                row={row}
                 messages={row.messages}
                 eval_metadata={row.eval_metadata}
                 evaluation_result={row.evaluation_result}

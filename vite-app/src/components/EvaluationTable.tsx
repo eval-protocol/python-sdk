@@ -6,11 +6,7 @@ const TableBody = observer(() => {
   return (
     <tbody className="divide-y divide-gray-200">
       {state.sortedDataset.map((row, index) => (
-        <EvaluationRow
-          key={row.input_metadata.row_id}
-          row={row}
-          index={index}
-        />
+        <EvaluationRow key={row.rollout_id} row={row} index={index} />
       ))}
     </tbody>
   );
@@ -34,7 +30,7 @@ export const EvaluationTable = observer(() => {
               Status
             </th>
             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-              Row ID
+              Rollout ID
             </th>
             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
               Model
