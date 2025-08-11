@@ -596,6 +596,23 @@ def evaluation_test(  # noqa: C901
                         # Do not fail evaluation if summary writing fails
                         pass
 
+                    # # Write all rows from active_logger.read() to a JSONL file in the same directory as the summary
+                    # try:
+                    #     if active_logger is not None:
+                    #         rows = active_logger.read()
+                    #         # Write to a .jsonl file alongside the summary file
+                    #         jsonl_path = "logs.jsonl"
+                    #         import json
+
+                    #         with open(jsonl_path, "w", encoding="utf-8") as f_jsonl:
+                    #             for row in rows:
+                    #                 json.dump(row.model_dump(exclude_none=True, mode="json"), f_jsonl)
+                    #                 f_jsonl.write("\n")
+                    # except Exception as e:
+                    #     # Do not fail evaluation if log writing fails
+                    #     print(e)
+                    #     pass
+
                     # Check threshold after logging
                     if threshold_of_success is not None and not passed:
                         assert (
