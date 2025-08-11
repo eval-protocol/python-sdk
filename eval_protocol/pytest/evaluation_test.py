@@ -404,7 +404,34 @@ def evaluation_test(  # noqa: C901
                         for row in fresh_dataset:
                             active_logger.log(row)
 
-                        processed_dataset = execute_function(rollout_processor, rows=fresh_dataset, config=config)
+                        # filter out rows that already have completed rollouts via checkpointing
+                        rows_to_process = []
+                        completed_rollout_ids = set()
+
+                        finished_logs = active_logger.read()
+
+                        for finished_row in finished_logs:
+                            # need to add finished rows to all_results so that we can aggregate them later.
+                            all_results.append(finished_row)
+                            # TODO: need to also add the num_run to track which run the row belongs to.
+                            # TODO: ask why we made row_id optional in the first place. checkpointing won't work without some ID.
+                            if finished_row.input_metadata and finished_row.input_metadata.row_id:
+                                completed_rollout_ids.add(finished_row.input_metadata.row_id)
+
+                        for row in fresh_dataset:
+                            row_id = row.input_metadata.row_id if row.input_metadata else None
+                            if row_id not in completed_rollout_ids:
+                                rows_to_process.append(row)
+
+                        if len(rows_to_process) < len(fresh_dataset):
+                            print(
+                                f"Checkpointing: Found {len(fresh_dataset) - len(rows_to_process)} completed rows, processing {len(rows_to_process)} remaining rows"
+                            )
+
+                        if rows_to_process:
+                            processed_dataset = execute_function(
+                                rollout_processor, rows=rows_to_process, config=config
+                            )
 
                         if mode == "pointwise":
                             # Pointwise mode: apply the evaluator function to each row
