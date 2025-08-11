@@ -500,7 +500,7 @@ def evaluation_test(  # noqa: C901
                             if r.eval_metadata is not None:
                                 r.eval_metadata.status = "finished"
                                 r.eval_metadata.passed = passed
-                        default_logger.log(r)
+                            default_logger.log(r)
 
                     # Optional: print and/or persist a summary artifact for CI
                     try:
