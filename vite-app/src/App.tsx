@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { observer } from "mobx-react";
 import Dashboard from "./components/Dashboard";
 import Button from "./components/Button";
@@ -15,7 +16,9 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 
 const App = observer(() => {
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<number | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const reconnectAttemptsRef = useRef(0);
 
   const connectWebSocket = () => {
@@ -145,7 +148,17 @@ const App = observer(() => {
       </nav>
 
       <main className="max-w-7xl mx-auto px-3 py-4">
-        <Dashboard onRefresh={handleManualRefresh} />
+        <Routes>
+          <Route path="/" element={<Navigate to="/table" replace />} />
+          <Route
+            path="/table"
+            element={<Dashboard onRefresh={handleManualRefresh} />}
+          />
+          <Route
+            path="/pivot"
+            element={<Dashboard onRefresh={handleManualRefresh} />}
+          />
+        </Routes>
       </main>
     </div>
   );
