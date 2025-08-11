@@ -214,7 +214,7 @@ export function TableRowInteractive({
 
   return (
     <tr
-      className={`text-sm border-b border-gray-200 ${interactiveClasses} ${className}`}
+      className={`text-sm ${interactiveClasses} ${className}`}
       onClick={onClick}
     >
       {children}

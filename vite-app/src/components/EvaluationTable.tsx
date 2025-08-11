@@ -4,7 +4,11 @@ import { state } from "../App";
 import { EvaluationRow } from "./EvaluationRow";
 import Button from "./Button";
 import Select from "./Select";
-import TableContainer, { TableHeader, TableHead } from "./TableContainer";
+import {
+  TableHeader,
+  TableHead,
+  TableBody as TableBodyBase,
+} from "./TableContainer";
 
 const TableBody = observer(
   ({ currentPage, pageSize }: { currentPage: number; pageSize: number }) => {
@@ -13,7 +17,7 @@ const TableBody = observer(
     const paginatedData = state.sortedDataset.slice(startIndex, endIndex);
 
     return (
-      <tbody className="divide-y divide-gray-200">
+      <TableBodyBase>
         {paginatedData.map((row, index) => (
           <EvaluationRow
             key={row.rollout_id}
@@ -21,7 +25,7 @@ const TableBody = observer(
             index={startIndex + index}
           />
         ))}
-      </tbody>
+      </TableBodyBase>
     );
   }
 );
@@ -29,7 +33,7 @@ const TableBody = observer(
 // Dedicated component for rendering the list - following MobX best practices
 export const EvaluationTable = observer(() => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(25);
 
   const totalRows = state.sortedDataset.length;
   const totalPages = Math.ceil(totalRows / pageSize);
@@ -51,8 +55,8 @@ export const EvaluationTable = observer(() => {
   }, [totalRows]);
 
   return (
-    <TableContainer>
-      {/* Pagination Controls */}
+    <div className="bg-white border border-gray-200">
+      {/* Pagination Controls - Fixed outside scrollable area */}
       <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="text-xs text-gray-600">
@@ -111,23 +115,26 @@ export const EvaluationTable = observer(() => {
         </div>
       </div>
 
-      <table className="w-full min-w-max">
-        {/* Table Header */}
-        <TableHead>
-          <tr>
-            <TableHeader className="w-8">&nbsp;</TableHeader>
-            <TableHeader>Name</TableHeader>
-            <TableHeader>Status</TableHeader>
-            <TableHeader>Rollout ID</TableHeader>
-            <TableHeader>Model</TableHeader>
-            <TableHeader>Score</TableHeader>
-            <TableHeader>Created</TableHeader>
-          </tr>
-        </TableHead>
+      {/* Table Container - Only this area scrolls */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-max">
+          {/* Table Header */}
+          <TableHead>
+            <tr>
+              <TableHeader className="w-8">&nbsp;</TableHeader>
+              <TableHeader>Name</TableHeader>
+              <TableHeader>Status</TableHeader>
+              <TableHeader>Rollout ID</TableHeader>
+              <TableHeader>Model</TableHeader>
+              <TableHeader>Score</TableHeader>
+              <TableHeader>Created</TableHeader>
+            </tr>
+          </TableHead>
 
-        {/* Table Body */}
-        <TableBody currentPage={currentPage} pageSize={pageSize} />
-      </table>
-    </TableContainer>
+          {/* Table Body */}
+          <TableBody currentPage={currentPage} pageSize={pageSize} />
+        </table>
+      </div>
+    </div>
   );
 });

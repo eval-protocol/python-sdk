@@ -173,7 +173,7 @@ const ExpandedContent = observer(
     input_metadata: EvaluationRowType["input_metadata"];
     tools: EvaluationRowType["tools"];
   }) => (
-    <div className="p-4 bg-gray-50 border-t border-gray-200">
+    <div className="p-4 bg-gray-50">
       <div className="flex gap-3 w-fit">
         {/* Left Column - Chat Interface */}
         <div className="min-w-0">
