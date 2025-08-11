@@ -304,13 +304,6 @@ def evaluation_test(  # noqa: C901
                 ) -> None:
                     log_eval_status_and_rows(eval_metadata, rows, status, passed, default_logger)
 
-                cohort_id = generate_id()
-
-                def _log_eval_error(
-                    status: Literal["finished", "error"], rows: Optional[List[EvaluationRow]] | None, passed: bool
-                ) -> None:
-                    log_eval_status_and_rows(eval_metadata, rows, status, passed, default_logger)
-
                 try:
                     # Handle dataset loading
                     data: List[EvaluationRow] = []
@@ -461,24 +454,8 @@ def evaluation_test(  # noqa: C901
                         sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
                         for result in all_results
                     ]
-                    print(f"SCORES: {scores}")
                     agg_score = aggregate(scores, aggregation_method)
                     score_std = statistics.stdev(scores) if len(scores) > 1 else 0.0
-
-                    # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
-                    ci_low: float | None = None
-                    ci_high: float | None = None
-                    if aggregation_method == "mean":
-                        try:
-                            result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
-                            mu_ci_low, mu_ci_high = result_ci[1], result_ci[2]
-                            if mu_ci_low is not None and mu_ci_high is not None:
-                                ci_low = float(mu_ci_low)
-                                ci_high = float(mu_ci_high)
-                                # Keep agg_score as-is (mean over scores). For equal repeats per question these match.
-                        except Exception:
-                            ci_low = None
-                            ci_high = None
 
                     # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
                     ci_low: float | None = None
