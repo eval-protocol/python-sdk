@@ -73,7 +73,7 @@ class StaticPolicy(PlaybackPolicyBase):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List[MCPToolCall], CompletionUsage]:
+    ) -> Tuple[List[MCPToolCall], CompletionUsage, str]:
         """
         Generate tool calls in live mode using the static action sequence.
 
@@ -220,7 +220,7 @@ class RandomPolicy(PlaybackPolicyBase):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List[MCPToolCall], CompletionUsage]:
+    ) -> Tuple[List[MCPToolCall], CompletionUsage, str]:
         """
         Generate random tool calls in live mode.
 
