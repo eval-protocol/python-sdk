@@ -169,21 +169,14 @@ class ExecutionManager:
                 max_tool_calls=getattr(policy, "max_tools_per_turn", None),
             )
             if trajectory.terminated:
-                if trajectory.termination_reason in {
-                    TerminationReason.CONTROL_PLANE_SIGNAL,
-                    TerminationReason.USER_STOP,
-                }:
-                    evaluation_rows[idx].rollout_status.status = "finished"
-                elif trajectory.termination_reason in {TerminationReason.MAX_STEPS, TerminationReason.INTERRUPTED}:
-                    evaluation_rows[idx].rollout_status.status = "stopped"
-                    evaluation_rows[idx].rollout_status.error_message = trajectory.control_plane_summary.get(
-                        "termination_reason", trajectory.termination_reason
-                    )
-                else:
+                if trajectory.termination_reason == TerminationReason.ERROR:
                     evaluation_rows[idx].rollout_status.status = "error"
-                    evaluation_rows[idx].rollout_status.error_message = trajectory.control_plane_summary.get(
+                    evaluation_rows[idx].rollout_status.reason= trajectory.control_plane_summary.get(
                         "error_message", None
                     )
+                else:
+                    evaluation_rows[idx].rollout_status.status = "finished"
+                    evaluation_rows[idx].rollout_status.reason = trajectory.termination_reason
             else:
                 evaluation_rows[idx].rollout_status.status = "running"
 
