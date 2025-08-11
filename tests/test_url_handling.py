@@ -6,11 +6,11 @@ from werkzeug.wrappers import Response
 import eval_protocol as ep
 
 
-# Sync tests for the await ep.make() function
+# Sync tests for the ep.make() function
 @pytest.mark.asyncio
 async def test_mcp_env_make_appends_trailing_slash():
     """
-    Verify that await ep.make() appends a trailing slash to the MCP server URL if it's missing.
+    Verify that ep.make() appends a trailing slash to the MCP server URL if it's missing.
     This prevents 307 redirects that can break HTTP clients.
     """
     base_url = "http://localhost:8000/mcp"
@@ -22,7 +22,7 @@ async def test_mcp_env_make_appends_trailing_slash():
     ) as mock_init:
         mock_init.return_value = None
 
-        envs = await ep.make(base_url, n=1, seeds=[42])
+        envs = ep.make(base_url, n=1, seeds=[42])
 
         mock_init.assert_awaited_once()
 
@@ -33,7 +33,7 @@ async def test_mcp_env_make_appends_trailing_slash():
 @pytest.mark.asyncio
 async def test_mcp_env_make_keeps_existing_trailing_slash():
     """
-    Verify that await ep.make() does not add an extra slash if one is already present.
+    Verify that ep.make() does not add an extra slash if one is already present.
     """
     base_url = "http://localhost:8000/mcp/"
 
@@ -43,7 +43,7 @@ async def test_mcp_env_make_keeps_existing_trailing_slash():
     ) as mock_init:
         mock_init.return_value = None
 
-        envs = await ep.make(base_url, n=1, seeds=[42])
+        envs = ep.make(base_url, n=1, seeds=[42])
 
         mock_init.assert_awaited_once()
 

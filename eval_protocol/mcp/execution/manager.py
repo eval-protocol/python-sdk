@@ -478,9 +478,10 @@ class ExecutionManager:
             logger.error(f"🚨 Error in rollout {rollout_idx}: {e}", exc_info=True)
             failure_reason = str(e)
         finally:
-            trajectory.terminated = True
-            trajectory.termination_reason = TerminationReason.ERROR
-            trajectory.control_plane_summary.update({"error_message": f"{failure_reason}"})
+            if failure_reason:
+                trajectory.terminated = True
+                trajectory.termination_reason = TerminationReason.ERROR
+                trajectory.control_plane_summary.update({"error_message": f"{failure_reason}"})
             try:
                 await envs.connection_manager.reset_session(session)
             except:
