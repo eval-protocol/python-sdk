@@ -56,7 +56,6 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
 
   const flattened = useMemo(() => {
     const flattenedDataset = state.sortedDataset.map((row) => flattenJson(row));
-    console.log(flattenedDataset);
     return flattenedDataset;
   }, [state.sortedDataset]);
 
