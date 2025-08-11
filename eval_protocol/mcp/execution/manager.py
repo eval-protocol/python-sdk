@@ -115,9 +115,6 @@ class ExecutionManager:
 
         shared_tool_schema = envs.tool_schemas
 
-        # Clean up
-        # await envs.close()
-
         # Enhanced reporting with control plane info
         successful = sum(1 for traj in trajectories if traj.total_reward > 0)
         terminated_by_control_plane = sum(
