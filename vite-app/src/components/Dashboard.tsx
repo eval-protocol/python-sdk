@@ -5,6 +5,7 @@ import { state } from "../App";
 import Button from "./Button";
 import { EvaluationTable } from "./EvaluationTable";
 import PivotTable from "./PivotTable";
+import TabButton from "./TabButton";
 import flattenJson from "../util/flatten-json";
 
 interface DashboardProps {
@@ -91,46 +92,30 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
       ) : (
         <div className="bg-white border border-gray-200">
           {/* Tabs + contextual actions */}
-          <div className="px-3 pt-2 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "table"}
-                  title="View table"
+          <div className="px-3 pt-2 border-b  border-gray-200">
+            <div className="flex justify-between h-8">
+              <div id="tabs" className="flex gap-1">
+                <TabButton
+                  label="Table"
+                  isActive={activeTab === "table"}
                   onClick={() => {
                     setActiveTab("table");
                     navigate("/table");
                   }}
-                  className={`text-xs px-3 py-2 border-b-2 -mb-px rounded-none focus:outline-none cursor-pointer transition-colors ${
-                    activeTab === "table"
-                      ? "text-gray-900 font-semibold border-gray-900 bg-transparent"
-                      : "text-gray-600 hover:text-gray-800 hover:border-gray-400 border-transparent bg-transparent hover:bg-gray-100"
-                  }`}
-                >
-                  Table
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "pivot"}
-                  title="View pivot"
+                  title="View table"
+                />
+                <TabButton
+                  label="Pivot"
+                  isActive={activeTab === "pivot"}
                   onClick={() => {
                     setActiveTab("pivot");
                     navigate("/pivot");
                   }}
-                  className={`text-xs px-3 py-2 border-b-2 -mb-px rounded-none focus:outline-none cursor-pointer transition-colors ${
-                    activeTab === "pivot"
-                      ? "text-gray-900 font-semibold border-gray-900 bg-transparent"
-                      : "text-gray-600 hover:text-gray-800 hover:border-gray-400 border-transparent bg-transparent hover:bg-gray-100"
-                  }`}
-                >
-                  Pivot
-                </button>
+                  title="View pivot"
+                />
               </div>
               {activeTab === "table" && (
-                <div className="flex gap-2 pb-1">
+                <div className="flex gap-2 pb-2">
                   <Button onClick={expandAll} size="sm" variant="secondary">
                     Expand All
                   </Button>
