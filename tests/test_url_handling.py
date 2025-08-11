@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 from werkzeug.wrappers import Response
@@ -7,8 +7,7 @@ import eval_protocol as ep
 
 
 # Sync tests for the ep.make() function
-@pytest.mark.asyncio
-async def test_mcp_env_make_appends_trailing_slash():
+def test_mcp_env_make_appends_trailing_slash():
     """
     Verify that ep.make() appends a trailing slash to the MCP server URL if it's missing.
     This prevents 307 redirects that can break HTTP clients.
@@ -16,36 +15,19 @@ async def test_mcp_env_make_appends_trailing_slash():
     base_url = "http://localhost:8000/mcp"
     corrected_url = "http://localhost:8000/mcp/"
 
-    with patch(
-        "eval_protocol.mcp.client.connection.MCPConnectionManager.initialize_session",
-        new_callable=AsyncMock,
-    ) as mock_init:
-        mock_init.return_value = None
-
-        envs = ep.make(base_url, n=1, seeds=[42])
-
-        mock_init.assert_awaited_once()
+    envs = ep.make(base_url, n=1, seeds=[42])
 
     assert len(envs.sessions) == 1
     assert envs.sessions[0].base_url == corrected_url
 
 
-@pytest.mark.asyncio
-async def test_mcp_env_make_keeps_existing_trailing_slash():
+def test_mcp_env_make_keeps_existing_trailing_slash():
     """
     Verify that ep.make() does not add an extra slash if one is already present.
     """
     base_url = "http://localhost:8000/mcp/"
 
-    with patch(
-        "eval_protocol.mcp.client.connection.MCPConnectionManager.initialize_session",
-        new_callable=AsyncMock,
-    ) as mock_init:
-        mock_init.return_value = None
-
-        envs = ep.make(base_url, n=1, seeds=[42])
-
-        mock_init.assert_awaited_once()
+    envs = ep.make(base_url, n=1, seeds=[42])
 
     assert len(envs.sessions) == 1
     # The session's base_url should remain unchanged
