@@ -134,6 +134,8 @@ def evaluation_test(  # noqa: C901
                 threshold = EvaluationThreshold(success=passed_threshold)
             else:
                 threshold = EvaluationThreshold(**passed_threshold)
+        else:
+            threshold = None
 
         sig = inspect.signature(test_func)
 
@@ -405,7 +407,7 @@ def evaluation_test(  # noqa: C901
                         # Regenerate outputs each run by deep-copying the pristine dataset
                         # so model responses are not reused across runs.
                         run_id = generate_id()
-                        fresh_dataset = [copy.deepcopy(r) for r in data]
+                        fresh_dataset = [r.model_copy(deep=True) for r in data]
 
                         # apply new run_id to fresh_dataset
                         for row in fresh_dataset:

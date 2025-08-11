@@ -159,8 +159,8 @@ class ExecutionManager:
                 messages.append(Message.model_validate(msg_dict))
 
             evaluation_rows[idx].messages = messages
-            evaluation_rows[idx].input_metadata.row_id = envs.dataset_rows[idx].id
-            evaluation_rows[idx].input_metadata.dataset_info = asdict(envs.dataset_rows[idx])
+            # evaluation_rows[idx].input_metadata.row_id = envs.dataset_rows[idx].id
+            # evaluation_rows[idx].input_metadata.dataset_info = asdict(envs.dataset_rows[idx])
             evaluation_rows[idx].tools = shared_tool_schema
             evaluation_rows[idx].usage = CompletionUsage(**trajectory.usage)
             evaluation_rows[idx].input_metadata.completion_params = CompletionParams(
