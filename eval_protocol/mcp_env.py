@@ -17,7 +17,7 @@ Usage remains the same:
     policy = ep.FireworksPolicy(model_id="accounts/fireworks/models/qwen3-235b-a22b")
 
     # Create environments with evaluation_rows configuration
-    envs = await ep.make("http://localhost:8000/mcp", evaluation_rows=evaluation_rows)
+    envs = ep.make("http://localhost:8000/mcp", evaluation_rows=evaluation_rows)
 
     # Execute tool-calling rollouts
     evaluation_rows = await ep.rollout(envs, policy=policy, steps=512)
@@ -86,10 +86,10 @@ async def reset_mcp_sessions(envs: GeneralMCPVectorEnv):
     Reset mcp server sessions
     """
     tasks = [envs.connection_manager.reset_session(session) for session in envs.sessions]
-    await asyncio.gather(*tasks)
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
-async def make(
+def make(
     env_spec: str,
     evaluation_rows: Optional[List[EvaluationRow]] = None,
     dataset: Optional[List[Dict]] = None,
@@ -97,7 +97,6 @@ async def make(
     seeds: Optional[List[int]] = None,
     model_id: str = "unknown",
     user_prompt_formatter: Optional[Callable] = None,
-    reset_sessions: bool = False,
 ) -> GeneralMCPVectorEnv:
     """
     Create general MCP environments driven by evaluation_rows configuration.
@@ -110,20 +109,19 @@ async def make(
         seeds: List of seeds (for backward compatibility)
         model_id: Model identifier
         user_prompt_formatter: Optional callback for formatting user prompts
-        reset_sessions: Whether to reset sessions before returning the environment
 
     Returns:
         General MCP environment that works with any MCP server
 
     Example:
         # EvaluationRow approach (preferred)
-        envs = await ep.make("http://localhost:8000/mcp", evaluation_rows=evaluation_rows)
+        envs = ep.make("http://localhost:8000/mcp", evaluation_rows=evaluation_rows)
 
         # Dataset approach (backward compatibility)
-        envs = await ep.make("http://localhost:8000/mcp", dataset=dataset)
+        envs = ep.make("http://localhost:8000/mcp", dataset=dataset)
 
         # Legacy approach (backward compatibility)
-        envs = await ep.make("http://localhost:8000/mcp", n=10, seeds=seeds)
+        envs = ep.make("http://localhost:8000/mcp", n=10, seeds=seeds)
     """
     # Parse environment specification - make sure URL format is correct
     base_url = env_spec
@@ -236,12 +234,6 @@ async def make(
             sessions.append(session)
 
     mcp_envs = GeneralMCPVectorEnv(sessions, dataset_rows, user_prompt_formatter)
-    tasks = [mcp_envs.connection_manager.initialize_session(session) for session in sessions]
-    await asyncio.gather(*tasks)
-
-    if reset_sessions:
-        await reset_mcp_sessions(mcp_envs)
-
     return mcp_envs
 
 

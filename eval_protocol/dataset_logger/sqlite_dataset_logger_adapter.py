@@ -22,9 +22,8 @@ class SqliteDatasetLoggerAdapter(DatasetLogger):
             self._store = SqliteEvaluationRowStore(self.db_path)
 
     def log(self, row: "EvaluationRow") -> None:
-        row_id = row.input_metadata.row_id
         data = row.model_dump(exclude_none=True, mode="json")
-        self._store.upsert_row(row_id=row_id, data=data)
+        self._store.upsert_row(data=data)
         try:
             event_bus.emit(LOG_EVENT_TYPE, EvaluationRow(**data))
         except Exception as e:
@@ -32,8 +31,8 @@ class SqliteDatasetLoggerAdapter(DatasetLogger):
             logger.error(f"Failed to emit row_upserted event: {e}")
             pass
 
-    def read(self, row_id: Optional[str] = None) -> List["EvaluationRow"]:
+    def read(self, rollout_id: Optional[str] = None) -> List["EvaluationRow"]:
         from eval_protocol.models import EvaluationRow
 
-        results = self._store.read_rows(row_id=row_id)
+        results = self._store.read_rows(rollout_id=rollout_id)
         return [EvaluationRow(**data) for data in results]

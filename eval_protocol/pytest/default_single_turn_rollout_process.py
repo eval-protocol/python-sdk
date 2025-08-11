@@ -1,11 +1,9 @@
 import asyncio
-from typing import List
-
 import logging
 import os
+from typing import List
 
-from eval_protocol.dataset_logger import default_logger
-from eval_protocol.models import EvaluationRow, Message, ChatCompletionMessageToolCall
+from eval_protocol.models import ChatCompletionMessageToolCall, EvaluationRow, Message
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
 
@@ -49,6 +47,7 @@ async def default_single_turn_rollout_processor(
 
         # Dynamic import to avoid static dependency/lint errors if LiteLLM isn't installed yet
         import importlib
+
         _litellm = importlib.import_module("litellm")
         acompletion = getattr(_litellm, "acompletion")
         response = await acompletion(**request_params)
@@ -79,7 +78,7 @@ async def default_single_turn_rollout_processor(
         ]
 
         row.messages = messages
-        default_logger.log(row)
+        config.logger.log(row)
         return row
 
     # Process rows with bounded concurrency if configured

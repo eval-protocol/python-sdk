@@ -226,7 +226,7 @@ async def default_mcp_gym_rollout_processor(
         )
 
         # Create MCP environments directly from evaluation_rows
-        envs = await ep.make(
+        envs = ep.make(
             "http://localhost:9700/mcp/",
             evaluation_rows=rows,
             model_id=policy.model_id,

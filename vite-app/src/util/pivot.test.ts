@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { computePivot, type Aggregator } from './pivot'
 import { readFileSync } from 'fs'
-import flattenJson from './flatten-json'
+import flattenJson, { type FlatJson } from './flatten-json'
 
 type Row = {
   region: string
@@ -175,18 +175,23 @@ describe('computePivot', () => {
     expect(res.grandTotal).toBe(1)
   })
 
-  it("markdown-highlighter-test", () => {
+  it("test_flaky_passes_sometimes", () => {
     // read logs.json from data/logs.json
-    const logsUrl = new URL('../../data/logs.json', import.meta.url)
+    const logsUrl = new URL('../../data/logs.jsonl', import.meta.url)
     const raw = readFileSync(logsUrl, 'utf-8')
-    const parsed = JSON.parse(raw) as { logs?: unknown[] }
-    const rows = (parsed.logs ?? []).map((entry) => flattenJson(entry))
+    const rows: FlatJson[] = []
+    // iterate through each line and parse JSON
+    raw.split('\n').forEach((line) => {
+      if (line.trim() === '') return
+      const parsed = JSON.parse(line)
+      rows.push(flattenJson(parsed))
+    })
 
     const res = computePivot({
       data: rows,
-      rowFields: ['$.eval_metadata.run_id'],
-      columnFields: [],
-      valueField: '$.eval_metadata.passed',
+      rowFields: ['$.eval_metadata.name', '$.cohort_id'],
+      columnFields: ['$.input_metadata.completion_params.model'],
+      valueField: '$.evaluation_result.score',
       aggregator: 'avg',
     })
 

@@ -97,9 +97,11 @@ class ExecutionManager:
 
         async def _execute_with_semaphore(idx):
             async with semaphore:
-                return await self._execute_rollout(
+                result = await self._execute_rollout(
                     envs, policy, idx, steps, openai_logger, recording_mode, playback_mode, start_time
                 )
+
+                return result
 
         tasks = [_execute_with_semaphore(i) for i in range(envs.n)]
         # exceptions will be try catched inside single _execute_rollout
@@ -111,9 +113,6 @@ class ExecutionManager:
             trajectory.duration = total_duration
 
         shared_tool_schema = envs.tool_schemas
-
-        # Clean up
-        await envs.close()
 
         # Enhanced reporting with control plane info
         successful = sum(1 for traj in trajectories if traj.total_reward > 0)
@@ -175,8 +174,11 @@ class ExecutionManager:
                     TerminationReason.USER_STOP,
                 }:
                     evaluation_rows[idx].rollout_status.status = "finished"
-                elif trajectory.termination_reason == TerminationReason.MAX_STEPS:
+                elif trajectory.termination_reason in {TerminationReason.MAX_STEPS, TerminationReason.INTERRUPTED}:
                     evaluation_rows[idx].rollout_status.status = "stopped"
+                    evaluation_rows[idx].rollout_status.error_message = trajectory.control_plane_summary.get(
+                        "termination_reason", trajectory.termination_reason
+                    )
                 else:
                     evaluation_rows[idx].rollout_status.status = "error"
                     evaluation_rows[idx].rollout_status.error_message = trajectory.control_plane_summary.get(
@@ -226,6 +228,7 @@ class ExecutionManager:
                 "total_tokens": 0,
             },
         )
+        failure_reason = None
         try:
             current_observation, tool_schema = await envs.reset(session)
             system_prompt = dataset_row.system_prompt
@@ -311,8 +314,7 @@ class ExecutionManager:
                         # If there's no user simulator, no tool call means policy failed and we should terminate the rollout
                         elif tool_calls[0].tool_name in ["_playback_terminate", "_no_tool_call"]:
                             trajectory.terminated = True
-                            trajectory.termination_reason = TerminationReason.ERROR
-                            trajectory.control_plane_summary.update({"error_message": "No expected tool call"})
+                            trajectory.termination_reason = TerminationReason.INTERRUPTED
                             break
 
                     # Execute each tool call sequentially
@@ -466,11 +468,26 @@ class ExecutionManager:
             logger.info(
                 f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}"
             )
+
+        except asyncio.CancelledError:
+            logger.error(f"🚨 AsyncIO Cancel Error in roll out {rollout_idx}", exc_info=True)
+            failure_reason = "asyncio context cancelled"
         except Exception as e:
             logger.error(f"🚨 Error in rollout {rollout_idx}: {e}", exc_info=True)
-            trajectory.terminated = True
-            trajectory.termination_reason = TerminationReason.ERROR
-            trajectory.control_plane_summary.update({"error_message": str(e)})
+            failure_reason = str(e)
+        finally:
+            if failure_reason:
+                trajectory.terminated = True
+                trajectory.termination_reason = TerminationReason.ERROR
+                trajectory.control_plane_summary.update({"error_message": f"{failure_reason}"})
+            try:
+                await envs.connection_manager.reset_session(session)
+            except:  # noqa: E722
+                logger.error(f"Error resetting session {session.session_id}")
+            try:
+                await envs.connection_manager.close_session(session)
+            except:  # noqa: E722
+                logger.error(f"Error closing session {session.session_id}")
         return trajectory
 
     async def _get_control_plane_status(self, session) -> Optional[Dict[str, Any]]:

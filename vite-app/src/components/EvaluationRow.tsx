@@ -4,10 +4,14 @@ import { ChatInterface } from "./ChatInterface";
 import { MetadataSection } from "./MetadataSection";
 import StatusIndicator from "./StatusIndicator";
 import { state } from "../App";
+import { TableCell, TableRowInteractive } from "./TableContainer";
 
 // Small, focused components following "dereference values late" principle
-const ExpandIcon = observer(({ rowId }: { rowId: string }) => {
-  const isExpanded = state.isRowExpanded(rowId);
+const ExpandIcon = observer(({ rolloutId }: { rolloutId?: string }) => {
+  if (!rolloutId) {
+    throw new Error("Rollout ID is required");
+  }
+  const isExpanded = state.isRowExpanded(rolloutId);
   return (
     <div className="w-4 h-4 flex items-center justify-center">
       <svg
@@ -47,9 +51,18 @@ const RowStatus = observer(
   )
 );
 
-const RowId = observer(({ rowId }: { rowId: string }) => (
-  <span className="font-mono text-gray-900 whitespace-nowrap">{rowId}</span>
-));
+const RolloutId = observer(
+  ({ rolloutId: rolloutId }: { rolloutId?: string }) => {
+    if (!rolloutId) {
+      return null;
+    }
+    return (
+      <span className="font-mono text-gray-900 whitespace-nowrap">
+        {rolloutId}
+      </span>
+    );
+  }
+);
 
 const RowModel = observer(({ model }: { model: string | undefined }) => (
   <span className="text-gray-900 truncate block">{model || "N/A"}</span>
@@ -116,6 +129,18 @@ const InputMetadataSection = observer(
   )
 );
 
+const IdSection = observer(({ data }: { data: EvaluationRowType }) => (
+  <MetadataSection
+    title="IDs"
+    data={{
+      rollout_id: data.rollout_id,
+      cohort_id: data.cohort_id,
+      invocation_id: data.invocation_id,
+      run_id: data.run_id,
+    }}
+  />
+));
+
 const ToolsSection = observer(
   ({ data }: { data: EvaluationRowType["tools"] }) => (
     <MetadataSection title="Tools" data={data} />
@@ -130,6 +155,7 @@ const ChatInterfaceSection = observer(
 
 const ExpandedContent = observer(
   ({
+    row,
     messages,
     eval_metadata,
     evaluation_result,
@@ -138,6 +164,7 @@ const ExpandedContent = observer(
     input_metadata,
     tools,
   }: {
+    row: EvaluationRowType;
     messages: EvaluationRowType["messages"];
     eval_metadata: EvaluationRowType["eval_metadata"];
     evaluation_result: EvaluationRowType["evaluation_result"];
@@ -146,7 +173,7 @@ const ExpandedContent = observer(
     input_metadata: EvaluationRowType["input_metadata"];
     tools: EvaluationRowType["tools"];
   }) => (
-    <div className="p-4 bg-gray-50 border-t border-gray-200">
+    <div className="p-4 bg-gray-50">
       <div className="flex gap-3 w-fit">
         {/* Left Column - Chat Interface */}
         <div className="min-w-0">
@@ -157,6 +184,7 @@ const ExpandedContent = observer(
         <div className="w-[500px] flex-shrink-0 space-y-3">
           <EvalMetadataSection data={eval_metadata} />
           <EvaluationResultSection data={evaluation_result} />
+          <IdSection data={row} />
           <GroundTruthSection data={ground_truth} />
           <UsageStatsSection data={usage} />
           <InputMetadataSection data={input_metadata} />
@@ -169,62 +197,60 @@ const ExpandedContent = observer(
 
 export const EvaluationRow = observer(
   ({ row }: { row: EvaluationRowType; index: number }) => {
-    const rowId = row.input_metadata.row_id;
-    const isExpanded = state.isRowExpanded(rowId);
+    const rolloutId = row.rollout_id;
+    const isExpanded = state.isRowExpanded(rolloutId);
 
-    const toggleExpanded = () => state.toggleRowExpansion(rowId);
+    const toggleExpanded = () => state.toggleRowExpansion(rolloutId);
 
     return (
       <>
         {/* Main Table Row */}
-        <tr
-          className="hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-200"
-          onClick={toggleExpanded}
-        >
+        <TableRowInteractive onClick={toggleExpanded}>
           {/* Expand/Collapse Icon */}
-          <td className="px-3 py-3 w-8">
-            <ExpandIcon rowId={rowId} />
-          </td>
+          <TableCell className="w-8 py-3">
+            <ExpandIcon rolloutId={rolloutId} />
+          </TableCell>
 
           {/* Name */}
-          <td className="px-3 py-3 text-xs">
+          <TableCell className="py-3 text-xs">
             <RowName name={row.eval_metadata?.name} />
-          </td>
+          </TableCell>
 
           {/* Status */}
-          <td className="px-3 py-3 text-xs">
+          <TableCell className="py-3 text-xs">
             <RowStatus
               status={row.eval_metadata?.status}
               showSpinner={row.eval_metadata?.status === "running"}
             />
-          </td>
+          </TableCell>
 
-          {/* Row ID */}
-          <td className="px-3 py-3 text-xs">
-            <RowId rowId={row.input_metadata.row_id} />
-          </td>
+          {/* Rollout ID */}
+          <TableCell className="py-3 text-xs">
+            <RolloutId rolloutId={row.rollout_id} />
+          </TableCell>
 
           {/* Model */}
-          <td className="px-3 py-3 text-xs">
+          <TableCell className="py-3 text-xs">
             <RowModel model={row.input_metadata.completion_params?.model} />
-          </td>
+          </TableCell>
 
           {/* Score */}
-          <td className="px-3 py-3 text-xs">
+          <TableCell className="py-3 text-xs">
             <RowScore score={row.evaluation_result?.score} />
-          </td>
+          </TableCell>
 
           {/* Created */}
-          <td className="px-3 py-3 text-xs">
+          <TableCell className="py-3 text-xs">
             <RowCreated created_at={row.created_at} />
-          </td>
-        </tr>
+          </TableCell>
+        </TableRowInteractive>
 
         {/* Expanded Content Row */}
         {isExpanded && (
           <tr>
             <td colSpan={8} className="p-0">
               <ExpandedContent
+                row={row}
                 messages={row.messages}
                 eval_metadata={row.eval_metadata}
                 evaluation_result={row.evaluation_result}

@@ -1,9 +1,11 @@
 import { observer } from "mobx-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { state } from "../App";
 import Button from "./Button";
 import { EvaluationTable } from "./EvaluationTable";
 import PivotTable from "./PivotTable";
+import TabButton from "./TabButton";
 import flattenJson from "../util/flatten-json";
 
 interface DashboardProps {
@@ -52,90 +54,109 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
   const expandAll = () => state.setAllRowsExpanded(true);
   const collapseAll = () => state.setAllRowsExpanded(false);
 
-  const [activeTab, setActiveTab] = useState<"table" | "pivot">("table");
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const deriveTabFromPath = (path: string): "table" | "pivot" =>
+    path.endsWith("/pivot") ? "pivot" : "table";
+
+  const [activeTab, setActiveTab] = useState<"table" | "pivot">(
+    deriveTabFromPath(location.pathname)
+  );
+
+  useEffect(() => {
+    setActiveTab(deriveTabFromPath(location.pathname));
+  }, [location.pathname]);
 
   const flattened = useMemo(() => {
     const flattenedDataset = state.sortedDataset.map((row) => flattenJson(row));
-    console.log(flattenedDataset);
     return flattenedDataset;
   }, [state.sortedDataset]);
 
   return (
     <div className="text-sm">
-      {/* Summary Stats */}
+      {/* Summary */}
       <div className="mb-4 bg-white border border-gray-200 p-3">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-sm font-semibold text-gray-900">
-            Dataset Summary
-          </h2>
-          {state.totalCount > 0 && (
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setActiveTab("table")}
-                size="sm"
-                variant="secondary"
-              >
-                Table
-              </Button>
-              <Button
-                onClick={() => setActiveTab("pivot")}
-                size="sm"
-                variant="secondary"
-              >
-                Pivot
-              </Button>
-            </div>
-          )}
-        </div>
-        <div className="text-xs space-y-1">
-          <div>
-            <span className="font-semibold text-gray-700">Total Rows:</span>{" "}
-            {state.totalCount}
-          </div>
-          {activeTab === "table" && state.totalCount > 0 && (
-            <div className="flex gap-2">
-              <Button onClick={expandAll} size="sm" variant="secondary">
-                Expand All
-              </Button>
-              <Button onClick={collapseAll} size="sm" variant="secondary">
-                Collapse All
-              </Button>
-            </div>
-          )}
+        <h2 className="text-sm font-semibold text-gray-900 mb-2">
+          Dataset Summary
+        </h2>
+        <div className="text-xs">
+          <span className="font-semibold text-gray-700">Total Rows:</span>{" "}
+          {state.totalCount}
         </div>
       </div>
 
-      {/* Show empty state or main table */}
+      {/* Content Area */}
       {state.totalCount === 0 ? (
         <EmptyState onRefresh={onRefresh} />
-      ) : activeTab === "table" ? (
-        <EvaluationTable />
       ) : (
-        <div className="bg-white border border-gray-200 p-3">
-          <div className="text-xs text-gray-600 mb-2">
-            Showing pivot of flattened rows (JSONPath keys). Defaults: rows by
-            eval name and status; columns by model; values average score.
+        <div className="bg-white border border-gray-200">
+          {/* Tabs + contextual actions */}
+          <div className="px-3 pt-2 border-b  border-gray-200">
+            <div className="flex justify-between h-8">
+              <div id="tabs" className="flex gap-1">
+                <TabButton
+                  label="Table"
+                  isActive={activeTab === "table"}
+                  onClick={() => {
+                    setActiveTab("table");
+                    navigate("/table");
+                  }}
+                  title="View table"
+                />
+                <TabButton
+                  label="Pivot"
+                  isActive={activeTab === "pivot"}
+                  onClick={() => {
+                    setActiveTab("pivot");
+                    navigate("/pivot");
+                  }}
+                  title="View pivot"
+                />
+              </div>
+              {activeTab === "table" && (
+                <div className="flex gap-2 pb-2">
+                  <Button onClick={expandAll} size="sm" variant="secondary">
+                    Expand All
+                  </Button>
+                  <Button onClick={collapseAll} size="sm" variant="secondary">
+                    Collapse All
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
-          <PivotTable
-            // Flattened object list
-            data={flattened}
-            // Row keys
-            rowFields={[
-              "$.eval_metadata.name" as keyof (typeof flattened)[number],
-              "$.eval_metadata.status" as keyof (typeof flattened)[number],
-            ]}
-            // Column keys
-            columnFields={[
-              "$.input_metadata.completion_params.model" as keyof (typeof flattened)[number],
-            ]}
-            // Value and aggregation
-            valueField={
-              "$.evaluation_result.score" as keyof (typeof flattened)[number]
-            }
-            aggregator="avg"
-            showRowTotals
-            showColumnTotals
-          />
+
+          {/* Tab content */}
+          <div className="p-3">
+            {activeTab === "table" ? (
+              <EvaluationTable />
+            ) : (
+              <div>
+                <div className="text-xs text-gray-600 mb-2">
+                  Showing pivot of flattened rows (JSONPath keys). Defaults:
+                  rows by eval name and status; columns by model; values average
+                  score.
+                </div>
+                <PivotTable
+                  data={flattened}
+                  rowFields={[
+                    "$.eval_metadata.name" as keyof (typeof flattened)[number],
+                    "$.eval_metadata.status" as keyof (typeof flattened)[number],
+                  ]}
+                  columnFields={[
+                    "$.input_metadata.completion_params.model" as keyof (typeof flattened)[number],
+                  ]}
+                  valueField={
+                    "$.evaluation_result.score" as keyof (typeof flattened)[number]
+                  }
+                  aggregator="avg"
+                  showRowTotals
+                  showColumnTotals
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

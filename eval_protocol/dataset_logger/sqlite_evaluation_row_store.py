@@ -11,7 +11,7 @@ class SqliteEvaluationRowStore:
     """
     Lightweight reusable SQLite store for evaluation rows.
 
-    Stores arbitrary row data as JSON keyed by a unique string `row_id`.
+    Stores arbitrary row data as JSON keyed by a unique string `rollout_id`.
     """
 
     def __init__(self, db_path: str):
@@ -24,7 +24,7 @@ class SqliteEvaluationRowStore:
                 database = self._db
 
         class EvaluationRow(BaseModel):  # type: ignore
-            row_id = CharField(unique=True)
+            rollout_id = CharField(unique=True)
             data = JSONField()
 
         self._EvaluationRow = EvaluationRow
@@ -36,22 +36,25 @@ class SqliteEvaluationRowStore:
     def db_path(self) -> str:
         return self._db_path
 
-    def upsert_row(self, row_id: str, data: dict) -> None:
-        if self._EvaluationRow.select().where(self._EvaluationRow.row_id == row_id).exists():
-            self._EvaluationRow.update(data=data).where(self._EvaluationRow.row_id == row_id).execute()
+    def upsert_row(self, data: dict) -> None:
+        rollout_id = data["rollout_id"]
+        if "rollout_id" not in data:
+            raise ValueError("rollout_id is required to upsert a row")
+        if self._EvaluationRow.select().where(self._EvaluationRow.rollout_id == rollout_id).exists():
+            self._EvaluationRow.update(data=data).where(self._EvaluationRow.rollout_id == rollout_id).execute()
         else:
-            self._EvaluationRow.create(row_id=row_id, data=data)
+            self._EvaluationRow.create(rollout_id=rollout_id, data=data)
 
-    def read_rows(self, row_id: Optional[str] = None) -> List[dict]:
-        if row_id is None:
+    def read_rows(self, rollout_id: Optional[str] = None) -> List[dict]:
+        if rollout_id is None:
             query = self._EvaluationRow.select().dicts()
         else:
-            query = self._EvaluationRow.select().dicts().where(self._EvaluationRow.row_id == row_id)
+            query = self._EvaluationRow.select().dicts().where(self._EvaluationRow.rollout_id == rollout_id)
         results = list(query)
         return [result["data"] for result in results]
 
-    def delete_row(self, row_id: str) -> int:
-        return self._EvaluationRow.delete().where(self._EvaluationRow.row_id == row_id).execute()
+    def delete_row(self, rollout_id: str) -> int:
+        return self._EvaluationRow.delete().where(self._EvaluationRow.rollout_id == rollout_id).execute()
 
     def delete_all_rows(self) -> int:
         return self._EvaluationRow.delete().execute()

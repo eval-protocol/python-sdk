@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { observer } from "mobx-react";
 import Dashboard from "./components/Dashboard";
 import Button from "./components/Button";
@@ -7,6 +8,7 @@ import { EvaluationRowSchema, type EvaluationRow } from "./types/eval-protocol";
 import { WebSocketServerMessageSchema } from "./types/websocket";
 import { GlobalState } from "./GlobalState";
 import logoLight from "./assets/logo-light.png";
+import { getWebSocketUrl, discoverServerConfig } from "./config";
 
 export const state = new GlobalState();
 
@@ -15,7 +17,9 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 
 const App = observer(() => {
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<number | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const reconnectAttemptsRef = useRef(0);
 
   const connectWebSocket = () => {
@@ -23,7 +27,7 @@ const App = observer(() => {
       return; // Already connected
     }
 
-    const ws = new WebSocket("ws://localhost:8000/ws");
+    const ws = new WebSocket(getWebSocketUrl());
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -42,11 +46,11 @@ const App = observer(() => {
             return EvaluationRowSchema.parse(log);
           });
           console.log("initialize_logs", rows);
-          state.setDataset(rows);
+          state.upsertRows(rows);
         } else if (update.type === "log") {
           const row: EvaluationRow = EvaluationRowSchema.parse(update.row);
           console.log("log", row);
-          state.setDataset([row]);
+          state.upsertRows([row]);
         }
       } catch (error) {
         console.error("Failed to parse WebSocket message:", error);
@@ -106,7 +110,13 @@ const App = observer(() => {
   };
 
   useEffect(() => {
-    connectWebSocket();
+    // Discover server configuration first, then connect
+    const initializeApp = async () => {
+      await discoverServerConfig();
+      connectWebSocket();
+    };
+
+    initializeApp();
 
     return () => {
       if (reconnectTimeoutRef.current) {
@@ -145,7 +155,17 @@ const App = observer(() => {
       </nav>
 
       <main className="max-w-7xl mx-auto px-3 py-4">
-        <Dashboard onRefresh={handleManualRefresh} />
+        <Routes>
+          <Route path="/" element={<Navigate to="/table" replace />} />
+          <Route
+            path="/table"
+            element={<Dashboard onRefresh={handleManualRefresh} />}
+          />
+          <Route
+            path="/pivot"
+            element={<Dashboard onRefresh={handleManualRefresh} />}
+          />
+        </Routes>
       </main>
     </div>
   );
