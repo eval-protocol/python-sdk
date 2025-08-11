@@ -87,18 +87,32 @@ class WebSocketManager:
             return
 
         tasks = []
+        failed_connections = []
+
         for connection in connections:
             try:
                 tasks.append(connection.send_text(text))
             except Exception as e:
                 logger.error(f"Failed to send text to WebSocket: {e}")
-                with self._lock:
-                    try:
-                        self.active_connections.remove(connection)
-                    except ValueError:
-                        pass
+                failed_connections.append(connection)
+
+        # Execute all sends in parallel
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Check for any exceptions that occurred during execution
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(f"Failed to send text to WebSocket: {result}")
+                    failed_connections.append(connections[i])
+
+        # Remove all failed connections
+        with self._lock:
+            for connection in failed_connections:
+                try:
+                    self.active_connections.remove(connection)
+                except ValueError:
+                    pass
 
     def start_broadcast_loop(self):
         """Start the broadcast loop in the current event loop."""
@@ -109,6 +123,7 @@ class WebSocketManager:
         """Stop the broadcast loop."""
         if self._broadcast_task and not self._broadcast_task.done():
             self._broadcast_task.cancel()
+            self._broadcast_task = None
 
 
 class EvaluationWatcher:
