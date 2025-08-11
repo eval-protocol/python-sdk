@@ -41,9 +41,9 @@ class Agent:
     def messages(self) -> list[Message]:
         return self.evaluation_row.messages
 
-    def append_message_and_log(self, message: Message, logger: DatasetLogger):
+    def append_message_and_log(self, message: Message):
         self.messages.append(message)
-        logger.log(self.evaluation_row)
+        self.logger.log(self.evaluation_row)
 
     async def call_agent(self) -> str:
         """
@@ -78,8 +78,7 @@ class Agent:
                             ChatCompletionContentPartTextParam(text=content.text, type="text") for content in content
                         ],
                         tool_call_id=tool_call_id,
-                    ),
-                    logger=self.logger,
+                    )
                 )
             return await self.call_agent()
         return message.content
