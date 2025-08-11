@@ -1,5 +1,6 @@
 import json
 from typing import Any, Dict, List
+
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
 from eval_protocol.rewards.function_calling import exact_tool_match_reward
@@ -19,7 +20,7 @@ def function_calling_to_evaluation_row(rows: List[Dict[str, Any]]) -> List[Evalu
 
 @evaluation_test(
     input_dataset=["tests/pytest/data/function_calling.jsonl"],
-    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
+    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     mode="pointwise",
     dataset_adapter=function_calling_to_evaluation_row,
     rollout_processor=default_single_turn_rollout_processor,
