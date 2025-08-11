@@ -11,15 +11,34 @@ class TerminationReason(str, Enum):
     MAX_STEPS: Trajectory ends because we hit the step limit
     CONTROL_PLANE_SIGNAL: Trajectory ends because the control plane signals termination (e.g. env goal reached or failure condition)
     USER_STOP: Trajectory ends because the simulated user signals to stop
-    INTERRUPTED: Trajectory ends unexpectedly, for example, expecting tool call but there is no tool call
     ERROR: Trajectory ends because of an error
+    STOP: Trajectory ends by the policy (mapped to llm response stop reason "stop")
+    LENGTH: Trajectory ends by the policy (mapped to llm response stop reason "length")
     """
 
     MAX_STEPS = "max_steps"
     CONTROL_PLANE_SIGNAL = "control_plane_signal"
     USER_STOP = "user_stop"
-    INTERRUPTED = "interrupted"
     ERROR = "error"
+    STOP = "stop"
+    LENGTH = "length"
+
+    @classmethod
+    def from_str(cls, value: str) -> "TerminationReason":
+        if value == "stop":
+            return cls.STOP
+        elif value == "length":
+            return cls.LENGTH
+        elif value == "max_steps":
+            return cls.MAX_STEPS
+        elif value == "control_plane_signal":
+            return cls.CONTROL_PLANE_SIGNAL
+        elif value == "user_stop":
+            return cls.USER_STOP
+        elif value == "error":
+            return cls.ERROR
+        else:
+            raise ValueError(f"Invalid termination reason: {value}")
 
 
 @dataclass

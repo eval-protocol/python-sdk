@@ -213,7 +213,8 @@ class LiteLLMPolicy(LLMBasePolicy):
                                 if response.choices[0].message.tool_calls
                                 else []
                             ),
-                        }
+                        },
+                        "finish_reason": response.choices[0].finish_reason,
                     }
                 ],
                 "usage": {
