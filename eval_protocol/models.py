@@ -231,7 +231,9 @@ class EvalMetadata(BaseModel):
     )
     num_runs: int = Field(..., description="Number of times the evaluation was repeated")
     aggregation_method: str = Field(..., description="Method used to aggregate scores across runs")
-    threshold: Optional[EvaluationThreshold] = Field(None, description="Threshold configuration for test success")
+    passed_threshold: Optional[EvaluationThreshold] = Field(
+        None, description="Threshold configuration for test success"
+    )
     passed: Optional[bool] = Field(None, description="Whether the evaluation passed based on the threshold")
 
 

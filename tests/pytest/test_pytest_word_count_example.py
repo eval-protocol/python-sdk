@@ -11,7 +11,7 @@ from tests.pytest.helper.word_count_to_evaluation_row import word_count_to_evalu
     model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
     rollout_input_params=[{"temperature": 0.0}],
     max_dataset_rows=5,
-    threshold=0.3,  # Reasonable threshold for word count evaluation
+    passed_threshold=0.3,  # Reasonable threshold for word count evaluation
     rollout_processor=default_single_turn_rollout_processor,
     mode="pointwise",  # Use pointwise mode for elegant row-by-row evaluation
 )

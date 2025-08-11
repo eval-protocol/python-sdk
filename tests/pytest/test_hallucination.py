@@ -35,7 +35,7 @@ def hallucination_dataset_adapter(data: List[Dict[str, Any]]) -> List[Evaluation
     model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 512}],
     rollout_processor=default_single_turn_rollout_processor,
-    threshold=0.33,
+    passed_threshold=0.33,
     num_runs=1,
     mode="pointwise",
 )

@@ -41,7 +41,7 @@ def lunar_lander_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluatio
     model=["gpt-4.1"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
     rollout_processor=default_mcp_gym_rollout_processor,
-    threshold=0.0,
+    passed_threshold=0.0,
     num_runs=1,
     mode="pointwise",
     max_concurrent_rollouts=3,

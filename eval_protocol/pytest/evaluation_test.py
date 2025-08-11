@@ -53,7 +53,7 @@ def evaluation_test(  # noqa: C901
     rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
     aggregation_method: AggregationMethod = "mean",
-    threshold: Optional[EvaluationThreshold] = None,
+    passed_threshold: Optional[Union[EvaluationThreshold, float]] = None,
     num_runs: int = 1,
     max_dataset_rows: Optional[int] = None,
     mcp_config_path: Optional[str] = None,
@@ -113,7 +113,7 @@ def evaluation_test(  # noqa: C901
         rollout_processor: Function used to perform the rollout.
         evaluation_test_kwargs: Kwargs for the evaluation function.
         aggregation_method: How to aggregate scores across rows.
-        threshold: Threshold configuration for test success.
+        passed_threshold: Threshold configuration for test success.
             Success rate must be above success, and if set, standard deviation must be below standard_deviation.
         num_runs: Number of times to repeat the rollout and evaluations.
         max_dataset_rows: Limit dataset to the first N rows.
@@ -129,11 +129,11 @@ def evaluation_test(  # noqa: C901
     def decorator(
         test_func: TestFunction,
     ):
-        if threshold is not None:
-            if isinstance(threshold, dict):
-                evaluation_threshold = EvaluationThreshold(**threshold)
-            elif isinstance(threshold, float):
-                evaluation_threshold = EvaluationThreshold(success=threshold)
+        if passed_threshold is not None:
+            if isinstance(passed_threshold, float):
+                threshold = EvaluationThreshold(success=passed_threshold)
+            else:
+                threshold = EvaluationThreshold(**passed_threshold)
 
         sig = inspect.signature(test_func)
 
@@ -361,7 +361,7 @@ def evaluation_test(  # noqa: C901
                         status="running",
                         num_runs=num_runs,
                         aggregation_method=aggregation_method,
-                        threshold=evaluation_threshold,
+                        passed_threshold=threshold,
                         passed=None,
                     )
 
@@ -459,6 +459,7 @@ def evaluation_test(  # noqa: C901
                         sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
                         for result in all_results
                     ]
+                    print(f"SCORES: {scores}")
                     agg_score = aggregate(scores, aggregation_method)
                     score_std = statistics.stdev(scores) if len(scores) > 1 else 0.0
 
@@ -495,13 +496,13 @@ def evaluation_test(  # noqa: C901
                     # Determine if the evaluation passed based on threshold
                     passed = None
 
-                    if evaluation_threshold is not None:
+                    if threshold is not None:
                         success_passed, std_passed = True, True
 
-                        success_passed = agg_score >= evaluation_threshold.success
+                        success_passed = agg_score >= threshold.success
 
-                        if evaluation_threshold.standard_deviation is not None:
-                            std_passed = score_std <= evaluation_threshold.standard_deviation
+                        if threshold.standard_deviation is not None:
+                            std_passed = score_std <= threshold.standard_deviation
 
                         passed = success_passed and std_passed
 
@@ -636,14 +637,14 @@ def evaluation_test(  # noqa: C901
                         pass
 
                     # Check threshold after logging
-                    if evaluation_threshold is not None and not passed:
+                    if threshold is not None and not passed:
                         assert (
-                            agg_score >= evaluation_threshold.success
-                        ), f"Aggregated score {agg_score:.3f} below threshold {evaluation_threshold.success}"
-                        if evaluation_threshold.standard_deviation is not None:
+                            agg_score >= threshold.success
+                        ), f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
+                        if threshold.standard_deviation is not None:
                             assert (
-                                score_std <= evaluation_threshold.standard_deviation
-                            ), f"Standard deviation {score_std:.3f} above threshold {evaluation_threshold.standard_deviation}"
+                                score_std <= threshold.standard_deviation
+                            ), f"Standard deviation {score_std:.3f} above threshold {threshold.standard_deviation}"
 
                 except AssertionError:
                     _log_eval_error("finished", data if "data" in locals() else None, passed=False)
