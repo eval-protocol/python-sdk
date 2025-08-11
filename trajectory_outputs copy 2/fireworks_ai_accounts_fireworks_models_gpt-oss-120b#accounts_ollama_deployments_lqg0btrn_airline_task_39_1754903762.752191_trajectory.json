@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_39",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 39_0\n\tRequestor: assistant\n\tName: get_user_details\n\tArguments:\n\t{\n\t  \"user_id\": \"amelia_davis_8890\"\n\t}\n\tAction ID: 39_1\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"8C8K4E\"\n\t}\n\tAction ID: 39_2\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"UDMOP1\"\n\t}\n\tAction ID: 39_3\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"XAZ3C0\"\n\t}\n\tAction ID: 39_4\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"LU15PA\"\n\t}\n\tAction ID: 39_5\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"MSJ4OA\"\n\t}\n\tAction ID: 39_6\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"I6M8JQ\"\n\t}\n\tAction ID: 39_7\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"4XGCCM\"\n\t}\n\tAction ID: 39_8\n\tRequestor: assistant\n\tName: cancel_reservation\n\tArguments:\n\t{\n\t  \"reservation_id\": \"8C8K4E\"\n\t}\n\tAction ID: 39_9\n\tRequestor: assistant\n\tName: cancel_reservation\n\tArguments:\n\t{\n\t  \"reservation_id\": \"LU15PA\"\n\t}\n\tAction ID: 39_10\n\tRequestor: assistant\n\tName: cancel_reservation\n\tArguments:\n\t{\n\t  \"reservation_id\": \"MSJ4OA\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent cancels reservation 8C8K4E.\n\tAgent cancels reservation LU15PA.\n\tAgent cancels reservation MSJ4OA.\n\tAgent does not cancel  any other reservation.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:16:02.752123"
+}

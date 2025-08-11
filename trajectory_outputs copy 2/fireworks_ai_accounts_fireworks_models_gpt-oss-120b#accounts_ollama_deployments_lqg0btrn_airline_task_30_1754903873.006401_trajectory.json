@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_30",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 30_0\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"1N99U6\"\n\t}\n\tAction ID: 30_1\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"LAS\",\n\t  \"destination\": \"IAH\",\n\t  \"date\": \"2024-05-19\"\n\t}\n\tAction ID: 30_2\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"1N99U6\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT266\",\n\t      \"date\": \"2024-05-19\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT112\",\n\t      \"date\": \"2024-05-27\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"gift_card_5634230\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent updates reservation to flights HAT266 and HAT112.\n\tAgent does not make modifications to checked bags since policy doesn't allow to remove bags.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:17:53.006343"
+}

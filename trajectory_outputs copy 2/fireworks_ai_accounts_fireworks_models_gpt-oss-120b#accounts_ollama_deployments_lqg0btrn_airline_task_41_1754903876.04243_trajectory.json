@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_41",
+  "messages": [],
+  "evaluation": {
+    "score": 1.0,
+    "reason": "\u2705 All checks passed",
+    "metrics": {
+      "env_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.DB: 'DB'>: 1.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 41_0\n\tRequestor: assistant\n\tName: get_user_details\n\tArguments:\n\t{\n\t  \"user_id\": \"amelia_davis_8890\"\n\t}\n\tAction ID: 41_1\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"8C8K4E\"\n\t}\n\tAction ID: 41_2\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"UDMOP1\"\n\t}\n\tAction ID: 41_3\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"XAZ3C0\"\n\t}\n\tAction ID: 41_4\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"LU15PA\"\n\t}\n\tAction ID: 41_5\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"MSJ4OA\"\n\t}\n\tAction ID: 41_6\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"I6M8JQ\"\n\t}\n\tAction ID: 41_7\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"4XGCCM\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent checks all reservations.\n\tAgent does not cancel any reservation.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:17:56.042365"
+}

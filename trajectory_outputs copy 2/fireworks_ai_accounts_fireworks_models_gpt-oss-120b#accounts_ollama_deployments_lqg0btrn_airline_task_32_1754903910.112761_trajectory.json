@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_32",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 32_0\n\tRequestor: assistant\n\tName: get_user_details\n\tArguments:\n\t{\n\t  \"user_id\": \"ivan_rossi_8555\"\n\t}\n\tAction ID: 32_1\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"OWZ4XL\"\n\t}\n\tAction ID: 32_2\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"EWR\",\n\t  \"destination\": \"LAX\",\n\t  \"date\": \"2024-05-21\"\n\t}\n\tAction ID: 32_3\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"OWZ4XL\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT202\",\n\t      \"date\": \"2024-05-21\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT232\",\n\t      \"date\": \"2024-05-21\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"credit_card_9659780\"\n\t}\n\tAction ID: 32_4\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"OWZ4XL\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT041\",\n\t      \"date\": \"2024-05-21\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"credit_card_9659780\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent update reservation OWZ4XL to economy.\n\tAgent updates reservation OWZ4XL to flight HAT041.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:18:30.112705"
+}

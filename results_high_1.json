@@ -1,0 +1,1 @@
+{"suite": "test_tau_bench_airline_evaluation", "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b", "agg_score": 0.435, "num_runs": 8, "rows": 400, "agg_ci_low": 0.4188544123674609, "agg_ci_high": 0.4511455876325391, "timestamp": 1754938500}

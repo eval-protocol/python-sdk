@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_14",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed\n\u274c Failed communication: ['327', '1000', '44']",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 0.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 14_0\n\tRequestor: assistant\n\tName: cancel_reservation\n\tArguments:\n\t{\n\t  \"reservation_id\": \"K1NW8N\"\n\t}\n\tAction ID: 14_1\n\tRequestor: assistant\n\tName: book_reservation\n\tArguments:\n\t{\n\t  \"user_id\": \"mohamed_silva_9265\",\n\t  \"origin\": \"JFK\",\n\t  \"destination\": \"SFO\",\n\t  \"flight_type\": \"round_trip\",\n\t  \"cabin\": \"business\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT023\",\n\t      \"date\": \"2024-05-26\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT204\",\n\t      \"date\": \"2024-05-28\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT100\",\n\t      \"date\": \"2024-05-28\"\n\t    }\n\t  ],\n\t  \"passengers\": [\n\t    {\n\t      \"first_name\": \"Mohamed\",\n\t      \"last_name\": \"Silva\",\n\t      \"dob\": \"1960-11-26\"\n\t    },\n\t    {\n\t      \"first_name\": \"Raj\",\n\t      \"last_name\": \"Sanchez\",\n\t      \"dob\": \"1986-09-12\"\n\t    },\n\t    {\n\t      \"first_name\": \"Liam\",\n\t      \"last_name\": \"Wilson\",\n\t      \"dob\": \"1980-03-27\"\n\t    }\n\t  ],\n\t  \"payment_methods\": [\n\t    {\n\t      \"payment_id\": \"certificate_3765853\",\n\t      \"amount\": 500\n\t    },\n\t    {\n\t      \"payment_id\": \"gift_card_8020792\",\n\t      \"amount\": 198\n\t    },\n\t    {\n\t      \"payment_id\": \"gift_card_6136092\",\n\t      \"amount\": 129\n\t    },\n\t    {\n\t      \"payment_id\": \"credit_card_2198526\",\n\t      \"amount\": 1786\n\t    }\n\t  ],\n\t  \"total_baggages\": 0,\n\t  \"nonfree_baggages\": 0,\n\t  \"insurance\": \"no\"\n\t}\nCommunicate Info:\n\t327\n\t1000\n\t44\nNL Assertions:\n\tAgent communicates that total gift card balance is $327.\n\tAgent communicates that total certificate balance if $1000.\n\tAgent should cancel reservation K1NW8N.\n\tAgent should book a reservation with the following flights: HAT023 and HAT204, HAT100. No insurance. No baggage. Departure on 2024-05-26, return on 2024-05-28.\n\tAgent communicated that the $44 will be charged to the mastercard.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:17:30.575613"
+}

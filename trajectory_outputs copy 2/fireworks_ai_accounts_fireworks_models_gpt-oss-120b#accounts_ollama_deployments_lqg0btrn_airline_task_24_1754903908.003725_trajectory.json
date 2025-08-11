@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_24",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 24_0\n\tRequestor: assistant\n\tName: book_reservation\n\tArguments:\n\t{\n\t  \"user_id\": \"mia_kim_4397\",\n\t  \"origin\": \"JFK\",\n\t  \"destination\": \"SEA\",\n\t  \"flight_type\": \"round_trip\",\n\t  \"cabin\": \"basic_economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT069\",\n\t      \"date\": \"2024-05-20\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT276\",\n\t      \"date\": \"2024-05-25\"\n\t    }\n\t  ],\n\t  \"passengers\": [\n\t    {\n\t      \"first_name\": \"Mia\",\n\t      \"last_name\": \"Kim\",\n\t      \"dob\": \"1965-06-09\"\n\t    }\n\t  ],\n\t  \"payment_methods\": [\n\t    {\n\t      \"payment_id\": \"gift_card_7359776\",\n\t      \"amount\": 39\n\t    },\n\t    {\n\t      \"payment_id\": \"gift_card_7773485\",\n\t      \"amount\": 67\n\t    }\n\t  ],\n\t  \"total_baggages\": 1,\n\t  \"nonfree_baggages\": 0,\n\t  \"insurance\": \"no\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent does not cancel reservation H9ZU1C because it doesn't meet criteria set by policy.\n\tAgent books basic economy round trip from JFK to SEA leaving 2024-05-20 (flight HAT069) and returning 2024-05-25 (flight HAT276), with 1 free bag.\n\tAgent charges $67 to gift_card_7773485 and $39 to gift_card_7359776.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:18:28.003654"
+}

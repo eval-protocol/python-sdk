@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_12",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 12_0\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"YAX4DR\"\n\t}\n\tAction ID: 12_1\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"BOS\",\n\t  \"destination\": \"MCO\",\n\t  \"date\": \"2024-05-18\"\n\t}\n\tAction ID: 12_2\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"MCO\",\n\t  \"destination\": \"MSP\",\n\t  \"date\": \"2024-05-19\"\n\t}\n\tAction ID: 12_3\n\tRequestor: assistant\n\tName: calculate\n\tArguments:\n\t{\n\t  \"expression\": \"2 * ((350 - 122) + (499 - 127))\"\n\t}\n\tAction ID: 12_4\n\tRequestor: assistant\n\tName: update_reservation_baggages\n\tArguments:\n\t{\n\t  \"reservation_id\": \"YAX4DR\",\n\t  \"total_baggages\": 2,\n\t  \"nonfree_baggages\": 0,\n\t  \"payment_id\": \"credit_card_4938634\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tCheck that Agent clearly identifies that policy only does not allow change of cabin for only some of the passengers. All passengers must fly in the same cabin.\n\tCheck that agent correctly adds 2 checked bags for free.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:15:38.639908"
+}

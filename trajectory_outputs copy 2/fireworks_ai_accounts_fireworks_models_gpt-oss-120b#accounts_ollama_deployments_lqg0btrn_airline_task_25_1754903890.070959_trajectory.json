@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_25",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 25_0\n\tRequestor: assistant\n\tName: book_reservation\n\tArguments:\n\t{\n\t  \"user_id\": \"ivan_muller_7015\",\n\t  \"origin\": \"DTW\",\n\t  \"destination\": \"SEA\",\n\t  \"flight_type\": \"one_way\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT097\",\n\t      \"date\": \"2024-05-17\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT251\",\n\t      \"date\": \"2024-05-17\"\n\t    }\n\t  ],\n\t  \"passengers\": [\n\t    {\n\t      \"first_name\": \"Ivan\",\n\t      \"last_name\": \"Smith\",\n\t      \"dob\": \"1986-03-14\"\n\t    }\n\t  ],\n\t  \"payment_methods\": [\n\t    {\n\t      \"payment_id\": \"gift_card_8516878\",\n\t      \"amount\": 128\n\t    },\n\t    {\n\t      \"payment_id\": \"credit_card_3563913\",\n\t      \"amount\": 247\n\t    }\n\t  ],\n\t  \"total_baggages\": 0,\n\t  \"nonfree_baggages\": 0,\n\t  \"insurance\": \"no\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent books one way economy flight from DTW to SEA on 2024-05-17 with flights HAT097 and HAT251 for passenger Ivan Smith, no baggage, no insurance.\n\tAgent charges $128 to gift_card_8516878 and $247 to credit_card_3563913.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:18:10.070899"
+}

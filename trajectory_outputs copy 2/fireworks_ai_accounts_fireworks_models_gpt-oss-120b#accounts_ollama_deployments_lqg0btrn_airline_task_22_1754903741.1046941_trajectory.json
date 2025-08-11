@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_22",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 22_0\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"FQ8APE\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT056\",\n\t      \"date\": \"2024-05-25\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT138\",\n\t      \"date\": \"2024-05-25\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"gift_card_8190333\"\n\t}\n\tAction ID: 22_1\n\tRequestor: assistant\n\tName: update_reservation_passengers\n\tArguments:\n\t{\n\t  \"reservation_id\": \"FQ8APE\",\n\t  \"passengers\": [\n\t    {\n\t      \"first_name\": \"Omar\",\n\t      \"last_name\": \"Rossi\",\n\t      \"dob\": \"1970-06-06\"\n\t    }\n\t  ]\n\t}\n\tAction ID: 22_2\n\tRequestor: assistant\n\tName: update_reservation_baggages\n\tArguments:\n\t{\n\t  \"reservation_id\": \"FQ8APE\",\n\t  \"total_baggages\": 3,\n\t  \"nonfree_baggages\": 0,\n\t  \"payment_id\": \"gift_card_8190333\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent updates reservation FQ8APE to economy with payment method gift_card_8190333.\n\tAgent updates reservation FQ8APE passenger to Omar Rossi.\n\tAgent updates reservation FQ8APE baggages to 3 free baggages.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:15:41.104641"
+}

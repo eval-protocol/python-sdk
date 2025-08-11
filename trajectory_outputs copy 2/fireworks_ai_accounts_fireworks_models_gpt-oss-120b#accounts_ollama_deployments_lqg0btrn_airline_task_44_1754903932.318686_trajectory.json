@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_44",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 44_0\n\tRequestor: assistant\n\tName: get_user_details\n\tArguments:\n\t{\n\t  \"user_id\": \"sophia_silva_7557\"\n\t}\n\tAction ID: 44_1\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"NM1VX1\"\n\t}\n\tAction ID: 44_2\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"KC18K6\"\n\t}\n\tAction ID: 44_3\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"S61CZX\"\n\t}\n\tAction ID: 44_4\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"H8Q05L\"\n\t}\n\tAction ID: 44_5\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"WUNA5K\"\n\t}\n\tAction ID: 44_6\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"MSP\",\n\t  \"destination\": \"EWR\",\n\t  \"date\": \"2024-05-25\"\n\t}\n\tAction ID: 44_7\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"EWR\",\n\t  \"destination\": \"MSP\",\n\t  \"date\": \"2024-05-27\"\n\t}\n\tAction ID: 44_8\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"MSP\",\n\t  \"destination\": \"EWR\",\n\t  \"date\": \"2024-05-21\"\n\t}\n\tAction ID: 44_9\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"EWR\",\n\t  \"destination\": \"CLT\",\n\t  \"date\": \"2024-05-21\"\n\t}\n\tAction ID: 44_10\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"LAX\",\n\t  \"destination\": \"EWR\",\n\t  \"date\": \"2024-05-23\"\n\t}\n\tAction ID: 44_11\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"EWR\",\n\t  \"destination\": \"CLT\",\n\t  \"date\": \"2024-05-24\"\n\t}\n\tAction ID: 44_12\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"CLT\",\n\t  \"destination\": \"EWR\",\n\t  \"date\": \"2024-05-24\"\n\t}\n\tAction ID: 44_13\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"EWR\",\n\t  \"destination\": \"LAX\",\n\t  \"date\": \"2024-05-25\"\n\t}\n\tAction ID: 44_14\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"JFK\",\n\t  \"destination\": \"ATL\",\n\t  \"date\": \"2024-05-24\"\n\t}\n\tAction ID: 44_15\n\tRequestor: assistant\n\tName: search_direct_flight\n\tArguments:\n\t{\n\t  \"origin\": \"ORD\",\n\t  \"destination\": \"PHL\",\n\t  \"date\": \"2024-05-10\"\n\t}\n\tAction ID: 44_16\n\tRequestor: assistant\n\tName: cancel_reservation\n\tArguments:\n\t{\n\t  \"reservation_id\": \"S61CZX\"\n\t}\n\tAction ID: 44_17\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"NM1VX1\",\n\t  \"cabin\": \"business\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT300\",\n\t      \"date\": \"2024-05-25\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT208\",\n\t      \"date\": \"2024-05-27\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"credit_card_4196779\"\n\t}\n\tAction ID: 44_18\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"H8Q05L\",\n\t  \"cabin\": \"business\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT268\",\n\t      \"date\": \"2024-05-24\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"credit_card_4196779\"\n\t}\n\tAction ID: 44_19\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"KC18K6\",\n\t  \"cabin\": \"business\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT300\",\n\t      \"date\": \"2024-05-21\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT215\",\n\t      \"date\": \"2024-05-21\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"credit_card_4196779\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent cancels reservation S61CZX.\n\tThe total cost that the. agent mentions is between $1380 and $1390.\n\tAgent upgrades NM1VX1 to business.\n\tAgent upgrades H8Q05L to business.\n\tAgent updates KC18K6 to business.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:18:52.318642"
+}

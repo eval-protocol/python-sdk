@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_42",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 42_0\n\tRequestor: assistant\n\tName: get_user_details\n\tArguments:\n\t{\n\t  \"user_id\": \"sophia_martin_4574\"\n\t}\n\tAction ID: 42_1\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"MFRB94\"\n\t}\n\tAction ID: 42_2\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"PUNERT\"\n\t}\n\tAction ID: 42_3\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"HSR97W\"\n\t}\n\tAction ID: 42_4\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"SE9KEL\"\n\t}\n\tAction ID: 42_5\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"FDZ0T5\"\n\t}\n\tAction ID: 42_6\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"HTR26G\"\n\t}\n\tAction ID: 42_7\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"5BGGWZ\"\n\t}\n\tAction ID: 42_8\n\tRequestor: assistant\n\tName: cancel_reservation\n\tArguments:\n\t{\n\t  \"reservation_id\": \"FDZ0T5\"\n\t}\n\tAction ID: 42_9\n\tRequestor: assistant\n\tName: cancel_reservation\n\tArguments:\n\t{\n\t  \"reservation_id\": \"HSR97W\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent cancels reservation FDZ0T5\n\tAgent cancels reservation HSR97W",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:16:03.560950"
+}

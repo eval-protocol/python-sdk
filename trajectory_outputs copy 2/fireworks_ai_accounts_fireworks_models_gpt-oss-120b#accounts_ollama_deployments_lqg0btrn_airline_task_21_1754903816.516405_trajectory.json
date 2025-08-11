@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_21",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 21_0\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"OBUT9V\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT078\",\n\t      \"date\": \"2024-05-27\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT118\",\n\t      \"date\": \"2024-05-27\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT290\",\n\t      \"date\": \"2024-05-27\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT175\",\n\t      \"date\": \"2024-05-27\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"gift_card_6276644\"\n\t}\n\tAction ID: 21_1\n\tRequestor: assistant\n\tName: update_reservation_baggages\n\tArguments:\n\t{\n\t  \"reservation_id\": \"OBUT9V\",\n\t  \"total_baggages\": 2,\n\t  \"nonfree_baggages\": 0,\n\t  \"payment_id\": \"gift_card_6276644\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent updates reservation OBUT9V return flights to HAT290 and HAT175 on May 27.\n\tAgent assigns payment to gift_card_6276644.\n\tAgent updates reservation OBUT9V to 2 free baggages.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:16:56.516338"
+}

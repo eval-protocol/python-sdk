@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_7",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed\n\u274c Failed communication: ['1628']",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 0.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 7_0\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"XEHM4B\"\n\t}\n\tAction ID: 7_1\n\tRequestor: assistant\n\tName: get_reservation_details\n\tArguments:\n\t{\n\t  \"reservation_id\": \"59XX6W\"\n\t}\n\tAction ID: 7_2\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"XEHM4B\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT005\",\n\t      \"date\": \"2024-05-20\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT178\",\n\t      \"date\": \"2024-05-30\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"credit_card_2408938\"\n\t}\n\tAction ID: 7_3\n\tRequestor: assistant\n\tName: cancel_reservation\n\tArguments:\n\t{\n\t  \"reservation_id\": \"XEHM4B\"\n\t}\n\tAction ID: 7_4\n\tRequestor: assistant\n\tName: cancel_reservation\n\tArguments:\n\t{\n\t  \"reservation_id\": \"59XX6W\"\n\t}\nCommunicate Info:\n\t1628\nNL Assertions:\n\tAgent upgrades XEHM4B to economy.\n\tAgent cancels XEHM4B.\n\tAgent cancels 59XX6W.\n\tAgent communicates that total cost of upcoming flights is $1,628.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:15:54.500719"
+}

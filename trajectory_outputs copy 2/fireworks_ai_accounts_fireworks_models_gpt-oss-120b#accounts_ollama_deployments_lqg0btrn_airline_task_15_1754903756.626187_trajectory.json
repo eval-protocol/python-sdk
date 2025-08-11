@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_15",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 15_0\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"M05KNL\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT110\",\n\t      \"date\": \"2024-05-24\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT172\",\n\t      \"date\": \"2024-05-24\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"gift_card_8887175\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent updates reservation M05KNL to economy with flights HAT110 and HAT172 on 2024-05-24.\n\tAgent uses the payment id: gift_card_8887175",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:15:56.626116"
+}

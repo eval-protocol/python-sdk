@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_11",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed\n\u274c Failed communication: ['5244']",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 0.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 11_0\n\tRequestor: assistant\n\tName: update_reservation_flights\n\tArguments:\n\t{\n\t  \"reservation_id\": \"GV1N64\",\n\t  \"cabin\": \"basic_economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT003\",\n\t      \"date\": \"2024-05-19\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT290\",\n\t      \"date\": \"2024-05-20\"\n\t    }\n\t  ],\n\t  \"payment_id\": \"gift_card_1642017\"\n\t}\nCommunicate Info:\n\t5244\nNL Assertions:\n\tCheck that agent does not remove passenger since changing the number of passengers is not allowed.\n\tCheck that agent downgrades all passengers to basic economy.\n\tCheck that agent refunds $5244 to original payment method.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:18:24.223931"
+}

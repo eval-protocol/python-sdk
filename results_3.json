@@ -1,0 +1,1 @@
+{"suite": "test_tau_bench_airline_evaluation", "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn", "agg_score": 0.0, "num_runs": 1, "rows": 1, "agg_ci_low": 0.0, "agg_ci_high": 0.0, "timestamp": 1754901615}

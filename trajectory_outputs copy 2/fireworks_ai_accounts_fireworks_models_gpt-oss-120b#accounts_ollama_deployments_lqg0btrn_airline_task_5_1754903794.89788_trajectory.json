@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_5",
+  "messages": [],
+  "evaluation": {
+    "score": 1.0,
+    "reason": "\u2705 All checks passed",
+    "metrics": {
+      "env_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.DB: 'DB'>: 1.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 5_0\n\tRequestor: assistant\n\tName: get_user_details\n\tArguments:\n\t{\n\t  \"user_id\": \"mei_brown_7075\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent identifies that user is not a Gold member but a Regular member.\n\tAgent does not offer any compensation.",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:16:34.897818"
+}

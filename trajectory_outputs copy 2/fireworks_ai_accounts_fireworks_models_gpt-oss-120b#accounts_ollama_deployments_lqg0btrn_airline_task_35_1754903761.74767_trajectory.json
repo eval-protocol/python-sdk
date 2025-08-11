@@ -1,0 +1,25 @@
+{
+  "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b#accounts/ollama/deployments/lqg0btrn",
+  "row_id": "airline_task_35",
+  "messages": [],
+  "evaluation": {
+    "score": 0.0,
+    "reason": "\u274c Environment/DB check failed",
+    "metrics": {
+      "env_reward": {
+        "score": 0.0,
+        "success": false,
+        "reason": "{<RewardType.DB: 'DB'>: 0.0}"
+      },
+      "comm_reward": {
+        "score": 1.0,
+        "success": true,
+        "reason": "{<RewardType.COMMUNICATE: 'COMMUNICATE'>: 1.0}"
+      }
+    }
+  },
+  "evaluation_criteria": "Actions:\n\tAction ID: 35_0\n\tRequestor: assistant\n\tName: book_reservation\n\tArguments:\n\t{\n\t  \"user_id\": \"aarav_ahmed_6699\",\n\t  \"origin\": \"JFK\",\n\t  \"destination\": \"SFO\",\n\t  \"flight_type\": \"one_way\",\n\t  \"cabin\": \"economy\",\n\t  \"flights\": [\n\t    {\n\t      \"flight_number\": \"HAT069\",\n\t      \"date\": \"2024-05-24\"\n\t    },\n\t    {\n\t      \"flight_number\": \"HAT258\",\n\t      \"date\": \"2024-05-24\"\n\t    }\n\t  ],\n\t  \"passengers\": [\n\t    {\n\t      \"first_name\": \"Aarav\",\n\t      \"last_name\": \"Ahmed\",\n\t      \"dob\": \"1985-04-04\"\n\t    }\n\t  ],\n\t  \"payment_methods\": [\n\t    {\n\t      \"payment_id\": \"credit_card_9074831\",\n\t      \"amount\": 290\n\t    }\n\t  ],\n\t  \"total_baggages\": 0,\n\t  \"nonfree_baggages\": 0,\n\t  \"insurance\": \"no\"\n\t}\nCommunicate Info:\nNL Assertions:\n\tAgent does not cancel the reservation since this is not allowed.\n\tAgent books a one-way one-stop flight from JFK to SFO on 2024-05-24 with flights HAT069 and HAT258.\n\tAgent charges $290 to credit card credit_card_907483",
+  "conversation_length": 0,
+  "trajectory_steps": 0,
+  "timestamp": "2025-08-11T02:16:01.747607"
+}
