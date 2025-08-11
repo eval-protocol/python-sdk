@@ -336,8 +336,11 @@ class TestLogsServer:
     @pytest.mark.asyncio
     async def test_create_app_factory(self, temp_build_dir):
         """Test the create_app factory function."""
-        app = create_app(build_dir=str(temp_build_dir))
-        assert isinstance(app, FastAPI)
+        with patch("eval_protocol.utils.logs_server.LogsServer.start_loops") as mock_start_loops:
+            app = create_app(build_dir=str(temp_build_dir))
+            assert isinstance(app, FastAPI)
+            # Verify that start_loops was called
+            mock_start_loops.assert_called_once()
 
     def test_serve_logs_convenience_function(self, temp_build_dir):
         """Test the serve_logs convenience function."""
