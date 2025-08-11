@@ -237,6 +237,30 @@ class EvalMetadata(BaseModel):
     passed: Optional[bool] = Field(None, description="Whether the evaluation passed based on the threshold")
 
 
+class ExecutionMetadata(BaseModel):
+    """Metadata about the execution of the evaluation."""
+
+    invocation_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the invocation that this row belongs to.",
+    )
+
+    experiment_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the experiment that this row belongs to.",
+    )
+
+    rollout_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the rollout that this row belongs to.",
+    )
+
+    run_id: Optional[str] = Field(
+        None,
+        description=("The ID of the run that this row belongs to."),
+    )
+
+
 class RolloutStatus(BaseModel):
     """Status of the rollout."""
 
@@ -281,26 +305,6 @@ class EvaluationRow(BaseModel):
         description="The status of the rollout.",
     )
 
-    invocation_id: Optional[str] = Field(
-        default_factory=generate_id,
-        description="The ID of the invocation that this row belongs to.",
-    )
-
-    experiment_id: Optional[str] = Field(
-        default_factory=generate_id,
-        description="The ID of the experiment that this row belongs to.",
-    )
-
-    rollout_id: Optional[str] = Field(
-        default_factory=generate_id,
-        description="The ID of the rollout that this row belongs to.",
-    )
-
-    run_id: Optional[str] = Field(
-        None,
-        description=("The ID of the run that this row belongs to."),
-    )
-
     # Ground truth reference (moved from EvaluateResult to top level)
     ground_truth: Optional[str] = Field(
         default=None, description="Optional ground truth reference for this evaluation."
@@ -309,6 +313,11 @@ class EvaluationRow(BaseModel):
     # Unified evaluation result
     evaluation_result: Optional[EvaluateResult] = Field(
         default=None, description="The evaluation result for this row/trajectory."
+    )
+
+    execution_metadata: ExecutionMetadata = Field(
+        default_factory=ExecutionMetadata,
+        description="Metadata about the execution of the evaluation.",
     )
 
     # LLM usage statistics

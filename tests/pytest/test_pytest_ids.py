@@ -12,8 +12,8 @@ class InMemoryLogger(DatasetLogger):
         self._rows: dict[str, EvaluationRow] = {}
 
     def log(self, row: EvaluationRow):
-        print(row.run_id, row.rollout_id)
-        self._rows[row.rollout_id] = row
+        print(row.execution_metadata.run_id, row.execution_metadata.rollout_id)
+        self._rows[row.execution_metadata.rollout_id] = row
 
     def read(self):
         return list(self._rows.values())
@@ -76,10 +76,10 @@ def test_evaluation_test_decorator_ids_single(monkeypatch):
         logger=InMemoryLogger(),
     )
     def eval_fn(row: EvaluationRow) -> EvaluationRow:
-        unique_run_ids.add(row.run_id)
-        unique_experiment_ids.add(row.experiment_id)
-        unique_rollout_ids.add(row.rollout_id)
-        unique_invocation_ids.add(row.invocation_id)
+        unique_run_ids.add(row.execution_metadata.run_id)
+        unique_experiment_ids.add(row.execution_metadata.experiment_id)
+        unique_rollout_ids.add(row.execution_metadata.rollout_id)
+        unique_invocation_ids.add(row.execution_metadata.invocation_id)
         unique_row_ids.add(row.input_metadata.row_id)
         return row
 

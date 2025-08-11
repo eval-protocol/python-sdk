@@ -189,7 +189,7 @@ describe('computePivot', () => {
 
     const res = computePivot({
       data: rows,
-      rowFields: ['$.eval_metadata.name', '$.experiment_id'],
+      rowFields: ['$.eval_metadata.name', '$.execution_metadata.experiment_id'],
       columnFields: ['$.input_metadata.completion_params.model'],
       valueField: '$.evaluation_result.score',
       aggregator: 'avg',

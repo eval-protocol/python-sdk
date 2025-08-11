@@ -383,8 +383,8 @@ def evaluation_test(  # noqa: C901
                         row.input_metadata.session_data["mode"] = mode
                         # Initialize eval_metadata for each row
                         row.eval_metadata = eval_metadata
-                        row.experiment_id = experiment_id
-                        row.invocation_id = invocation_id
+                        row.execution_metadata.experiment_id = experiment_id
+                        row.execution_metadata.invocation_id = invocation_id
 
                         # has to be done in the pytest main process since it's
                         # used to determine whether this eval has stopped
@@ -409,11 +409,11 @@ def evaluation_test(  # noqa: C901
 
                         # apply new run_id to fresh_dataset
                         for row in fresh_dataset:
-                            row.run_id = run_id
+                            row.execution_metadata.run_id = run_id
 
                         # generate new rollout_id for each row
                         for row in fresh_dataset:
-                            row.rollout_id = generate_id()
+                            row.execution_metadata.rollout_id = generate_id()
 
                         # log the fresh_dataset
                         for row in fresh_dataset:
