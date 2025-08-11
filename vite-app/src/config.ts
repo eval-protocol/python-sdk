@@ -42,6 +42,21 @@ export const discoverServerConfig = async (): Promise<void> => {
 			return;
 		}
 
+		// Check if we're in Vite development mode
+		if (import.meta.env.DEV) {
+			// In dev mode, use localhost:8000
+			config.websocket.host = 'localhost';
+			config.websocket.port = '8000';
+			config.websocket.protocol = 'ws';
+
+			config.api.host = 'localhost';
+			config.api.port = '8000';
+			config.api.protocol = 'http';
+
+			console.log('Using Vite dev config (localhost:8000):', config);
+			return;
+		}
+
 		// Fallback: Try to discover server configuration from the current location
 		const currentHost = window.location.hostname;
 		const currentPort = window.location.port;

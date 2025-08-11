@@ -28,7 +28,7 @@ def markdown_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
 @evaluation_test(
     input_dataset=["tests/pytest/data/markdown_dataset.jsonl"],
     dataset_adapter=markdown_dataset_to_evaluation_row,
-    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
+    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
     passed_threshold=0.5,
     rollout_processor=default_single_turn_rollout_processor,

@@ -248,7 +248,6 @@ class LogsServer(ViteServer):
 
         # Subscribe to events and start listening for cross-process events
         event_bus.subscribe(self._handle_event)
-        event_bus.start_listening()
 
         logger.info(f"LogsServer initialized on {host}:{port}")
 
@@ -288,6 +287,12 @@ class LogsServer(ViteServer):
             data = EvaluationRow(**data)
             self.websocket_manager.broadcast_row_upserted(data)
 
+    def start_loops(self):
+        """Start the broadcast loop and evaluation watcher."""
+        self.websocket_manager.start_broadcast_loop()
+        self.evaluation_watcher.start()
+        event_bus.start_listening()
+
     async def run_async(self):
         """
         Run the logs server asynchronously with file watching.
@@ -300,11 +305,7 @@ class LogsServer(ViteServer):
             logger.info(f"Serving files from: {self.build_dir}")
             logger.info("WebSocket endpoint available at /ws")
 
-            # Start the broadcast loop
-            self.websocket_manager.start_broadcast_loop()
-
-            # Start the evaluation watcher
-            self.evaluation_watcher.start()
+            self.start_loops()
 
             config = uvicorn.Config(
                 self.app,
@@ -336,9 +337,10 @@ class LogsServer(ViteServer):
 
 def create_app(host: str = "localhost", port: int = 8000, build_dir: Optional[str] = None) -> FastAPI:
     """
-    Factory function to create a FastAPI app instance.
+    Factory function to create a FastAPI app instance and start the server with async loops.
 
-    This allows uvicorn to call it with parameters and avoids top-level variable instantiation.
+    This creates a LogsServer instance and starts it in a background thread to ensure
+    all async loops (WebSocket broadcast, evaluation watching) are running.
 
     Args:
         host: Host to bind to
@@ -346,7 +348,7 @@ def create_app(host: str = "localhost", port: int = 8000, build_dir: Optional[st
         build_dir: Optional custom build directory path
 
     Returns:
-        FastAPI app instance
+        FastAPI app instance with server running in background
     """
     if build_dir is None:
         build_dir = os.path.abspath(
@@ -354,6 +356,7 @@ def create_app(host: str = "localhost", port: int = 8000, build_dir: Optional[st
         )
 
     server = LogsServer(host=host, port=port, build_dir=build_dir)
+    server.start_loops()
     return server.app
 
 
