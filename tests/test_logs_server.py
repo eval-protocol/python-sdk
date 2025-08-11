@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import psutil
 import pytest
 from fastapi import FastAPI
+from fastapi.routing import APIWebSocketRoute
 from fastapi.testclient import TestClient
 
 from eval_protocol.dataset_logger import default_logger
@@ -291,16 +292,16 @@ class TestLogsServer:
             (temp_path / "assets").mkdir(exist_ok=True)
             yield temp_path
 
-    def test_initialization(self, temp_build_dir):
+    def test_initialization(self, temp_build_dir: Path):
         """Test LogsServer initialization."""
         server = LogsServer(build_dir=str(temp_build_dir))
-        assert server.build_dir == str(temp_build_dir)
+        assert server.build_dir == temp_build_dir
         assert server.websocket_manager is not None
         assert server.evaluation_watcher is not None
 
     def test_initialization_invalid_build_dir(self):
         """Test LogsServer initialization with invalid build directory."""
-        with pytest.raises(ValueError, match="Build directory does not exist"):
+        with pytest.raises(FileNotFoundError, match="Build directory '/nonexistent/path' does not exist"):
             LogsServer(build_dir="/nonexistent/path")
 
     def test_websocket_routes(self, temp_build_dir):
@@ -308,8 +309,13 @@ class TestLogsServer:
         server = LogsServer(build_dir=str(temp_build_dir))
 
         # Check that the WebSocket endpoint exists
-        websocket_routes = [route for route in server.app.routes if hasattr(route, "endpoint")]
-        assert len(websocket_routes) > 0
+        if not server.app.routes:
+            raise ValueError("No routes found")
+        for route in server.app.routes:
+            if isinstance(route, APIWebSocketRoute) and route.path == "/ws":
+                break
+        else:
+            raise ValueError("WebSocket route not found")
 
     @pytest.mark.asyncio
     async def test_handle_event(self, temp_build_dir):
@@ -317,10 +323,10 @@ class TestLogsServer:
         server = LogsServer(build_dir=str(temp_build_dir))
 
         # Test handling a log event
-        test_row = EvaluationRow(
-            messages=[Message(role="user", content="test")],
-            input_metadata=InputMetadata(row_id="test-123"),
-        )
+        test_row = {
+            "messages": [{"role": "user", "content": "test"}],
+            "input_metadata": {"row_id": "test-123"},
+        }
 
         server._handle_event(LOG_EVENT_TYPE, test_row)
         # The event should be queued for broadcasting
@@ -333,8 +339,12 @@ class TestLogsServer:
 
     def test_serve_logs_convenience_function(self, temp_build_dir):
         """Test the serve_logs convenience function."""
-        # This should not raise an error
-        serve_logs(port=8001)
+        # Mock the LogsServer.run method to avoid actually starting a server
+        with patch("eval_protocol.utils.logs_server.LogsServer.run") as mock_run:
+            # This should not raise an error
+            serve_logs(port=8001)
+            # Verify that the run method was called
+            mock_run.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_run_async_lifecycle(self, temp_build_dir):
