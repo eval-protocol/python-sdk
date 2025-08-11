@@ -100,7 +100,7 @@ export const EvaluationRowSchema = z.object({
   input_metadata: InputMetadataSchema.describe('Metadata related to the input (dataset info, model config, session data, etc.).'),
   rollout_status: RolloutStatusSchema.default({ status: 'finished' }).describe('The status of the rollout.'),
   invocation_id: z.string().optional().describe('The ID of the invocation that this row belongs to.'),
-  cohort_id: z.string().optional().describe('The ID of the cohort that this row belongs to.'),
+  experiment_id: z.string().optional().describe('The ID of the experiment that this row belongs to.'),
   rollout_id: z.string().optional().describe('The ID of the rollout that this row belongs to.'),
   run_id: z.string().optional().describe('The ID of the run that this row belongs to.'),
   ground_truth: z.string().optional().describe('Optional ground truth reference for this evaluation.'),

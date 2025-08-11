@@ -134,7 +134,7 @@ const IdSection = observer(({ data }: { data: EvaluationRowType }) => (
     title="IDs"
     data={{
       rollout_id: data.rollout_id,
-      cohort_id: data.cohort_id,
+      experiment_id: data.experiment_id,
       invocation_id: data.invocation_id,
       run_id: data.run_id,
     }}

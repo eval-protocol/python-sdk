@@ -286,9 +286,9 @@ class EvaluationRow(BaseModel):
         description="The ID of the invocation that this row belongs to.",
     )
 
-    cohort_id: Optional[str] = Field(
+    experiment_id: Optional[str] = Field(
         default_factory=generate_id,
-        description="The ID of the cohort that this row belongs to.",
+        description="The ID of the experiment that this row belongs to.",
     )
 
     rollout_id: Optional[str] = Field(

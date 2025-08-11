@@ -73,14 +73,14 @@ def evaluation_test(  # noqa: C901
     Here are some key concepts to understand the terminology in EP:
 
     - "invocation" is a single execution of a test function. An invocation can
-        generate 1 or more cohorts. Grouping by invocation might be useful to
+        generate 1 or more experiments. Grouping by invocation might be useful to
         aggregate eval scores across multiple invocations when you want to aggregate
         scores across multiple datasets.
-    - "cohort" is a group of runs with for a combination of parameters. A single
-        cohort will have multiple runs if num_runs > 1.
+    - "experiment" is a group of runs with for a combination of parameters. A single
+        experiment will have multiple runs if num_runs > 1.
         1. If your evaluation_test has combinations of parameters, it will generate
-        multiple cohorts per combination of parameters.
-        2. A new execution of a test function will generate a new cohort.
+        multiple experiments per combination of parameters.
+        2. A new execution of a test function will generate a new experiment.
     - "run" is a group of rollouts. For multiple num_runs > 1, there will be
         multiple "run_id"s.
     - "rollout" is the execution/process that produces a "trajectory". You
@@ -98,7 +98,7 @@ def evaluation_test(  # noqa: C901
         decorated test. It simply produces a score from 0 to 1 and attached it
         to the row as the "evaluation_result" field.
 
-    "invocation", "cohort", "run", "rollout", and "row" each have a unique ID
+    "invocation", "experiment", "run", "rollout", and "row" each have a unique ID
     which can be used to easily group and identify your dataset by.
 
     Args:
@@ -302,7 +302,7 @@ def evaluation_test(  # noqa: C901
                 eval_metadata = None
                 all_results: List[List[EvaluationRow]] = [[] for _ in range(num_runs)]
 
-                cohort_id = generate_id()
+                experiment_id = generate_id()
 
                 def _log_eval_error(
                     status: Literal["finished", "error"], rows: Optional[List[EvaluationRow]] | None, passed: bool
@@ -383,7 +383,7 @@ def evaluation_test(  # noqa: C901
                         row.input_metadata.session_data["mode"] = mode
                         # Initialize eval_metadata for each row
                         row.eval_metadata = eval_metadata
-                        row.cohort_id = cohort_id
+                        row.experiment_id = experiment_id
                         row.invocation_id = invocation_id
 
                         # has to be done in the pytest main process since it's
