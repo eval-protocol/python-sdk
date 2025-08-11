@@ -1,5 +1,12 @@
 import React from "react";
 import { computePivot } from "../util/pivot";
+import TableContainer, {
+  TableHeader,
+  TableCell,
+  TableHead,
+  TableBody,
+  TableRow,
+} from "./TableContainer";
 
 /**
  * Props for PivotTable.
@@ -93,50 +100,33 @@ export function PivotTable<T extends Record<string, unknown>>({
   });
 
   return (
-    <div
-      className={`bg-white border border-gray-200 overflow-x-auto ${className}`}
-    >
+    <TableContainer className={className}>
       <table className="w-full min-w-max">
-        <thead className="bg-gray-50 border-b border-gray-200">
+        <TableHead>
           <tr>
             {/* Row header labels */}
             {rowFields.map((f) => (
-              <th
-                key={String(f)}
-                className="px-3 py-2 text-left text-xs font-semibold text-gray-700"
-              >
-                {String(f)}
-              </th>
+              <TableHeader key={String(f)}>{String(f)}</TableHeader>
             ))}
             {/* Column headers (flattened) */}
             {colKeyTuples.map((tuple, idx) => (
-              <th
-                key={`col-${idx}`}
-                className="px-3 py-2 text-right text-xs font-semibold text-gray-700 whitespace-nowrap"
-              >
+              <TableHeader key={`col-${idx}`} align="right" nowrap>
                 {tuple.map((v) => String(v ?? "")).join(" / ")}
-              </th>
+              </TableHeader>
             ))}
-            {showRowTotals && (
-              <th className="px-3 py-2 text-right text-xs font-semibold text-gray-700">
-                Total
-              </th>
-            )}
+            {showRowTotals && <TableHeader align="right">Total</TableHeader>}
           </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
+        </TableHead>
+        <TableBody>
           {rowKeyTuples.map((rTuple, rIdx) => {
             const rKey = toKey(rTuple);
             return (
-              <tr key={`row-${rIdx}`} className="text-xs">
+              <TableRow key={`row-${rIdx}`} className="text-xs">
                 {/* Row header cells */}
                 {rTuple.map((value, i) => (
-                  <td
-                    key={`rh-${i}`}
-                    className="px-3 py-2 text-gray-900 whitespace-nowrap"
-                  >
+                  <TableCell key={`rh-${i}`} nowrap>
                     {String(value ?? "")}
-                  </td>
+                  </TableCell>
                 ))}
                 {/* Data cells */}
                 {colKeyTuples.map((cTuple, cIdx) => {
@@ -144,55 +134,46 @@ export function PivotTable<T extends Record<string, unknown>>({
                   const cell = cells[rKey]?.[cKey];
                   const content = cell ? formatter(cell.value) : emptyValue;
                   return (
-                    <td
-                      key={`c-${cIdx}`}
-                      className="px-3 py-2 text-right text-gray-900 whitespace-nowrap"
-                    >
+                    <TableCell key={`c-${cIdx}`} align="right" nowrap>
                       {content}
-                    </td>
+                    </TableCell>
                   );
                 })}
                 {/* Row total */}
                 {showRowTotals && (
-                  <td className="px-3 py-2 text-right text-gray-900 whitespace-nowrap font-medium">
+                  <TableCell align="right" nowrap medium>
                     {formatter(rowTotals[rKey] ?? 0)}
-                  </td>
+                  </TableCell>
                 )}
-              </tr>
+              </TableRow>
             );
           })}
           {showColumnTotals && (
-            <tr className="bg-gray-50">
+            <TableRow gray>
               {/* Total label spanning row header columns */}
-              <td
-                colSpan={Math.max(1, rowFields.length)}
-                className="px-3 py-2 text-left text-xs font-semibold text-gray-700"
-              >
+              <TableCell colSpan={Math.max(1, rowFields.length)} semibold>
                 Total
-              </td>
+              </TableCell>
               {/* Column totals */}
               {colKeyTuples.map((cTuple, cIdx) => {
                 const cKey = toKey(cTuple);
                 return (
-                  <td
-                    key={`ct-${cIdx}`}
-                    className="px-3 py-2 text-right text-gray-900 whitespace-nowrap font-medium"
-                  >
+                  <TableCell key={`ct-${cIdx}`} align="right" nowrap medium>
                     {formatter(colTotals[cKey] ?? 0)}
-                  </td>
+                  </TableCell>
                 );
               })}
               {/* Grand total */}
               {showRowTotals && (
-                <td className="px-3 py-2 text-right text-gray-900 whitespace-nowrap font-semibold">
+                <TableCell align="right" nowrap semibold>
                   {formatter(grandTotal)}
-                </td>
+                </TableCell>
               )}
-            </tr>
+            </TableRow>
           )}
-        </tbody>
+        </TableBody>
       </table>
-    </div>
+    </TableContainer>
   );
 }
 

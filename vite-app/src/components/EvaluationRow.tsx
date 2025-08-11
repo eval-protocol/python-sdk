@@ -4,6 +4,7 @@ import { ChatInterface } from "./ChatInterface";
 import { MetadataSection } from "./MetadataSection";
 import StatusIndicator from "./StatusIndicator";
 import { state } from "../App";
+import { TableCell, TableRowInteractive } from "./TableContainer";
 
 // Small, focused components following "dereference values late" principle
 const ExpandIcon = observer(({ rolloutId }: { rolloutId?: string }) => {
@@ -204,48 +205,45 @@ export const EvaluationRow = observer(
     return (
       <>
         {/* Main Table Row */}
-        <tr
-          className="hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-200"
-          onClick={toggleExpanded}
-        >
+        <TableRowInteractive onClick={toggleExpanded}>
           {/* Expand/Collapse Icon */}
-          <td className="px-3 py-3 w-8">
+          <TableCell className="w-8 py-3">
             <ExpandIcon rolloutId={rolloutId} />
-          </td>
+          </TableCell>
 
           {/* Name */}
-          <td className="px-3 py-3 text-xs">
+          <TableCell className="py-3 text-xs">
             <RowName name={row.eval_metadata?.name} />
-          </td>
+          </TableCell>
 
           {/* Status */}
-          <td className="px-3 py-3 text-xs">
+          <TableCell className="py-3 text-xs">
             <RowStatus
               status={row.eval_metadata?.status}
               showSpinner={row.eval_metadata?.status === "running"}
             />
-          </td>
+          </TableCell>
 
           {/* Rollout ID */}
-          <td className="px-3 py-3 text-xs">
+          <TableCell className="py-3 text-xs">
             <RolloutId rolloutId={row.rollout_id} />
-          </td>
+          </TableCell>
 
           {/* Model */}
-          <td className="px-3 py-3 text-xs">
-            <RowModel model={row.input_metadata.completion_params?.model} />
-          </td>
+          <TableCell className="py-3 text-xs">
+            <RowName name={row.input_metadata.completion_params?.model} />
+          </TableCell>
 
           {/* Score */}
-          <td className="px-3 py-3 text-xs">
+          <TableCell className="py-3 text-xs">
             <RowScore score={row.evaluation_result?.score} />
-          </td>
+          </TableCell>
 
           {/* Created */}
-          <td className="px-3 py-3 text-xs">
+          <TableCell className="py-3 text-xs">
             <RowCreated created_at={row.created_at} />
-          </td>
-        </tr>
+          </TableCell>
+        </TableRowInteractive>
 
         {/* Expanded Content Row */}
         {isExpanded && (

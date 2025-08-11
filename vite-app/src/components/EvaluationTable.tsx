@@ -4,6 +4,7 @@ import { state } from "../App";
 import { EvaluationRow } from "./EvaluationRow";
 import Button from "./Button";
 import Select from "./Select";
+import TableContainer, { TableHeader, TableHead } from "./TableContainer";
 
 const TableBody = observer(
   ({ currentPage, pageSize }: { currentPage: number; pageSize: number }) => {
@@ -50,7 +51,7 @@ export const EvaluationTable = observer(() => {
   }, [totalRows]);
 
   return (
-    <div className="bg-white border border-gray-200 overflow-x-auto">
+    <TableContainer>
       {/* Pagination Controls */}
       <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -112,35 +113,21 @@ export const EvaluationTable = observer(() => {
 
       <table className="w-full min-w-max">
         {/* Table Header */}
-        <thead className="bg-gray-50 border-b border-gray-200">
+        <TableHead>
           <tr>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 w-8">
-              {/* Expand/Collapse column */}
-            </th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-              Name
-            </th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-              Status
-            </th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-              Rollout ID
-            </th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-              Model
-            </th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-              Score
-            </th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
-              Created
-            </th>
+            <TableHeader className="w-8">&nbsp;</TableHeader>
+            <TableHeader>Name</TableHeader>
+            <TableHeader>Status</TableHeader>
+            <TableHeader>Rollout ID</TableHeader>
+            <TableHeader>Model</TableHeader>
+            <TableHeader>Score</TableHeader>
+            <TableHeader>Created</TableHeader>
           </tr>
-        </thead>
+        </TableHead>
 
         {/* Table Body */}
         <TableBody currentPage={currentPage} pageSize={pageSize} />
       </table>
-    </div>
+    </TableContainer>
   );
 });
