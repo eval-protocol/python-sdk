@@ -178,8 +178,11 @@ class ExecutionManager:
                     TerminationReason.USER_STOP,
                 }:
                     evaluation_rows[idx].rollout_status.status = "finished"
-                elif trajectory.termination_reason == TerminationReason.MAX_STEPS:
+                elif trajectory.termination_reason in {TerminationReason.MAX_STEPS, TerminationReason.INTERRUPTED}:
                     evaluation_rows[idx].rollout_status.status = "stopped"
+                    evaluation_rows[idx].rollout_status.error_message = trajectory.control_plane_summary.get(
+                        "termination_reason", trajectory.termination_reason
+                    )
                 else:
                     evaluation_rows[idx].rollout_status.status = "error"
                     evaluation_rows[idx].rollout_status.error_message = trajectory.control_plane_summary.get(
@@ -315,8 +318,7 @@ class ExecutionManager:
                         # If there's no user simulator, no tool call means policy failed and we should terminate the rollout
                         elif tool_calls[0].tool_name in ["_playback_terminate", "_no_tool_call"]:
                             trajectory.terminated = True
-                            trajectory.termination_reason = TerminationReason.ERROR
-                            trajectory.control_plane_summary.update({"error_message": "No expected tool call"})
+                            trajectory.termination_reason = TerminationReason.INTERRUPTED
                             break
 
                     # Execute each tool call sequentially
