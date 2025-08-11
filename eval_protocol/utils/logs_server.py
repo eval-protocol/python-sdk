@@ -109,6 +109,7 @@ class WebSocketManager:
         """Stop the broadcast loop."""
         if self._broadcast_task and not self._broadcast_task.done():
             self._broadcast_task.cancel()
+            self._broadcast_task = None
 
 
 class EvaluationWatcher:
