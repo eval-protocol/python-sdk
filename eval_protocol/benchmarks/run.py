@@ -38,6 +38,8 @@ def _parse_args() -> argparse.Namespace:
         help="Limit rows: integer or 'all' for no limit (maps to EP_MAX_DATASET_ROWS)",
     )
     parser.add_argument("--num-runs", type=int, help="Override num_runs if provided")
+    parser.add_argument("--max-tokens", type=int, help="Override max_tokens for generation requests")
+    parser.add_argument("--max-concurrency", type=int, help="Override max concurrent rollouts")
     # Allow overriding reasoning effort explicitly (low/medium/high). If omitted, suite default is used.
     # Already mapped by --reasoning-effort above.
     return parser.parse_args()
@@ -73,6 +75,11 @@ def main() -> int:
             max_rows = int(args.max_rows)
         except Exception:
             max_rows = str(args.max_rows)
+    # Build input params override if needed
+    ip_override = {}
+    if args.max_tokens is not None:
+        ip_override["max_tokens"] = int(args.max_tokens)
+
     _ = runner(
         model=args.model,
         print_summary=args.print_summary,
@@ -80,6 +87,8 @@ def main() -> int:
         reasoning_effort=args.reasoning_effort,
         max_rows=max_rows,
         num_runs=args.num_runs,
+        input_params_override=(ip_override or None),
+        max_concurrency=args.max_concurrency,
     )
     # Non-zero exit on failure gate is handled within the runner via assertions
     return 0

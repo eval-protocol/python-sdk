@@ -74,6 +74,7 @@ def export_benchmark(name: str) -> Callable[[Callable[..., Any]], Callable[..., 
             max_rows: Optional[int | str] = None,
             num_runs: Optional[int] = None,
             input_params_override: Optional[Dict[str, Any]] = None,
+            max_concurrency: Optional[int] = None,
         ) -> Any:
             # Map convenience flags to EP_* env used by the pytest flow
             if print_summary:
@@ -122,6 +123,8 @@ def export_benchmark(name: str) -> Callable[[Callable[..., Any]], Callable[..., 
             max_dataset_rows = ep_config.get("max_dataset_rows")
             mcp_config_path = ep_config.get("mcp_config_path")
             max_concurrent_rollouts = ep_config.get("max_concurrent_rollouts")
+            if max_concurrency is not None:
+                max_concurrent_rollouts = int(max_concurrency)
             server_script_path = ep_config.get("server_script_path")
             steps = ep_config.get("steps")
             mode = ep_config.get("mode")
