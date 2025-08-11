@@ -6,12 +6,16 @@ Extracted from mcp_env.py to improve modularity.
 """
 
 import asyncio
-import hashlib
+import random
 import json
 import logging
 import time
 from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional, Tuple
+
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 import httpx
 from mcp.client.session import ClientSession
@@ -107,6 +111,7 @@ class MCPConnectionManager:
                 self._tools_cache[cache_key] = tool_schemas
                 logger.debug(f"✅ PRE-WARMED {len(tool_schemas)} tools for{cache_key}")
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=5, min=1, max=60))
     async def reset_session(self, session: MCPSession) -> None:
         """
         Clean session data in remote mcp server for the given session
@@ -123,6 +128,7 @@ class MCPConnectionManager:
             resp.raise_for_status()
             logger.debug(f"Session {session.session_id}: reset_session -> {resp.json()}")
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=5, min=0.5, max=10))
     async def discover_tools(self, session: MCPSession) -> List[Dict]:
         """
         Discover available tools from an MCP session.
@@ -537,12 +543,11 @@ class MCPConnectionManager:
         if session._exit_stack:
             try:
                 await session._exit_stack.aclose()
-            except asyncio.CancelledError:
+            except* asyncio.CancelledError:
                 # Handle cancellation gracefully (especially important for Python 3.12)
-                logger.error(f"Session {session.session_id} close was cancelled")
-            except Exception as e:
-                # Hitting this error, probably because of use of threads: "Attempted to exit cancel scope in a different task than it was entered in"
-                logger.error(f"Error closing session {session.session_id}: {e}")
+                logger.error(f"Session {session.session_id} close was cancelled", exc_info=True)
+            except* Exception as eg:
+                logger.error(f"Error closing session {session.session_id}: {eg}", exc_info=True)
             finally:
                 session._exit_stack = None
                 session._mcp_session = None
