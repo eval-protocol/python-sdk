@@ -248,7 +248,6 @@ class LogsServer(ViteServer):
 
         # Subscribe to events and start listening for cross-process events
         event_bus.subscribe(self._handle_event)
-        event_bus.start_listening()
 
         logger.info(f"LogsServer initialized on {host}:{port}")
 
@@ -292,6 +291,7 @@ class LogsServer(ViteServer):
         """Start the broadcast loop and evaluation watcher."""
         self.websocket_manager.start_broadcast_loop()
         self.evaluation_watcher.start()
+        event_bus.start_listening()
 
     async def run_async(self):
         """
