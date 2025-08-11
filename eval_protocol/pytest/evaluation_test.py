@@ -1,13 +1,22 @@
 import copy
 import inspect
+import math
 import os
 import statistics
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 import pytest
 
 from eval_protocol.dataset_logger import default_logger
-from eval_protocol.models import CompletionParams, EvalMetadata, EvaluationRow, EvaluationThreshold, InputMetadata
+from eval_protocol.human_id import generate_id
+from eval_protocol.models import (
+    CompletionParams,
+    EvalMetadata,
+    EvaluationRow,
+    EvaluationThreshold,
+    InputMetadata,
+    Message,
+)
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
 from eval_protocol.pytest.types import (
@@ -27,12 +36,14 @@ from eval_protocol.pytest.utils import (
     aggregate,
     create_dynamically_parameterized_wrapper,
     execute_function,
+    log_eval_status_and_rows,
 )
+from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
 
 from ..common_utils import load_jsonl
 
 
-def evaluation_test(
+def evaluation_test(  # noqa: C901
     *,
     model: List[ModelParam],
     input_messages: Optional[List[InputMessagesParam]] = None,
@@ -50,11 +61,43 @@ def evaluation_test(
     server_script_path: Optional[str] = None,
     steps: int = 30,
     mode: EvaluationTestMode = "batch",
+    combine_datasets: bool = True,
 ) -> Callable[
     [TestFunction],
     TestFunction,
 ]:
     """Decorator to create pytest-based evaluation tests.
+
+    Here are some key concepts to understand the terminology in EP:
+
+    - "invocation" is a single execution of a test function. An invocation can
+        generate 1 or more cohorts. Grouping by invocation might be useful to
+        aggregate eval scores across multiple invocations when you want to aggregate
+        scores across multiple datasets.
+    - "cohort" is a group of runs with for a combination of parameters. A single
+        cohort will have multiple runs if num_runs > 1.
+        1. If your evaluation_test has combinations of parameters, it will generate
+        multiple cohorts per combination of parameters.
+        2. A new execution of a test function will generate a new cohort.
+    - "run" is a group of rollouts. For multiple num_runs > 1, there will be
+        multiple "run_id"s.
+    - "rollout" is the execution/process that produces a "trajectory". You
+        "execute" multiple rollouts to generate a dataset of trajectories.
+    - "trajectory" is the result produced by a rollout — a list of OpenAI Chat
+        Completion messages (e.g. the "messages" field in EvaluationRow).
+    - "row" both the input and output of an evaluation. For example, in
+        tau-bench, a row is a task within the dataset that can be identified as
+        "airline_task_0" or "airline_task_1" etc. The "row_id" can be populated from
+        the dataset itself to identify a particular task you want to evaluate.  If
+        not provided, EP will generate a "row_id" for each row whenever you call the
+        evaluation test.
+    - "dataset" is a collection of rows (e.g. List[EvauluationRow])
+    - "eval" is a rubric implemented in the body of an @evaluation_test
+        decorated test. It simply produces a score from 0 to 1 and attached it
+        to the row as the "evaluation_result" field.
+
+    "invocation", "cohort", "run", "rollout", and "row" each have a unique ID
+    which can be used to easily group and identify your dataset by.
 
     Args:
         model: Model identifiers to query.
@@ -72,7 +115,7 @@ def evaluation_test(
         aggregation_method: How to aggregate scores across rows.
         threshold: Threshold configuration for test success.
             Success rate must be above success, and if set, standard deviation must be below standard_deviation.
-        num_runs: Number of times to repeat the evaluation.
+        num_runs: Number of times to repeat the rollout and evaluations.
         max_dataset_rows: Limit dataset to the first N rows.
         mcp_config_path: Path to MCP config file that follows MCPMultiClientConfiguration schema
         max_concurrent_rollouts: Maximum number of concurrent rollouts to run in parallel.
@@ -98,11 +141,11 @@ def evaluation_test(
         if mode == "pointwise":
             # Pointwise mode: function should accept messages and other row-level params
             if "row" not in sig.parameters:
-                raise ValueError(f"In pointwise mode, your eval function must have a parameter named 'row'")
+                raise ValueError("In pointwise mode, your eval function must have a parameter named 'row'")
 
             # validate that "Row" is of type EvaluationRow
             if sig.parameters["row"].annotation is not EvaluationRow:
-                raise ValueError(f"In pointwise mode, the 'row' parameter must be of type EvaluationRow")
+                raise ValueError("In pointwise mode, the 'row' parameter must be of type EvaluationRow")
 
             # validate that the function has a return type of EvaluationRow
             if sig.return_annotation is not EvaluationRow:
@@ -114,7 +157,7 @@ def evaluation_test(
 
             # validate that "Rows" is of type List[EvaluationRow]
             if sig.parameters["rows"].annotation is not List[EvaluationRow]:
-                raise ValueError(f"In batch mode, the 'rows' parameter must be of type List[EvaluationRow]")
+                raise ValueError("In batch mode, the 'rows' parameter must be of type List[EvaluationRow")
 
             # validate that the function has a return type of List[EvaluationRow]
             if sig.return_annotation is not List[EvaluationRow]:
@@ -122,15 +165,15 @@ def evaluation_test(
 
         def execute_with_params(
             test_func: TestFunction,
-            row: EvaluationRow | None = None,
-            input_dataset: List[EvaluationRow] | None = None,
+            processed_row: EvaluationRow | None = None,
+            processed_dataset: List[EvaluationRow] | None = None,
             evaluation_test_kwargs: Optional[EvaluationInputParam] = None,
         ):
             kwargs = {}
-            if input_dataset is not None:
-                kwargs["rows"] = input_dataset
-            if row is not None:
-                kwargs["row"] = row
+            if processed_dataset is not None:
+                kwargs["rows"] = processed_dataset
+            if processed_row is not None:
+                kwargs["row"] = processed_row
             if evaluation_test_kwargs is not None:
                 if "row" in evaluation_test_kwargs:
                     raise ValueError("'row' is a reserved parameter for the evaluation function")
@@ -140,19 +183,65 @@ def evaluation_test(
             return execute_function(test_func, **kwargs)
 
         # Calculate all possible combinations of parameters
+        def _parse_ep_max_rows(default_value: int | None) -> int | None:
+            """Read EP_MAX_DATASET_ROWS env override as int or None."""
+            raw = os.getenv("EP_MAX_DATASET_ROWS")
+            if raw is None:
+                return default_value
+            s = raw.strip().lower()
+            if s == "none":
+                return None
+            try:
+                return int(s)
+            except ValueError:
+                return default_value
+
+        def _deep_update_dict(base: dict, override: dict) -> dict:
+            """Recursively update nested dictionaries in-place and return base."""
+            for key, value in override.items():
+                if isinstance(value, dict) and isinstance(base.get(key), dict):
+                    _deep_update_dict(base[key], value)
+                else:
+                    base[key] = value
+            return base
+
         def generate_combinations():
             combinations = []
 
             # Handle optional parameters with defaults
-            datasets: List[Optional[DatasetPathParam]] = input_dataset if input_dataset is not None else [None]  # type: ignore
-            params: List[Optional[RolloutInputParam]] = rollout_input_params if rollout_input_params is not None else [None]  # type: ignore
-            messages: List[Optional[InputMessagesParam]] = input_messages if input_messages is not None else [None]  # type: ignore
+            # Optionally combine multiple dataset paths into one logical dataset,
+            # or parameterize to run one dataset per test invocation.
+            if input_dataset is not None:
+                if combine_datasets:
+                    datasets: List[Optional[List[DatasetPathParam]]] = [input_dataset]  # type: ignore
+                else:
+                    # Fan out: one dataset path per parameterization
+                    if isinstance(input_dataset, list):  # type: ignore
+                        datasets = [[p] for p in input_dataset]  # type: ignore
+                    else:
+                        datasets = [[input_dataset]]  # type: ignore
+            else:
+                datasets = [None]
+            rips: List[Optional[RolloutInputParam]] = rollout_input_params if rollout_input_params is not None else [None]  # type: ignore
+            # Apply EP_MAX_DATASET_ROWS to input_messages, but do NOT parameterize over
+            # each row. Instead, pass the entire sliced list through in a single test run
+            # so summaries aggregate all rows together (AIME-style behavior).
+            if input_messages is not None and isinstance(input_messages, list):
+                effective_max_rows = _parse_ep_max_rows(max_dataset_rows)
+                if effective_max_rows is not None:
+                    sliced_messages = input_messages[:effective_max_rows]  # type: ignore
+                else:
+                    sliced_messages = input_messages  # type: ignore
+                # Wrap as a single parameter payload
+                messages = [sliced_messages]  # type: ignore
+            else:
+                messages = [None]  # type: ignore
             kwargs: List[Optional[EvaluationInputParam]] = evaluation_test_kwargs if evaluation_test_kwargs is not None else [None]  # type: ignore
 
             # Generate all combinations
             for m in model:
                 for ds in datasets:
-                    for ip in params:
+                    for rip in rips:
                         for im in messages:
                             for etk in kwargs:
                                 # if no dataset and no messages, raise an error
@@ -160,7 +249,7 @@ def evaluation_test(
                                     raise ValueError(
                                         "No dataset or messages provided. Please provide at least one of input_dataset or input_messages."
                                     )
-                                combinations.append((m, ds, ip, im, etk))
+                                combinations.append((m, ds, rip, im, etk))
 
             return combinations
 
@@ -173,12 +262,12 @@ def evaluation_test(
         # Create parameter tuples for pytest.mark.parametrize
         param_tuples = []
         for combo in combinations:
-            model_name, dataset, params, messages, etk = combo
+            model_name, dataset, rip, messages, etk = combo
             param_tuple = [model_name]
             if input_dataset is not None:
                 param_tuple.append(dataset)
             if rollout_input_params is not None:
-                param_tuple.append(params)
+                param_tuple.append(rip)
             if input_messages is not None:
                 param_tuple.append(messages)
             if evaluation_test_kwargs is not None:
@@ -199,25 +288,71 @@ def evaluation_test(
         # Create wrapper function with exact signature that pytest expects
         def create_wrapper_with_signature() -> Callable:
             # Create the function body that will be used
+            invocation_id = generate_id()
+
             def wrapper_body(**kwargs):
                 model_name = kwargs["model"]
                 eval_metadata = None
                 all_results: List[List[EvaluationRow]] = [[] for _ in range(num_runs)]
 
+                cohort_id = generate_id()
+
+                def _log_eval_error(
+                    status: Literal["finished", "error"], rows: Optional[List[EvaluationRow]] | None, passed: bool
+                ) -> None:
+                    log_eval_status_and_rows(eval_metadata, rows, status, passed, default_logger)
+
+                cohort_id = generate_id()
+
+                def _log_eval_error(
+                    status: Literal["finished", "error"], rows: Optional[List[EvaluationRow]] | None, passed: bool
+                ) -> None:
+                    log_eval_status_and_rows(eval_metadata, rows, status, passed, default_logger)
+
                 try:
                     # Handle dataset loading
                     data: List[EvaluationRow] = []
                     if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
-                        data_jsonl = load_jsonl(kwargs["dataset_path"])
-                        if max_dataset_rows is not None:
-                            data_jsonl = data_jsonl[:max_dataset_rows]
+                        ds_arg = kwargs["dataset_path"]
+                        # Support either a single path or a list of paths; if a list is provided,
+                        # concatenate the rows from each file in order.
+                        if isinstance(ds_arg, list):
+                            data_jsonl = []
+                            for p in ds_arg:
+                                data_jsonl.extend(load_jsonl(p))
+                        else:
+                            data_jsonl = load_jsonl(ds_arg)
+                        # Apply env override for max rows if present
+                        effective_max_rows = _parse_ep_max_rows(max_dataset_rows)
+                        if effective_max_rows is not None:
+                            data_jsonl = data_jsonl[:effective_max_rows]
                         data = dataset_adapter(data_jsonl)
                     elif "input_messages" in kwargs and kwargs["input_messages"] is not None:
-                        data: List[EvaluationRow] = [EvaluationRow(messages=kwargs["input_messages"])]
+                        # Support either a single row (List[Message]) or many rows (List[List[Message]])
+                        im = kwargs["input_messages"]
+                        if isinstance(im, list) and len(im) > 0 and isinstance(im[0], Message):
+                            # Single row of Message objects
+                            data = [EvaluationRow(messages=im)]
+                        else:
+                            # Multiple rows: list of List[Message]
+                            data = [EvaluationRow(messages=m) for m in im]
                     else:
                         raise ValueError("No input dataset or input messages provided")
 
                     input_params = kwargs.get("input_params") or {}
+                    # Optional global overrides via environment for ad-hoc experimentation
+                    # EP_INPUT_PARAMS_JSON can contain a JSON object that will be deep-merged
+                    # into input_params (e.g., '{"temperature":0,"extra_body":{"reasoning":{"effort":"low"}}}').
+                    try:
+                        import json as _json
+
+                        _env_override = os.getenv("EP_INPUT_PARAMS_JSON")
+                        if _env_override:
+                            override_obj = _json.loads(_env_override)
+                            if isinstance(override_obj, dict):
+                                input_params = _deep_update_dict(dict(input_params), override_obj)
+                    except Exception:
+                        pass
 
                     # Create eval metadata with test function info and current commit hash
                     eval_metadata = EvalMetadata(
@@ -248,13 +383,15 @@ def evaluation_test(
                         row.input_metadata.session_data["mode"] = mode
                         # Initialize eval_metadata for each row
                         row.eval_metadata = eval_metadata
+                        row.cohort_id = cohort_id
+                        row.invocation_id = invocation_id
 
                         # has to be done in the pytest main process since it's
                         # used to determine whether this eval has stopped
                         row.pid = os.getpid()
                         default_logger.log(row)
 
-                    # Now run the rollout processor with metadata-initialized data
+                    # Prepare rollout processor config once; we will generate fresh outputs per run
                     config = RolloutProcessorConfig(
                         model=model_name,
                         input_params=input_params,
@@ -267,15 +404,25 @@ def evaluation_test(
                     for i in range(num_runs):
                         # Regenerate outputs each run by deep-copying the pristine dataset
                         # so model responses are not reused across runs.
-                        fresh_rows = [copy.deepcopy(r) for r in data]
-                        input_dataset = execute_function(rollout_processor, rows=fresh_rows, config=config)
+                        run_id = generate_id()
+                        fresh_dataset = [copy.deepcopy(r) for r in data]
+
+                        # apply new run_id to fresh_dataset
+                        for row in fresh_dataset:
+                            row.run_id = run_id
+
+                        # generate new rollout_id for each row
+                        for row in fresh_dataset:
+                            row.rollout_id = generate_id()
+
+                        processed_dataset = execute_function(rollout_processor, rows=fresh_dataset, config=config)
 
                         if mode == "pointwise":
                             # Pointwise mode: apply the evaluator function to each row
-                            for row in input_dataset:
+                            for row in processed_dataset:
                                 result = execute_with_params(
                                     test_func,
-                                    row=row,
+                                    processed_row=row,
                                     evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                                 )
                                 if result is None or not isinstance(result, EvaluationRow):
@@ -287,7 +434,7 @@ def evaluation_test(
                             # Batch mode: call the test function with the full dataset
                             results = execute_with_params(
                                 test_func,
-                                input_dataset=input_dataset,
+                                processed_dataset=processed_dataset,
                                 evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                             )
                             if results is None:
@@ -315,6 +462,36 @@ def evaluation_test(
                     agg_score = aggregate(scores, aggregation_method)
                     score_std = statistics.stdev(scores) if len(scores) > 1 else 0.0
 
+                    # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
+                    ci_low: float | None = None
+                    ci_high: float | None = None
+                    if aggregation_method == "mean":
+                        try:
+                            result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
+                            mu_ci_low, mu_ci_high = result_ci[1], result_ci[2]
+                            if mu_ci_low is not None and mu_ci_high is not None:
+                                ci_low = float(mu_ci_low)
+                                ci_high = float(mu_ci_high)
+                                # Keep agg_score as-is (mean over scores). For equal repeats per question these match.
+                        except Exception:
+                            ci_low = None
+                            ci_high = None
+
+                    # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
+                    ci_low: float | None = None
+                    ci_high: float | None = None
+                    if aggregation_method == "mean":
+                        try:
+                            result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
+                            mu_ci_low, mu_ci_high = result_ci[1], result_ci[2]
+                            if mu_ci_low is not None and mu_ci_high is not None:
+                                ci_low = float(mu_ci_low)
+                                ci_high = float(mu_ci_high)
+                                # Keep agg_score as-is (mean over scores). For equal repeats per question these match.
+                        except Exception:
+                            ci_low = None
+                            ci_high = None
+
                     # Determine if the evaluation passed based on threshold
                     passed = None
 
@@ -336,6 +513,128 @@ def evaluation_test(
                                 r.eval_metadata.passed = passed
                         default_logger.log(r)
 
+                    # Optional: print and/or persist a summary artifact for CI
+                    try:
+                        should_print = os.getenv("EP_PRINT_SUMMARY") == "1"
+                        summary_path = os.getenv("EP_SUMMARY_JSON")
+                        suite_name = test_func.__name__
+                        model_used = model_name
+                        total_rows = len([item for sublist in all_results for item in sublist])
+                        summary_obj = {
+                            "suite": suite_name,
+                            "model": model_used,
+                            "agg_score": float(agg_score) if agg_score is not None else None,
+                            "num_runs": num_runs,
+                            "rows": total_rows,
+                        }
+                        if ci_low is not None and ci_high is not None:
+                            summary_obj["agg_ci_low"] = ci_low
+                            summary_obj["agg_ci_high"] = ci_high
+
+                        # Aggregate per-metric mean and 95% CI when available
+                        metrics_summary: Dict[str, Dict[str, float]] = {}
+                        from collections import defaultdict
+
+                        metric_scores: Dict[str, list] = defaultdict(list)
+                        for r in [item for sublist in all_results for item in sublist]:
+                            if r.evaluation_result and r.evaluation_result.metrics:
+                                for m_name, m_res in r.evaluation_result.metrics.items():
+                                    if m_res is not None and getattr(m_res, "score", None) is not None:
+                                        metric_scores[m_name].append(m_res.score)
+                        for m_name, vals in metric_scores.items():
+                            if len(vals) == 0:
+                                continue
+                            m_mean = sum(vals) / len(vals)
+                            m_low = None
+                            m_high = None
+                            if len(vals) >= 2:
+                                try:
+                                    m_std = statistics.stdev(vals)
+                                    m_se = m_std / math.sqrt(len(vals))
+                                    m_margin = 1.96 * m_se
+                                    m_low = max(0.0, m_mean - m_margin)
+                                    m_high = min(1.0, m_mean + m_margin)
+                                except Exception:
+                                    m_low = None
+                                    m_high = None
+                            entry: Dict[str, float] = {"mean": float(m_mean)}
+                            if m_low is not None and m_high is not None:
+                                entry["ci_low"] = float(m_low)
+                                entry["ci_high"] = float(m_high)
+                            metrics_summary[m_name] = entry
+                        if metrics_summary:
+                            summary_obj["metrics_agg"] = metrics_summary
+                        if should_print:
+                            if ci_low is not None and ci_high is not None:
+                                print(
+                                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
+                                )
+                            else:
+                                print(
+                                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
+                                )
+                            # As per project convention, avoid printing per-metric CI lines to reduce noise
+                        if summary_path:
+                            import json
+                            import pathlib
+                            import re
+                            import time
+
+                            def _sanitize_filename(text: str) -> str:
+                                safe = re.sub(r"[^A-Za-z0-9._-]+", "-", text.strip())
+                                return safe[:120]
+
+                            def _extract_effort_tag(params: dict) -> str | None:
+                                try:
+                                    if not isinstance(params, dict):
+                                        return None
+                                    # Common locations
+                                    if "extra_body" in params and isinstance(params["extra_body"], dict):
+                                        eb = params["extra_body"]
+                                        if isinstance(eb.get("reasoning"), dict) and "effort" in eb["reasoning"]:
+                                            return str(eb["reasoning"]["effort"]).lower()
+                                        if "reasoning_effort" in eb:
+                                            return str(eb["reasoning_effort"]).lower()
+                                    if (
+                                        "reasoning" in params
+                                        and isinstance(params["reasoning"], dict)
+                                        and "effort" in params["reasoning"]
+                                    ):
+                                        return str(params["reasoning"]["effort"]).lower()
+                                except Exception:
+                                    return None
+                                return None
+
+                            model_slug = _sanitize_filename(model_used)
+                            effort_tag = _extract_effort_tag(input_params) or ""
+                            effort_suffix = f"__effort-{_sanitize_filename(effort_tag)}" if effort_tag else ""
+                            base_name = f"{suite_name}__{model_slug}{effort_suffix}__{mode}__runs{num_runs}.json"
+
+                            p = pathlib.Path(summary_path)
+                            summary_obj["timestamp"] = int(time.time())
+
+                            # When a directory is provided (or a path without .json), write per-combination files inside it
+                            if p.suffix.lower() != ".json" or summary_path.endswith("/") or p.is_dir():
+                                out_dir = p
+                                out_dir.mkdir(parents=True, exist_ok=True)
+                                out_file = out_dir / base_name
+                            else:
+                                # A file path was provided
+                                # If multiple parameterizations exist, write side-by-side files with suffixes based on base name
+                                parent = p.parent
+                                parent.mkdir(parents=True, exist_ok=True)
+                                # If we detected an effort tag, fan out to separate files; otherwise write to the exact file
+                                if effort_tag:
+                                    out_file = parent / f"{p.stem}__{_sanitize_filename(effort_tag)}{p.suffix}"
+                                else:
+                                    out_file = p
+
+                            with open(out_file, "w", encoding="utf-8") as f:
+                                json.dump(summary_obj, f)
+                    except Exception:
+                        # Do not fail evaluation if summary writing fails
+                        pass
+
                     # Check threshold after logging
                     if evaluation_threshold is not None and not passed:
                         assert (
@@ -346,25 +645,11 @@ def evaluation_test(
                                 score_std <= evaluation_threshold.standard_deviation
                             ), f"Standard deviation {score_std:.3f} above threshold {evaluation_threshold.standard_deviation}"
 
-                except Exception as e:
-                    # Update eval metadata status to error and log it
-                    if eval_metadata is not None:
-                        eval_metadata.status = "error"
-                        eval_metadata.passed = False
-
-                        # Create a minimal result row to log the error if we don't have any results yet
-                        if not data:
-                            error_row = EvaluationRow(messages=[], eval_metadata=eval_metadata, evaluation_result=None)
-                            default_logger.log(error_row)
-                        else:
-                            # Update existing results with error status
-                            for r in data:
-                                if r.eval_metadata is not None:
-                                    r.eval_metadata.status = "error"
-                                    r.eval_metadata.passed = False
-                                default_logger.log(r)
-
-                    # Re-raise the exception to maintain pytest behavior
+                except AssertionError:
+                    _log_eval_error("finished", data if "data" in locals() else None, passed=False)
+                    raise
+                except Exception:
+                    _log_eval_error("error", data if "data" in locals() else None, passed=False)
                     raise
 
             return create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names)

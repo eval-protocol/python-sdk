@@ -260,8 +260,8 @@ class EvaluationRow(BaseModel):
     supporting both row-wise batch evaluation and trajectory-based RL evaluation.
     """
 
-    # Core conversation data
-    messages: List[Message] = Field(description="List of messages in the conversation/trajectory.")
+    # Core OpenAI ChatCompletion compatible conversation data
+    messages: List[Message] = Field(description="List of messages in the conversation. Also known as a trajectory.")
 
     # Tool and function call information
     tools: Optional[List[Dict[str, Any]]] = Field(
@@ -277,6 +277,26 @@ class EvaluationRow(BaseModel):
     rollout_status: RolloutStatus = Field(
         default_factory=RolloutStatus,
         description="The status of the rollout.",
+    )
+
+    invocation_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the invocation that this row belongs to.",
+    )
+
+    cohort_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the cohort that this row belongs to.",
+    )
+
+    rollout_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the rollout that this row belongs to.",
+    )
+
+    run_id: Optional[str] = Field(
+        None,
+        description=("The ID of the run that this row belongs to."),
     )
 
     # Ground truth reference (moved from EvaluateResult to top level)

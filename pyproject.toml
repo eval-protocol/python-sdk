@@ -115,10 +115,22 @@ adapters = [
     "transformers>=4.0.0",
 ]
 
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = [
+    "examples",
+]
+plugins = [
+    "eval_protocol.pytest.plugin",
+]
+
 [project.scripts]
 fireworks-reward = "eval_protocol.cli:main"
 eval-protocol = "eval_protocol.cli:main"
 ep = "eval_protocol.cli:main"
+
+[project.entry-points.pytest11]
+eval_protocol = "eval_protocol.pytest.plugin"
 
 [tool.setuptools.packages.find]
 include = ["eval_protocol*", "development*", "vendor*"]

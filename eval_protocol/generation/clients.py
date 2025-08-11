@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 from omegaconf import DictConfig
-from pydantic import BaseModel, Field  # Added for new models
+from pydantic import BaseModel  # Added for new models
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,9 @@ class FireworksModelClient(ModelClient):
         }
         if self.top_p is not None:
             payload["top_p"] = self.top_p
+        # Include reasoning settings if configured (for reasoning-capable models)
+        if self.reasoning_effort:
+            payload["reasoning_effort"] = self.reasoning_effort
 
         if tools:
             payload["tools"] = tools

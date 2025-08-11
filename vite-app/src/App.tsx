@@ -39,7 +39,7 @@ const App = observer(() => {
         );
         if (update.type === "initialize_logs") {
           const rows: EvaluationRow[] = update.logs.map((log) => {
-            return EvaluationRowSchema.parse(JSON.parse(log));
+            return EvaluationRowSchema.parse(log);
           });
           console.log("initialize_logs", rows);
           state.setDataset(rows);
@@ -124,7 +124,13 @@ const App = observer(() => {
         <div className="max-w-7xl mx-auto px-3">
           <div className="flex justify-between items-center h-10">
             <div className="flex items-center space-x-2">
-              <img src={logoLight} alt="Eval Protocol" className="h-6 w-auto" />
+              <a href="https://evalprotocol.io" target="_blank">
+                <img
+                  src={logoLight}
+                  alt="Eval Protocol"
+                  className="h-6 w-auto"
+                />
+              </a>
             </div>
             <div className="flex items-center gap-2">
               <StatusIndicator
