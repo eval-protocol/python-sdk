@@ -42,6 +42,17 @@ class MCPServerManager:
         if self.process:
             return
 
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(1)
+                result = s.connect_ex(("localhost", self.port))
+                if result == 0:
+                    raise RuntimeError(
+                        f"Port {self.port} is already in use! Please use a different port or kill the process using it."
+                    )
+        except socket.error:
+            pass
+
         # Set environment for server
         env = os.environ.copy()
         env["PORT"] = str(self.port)

@@ -11,8 +11,7 @@ import logging
 import os
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from openai.types import CompletionUsage
@@ -248,7 +247,7 @@ class ExecutionManager:
 
                 # Get initial messages in tau2-bench format for user simulator
                 user_simulator_state = user_simulator.get_init_state()
-                user_message, user_simulator_state = user_simulator.generate_next_message(
+                user_message, user_simulator_state = await user_simulator.generate_next_message(
                     AssistantMessage(role="assistant", content="Hi! How can I help you today?"),
                     user_simulator_state,
                 )
@@ -280,7 +279,7 @@ class ExecutionManager:
                     # Last message was agent, simulated user response
                     if user_simulator_messages and isinstance(user_simulator_messages[-1], AssistantMessage):
                         # Generate user response using the simulator
-                        user_message, user_simulator_state = user_simulator.generate_next_message(
+                        user_message, user_simulator_state = await user_simulator.generate_next_message(
                             user_simulator_messages[-1], user_simulator_state
                         )
                         user_content = user_message.content if user_message.content else ""

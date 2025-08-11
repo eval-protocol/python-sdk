@@ -3,7 +3,7 @@ import re
 from typing import Any, Optional
 
 import litellm
-from litellm import completion, completion_cost
+from litellm import acompletion, completion_cost
 from litellm.caching.caching import Cache
 from litellm.main import ModelResponse, Usage
 from loguru import logger
@@ -193,7 +193,7 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
     return litellm_messages
 
 
-def generate(
+async def generate(
     model: str,
     messages: list[Message],
     tools: Optional[list[Tool]] = None,
@@ -224,7 +224,7 @@ def generate(
     if tools and tool_choice is None:
         tool_choice = "auto"
     try:
-        response = completion(
+        response = await acompletion(
             model=model,
             messages=litellm_messages,
             tools=tools,
