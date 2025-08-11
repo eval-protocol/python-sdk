@@ -14,10 +14,10 @@ export class GlobalState {
 
   upsertRows(dataset: EvaluationRow[]) {
     dataset.forEach((row) => {
-      if (!row.rollout_id) {
+      if (!row.execution_metadata?.rollout_id) {
         return;
       }
-      this.dataset[row.rollout_id] = row;
+      this.dataset[row.execution_metadata.rollout_id] = row;
     });
   }
 

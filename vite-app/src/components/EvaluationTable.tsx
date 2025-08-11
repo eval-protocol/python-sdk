@@ -20,7 +20,7 @@ const TableBody = observer(
       <TableBodyBase>
         {paginatedData.map((row, index) => (
           <EvaluationRow
-            key={row.rollout_id}
+            key={row.execution_metadata?.rollout_id}
             row={row}
             index={startIndex + index}
           />
