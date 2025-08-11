@@ -8,6 +8,7 @@ import { EvaluationRowSchema, type EvaluationRow } from "./types/eval-protocol";
 import { WebSocketServerMessageSchema } from "./types/websocket";
 import { GlobalState } from "./GlobalState";
 import logoLight from "./assets/logo-light.png";
+import { getWebSocketUrl, discoverServerConfig } from "./config";
 
 export const state = new GlobalState();
 
@@ -26,7 +27,7 @@ const App = observer(() => {
       return; // Already connected
     }
 
-    const ws = new WebSocket("ws://localhost:8000/ws");
+    const ws = new WebSocket(getWebSocketUrl());
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -109,7 +110,13 @@ const App = observer(() => {
   };
 
   useEffect(() => {
-    connectWebSocket();
+    // Discover server configuration first, then connect
+    const initializeApp = async () => {
+      await discoverServerConfig();
+      connectWebSocket();
+    };
+
+    initializeApp();
 
     return () => {
       if (reconnectTimeoutRef.current) {

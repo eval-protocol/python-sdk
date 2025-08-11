@@ -11,15 +11,16 @@ from ..utils.logs_server import serve_logs
 def logs_command(args):
     """Serve logs with file watching and real-time updates"""
 
+    port = args.port
     print(f"🚀 Starting Eval Protocol Logs Server")
-    print(f"🌐 URL: http://localhost:8000")
-    print(f"🔌 WebSocket: ws://localhost:8000/ws")
+    print(f"🌐 URL: http://localhost:{port}")
+    print(f"🔌 WebSocket: ws://localhost:{port}/ws")
     print(f"👀 Watching paths: {['current directory']}")
     print("Press Ctrl+C to stop the server")
     print("-" * 50)
 
     try:
-        serve_logs()
+        serve_logs(port=args.port)
         return 0
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
