@@ -187,6 +187,55 @@ describe('computePivot', () => {
     expect(res.grandTotal).toBe(210) // 10 + 200
   })
 
+  it('column totals use same aggregation method as cells', () => {
+    const res = computePivot<Row>({
+      data: rows,
+      rowFields: ['region'],
+      columnFields: ['product'],
+      valueField: 'amount',
+      aggregator: 'avg',
+    })
+
+    // Row totals should sum the cell values (for display purposes)
+    expect(res.rowTotals['East']).toBe(105) // (10 + 200) / 2 = 105
+    expect(res.rowTotals['West']).toBe(105) // (90 + 120) / 2 = 105
+
+    // Column totals should use the same aggregation method (avg) over all records in that column
+    // Gadget column: values [90, 10] -> avg = 50
+    expect(res.colTotals['Gadget']).toBe(50)
+    // Widget column: values [120, 200] -> avg = 160
+    expect(res.colTotals['Widget']).toBe(160)
+
+    // Grand total should also use avg over all records
+    expect(res.grandTotal).toBe(105) // (90 + 10 + 120 + 200) / 4 = 105
+  })
+
+  it('column totals with count aggregator', () => {
+    const res = computePivot<Row>({
+      data: rows,
+      rowFields: ['region'],
+      columnFields: ['product'],
+      aggregator: 'count', // No valueField, just count records
+    })
+
+    // Each cell should count records
+    expect(res.cells['East']['Gadget'].value).toBe(2) // 2 records
+    expect(res.cells['East']['Widget'].value).toBe(1) // 1 record
+    expect(res.cells['West']['Gadget'].value).toBe(1) // 1 record
+    expect(res.cells['West']['Widget'].value).toBe(1) // 1 record
+
+    // Row totals should sum the counts
+    expect(res.rowTotals['East']).toBe(3) // 2 + 1
+    expect(res.rowTotals['West']).toBe(2) // 1 + 1
+
+    // Column totals should count total records in each column
+    expect(res.colTotals['Gadget']).toBe(3) // 2 + 1 = 3 records
+    expect(res.colTotals['Widget']).toBe(2) // 1 + 1 = 2 records
+
+    // Grand total should count all records
+    expect(res.grandTotal).toBe(5) // Total records
+  })
+
   it('supports custom aggregator', () => {
     const maxAgg: Aggregator<Row> = (values) =>
       values.length ? Math.max(...values) : 0

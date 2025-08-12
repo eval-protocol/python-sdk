@@ -316,8 +316,27 @@ export function computePivot<T extends Record<string, unknown>>({
       const value = aggregate(values, records, aggregator);
       cells[rKey][cKey] = { value, records };
       rowTotals[rKey] += value;
-      colTotals[cKey] += value;
     }
+  }
+
+  // Calculate column totals using the same aggregation method
+  for (const cKey of Object.keys(colTotals)) {
+    const columnRecords: T[] = [];
+    const columnValues: number[] = [];
+
+    for (const rKey of Object.keys(cellRecords)) {
+      if (cellRecords[rKey][cKey]) {
+        columnRecords.push(...cellRecords[rKey][cKey]);
+        if (valueField != null) {
+          for (const rec of cellRecords[rKey][cKey]) {
+            const v = getNumber(rec[valueField]);
+            if (v != null) columnValues.push(v);
+          }
+        }
+      }
+    }
+
+    colTotals[cKey] = aggregate(columnValues, columnRecords, aggregator);
   }
 
   // Grand total should follow the same aggregation semantics over the entire dataset
