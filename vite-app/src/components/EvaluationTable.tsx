@@ -51,10 +51,6 @@ export const EvaluationTable = observer(() => {
     state.updateTableFilterConfig(filters);
   };
 
-  const resetFilters = () => {
-    state.resetTableFilterConfig();
-  };
-
   return (
     <div className="bg-white border border-gray-200">
       {/* Filter Controls */}
@@ -75,14 +71,6 @@ export const EvaluationTable = observer(() => {
               )}
             </div>
           </div>
-          <Button
-            onClick={resetFilters}
-            size="sm"
-            variant="secondary"
-            disabled={state.tableFilterConfig.length === 0}
-          >
-            Reset Filters
-          </Button>
         </div>
         <div className="bg-white rounded-lg p-4">
           <FilterSelector
