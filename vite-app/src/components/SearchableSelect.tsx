@@ -30,6 +30,9 @@ const SearchableSelect = React.forwardRef<
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [filteredOptions, setFilteredOptions] = useState(options);
+    const [dropdownPosition, setDropdownPosition] = useState<"left" | "right">(
+      "left"
+    );
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -64,8 +67,25 @@ const SearchableSelect = React.forwardRef<
       setSearchTerm("");
     };
 
+    const calculateDropdownPosition = () => {
+      if (!containerRef.current) return "left";
+
+      const rect = containerRef.current.getBoundingClientRect();
+      const windowWidth = window.innerWidth;
+      const estimatedDropdownWidth = 300; // Approximate width for dropdown content
+
+      // If dropdown would overflow right edge, position it to the left
+      if (rect.left + estimatedDropdownWidth > windowWidth) {
+        return "right";
+      }
+      return "left";
+    };
+
     const handleToggle = () => {
       if (!disabled) {
+        if (!isOpen) {
+          setDropdownPosition(calculateDropdownPosition());
+        }
         setIsOpen(!isOpen);
         if (!isOpen) {
           setTimeout(() => inputRef.current?.focus(), 0);
@@ -109,7 +129,16 @@ const SearchableSelect = React.forwardRef<
         </div>
 
         {isOpen && (
-          <div className="absolute z-50 w-max min-w-full mt-1 bg-white border border-gray-200 rounded-md max-h-60 overflow-auto">
+          <div
+            className={`absolute z-50 w-max min-w-full mt-1 bg-white border border-gray-200 rounded-md max-h-60 overflow-auto ${
+              dropdownPosition === "right" ? "right-0" : "left-0"
+            }`}
+            style={{
+              maxWidth: `min(calc(100vw - 2rem), 500px)`,
+              right: dropdownPosition === "right" ? "0" : undefined,
+              left: dropdownPosition === "left" ? "0" : undefined,
+            }}
+          >
             <div className="p-2 border-b border-gray-200">
               <input
                 ref={inputRef}
@@ -117,7 +146,7 @@ const SearchableSelect = React.forwardRef<
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search..."
-                className={`${commonStyles.input.base} ${commonStyles.input.size.sm} w-full`}
+                className={`${commonStyles.input.base} ${commonStyles.input.size.sm} w-full min-w-48`}
                 style={{ boxShadow: commonStyles.input.shadow }}
                 onKeyDown={(e) => {
                   if (e.key === "Escape") {
