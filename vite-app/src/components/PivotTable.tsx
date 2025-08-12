@@ -125,9 +125,15 @@ export function PivotTable<T extends Record<string, unknown>>({
                 key={`col-${idx}`}
                 align="right"
                 nowrap
-                className="bg-green-50"
+                className={
+                  columnFields.length > 0 ? "bg-green-50" : "bg-gray-50"
+                }
               >
-                <div className="text-xs font-medium text-green-700">
+                <div
+                  className={`text-xs font-medium ${
+                    columnFields.length > 0 ? "text-green-700" : "text-gray-700"
+                  }`}
+                >
                   {tuple.map((v) => String(v ?? "")).join(" / ")}
                 </div>
               </TableHeader>
