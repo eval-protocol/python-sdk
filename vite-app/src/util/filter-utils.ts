@@ -26,14 +26,14 @@ export const getOperatorsForField = (field: string, type?: string) => {
   }
 
   return [
+    { value: "contains", label: "contains" },
+    { value: "!contains", label: "not contains" },
     { value: "==", label: "equals" },
     { value: "!=", label: "not equals" },
     { value: ">", label: "greater than" },
     { value: "<", label: "less than" },
     { value: ">=", label: "greater than or equal" },
     { value: "<=", label: "less than or equal" },
-    { value: "contains", label: "contains" },
-    { value: "!contains", label: "not contains" },
   ];
 };
 
