@@ -1,7 +1,7 @@
-import React from "react";
 import type { FilterConfig, FilterGroup } from "../types/filters";
 import SearchableSelect from "./SearchableSelect";
 import FilterInput from "./FilterInput";
+import Button from "./Button";
 import { getFieldType, getOperatorsForField } from "../util/filter-utils";
 
 interface FilterSelectorProps {
@@ -62,25 +62,27 @@ const FilterSelector = ({
   };
 
   return (
-    <div className="mb-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-gray-700">{title}</h3>
-        <button
-          onClick={addFilterGroup}
-          className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1"
-        >
-          + Add Filter Group
-        </button>
+    <div className="mb-3">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs font-semibold text-gray-700">{title}</h3>
+        {filters.length > 0 && (
+          <Button onClick={addFilterGroup} size="sm" variant="secondary">
+            + Add Filter Group
+          </Button>
+        )}
       </div>
-      <div className="space-y-4">
+
+      <div className="space-y-2">
         {filters.map((group, groupIndex) => (
           <div
             key={groupIndex}
-            className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+            className={`pt-2 ${
+              groupIndex > 0 ? "border-t border-gray-200 mt-2" : ""
+            }`}
           >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-medium text-gray-700 bg-white px-2 py-1 rounded border border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-600">
                   Group {groupIndex + 1}
                 </span>
                 <SearchableSelect
@@ -93,27 +95,25 @@ const FilterSelector = ({
                     { value: "OR", label: "OR (any filter can match)" },
                   ]}
                   size="sm"
-                  className="min-w-48"
+                  className="min-w-40"
                 />
               </div>
-              <button
+              <Button
                 onClick={() => removeFilterGroup(groupIndex)}
-                className="text-xs text-red-600 hover:text-red-800 px-2 py-1 hover:bg-red-50 rounded"
+                size="sm"
+                variant="secondary"
               >
                 Remove Group
-              </button>
+              </Button>
             </div>
 
-            <div className="space-y-3 ml-4 pl-4 border-l-2 border-gray-200">
+            <div className="space-y-2">
               {group.filters.map((filter, filterIndex) => {
                 const fieldType = filter.type || getFieldType(filter.field);
                 const operators = getOperatorsForField(fieldType);
 
                 return (
-                  <div
-                    key={filterIndex}
-                    className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200"
-                  >
+                  <div key={filterIndex} className="flex items-center gap-2">
                     <SearchableSelect
                       value={filter.field}
                       onChange={(value) => {
@@ -130,7 +130,7 @@ const FilterSelector = ({
                       }))}
                       placeholder="Select field..."
                       size="sm"
-                      className="min-w-32"
+                      className="min-w-40"
                     />
                     <SearchableSelect
                       value={filter.operator}
@@ -141,7 +141,7 @@ const FilterSelector = ({
                       }
                       options={operators}
                       size="sm"
-                      className="min-w-32"
+                      className="min-w-36"
                     />
                     <FilterInput
                       filter={filter}
@@ -149,40 +149,39 @@ const FilterSelector = ({
                         updateFilterInGroup(groupIndex, filterIndex, updates)
                       }
                     />
-                    <button
+                    <Button
                       onClick={() =>
                         removeFilterFromGroup(groupIndex, filterIndex)
                       }
-                      className="text-xs text-red-600 hover:text-red-800 px-2 py-1 hover:bg-red-50 rounded"
+                      size="sm"
+                      variant="secondary"
                     >
                       Remove
-                    </button>
+                    </Button>
                   </div>
                 );
               })}
 
-              <button
-                onClick={() => addFilterToGroup(groupIndex)}
-                className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-blue-50 rounded border border-dashed border-blue-300 w-full"
-              >
-                + Add Filter to Group
-              </button>
+              <div>
+                <Button
+                  onClick={() => addFilterToGroup(groupIndex)}
+                  size="sm"
+                  variant="secondary"
+                >
+                  + Add Filter to Group
+                </Button>
+              </div>
             </div>
           </div>
         ))}
 
         {filters.length === 0 && (
-          <div className="text-xs text-gray-500 text-center py-4 px-3 bg-gray-50 border border-dashed border-gray-300 rounded-lg">
-            No filters configured. Click "Add Filter Group" to start filtering.
+          <div className="flex justify-center py-4">
+            <Button onClick={addFilterGroup} size="sm" variant="primary">
+              + Add Filter Group
+            </Button>
           </div>
         )}
-
-        <button
-          onClick={addFilterGroup}
-          className="text-xs text-blue-600 hover:text-blue-800 px-3 py-2 hover:bg-blue-50 rounded border border-dashed border-blue-300 w-full transition-colors"
-        >
-          + Add Filter Group
-        </button>
       </div>
     </div>
   );

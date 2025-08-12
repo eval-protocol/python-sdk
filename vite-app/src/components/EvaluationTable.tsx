@@ -84,7 +84,7 @@ export const EvaluationTable = observer(() => {
             Reset Filters
           </Button>
         </div>
-        <div className="border border-gray-200 rounded-lg p-4 bg-white">
+        <div className="bg-white rounded-lg p-4">
           <FilterSelector
             filters={state.tableFilterConfig}
             onFiltersChange={handleFiltersChange}
