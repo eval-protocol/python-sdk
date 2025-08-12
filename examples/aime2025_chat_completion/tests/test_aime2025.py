@@ -57,7 +57,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
         "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
     ],
     dataset_adapter=aime2025_dataset_adapter,
-    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
+    rollout_input_params=[{"reasoning_effort": "low"}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     passed_threshold=None,

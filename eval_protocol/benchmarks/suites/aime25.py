@@ -70,7 +70,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
         "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
     ],
     dataset_adapter=aime2025_dataset_adapter,
-    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
+    rollout_input_params=[{"max_tokens": 131000, "extra_body": {"reasoning_effort": "high"}}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     threshold_of_success=None,
@@ -79,7 +79,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     max_concurrent_rollouts=4,
     mode="pointwise",
 )
-def aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
+def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
     content = assistant_msgs[-1].content if assistant_msgs else ""
 
