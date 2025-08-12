@@ -49,6 +49,24 @@ const EmptyState = ({ onRefresh }: { onRefresh: () => void }) => {
   );
 };
 
+const LoadingState = () => {
+  return (
+    <div className="bg-white border border-gray-200 p-8 text-center">
+      <div className="max-w-sm mx-auto">
+        <div className="text-gray-400 mb-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-600 mx-auto"></div>
+        </div>
+        <h3 className="text-sm font-medium text-gray-900 mb-2">
+          Loading evaluation data...
+        </h3>
+        <p className="text-xs text-gray-500">
+          Connecting to the server and loading data
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const Dashboard = observer(({ onRefresh }: DashboardProps) => {
   const expandAll = () => state.setAllRowsExpanded(true);
   const collapseAll = () => state.setAllRowsExpanded(false);
@@ -81,7 +99,9 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
       </div>
 
       {/* Content Area */}
-      {state.totalCount === 0 ? (
+      {state.isLoading ? (
+        <LoadingState />
+      ) : state.sortedDataset.length === 0 ? (
         <EmptyState onRefresh={onRefresh} />
       ) : (
         <div className="bg-white border border-gray-200">
