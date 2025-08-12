@@ -1,3 +1,4 @@
+import React, { useCallback, useMemo } from "react";
 import type { FilterConfig, FilterGroup } from "../types/filters";
 import SearchableSelect from "./SearchableSelect";
 import FilterInput from "./FilterInput";
@@ -11,55 +12,76 @@ interface FilterSelectorProps {
   title?: string;
 }
 
-const FilterSelector = ({
+const FilterSelectorComponent = ({
   filters,
   onFiltersChange,
   availableKeys,
   title = "Filters",
 }: FilterSelectorProps) => {
-  const addFilterGroup = () => {
+  const addFilterGroup = useCallback(() => {
     onFiltersChange([...filters, { logic: "AND", filters: [] }]);
-  };
+  }, [filters, onFiltersChange]);
 
-  const removeFilterGroup = (index: number) => {
-    onFiltersChange(filters.filter((_, i) => i !== index));
-  };
+  const removeFilterGroup = useCallback(
+    (index: number) => {
+      onFiltersChange(filters.filter((_, i) => i !== index));
+    },
+    [filters, onFiltersChange]
+  );
 
-  const updateFilterGroupLogic = (index: number, logic: "AND" | "OR") => {
-    const newFilters = [...filters];
-    newFilters[index] = { ...newFilters[index], logic };
-    onFiltersChange(newFilters);
-  };
+  const updateFilterGroupLogic = useCallback(
+    (index: number, logic: "AND" | "OR") => {
+      const newFilters = [...filters];
+      newFilters[index] = { ...newFilters[index], logic };
+      onFiltersChange(newFilters);
+    },
+    [filters, onFiltersChange]
+  );
 
-  const addFilterToGroup = (groupIndex: number) => {
-    const newFilters = [...filters];
-    newFilters[groupIndex].filters.push({
-      field: "",
-      operator: "contains",
-      value: "",
-      type: "text",
-    });
-    onFiltersChange(newFilters);
-  };
+  const addFilterToGroup = useCallback(
+    (groupIndex: number) => {
+      const newFilters = [...filters];
+      newFilters[groupIndex].filters.push({
+        field: "",
+        operator: "contains",
+        value: "",
+        type: "text",
+      });
+      onFiltersChange(newFilters);
+    },
+    [filters, onFiltersChange]
+  );
 
-  const removeFilterFromGroup = (groupIndex: number, filterIndex: number) => {
-    const newFilters = [...filters];
-    newFilters[groupIndex].filters.splice(filterIndex, 1);
-    onFiltersChange(newFilters);
-  };
+  const removeFilterFromGroup = useCallback(
+    (groupIndex: number, filterIndex: number) => {
+      const newFilters = [...filters];
+      newFilters[groupIndex].filters.splice(filterIndex, 1);
+      onFiltersChange(newFilters);
+    },
+    [filters, onFiltersChange]
+  );
 
-  const updateFilterInGroup = (
-    groupIndex: number,
-    filterIndex: number,
-    updates: Partial<FilterConfig>
-  ) => {
-    const newFilters = [...filters];
-    newFilters[groupIndex].filters[filterIndex] = {
-      ...newFilters[groupIndex].filters[filterIndex],
-      ...updates,
-    };
-    onFiltersChange(newFilters);
-  };
+  const updateFilterInGroup = useCallback(
+    (
+      groupIndex: number,
+      filterIndex: number,
+      updates: Partial<FilterConfig>
+    ) => {
+      const newFilters = [...filters];
+      newFilters[groupIndex].filters[filterIndex] = {
+        ...newFilters[groupIndex].filters[filterIndex],
+        ...updates,
+      };
+      onFiltersChange(newFilters);
+    },
+    [filters, onFiltersChange]
+  );
+
+  // Memoize options for available keys so we don't rebuild objects every render
+  const keyOptions = useMemo(
+    () => availableKeys.map((key) => ({ value: key, label: key })),
+    [availableKeys]
+  );
 
   return (
     <div className="mb-3">
@@ -124,10 +146,7 @@ const FilterSelector = ({
                           operator: operators[0]?.value || "contains",
                         });
                       }}
-                      options={availableKeys.map((key) => ({
-                        value: key,
-                        label: key,
-                      }))}
+                      options={keyOptions}
                       placeholder="Select field..."
                       size="sm"
                       className="min-w-40"
@@ -186,5 +205,7 @@ const FilterSelector = ({
     </div>
   );
 };
+
+const FilterSelector = React.memo(FilterSelectorComponent);
 
 export default FilterSelector;
