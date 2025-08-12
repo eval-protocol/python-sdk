@@ -101,7 +101,7 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
       {/* Content Area */}
       {state.isLoading ? (
         <LoadingState />
-      ) : state.totalCount === 0 ? (
+      ) : state.sortedDataset.length === 0 ? (
         <EmptyState onRefresh={onRefresh} />
       ) : (
         <div className="bg-white border border-gray-200">

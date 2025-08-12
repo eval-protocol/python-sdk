@@ -142,28 +142,41 @@ export const EvaluationTable = observer(() => {
       </div>
 
       {/* Table Container - Only this area scrolls */}
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-max">
-          {/* Table Header */}
-          <TableHead>
-            <tr>
-              <TableHeader className="w-8">&nbsp;</TableHeader>
-              <TableHeader>Name</TableHeader>
-              <TableHeader>Status</TableHeader>
-              <TableHeader>Rollout ID</TableHeader>
-              <TableHeader>Model</TableHeader>
-              <TableHeader>Score</TableHeader>
-              <TableHeader>Created</TableHeader>
-            </tr>
-          </TableHead>
+      {totalRows === 0 ? (
+        <div className="px-3 py-6 text-center text-xs text-gray-600">
+          <div className="mb-2">No rows match your current filters.</div>
+          <Button
+            onClick={() => handleFiltersChange([])}
+            size="sm"
+            variant="secondary"
+          >
+            Clear filters
+          </Button>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-max">
+            {/* Table Header */}
+            <TableHead>
+              <tr>
+                <TableHeader className="w-8">&nbsp;</TableHeader>
+                <TableHeader>Name</TableHeader>
+                <TableHeader>Status</TableHeader>
+                <TableHeader>Rollout ID</TableHeader>
+                <TableHeader>Model</TableHeader>
+                <TableHeader>Score</TableHeader>
+                <TableHeader>Created</TableHeader>
+              </tr>
+            </TableHead>
 
-          {/* Table Body */}
-          <TableBody
-            currentPage={state.currentPage}
-            pageSize={state.pageSize}
-          />
-        </table>
-      </div>
+            {/* Table Body */}
+            <TableBody
+              currentPage={state.currentPage}
+              pageSize={state.pageSize}
+            />
+          </table>
+        </div>
+      )}
     </div>
   );
 });
