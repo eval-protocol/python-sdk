@@ -87,7 +87,12 @@ async def default_single_turn_rollout_processor(
 
     async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:
         async with semaphore:
-            return await process_row(r)
+            try:
+                return await process_row(r)
+            except Exception as e:
+                r.rollout_status.status = "error"
+                r.rollout_status.error_message = str(e)
+                return r
 
     tasks = [_sem_wrapper(row) for row in rows]
     dataset = list(await asyncio.gather(*tasks))

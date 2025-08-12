@@ -12,8 +12,8 @@ Usage:
     max_dataset_rows value set in the decorator).
 """
 
-import os
 import logging
+import os
 from typing import Optional
 
 
@@ -32,17 +32,13 @@ def pytest_addoption(parser) -> None:
         "--ep-print-summary",
         action="store_true",
         default=False,
-        help=(
-            "Print a concise summary line (suite/model/effort/agg score) at the end of each evaluation_test."
-        ),
+        help=("Print a concise summary line (suite/model/effort/agg score) at the end of each evaluation_test."),
     )
     group.addoption(
         "--ep-summary-json",
         action="store",
         default=None,
-        help=(
-            "Write a JSON summary artifact at the given path (e.g., ./outputs/aime_low.json)."
-        ),
+        help=("Write a JSON summary artifact at the given path (e.g., ./outputs/aime_low.json)."),
     )
     group.addoption(
         "--ep-input-param",
@@ -62,6 +58,13 @@ def pytest_addoption(parser) -> None:
             "Set reasoning.effort for providers that support it (e.g., Fireworks) via LiteLLM extra_body. "
             "Values: low|medium|high"
         ),
+    )
+    group.addoption(
+        "--ep-max-retry",
+        action="store",
+        type=int,
+        default=None,
+        help=("Failed rollouts (with rollout_status.status == 'error') will be retried up to this many times."),
     )
 
 
@@ -104,10 +107,15 @@ def pytest_configure(config) -> None:
     if summary_json_path:
         os.environ["EP_SUMMARY_JSON"] = summary_json_path
 
+    max_retry = config.getoption("--ep-max-retry")
+    if max_retry is not None:
+        os.environ["EP_MAX_RETRY"] = str(max_retry)
+
     # Allow ad-hoc overrides of input params via CLI flags
     try:
         import json as _json
         import pathlib as _pathlib
+
         merged: dict = {}
         input_params_opts = config.getoption("--ep-input-param")
         if input_params_opts:
@@ -140,5 +148,3 @@ def pytest_configure(config) -> None:
     except Exception:
         # best effort, do not crash pytest session
         pass
-
-

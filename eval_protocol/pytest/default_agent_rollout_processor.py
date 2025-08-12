@@ -117,10 +117,15 @@ async def default_agent_rollout_processor(
 ) -> List[EvaluationRow]:
     dataset: Dataset = []
     for row in rows:
-        agent = Agent(model=config.model, row=row, config_path=config.mcp_config_path, logger=config.logger)
-        await agent.setup()
-        await agent.call_agent()
-        dataset.append(agent.evaluation_row)
-        if agent.mcp_client:
-            await agent.mcp_client.cleanup()
+        try:
+            agent = Agent(model=config.model, row=row, config_path=config.mcp_config_path, logger=config.logger)
+            await agent.setup()
+            await agent.call_agent()
+            dataset.append(agent.evaluation_row)
+            if agent.mcp_client:
+                await agent.mcp_client.cleanup()
+        except Exception as e:
+            row.rollout_status.status = "error"
+            row.rollout_status.error_message = str(e)
+            dataset.append(row)
     return dataset

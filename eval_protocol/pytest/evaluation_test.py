@@ -401,133 +401,132 @@ def evaluation_test(  # noqa: C901
                         logger=active_logger,
                     )
 
+                    max_retry = int(os.getenv("EP_MAX_RETRY", "0"))
+
                     for i in range(num_runs):
-                        # Regenerate outputs each run by deep-copying the pristine dataset
-                        # so model responses are not reused across runs.
                         run_id = generate_id()
-                        fresh_dataset = [r.model_copy(deep=True) for r in data]
+                        retry_attempt = 0
+                        current_data = data
 
-                        # apply new run_id to fresh_dataset
-                        for row in fresh_dataset:
-                            row.run_id = run_id
+                        while retry_attempt <= max_retry:
+                            if retry_attempt > 0:
+                                logged_rows = active_logger.read()
+                                failed_rows = [
+                                    row
+                                    for row in logged_rows
+                                    if row.rollout_status
+                                    and row.rollout_status.status == "error"
+                                    and row.run_id == run_id
+                                ]
+                                if not failed_rows:
+                                    break
+                                current_data = failed_rows
 
-                        # generate new rollout_id for each row
-                        for row in fresh_dataset:
-                            row.rollout_id = generate_id()
+                            # Regenerate outputs each run by deep-copying the pristine dataset
+                            # so model responses are not reused across runs.
+                            fresh_dataset = [r.model_copy(deep=True) for r in current_data]
 
-                        # log the fresh_dataset
-                        for row in fresh_dataset:
-                            active_logger.log(row)
+                            # apply new run_id to fresh_dataset
+                            for row in fresh_dataset:
+                                row.run_id = run_id
 
-                        # filter out rows that already have completed rollouts via checkpointing
-                        rows_to_process = []
-                        completed_rollout_ids = set()
+                            # generate new rollout_id for each row
+                            for row in fresh_dataset:
+                                row.rollout_id = generate_id()
 
-                        finished_logs = active_logger.read()
+                            # log the fresh_dataset
+                            for row in fresh_dataset:
+                                active_logger.log(row)
 
-                        for finished_row in finished_logs:
-                            # need to add finished rows to all_results so that we can aggregate them later.
-                            all_results.append(finished_row)
-                            # TODO: need to also add the num_run to track which run the row belongs to.
-                            # TODO: ask why we made row_id optional in the first place. checkpointing won't work without some ID.
-                            if finished_row.input_metadata and finished_row.input_metadata.row_id:
-                                completed_rollout_ids.add(finished_row.input_metadata.row_id)
+                            processed_dataset = execute_function(rollout_processor, rows=fresh_dataset, config=config)
 
-                        for row in fresh_dataset:
-                            row_id = row.input_metadata.row_id if row.input_metadata else None
-                            if row_id not in completed_rollout_ids:
-                                rows_to_process.append(row)
-
-                        if len(rows_to_process) < len(fresh_dataset):
-                            print(
-                                f"Checkpointing: Found {len(fresh_dataset) - len(rows_to_process)} completed rows, processing {len(rows_to_process)} remaining rows"
-                            )
-
-                        if rows_to_process:
-                            processed_dataset = execute_function(
-                                rollout_processor, rows=rows_to_process, config=config
-                            )
-
-                        if mode == "pointwise":
-                            # Pointwise mode: apply the evaluator function to each row
-                            for row in processed_dataset:
-                                result = execute_with_params(
+                            if mode == "pointwise":
+                                # Pointwise mode: apply the evaluator function to each row
+                                for row in processed_dataset:
+                                    result = execute_with_params(
+                                        test_func,
+                                        processed_row=row,
+                                        evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                    )
+                                    if result is None or not isinstance(result, EvaluationRow):
+                                        raise ValueError(
+                                            f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
+                                        )
+                                    # TODO: not this simple, only append ones that are not error
+                                    all_results[i].append(result)
+                            else:
+                                # Batch mode: call the test function with the full dataset
+                                results = execute_with_params(
                                     test_func,
-                                    processed_row=row,
+                                    processed_dataset=processed_dataset,
                                     evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                                 )
-                                if result is None or not isinstance(result, EvaluationRow):
+                                if results is None:
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
                                     )
-                                all_results[i].append(result)
-                        else:
-                            # Batch mode: call the test function with the full dataset
-                            results = execute_with_params(
-                                test_func,
-                                processed_dataset=processed_dataset,
-                                evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
-                            )
-                            if results is None:
-                                raise ValueError(
-                                    f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
+                                if not isinstance(results, list):
+                                    raise ValueError(
+                                        f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                                    )
+                                if not results:
+                                    raise ValueError(
+                                        f"Test function {test_func.__name__} returned an empty list. You must return a non-empty list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                                    )
+                                if not all(isinstance(r, EvaluationRow) for r in results):
+                                    raise ValueError(
+                                        f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                                    )
+                                # TODO: not this simple, only append ones that are not error
+                                all_results[i] = results
+
+                            retry_attempt += 1
+
+                        scores = [
+                            sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
+                            for result in all_results
+                        ]
+                        agg_score = aggregate(scores, aggregation_method)
+                        score_std = statistics.stdev(scores) if len(scores) > 1 else 0.0
+
+                        # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
+                        ci_low: float | None = None
+                        ci_high: float | None = None
+                        if aggregation_method == "mean":
+                            try:
+                                result_ci = compute_fixed_set_mu_ci(
+                                    [item for sublist in all_results for item in sublist]
                                 )
-                            if not isinstance(results, list):
-                                raise ValueError(
-                                    f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                                )
-                            if not results:
-                                raise ValueError(
-                                    f"Test function {test_func.__name__} returned an empty list. You must return a non-empty list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                                )
-                            if not all(isinstance(r, EvaluationRow) for r in results):
-                                raise ValueError(
-                                    f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                                )
-                            all_results[i] = results
+                                mu_ci_low, mu_ci_high = result_ci[1], result_ci[2]
+                                if mu_ci_low is not None and mu_ci_high is not None:
+                                    ci_low = float(mu_ci_low)
+                                    ci_high = float(mu_ci_high)
+                                    # Keep agg_score as-is (mean over scores). For equal repeats per question these match.
+                            except Exception:
+                                ci_low = None
+                                ci_high = None
 
-                    scores = [
-                        sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
-                        for result in all_results
-                    ]
-                    agg_score = aggregate(scores, aggregation_method)
-                    score_std = statistics.stdev(scores) if len(scores) > 1 else 0.0
+                        # Determine if the evaluation passed based on threshold
+                        passed = None
 
-                    # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
-                    ci_low: float | None = None
-                    ci_high: float | None = None
-                    if aggregation_method == "mean":
-                        try:
-                            result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
-                            mu_ci_low, mu_ci_high = result_ci[1], result_ci[2]
-                            if mu_ci_low is not None and mu_ci_high is not None:
-                                ci_low = float(mu_ci_low)
-                                ci_high = float(mu_ci_high)
-                                # Keep agg_score as-is (mean over scores). For equal repeats per question these match.
-                        except Exception:
-                            ci_low = None
-                            ci_high = None
+                        if threshold is not None:
+                            success_passed, std_passed = True, True
 
-                    # Determine if the evaluation passed based on threshold
-                    passed = None
+                            success_passed = agg_score >= threshold.success
 
-                    if threshold is not None:
-                        success_passed, std_passed = True, True
+                            if threshold.standard_deviation is not None:
+                                std_passed = score_std <= threshold.standard_deviation
 
-                        success_passed = agg_score >= threshold.success
-
-                        if threshold.standard_deviation is not None:
-                            std_passed = score_std <= threshold.standard_deviation
-
-                        passed = success_passed and std_passed
+                            passed = success_passed and std_passed
 
                     # Update eval metadata status and passed field for all results
                     for result in all_results:
                         for r in result:
-                            if r.eval_metadata is not None:
-                                r.eval_metadata.status = "finished"
-                                r.eval_metadata.passed = passed
-                        default_logger.log(r)
+                            if r.rollout_status is not None:
+                                if r.rollout_status.status != "error":
+                                    r.rollout_status.status = "finished"
+                                r.rollout_status.passed = passed
+                            active_logger.log(r)
 
                     # Optional: print and/or persist a summary artifact for CI
                     try:

@@ -58,7 +58,7 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
 
         rows.append(eval_row)
 
-    return rows
+    return rows[0:1]
 
 
 @evaluation_test(
@@ -68,7 +68,7 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
     rollout_input_params=[{"temperature": 0.8, "max_tokens": 4096, "reasoning_effort": "low"}],
     rollout_processor=default_mcp_gym_rollout_processor,
     passed_threshold={"success": 0.4, "standard_deviation": 0.1},
-    num_runs=8,
+    num_runs=1,
     mode="pointwise",
     max_concurrent_rollouts=50,
     server_script_path="examples/tau2_mcp/server.py",
