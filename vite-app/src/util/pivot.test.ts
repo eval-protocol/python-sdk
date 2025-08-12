@@ -325,6 +325,58 @@ describe('computePivot', () => {
     expect(res.grandTotal).toBe(1)
   })
 
+  it('skips records with undefined column field values', () => {
+    type LooseRow = {
+      region: string
+      rep?: string
+      product?: string
+      amount?: number | string
+    }
+
+    const mixed: LooseRow[] = [
+      { region: 'West', rep: 'A', product: 'Widget', amount: 120 },
+      // Missing product should be excluded entirely (no 'undefined' column)
+      { region: 'West', rep: 'B', amount: 90 },
+      { region: 'East', rep: 'B', product: 'Gadget', amount: 10 },
+    ]
+
+    const res = computePivot<LooseRow>({
+      data: mixed,
+      rowFields: ['region'],
+      columnFields: ['product'],
+      valueField: 'amount',
+      aggregator: 'sum',
+    })
+
+    // Columns should not contain 'undefined'
+    expect(res.colKeyTuples.map((t) => String(t))).toEqual(['Gadget', 'Widget'])
+
+    const rWest = 'West'
+    const rEast = 'East'
+    const cWidget = 'Widget'
+    const cGadget = 'Gadget'
+
+    // Only valid records contribute
+    expect(res.cells[rWest][cWidget].value).toBe(120)
+    expect(res.cells[rEast][cGadget].value).toBe(10)
+    expect(res.cells[rWest][cGadget]).toBeUndefined()
+  })
+
+  it('row totals use the provided aggregation over row records', () => {
+    const res = computePivot<Row>({
+      data: rows,
+      rowFields: ['region'],
+      columnFields: ['product'],
+      valueField: 'amount',
+      aggregator: 'avg',
+    })
+
+    // East row has values [10, 200] => avg 105
+    expect(res.rowTotals['East']).toBe(105)
+    // West row has values [90, 120] => avg 105
+    expect(res.rowTotals['West']).toBe(105)
+  })
+
   it("test_flaky_passes_sometimes", () => {
     // read logs.json from data/logs.json
     const logsUrl = new URL('../../data/logs.jsonl', import.meta.url)

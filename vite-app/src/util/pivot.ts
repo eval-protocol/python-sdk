@@ -248,18 +248,19 @@ export function computePivot<T extends Record<string, unknown>>({
   // Apply filter first if provided
   const filteredData = filter ? data.filter(filter) : data;
 
-  // Filter out records that do not have defined values for all rowFields.
-  // This avoids creating a row key of "undefined" and ensures such records
-  // are not returned as part of the cells/row totals.
-  const dataWithDefinedRows = filteredData.filter((rec) =>
-    rowFields.every((f) => rec[f] !== undefined)
+  // Filter out records that do not have defined values for all rowFields and columnFields.
+  // This avoids creating a row or column key of "undefined" and ensures such records
+  // are not returned as part of the cells/totals.
+  const dataWithDefinedKeys = filteredData.filter((rec) =>
+    rowFields.every((f) => rec[f] !== undefined) &&
+    columnFields.every((f) => rec[f] !== undefined)
   );
   const rowKeyTuples: unknown[][] = [];
   const rowKeySet = new Set<string>();
   const colKeyTuples: unknown[][] = [];
   const colKeySet = new Set<string>();
 
-  for (const rec of dataWithDefinedRows) {
+  for (const rec of dataWithDefinedKeys) {
     const rTuple = getTuple(rec, rowFields);
     const rKey = toKey(rTuple);
     if (!rowKeySet.has(rKey)) {
@@ -295,7 +296,7 @@ export function computePivot<T extends Record<string, unknown>>({
 
   // Partition records per cell
   const cellRecords: Record<string, Record<string, T[]>> = {};
-  for (const rec of dataWithDefinedRows) {
+  for (const rec of dataWithDefinedKeys) {
     const rKey = toKey(getTuple(rec, rowFields));
     const cKey = toKey(getTuple(rec, columnFields));
     if (!cellRecords[rKey]) cellRecords[rKey] = {};
@@ -315,8 +316,25 @@ export function computePivot<T extends Record<string, unknown>>({
       }
       const value = aggregate(values, records, aggregator);
       cells[rKey][cKey] = { value, records };
-      rowTotals[rKey] += value;
     }
+  }
+
+  // Calculate row totals using the same aggregation method applied over all records in the row
+  for (const rKey of Object.keys(cells)) {
+    const rowRecords: T[] = [];
+    const rowValues: number[] = [];
+    const cols = cellRecords[rKey] ?? {};
+    for (const cKey of Object.keys(cols)) {
+      const records = cols[cKey];
+      rowRecords.push(...records);
+      if (valueField != null) {
+        for (const rec of records) {
+          const v = getNumber(rec[valueField]);
+          if (v != null) rowValues.push(v);
+        }
+      }
+    }
+    rowTotals[rKey] = aggregate(rowValues, rowRecords, aggregator);
   }
 
   // Calculate column totals using the same aggregation method
@@ -344,7 +362,7 @@ export function computePivot<T extends Record<string, unknown>>({
   // non-additive aggregations like "avg").
   let grandTotal: number;
   {
-    const allRecords = dataWithDefinedRows;
+    const allRecords = dataWithDefinedKeys;
     const allValues: number[] = [];
     if (valueField != null) {
       for (const rec of allRecords) {
