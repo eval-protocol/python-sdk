@@ -171,12 +171,12 @@ class ExecutionManager:
             if trajectory.terminated:
                 if trajectory.termination_reason == TerminationReason.ERROR:
                     evaluation_rows[idx].rollout_status.status = "error"
-                    evaluation_rows[idx].rollout_status.reason = trajectory.control_plane_summary.get(
+                    evaluation_rows[idx].rollout_status.termination_reason = trajectory.control_plane_summary.get(
                         "error_message", None
                     )
                 else:
                     evaluation_rows[idx].rollout_status.status = "finished"
-                    evaluation_rows[idx].rollout_status.reason = trajectory.termination_reason
+                    evaluation_rows[idx].rollout_status.termination_reason = trajectory.termination_reason
             else:
                 evaluation_rows[idx].rollout_status.status = "running"
 

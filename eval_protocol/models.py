@@ -270,10 +270,10 @@ class RolloutStatus(BaseModel):
     error: Rollout failed.
     stopped: Rollout terminated unexpectedly (e.g. max step, control plane signal, user stop).
     """
-    status: Literal["running", "finished", "error"] = Field(
-        "running", description="Status of the rollout."
+    status: Literal["running", "finished", "error"] = Field("running", description="Status of the rollout.")
+    termination_reason: Optional[str] = Field(
+        "", description="reason of the rollout status, mapped to values in TerminationReason"
     )
-    reason: Optional[str] = Field("", description="reason of the rollout status, mapped to values in TerminationReason")
 
 
 class EvaluationRow(BaseModel):
