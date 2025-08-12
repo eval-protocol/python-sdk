@@ -4,6 +4,8 @@
  * - "count": number of records in the cell (ignores valueField)
  * - "sum": sum of numeric values extracted from valueField
  * - "avg": average of numeric values extracted from valueField
+ * - "min": minimum of numeric values extracted from valueField
+ * - "max": maximum of numeric values extracted from valueField
  * - custom: user function receiving the numeric values (from valueField if provided)
  *   and the raw records in the cell. Return the aggregated number to display.
  */
@@ -11,6 +13,8 @@ export type Aggregator<T> =
   | "count"
   | "sum"
   | "avg"
+  | "min"
+  | "max"
   | ((values: number[], records: T[]) => number);
 
 export interface PivotComputationResult<T> {
@@ -50,6 +54,8 @@ function aggregate<T extends Record<string, unknown>>(
     return values.length === 0
       ? 0
       : values.reduce((a, b) => a + b, 0) / values.length;
+  if (agg === "min") return values.length === 0 ? 0 : Math.min(...values);
+  if (agg === "max") return values.length === 0 ? 0 : Math.max(...values);
   // default: count
   return records.length;
 }
@@ -134,7 +140,29 @@ export interface ComputePivotParams<T extends Record<string, unknown>> {
  * })
  * ```
  *
- * 4) Multiple column fields (composite columns)
+ * 4) Minimum amounts per region × product
+ * ```ts
+ * const res = computePivot({
+ *   data: rows,
+ *   rowFields: ['region'],
+ *   columnFields: ['product'],
+ *   valueField: 'amount',
+ *   aggregator: 'min',
+ * })
+ * ```
+ *
+ * 5) Maximum amounts per region × product
+ * ```ts
+ * const res = computePivot({
+ *   data: rows,
+ *   rowFields: ['region'],
+ *   columnFields: ['product'],
+ *   valueField: 'amount',
+ *   aggregator: 'max',
+ * })
+ * ```
+ *
+ * 6) Multiple column fields (composite columns)
  * ```ts
  * const res = computePivot({
  *   data: rows,
@@ -146,7 +174,7 @@ export interface ComputePivotParams<T extends Record<string, unknown>> {
  * // Each column is the tuple [product, quarter]
  * ```
  *
- * 5) Custom aggregator (e.g., max)
+ * 7) Custom aggregator (e.g., max)
  * ```ts
  * const res = computePivot({
  *   data: rows,
@@ -157,7 +185,7 @@ export interface ComputePivotParams<T extends Record<string, unknown>> {
  * })
  * ```
  *
- * 6) Single grand total (no rows/cols)
+ * 8) Single grand total (no rows/cols)
  * ```ts
  * const res = computePivot({
  *   data: rows,
@@ -169,7 +197,7 @@ export interface ComputePivotParams<T extends Record<string, unknown>> {
  * // res.grandTotal is the total sum
  * ```
  *
- * 7) Excel-style: multiple value fields alongside multiple column fields (recipe)
+ * 9) Excel-style: multiple value fields alongside multiple column fields (recipe)
  * - Run computePivot once per metric (valueField + aggregator) and read values side-by-side.
  * ```ts
  * const metrics = [
