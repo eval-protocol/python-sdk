@@ -59,7 +59,10 @@ export class GlobalState {
 
   // Reset pivot configuration to defaults
   resetPivotConfig() {
-    this.pivotConfig = { ...DEFAULT_PIVOT_CONFIG };
+    this.pivotConfig = {
+      ...DEFAULT_PIVOT_CONFIG,
+      filters: [], // Ensure filters is an empty array of FilterGroups
+    };
     this.savePivotConfig();
   }
 

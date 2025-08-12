@@ -4,11 +4,10 @@ import { commonStyles } from "../styles/common";
 
 interface FilterInputProps {
   filter: FilterConfig;
-  index: number;
   onUpdate: (updates: Partial<FilterConfig>) => void;
 }
 
-const FilterInput = ({ filter, index, onUpdate }: FilterInputProps) => {
+const FilterInput = ({ filter, onUpdate }: FilterInputProps) => {
   const fieldType = filter.type || "text";
 
   if (fieldType === "date") {

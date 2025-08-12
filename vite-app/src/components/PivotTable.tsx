@@ -106,6 +106,7 @@ export function PivotTable<T extends Record<string, unknown>>({
     filter,
   });
 
+  debugger;
   return (
     <TableContainer className={className}>
       <table className="w-full min-w-max">
