@@ -57,7 +57,7 @@ async def test_north_star_interface():
         print(f"✅ Policy created in {'playback' if policy.is_playback_mode() else 'live'} mode")
 
         # Create environments
-        envs = await ep.make("http://localhost:8000/mcp/", dataset=dataset, model_id=policy.model_id)
+        envs = ep.make("http://localhost:8000/mcp/", dataset=dataset, model_id=policy.model_id)
         print("✅ MCP environments created successfully")
 
         # Run rollout - same API for both modes!

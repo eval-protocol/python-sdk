@@ -30,7 +30,7 @@ async def test_seed_logging():
     try:
         # Create environment pointing to our server
         print("🔌 Connecting to server...")
-        envs = await ep.make("http://localhost:9600/mcp/", dataset=dataset, model_id="test")
+        envs = ep.make("http://localhost:9600/mcp/", dataset=dataset, model_id="test")
         print(f"✅ Created envs: {len(envs.sessions)} sessions")
 
         # Reset environments to trigger session creation

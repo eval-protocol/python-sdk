@@ -8,7 +8,7 @@ from openai import NOT_GIVEN, NotGiven
 from openai.types.chat import ChatCompletionContentPartTextParam, ChatCompletionMessage, ChatCompletionToolParam
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
-from eval_protocol.dataset_logger import default_logger
+from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message
@@ -20,12 +20,13 @@ class Agent:
     A really simple agent that calls the model until no more tool calls are needed.
     """
 
-    def __init__(self, model: str, row: EvaluationRow, config_path: str):
+    def __init__(self, model: str, row: EvaluationRow, config_path: str, logger: DatasetLogger):
         self.model = model
         self.evaluation_row: EvaluationRow = row
         self._policy = LiteLLMPolicy(model_id=model)
         self.mcp_client = MCPMultiClient(config_path=config_path) if config_path else None
         self.tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN
+        self.logger: DatasetLogger = logger
 
     async def setup(self):
         if self.mcp_client:
@@ -42,7 +43,7 @@ class Agent:
 
     def append_message_and_log(self, message: Message):
         self.messages.append(message)
-        default_logger.log(self.evaluation_row)
+        self.logger.log(self.evaluation_row)
 
     async def call_agent(self) -> str:
         """
@@ -116,7 +117,7 @@ async def default_agent_rollout_processor(
 ) -> List[EvaluationRow]:
     dataset: Dataset = []
     for row in rows:
-        agent = Agent(model=config.model, row=row, config_path=config.mcp_config_path)
+        agent = Agent(model=config.model, row=row, config_path=config.mcp_config_path, logger=config.logger)
         await agent.setup()
         await agent.call_agent()
         dataset.append(agent.evaluation_row)

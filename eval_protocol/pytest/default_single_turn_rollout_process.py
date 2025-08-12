@@ -1,12 +1,9 @@
 import asyncio
+import logging
+import os
 from typing import List
 
-from litellm import acompletion
-import litellm
-from openai.types.chat.chat_completion_message import ChatCompletionMessageToolCall
-
-from eval_protocol.dataset_logger import default_logger
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import ChatCompletionMessageToolCall, EvaluationRow, Message
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
 
@@ -15,14 +12,19 @@ async def default_single_turn_rollout_processor(
 ) -> List[EvaluationRow]:
     """Generate a single response from any supported model provider using LiteLLM."""
 
-    # Explicitly disable LiteLLM caching to avoid reused responses across runs
+    # Quiet LiteLLM logs in test runs unless user overrode
     try:
-        litellm.cache = None
-        # Some versions expose a helper; ignore if unavailable
-        if hasattr(litellm, "disable_cache"):
-            litellm.disable_cache()  # type: ignore[call-arg]
+        if os.environ.get("LITELLM_LOG") is None:
+            os.environ["LITELLM_LOG"] = "ERROR"
+        _llog = logging.getLogger("LiteLLM")
+        _llog.setLevel(logging.CRITICAL)
+        _llog.propagate = False
+        for _h in list(_llog.handlers):
+            _llog.removeHandler(_h)
     except Exception:
         pass
+
+    # Do not modify global LiteLLM cache. Disable caching per-request instead.
 
     async def process_row(row: EvaluationRow) -> EvaluationRow:
         """Process a single row asynchronously."""
@@ -32,6 +34,8 @@ async def default_single_turn_rollout_processor(
         messages_payload = [{"role": m.role, "content": m.content} for m in row.messages]
 
         request_params = {"model": config.model, "messages": messages_payload, **config.input_params}
+        # Ensure caching is disabled only for this request (review feedback)
+        request_params["cache"] = {"no-cache": True}
         # Allow passing reasoning effort to Fireworks via LiteLLM using extra_body
         # Expected: config.input_params may contain {"reasoning": {"effort": "low|medium|high"}}
         if "reasoning" in config.input_params:
@@ -41,6 +45,11 @@ async def default_single_turn_rollout_processor(
         if row.tools is not None:
             request_params["tools"] = row.tools
 
+        # Dynamic import to avoid static dependency/lint errors if LiteLLM isn't installed yet
+        import importlib
+
+        _litellm = importlib.import_module("litellm")
+        acompletion = getattr(_litellm, "acompletion")
         response = await acompletion(**request_params)
 
         assistant_content = response.choices[0].message.content or ""
@@ -69,7 +78,7 @@ async def default_single_turn_rollout_processor(
         ]
 
         row.messages = messages
-        default_logger.log(row)
+        config.logger.log(row)
         return row
 
     # Process rows with bounded concurrency if configured

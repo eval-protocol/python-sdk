@@ -3,10 +3,12 @@ import re
 from typing import Any, Optional
 
 import litellm
-from litellm import completion, completion_cost
+from litellm import acompletion, completion_cost
 from litellm.caching.caching import Cache
 from litellm.main import ModelResponse, Usage
 from loguru import logger
+import logging
+import os
 
 from vendor.tau2.config import (
     DEFAULT_LLM_CACHE_TYPE,
@@ -73,6 +75,19 @@ ALLOW_SONNET_THINKING = False
 
 if not ALLOW_SONNET_THINKING:
     logger.warning("Sonnet thinking is disabled")
+
+# Quiet LiteLLM's own INFO logs unless the user explicitly set a level
+try:
+    if os.environ.get("LITELLM_LOG") is None:
+        os.environ["LITELLM_LOG"] = "ERROR"
+    _llog = logging.getLogger("LiteLLM")
+    _llog.setLevel(logging.CRITICAL)
+    _llog.propagate = False
+    for _h in list(_llog.handlers):
+        _llog.removeHandler(_h)
+except Exception:
+    # Best-effort; never fail import due to logging config
+    pass
 
 
 def _parse_ft_model_name(model: str) -> str:
@@ -178,7 +193,7 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
     return litellm_messages
 
 
-def generate(
+async def generate(
     model: str,
     messages: list[Message],
     tools: Optional[list[Tool]] = None,
@@ -209,7 +224,7 @@ def generate(
     if tools and tool_choice is None:
         tool_choice = "auto"
     try:
-        response = completion(
+        response = await acompletion(
             model=model,
             messages=litellm_messages,
             tools=tools,

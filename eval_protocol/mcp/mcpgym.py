@@ -13,6 +13,7 @@ Key Features:
 """
 
 import asyncio
+import dataclasses
 import hashlib
 import inspect
 import json
@@ -20,10 +21,14 @@ import logging
 import os
 import threading
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date, datetime
+from enum import Enum
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import uvicorn
 from mcp.server.fastmcp import Context, FastMCP
+from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -75,7 +80,13 @@ class McpGym(ABC):
     - Environment Implementation: Single-process MCP server per environment
     """
 
-    def __init__(self, server_name: str, adapter: EnvironmentAdapter, seed: Optional[int] = None):
+    def __init__(
+        self,
+        server_name: str,
+        adapter: EnvironmentAdapter,
+        seed: Optional[int] = None,
+        max_workers: Optional[int] = None,
+    ):
         """
         Initialize the MCP-Gym environment.
 
@@ -83,6 +94,9 @@ class McpGym(ABC):
             server_name: Name for the MCP server
             adapter: Environment adapter instance
             seed: Optional seed for reproducible environments
+            max_workers: Optional maximum number of worker threads for ThreadPoolExecutor.
+                If None, uses ThreadPoolExecutor default (min(32, (os.cpu_count() or 1) + 4))
+
         """
         self.adapter = adapter
 
@@ -109,6 +123,8 @@ class McpGym(ABC):
             "step_count": 0,
             "total_reward": 0.0,
         }
+
+        self.pool = ThreadPoolExecutor(max_workers=max_workers)
 
         # Reset with seed if provided
         self.env, self.obs, _info = self._new_env(seed=seed)
@@ -146,7 +162,12 @@ class McpGym(ABC):
                     print(f"🔍 _get_session_id: extra_data type: {type(extra_data)}")
 
                     if extra_data and isinstance(extra_data, dict):
-                        # Create a stable session ID based on seed and other config
+                        # use the client generated session id
+                        if "session_id" in extra_data:
+                            print(f"🔍 _get_session_id: using client generated session_id: {extra_data['session_id']}")
+                            return extra_data["session_id"]
+
+                        # fallback to create a stable session ID based on seed and other config
                         seed_value = extra_data.get("seed")
                         config_value = extra_data.get("config", {})
                         dataset_row_id_value = extra_data.get("dataset_row_id")
@@ -184,49 +205,7 @@ class McpGym(ABC):
         """
         session_id = self._get_session_id(ctx)
         print(f"🔍 _get_or_create_session: session_id: {session_id}")
-
-        with self.session_lock:
-            if session_id not in self.sessions:
-                print(f"🔍 _get_or_create_session: Creating new session for {session_id}")
-                # Extract seed from context using proper FastMCP pattern
-                seed = None
-                config = self._get_default_config()
-                print(f"🔍 _get_or_create_session: default_config: {config}")
-
-                if hasattr(ctx, "session") and hasattr(ctx.session, "client_params"):
-                    client_params = ctx.session.client_params
-                    if hasattr(client_params, "clientInfo"):
-                        client_info = client_params.clientInfo
-                        if client_info and hasattr(client_info, "_extra"):
-                            extra_data = client_info._extra
-                            print(f"🔍 _get_or_create_session: extra_data in session creation: {extra_data}")
-                            if extra_data and isinstance(extra_data, dict):
-                                # Extract seed from client info
-                                seed = extra_data.get("seed")
-                                print(f"🌱 Extracted seed from client_info: {seed} (type: {type(seed)})")
-                                # Update config with any additional options
-                                if "config" in extra_data:
-                                    config.update(extra_data["config"])
-                                    print(f"🔍 _get_or_create_session: updated config: {config}")
-
-                print(f"🔍 _get_or_create_session: About to create environment with seed: {seed}")
-
-                env, obs, info = self._new_env(seed=seed)
-                print(f"🔍 _get_or_create_session: environment created with obs: {obs}, info: {info}")
-
-                # Initialize session state
-                self.sessions[session_id] = {
-                    "env": env,
-                    "obs": obs,
-                    "session_data": {},  # Subclasses can store additional data here
-                    "session_id": session_id,
-                }
-
-                print(f"🎮 Created new session {session_id[:16]}... with seed {seed}, initial obs: {obs}")
-            else:
-                print(f"🔍 _get_or_create_session: Returning existing session {session_id}")
-
-            return self.sessions[session_id]
+        return self.sessions[session_id]
 
     def _register_session_reset_endpoint(self):
 
@@ -238,16 +217,17 @@ class McpGym(ABC):
             print(f"🔍 _register_session_reset_endpoint: Resetting session, session_id: {session_id}, seed: {seed}")
             if not session_id:
                 return JSONResponse({"error": "Missing mcp-session-id header"}, status_code=400)
-            with self.session_lock:
-                if session_id in self.sessions:
-                    env, obs, _ = self._new_env(seed=seed)
+            if session_id in self.sessions:
+                loop = asyncio.get_running_loop()
+                env, obs, info = await loop.run_in_executor(self.pool, self._new_env, seed)
+                with self.session_lock:
                     self.sessions[session_id] = {
                         "env": env,
                         "obs": obs,
                         "session_data": {},
                         "session_id": session_id,
                     }
-                    print(f"🔍 _register_session_reset_endpoint: Finished reset session, session_id: {session_id}")
+                print(f"🔍 _register_session_reset_endpoint: Finished reset session, session_id: {session_id}")
             return JSONResponse({"message": "Session reset successfully"})
 
     def _discover_and_register_control_plane_endpoints(self):
@@ -281,29 +261,27 @@ class McpGym(ABC):
                             )
 
                         # Get or create session data
-                        with self.session_lock:
-                            session_data = self.sessions.get(session_id)
-                            if not session_data:
-                                # For initial state endpoint, we need to create the session
-                                # based on the session ID and available information
-                                if func.__name__ == "get_initial_state_endpoint":
-                                    env, obs, info = self._new_env(seed=None)
-                                    # Initialize session state with extracted seed from session ID
-                                    session_data = {
-                                        "env": env,
-                                        "obs": obs,
-                                        "session_data": {},  # Subclasses can store additional data here
-                                        "session_id": session_id,
-                                    }
-                                    # Store the session
-                                    self.sessions[session_id] = session_data
-                                else:
-                                    return JSONResponse(
-                                        {"error": f"Session {session_id} not found"},
-                                        status_code=404,
-                                    )
+                        session_data = self.sessions.get(session_id)
+                        if not session_data:
+                            if func.__name__ != "get_initial_state_endpoint":
+                                return JSONResponse(
+                                    {"error": f"Session {session_id} not found"},
+                                    status_code=404,
+                                )
 
-                        # Call the endpoint function with session data
+                            loop = asyncio.get_running_loop()
+                            env, obs, info = await loop.run_in_executor(self.pool, self._new_env, None)
+
+                            # Initialize session state with extracted seed from session ID
+                            session_data = {
+                                "env": env,
+                                "obs": obs,
+                                "session_data": {},  # Subclasses can store additional data here
+                                "session_id": session_id,
+                            }
+                        with self.session_lock:
+                            self.sessions[session_id] = session_data
+
                         if inspect.iscoroutinefunction(func):
                             result = await func(session_data=session_data)
                         else:
@@ -351,22 +329,21 @@ class McpGym(ABC):
 
     def _get_or_create_session_control_plane(self, session_id: str) -> Dict[str, Any]:
         """Get or create control plane state for a specific session."""
-        with self.session_lock:
-            if session_id not in self.sessions:
-                return {}
+        if session_id not in self.sessions:
+            raise Exception(f"Session {session_id} not found")
 
-            session_data = self.sessions[session_id]
-            if "control_plane" not in session_data["session_data"]:
-                session_data["session_data"]["control_plane"] = {
-                    "reward": 0.0,
-                    "terminated": False,
-                    "truncated": False,
-                    "info": {},
-                    "step_count": 0,
-                    "total_reward": 0.0,
-                }
+        session_data = self.sessions[session_id]
+        if "control_plane" not in session_data["session_data"]:
+            session_data["session_data"]["control_plane"] = {
+                "reward": 0.0,
+                "terminated": False,
+                "truncated": False,
+                "info": {},
+                "step_count": 0,
+                "total_reward": 0.0,
+            }
 
-            return session_data["session_data"]["control_plane"]
+        return session_data["session_data"]["control_plane"]
 
     def _update_session_control_plane(
         self,
@@ -390,13 +367,6 @@ class McpGym(ABC):
         print(
             f"🎛️  Session {session_id[:16]}... control plane: reward={reward}, terminated={terminated}, step={control_plane['step_count']}, total_reward={control_plane['total_reward']}"
         )
-
-    def get_control_plane_state(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Get control plane state for a specific session (for rollout system)."""
-        with self.session_lock:
-            if session_id in self.sessions:
-                return self._get_or_create_session_control_plane(session_id).copy()
-            return None
 
     def _execute_environment_step(self, action_int: int) -> Dict[str, Any]:
         """
@@ -505,11 +475,11 @@ class McpGym(ABC):
         return control_plane.get("info", {})
 
     @control_plane_endpoint("/control/initial_state")
-    def get_initial_state_endpoint(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_initial_state_endpoint(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
         """Get initial state for this session."""
+        session_id = session_data.get("session_id", "unknown")
         env = session_data.get("env")
         obs = session_data.get("obs")
-
         if env and obs is not None:
             try:
                 formatted_obs = self.format_observation(obs, env)
@@ -599,8 +569,8 @@ class McpGym(ABC):
                     proxy_headers=True,
                     forwarded_allow_ips="*",
                     # HIGH CONCURRENCY SETTINGS
-                    limit_concurrency=200,  # Increase for HTTP endpoints + MCP
-                    limit_max_requests=100000,  # Higher request limit
+                    limit_concurrency=None,  # Increase for HTTP endpoints + MCP
+                    limit_max_requests=None,  # Higher request limit
                     timeout_keep_alive=120,  # Longer keep-alive for control plane
                     timeout_notify=180,
                     h11_max_incomplete_event_size=4 * 1024 * 1024,  # Handle larger events
@@ -619,11 +589,6 @@ class McpGym(ABC):
         Handles Pydantic models, dataclasses, lists, dicts, and primitive types.
         This is a utility method that can be used by format_observation implementations.
         """
-        import dataclasses
-        from datetime import date, datetime
-        from enum import Enum
-
-        from pydantic import BaseModel
 
         # Handle None and primitive types
         if obj is None or isinstance(obj, (str, int, float, bool)):

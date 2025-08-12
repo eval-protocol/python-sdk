@@ -202,6 +202,21 @@ class InputMetadata(BaseModel):
     )
 
 
+class EvaluationThreshold(BaseModel):
+    """Threshold configuration for evaluation tests.
+
+    The success field is required - tests must specify a minimum success rate.
+    The standard_deviation field is optional - if provided, tests must also meet the maximum standard deviation requirement.
+    """
+
+    success: float = Field(
+        ..., description="Minimum success rate threshold (fraction of total score, 0.0 to 1.0)", ge=0.0, le=1.0
+    )
+    standard_deviation: Optional[float] = Field(
+        None, description="Maximum standard deviation threshold (fraction of total score, 0.0 to 1.0)", ge=0.0, le=1.0
+    )
+
+
 class EvalMetadata(BaseModel):
     """Metadata about the evaluation that was run."""
 
@@ -216,8 +231,49 @@ class EvalMetadata(BaseModel):
     )
     num_runs: int = Field(..., description="Number of times the evaluation was repeated")
     aggregation_method: str = Field(..., description="Method used to aggregate scores across runs")
-    threshold_of_success: Optional[float] = Field(None, description="Threshold score for test success")
+    passed_threshold: Optional[EvaluationThreshold] = Field(
+        None, description="Threshold configuration for test success"
+    )
     passed: Optional[bool] = Field(None, description="Whether the evaluation passed based on the threshold")
+
+
+class ExecutionMetadata(BaseModel):
+    """Metadata about the execution of the evaluation."""
+
+    invocation_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the invocation that this row belongs to.",
+    )
+
+    experiment_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the experiment that this row belongs to.",
+    )
+
+    rollout_id: Optional[str] = Field(
+        default_factory=generate_id,
+        description="The ID of the rollout that this row belongs to.",
+    )
+
+    run_id: Optional[str] = Field(
+        None,
+        description=("The ID of the run that this row belongs to."),
+    )
+
+
+class RolloutStatus(BaseModel):
+    """Status of the rollout."""
+
+    """
+    running: Unfinished rollout which is still in progress.
+    finished: Rollout finished successfully.
+    error: Rollout failed.
+    stopped: Rollout terminated unexpectedly (e.g. max step, control plane signal, user stop).
+    """
+    status: Literal["running", "finished", "error", "stopped"] = Field(
+        "finished", description="Status of the rollout."
+    )
+    error_message: Optional[str] = Field(None, description="Error message if the rollout failed.")
 
 
 class EvaluationRow(BaseModel):
@@ -230,8 +286,8 @@ class EvaluationRow(BaseModel):
     supporting both row-wise batch evaluation and trajectory-based RL evaluation.
     """
 
-    # Core conversation data
-    messages: List[Message] = Field(description="List of messages in the conversation/trajectory.")
+    # Core OpenAI ChatCompletion compatible conversation data
+    messages: List[Message] = Field(description="List of messages in the conversation. Also known as a trajectory.")
 
     # Tool and function call information
     tools: Optional[List[Dict[str, Any]]] = Field(
@@ -244,6 +300,11 @@ class EvaluationRow(BaseModel):
         description="Metadata related to the input (dataset info, model config, session data, etc.).",
     )
 
+    rollout_status: RolloutStatus = Field(
+        default_factory=RolloutStatus,
+        description="The status of the rollout.",
+    )
+
     # Ground truth reference (moved from EvaluateResult to top level)
     ground_truth: Optional[str] = Field(
         default=None, description="Optional ground truth reference for this evaluation."
@@ -252,6 +313,11 @@ class EvaluationRow(BaseModel):
     # Unified evaluation result
     evaluation_result: Optional[EvaluateResult] = Field(
         default=None, description="The evaluation result for this row/trajectory."
+    )
+
+    execution_metadata: ExecutionMetadata = Field(
+        default_factory=ExecutionMetadata,
+        description="Metadata about the execution of the evaluation.",
     )
 
     # LLM usage statistics

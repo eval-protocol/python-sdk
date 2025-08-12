@@ -3,35 +3,45 @@ import type { EvaluationRow } from "./types/eval-protocol";
 
 export class GlobalState {
   isConnected: boolean = false;
+  // rollout_id -> EvaluationRow
   dataset: Record<string, EvaluationRow> = {};
+  // rollout_id -> expanded
   expandedRows: Record<string, boolean> = {};
 
   constructor() {
     makeAutoObservable(this);
   }
 
-  setDataset(dataset: EvaluationRow[]) {
-    // Create new dataset object to avoid multiple re-renders
+  upsertRows(dataset: EvaluationRow[]) {
     dataset.forEach((row) => {
-      this.dataset[row.input_metadata.row_id] = row;
+      if (!row.execution_metadata?.rollout_id) {
+        return;
+      }
+      this.dataset[row.execution_metadata.rollout_id] = row;
     });
   }
 
-  toggleRowExpansion(rowId: string) {
-    if (this.expandedRows[rowId]) {
-      this.expandedRows[rowId] = false;
+  toggleRowExpansion(rolloutId?: string) {
+    if (!rolloutId) {
+      return;
+    }
+    if (this.expandedRows[rolloutId]) {
+      this.expandedRows[rolloutId] = false;
     } else {
-      this.expandedRows[rowId] = true;
+      this.expandedRows[rolloutId] = true;
     }
   }
 
-  isRowExpanded(rowId: string): boolean {
-    return this.expandedRows[rowId];
+  isRowExpanded(rolloutId?: string): boolean {
+    if (!rolloutId) {
+      return false;
+    }
+    return this.expandedRows[rolloutId];
   }
 
   setAllRowsExpanded(expanded: boolean) {
-    Object.keys(this.dataset).forEach((rowId) => {
-      this.expandedRows[rowId] = expanded;
+    Object.keys(this.dataset).forEach((rolloutId) => {
+      this.expandedRows[rolloutId] = expanded;
     });
   }
 

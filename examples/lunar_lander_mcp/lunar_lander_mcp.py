@@ -35,10 +35,10 @@ from eval_protocol.mcp.mcpgym import control_plane_endpoint
 class LunarLanderMcp(McpGym):
     """LunarLander production server with visual rendering support."""
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: Optional[int] = None, **kwargs):
         """Initialize LunarLander MCP-Gym environment."""
         self.adapter = LunarLanderAdapter()
-        super().__init__("LunarLander-v3", self.adapter, seed)
+        super().__init__("LunarLander-v3", self.adapter, seed, **kwargs)
 
         # Multi-session support is now handled by the base class
 
