@@ -133,8 +133,11 @@ export function PivotTable<T extends Record<string, unknown>>({
               </TableHeader>
             ))}
             {showRowTotals && (
-              <TableHeader align="right" className="bg-gray-100">
-                <div className="text-xs font-medium text-gray-700">Total</div>
+              <TableHeader
+                align="right"
+                className="bg-gray-100 border-l-2 border-l-gray-300"
+              >
+                <div className="text-xs font-semibold text-gray-900">Total</div>
               </TableHeader>
             )}
           </tr>
@@ -177,9 +180,9 @@ export function PivotTable<T extends Record<string, unknown>>({
                     align="right"
                     nowrap
                     medium
-                    className="bg-gray-100"
+                    className="bg-gray-100 border-l-2 border-l-gray-300"
                   >
-                    <div className="font-semibold text-gray-900">
+                    <div className="text-xs font-semibold text-gray-900">
                       {formatter(rowTotals[rKey] ?? 0)}
                     </div>
                   </TableCell>
@@ -188,14 +191,14 @@ export function PivotTable<T extends Record<string, unknown>>({
             );
           })}
           {showColumnTotals && (
-            <TableRow gray className="border-t-2 border-gray-300">
+            <TableRow gray>
               {/* Total label spanning row header columns */}
               <TableCell
                 colSpan={Math.max(1, rowFields.length)}
                 semibold
-                className="bg-gray-100"
+                className="bg-gray-100 border-t-2 border-gray-300"
               >
-                <div className="text-sm font-semibold text-gray-900">Total</div>
+                <div className="text-xs font-semibold text-gray-900">Total</div>
               </TableCell>
               {/* Column totals with enhanced styling */}
               {colKeyTuples.map((cTuple, cIdx) => {
@@ -206,9 +209,9 @@ export function PivotTable<T extends Record<string, unknown>>({
                     align="right"
                     nowrap
                     medium
-                    className="bg-gray-100"
+                    className="bg-gray-100 border-t-2 border-gray-300"
                   >
-                    <div className="font-semibold text-gray-900">
+                    <div className="text-xs font-semibold text-gray-900">
                       {formatter(colTotals[cKey] ?? 0)}
                     </div>
                   </TableCell>
@@ -220,7 +223,7 @@ export function PivotTable<T extends Record<string, unknown>>({
                   align="right"
                   nowrap
                   semibold
-                  className="bg-gray-200"
+                  className="bg-gray-200 border-t-0"
                 >
                   <div className="text-sm font-bold text-gray-900">
                     {formatter(grandTotal)}
