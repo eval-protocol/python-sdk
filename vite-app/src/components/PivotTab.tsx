@@ -1,6 +1,7 @@
 import { observer } from "mobx-react";
 import PivotTable from "./PivotTable";
 import Select from "./Select";
+import SearchableSelect from "./SearchableSelect";
 import Button from "./Button";
 import FilterInput from "./FilterInput";
 import { state } from "../App";
@@ -41,19 +42,17 @@ const FieldSelector = ({
       <div className="space-y-2">
         {fields.map((field, index) => (
           <div key={index} className="flex items-center space-x-2">
-            <Select
+            <SearchableSelect
               value={field}
-              onChange={(e) => onFieldChange(index, e.target.value)}
+              onChange={(value) => onFieldChange(index, value)}
+              options={[
+                { value: "", label: "Select a field..." },
+                ...(availableKeys?.map((key) => ({ value: key, label: key })) ||
+                  []),
+              ]}
               size="sm"
               className="min-w-48"
-            >
-              <option value="">Select a field...</option>
-              {availableKeys?.map((key) => (
-                <option key={key} value={key}>
-                  {key}
-                </option>
-              ))}
-            </Select>
+            />
             {fields.length > 0 && (
               <button
                 onClick={() => onRemoveField(index)}
@@ -90,19 +89,16 @@ const SingleFieldSelector = ({
 }) => (
   <div className="mb-4">
     <div className="text-xs font-medium text-gray-700 mb-2">{title}:</div>
-    <Select
+    <SearchableSelect
       value={field}
-      onChange={(e) => onFieldChange(e.target.value)}
+      onChange={(value) => onFieldChange(value)}
+      options={[
+        { value: "", label: "Select a field..." },
+        ...(availableKeys?.map((key) => ({ value: key, label: key })) || []),
+      ]}
       size="sm"
       className="min-w-48"
-    >
-      <option value="">Select a field...</option>
-      {availableKeys?.map((key) => (
-        <option key={key} value={key}>
-          {key}
-        </option>
-      ))}
-    </Select>
+    />
   </div>
 );
 
@@ -117,18 +113,19 @@ const AggregatorSelector = ({
     <div className="text-xs font-medium text-gray-700 mb-2">
       Aggregation Method:
     </div>
-    <Select
+    <SearchableSelect
       value={aggregator}
-      onChange={(e) => onAggregatorChange(e.target.value)}
+      onChange={(value) => onAggregatorChange(value)}
+      options={[
+        { value: "count", label: "Count" },
+        { value: "sum", label: "Sum" },
+        { value: "avg", label: "Average" },
+        { value: "min", label: "Minimum" },
+        { value: "max", label: "Maximum" },
+      ]}
       size="sm"
       className="min-w-48"
-    >
-      <option value="count">Count</option>
-      <option value="sum">Sum</option>
-      <option value="avg">Average</option>
-      <option value="min">Minimum</option>
-      <option value="max">Maximum</option>
-    </Select>
+    />
   </div>
 );
 
@@ -168,37 +165,33 @@ const FilterSelector = ({
 
           return (
             <div key={index} className="flex items-center space-x-2">
-              <Select
+              <SearchableSelect
                 value={filter.field}
-                onChange={(e) => {
-                  const newField = e.target.value;
+                onChange={(value) => {
+                  const newField = value;
                   const newType = getFieldType(newField);
                   updateFilter(index, { field: newField, type: newType });
                 }}
+                options={[
+                  { value: "", label: "Select a field..." },
+                  ...(availableKeys?.map((key) => ({
+                    value: key,
+                    label: key,
+                  })) || []),
+                ]}
                 size="sm"
                 className="min-w-48"
-              >
-                <option value="">Select a field...</option>
-                {availableKeys?.map((key) => (
-                  <option key={key} value={key}>
-                    {key}
-                  </option>
-                ))}
-              </Select>
-              <Select
+              />
+              <SearchableSelect
                 value={filter.operator}
-                onChange={(e) =>
-                  updateFilter(index, { operator: e.target.value })
-                }
+                onChange={(value) => updateFilter(index, { operator: value })}
+                options={operators.map((op) => ({
+                  value: op.value,
+                  label: op.label,
+                }))}
                 size="sm"
                 className="min-w-32"
-              >
-                {operators.map((op) => (
-                  <option key={op.value} value={op.value}>
-                    {op.label}
-                  </option>
-                ))}
-              </Select>
+              />
               <FilterInput
                 filter={filter}
                 index={index}
