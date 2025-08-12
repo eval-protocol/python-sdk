@@ -1,8 +1,9 @@
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
+
 from mcp.client.session import ClientSession
-from contextlib import AsyncExitStack
 
 
 class TerminationReason(str, Enum):
@@ -14,6 +15,7 @@ class TerminationReason(str, Enum):
     ERROR: Trajectory ends because of an error
     STOP: Trajectory ends by the policy (mapped to llm response stop reason "stop")
     LENGTH: Trajectory ends by the policy (mapped to llm response stop reason "length")
+    TOOL_CALLS: Trajectory ends by the policy with a hanging tool call response (mapped to llm response stop reason "tool_calls")
     """
 
     MAX_STEPS = "max_steps"
@@ -22,6 +24,7 @@ class TerminationReason(str, Enum):
     ERROR = "error"
     STOP = "stop"
     LENGTH = "length"
+    TOOL_CALLS = "tool_calls"
 
     @classmethod
     def from_str(cls, value: str) -> "TerminationReason":
@@ -37,6 +40,8 @@ class TerminationReason(str, Enum):
             return cls.USER_STOP
         elif value == "error":
             return cls.ERROR
+        elif value == "tool_calls":
+            return cls.TOOL_CALLS
         else:
             raise ValueError(f"Invalid termination reason: {value}")
 

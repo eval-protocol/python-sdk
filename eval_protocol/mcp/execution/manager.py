@@ -171,7 +171,7 @@ class ExecutionManager:
             if trajectory.terminated:
                 if trajectory.termination_reason == TerminationReason.ERROR:
                     evaluation_rows[idx].rollout_status.status = "error"
-                    evaluation_rows[idx].rollout_status.reason= trajectory.control_plane_summary.get(
+                    evaluation_rows[idx].rollout_status.reason = trajectory.control_plane_summary.get(
                         "error_message", None
                     )
                 else:
@@ -362,6 +362,12 @@ class ExecutionManager:
                             if recording_mode:
                                 policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
 
+                        if env_end:
+                            # if the env marks the end of the rollout, break the tool call loop
+                            # but set the termination reason later after the final policy call
+                            trajectory.terminated = True
+                            break
+
                         if step >= steps:
                             trajectory.terminated = True
                             trajectory.termination_reason = TerminationReason.MAX_STEPS
@@ -395,9 +401,16 @@ class ExecutionManager:
                     if recording_mode:
                         policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
 
-                # update control plane summary if the env marks end
+                # if the env marks end, update control plane summary and do one last policy call, then break the agent loop
+                # this is to ensure each turn ends with an assistant message, which will align with the actual agentic llm behavior
                 if env_end:
-                    # Add final control plane summary
+                    _, usage_stats, finish_reason = await policy(tool_schema, rollout_idx, conversation_history)
+                    if usage_stats:
+                        trajectory.usage["prompt_tokens"] += usage_stats.prompt_tokens
+                        trajectory.usage["completion_tokens"] += usage_stats.completion_tokens
+                        trajectory.usage["total_tokens"] += usage_stats.total_tokens
+                    trajectory.terminated = True
+                    trajectory.termination_reason = TerminationReason.from_str(finish_reason)
                     trajectory.control_plane_summary.update(
                         {
                             "total_reward": trajectory.total_reward,
