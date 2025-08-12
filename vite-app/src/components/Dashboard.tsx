@@ -1,12 +1,11 @@
 import { observer } from "mobx-react";
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { state } from "../App";
 import Button from "./Button";
 import { EvaluationTable } from "./EvaluationTable";
 import PivotTab from "./PivotTab";
 import TabButton from "./TabButton";
-import flattenJson from "../util/flatten-json";
 
 interface DashboardProps {
   onRefresh: () => void;
@@ -68,11 +67,6 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
     setActiveTab(deriveTabFromPath(location.pathname));
   }, [location.pathname]);
 
-  const flattened = useMemo(() => {
-    const flattenedDataset = state.sortedDataset.map((row) => flattenJson(row));
-    return flattenedDataset;
-  }, [state.sortedDataset]);
-
   return (
     <div className="text-sm">
       {/* Summary */}
@@ -132,7 +126,7 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
             {activeTab === "table" ? (
               <EvaluationTable />
             ) : (
-              <PivotTab data={flattened} />
+              <PivotTab data={state.flattenedDataset} />
             )}
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { makeAutoObservable } from "mobx";
 import type { EvaluationRow } from "./types/eval-protocol";
+import flattenJson from "./util/flatten-json";
 
 export class GlobalState {
   isConnected: boolean = false;
@@ -51,6 +52,14 @@ export class GlobalState {
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+  }
+
+  get flattenedDataset() {
+    return this.sortedDataset.map((row) => flattenJson(row));
+  }
+
+  get flattenedDatasetKeys() {
+    return this.flattenedDataset.map((row) => Object.keys(row));
   }
 
   get totalCount() {
