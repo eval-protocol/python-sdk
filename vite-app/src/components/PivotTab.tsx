@@ -1,6 +1,5 @@
 import { observer } from "mobx-react";
 import PivotTable from "./PivotTable";
-import Select from "./Select";
 import SearchableSelect from "./SearchableSelect";
 import Button from "./Button";
 import FilterInput from "./FilterInput";
