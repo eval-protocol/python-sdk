@@ -55,7 +55,7 @@ export const EvaluationTable = observer(() => {
     <div className="bg-white border border-gray-200">
       {/* Filter Controls */}
       <div className="px-3 py-3 border-b border-gray-200 bg-white">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h3 className="text-sm font-medium text-gray-700">Table Filters</h3>
             <div className="text-xs text-gray-600">
@@ -72,7 +72,7 @@ export const EvaluationTable = observer(() => {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg p-4">
+        <div className="bg-white rounded-lg">
           <FilterSelector
             filters={state.tableFilterConfig}
             onFiltersChange={handleFiltersChange}
