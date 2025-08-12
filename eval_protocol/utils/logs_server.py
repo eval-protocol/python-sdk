@@ -232,7 +232,7 @@ class LogsServer(ViteServer):
             os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "vite-app", "dist")
         ),
         host: str = "localhost",
-        port: Optional[int] = 8001,
+        port: Optional[int] = 8000,
         index_file: str = "index.html",
     ):
         # Initialize WebSocket manager

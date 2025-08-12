@@ -33,7 +33,7 @@ def load_jsonl(file_path: str) -> List[Dict[str, Any]]:
                 row_id_index = stripped.find("row_id")
                 if row_id_index != -1:
                     row_id = re.search(r'"row_id": (.*),', stripped[row_id_index:])
-                    raise ValueError(f"{e.msg} at line {line_number}: {stripped} ({row_id})")
+                    raise ValueError(f"{e.msg} at line {line_number}: {stripped} ({row_id})") from e
                 raise e
     else:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -50,6 +50,6 @@ def load_jsonl(file_path: str) -> List[Dict[str, Any]]:
                     row_id_index = line.find("row_id")
                     if row_id_index != -1:
                         row_id = re.search(r'"row_id": (.*),', line[row_id_index:])
-                        raise ValueError(f"{e.msg} at line {line_number}: {line} ({row_id})")
+                        raise ValueError(f"{e.msg} at line {line_number}: {line} ({row_id})") from e
                     raise e
     return data
