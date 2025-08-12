@@ -123,11 +123,7 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
 
           {/* Tab content */}
           <div className="p-3">
-            {activeTab === "table" ? (
-              <EvaluationTable />
-            ) : (
-              <PivotTab data={state.flattenedDataset} />
-            )}
+            {activeTab === "table" ? <EvaluationTable /> : <PivotTab />}
           </div>
         </div>
       )}

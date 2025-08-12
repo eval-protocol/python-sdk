@@ -1,27 +1,185 @@
 import { observer } from "mobx-react";
 import PivotTable from "./PivotTable";
+import Select from "./Select";
+import { state } from "../App";
+import { useState } from "react";
 
-interface PivotTabProps {
-  data: any[];
+interface FieldSelectorProps {
+  title: string;
+  fields: string[];
+  onFieldChange: (index: number, value: string) => void;
+  onAddField: () => void;
+  onRemoveField: (index: number) => void;
+  availableKeys: string[];
 }
 
-const PivotTab = observer(({ data }: PivotTabProps) => {
+const FieldSelector = ({
+  title,
+  fields,
+  onFieldChange,
+  onAddField,
+  onRemoveField,
+  availableKeys,
+}: FieldSelectorProps) => (
+  <div className="mb-4">
+    <div className="text-xs font-medium text-gray-700 mb-2">{title}:</div>
+    <div className="space-y-2">
+      {fields.map((field, index) => (
+        <div key={index} className="flex items-center space-x-2">
+          <Select
+            value={field}
+            onChange={(e) => onFieldChange(index, e.target.value)}
+            size="sm"
+            className="min-w-48"
+          >
+            <option value="">Select a field...</option>
+            {availableKeys?.map((key) => (
+              <option key={key} value={key}>
+                {key}
+              </option>
+            ))}
+          </Select>
+          {fields.length > 0 && (
+            <button
+              onClick={() => onRemoveField(index)}
+              className="text-xs text-red-600 hover:text-red-800 px-2 py-1"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      ))}
+      {fields.length < 3 && (
+        <button
+          onClick={onAddField}
+          className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1"
+        >
+          + Add {title.slice(0, -1)} Field
+        </button>
+      )}
+    </div>
+  </div>
+);
+
+const SingleFieldSelector = ({
+  title,
+  field,
+  onFieldChange,
+  availableKeys,
+}: {
+  title: string;
+  field: string;
+  onFieldChange: (value: string) => void;
+  availableKeys: string[];
+}) => (
+  <div className="mb-4">
+    <div className="text-xs font-medium text-gray-700 mb-2">{title}:</div>
+    <Select
+      value={field}
+      onChange={(e) => onFieldChange(e.target.value)}
+      size="sm"
+      className="min-w-48"
+    >
+      <option value="">Select a field...</option>
+      {availableKeys?.map((key) => (
+        <option key={key} value={key}>
+          {key}
+        </option>
+      ))}
+    </Select>
+  </div>
+);
+
+const PivotTab = observer(() => {
+  const [selectedRowFields, setSelectedRowFields] = useState<string[]>([
+    "$.eval_metadata.name",
+  ]);
+  const [selectedColumnFields, setSelectedColumnFields] = useState<string[]>([
+    "$.input_metadata.completion_params.model",
+  ]);
+  const [selectedValueField, setSelectedValueField] = useState<string>(
+    "$.evaluation_result.score"
+  );
+
+  const createFieldHandler = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    return (index: number, value: string) => {
+      setter((prev) => {
+        const newFields = [...prev];
+        newFields[index] = value;
+        return newFields;
+      });
+    };
+  };
+
+  const createAddHandler = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    return () => {
+      setter((prev) => (prev.length < 3 ? [...prev, ""] : prev));
+    };
+  };
+
+  const createRemoveHandler = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    return (index: number) => {
+      setter((prev) => prev.filter((_, i) => i !== index));
+    };
+  };
+
+  const availableKeys = state.flattenedDatasetKeys[0] || [];
+
   return (
     <div>
-      <div className="text-xs text-gray-600 mb-2">
-        Showing pivot of flattened rows (JSONPath keys). Defaults: rows by eval
-        name and status; columns by model; values average score.
+      <div className="text-xs text-gray-600 mb-2 max-w-2xl">
+        Configure your pivot table by selecting fields for rows, columns, and
+        values. Use the dropdowns below to choose from available flattened
+        JSONPath keys. You can add/remove fields and change the value field to
+        pivot on different metrics.
       </div>
+
+      <FieldSelector
+        title="Row Fields"
+        fields={selectedRowFields}
+        onFieldChange={createFieldHandler(setSelectedRowFields)}
+        onAddField={createAddHandler(setSelectedRowFields)}
+        onRemoveField={createRemoveHandler(setSelectedRowFields)}
+        availableKeys={availableKeys}
+      />
+
+      <FieldSelector
+        title="Column Fields"
+        fields={selectedColumnFields}
+        onFieldChange={createFieldHandler(setSelectedColumnFields)}
+        onAddField={createAddHandler(setSelectedColumnFields)}
+        onRemoveField={createRemoveHandler(setSelectedColumnFields)}
+        availableKeys={availableKeys}
+      />
+
+      <SingleFieldSelector
+        title="Value Field"
+        field={selectedValueField}
+        onFieldChange={setSelectedValueField}
+        availableKeys={availableKeys}
+      />
+
       <PivotTable
-        data={data}
-        rowFields={[
-          "$.eval_metadata.name" as keyof (typeof data)[number],
-          "$.eval_metadata.status" as keyof (typeof data)[number],
-        ]}
-        columnFields={[
-          "$.input_metadata.completion_params.model" as keyof (typeof data)[number],
-        ]}
-        valueField={"$.evaluation_result.score" as keyof (typeof data)[number]}
+        data={state.flattenedDataset}
+        rowFields={
+          selectedRowFields.filter(
+            (field) => field !== ""
+          ) as (keyof (typeof state.flattenedDataset)[number])[]
+        }
+        columnFields={
+          selectedColumnFields.filter(
+            (field) => field !== ""
+          ) as (keyof (typeof state.flattenedDataset)[number])[]
+        }
+        valueField={
+          selectedValueField as keyof (typeof state.flattenedDataset)[number]
+        }
         aggregator="avg"
         showRowTotals
         showColumnTotals
