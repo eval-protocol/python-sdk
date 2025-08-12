@@ -328,10 +328,11 @@ const PivotTab = observer(() => {
   return (
     <div>
       <div className="text-xs text-gray-600 mb-2 max-w-2xl">
-        Configure your pivot table by selecting fields for rows, columns, and
-        values. Use the dropdowns below to choose from available flattened
-        JSONPath keys. You can add/remove fields and change the value field to
-        pivot on different metrics.
+        Answer questions about your dataset by creating pivot tables that
+        summarize and analyze your data. Select fields for rows, columns, and
+        values to explore patterns, compare metrics across different dimensions,
+        and gain insights from your evaluation results. Use filters to focus on
+        specific subsets of your data.
       </div>
 
       <FieldSelector
