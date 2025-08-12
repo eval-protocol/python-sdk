@@ -137,7 +137,10 @@ const FilterSelector = ({
   availableKeys: string[];
 }) => {
   const addFilter = () => {
-    onFiltersChange([...filters, { field: "", operator: "==", value: "" }]);
+    onFiltersChange([
+      ...filters,
+      { field: "", operator: "contains", value: "" },
+    ]);
   };
 
   const removeFilter = (index: number) => {
