@@ -289,6 +289,7 @@ def parse_args(args=None):
 
     # Logs command
     logs_parser = subparsers.add_parser("logs", help="Serve logs with file watching and real-time updates")
+    logs_parser.add_argument("--port", type=int, default=8000, help="Port to bind to (default: 8000)")
 
     # Run command (for Hydra-based evaluations)
     # This subparser intentionally defines no arguments itself.

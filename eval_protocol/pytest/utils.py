@@ -1,6 +1,9 @@
 import asyncio
 import inspect
-from typing import Any, Callable, List, Literal
+from typing import Any, Callable, List, Literal, Optional
+
+from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
+from eval_protocol.models import EvalMetadata, EvaluationRow
 
 
 def execute_function(func: Callable, **kwargs) -> Any:
@@ -101,3 +104,32 @@ def create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param
     wrapper.__signature__ = inspect.Signature(parameters)
 
     return wrapper
+
+
+def log_eval_status_and_rows(
+    eval_metadata: Optional[EvalMetadata],
+    rows: Optional[List[EvaluationRow]] | None,
+    status: Literal["finished", "error"],
+    passed: bool,
+    logger: DatasetLogger,
+) -> None:
+    """Update eval status and emit rows to the given logger.
+
+    If no rows are provided, emits a minimal placeholder row so downstream
+    consumers still observe a terminal status.
+    """
+    if eval_metadata is None:
+        return
+
+    eval_metadata.status = status
+    eval_metadata.passed = passed
+
+    rows_to_log: List[EvaluationRow] = rows or []
+    if not rows_to_log:
+        error_row = EvaluationRow(messages=[], eval_metadata=eval_metadata, evaluation_result=None)
+        logger.log(error_row)
+    else:
+        for r in rows_to_log:
+            if r.eval_metadata is not None:
+                r.eval_metadata.status = status
+            logger.log(r)

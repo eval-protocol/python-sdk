@@ -34,7 +34,7 @@ def coding_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluat
     dataset_adapter=coding_dataset_to_evaluation_row,
     model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
-    threshold_of_success=0.8,
+    passed_threshold=0.8,
     rollout_processor=default_single_turn_rollout_processor,
     num_runs=1,
     mode="pointwise",
@@ -43,14 +43,17 @@ def test_coding_code_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
     Evaluation function that tests code correctness by executing it locally.
 
+
     This function:
     1. Extracts Python code from the assistant's response
     2. Executes the code locally with timeout=10
     3. Compares the output to ground_truth
     4. Returns a score of 1.0 if output matches, 0.0 otherwise
 
+
     Args:
         row: EvaluationRow containing the conversation messages and expected_output in ground_truth
+
 
     Returns:
         EvaluationRow with the evaluation result

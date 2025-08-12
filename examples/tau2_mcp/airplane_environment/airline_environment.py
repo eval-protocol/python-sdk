@@ -8,6 +8,7 @@ pattern (Agent/User/Environment communication) with the MCP-Gym framework.
 import json
 import logging
 import os
+import time
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
@@ -19,7 +20,7 @@ from vendor.tau2.domains.airline.tools import AirlineTools
 
 logger = logging.getLogger(__name__)
 
-AIRLINE_DB_PATH = Path(__file__).parent / "db.json"
+from vendor.tau2.domains.airline.utils import AIRLINE_DB_PATH
 
 
 class AirlineEnvironment:
@@ -30,8 +31,8 @@ class AirlineEnvironment:
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         self.config = config or {}
-        self.db = FlightDB.load(AIRLINE_DB_PATH)
-        self.airline_tools = AirlineTools(self.db)
+        self.db = None
+        self.airline_tools = None
 
     def reset(self, seed: Optional[int] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Reset the environment to initial state"""

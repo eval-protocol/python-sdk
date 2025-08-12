@@ -5,9 +5,9 @@ This test demonstrates how to check if model responses contain the required numb
 """
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message
+from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
 
 
@@ -16,7 +16,11 @@ def markdown_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     Convert entries from markdown dataset to EvaluationRow objects.
     """
     return [
-        EvaluationRow(messages=[Message(role="user", content=row["prompt"])], ground_truth=str(row["num_highlights"]))
+        EvaluationRow(
+            messages=[Message(role="user", content=row["prompt"])],
+            ground_truth=str(row["num_highlights"]),
+            input_metadata=InputMetadata(row_id=str(row["key"])),
+        )
         for row in data
     ]
 
@@ -24,9 +28,9 @@ def markdown_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
 @evaluation_test(
     input_dataset=["tests/pytest/data/markdown_dataset.jsonl"],
     dataset_adapter=markdown_dataset_to_evaluation_row,
-    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
+    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
-    threshold_of_success=0.5,
+    passed_threshold=0.5,
     rollout_processor=default_single_turn_rollout_processor,
     num_runs=1,
     mode="pointwise",
@@ -39,7 +43,8 @@ def test_markdown_highlighting_evaluation(row: EvaluationRow) -> EvaluationRow:
     assistant_response = row.messages[-1].content
 
     if not assistant_response:
-        return EvaluateResult(score=0.0, reason="❌ No assistant response found")
+        row.evaluation_result = EvaluateResult(score=0.0, reason="❌ No assistant response found")
+        return row
 
     required_highlights = int(row.ground_truth)
 

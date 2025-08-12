@@ -5,10 +5,9 @@ This test demonstrates how to use frozen lake environments within the pytest fra
 similar to the test_frozen_lake_e2e test but integrated with the pytest evaluation system.
 """
 
-
 from typing import Any, Dict, List
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message, InputMetadata, CompletionParams, MetricResult
+from eval_protocol.models import CompletionParams, EvaluateResult, EvaluationRow, InputMetadata, Message, MetricResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import default_mcp_gym_rollout_processor
 
@@ -18,7 +17,7 @@ def frozen_lake_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluation
     Convert entries from frozen lake dataset to EvaluationRow objects.
     """
     rows = []
-    
+
     for row in data:
         eval_row = EvaluationRow(
             messages=[Message(role="system", content=row["system_prompt"])],
@@ -27,13 +26,14 @@ def frozen_lake_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluation
                 dataset_info={
                     "environment_context": row["environment_context"],
                     "user_prompt_template": row["user_prompt_template"],
-                }
-            )
+                },
+            ),
         )
-        
+
         rows.append(eval_row)
-    
+
     return rows
+
 
 @evaluation_test(
     input_dataset=["tests/pytest/data/frozen_lake_dataset.jsonl"],
@@ -41,7 +41,7 @@ def frozen_lake_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluation
     model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
     rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
     rollout_processor=default_mcp_gym_rollout_processor,
-    threshold_of_success=0.66,
+    passed_threshold=0.66,
     num_runs=1,
     max_concurrent_rollouts=3,
     mode="pointwise",
@@ -50,13 +50,13 @@ def frozen_lake_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluation
 def test_frozen_lake_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
     Test frozen lake evaluation using the pytest framework.
-    
+
     This test evaluates how well the model can navigate the FrozenLake environment
     by checking if it successfully reaches the goal while avoiding holes.
-    
+
     Args:
         row: EvaluationRow object from frozen lake dataset
-        
+
     Returns:
         EvaluationRow object with evaluation results
     """
@@ -71,5 +71,5 @@ def test_frozen_lake_evaluation(row: EvaluationRow) -> EvaluationRow:
         score=score,
         reason=reason,
     )
-    
+
     return row

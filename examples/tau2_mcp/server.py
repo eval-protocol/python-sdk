@@ -40,6 +40,9 @@ def main():
     )
     parser.add_argument("--port", type=int, default=8000, help="Port for HTTP transport")
     parser.add_argument("--seed", type=int, default=None, help="Seed for the environment")
+    parser.add_argument(
+        "--max-workers", type=int, default=None, help="Maximum number of workers for the ThreadPoolExecutor"
+    )
 
     args = parser.parse_args()
 
@@ -62,7 +65,7 @@ def main():
     }
 
     server_class = domain_servers[args.domain]
-    server = server_class(seed=args.seed)
+    server = server_class(seed=args.seed, max_workers=args.max_workers)
 
     print(f"{domain_icons[args.domain]} Starting {args.domain.title()} MCP server on port {args.port}")
     print(f"🌱 Seed: {args.seed}")

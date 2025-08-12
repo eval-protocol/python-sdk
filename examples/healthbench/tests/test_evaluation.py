@@ -1,17 +1,13 @@
+import json
 from typing import Dict, List
 
-import json
-
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
-from eval_protocol.pytest.evaluation_test import evaluation_test
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     default_single_turn_rollout_processor,
 )
+from eval_protocol.pytest.evaluation_test import evaluation_test
 
-
-SYSTEM_PROMPT = (
-    "You are a clinician assistant. Provide safe, accurate guidance."
-)
+SYSTEM_PROMPT = "You are a clinician assistant. Provide safe, accurate guidance."
 
 
 # Inline two small HealthBench-like samples and attach tiny rubrics in-memory
@@ -56,7 +52,7 @@ for s in _HB_SAMPLES:
     rollout_input_params=[{"temperature": 0.2, "max_tokens": 512}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
-    threshold_of_success=None,
+    passed_threshold=None,
     num_runs=1,
     max_dataset_rows=2,
     mode="pointwise",
@@ -91,5 +87,3 @@ def test_healthbench_pointwise(row: EvaluationRow) -> EvaluationRow:
         },
     )
     return row
-
-

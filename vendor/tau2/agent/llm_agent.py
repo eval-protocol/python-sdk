@@ -69,13 +69,9 @@ class LLMAgent(LocalAgent[LLMAgentState]):
 
     @property
     def system_prompt(self) -> str:
-        return SYSTEM_PROMPT.format(
-            domain_policy=self.domain_policy, agent_instruction=AGENT_INSTRUCTION
-        )
+        return SYSTEM_PROMPT.format(domain_policy=self.domain_policy, agent_instruction=AGENT_INSTRUCTION)
 
-    def get_init_state(
-        self, message_history: Optional[list[Message]] = None
-    ) -> LLMAgentState:
+    def get_init_state(self, message_history: Optional[list[Message]] = None) -> LLMAgentState:
         """Get the initial state of the agent.
 
         Args:
@@ -86,15 +82,15 @@ class LLMAgent(LocalAgent[LLMAgentState]):
         """
         if message_history is None:
             message_history = []
-        assert all(is_valid_agent_history_message(m) for m in message_history), (
-            "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
-        )
+        assert all(
+            is_valid_agent_history_message(m) for m in message_history
+        ), "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
         return LLMAgentState(
             system_messages=[SystemMessage(role="system", content=self.system_prompt)],
             messages=message_history,
         )
 
-    def generate_next_message(
+    async def generate_next_message(
         self, message: ValidAgentInputMessage, state: LLMAgentState
     ) -> tuple[AssistantMessage, LLMAgentState]:
         """
@@ -105,7 +101,7 @@ class LLMAgent(LocalAgent[LLMAgentState]):
         else:
             state.messages.append(message)
         messages = state.system_messages + state.messages
-        assistant_message = generate(
+        assistant_message = await generate(
             model=self.llm,
             tools=self.tools,
             messages=messages,
@@ -172,9 +168,7 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
         If provide_function_args is True, the resolution steps will include the function arguments.
         """
         super().__init__(tools=tools, domain_policy=domain_policy)
-        assert self.check_valid_task(task), (
-            f"Task {task.id} is not valid. Cannot run GT agent."
-        )
+        assert self.check_valid_task(task), f"Task {task.id} is not valid. Cannot run GT agent."
         self.task = task
         self.llm = llm
         self.llm_args = deepcopy(llm_args) if llm_args is not None else {}
@@ -201,9 +195,7 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
             resolution_steps=self.make_agent_instructions_from_actions(),
         )
 
-    def get_init_state(
-        self, message_history: Optional[list[Message]] = None
-    ) -> LLMAgentState:
+    def get_init_state(self, message_history: Optional[list[Message]] = None) -> LLMAgentState:
         """Get the initial state of the agent.
 
         Args:
@@ -214,15 +206,15 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
         """
         if message_history is None:
             message_history = []
-        assert all(is_valid_agent_history_message(m) for m in message_history), (
-            "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
-        )
+        assert all(
+            is_valid_agent_history_message(m) for m in message_history
+        ), "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
         return LLMAgentState(
             system_messages=[SystemMessage(role="system", content=self.system_prompt)],
             messages=message_history,
         )
 
-    def generate_next_message(
+    async def generate_next_message(
         self, message: ValidAgentInputMessage, state: LLMAgentState
     ) -> tuple[AssistantMessage, LLMAgentState]:
         """
@@ -233,7 +225,7 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
         else:
             state.messages.append(message)
         messages = state.system_messages + state.messages
-        assistant_message = generate(
+        assistant_message = await generate(
             model=self.llm,
             tools=self.tools,
             messages=messages,
@@ -263,9 +255,7 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
         return "\n".join(lines)
 
     @classmethod
-    def make_agent_instructions_from_action(
-        cls, action: Action, include_function_args: bool = False
-    ) -> str:
+    def make_agent_instructions_from_action(cls, action: Action, include_function_args: bool = False) -> str:
         """
         Make agent instructions from an action.
         If the action is a user action, returns instructions for the agent to give to the user.
@@ -332,9 +322,7 @@ class LLMSoloAgent(LocalAgent[LLMAgentState]):
         Initialize the LLMAgent.
         """
         super().__init__(tools=tools, domain_policy=domain_policy)
-        assert self.check_valid_task(task), (
-            f"Task {task.id} is not valid. Cannot run GT agent."
-        )
+        assert self.check_valid_task(task), f"Task {task.id} is not valid. Cannot run GT agent."
         self.task = task
         self.llm = llm
         self.llm_args = llm_args if llm_args is not None else {}
@@ -417,9 +405,7 @@ class LLMSoloAgent(LocalAgent[LLMAgentState]):
             return False
         return cls.STOP_TOKEN in message.content
 
-    def get_init_state(
-        self, message_history: Optional[list[Message]] = None
-    ) -> LLMAgentState:
+    def get_init_state(self, message_history: Optional[list[Message]] = None) -> LLMAgentState:
         """Get the initial state of the agent.
 
         Args:
@@ -430,15 +416,15 @@ class LLMSoloAgent(LocalAgent[LLMAgentState]):
         """
         if message_history is None:
             message_history = []
-        assert all(is_valid_agent_history_message(m) for m in message_history), (
-            "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
-        )
+        assert all(
+            is_valid_agent_history_message(m) for m in message_history
+        ), "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
         return LLMAgentState(
             system_messages=[SystemMessage(role="system", content=self.system_prompt)],
             messages=message_history,
         )
 
-    def generate_next_message(
+    async def generate_next_message(
         self, message: Optional[ValidAgentInputMessage], state: LLMAgentState
     ) -> tuple[AssistantMessage, LLMAgentState]:
         """
@@ -453,7 +439,7 @@ class LLMSoloAgent(LocalAgent[LLMAgentState]):
         else:
             state.messages.append(message)
         messages = state.system_messages + state.messages
-        assistant_message = generate(
+        assistant_message = await generate(
             model=self.llm,
             tools=self.tools,
             messages=messages,

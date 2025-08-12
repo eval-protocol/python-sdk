@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from eval_protocol.dataset_logger.directory_utils import find_eval_protocol_dir
+from eval_protocol.directory_utils import find_eval_protocol_dir
 
 
 def setup_logger(

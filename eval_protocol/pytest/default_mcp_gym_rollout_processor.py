@@ -42,6 +42,17 @@ class MCPServerManager:
         if self.process:
             return
 
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(1)
+                result = s.connect_ex(("localhost", self.port))
+                if result == 0:
+                    raise RuntimeError(
+                        f"Port {self.port} is already in use! Please use a different port or kill the process using it."
+                    )
+        except socket.error:
+            pass
+
         # Set environment for server
         env = os.environ.copy()
         env["PORT"] = str(self.port)
@@ -200,6 +211,8 @@ async def default_mcp_gym_rollout_processor(
     Returns:
         List of EvaluationRow objects with completed conversations
     """
+    if config.server_script_path is None:
+        raise ValueError("server_script_path is required for default_mcp_gym_rollout_processor")
     server = MCPServerManager(config.server_script_path, port=9700)
 
     try:
@@ -213,7 +226,7 @@ async def default_mcp_gym_rollout_processor(
         )
 
         # Create MCP environments directly from evaluation_rows
-        envs = await ep.make(
+        envs = ep.make(
             "http://localhost:9700/mcp/",
             evaluation_rows=rows,
             model_id=policy.model_id,

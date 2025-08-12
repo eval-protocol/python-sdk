@@ -14,7 +14,7 @@ def load_jsonl(file_path: str) -> List[Dict[str, Any]]:
 
     Returns:
         A list of dictionaries, where each dictionary is a parsed JSON object from a line.
-        Returns an empty list if the file is not found or if errors occur during parsing.
+        Returns an empty list if the file is not found or if errors occur during parsing. Supports HTTP urls and local file paths.
     """
     data: List[Dict[str, Any]] = []
     if file_path.startswith("http://") or file_path.startswith("https://"):

@@ -14,7 +14,7 @@ from tests.pytest.helper.gsm8k_to_evaluation_row import gsm8k_to_evaluation_row
     model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
     rollout_input_params=[{"temperature": 0.0}],
     max_dataset_rows=5,
-    threshold_of_success=0.0,
+    passed_threshold=0.0,
     rollout_processor=default_single_turn_rollout_processor,
     mode="pointwise",
     evaluation_test_kwargs=[

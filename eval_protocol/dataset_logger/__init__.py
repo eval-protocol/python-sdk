@@ -1,3 +1,3 @@
-from eval_protocol.dataset_logger.local_fs_dataset_logger_adapter import LocalFSDatasetLoggerAdapter
+from eval_protocol.dataset_logger.sqlite_dataset_logger_adapter import SqliteDatasetLoggerAdapter
 
-default_logger = LocalFSDatasetLoggerAdapter()
+default_logger = SqliteDatasetLoggerAdapter()

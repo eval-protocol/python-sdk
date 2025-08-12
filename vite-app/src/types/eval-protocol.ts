@@ -62,7 +62,7 @@ export const CompletionParamsSchema = z.object({
 });
 
 export const InputMetadataSchema = z.object({
-  row_id: z.string().describe('Unique string to ID the row'),
+  row_id: z.string().optional().describe('Unique string to ID the row'),
   completion_params: CompletionParamsSchema.optional().describe('Completion endpoint parameters used'),
   dataset_info: z.record(z.string(), z.any()).optional().describe('Dataset row details: seed, system_prompt, environment_context, etc'),
   session_data: z.record(z.string(), z.any()).optional().describe('Session metadata like timestamp (input only, no duration/usage)')
@@ -78,17 +78,35 @@ export const EvalMetadataSchema = z.object({
   name: z.string().describe('Name of the evaluation'),
   description: z.string().optional().describe('Description of the evaluation'),
   version: z.string().describe('Version of the evaluation. By default, we will populate this with the current commit hash.'),
-  status: z.enum(['running', 'finished', 'error', 'stopped']).default('running').describe('Status of the evaluation'),
+  status: z.enum(['running', 'finished', 'error', 'stopped']).optional().describe('Status of the evaluation'),
   num_runs: z.number().int().describe('Number of times the evaluation was repeated'),
   aggregation_method: z.string().describe('Method used to aggregate scores across runs'),
   threshold_of_success: z.number().optional().describe('Threshold score for test success'),
   passed: z.boolean().optional().describe('Whether the evaluation passed based on the threshold')
 });
 
+// Rollout status model (matches Python RolloutStatus)
+export const RolloutStatusSchema = z.object({
+  status: z
+    .enum(['running', 'finished', 'error', 'stopped'])
+    .default('finished')
+    .describe('Status of the rollout.'),
+  error_message: z.string().optional().describe('Error message if the rollout failed.')
+});
+
+export const ExecutionMetadataSchema = z.object({
+  invocation_id: z.string().optional().describe('The ID of the invocation that this row belongs to.'),
+  experiment_id: z.string().optional().describe('The ID of the experiment that this row belongs to.'),
+  rollout_id: z.string().optional().describe('The ID of the rollout that this row belongs to.'),
+  run_id: z.string().optional().describe('The ID of the run that this row belongs to.'),
+});
+
 export const EvaluationRowSchema = z.object({
   messages: z.array(MessageSchema).describe('List of messages in the conversation/trajectory.'),
   tools: z.array(z.record(z.string(), z.any())).optional().describe('Available tools/functions that were provided to the agent.'),
   input_metadata: InputMetadataSchema.describe('Metadata related to the input (dataset info, model config, session data, etc.).'),
+  rollout_status: RolloutStatusSchema.default({ status: 'finished' }).describe('The status of the rollout.'),
+  execution_metadata: ExecutionMetadataSchema.optional().describe('Metadata about the execution of the evaluation.'),
   ground_truth: z.string().optional().describe('Optional ground truth reference for this evaluation.'),
   evaluation_result: EvaluateResultSchema.optional().describe('The evaluation result for this row/trajectory.'),
   usage: CompletionUsageSchema.optional().describe('Token usage statistics from LLM calls during execution.'),
@@ -157,6 +175,7 @@ export type InputMetadata = z.infer<typeof InputMetadataSchema>;
 export type CompletionUsage = z.infer<typeof CompletionUsageSchema>;
 export type EvalMetadata = z.infer<typeof EvalMetadataSchema>;
 export type EvaluationRow = z.infer<typeof EvaluationRowSchema>;
+export type RolloutStatus = z.infer<typeof RolloutStatusSchema>;
 export type ResourceServerConfig = z.infer<typeof ResourceServerConfigSchema>;
 export type EvaluationCriteriaModel = z.infer<typeof EvaluationCriteriaModelSchema>;
 export type TaskDefinitionModel = z.infer<typeof TaskDefinitionModelSchema>;

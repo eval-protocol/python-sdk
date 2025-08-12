@@ -9,11 +9,14 @@ import asyncio
 import hashlib
 import json
 import logging
+import time
 from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional, Tuple
 
+import httpx
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
+from mcp.types import Implementation
 
 from ...types import MCPSession
 
@@ -50,19 +53,16 @@ class MCPConnectionManager:
 
         exit_stack = AsyncExitStack()
 
-        client_info = None
-        if session.seed is not None or (session.dataset_row and session.dataset_row.environment_context):
-            from mcp.types import Implementation
-
-            client_info = Implementation(name="reward-kit", version="1.0.0", _extra={})
-            if session.seed is not None:
-                client_info._extra["seed"] = session.seed
-            if session.dataset_row and session.dataset_row.environment_context:
-                client_info._extra["config"] = session.dataset_row.environment_context
-            if session.dataset_row and session.dataset_row.id:
-                client_info._extra["dataset_row_id"] = session.dataset_row.id
-            if session.model_id:
-                client_info._extra["model_id"] = session.model_id
+        client_info = Implementation(name="reward-kit", version="1.0.0", _extra={})
+        client_info._extra["session_id"] = session.session_id
+        if session.seed is not None:
+            client_info._extra["seed"] = session.seed
+        if session.dataset_row and session.dataset_row.environment_context:
+            client_info._extra["config"] = session.dataset_row.environment_context
+        if session.dataset_row and session.dataset_row.id:
+            client_info._extra["dataset_row_id"] = session.dataset_row.id
+        if session.model_id:
+            client_info._extra["model_id"] = session.model_id
 
         read_stream, write_stream, _ = await exit_stack.enter_async_context(
             streamablehttp_client(session.base_url, terminate_on_close=True)
@@ -76,32 +76,6 @@ class MCPConnectionManager:
 
         session._mcp_session = mcp_session
         session._exit_stack = exit_stack
-
-        # Update session ID to match server's calculation (for control plane sync)
-        if client_info and hasattr(client_info, "_extra"):
-            extra_data = client_info._extra
-            if extra_data and isinstance(extra_data, dict):
-
-                seed_value = extra_data.get("seed")
-                config_value = extra_data.get("config", {})
-                dataset_row_id_value = extra_data.get("dataset_row_id")
-                model_id_value = extra_data.get("model_id")
-
-                stable_data = {
-                    "seed": seed_value,
-                    "config": config_value,
-                    "dataset_row_id": dataset_row_id_value,
-                    "model_id": model_id_value,
-                    "name": client_info.name,
-                    "version": client_info.version,
-                }
-
-                stable_str = json.dumps(stable_data, sort_keys=True)
-                server_session_id = hashlib.md5(stable_str.encode()).hexdigest()
-
-                # Update the session ID to match what the server generated
-                session.session_id = server_session_id
-                logger.info(f"Updated session ID to match server: {server_session_id}")
 
         # PRE-WARM: Discover and cache tools immediately after session initialization
         # This prevents concurrent list_tools() calls later
@@ -137,15 +111,13 @@ class MCPConnectionManager:
         """
         Clean session data in remote mcp server for the given session
         """
-        import httpx
-
         base_url = session.base_url.rstrip("/").removesuffix("/mcp")
         url = f"{base_url}/control/reset_session"
 
         headers = {"mcp-session-id": session.session_id}
         body = {"seed": session.seed}
 
-        timeout = httpx.Timeout(3.0)
+        timeout = httpx.Timeout(15.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(url, headers=headers, json=body)
             resp.raise_for_status()
@@ -230,8 +202,6 @@ class MCPConnectionManager:
         initial_observation = None
 
         try:
-            import httpx
-
             # Extract base URL and session ID from the MCP session
             base_url = session.base_url.rstrip("/").removesuffix("/mcp")
             session_id = session.session_id
@@ -487,9 +457,6 @@ class MCPConnectionManager:
         control_plane_info = {}
 
         try:
-            # Query control plane endpoints following the new architecture
-            import httpx
-
             # Extract base URL and session ID from the MCP session
             base_url = session.base_url.rstrip("/").removesuffix("/mcp")
             # Use the session ID from the established MCP session
@@ -572,10 +539,10 @@ class MCPConnectionManager:
                 await session._exit_stack.aclose()
             except asyncio.CancelledError:
                 # Handle cancellation gracefully (especially important for Python 3.12)
-                logger.debug(f"Session {session.session_id} close was cancelled")
+                logger.error(f"Session {session.session_id} close was cancelled")
             except Exception as e:
                 # Hitting this error, probably because of use of threads: "Attempted to exit cancel scope in a different task than it was entered in"
-                logger.debug(f"Error closing session {session.session_id}: {e}")
+                logger.error(f"Error closing session {session.session_id}: {e}")
             finally:
                 session._exit_stack = None
                 session._mcp_session = None
