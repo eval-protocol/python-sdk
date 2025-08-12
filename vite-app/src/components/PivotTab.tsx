@@ -2,6 +2,7 @@ import { observer } from "mobx-react";
 import PivotTable from "./PivotTable";
 import Select from "./Select";
 import Button from "./Button";
+import FilterInput from "./FilterInput";
 import { state } from "../App";
 import { type FilterConfig } from "../types/filters";
 import {
@@ -130,51 +131,6 @@ const AggregatorSelector = ({
     </Select>
   </div>
 );
-
-// Reusable filter input component
-const FilterInput = ({
-  filter,
-  index,
-  onUpdate,
-}: {
-  filter: FilterConfig;
-  index: number;
-  onUpdate: (updates: Partial<FilterConfig>) => void;
-}) => {
-  const fieldType = filter.type || getFieldType(filter.field);
-
-  if (fieldType === "date") {
-    return (
-      <div className="flex space-x-2">
-        <input
-          type="date"
-          value={filter.value}
-          onChange={(e) => onUpdate({ value: e.target.value })}
-          className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-500 min-w-32"
-        />
-        {filter.operator === "between" && (
-          <input
-            type="date"
-            value={filter.value2 || ""}
-            onChange={(e) => onUpdate({ value2: e.target.value })}
-            className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-500 min-w-32"
-            placeholder="End date"
-          />
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <input
-      type="text"
-      value={filter.value}
-      onChange={(e) => onUpdate({ value: e.target.value })}
-      placeholder="Value"
-      className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-500 min-w-32"
-    />
-  );
-};
 
 const FilterSelector = ({
   filters,
