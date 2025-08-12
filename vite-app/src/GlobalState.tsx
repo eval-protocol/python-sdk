@@ -29,6 +29,8 @@ export class GlobalState {
   // Pagination configuration
   currentPage: number;
   pageSize: number;
+  // Loading state
+  isLoading: boolean = true;
 
   constructor() {
     // Load pivot config from localStorage or use defaults
@@ -65,7 +67,10 @@ export class GlobalState {
         return { ...DEFAULT_PAGINATION_CONFIG, ...parsed };
       }
     } catch (error) {
-      console.warn("Failed to load pagination config from localStorage:", error);
+      console.warn(
+        "Failed to load pagination config from localStorage:",
+        error
+      );
     }
     return { ...DEFAULT_PAGINATION_CONFIG };
   }
@@ -82,10 +87,13 @@ export class GlobalState {
   // Save pagination configuration to localStorage
   private savePaginationConfig() {
     try {
-      localStorage.setItem("paginationConfig", JSON.stringify({
-        currentPage: this.currentPage,
-        pageSize: this.pageSize,
-      }));
+      localStorage.setItem(
+        "paginationConfig",
+        JSON.stringify({
+          currentPage: this.currentPage,
+          pageSize: this.pageSize,
+        })
+      );
     } catch (error) {
       console.warn("Failed to save pagination config to localStorage:", error);
     }
@@ -98,7 +106,9 @@ export class GlobalState {
   }
 
   // Update pagination configuration and save to localStorage
-  updatePaginationConfig(updates: Partial<{ currentPage: number; pageSize: number }>) {
+  updatePaginationConfig(
+    updates: Partial<{ currentPage: number; pageSize: number }>
+  ) {
     if (updates.currentPage !== undefined) {
       this.currentPage = updates.currentPage;
     }
@@ -138,6 +148,7 @@ export class GlobalState {
   }
 
   upsertRows(dataset: EvaluationRow[]) {
+    this.isLoading = true;
     dataset.forEach((row) => {
       if (!row.execution_metadata?.rollout_id) {
         return;
@@ -147,6 +158,7 @@ export class GlobalState {
     // Reset to first page when dataset changes
     this.currentPage = 1;
     this.savePaginationConfig();
+    this.isLoading = false;
   }
 
   toggleRowExpansion(rolloutId?: string) {
