@@ -108,8 +108,8 @@ const SearchableSelect = React.forwardRef<
           </svg>
         </div>
 
-                 {isOpen && (
-           <div className="absolute z-50 w-max min-w-full mt-1 bg-white border border-gray-200 rounded-md max-h-60 overflow-auto">
+        {isOpen && (
+          <div className="absolute z-50 w-max min-w-full mt-1 bg-white border border-gray-200 rounded-md max-h-60 overflow-auto">
             <div className="p-2 border-b border-gray-200">
               <input
                 ref={inputRef}
