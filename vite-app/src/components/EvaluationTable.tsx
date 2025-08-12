@@ -1,5 +1,4 @@
 import { observer } from "mobx-react";
-import { useState, useEffect } from "react";
 import { state } from "../App";
 import { EvaluationRow } from "./EvaluationRow";
 import Button from "./Button";
@@ -32,27 +31,18 @@ const TableBody = observer(
 
 // Dedicated component for rendering the list - following MobX best practices
 export const EvaluationTable = observer(() => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-
   const totalRows = state.sortedDataset.length;
-  const totalPages = Math.ceil(totalRows / pageSize);
-  const startRow = (currentPage - 1) * pageSize + 1;
-  const endRow = Math.min(currentPage * pageSize, totalRows);
+  const totalPages = state.totalPages;
+  const startRow = state.startRow;
+  const endRow = state.endRow;
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    state.setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
-    setPageSize(newPageSize);
-    setCurrentPage(1); // Reset to first page when changing page size
+    state.setPageSize(newPageSize);
   };
-
-  // Reset to first page when dataset changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [totalRows]);
 
   return (
     <div className="bg-white border border-gray-200">
@@ -65,7 +55,7 @@ export const EvaluationTable = observer(() => {
           <div className="flex items-center gap-2">
             <label className="text-xs text-gray-600">Page size:</label>
             <Select
-              value={pageSize}
+              value={state.pageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
               size="sm"
             >
@@ -79,26 +69,26 @@ export const EvaluationTable = observer(() => {
         <div className="flex items-center gap-2">
           <Button
             onClick={() => handlePageChange(1)}
-            disabled={currentPage === 1}
+            disabled={state.currentPage === 1}
             size="sm"
             variant="secondary"
           >
             First
           </Button>
           <Button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
+            onClick={() => handlePageChange(state.currentPage - 1)}
+            disabled={state.currentPage === 1}
             size="sm"
             variant="secondary"
           >
             Previous
           </Button>
           <span className="text-xs text-gray-600 px-2">
-            Page {currentPage} of {totalPages}
+            Page {state.currentPage} of {totalPages}
           </span>
           <Button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
+            onClick={() => handlePageChange(state.currentPage + 1)}
+            disabled={state.currentPage === totalPages}
             size="sm"
             variant="secondary"
           >
@@ -106,7 +96,7 @@ export const EvaluationTable = observer(() => {
           </Button>
           <Button
             onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage === totalPages}
+            disabled={state.currentPage === totalPages}
             size="sm"
             variant="secondary"
           >
@@ -132,7 +122,10 @@ export const EvaluationTable = observer(() => {
           </TableHead>
 
           {/* Table Body */}
-          <TableBody currentPage={currentPage} pageSize={pageSize} />
+          <TableBody
+            currentPage={state.currentPage}
+            pageSize={state.pageSize}
+          />
         </table>
       </div>
     </div>

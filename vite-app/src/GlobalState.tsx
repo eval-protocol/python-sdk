@@ -12,6 +12,12 @@ const DEFAULT_PIVOT_CONFIG: PivotConfig = {
   filters: [],
 };
 
+// Default pagination configuration
+const DEFAULT_PAGINATION_CONFIG = {
+  currentPage: 1,
+  pageSize: 25,
+};
+
 export class GlobalState {
   isConnected: boolean = false;
   // rollout_id -> EvaluationRow
@@ -20,10 +26,17 @@ export class GlobalState {
   expandedRows: Record<string, boolean> = {};
   // Pivot configuration
   pivotConfig: PivotConfig;
+  // Pagination configuration
+  currentPage: number;
+  pageSize: number;
 
   constructor() {
     // Load pivot config from localStorage or use defaults
     this.pivotConfig = this.loadPivotConfig();
+    // Load pagination config from localStorage or use defaults
+    const paginationConfig = this.loadPaginationConfig();
+    this.currentPage = paginationConfig.currentPage;
+    this.pageSize = paginationConfig.pageSize;
     makeAutoObservable(this);
   }
 
@@ -42,6 +55,21 @@ export class GlobalState {
     return { ...DEFAULT_PIVOT_CONFIG };
   }
 
+  // Load pagination configuration from localStorage
+  private loadPaginationConfig() {
+    try {
+      const stored = localStorage.getItem("paginationConfig");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Merge with defaults to handle any missing properties
+        return { ...DEFAULT_PAGINATION_CONFIG, ...parsed };
+      }
+    } catch (error) {
+      console.warn("Failed to load pagination config from localStorage:", error);
+    }
+    return { ...DEFAULT_PAGINATION_CONFIG };
+  }
+
   // Save pivot configuration to localStorage
   private savePivotConfig() {
     try {
@@ -51,10 +79,33 @@ export class GlobalState {
     }
   }
 
+  // Save pagination configuration to localStorage
+  private savePaginationConfig() {
+    try {
+      localStorage.setItem("paginationConfig", JSON.stringify({
+        currentPage: this.currentPage,
+        pageSize: this.pageSize,
+      }));
+    } catch (error) {
+      console.warn("Failed to save pagination config to localStorage:", error);
+    }
+  }
+
   // Update pivot configuration and save to localStorage
   updatePivotConfig(updates: Partial<PivotConfig>) {
     Object.assign(this.pivotConfig, updates);
     this.savePivotConfig();
+  }
+
+  // Update pagination configuration and save to localStorage
+  updatePaginationConfig(updates: Partial<{ currentPage: number; pageSize: number }>) {
+    if (updates.currentPage !== undefined) {
+      this.currentPage = updates.currentPage;
+    }
+    if (updates.pageSize !== undefined) {
+      this.pageSize = updates.pageSize;
+    }
+    this.savePaginationConfig();
   }
 
   // Reset pivot configuration to defaults
@@ -66,6 +117,26 @@ export class GlobalState {
     this.savePivotConfig();
   }
 
+  // Reset pagination configuration to defaults
+  resetPaginationConfig() {
+    this.currentPage = DEFAULT_PAGINATION_CONFIG.currentPage;
+    this.pageSize = DEFAULT_PAGINATION_CONFIG.pageSize;
+    this.savePaginationConfig();
+  }
+
+  // Set current page
+  setCurrentPage(page: number) {
+    this.currentPage = page;
+    this.savePaginationConfig();
+  }
+
+  // Set page size
+  setPageSize(size: number) {
+    this.pageSize = size;
+    this.currentPage = 1; // Reset to first page when changing page size
+    this.savePaginationConfig();
+  }
+
   upsertRows(dataset: EvaluationRow[]) {
     dataset.forEach((row) => {
       if (!row.execution_metadata?.rollout_id) {
@@ -73,6 +144,9 @@ export class GlobalState {
       }
       this.dataset[row.execution_metadata.rollout_id] = row;
     });
+    // Reset to first page when dataset changes
+    this.currentPage = 1;
+    this.savePaginationConfig();
   }
 
   toggleRowExpansion(rolloutId?: string) {
@@ -121,5 +195,17 @@ export class GlobalState {
 
   get totalCount() {
     return Object.keys(this.dataset).length;
+  }
+
+  get totalPages() {
+    return Math.ceil(this.totalCount / this.pageSize);
+  }
+
+  get startRow() {
+    return (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  get endRow() {
+    return Math.min(this.currentPage * this.pageSize, this.totalCount);
   }
 }
