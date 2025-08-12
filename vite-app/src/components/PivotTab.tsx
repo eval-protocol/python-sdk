@@ -1,8 +1,9 @@
 import { observer } from "mobx-react";
 import PivotTable from "./PivotTable";
 import Select from "./Select";
+import Button from "./Button";
 import { state } from "../App";
-import { useState } from "react";
+import { useEffect } from "react";
 
 interface FieldSelectorProps {
   title: string;
@@ -243,45 +244,61 @@ const FilterSelector = ({
 };
 
 const PivotTab = observer(() => {
-  const [selectedRowFields, setSelectedRowFields] = useState<string[]>([
-    "$.eval_metadata.name",
-  ]);
-  const [selectedColumnFields, setSelectedColumnFields] = useState<string[]>([
-    "$.input_metadata.completion_params.model",
-  ]);
-  const [selectedValueField, setSelectedValueField] = useState<string>(
-    "$.evaluation_result.score"
-  );
-  const [selectedAggregator, setSelectedAggregator] = useState<string>("avg");
-  const [filters, setFilters] = useState<
-    Array<{ field: string; operator: string; value: string }>
-  >([]);
+  // Use global state instead of local state
+  const { pivotConfig } = state;
+
+  // Update global state when configuration changes
+  const updateRowFields = (index: number, value: string) => {
+    const newRowFields = [...pivotConfig.selectedRowFields];
+    newRowFields[index] = value;
+    state.updatePivotConfig({ selectedRowFields: newRowFields });
+  };
+
+  const updateColumnFields = (index: number, value: string) => {
+    const newColumnFields = [...pivotConfig.selectedColumnFields];
+    newColumnFields[index] = value;
+    state.updatePivotConfig({ selectedColumnFields: newColumnFields });
+  };
+
+  const updateValueField = (value: string) => {
+    state.updatePivotConfig({ selectedValueField: value });
+  };
+
+  const updateAggregator = (value: string) => {
+    state.updatePivotConfig({ selectedAggregator: value });
+  };
+
+  const updateFilters = (
+    filters: Array<{ field: string; operator: string; value: string }>
+  ) => {
+    state.updatePivotConfig({ filters });
+  };
 
   const createFieldHandler = (
-    setter: React.Dispatch<React.SetStateAction<string[]>>
+    updater: (index: number, value: string) => void
   ) => {
     return (index: number, value: string) => {
-      setter((prev) => {
-        const newFields = [...prev];
-        newFields[index] = value;
-        return newFields;
-      });
+      updater(index, value);
     };
   };
 
   const createAddHandler = (
-    setter: React.Dispatch<React.SetStateAction<string[]>>
+    fields: string[],
+    updater: (fields: string[]) => void
   ) => {
     return () => {
-      setter((prev) => (prev.length < 3 ? [...prev, ""] : prev));
+      if (fields.length < 3) {
+        updater([...fields, ""]);
+      }
     };
   };
 
   const createRemoveHandler = (
-    setter: React.Dispatch<React.SetStateAction<string[]>>
+    fields: string[],
+    updater: (fields: string[]) => void
   ) => {
     return (index: number) => {
-      setter((prev) => prev.filter((_, i) => i !== index));
+      updater(fields.filter((_, i) => i !== index));
     };
   };
 
@@ -338,63 +355,85 @@ const PivotTab = observer(() => {
         specific subsets of your data.
       </div>
 
+      {/* Controls Section with Reset Button */}
+      <div className="mb-4 flex justify-between items-center">
+        <Button
+          onClick={() => state.resetPivotConfig()}
+          variant="secondary"
+          size="sm"
+        >
+          Reset to Defaults
+        </Button>
+      </div>
+
       <FieldSelector
         title="Row Fields"
-        fields={selectedRowFields}
-        onFieldChange={createFieldHandler(setSelectedRowFields)}
-        onAddField={createAddHandler(setSelectedRowFields)}
-        onRemoveField={createRemoveHandler(setSelectedRowFields)}
+        fields={pivotConfig.selectedRowFields}
+        onFieldChange={createFieldHandler(updateRowFields)}
+        onAddField={createAddHandler(pivotConfig.selectedRowFields, (fields) =>
+          state.updatePivotConfig({ selectedRowFields: fields })
+        )}
+        onRemoveField={createRemoveHandler(
+          pivotConfig.selectedRowFields,
+          (fields) => state.updatePivotConfig({ selectedRowFields: fields })
+        )}
         availableKeys={availableKeys}
         variant="row"
       />
 
       <FieldSelector
         title="Column Fields"
-        fields={selectedColumnFields}
-        onFieldChange={createFieldHandler(setSelectedColumnFields)}
-        onAddField={createAddHandler(setSelectedColumnFields)}
-        onRemoveField={createRemoveHandler(setSelectedColumnFields)}
+        fields={pivotConfig.selectedColumnFields}
+        onFieldChange={createFieldHandler(updateColumnFields)}
+        onAddField={createAddHandler(
+          pivotConfig.selectedColumnFields,
+          (fields) => state.updatePivotConfig({ selectedColumnFields: fields })
+        )}
+        onRemoveField={createRemoveHandler(
+          pivotConfig.selectedColumnFields,
+          (fields) => state.updatePivotConfig({ selectedColumnFields: fields })
+        )}
         availableKeys={availableKeys}
         variant="column"
       />
 
       <SingleFieldSelector
         title="Value Field"
-        field={selectedValueField}
-        onFieldChange={setSelectedValueField}
+        field={pivotConfig.selectedValueField}
+        onFieldChange={updateValueField}
         availableKeys={availableKeys}
       />
 
       <AggregatorSelector
-        aggregator={selectedAggregator}
-        onAggregatorChange={setSelectedAggregator}
+        aggregator={pivotConfig.selectedAggregator}
+        onAggregatorChange={updateAggregator}
       />
 
       <FilterSelector
-        filters={filters}
-        onFiltersChange={setFilters}
+        filters={pivotConfig.filters}
+        onFiltersChange={updateFilters}
         availableKeys={availableKeys}
       />
 
       <PivotTable
         data={state.flattenedDataset}
         rowFields={
-          selectedRowFields.filter(
+          pivotConfig.selectedRowFields.filter(
             (field) => field !== ""
           ) as (keyof (typeof state.flattenedDataset)[number])[]
         }
         columnFields={
-          selectedColumnFields.filter(
+          pivotConfig.selectedColumnFields.filter(
             (field) => field !== ""
           ) as (keyof (typeof state.flattenedDataset)[number])[]
         }
         valueField={
-          selectedValueField as keyof (typeof state.flattenedDataset)[number]
+          pivotConfig.selectedValueField as keyof (typeof state.flattenedDataset)[number]
         }
-        aggregator={selectedAggregator as any}
+        aggregator={pivotConfig.selectedAggregator as any}
         showRowTotals
         showColumnTotals
-        filter={createFilterFunction(filters)}
+        filter={createFilterFunction(pivotConfig.filters)}
       />
     </div>
   );
