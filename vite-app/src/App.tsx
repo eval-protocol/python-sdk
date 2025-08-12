@@ -32,8 +32,8 @@ const App = observer(() => {
 
     ws.onopen = () => {
       console.log("Connected to file watcher");
-      state.isConnected = true;
-      state.isLoading = true; // Set loading when connection opens
+      state.setConnected(true);
+      state.setLoading(true); // Set loading when connection opens
       reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
     };
 
@@ -49,21 +49,21 @@ const App = observer(() => {
           console.log("initialize_logs", rows);
           state.upsertRows(rows);
         } else if (update.type === "log") {
-          state.isLoading = true; // Set loading for individual log updates
+          state.setLoading(true); // Set loading for individual log updates
           const row: EvaluationRow = EvaluationRowSchema.parse(update.row);
           console.log("log", row);
           state.upsertRows([row]);
         }
       } catch (error) {
         console.error("Failed to parse WebSocket message:", error);
-        state.isLoading = false; // Clear loading state on error
+        state.setLoading(false); // Clear loading state on error
       }
     };
 
     ws.onclose = (event) => {
       console.log("Disconnected from file watcher", event.code, event.reason);
-      state.isConnected = false;
-      state.isLoading = false; // Clear loading state on disconnect
+      state.setConnected(false);
+      state.setLoading(false); // Clear loading state on disconnect
 
       // Attempt to reconnect if not a normal closure
       if (
@@ -76,8 +76,8 @@ const App = observer(() => {
 
     ws.onerror = (error) => {
       console.error("WebSocket error:", error);
-      state.isConnected = false;
-      state.isLoading = false; // Clear loading state on error
+      state.setConnected(false);
+      state.setLoading(false); // Clear loading state on error
     };
   };
 
@@ -104,7 +104,7 @@ const App = observer(() => {
 
   // Manual refresh handler
   const handleManualRefresh = () => {
-    state.isLoading = true; // Set loading when manually refreshing
+    state.setLoading(true); // Set loading when manually refreshing
     if (wsRef.current) {
       try {
         wsRef.current.onclose = null; // Prevent triggering reconnect logic

@@ -1,4 +1,4 @@
-import { makeAutoObservable } from "mobx";
+import { makeAutoObservable, runInAction } from "mobx";
 import type { EvaluationRow } from "./types/eval-protocol";
 import type { PivotConfig } from "./types/filters";
 import flattenJson from "./util/flatten-json";
@@ -147,18 +147,34 @@ export class GlobalState {
     this.savePaginationConfig();
   }
 
+  // Set loading state
+  setLoading(loading: boolean) {
+    this.isLoading = loading;
+  }
+
+  // Set connection state
+  setConnected(connected: boolean) {
+    this.isConnected = connected;
+  }
+
   upsertRows(dataset: EvaluationRow[]) {
-    this.isLoading = true;
+    runInAction(() => {
+      this.isLoading = true;
+    });
+
     dataset.forEach((row) => {
       if (!row.execution_metadata?.rollout_id) {
         return;
       }
       this.dataset[row.execution_metadata.rollout_id] = row;
     });
-    // Reset to first page when dataset changes
-    this.currentPage = 1;
+
+    runInAction(() => {
+      // Reset to first page when dataset changes
+      this.currentPage = 1;
+      this.isLoading = false;
+    });
     this.savePaginationConfig();
-    this.isLoading = false;
   }
 
   toggleRowExpansion(rolloutId?: string) {
