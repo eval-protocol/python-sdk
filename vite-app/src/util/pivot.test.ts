@@ -86,6 +86,79 @@ describe('computePivot', () => {
     expect(res.cells[rKeyWest][cKeyGadget].value).toBe(90)
   })
 
+  it('computes minimum aggregator', () => {
+    const res = computePivot<Row>({
+      data: rows,
+      rowFields: ['region'],
+      columnFields: ['product'],
+      valueField: 'amount',
+      aggregator: 'min',
+    })
+
+    const rKeyEast = 'East'
+    const rKeyWest = 'West'
+    const cKeyGadget = 'Gadget'
+    const cKeyWidget = 'Widget'
+
+    // East Gadget: values -> [10] => min 10
+    expect(res.cells[rKeyEast][cKeyGadget].value).toBe(10)
+    // West Gadget: values -> [90] => min 90
+    expect(res.cells[rKeyWest][cKeyGadget].value).toBe(90)
+    // East Widget: values -> [200] => min 200
+    expect(res.cells[rKeyEast][cKeyWidget].value).toBe(200)
+    // West Widget: values -> [120] => min 120
+    expect(res.cells[rKeyWest][cKeyWidget].value).toBe(120)
+  })
+
+  it('computes maximum aggregator', () => {
+    const res = computePivot<Row>({
+      data: rows,
+      rowFields: ['region'],
+      columnFields: ['product'],
+      valueField: 'amount',
+      aggregator: 'max',
+    })
+
+    const rKeyEast = 'East'
+    const rKeyWest = 'West'
+    const cKeyGadget = 'Gadget'
+    const cKeyWidget = 'Widget'
+
+    // East Gadget: values -> [10] => max 10
+    expect(res.cells[rKeyEast][cKeyGadget].value).toBe(10)
+    // West Gadget: values -> [90] => max 90
+    expect(res.cells[rKeyWest][cKeyGadget].value).toBe(90)
+    // East Widget: values -> [200] => max 200
+    expect(res.cells[rKeyEast][cKeyWidget].value).toBe(200)
+    // West Widget: values -> [120] => max 120
+    expect(res.cells[rKeyWest][cKeyWidget].value).toBe(120)
+  })
+
+  it('handles empty cells for min/max aggregators', () => {
+    // Add a row with no valid numeric values
+    const rowsWithEmpty = [
+      ...rows,
+      { region: 'North', rep: 'C', product: 'Widget', amount: 'not-a-number' },
+      { region: 'North', rep: 'D', product: 'Gadget', amount: 'also-not-a-number' },
+    ]
+
+    const res = computePivot<Row>({
+      data: rowsWithEmpty,
+      rowFields: ['region'],
+      columnFields: ['product'],
+      valueField: 'amount',
+      aggregator: 'min',
+    })
+
+    const rKeyNorth = 'North'
+    const cKeyWidget = 'Widget'
+    const cKeyGadget = 'Gadget'
+
+    // North region has no valid numeric values, should return 0 for min
+    expect(res.cells[rKeyNorth][cKeyWidget].value).toBe(0)
+    expect(res.cells[rKeyNorth][cKeyGadget].value).toBe(0)
+  })
+
   it('supports custom aggregator', () => {
     const maxAgg: Aggregator<Row> = (values) =>
       values.length ? Math.max(...values) : 0
