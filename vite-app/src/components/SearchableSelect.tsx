@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useMemo,
+  useLayoutEffect,
+} from "react";
 import { commonStyles } from "../styles/common";
 
 interface SearchableSelectProps {
@@ -29,22 +35,29 @@ const SearchableSelect = React.forwardRef<
   ) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
-    const [filteredOptions, setFilteredOptions] = useState(options);
+    // Memoize filtering to avoid extra state updates and re-renders
+    const filteredOptions = useMemo(() => {
+      const lowered = searchTerm.toLowerCase();
+      if (!lowered) return options;
+      return options.filter(
+        (option) =>
+          option.label.toLowerCase().includes(lowered) ||
+          option.value.toLowerCase().includes(lowered)
+      );
+    }, [searchTerm, options]);
     const [dropdownPosition, setDropdownPosition] = useState<"left" | "right">(
       "left"
+    );
+    const [dropdownWidth, setDropdownWidth] = useState<number | undefined>(
+      undefined
     );
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
+    // Reset highlighted index when the search or options change
     useEffect(() => {
-      const filtered = options.filter(
-        (option) =>
-          option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          option.value.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredOptions(filtered);
-      setHighlightedIndex(-1); // Reset highlighted index when options change
+      setHighlightedIndex(-1);
     }, [searchTerm, options]);
 
     useEffect(() => {
@@ -100,24 +113,50 @@ const SearchableSelect = React.forwardRef<
       }
     };
 
-    const calculateDropdownPosition = () => {
-      if (!containerRef.current) return "left";
+    // Compute side and width so the dropdown can be wider than the trigger but still fit viewport
+    const computeDropdownLayout = (): {
+      side: "left" | "right";
+      width: number;
+    } => {
+      if (!containerRef.current) return { side: "left", width: 240 };
 
       const rect = containerRef.current.getBoundingClientRect();
       const windowWidth = window.innerWidth;
-      const estimatedDropdownWidth = 300; // Approximate width for dropdown content
+      const VIEWPORT_MARGIN = 16; // px
+      const EXTRA_WIDTH = 240; // desired extra room beyond trigger
+      const MAX_WIDTH = 600; // hard cap
 
-      // If dropdown would overflow right edge, position it to the left
-      if (rect.left + estimatedDropdownWidth > windowWidth) {
-        return "right";
+      const desired = Math.min(rect.width + EXTRA_WIDTH, MAX_WIDTH);
+
+      const spaceRight = windowWidth - rect.left - VIEWPORT_MARGIN; // space if anchored left-0
+      const spaceLeft = rect.right - VIEWPORT_MARGIN; // space if anchored right-0
+
+      const widthRight = Math.max(rect.width, Math.min(desired, spaceRight));
+      const widthLeft = Math.max(rect.width, Math.min(desired, spaceLeft));
+
+      // Prefer the side that can accommodate closer to desired width
+      if (widthRight >= widthLeft && widthRight >= rect.width) {
+        return { side: "left", width: widthRight };
       }
-      return "left";
+      if (widthLeft > widthRight && widthLeft >= rect.width) {
+        return { side: "right", width: widthLeft };
+      }
+
+      // Fallback: clamp to viewport with preference to right anchoring if less overflow
+      const clamped = Math.max(
+        rect.width,
+        Math.min(desired, windowWidth - VIEWPORT_MARGIN * 2)
+      );
+      const preferRight = rect.left < windowWidth - rect.right;
+      return { side: preferRight ? "left" : "right", width: clamped };
     };
 
     const handleToggle = () => {
       if (!disabled) {
         if (!isOpen) {
-          setDropdownPosition(calculateDropdownPosition());
+          const layout = computeDropdownLayout();
+          setDropdownPosition(layout.side);
+          setDropdownWidth(layout.width);
         }
         setIsOpen(!isOpen);
         if (!isOpen) {
@@ -126,7 +165,62 @@ const SearchableSelect = React.forwardRef<
       }
     };
 
-    const selectedOption = options.find((option) => option.value === value);
+    const selectedOption = useMemo(
+      () => options.find((option) => option.value === value),
+      [options, value]
+    );
+
+    // --- Simple list virtualization for large option sets ---
+    const listRef = useRef<HTMLDivElement>(null);
+    const [scrollTop, setScrollTop] = useState(0);
+    const [containerHeight, setContainerHeight] = useState(192); // Tailwind max-h-48 (~192px)
+
+    const ITEM_HEIGHT = 32; // Approximate item height in px
+    const OVERSCAN = 5;
+
+    const totalItems = filteredOptions.length;
+    const visibleCount = Math.max(1, Math.ceil(containerHeight / ITEM_HEIGHT));
+    const startIndex = Math.max(
+      0,
+      Math.floor(scrollTop / ITEM_HEIGHT) - OVERSCAN
+    );
+    const endIndex = Math.min(
+      totalItems,
+      startIndex + visibleCount + OVERSCAN * 2
+    );
+    const topPaddingHeight = startIndex * ITEM_HEIGHT;
+    const bottomPaddingHeight = Math.max(
+      0,
+      (totalItems - endIndex) * ITEM_HEIGHT
+    );
+
+    // Measure container height when open and on resize
+    useLayoutEffect(() => {
+      if (!isOpen) return;
+      const el = listRef.current;
+      if (!el) return;
+
+      const measure = () => {
+        setContainerHeight(el.clientHeight || 192);
+      };
+      measure();
+
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, [isOpen]);
+
+    // Reset scroll when opening or when search changes
+    useEffect(() => {
+      if (isOpen && listRef.current) {
+        listRef.current.scrollTop = 0;
+        setScrollTop(0);
+      }
+    }, [isOpen, searchTerm]);
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+      setScrollTop((e.target as HTMLDivElement).scrollTop);
+    };
 
     return (
       <div ref={containerRef} className={`relative ${className}`}>
@@ -151,7 +245,10 @@ const SearchableSelect = React.forwardRef<
 					`}
           style={{ boxShadow: commonStyles.input.shadow }}
         >
-          <span className={value ? "text-gray-900" : "text-gray-400"}>
+          <span
+            className={value ? "text-gray-900" : "text-gray-400"}
+            title={selectedOption ? selectedOption.label : placeholder}
+          >
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           <svg
@@ -173,13 +270,13 @@ const SearchableSelect = React.forwardRef<
 
         {isOpen && (
           <div
-            className={`absolute z-50 w-max min-w-full mt-1 ${
+            className={`absolute z-50 mt-1 ${
               commonStyles.input.base
-            } max-h-60 overflow-auto ${
+            } max-h-60 overflow-x-hidden ${
               dropdownPosition === "right" ? "right-0" : "left-0"
             }`}
             style={{
-              maxWidth: `min(calc(100vw - 2rem), 500px)`,
+              width: dropdownWidth,
               right: dropdownPosition === "right" ? "0" : undefined,
               left: dropdownPosition === "left" ? "0" : undefined,
               boxShadow: commonStyles.input.shadow,
@@ -196,33 +293,57 @@ const SearchableSelect = React.forwardRef<
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Search..."
-                className={`${commonStyles.input.base} ${commonStyles.input.size.sm} w-full min-w-48`}
+                className={`${commonStyles.input.base} ${commonStyles.input.size.sm} w-full`}
                 style={{ boxShadow: commonStyles.input.shadow }}
                 role="searchbox"
                 aria-label="Search options"
               />
             </div>
             <div
-              className="max-h-48 overflow-auto"
+              ref={listRef}
+              className="max-h-48 overflow-y-auto overflow-x-hidden"
               role="listbox"
               aria-label="Options"
+              onScroll={handleScroll}
             >
-              {filteredOptions.length > 0 ? (
-                filteredOptions.map((option, index) => (
-                  <div
-                    key={option.value}
-                    onClick={() => handleSelect(option.value)}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                    className={`px-3 py-2 text-xs font-medium cursor-pointer hover:bg-gray-100 text-gray-700 border-b border-gray-100 last:border-b-0 ${
-                      highlightedIndex === index ? "bg-gray-100" : ""
-                    }`}
-                    role="option"
-                    aria-selected={highlightedIndex === index}
-                    tabIndex={-1}
-                  >
-                    {option.label}
-                  </div>
-                ))
+              {totalItems > 0 ? (
+                <>
+                  {topPaddingHeight > 0 && (
+                    <div style={{ height: topPaddingHeight }} />
+                  )}
+                  {filteredOptions
+                    .slice(startIndex, endIndex)
+                    .map((option, i) => {
+                      const absoluteIndex = startIndex + i;
+                      return (
+                        <div
+                          key={option.value}
+                          onClick={() => handleSelect(option.value)}
+                          onMouseEnter={() =>
+                            setHighlightedIndex(absoluteIndex)
+                          }
+                          className={`px-3 py-2 text-xs font-medium cursor-pointer hover:bg-gray-100 text-gray-700 border-b border-gray-100 last:border-b-0 ${
+                            highlightedIndex === absoluteIndex
+                              ? "bg-gray-100"
+                              : ""
+                          }`}
+                          role="option"
+                          aria-selected={highlightedIndex === absoluteIndex}
+                          aria-label={option.label}
+                          tabIndex={-1}
+                          style={{ height: ITEM_HEIGHT }}
+                          title={option.label}
+                        >
+                          <div className="overflow-x-auto whitespace-nowrap">
+                            {option.label}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  {bottomPaddingHeight > 0 && (
+                    <div style={{ height: bottomPaddingHeight }} />
+                  )}
+                </>
               ) : (
                 <div className="px-3 py-2 text-xs font-medium text-gray-500">
                   No options found
