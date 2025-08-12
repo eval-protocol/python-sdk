@@ -62,7 +62,7 @@ const FieldSelector = ({
             onClick={onAddField}
             className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1"
           >
-            + Add {title.slice(0, -1)} Field
+            + Add {title.slice(0, -1)}
           </button>
         )}
       </div>
