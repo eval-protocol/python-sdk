@@ -103,6 +103,13 @@ export interface ComputePivotParams<T extends Record<string, unknown>> {
    * @default "count"
    */
   aggregator?: Aggregator<T>;
+
+  /**
+   * Optional filter function to apply to records before pivoting.
+   * Return true to include the record, false to exclude it.
+   * This is useful for focusing analysis on specific subsets of data.
+   */
+  filter?: (record: T) => boolean;
 }
 
 /**
@@ -236,11 +243,15 @@ export function computePivot<T extends Record<string, unknown>>({
   columnFields,
   valueField,
   aggregator = "count",
+  filter,
 }: ComputePivotParams<T>): PivotComputationResult<T> {
+  // Apply filter first if provided
+  const filteredData = filter ? data.filter(filter) : data;
+
   // Filter out records that do not have defined values for all rowFields.
   // This avoids creating a row key of "undefined" and ensures such records
   // are not returned as part of the cells/row totals.
-  const dataWithDefinedRows = data.filter((rec) =>
+  const dataWithDefinedRows = filteredData.filter((rec) =>
     rowFields.every((f) => rec[f] !== undefined)
   );
   const rowKeyTuples: unknown[][] = [];

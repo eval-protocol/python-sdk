@@ -159,6 +159,34 @@ describe('computePivot', () => {
     expect(res.cells[rKeyNorth][cKeyGadget].value).toBe(0)
   })
 
+  it('applies filter before pivoting', () => {
+    const res = computePivot<Row>({
+      data: rows,
+      rowFields: ['region'],
+      columnFields: ['product'],
+      valueField: 'amount',
+      aggregator: 'sum',
+      filter: (record) => record.region === 'East', // Only include East region
+    })
+
+    // Should only have East region rows
+    expect(res.rowKeyTuples.map((t) => String(t))).toEqual(['East'])
+
+    // Should still have all product columns
+    expect(res.colKeyTuples.map((t) => String(t))).toEqual(['Gadget', 'Widget'])
+
+    // East Gadget: 10 (string convertible) + invalid -> 10
+    expect(res.cells['East']['Gadget'].value).toBe(10)
+    // East Widget: 200
+    expect(res.cells['East']['Widget'].value).toBe(200)
+
+    // West region should not be present
+    expect(res.cells['West']).toBeUndefined()
+
+    // Grand total should only include East region data
+    expect(res.grandTotal).toBe(210) // 10 + 200
+  })
+
   it('supports custom aggregator', () => {
     const maxAgg: Aggregator<Row> = (values) =>
       values.length ? Math.max(...values) : 0

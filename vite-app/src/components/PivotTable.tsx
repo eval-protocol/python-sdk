@@ -60,6 +60,11 @@ export interface PivotTableProps<T extends Record<string, unknown>> {
    * Default: "-".
    */
   emptyValue?: React.ReactNode;
+  /**
+   * Optional filter function to apply to records before pivoting.
+   * Return true to include the record, false to exclude it.
+   */
+  filter?: (record: T) => boolean;
 }
 
 function toKey(parts: unknown[]): string {
@@ -83,6 +88,7 @@ export function PivotTable<T extends Record<string, unknown>>({
   className = "",
   formatter = (v) => v.toLocaleString(undefined, { maximumFractionDigits: 3 }),
   emptyValue = "-",
+  filter,
 }: PivotTableProps<T>) {
   const {
     rowKeyTuples,
@@ -97,6 +103,7 @@ export function PivotTable<T extends Record<string, unknown>>({
     columnFields,
     valueField,
     aggregator,
+    filter,
   });
 
   return (

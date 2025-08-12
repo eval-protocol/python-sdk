@@ -59,7 +59,8 @@ export class GlobalState {
   }
 
   get flattenedDatasetKeys() {
-    return this.flattenedDataset.map((row) => Object.keys(row));
+    if (this.flattenedDataset.length === 0) return [];
+    return Object.keys(this.flattenedDataset[0]);
   }
 
   get totalCount() {

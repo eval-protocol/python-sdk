@@ -125,6 +125,120 @@ const AggregatorSelector = ({
   </div>
 );
 
+const FilterSelector = ({
+  filters,
+  onFiltersChange,
+  availableKeys,
+}: {
+  filters: Array<{ field: string; operator: string; value: string }>;
+  onFiltersChange: (
+    filters: Array<{ field: string; operator: string; value: string }>
+  ) => void;
+  availableKeys: string[];
+}) => {
+  const addFilter = () => {
+    onFiltersChange([...filters, { field: "", operator: "==", value: "" }]);
+  };
+
+  const removeFilter = (index: number) => {
+    onFiltersChange(filters.filter((_, i) => i !== index));
+  };
+
+  const updateFilter = (
+    index: number,
+    field: string,
+    operator: string,
+    value: string
+  ) => {
+    const newFilters = [...filters];
+    newFilters[index] = { field, operator, value };
+    onFiltersChange(newFilters);
+  };
+
+  const operators = [
+    { value: "==", label: "equals" },
+    { value: "!=", label: "not equals" },
+    { value: ">", label: "greater than" },
+    { value: "<", label: "less than" },
+    { value: ">=", label: "greater than or equal" },
+    { value: "<=", label: "less than or equal" },
+    { value: "contains", label: "contains" },
+    { value: "!contains", label: "not contains" },
+  ];
+
+  return (
+    <div className="mb-4">
+      <div className="text-xs font-medium text-gray-700 mb-2">Filters:</div>
+      <div className="space-y-2">
+        {filters.map((filter, index) => (
+          <div key={index} className="flex items-center space-x-2">
+            <Select
+              value={filter.field}
+              onChange={(e) =>
+                updateFilter(
+                  index,
+                  e.target.value,
+                  filter.operator,
+                  filter.value
+                )
+              }
+              size="sm"
+              className="min-w-48"
+            >
+              <option value="">Select a field...</option>
+              {availableKeys?.map((key) => (
+                <option key={key} value={key}>
+                  {key}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={filter.operator}
+              onChange={(e) =>
+                updateFilter(index, filter.field, e.target.value, filter.value)
+              }
+              size="sm"
+              className="min-w-32"
+            >
+              {operators.map((op) => (
+                <option key={op.value} value={op.value}>
+                  {op.label}
+                </option>
+              ))}
+            </Select>
+            <input
+              type="text"
+              value={filter.value}
+              onChange={(e) =>
+                updateFilter(
+                  index,
+                  filter.field,
+                  filter.operator,
+                  e.target.value
+                )
+              }
+              placeholder="Value"
+              className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-500 min-w-32"
+            />
+            <button
+              onClick={() => removeFilter(index)}
+              className="text-xs text-red-600 hover:text-red-800 px-2 py-1"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={addFilter}
+          className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1"
+        >
+          + Add Filter
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const PivotTab = observer(() => {
   const [selectedRowFields, setSelectedRowFields] = useState<string[]>([
     "$.eval_metadata.name",
@@ -136,6 +250,9 @@ const PivotTab = observer(() => {
     "$.evaluation_result.score"
   );
   const [selectedAggregator, setSelectedAggregator] = useState<string>("avg");
+  const [filters, setFilters] = useState<
+    Array<{ field: string; operator: string; value: string }>
+  >([]);
 
   const createFieldHandler = (
     setter: React.Dispatch<React.SetStateAction<string[]>>
@@ -165,7 +282,48 @@ const PivotTab = observer(() => {
     };
   };
 
-  const availableKeys = state.flattenedDatasetKeys[0] || [];
+  const availableKeys = state.flattenedDatasetKeys;
+
+  // Create filter function from filter configuration
+  const createFilterFunction = (
+    filters: Array<{ field: string; operator: string; value: string }>
+  ) => {
+    if (filters.length === 0) return undefined;
+
+    return (record: any) => {
+      return filters.every((filter) => {
+        if (!filter.field || !filter.value) return true; // Skip incomplete filters
+
+        const fieldValue = record[filter.field];
+        const filterValue = filter.value;
+
+        switch (filter.operator) {
+          case "==":
+            return String(fieldValue) === filterValue;
+          case "!=":
+            return String(fieldValue) !== filterValue;
+          case ">":
+            return Number(fieldValue) > Number(filterValue);
+          case "<":
+            return Number(fieldValue) < Number(filterValue);
+          case ">=":
+            return Number(fieldValue) >= Number(filterValue);
+          case "<=":
+            return Number(fieldValue) <= Number(filterValue);
+          case "contains":
+            return String(fieldValue)
+              .toLowerCase()
+              .includes(filterValue.toLowerCase());
+          case "!contains":
+            return !String(fieldValue)
+              .toLowerCase()
+              .includes(filterValue.toLowerCase());
+          default:
+            return true;
+        }
+      });
+    };
+  };
 
   return (
     <div>
@@ -208,6 +366,12 @@ const PivotTab = observer(() => {
         onAggregatorChange={setSelectedAggregator}
       />
 
+      <FilterSelector
+        filters={filters}
+        onFiltersChange={setFilters}
+        availableKeys={availableKeys}
+      />
+
       <PivotTable
         data={state.flattenedDataset}
         rowFields={
@@ -226,6 +390,7 @@ const PivotTab = observer(() => {
         aggregator={selectedAggregator as any}
         showRowTotals
         showColumnTotals
+        filter={createFilterFunction(filters)}
       />
     </div>
   );
