@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { state } from "../App";
 import Button from "./Button";
 import { EvaluationTable } from "./EvaluationTable";
-import PivotTable from "./PivotTable";
+import PivotTab from "./PivotTab";
 import TabButton from "./TabButton";
 import flattenJson from "../util/flatten-json";
 
@@ -132,29 +132,7 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
             {activeTab === "table" ? (
               <EvaluationTable />
             ) : (
-              <div>
-                <div className="text-xs text-gray-600 mb-2">
-                  Showing pivot of flattened rows (JSONPath keys). Defaults:
-                  rows by eval name and status; columns by model; values average
-                  score.
-                </div>
-                <PivotTable
-                  data={flattened}
-                  rowFields={[
-                    "$.eval_metadata.name" as keyof (typeof flattened)[number],
-                    "$.eval_metadata.status" as keyof (typeof flattened)[number],
-                  ]}
-                  columnFields={[
-                    "$.input_metadata.completion_params.model" as keyof (typeof flattened)[number],
-                  ]}
-                  valueField={
-                    "$.evaluation_result.score" as keyof (typeof flattened)[number]
-                  }
-                  aggregator="avg"
-                  showRowTotals
-                  showColumnTotals
-                />
-              </div>
+              <PivotTab data={flattened} />
             )}
           </div>
         </div>
