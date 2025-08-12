@@ -1,12 +1,11 @@
 import { observer } from "mobx-react";
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { state } from "../App";
 import Button from "./Button";
 import { EvaluationTable } from "./EvaluationTable";
-import PivotTable from "./PivotTable";
+import PivotTab from "./PivotTab";
 import TabButton from "./TabButton";
-import flattenJson from "../util/flatten-json";
 
 interface DashboardProps {
   onRefresh: () => void;
@@ -68,11 +67,6 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
     setActiveTab(deriveTabFromPath(location.pathname));
   }, [location.pathname]);
 
-  const flattened = useMemo(() => {
-    const flattenedDataset = state.sortedDataset.map((row) => flattenJson(row));
-    return flattenedDataset;
-  }, [state.sortedDataset]);
-
   return (
     <div className="text-sm">
       {/* Summary */}
@@ -129,33 +123,7 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
 
           {/* Tab content */}
           <div className="p-3">
-            {activeTab === "table" ? (
-              <EvaluationTable />
-            ) : (
-              <div>
-                <div className="text-xs text-gray-600 mb-2">
-                  Showing pivot of flattened rows (JSONPath keys). Defaults:
-                  rows by eval name and status; columns by model; values average
-                  score.
-                </div>
-                <PivotTable
-                  data={flattened}
-                  rowFields={[
-                    "$.eval_metadata.name" as keyof (typeof flattened)[number],
-                    "$.eval_metadata.status" as keyof (typeof flattened)[number],
-                  ]}
-                  columnFields={[
-                    "$.input_metadata.completion_params.model" as keyof (typeof flattened)[number],
-                  ]}
-                  valueField={
-                    "$.evaluation_result.score" as keyof (typeof flattened)[number]
-                  }
-                  aggregator="avg"
-                  showRowTotals
-                  showColumnTotals
-                />
-              </div>
-            )}
+            {activeTab === "table" ? <EvaluationTable /> : <PivotTab />}
           </div>
         </div>
       )}
