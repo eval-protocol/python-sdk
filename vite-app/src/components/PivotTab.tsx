@@ -3,7 +3,12 @@ import PivotTable from "./PivotTable";
 import Select from "./Select";
 import Button from "./Button";
 import { state } from "../App";
-import { useEffect } from "react";
+import { type FilterConfig } from "../types/filters";
+import {
+  getFieldType,
+  getOperatorsForField,
+  createFilterFunction,
+} from "../util/filter-utils";
 
 interface FieldSelectorProps {
   title: string;
@@ -126,21 +131,64 @@ const AggregatorSelector = ({
   </div>
 );
 
+// Reusable filter input component
+const FilterInput = ({
+  filter,
+  index,
+  onUpdate,
+}: {
+  filter: FilterConfig;
+  index: number;
+  onUpdate: (updates: Partial<FilterConfig>) => void;
+}) => {
+  const fieldType = filter.type || getFieldType(filter.field);
+
+  if (fieldType === "date") {
+    return (
+      <div className="flex space-x-2">
+        <input
+          type="date"
+          value={filter.value}
+          onChange={(e) => onUpdate({ value: e.target.value })}
+          className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-500 min-w-32"
+        />
+        {filter.operator === "between" && (
+          <input
+            type="date"
+            value={filter.value2 || ""}
+            onChange={(e) => onUpdate({ value2: e.target.value })}
+            className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-500 min-w-32"
+            placeholder="End date"
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <input
+      type="text"
+      value={filter.value}
+      onChange={(e) => onUpdate({ value: e.target.value })}
+      placeholder="Value"
+      className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-500 min-w-32"
+    />
+  );
+};
+
 const FilterSelector = ({
   filters,
   onFiltersChange,
   availableKeys,
 }: {
-  filters: Array<{ field: string; operator: string; value: string }>;
-  onFiltersChange: (
-    filters: Array<{ field: string; operator: string; value: string }>
-  ) => void;
+  filters: FilterConfig[];
+  onFiltersChange: (filters: FilterConfig[]) => void;
   availableKeys: string[];
 }) => {
   const addFilter = () => {
     onFiltersChange([
       ...filters,
-      { field: "", operator: "contains", value: "" },
+      { field: "", operator: "contains", value: "", type: "text" },
     ]);
   };
 
@@ -148,90 +196,67 @@ const FilterSelector = ({
     onFiltersChange(filters.filter((_, i) => i !== index));
   };
 
-  const updateFilter = (
-    index: number,
-    field: string,
-    operator: string,
-    value: string
-  ) => {
+  const updateFilter = (index: number, updates: Partial<FilterConfig>) => {
     const newFilters = [...filters];
-    newFilters[index] = { field, operator, value };
+    newFilters[index] = { ...newFilters[index], ...updates };
     onFiltersChange(newFilters);
   };
-
-  const operators = [
-    { value: "==", label: "equals" },
-    { value: "!=", label: "not equals" },
-    { value: ">", label: "greater than" },
-    { value: "<", label: "less than" },
-    { value: ">=", label: "greater than or equal" },
-    { value: "<=", label: "less than or equal" },
-    { value: "contains", label: "contains" },
-    { value: "!contains", label: "not contains" },
-  ];
 
   return (
     <div className="mb-4">
       <div className="text-xs font-medium text-gray-700 mb-2">Filters:</div>
       <div className="space-y-2">
-        {filters.map((filter, index) => (
-          <div key={index} className="flex items-center space-x-2">
-            <Select
-              value={filter.field}
-              onChange={(e) =>
-                updateFilter(
-                  index,
-                  e.target.value,
-                  filter.operator,
-                  filter.value
-                )
-              }
-              size="sm"
-              className="min-w-48"
-            >
-              <option value="">Select a field...</option>
-              {availableKeys?.map((key) => (
-                <option key={key} value={key}>
-                  {key}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={filter.operator}
-              onChange={(e) =>
-                updateFilter(index, filter.field, e.target.value, filter.value)
-              }
-              size="sm"
-              className="min-w-32"
-            >
-              {operators.map((op) => (
-                <option key={op.value} value={op.value}>
-                  {op.label}
-                </option>
-              ))}
-            </Select>
-            <input
-              type="text"
-              value={filter.value}
-              onChange={(e) =>
-                updateFilter(
-                  index,
-                  filter.field,
-                  filter.operator,
-                  e.target.value
-                )
-              }
-              placeholder="Value"
-              className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-500 min-w-32"
-            />
-            <button
-              onClick={() => removeFilter(index)}
-              className="text-xs text-red-600 hover:text-red-800 px-2 py-1"
-            >
-              Remove
-            </button>
-          </div>
-        ))}
+        {filters.map((filter, index) => {
+          const fieldType = filter.type || getFieldType(filter.field);
+          const operators = getOperatorsForField(filter.field, fieldType);
+
+          return (
+            <div key={index} className="flex items-center space-x-2">
+              <Select
+                value={filter.field}
+                onChange={(e) => {
+                  const newField = e.target.value;
+                  const newType = getFieldType(newField);
+                  updateFilter(index, { field: newField, type: newType });
+                }}
+                size="sm"
+                className="min-w-48"
+              >
+                <option value="">Select a field...</option>
+                {availableKeys?.map((key) => (
+                  <option key={key} value={key}>
+                    {key}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={filter.operator}
+                onChange={(e) =>
+                  updateFilter(index, { operator: e.target.value })
+                }
+                size="sm"
+                className="min-w-32"
+              >
+                {operators.map((op) => (
+                  <option key={op.value} value={op.value}>
+                    {op.label}
+                  </option>
+                ))}
+              </Select>
+              <FilterInput
+                filter={filter}
+                index={index}
+                onUpdate={(updates) => updateFilter(index, updates)}
+              />
+              <button
+                onClick={() => removeFilter(index)}
+                className="text-xs text-red-600 hover:text-red-800 px-2 py-1"
+              >
+                Remove
+              </button>
+            </div>
+          );
+        })}
         <button
           onClick={addFilter}
           className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1"
@@ -244,10 +269,8 @@ const FilterSelector = ({
 };
 
 const PivotTab = observer(() => {
-  // Use global state instead of local state
   const { pivotConfig } = state;
 
-  // Update global state when configuration changes
   const updateRowFields = (index: number, value: string) => {
     const newRowFields = [...pivotConfig.selectedRowFields];
     newRowFields[index] = value;
@@ -268,9 +291,7 @@ const PivotTab = observer(() => {
     state.updatePivotConfig({ selectedAggregator: value });
   };
 
-  const updateFilters = (
-    filters: Array<{ field: string; operator: string; value: string }>
-  ) => {
+  const updateFilters = (filters: FilterConfig[]) => {
     state.updatePivotConfig({ filters });
   };
 
@@ -303,47 +324,6 @@ const PivotTab = observer(() => {
   };
 
   const availableKeys = state.flattenedDatasetKeys;
-
-  // Create filter function from filter configuration
-  const createFilterFunction = (
-    filters: Array<{ field: string; operator: string; value: string }>
-  ) => {
-    if (filters.length === 0) return undefined;
-
-    return (record: any) => {
-      return filters.every((filter) => {
-        if (!filter.field || !filter.value) return true; // Skip incomplete filters
-
-        const fieldValue = record[filter.field];
-        const filterValue = filter.value;
-
-        switch (filter.operator) {
-          case "==":
-            return String(fieldValue) === filterValue;
-          case "!=":
-            return String(fieldValue) !== filterValue;
-          case ">":
-            return Number(fieldValue) > Number(filterValue);
-          case "<":
-            return Number(fieldValue) < Number(filterValue);
-          case ">=":
-            return Number(fieldValue) >= Number(filterValue);
-          case "<=":
-            return Number(fieldValue) <= Number(filterValue);
-          case "contains":
-            return String(fieldValue)
-              .toLowerCase()
-              .includes(filterValue.toLowerCase());
-          case "!contains":
-            return !String(fieldValue)
-              .toLowerCase()
-              .includes(filterValue.toLowerCase());
-          default:
-            return true;
-        }
-      });
-    };
-  };
 
   return (
     <div>

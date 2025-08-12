@@ -1,15 +1,7 @@
 import { makeAutoObservable } from "mobx";
 import type { EvaluationRow } from "./types/eval-protocol";
+import type { PivotConfig } from "./types/filters";
 import flattenJson from "./util/flatten-json";
-
-// Pivot configuration interface
-export interface PivotConfig {
-  selectedRowFields: string[];
-  selectedColumnFields: string[];
-  selectedValueField: string;
-  selectedAggregator: string;
-  filters: Array<{ field: string; operator: string; value: string }>;
-}
 
 // Default pivot configuration
 const DEFAULT_PIVOT_CONFIG: PivotConfig = {
