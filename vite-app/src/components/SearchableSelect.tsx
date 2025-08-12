@@ -33,6 +33,7 @@ const SearchableSelect = React.forwardRef<
     const [dropdownPosition, setDropdownPosition] = useState<"left" | "right">(
       "left"
     );
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -43,6 +44,7 @@ const SearchableSelect = React.forwardRef<
           option.value.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredOptions(filtered);
+      setHighlightedIndex(-1); // Reset highlighted index when options change
     }, [searchTerm, options]);
 
     useEffect(() => {
@@ -65,6 +67,37 @@ const SearchableSelect = React.forwardRef<
       onChange(optionValue);
       setIsOpen(false);
       setSearchTerm("");
+      setHighlightedIndex(-1);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (!isOpen) return;
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setHighlightedIndex((prev) =>
+            prev < filteredOptions.length - 1 ? prev + 1 : 0
+          );
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setHighlightedIndex((prev) =>
+            prev > 0 ? prev - 1 : filteredOptions.length - 1
+          );
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
+            handleSelect(filteredOptions[highlightedIndex].value);
+          }
+          break;
+        case "Escape":
+          setIsOpen(false);
+          setSearchTerm("");
+          setHighlightedIndex(-1);
+          break;
+      }
     };
 
     const calculateDropdownPosition = () => {
@@ -100,6 +133,16 @@ const SearchableSelect = React.forwardRef<
         <div
           ref={ref}
           onClick={handleToggle}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleToggle();
+            }
+          }}
+          tabIndex={0}
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
           className={`
 						${commonStyles.input.base}
 						${commonStyles.input.size[size]}
@@ -130,45 +173,58 @@ const SearchableSelect = React.forwardRef<
 
         {isOpen && (
           <div
-            className={`absolute z-50 w-max min-w-full mt-1 bg-white border border-gray-200 rounded-md max-h-60 overflow-auto ${
+            className={`absolute z-50 w-max min-w-full mt-1 ${
+              commonStyles.input.base
+            } rounded-md max-h-60 overflow-auto ${
               dropdownPosition === "right" ? "right-0" : "left-0"
             }`}
             style={{
               maxWidth: `min(calc(100vw - 2rem), 500px)`,
               right: dropdownPosition === "right" ? "0" : undefined,
               left: dropdownPosition === "left" ? "0" : undefined,
+              boxShadow: commonStyles.input.shadow,
             }}
           >
-            <div className="p-2 border-b border-gray-200">
+            <div
+              className={`p-2 border-b border-gray-200 rounded-t-md`}
+              style={{ boxShadow: commonStyles.input.shadow }}
+            >
               <input
                 ref={inputRef}
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder="Search..."
                 className={`${commonStyles.input.base} ${commonStyles.input.size.sm} w-full min-w-48`}
                 style={{ boxShadow: commonStyles.input.shadow }}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setIsOpen(false);
-                    setSearchTerm("");
-                  }
-                }}
+                role="searchbox"
+                aria-label="Search options"
               />
             </div>
-            <div className="max-h-48 overflow-auto">
+            <div
+              className="max-h-48 overflow-auto"
+              role="listbox"
+              aria-label="Options"
+            >
               {filteredOptions.length > 0 ? (
-                filteredOptions.map((option) => (
+                filteredOptions.map((option, index) => (
                   <div
                     key={option.value}
                     onClick={() => handleSelect(option.value)}
-                    className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 text-gray-700 border-b border-gray-100 last:border-b-0"
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                    className={`px-3 py-2 text-xs font-medium cursor-pointer hover:bg-gray-100 text-gray-700 border-b border-gray-100 last:border-b-0 ${
+                      highlightedIndex === index ? "bg-gray-100" : ""
+                    }`}
+                    role="option"
+                    aria-selected={highlightedIndex === index}
+                    tabIndex={-1}
                   >
                     {option.label}
                   </div>
                 ))
               ) : (
-                <div className="px-3 py-2 text-sm text-gray-500">
+                <div className="px-3 py-2 text-xs font-medium text-gray-500">
                   No options found
                 </div>
               )}
