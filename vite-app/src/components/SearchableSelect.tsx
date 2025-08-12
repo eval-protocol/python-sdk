@@ -175,7 +175,7 @@ const SearchableSelect = React.forwardRef<
           <div
             className={`absolute z-50 w-max min-w-full mt-1 ${
               commonStyles.input.base
-            } rounded-md max-h-60 overflow-auto ${
+            } max-h-60 overflow-auto ${
               dropdownPosition === "right" ? "right-0" : "left-0"
             }`}
             style={{
