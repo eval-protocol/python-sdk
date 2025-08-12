@@ -3,6 +3,7 @@ import type { EvaluationRow } from "./types/eval-protocol";
 import type { PivotConfig, FilterGroup } from "./types/filters";
 import flattenJson from "./util/flatten-json";
 import type { FlatJson } from "./util/flatten-json";
+import { createFilterFunction } from "./util/filter-utils";
 
 // Default pivot configuration
 const DEFAULT_PIVOT_CONFIG: PivotConfig = {
@@ -318,9 +319,7 @@ export class GlobalState {
       return this.flattenedDataset;
     }
 
-    const filterFunction = this.createFilterFunction(
-      this.appliedTableFilterConfig
-    );
+    const filterFunction = createFilterFunction(this.appliedTableFilterConfig)!;
     return this.flattenedDataset.filter(filterFunction);
   }
 
@@ -329,9 +328,7 @@ export class GlobalState {
       return this.sortedDataset;
     }
 
-    const filterFunction = this.createFilterFunction(
-      this.appliedTableFilterConfig
-    );
+    const filterFunction = createFilterFunction(this.appliedTableFilterConfig)!;
     return this.sortedIds
       .filter((id) => filterFunction(this.flattenedById[id]))
       .map((id) => this.dataset[id]);
@@ -363,94 +360,5 @@ export class GlobalState {
 
   get endRow() {
     return Math.min(this.currentPage * this.pageSize, this.totalCount);
-  }
-
-  // Create filter function from filter group configuration
-  private createFilterFunction(filterGroups: FilterGroup[]) {
-    if (filterGroups.length === 0) return () => true;
-
-    return (record: any) => {
-      return filterGroups.every((group) => {
-        if (group.filters.length === 0) return true;
-
-        if (group.logic === "OR") {
-          // For OR logic, at least one filter must pass
-          return group.filters.some((filter) =>
-            this.evaluateFilter(filter, record)
-          );
-        } else {
-          // For AND logic, all filters must pass
-          return group.filters.every((filter) =>
-            this.evaluateFilter(filter, record)
-          );
-        }
-      });
-    };
-  }
-
-  // Helper function to evaluate a single filter
-  private evaluateFilter(filter: any, record: any): boolean {
-    if (!filter.field || !filter.value) return true; // Skip incomplete filters
-
-    const fieldValue = record[filter.field];
-    const filterValue = filter.value;
-    const filterValue2 = filter.value2;
-
-    // Handle date filtering
-    if (filter.type === "date" || filter.type === "date-range") {
-      const fieldDate = new Date(fieldValue);
-      const valueDate = new Date(filterValue);
-
-      if (isNaN(fieldDate.getTime()) || isNaN(valueDate.getTime())) {
-        return true; // Skip invalid dates
-      }
-
-      switch (filter.operator) {
-        case "==":
-          return fieldDate.toDateString() === valueDate.toDateString();
-        case "!=":
-          return fieldDate.toDateString() !== valueDate.toDateString();
-        case ">=":
-          return fieldDate >= valueDate;
-        case "<=":
-          return fieldDate <= valueDate;
-        case "between":
-          if (filterValue2) {
-            const valueDate2 = new Date(filterValue2);
-            if (!isNaN(valueDate2.getTime())) {
-              return fieldDate >= valueDate && fieldDate <= valueDate2;
-            }
-          }
-          return true; // Skip incomplete between filter
-        default:
-          return true;
-      }
-    }
-
-    // Handle text/numeric filtering
-    switch (filter.operator) {
-      case "==":
-        return String(fieldValue) === filterValue;
-      case "!=":
-        return String(fieldValue) !== filterValue;
-      case ">":
-        return Number(fieldValue) > Number(filterValue);
-      case "<":
-        return Number(fieldValue) < Number(filterValue);
-      case ">=":
-        return Number(fieldValue) >= Number(filterValue);
-      case "<=":
-        return Number(fieldValue) <= Number(filterValue);
-      case "contains":
-        return String(fieldValue)
-          .toLowerCase()
-          .includes(filterValue.toLowerCase());
-      case "!contains":
-        return !String(fieldValue)
-          .toLowerCase()
-          .includes(filterValue.toLowerCase());
-      default:
-        return true;
-    }
   }
 }
