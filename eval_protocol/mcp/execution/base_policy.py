@@ -151,7 +151,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List[MCPToolCall], CompletionUsage]:
+    ) -> Tuple[List[MCPToolCall], CompletionUsage, str]:
         """
         Generate tool calls using conversation history for proper OpenAI trajectories.
 
@@ -161,7 +161,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             user_prompt: Current user prompt with observation
 
         Returns:
-            List of MCPToolCall objects
+            List of MCPToolCall objects, LLM usage stats, and finish reason
         """
         # Convert MCP tools to LLM format
         llm_tools = self._convert_mcp_tools_to_llm_format(tool_schemas)
@@ -190,6 +190,8 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             total_tokens=response["usage"]["total_tokens"],
         )
 
+        finish_reason = response["choices"][0]["finish_reason"]
+
         # Extract tool call from response
         message = response["choices"][0]["message"]
         logger.debug(f"Environment {env_index} - Response message: {message}")
@@ -217,15 +219,19 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             if self.max_tools_per_turn:
                 mcp_tool_calls = mcp_tool_calls[: self.max_tools_per_turn]
 
-            return mcp_tool_calls, usage_stats
+            return mcp_tool_calls, usage_stats, finish_reason
         else:
             # No tool calls in response - this is normal when episode ends or LLM provides only text
             logger.debug(f"No tool calls in response for env {env_index}, message content: {message.get('content')}")
-            return [
-                MCPToolCall(
-                    tool_name="_no_tool_call",
-                    arguments={
-                        "reason": "no_tool_call_generated",
-                    },
-                )
-            ], usage_stats
+            return (
+                [
+                    MCPToolCall(
+                        tool_name="_no_tool_call",
+                        arguments={
+                            "reason": "no_tool_call_generated",
+                        },
+                    )
+                ],
+                usage_stats,
+                finish_reason,
+            )

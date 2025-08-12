@@ -73,7 +73,7 @@ class StaticPolicy(PlaybackPolicyBase):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List[MCPToolCall], CompletionUsage]:
+    ) -> Tuple[List[MCPToolCall], CompletionUsage, str]:
         """
         Generate tool calls in live mode using the static action sequence.
 
@@ -106,7 +106,7 @@ class StaticPolicy(PlaybackPolicyBase):
         logger.debug(f"🎮 Env {env_index} step {step_count}: {action}")
 
         usage_stats = CompletionUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
-        return [tool_call], usage_stats
+        return [tool_call], usage_stats, None
 
     def add_tool_response(
         self,
@@ -220,7 +220,7 @@ class RandomPolicy(PlaybackPolicyBase):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List[MCPToolCall], CompletionUsage]:
+    ) -> Tuple[List[MCPToolCall], CompletionUsage, str]:
         """
         Generate random tool calls in live mode.
 
@@ -241,7 +241,7 @@ class RandomPolicy(PlaybackPolicyBase):
         logger.debug(f"🎲 Env {env_index}: {action}")
 
         usage_stats = CompletionUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
-        return [tool_call], usage_stats
+        return [tool_call], usage_stats, None
 
     def add_tool_response(
         self,
