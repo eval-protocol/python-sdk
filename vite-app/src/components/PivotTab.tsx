@@ -2,14 +2,10 @@ import { observer } from "mobx-react";
 import PivotTable from "./PivotTable";
 import SearchableSelect from "./SearchableSelect";
 import Button from "./Button";
-import FilterInput from "./FilterInput";
+import FilterSelector from "./FilterSelector";
 import { state } from "../App";
-import { type FilterConfig, type FilterGroup } from "../types/filters";
-import {
-  getFieldType,
-  getOperatorsForField,
-  createFilterFunction,
-} from "../util/filter-utils";
+import { type FilterGroup } from "../types/filters";
+import { createFilterFunction } from "../util/filter-utils";
 
 interface FieldSelectorProps {
   title: string;
@@ -127,177 +123,6 @@ const AggregatorSelector = ({
     />
   </div>
 );
-
-const FilterSelector = ({
-  filters,
-  onFiltersChange,
-  availableKeys,
-}: {
-  filters: FilterGroup[];
-  onFiltersChange: (filters: FilterGroup[]) => void;
-  availableKeys: string[];
-}) => {
-  const addFilterGroup = () => {
-    onFiltersChange([...filters, { logic: "AND", filters: [] }]);
-  };
-
-  const removeFilterGroup = (index: number) => {
-    onFiltersChange(filters.filter((_, i) => i !== index));
-  };
-
-  const updateFilterGroupLogic = (index: number, logic: "AND" | "OR") => {
-    const newFilters = [...filters];
-    newFilters[index] = { ...newFilters[index], logic };
-    onFiltersChange(newFilters);
-  };
-
-  const addFilterToGroup = (groupIndex: number) => {
-    const newFilters = [...filters];
-    newFilters[groupIndex].filters.push({
-      field: "",
-      operator: "contains",
-      value: "",
-      type: "text",
-    });
-    onFiltersChange(newFilters);
-  };
-
-  const removeFilterFromGroup = (groupIndex: number, filterIndex: number) => {
-    const newFilters = [...filters];
-    newFilters[groupIndex].filters.splice(filterIndex, 1);
-    onFiltersChange(newFilters);
-  };
-
-  const updateFilterInGroup = (
-    groupIndex: number,
-    filterIndex: number,
-    updates: Partial<FilterConfig>
-  ) => {
-    const newFilters = [...filters];
-    newFilters[groupIndex].filters[filterIndex] = {
-      ...newFilters[groupIndex].filters[filterIndex],
-      ...updates,
-    };
-    onFiltersChange(newFilters);
-  };
-
-  return (
-    <div className="mb-4">
-      <div className="text-xs font-medium text-gray-700 mb-2">Filters:</div>
-      <div className="space-y-4">
-        {filters.map((group, groupIndex) => (
-          <div
-            key={groupIndex}
-            className="border border-gray-200 rounded p-3 bg-gray-50"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-medium text-gray-600">
-                  Group {groupIndex + 1}:
-                </span>
-                <SearchableSelect
-                  value={group.logic}
-                  onChange={(value) =>
-                    updateFilterGroupLogic(groupIndex, value as "AND" | "OR")
-                  }
-                  options={[
-                    { value: "AND", label: "AND (all filters must match)" },
-                    { value: "OR", label: "OR (any filter can match)" },
-                  ]}
-                  size="sm"
-                  className="min-w-48"
-                />
-              </div>
-              <button
-                onClick={() => removeFilterGroup(groupIndex)}
-                className="text-xs text-red-600 hover:text-red-800 px-2 py-1"
-              >
-                Remove Group
-              </button>
-            </div>
-
-            <div className="space-y-2 ml-4">
-              {group.filters.map((filter, filterIndex) => {
-                const fieldType = filter.type || getFieldType(filter.field);
-                const operators = getOperatorsForField(filter.field, fieldType);
-
-                return (
-                  <div
-                    key={filterIndex}
-                    className="flex items-center space-x-2"
-                  >
-                    <SearchableSelect
-                      value={filter.field}
-                      onChange={(value) => {
-                        const newField = value;
-                        const newType = getFieldType(newField);
-                        updateFilterInGroup(groupIndex, filterIndex, {
-                          field: newField,
-                          type: newType,
-                        });
-                      }}
-                      options={[
-                        { value: "", label: "Select a field..." },
-                        ...(availableKeys?.map((key) => ({
-                          value: key,
-                          label: key,
-                        })) || []),
-                      ]}
-                      size="sm"
-                      className="min-w-48"
-                    />
-                    <SearchableSelect
-                      value={filter.operator}
-                      onChange={(value) =>
-                        updateFilterInGroup(groupIndex, filterIndex, {
-                          operator: value,
-                        })
-                      }
-                      options={operators.map((op) => ({
-                        value: op.value,
-                        label: op.label,
-                      }))}
-                      size="sm"
-                      className="min-w-32"
-                    />
-                    <FilterInput
-                      filter={filter}
-                      onUpdate={(updates) =>
-                        updateFilterInGroup(groupIndex, filterIndex, updates)
-                      }
-                    />
-                    <button
-                      onClick={() =>
-                        removeFilterFromGroup(groupIndex, filterIndex)
-                      }
-                      className="text-xs text-red-600 hover:text-red-800 px-2 py-1"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                );
-              })}
-
-              <button
-                onClick={() => addFilterToGroup(groupIndex)}
-                className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1"
-              >
-                + Add Filter to Group
-              </button>
-            </div>
-          </div>
-        ))}
-
-        <button
-          onClick={addFilterGroup}
-          className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1"
-        >
-          + Add Filter Group
-        </button>
-      </div>
-    </div>
-  );
-};
 
 const PivotTab = observer(() => {
   const { pivotConfig } = state;
@@ -424,6 +249,7 @@ const PivotTab = observer(() => {
         filters={pivotConfig.filters}
         onFiltersChange={updateFilters}
         availableKeys={availableKeys}
+        title="Filters"
       />
 
       {/*

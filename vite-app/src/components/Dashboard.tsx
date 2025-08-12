@@ -136,6 +136,15 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
                   <Button onClick={collapseAll} size="sm" variant="secondary">
                     Collapse All
                   </Button>
+                  {state.tableFilterConfig.length > 0 && (
+                    <Button
+                      onClick={() => state.resetTableFilterConfig()}
+                      size="sm"
+                      variant="secondary"
+                    >
+                      Reset Filters
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

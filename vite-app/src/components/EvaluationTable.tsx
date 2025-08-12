@@ -3,6 +3,7 @@ import { state } from "../App";
 import { EvaluationRow } from "./EvaluationRow";
 import Button from "./Button";
 import Select from "./Select";
+import FilterSelector from "./FilterSelector";
 import {
   TableHeader,
   TableHead,
@@ -13,7 +14,9 @@ const TableBody = observer(
   ({ currentPage, pageSize }: { currentPage: number; pageSize: number }) => {
     const startIndex = (currentPage - 1) * pageSize;
     const endIndex = startIndex + pageSize;
-    const paginatedData = state.sortedDataset.slice(startIndex, endIndex);
+    // Use filtered original data for pagination
+    const filteredData = state.filteredOriginalDataset;
+    const paginatedData = filteredData.slice(startIndex, endIndex);
 
     return (
       <TableBodyBase>
@@ -31,10 +34,10 @@ const TableBody = observer(
 
 // Dedicated component for rendering the list - following MobX best practices
 export const EvaluationTable = observer(() => {
-  const totalRows = state.sortedDataset.length;
-  const totalPages = state.totalPages;
-  const startRow = state.startRow;
-  const endRow = state.endRow;
+  const totalRows = state.filteredOriginalDataset.length;
+  const totalPages = Math.ceil(totalRows / state.pageSize);
+  const startRow = (state.currentPage - 1) * state.pageSize + 1;
+  const endRow = Math.min(state.currentPage * state.pageSize, totalRows);
 
   const handlePageChange = (page: number) => {
     state.setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -44,8 +47,53 @@ export const EvaluationTable = observer(() => {
     state.setPageSize(newPageSize);
   };
 
+  const handleFiltersChange = (filters: any[]) => {
+    state.updateTableFilterConfig(filters);
+  };
+
+  const resetFilters = () => {
+    state.resetTableFilterConfig();
+  };
+
   return (
     <div className="bg-white border border-gray-200">
+      {/* Filter Controls */}
+      <div className="px-3 py-3 border-b border-gray-200 bg-white">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-4">
+            <h3 className="text-sm font-medium text-gray-700">Table Filters</h3>
+            <div className="text-xs text-gray-600">
+              {state.tableFilterConfig.length > 0 ? (
+                <>
+                  Showing {totalRows} of {state.sortedDataset.length} rows
+                  {totalRows !== state.sortedDataset.length && (
+                    <span className="text-blue-600 ml-1">(filtered)</span>
+                  )}
+                </>
+              ) : (
+                `Showing all ${state.sortedDataset.length} rows`
+              )}
+            </div>
+          </div>
+          <Button
+            onClick={resetFilters}
+            size="sm"
+            variant="secondary"
+            disabled={state.tableFilterConfig.length === 0}
+          >
+            Reset Filters
+          </Button>
+        </div>
+        <div className="border border-gray-200 rounded-lg p-4 bg-white">
+          <FilterSelector
+            filters={state.tableFilterConfig}
+            onFiltersChange={handleFiltersChange}
+            availableKeys={state.flattenedDatasetKeys}
+            title=""
+          />
+        </div>
+      </div>
+
       {/* Pagination Controls - Fixed outside scrollable area */}
       <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
         <div className="flex items-center gap-4">
