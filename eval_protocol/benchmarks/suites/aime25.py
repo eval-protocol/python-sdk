@@ -1,12 +1,11 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     default_single_turn_rollout_processor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
-
-from examples.aime2025_chat_completion.main import _extract_boxed_text, _normalize_to_int_or_none
+from eval_protocol.benchmarks.registry import export_benchmark
 
 
 SYSTEM_PROMPT = (
@@ -14,34 +13,41 @@ SYSTEM_PROMPT = (
     "final answer within \\boxed{...}."
 )
 
-"""
-This test consumes the AIME2025 dataset directly from Hugging Face JSONL URLs via
-the evaluation_test dataset loader + adapter. By default, max_dataset_rows=2 to
-keep CI fast; set it to None to run the full dataset.
-"""
+
+def _extract_boxed_text(text: str) -> str:
+    import re
+
+    if not text:
+        return ""
+
+    pattern_boxed = r"boxed{(.*?)}|framebox{(.*?)}"
+    matches = re.findall(pattern_boxed, text, re.DOTALL)
+    if matches:
+        for match in matches[::-1]:
+            for group in match:
+                if group:
+                    return group.split(",")[-1].strip()
+    matches_digits = re.findall(r"\d+", text, re.DOTALL)
+    if matches_digits:
+        return matches_digits[-1]
+    return ""
 
 
-def _ep_int(var_name: str, default_value: int | None) -> int | None:
-    """Read EP_*-prefixed integer or 'None' from environment for easy overrides."""
-    raw = os.getenv(var_name)
-    if raw is None:
-        return default_value
-    raw_stripped = raw.strip().lower()
-    if raw_stripped == "none":
+def _normalize_to_int_or_none(s: Optional[str]) -> Optional[int]:
+    import re
+
+    if s is None:
+        return None
+    m = re.match(r"\d+", str(s).strip())
+    if not m:
         return None
     try:
-        return int(raw_stripped)
+        return int(m.group(0))
     except ValueError:
-        return default_value
-
-
+        return None
 
 
 def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
-    """
-    Convert raw AIME2025 rows (with keys 'question' and 'answer') to EvaluationRow.
-    Limits handled by evaluation_test's max_dataset_rows, so adapter is simple.
-    """
     converted: List[EvaluationRow] = []
     for r in rows:
         question = r.get("question", "")
@@ -50,10 +56,13 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
             Message(role="system", content=SYSTEM_PROMPT),
             Message(role="user", content=str(question)),
         ]
-        converted.append(EvaluationRow(messages=messages, ground_truth=str(answer) if answer is not None else None))
+        converted.append(
+            EvaluationRow(messages=messages, ground_truth=str(answer) if answer is not None else None)
+        )
     return converted
 
 
+@export_benchmark("aime25")
 @evaluation_test(
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     input_dataset=[
@@ -61,26 +70,21 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
         "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
     ],
     dataset_adapter=aime2025_dataset_adapter,
-    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}, {}, {"extra_body": {"reasoning_effort": "high"}}],
+    rollout_input_params=[{"max_tokens": 131000, "extra_body": {"reasoning_effort": "low"}}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     threshold_of_success=None,
-    num_runs=2,
+    num_runs=8,
     max_dataset_rows=2,
     max_concurrent_rollouts=4,
     mode="pointwise",
 )
-def test_aime2025_pointwise(row: EvaluationRow) -> EvaluationRow:
-    """
-    Pointwise evaluation of AIME2025 rows: extract final integer from assistant message and compare to ground truth.
-    """
-    # After rollout, the last message should be assistant's response
+def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
     content = assistant_msgs[-1].content if assistant_msgs else ""
 
     extracted_text = _extract_boxed_text(content or "")
     extracted_int = _normalize_to_int_or_none(extracted_text)
-    # Ground truth comes from dataset_adapter
     gt_int = _normalize_to_int_or_none(row.ground_truth or "")
 
     is_valid = extracted_int is not None and gt_int is not None
@@ -93,9 +97,7 @@ def test_aime2025_pointwise(row: EvaluationRow) -> EvaluationRow:
             reason=(
                 "Parsed both integers and they matched"
                 if score == 1.0
-                else (
-                    "Parsed integers did not match" if is_valid else "Failed to parse integer"
-                )
+                else ("Parsed integers did not match" if is_valid else "Failed to parse integer")
             ),
             data={
                 "extracted_text": extracted_text,

@@ -44,11 +44,25 @@ async def default_single_turn_rollout_processor(
         request_params = {"model": config.model, "messages": messages_payload, **config.input_params}
         # Ensure caching is disabled only for this request (review feedback)
         request_params["cache"] = {"no-cache": True}
-        # Allow passing reasoning effort to Fireworks via LiteLLM using extra_body
-        # Expected: config.input_params may contain {"reasoning": {"effort": "low|medium|high"}}
-        if "reasoning" in config.input_params:
+        # Single-level reasoning effort: expect `reasoning_effort` only
+        effort_val = None
+        if isinstance(config.input_params, dict):
+            if "reasoning_effort" in config.input_params:
+                effort_val = str(config.input_params["reasoning_effort"])  # flat shape
+            elif (
+                isinstance(config.input_params.get("extra_body"), dict)
+                and "reasoning_effort" in config.input_params["extra_body"]
+            ):
+                # Accept if user passed it directly inside extra_body
+                effort_val = str(config.input_params["extra_body"]["reasoning_effort"])  # already in extra_body
+
+        if effort_val:
+            # Always under extra_body so LiteLLM forwards to provider-specific param set
             request_params.setdefault("extra_body", {})
-            request_params["extra_body"]["reasoning"] = config.input_params["reasoning"]
+            request_params["extra_body"]["reasoning_effort"] = effort_val
+            # Ensure unsupported top-level keys are not present
+            if "reasoning_effort" in request_params:
+                request_params.pop("reasoning_effort", None)
 
         if row.tools is not None:
             request_params["tools"] = row.tools
@@ -96,7 +110,10 @@ async def default_single_turn_rollout_processor(
 
     async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:
         async with semaphore:
-            return await process_row(r)
+            try:
+                return await process_row(r)
+            except Exception as e:
+                return r
 
     # Create all tasks
     tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
