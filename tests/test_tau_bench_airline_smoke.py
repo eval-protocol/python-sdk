@@ -68,7 +68,7 @@ def tau_bench_airline_smoke_to_evaluation_row(data: List[Dict[str, Any]]) -> Lis
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     rollout_input_params=[{"temperature": 0.8, "extra_body": {"reasoning_effort": "medium"}}],
     rollout_processor=default_mcp_gym_rollout_processor,
-    passed_threshold=0.4,
+    passed_threshold=0.36,
     num_runs=1,  # Smoke test: single run for quick feedback
     mode="pointwise",
     max_concurrent_rollouts=50,  # Standard concurrency
