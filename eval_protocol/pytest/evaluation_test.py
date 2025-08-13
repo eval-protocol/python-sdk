@@ -418,43 +418,25 @@ def evaluation_test(  # noqa: C901
                     max_retry = int(os.getenv("EP_MAX_RETRY", "0"))
 
                     for i in range(num_runs):
-                        # Regenerate outputs each run by deep-copying the pristine dataset
-                        # so model responses are not reused across runs.
                         run_id = generate_id()
                         retry_attempt = 0
                         current_data = data
 
-                        while retry_attempt <= max_retry:
-                            if retry_attempt > 0:
-                                logged_rows = active_logger.read()
-                                failed_rows = [
-                                    row
-                                    for row in logged_rows
-                                    if row.rollout_status
-                                    and row.rollout_status.status == "error"
-                                    and row.run_id == run_id
-                                ]
-                                if not failed_rows:
-                                    break
-                                current_data = failed_rows
+                        # Regenerate outputs each run by deep-copying the pristine dataset
+                        # so model responses are not reused across runs.
+                        fresh_dataset = [r.model_copy(deep=True) for r in current_data]
 
-                            # Regenerate outputs each run by deep-copying the pristine dataset
-                            # so model responses are not reused across runs.
-                            fresh_dataset = [r.model_copy(deep=True) for r in current_data]
+                        # apply new run_id to fresh_dataset
+                        for row in fresh_dataset:
+                            row.run_id = run_id
 
-                            # apply new run_id to fresh_dataset
-                            for row in fresh_dataset:
-                                row.run_id = run_id
+                        # generate new rollout_id for each row
+                        for row in fresh_dataset:
+                            row.rollout_id = generate_id()
 
-                            # generate new rollout_id for each row
-                            for row in fresh_dataset:
-                                row.rollout_id = generate_id()
-
-                            # log the fresh_dataset
-                            for row in fresh_dataset:
-                                active_logger.log(row)
-
-                        rollout_result = rollout_processor(fresh_dataset, config)
+                        # log the fresh_dataset
+                        for row in fresh_dataset:
+                            active_logger.log(row)
 
                         if mode == "pointwise":
                             # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
@@ -482,7 +464,7 @@ def evaluation_test(  # noqa: C901
                         else:
                             # Batch mode: collect all results first, then evaluate (no pipelining)
                             input_dataset = []
-                            async for row in rollout_result:
+                            async for row in rollout_processor(fresh_dataset, config):
                                 input_dataset.append(row)
 
                             results = await execute_with_params(
