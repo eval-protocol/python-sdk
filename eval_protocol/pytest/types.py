@@ -2,7 +2,7 @@
 Parameter types
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Literal, Optional
 
 from eval_protocol.dataset_logger import default_logger
@@ -15,6 +15,7 @@ DatasetPathParam = str
 CompletionsParams = Dict[str, Any]
 InputMessagesParam = List[Message]
 EvaluationInputParam = Dict[str, Any]
+RolloutProcessorInputParam = Dict[str, Any]
 
 Dataset = List[EvaluationRow]
 
@@ -48,6 +49,7 @@ class RolloutProcessorConfig:
     max_concurrent_rollouts: int = 8  # maximum number of concurrent rollouts
     steps: int = 30  # max number of rollout steps
     logger: DatasetLogger = default_logger  # logger to use during rollout for mid-rollout logs
+    kwargs: Dict[str, Any] = field(default_factory=dict)  # any additional kwargs to pass to the rollout processor
 
 
 RolloutProcessor = Callable[[List[EvaluationRow], RolloutProcessorConfig], List[EvaluationRow]]

@@ -74,6 +74,7 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
         }
     ],
     rollout_processor=default_mcp_gym_rollout_processor,
+    rollout_processor_kwargs={"domain": "retail"},
     num_runs=8,
     mode="pointwise",
     max_concurrent_rollouts=50,

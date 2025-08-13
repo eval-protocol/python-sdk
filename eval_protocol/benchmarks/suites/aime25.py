@@ -74,6 +74,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     ],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
+    passed_threshold=None,
     num_runs=8,
     max_dataset_rows=2,
     max_concurrent_rollouts=4,

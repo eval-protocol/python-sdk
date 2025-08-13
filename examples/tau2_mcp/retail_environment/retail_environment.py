@@ -30,11 +30,14 @@ class RetailEnvironment:
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         self.config = config or {}
-        self.db = RetailDB.load(RETAIL_DB_PATH)
-        self.retail_tools = RetailTools(self.db)
+        self.db = None
+        self.airline_tools = None
 
     def reset(self, seed: Optional[int] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Reset the environment to initial state"""
+        self.db = RetailDB.load(RETAIL_DB_PATH)
+        self.retail_tools = RetailTools(self.db)
+
         return {}, {}
 
     def step(self, action: Dict[str, Any]) -> Tuple[Dict[str, Any], float, bool, bool, Dict[str, Any]]:

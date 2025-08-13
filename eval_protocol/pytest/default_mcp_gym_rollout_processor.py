@@ -20,10 +20,10 @@ class MCPServerManager:
     _active_servers = []
     _cleanup_registered = False
 
-    def __init__(self, server_script: str, port: int = 8000, domain: str = "airline"):
+    def __init__(self, server_script: str, port: int = 8000, **kwargs):
         self.server_script = server_script
         self.port = port
-        self.domain = domain
+        self.domain = str(kwargs.get("domain", "airline"))
         self.process: Optional[subprocess.Popen] = None
         self.base_dir = Path(".").resolve()
         self._log_file = None
@@ -58,7 +58,7 @@ class MCPServerManager:
         env["PORT"] = str(self.port)
 
         # Start server process (no domain argument needed for tau2_mcp server)
-        cmd = ["python", self.server_script, "--port", str(self.port)]
+        cmd = ["python", self.server_script, "--port", str(self.port), "--domain", self.domain]
 
         # Setup log file with cleanup
         log_file_path = os.path.join(self.base_dir, f"server_output_{self.domain}_{self.port}.log")
@@ -213,7 +213,7 @@ async def default_mcp_gym_rollout_processor(
     """
     if config.server_script_path is None:
         raise ValueError("server_script_path is required for default_mcp_gym_rollout_processor")
-    server = MCPServerManager(config.server_script_path, port=9700)
+    server = MCPServerManager(config.server_script_path, port=9700, **(config.kwargs or {}))
 
     try:
         server.start()

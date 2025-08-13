@@ -30,7 +30,8 @@ class SqliteEvaluationRowStore:
         self._EvaluationRow = EvaluationRow
 
         self._db.connect()
-        self._db.create_tables([EvaluationRow])
+        # Use safe=True to avoid errors when tables/indexes already exist
+        self._db.create_tables([EvaluationRow], safe=True)
 
     @property
     def db_path(self) -> str:
