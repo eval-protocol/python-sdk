@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from eval_protocol.benchmarks.registry import export_benchmark
-from eval_protocol.models import CompletionParams, EvaluateResult, EvaluationRow, InputMetadata, Message
+from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import default_mcp_gym_rollout_processor
 from vendor.tau2.data_model.message import (
@@ -66,8 +66,13 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
 @evaluation_test(
     input_dataset=["tests/pytest/data/retail_dataset.jsonl"],
     dataset_adapter=tau_bench_retail_to_evaluation_row,
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
-    rollout_input_params=[{"temperature": 0.8, "extra_body": {"reasoning_effort": "medium"}}],
+    completion_params=[
+        {
+            "temperature": 0.8,
+            "extra_body": {"reasoning_effort": "medium"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+        }
+    ],
     rollout_processor=default_mcp_gym_rollout_processor,
     rollout_processor_kwargs={"domain": "retail"},
     num_runs=8,

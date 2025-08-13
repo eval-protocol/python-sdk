@@ -231,7 +231,7 @@ export const EvaluationRow = observer(
 
           {/* Model */}
           <TableCell className="py-3 text-xs">
-            <RowModel model={row.input_metadata.completion_params?.model} />
+            <RowModel model={row.input_metadata.completion_params.model} />
           </TableCell>
 
           {/* Score */}

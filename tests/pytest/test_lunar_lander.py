@@ -7,7 +7,7 @@ similar to the test_lunar_lander_e2e test but integrated with the pytest evaluat
 
 from typing import Any, Dict, List
 
-from eval_protocol.models import CompletionParams, EvaluateResult, EvaluationRow, InputMetadata, Message
+from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import default_mcp_gym_rollout_processor
 
@@ -38,8 +38,7 @@ def lunar_lander_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluatio
 @evaluation_test(
     input_dataset=["tests/pytest/data/lunar_lander_dataset.jsonl"],
     dataset_adapter=lunar_lander_to_evaluation_row,
-    model=["gpt-4.1"],
-    rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
+    completion_params=[{"temperature": 0.0, "max_tokens": 4096, "model": "gpt-4.1"}],
     rollout_processor=default_mcp_gym_rollout_processor,
     passed_threshold=0.0,
     num_runs=1,

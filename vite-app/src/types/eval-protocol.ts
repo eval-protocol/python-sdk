@@ -54,16 +54,11 @@ export const EvaluateResultSchema = z.object({
   final_control_plane_info: z.record(z.string(), z.any()).optional().describe('The final control plane state that led to termination.')
 });
 
-export const CompletionParamsSchema = z.object({
-  model: z.string().describe('Model identifier (e.g., \'gpt-4.1\', \'fireworks/llama\')'),
-  temperature: z.number().optional().describe('Temperature setting for model generation'),
-  max_tokens: z.number().optional().describe('Maximum tokens to generate'),
-  max_tool_calls: z.number().optional().describe('Maximum tool calls per turn')
-});
+export const CompletionParamsSchema = z.record(z.string(), z.any());
 
 export const InputMetadataSchema = z.object({
   row_id: z.string().optional().describe('Unique string to ID the row'),
-  completion_params: CompletionParamsSchema.optional().describe('Completion endpoint parameters used'),
+  completion_params: CompletionParamsSchema.describe('Completion endpoint parameters used'),
   dataset_info: z.record(z.string(), z.any()).optional().describe('Dataset row details: seed, system_prompt, environment_context, etc'),
   session_data: z.record(z.string(), z.any()).optional().describe('Session metadata like timestamp (input only, no duration/usage)')
 }).loose();

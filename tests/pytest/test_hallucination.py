@@ -32,8 +32,9 @@ def hallucination_dataset_adapter(data: List[Dict[str, Any]]) -> List[Evaluation
 @evaluation_test(
     input_dataset=["tests/pytest/data/halueval_sample_dataset.jsonl"],
     dataset_adapter=hallucination_dataset_adapter,
-    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
-    rollout_input_params=[{"temperature": 0.0, "max_tokens": 512}],
+    completion_params=[
+        {"temperature": 0.0, "max_tokens": 512, "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}
+    ],
     rollout_processor=default_single_turn_rollout_processor,
     passed_threshold=0.33,
     num_runs=1,

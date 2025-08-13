@@ -4,7 +4,6 @@ from typing import Dict
 import pytest
 
 from eval_protocol.models import (  # Added Message to existing import
-    CompletionParams,
     EvaluateResult,
     EvaluationRow,
     InputMetadata,
@@ -271,7 +270,7 @@ def test_evaluation_row_creation():
         evaluation_result=evaluation_result,
         input_metadata=InputMetadata(
             row_id="math_001",
-            completion_params=CompletionParams(model="gpt-4"),
+            completion_params={"model": "gpt-4"},
             dataset_info={"source": "math_eval"},
             session_data={"timestamp": 1234567890},
         ),
@@ -322,7 +321,7 @@ def test_evaluation_row_serialization():
         evaluation_result=evaluation_result,
         input_metadata=InputMetadata(
             row_id="test_123",
-            completion_params=CompletionParams(model="gpt-4"),
+            completion_params={"model": "gpt-4"},
             dataset_info={"test": True},
             session_data={"timestamp": 1234567890},
         ),

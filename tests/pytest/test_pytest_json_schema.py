@@ -24,7 +24,7 @@ def json_schema_to_evaluation_row(rows: List[Dict[str, Any]]) -> List[Evaluation
 
 @evaluation_test(
     input_dataset=["tests/pytest/data/json_schema.jsonl"],
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     mode="pointwise",
     rollout_processor=default_single_turn_rollout_processor,
     dataset_adapter=json_schema_to_evaluation_row,

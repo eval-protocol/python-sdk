@@ -55,6 +55,7 @@ def _extract_abcd_letter(text: str) -> str | None:
 
 _GPQA_INPUT_MESSAGES = _load_gpqa_messages_from_csv()
 
+
 def _strip_gt_messages(msgs: List[Message]) -> List[Message]:
     return [m for m in msgs if not (m.role == "system" and (m.content or "").startswith("__GT__:"))]
 
@@ -67,16 +68,19 @@ async def gpqa_strip_gt_rollout_processor(rows: List[EvaluationRow], config) -> 
         if gt_tokens:
             gt_val = gt_tokens[-1].split(":", 1)[1].strip()
             r.ground_truth = gt_val
-            r.messages = [m for m in r.messages if not (m.role == "system" and (m.content or "").startswith("__GT__:"))]
+            r.messages = [
+                m for m in r.messages if not (m.role == "system" and (m.content or "").startswith("__GT__:"))
+            ]
         processed.append(r)
     return await default_single_turn_rollout_processor(processed, config)
 
 
 @export_benchmark("gpqa")
 @evaluation_test(
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     input_messages=_GPQA_INPUT_MESSAGES,
-    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
+    completion_params=[
+        {"extra_body": {"reasoning_effort": "low"}, "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}
+    ],
     rollout_processor=gpqa_strip_gt_rollout_processor,
     aggregation_method="mean",
     passed_threshold=None,

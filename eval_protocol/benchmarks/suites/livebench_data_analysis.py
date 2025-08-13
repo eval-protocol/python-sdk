@@ -1,19 +1,18 @@
-from typing import Any, Dict, List, Optional
-
 import json
 import re
+from typing import Any, Dict, List, Optional
 
+from eval_protocol.benchmarks.registry import export_benchmark, register_composite_benchmark
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     default_single_turn_rollout_processor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
-from eval_protocol.benchmarks.registry import export_benchmark, register_composite_benchmark
-
 
 # -------------------------
 # Lightweight ports of LiveBench scoring utilities for data_analysis tasks
 # -------------------------
+
 
 def _lb_clean_text(text: str) -> str:
     text = text.lower().strip()
@@ -36,9 +35,7 @@ def _cta_process_results(ground_truth: str, llm_answer: str) -> int:
         boxed = _extract_last_boxed_segment(parsed_answer)
         if boxed is not None:
             parsed_answer = boxed
-        parsed_answer = (
-            parsed_answer.replace("\\text{", "").replace("}", "").replace("\\", "")
-        )
+        parsed_answer = parsed_answer.replace("\\text{", "").replace("}", "").replace("\\", "")
 
     gt_clean = _lb_clean_text(ground_truth)
     ans_clean = _lb_clean_text(parsed_answer)
@@ -132,17 +129,15 @@ def _tablejoin_process_results(ground_truth: Any, llm_answer: str) -> float:
     return round((2 * tp) / denom, 2)
 
 
-def _tablereformat_process_results(
-    input_command: str, ground_truth: str, llm_answer: str, version: str
-) -> int:
+def _tablereformat_process_results(input_command: str, ground_truth: str, llm_answer: str, version: str) -> int:
     try:
         import pandas as pd  # type: ignore
     except Exception:
         return 0
 
-    from io import StringIO
     import math as _math
     import traceback as _traceback
+    from io import StringIO
 
     def _read_df_v1(df_type: str, df_str: str):
         if df_type == "json":
@@ -252,8 +247,12 @@ def _tablereformat_process_results(
         )
     else:
         lines = input_command.split("\n")
-        input_fmt = [l for l in lines if "Source Format" in l][-1].split("Source Format: ")[-1].strip().lower()
-        output_fmt = [l for l in lines if "Target Format" in l][-1].split("Target Format: ")[-1].strip().lower()
+        input_fmt = (
+            [line for line in lines if "Source Format" in line][-1].split("Source Format: ")[-1].strip().lower()
+        )
+        output_fmt = (
+            [line for line in lines if "Target Format" in line][-1].split("Target Format: ")[-1].strip().lower()
+        )
 
     reader = _read_df_v1 if version == "v1" else _read_df_v2
     gt_df = reader(output_fmt, ground_truth)
@@ -373,9 +372,9 @@ _CTA_ROWS = _load_livebench_da_messages("cta")
 
 @export_benchmark("live_bench/data_analysis/cta")
 @evaluation_test(
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_messages=[[m for m in r.messages] for r in _CTA_ROWS],
-    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
+    rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     passed_threshold=None,
@@ -416,9 +415,9 @@ _TABLEJOIN_ROWS = _load_livebench_da_messages("tablejoin")
 
 @export_benchmark("live_bench/data_analysis/tablejoin")
 @evaluation_test(
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_messages=[[m for m in r.messages] for r in _TABLEJOIN_ROWS],
-    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
+    rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     passed_threshold=None,
@@ -460,9 +459,9 @@ _TABLEREFORMAT_ROWS = _load_livebench_da_messages("tablereformat")
 
 @export_benchmark("live_bench/data_analysis/tablereformat")
 @evaluation_test(
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_messages=[[m for m in r.messages] for r in _TABLEREFORMAT_ROWS],
-    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
+    rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     passed_threshold=None,
@@ -508,5 +507,3 @@ register_composite_benchmark(
         "live_bench/data_analysis/tablereformat",
     ],
 )
-
-

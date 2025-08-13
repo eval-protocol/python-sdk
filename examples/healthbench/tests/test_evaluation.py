@@ -47,9 +47,10 @@ for s in _HB_SAMPLES:
 
 
 @evaluation_test(
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     input_messages=_HB_INPUT_MESSAGES,
-    rollout_input_params=[{"temperature": 0.2, "max_tokens": 512}],
+    completion_params=[
+        {"temperature": 0.2, "max_tokens": 512, "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}
+    ],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     passed_threshold=None,

@@ -20,7 +20,7 @@ def function_calling_to_evaluation_row(rows: List[Dict[str, Any]]) -> List[Evalu
 
 @evaluation_test(
     input_dataset=["tests/pytest/data/function_calling.jsonl"],
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     mode="pointwise",
     dataset_adapter=function_calling_to_evaluation_row,
     rollout_processor=default_single_turn_rollout_processor,

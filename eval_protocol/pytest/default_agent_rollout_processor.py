@@ -125,7 +125,9 @@ async def default_agent_rollout_processor(
 
     async def process_row(row: EvaluationRow) -> EvaluationRow:
         """Process a single row with agent rollout."""
-        agent = Agent(model=config.model, row=row, config_path=config.mcp_config_path, logger=config.logger)
+        agent = Agent(
+            model=config.completion_params.model, row=row, config_path=config.mcp_config_path, logger=config.logger
+        )
         try:
             await agent.setup()
             await agent.call_agent()
