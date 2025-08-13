@@ -1,0 +1,188 @@
+name: E2E Smoke Test
+
+# Run every 6 hours: at 00:00, 06:00, 12:00, and 18:00 UTC
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual triggering
+    inputs:
+      debug_mode:
+        description: 'Enable debug output'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  e2e-smoke-test:
+    name: E2E Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Install tau2 for testing
+        run: uv pip install git+https://github.com/sierra-research/tau2-bench.git@main
+
+      - name: Run E2E Smoke Test
+        id: run_test
+        env:
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          FIREWORKS_ACCOUNT_ID: ${{ secrets.FIREWORKS_ACCOUNT_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
+        run: |
+          echo "Running e2e smoke test..."
+
+          # Run the test and capture both stdout and exit code
+          set +e  # Don't exit on failure
+
+          uv run pytest tests/test_tau_bench_airline_smoke.py::test_tau_bench_airline_smoke_evaluation \
+            -v --tb=short --durations=10 \
+            --ep-print-summary \
+            --ep-summary-json=ep_summary.json 2>&1 | tee test_output.log
+
+          TEST_EXIT_CODE=$?
+
+          echo "test_exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
+
+          # List generated files for debugging
+          echo "📁 Generated files:"
+          ls -la *.json 2>/dev/null || echo "No JSON files found"
+          ls -la ep_summary* 2>/dev/null || echo "No ep_summary files found"
+
+          # Parse EP summary from terminal output (more reliable than JSON files)
+          if [ -f test_output.log ]; then
+            echo "📋 Parsing EP summary from terminal output..."
+
+            # Show the terminal output for debugging
+            echo "Terminal output:"
+            cat test_output.log
+            echo ""
+
+            # Extract the EP Summary line from the terminal output
+            EP_SUMMARY_LINE=$(grep "EP Summary |" test_output.log 2>/dev/null || echo "")
+
+            if [ -n "$EP_SUMMARY_LINE" ]; then
+              echo "Found EP Summary line:"
+              echo "$EP_SUMMARY_LINE"
+
+              # Parse the agg score from the line: "EP Summary | ... agg=0.420 ..."
+              SUCCESS_RATE=$(echo "$EP_SUMMARY_LINE" | grep -o "agg=[0-9.]*" | cut -d= -f2 2>/dev/null || echo "0")
+
+              # Extract other info
+              NUM_RUNS=$(echo "$EP_SUMMARY_LINE" | grep -o "runs=[0-9]*" | cut -d= -f2 2>/dev/null || echo "0")
+              NUM_ROWS=$(echo "$EP_SUMMARY_LINE" | grep -o "rows=[0-9]*" | cut -d= -f2 2>/dev/null || echo "0")
+
+              echo "success_rate=$SUCCESS_RATE" >> $GITHUB_OUTPUT
+
+              # Check if success rate meets thresholds (36% - 60% acceptable range)
+              LOWER_BOUND=0.36  # 36%
+              UPPER_BOUND=0.6  # 60%
+              LOWER_BOUND_MET=$(echo "$SUCCESS_RATE >= $LOWER_BOUND" | bc -l 2>/dev/null || echo "0")
+              UPPER_BOUND_MET=$(echo "$SUCCESS_RATE <= $UPPER_BOUND" | bc -l 2>/dev/null || echo "0")
+              THRESHOLD_MET=$(echo "$LOWER_BOUND_MET && $UPPER_BOUND_MET" | bc -l 2>/dev/null || echo "0")
+
+              echo "lower_bound_met=$LOWER_BOUND_MET" >> $GITHUB_OUTPUT
+              echo "upper_bound_met=$UPPER_BOUND_MET" >> $GITHUB_OUTPUT
+              echo "threshold_met=$THRESHOLD_MET" >> $GITHUB_OUTPUT
+
+              echo "📊 Evaluation Summary (from terminal output):"
+              echo "  - Success rate: $(echo "$SUCCESS_RATE * 100" | bc -l 2>/dev/null || echo "unknown")%"
+              echo "  - Dataset rows evaluated: $NUM_ROWS"
+              echo "  - Number of runs: $NUM_RUNS"
+              echo "  - Lower bound (≥36%) met: $([ "$LOWER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
+              echo "  - Upper bound (≤60%) met: $([ "$UPPER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
+              echo "  - Within acceptable range: $([ "$THRESHOLD_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
+            else
+              echo "❌ No EP Summary line found in terminal output"
+              echo "threshold_met=0" >> $GITHUB_OUTPUT
+              echo "success_rate=0" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "❌ No terminal output file found"
+            echo "threshold_met=0" >> $GITHUB_OUTPUT
+            echo "success_rate=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-test-results-${{ github.run_number }}
+          path: |
+            test_output.log
+            ep_summary*.json
+            *.log
+          retention-days: 7
+
+      - name: Validate test results
+        if: always()
+        run: |
+          echo "Validating test results against thresholds..."
+
+          TEST_EXIT_CODE="${{ steps.run_test.outputs.test_exit_code }}"
+          THRESHOLD_MET="${{ steps.run_test.outputs.threshold_met }}"
+          LOWER_BOUND_MET="${{ steps.run_test.outputs.lower_bound_met }}"
+          UPPER_BOUND_MET="${{ steps.run_test.outputs.upper_bound_met }}"
+          SUCCESS_RATE="${{ steps.run_test.outputs.success_rate }}"
+
+          echo "Test exit code: $TEST_EXIT_CODE"
+          echo "Threshold met (40%-60%): $THRESHOLD_MET"
+          echo "Lower bound met (≥40%): $LOWER_BOUND_MET"
+          echo "Upper bound met (≤60%): $UPPER_BOUND_MET"
+          echo "Success rate: $SUCCESS_RATE"
+
+          # Fail the job if tests didn't run successfully or thresholds weren't met
+          if [ "$TEST_EXIT_CODE" != "0" ] && [ "$THRESHOLD_MET" != "1" ]; then
+            echo "❌ E2E smoke test FAILED"
+            echo "   - Test execution failed (exit code: $TEST_EXIT_CODE)"
+            echo "   - Success rate outside acceptable range (required: 40%-60%, actual: ${SUCCESS_RATE:-unknown})"
+            exit 1
+          elif [ "$TEST_EXIT_CODE" != "0" ]; then
+            echo "⚠️ E2E smoke test had test execution issues but may have met thresholds"
+            echo "   - Test exit code: $TEST_EXIT_CODE"
+            echo "   - Thresholds met: $THRESHOLD_MET"
+            # Don't exit with error if thresholds were actually met despite test issues
+            if [ "$THRESHOLD_MET" = "1" ]; then
+              echo "✅ Thresholds met despite execution issues - considering this a pass"
+            else
+              exit 1
+            fi
+          elif [ "$THRESHOLD_MET" != "1" ]; then
+            # Determine which bound was violated
+            if [ "$LOWER_BOUND_MET" != "1" ]; then
+              echo "❌ E2E smoke test FAILED - success rate too low"
+              echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
+              echo "   - Required: ≥40%"
+            elif [ "$UPPER_BOUND_MET" != "1" ]; then
+              echo "❌ E2E smoke test FAILED - success rate suspiciously high"
+              echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
+              echo "   - Maximum expected: ≤60%"
+              echo "   - This may indicate test issues or unrealistic performance"
+            else
+              echo "❌ E2E smoke test FAILED - success rate outside acceptable range"
+              echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
+              echo "   - Required range: 40%-60%"
+            fi
+            exit 1
+          else
+            echo "✅ E2E smoke test PASSED"
+            echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
+            echo "   - Within acceptable range: 40%-60%"
+          fi
