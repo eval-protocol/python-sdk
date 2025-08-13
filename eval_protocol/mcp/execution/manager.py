@@ -14,6 +14,7 @@ import time
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
+import anyio
 from openai.types import CompletionUsage
 
 from vendor.tau2.data_model.message import AssistantMessage, UserMessage
@@ -464,11 +465,19 @@ class ExecutionManager:
             )
 
         except asyncio.CancelledError:
-            logger.error(f"🚨 AsyncIO Cancel Error in roll out {rollout_idx}", exc_info=True)
             failure_reason = "asyncio context cancelled"
+            logger.error(
+                f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {failure_reason}", exc_info=True
+            )
+        except (anyio.ClosedResourceError, anyio.BrokenResourceError):
+            logger.error(
+                f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {failure_reason}", exc_info=True
+            )
+            failure_reason = "connection/resource error"
         except Exception as e:
-            logger.error(f"🚨 Error in rollout {rollout_idx}: {e}", exc_info=True)
-            failure_reason = str(e)
+            error_msg = str(e) if str(e) else f"{type(e).__name__}: Connection/resource error"
+            logger.error(f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {error_msg}", exc_info=True)
+            failure_reason = error_msg
         finally:
             if failure_reason:
                 trajectory.terminated = True
