@@ -3,10 +3,10 @@ Minimal CLI runner for exported benchmarks.
 
 Usage:
 
-  python -m eval_protocol.benchmarks.run aime25_low \
+  python -m eval_protocol.benchmarks.run aime25 \
     --model fireworks_ai/accounts/fireworks/models/gpt-oss-120b \
     --print-summary \
-    --out artifacts/aime25_low.json \
+    --out artifacts/aime25.json \
     --max-rows 50 \
     --reasoning-effort low
 """
@@ -14,7 +14,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from importlib import import_module
 import pkgutil
@@ -60,7 +59,7 @@ def main() -> int:
     # Fallback: if nothing registered yet and a known suite was requested, try explicit import
     if not list_benchmarks():
         known_map = {
-            "aime25_low": "eval_protocol.benchmarks.suites.aime25",
+            "aime25": "eval_protocol.benchmarks.suites.aime25",
         }
         forced = known_map.get(args.name)
         if forced:
@@ -73,7 +72,7 @@ def main() -> int:
     if args.max_rows is not None:
         try:
             max_rows = int(args.max_rows)
-        except Exception:
+        except ValueError:
             max_rows = str(args.max_rows)
     # Build input params override if needed
     ip_override = {}
