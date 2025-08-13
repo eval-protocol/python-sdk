@@ -26,7 +26,6 @@ from eval_protocol.models import (
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
 from eval_protocol.pytest.types import (
-    CompletionsParams,
     Dataset,
     DatasetPathParam,
     EvaluationInputParam,
@@ -52,7 +51,7 @@ from ..common_utils import load_jsonl
 
 def evaluation_test(  # noqa: C901
     *,
-    completion_params: List[CompletionsParams],
+    completion_params: List[CompletionParams],
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
     dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
@@ -240,7 +239,7 @@ def evaluation_test(  # noqa: C901
                         datasets = [[input_dataset]]  # type: ignore
             else:
                 datasets = [None]
-            cps: List[Optional[CompletionsParams]] = completion_params if completion_params is not None else [None]  # type: ignore
+            cps: List[Optional[CompletionParams]] = completion_params if completion_params is not None else [None]  # type: ignore
             # Apply EP_MAX_DATASET_ROWS to input_messages, but do NOT parameterize over
             # each row. Instead, pass the entire sliced list through in a single test run
             # so summaries aggregate all rows together (AIME-style behavior).
@@ -348,7 +347,16 @@ def evaluation_test(  # noqa: C901
                     else:
                         raise ValueError("No input dataset or input messages provided")
 
-                    completions_params = kwargs.get("completion_params") or {}
+                    if "completion_params" not in kwargs or not kwargs["completion_params"]:
+                        raise ValueError(
+                            "No completion parameters provided. Please provide a completion parameters object."
+                        )
+                    completion_params = kwargs["completion_params"]
+                    if "model" not in completion_params or not completion_params["model"]:
+                        raise ValueError(
+                            "No model provided. Please provide a model in the completion parameters object."
+                        )
+
                     # Optional global overrides via environment for ad-hoc experimentation
                     # EP_INPUT_PARAMS_JSON can contain a JSON object that will be deep-merged
                     # into input_params (e.g., '{"temperature":0,"extra_body":{"reasoning":{"effort":"low"}}}').
@@ -359,7 +367,7 @@ def evaluation_test(  # noqa: C901
                         if _env_override:
                             override_obj = _json.loads(_env_override)
                             if isinstance(override_obj, dict):
-                                completions_params = _deep_update_dict(dict(completions_params), override_obj)
+                                completion_params = _deep_update_dict(dict(completion_params), override_obj)
                     except Exception:
                         pass
 
@@ -372,11 +380,6 @@ def evaluation_test(  # noqa: C901
                         aggregation_method=aggregation_method,
                         passed_threshold=threshold,
                         passed=None,
-                    )
-
-                    # Populate completion_params in input_metadata for all rows and initialize eval_metadata BEFORE rollouts
-                    completion_params = CompletionParams(
-                        **completions_params,
                     )
 
                     for row in data:
@@ -398,13 +401,13 @@ def evaluation_test(  # noqa: C901
 
                     # Prepare rollout processor config once; we will generate fresh outputs per run
                     config = RolloutProcessorConfig(
-                        completion_params=CompletionParams(**completions_params),
+                        completion_params=completion_params,
                         mcp_config_path=mcp_config_path or "",
                         max_concurrent_rollouts=max_concurrent_rollouts,
                         server_script_path=server_script_path,
                         steps=steps,
                         logger=active_logger,
-                        kwargs=rollout_processor_kwargs,
+                        kwargs=rollout_processor_kwargs or {},
                     )
 
                     for i in range(num_runs):
@@ -611,7 +614,7 @@ def evaluation_test(  # noqa: C901
                                 return None
 
                             model_slug = _sanitize_filename(model_used)
-                            effort_tag = _extract_effort_tag(completions_params) or ""
+                            effort_tag = _extract_effort_tag(completion_params) or ""
                             effort_suffix = f"__effort-{_sanitize_filename(effort_tag)}" if effort_tag else ""
                             base_name = f"{suite_name}__{model_slug}{effort_suffix}__{mode}__runs{num_runs}.json"
 
@@ -788,7 +791,7 @@ def evaluation_test(  # noqa: C901
                     input_messages=cfg.get("input_messages"),
                     input_dataset=cfg.get("input_dataset"),
                     dataset_adapter=cfg.get("dataset_adapter"),
-                    completions_params=rip,
+                    completion_params=rip,
                     rollout_processor=cfg.get("rollout_processor"),
                     aggregation_method=cfg.get("aggregation_method"),
                     passed_threshold=cfg.get("passed_threshold"),
@@ -818,7 +821,7 @@ def run_evaluation_test_direct(
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
     dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
-    completions_params: Optional[CompletionsParams] = None,
+    completion_params: Optional[CompletionParams] = None,
     rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
     rollout_processor_kwargs: Optional[RolloutProcessorInputParam] = None,
     aggregation_method: AggregationMethod = "mean",
@@ -885,7 +888,7 @@ def run_evaluation_test_direct(
         raise ValueError("No input dataset or input messages provided")
 
     # Build input params and apply env JSON override
-    completion_params: Dict[str, Any] = completions_params or {}
+    completion_params: Dict[str, Any] = completion_params or {}
     try:
         import json as _json
 
@@ -911,7 +914,7 @@ def run_evaluation_test_direct(
     for row in data:
         if row.input_metadata is None:
             row.input_metadata = InputMetadata()
-        row.input_metadata.completion_params = CompletionParams(**completion_params)
+        row.input_metadata.completion_params = completion_params
         if row.input_metadata.session_data is None:
             row.input_metadata.session_data = {}
         row.input_metadata.session_data["mode"] = mode
@@ -925,7 +928,7 @@ def run_evaluation_test_direct(
         max_concurrent_rollouts=max_concurrent_rollouts,
         server_script_path=server_script_path,
         steps=steps,
-        kwargs=rollout_processor_kwargs,
+        kwargs=rollout_processor_kwargs or {},
     )
 
     all_results: List[EvaluationRow] = []

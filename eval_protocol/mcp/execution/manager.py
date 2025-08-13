@@ -20,7 +20,7 @@ from openai.types import CompletionUsage
 from vendor.tau2.data_model.message import AssistantMessage, UserMessage
 from vendor.tau2.user.user_simulator import UserSimulator
 
-from ...models import CompletionParams, EvaluationRow, InputMetadata, Message
+from ...models import EvaluationRow, InputMetadata, Message
 from ...types import MCPSession, MCPToolCall, TerminationReason, Trajectory
 
 if TYPE_CHECKING:
@@ -128,12 +128,12 @@ class ExecutionManager:
                 evaluation_row.messages = messages
                 evaluation_row.tools = shared_tool_schema
                 evaluation_row.usage = CompletionUsage(**trajectory.usage)
-                evaluation_row.input_metadata.completion_params = CompletionParams(
-                    model=policy.model_id,
-                    temperature=getattr(policy, "temperature", None),
-                    max_tokens=getattr(policy, "max_tokens", None),
-                    max_tool_calls=getattr(policy, "max_tools_per_turn", None),
-                )
+                evaluation_row.input_metadata.completion_params = {
+                    "model": policy.model_id,
+                    "temperature": getattr(policy, "temperature", None),
+                    "max_tokens": getattr(policy, "max_tokens", None),
+                    "max_tool_calls": getattr(policy, "max_tools_per_turn", None),
+                }
 
                 if trajectory.terminated:
                     if trajectory.termination_reason == TerminationReason.ERROR:

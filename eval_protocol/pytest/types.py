@@ -8,11 +8,10 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Literal, Optional
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 
-from ..models import EvaluationRow, Message
+from ..models import CompletionParams, EvaluationRow, Message
 
 ModelParam = str  # gpt-4o, gpt-4o-mini, accounts/fireworks/models/llama-3.1-8b-instruct
 DatasetPathParam = str
-CompletionsParams = Dict[str, Any]
 InputMessagesParam = List[Message]
 EvaluationInputParam = Dict[str, Any]
 RolloutProcessorInputParam = Dict[str, Any]
@@ -41,7 +40,7 @@ Rollout processor types
 
 @dataclass
 class RolloutProcessorConfig:
-    completion_params: CompletionsParams  # input parameters for inference
+    completion_params: CompletionParams  # input parameters for inference
     mcp_config_path: str
     server_script_path: Optional[str] = (
         None  # TODO: change from server_script_path to mcp_config_path for agent rollout processor

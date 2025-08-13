@@ -7,7 +7,7 @@ similar to the test_frozen_lake_e2e test but integrated with the pytest evaluati
 
 from typing import Any, Dict, List
 
-from eval_protocol.models import CompletionParams, EvaluateResult, EvaluationRow, InputMetadata, Message, MetricResult
+from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message, MetricResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import default_mcp_gym_rollout_processor
 

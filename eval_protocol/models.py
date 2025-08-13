@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
 from openai.types import CompletionUsage
 from openai.types.chat.chat_completion_message import (
@@ -178,16 +178,18 @@ class EvaluateResult(BaseModel):
         return iter(self.__fields__.keys())  # Changed to __fields__
 
 
-class CompletionParams(BaseModel):
-    """Configuration for the language model used in the session."""
+CompletionParams = Dict[str, Any]
+"""
+Common set of completion parameters that most model providers support in their
+API. Set total=False to allow extra fields since LiteLLM + providers have their
+own set of parameters. The following parameters are common fields that are
+populated.
 
-    model: str = Field(..., description="Model identifier (e.g., 'gpt-4.1', 'fireworks/llama')")
-    temperature: Optional[float] = Field(None, description="Temperature setting for model generation")
-    max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
-    max_tool_calls: Optional[int] = Field(None, description="Maximum tool calls per turn")
-
-    # there might be model or provider specific parameters that you want to pass that should be preserved
-    model_config = ConfigDict(extra="allow")
+model: str
+temperature: Optional[float]
+max_tokens: Optional[int]
+top_p: Optional[float]
+"""
 
 
 class InputMetadata(BaseModel):
@@ -196,7 +198,7 @@ class InputMetadata(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     row_id: Optional[str] = Field(default_factory=generate_id, description="Unique string to ID the row")
-    completion_params: Optional[CompletionParams] = Field(None, description="Completion endpoint parameters used")
+    completion_params: CompletionParams = Field(..., description="Completion endpoint parameters used")
     dataset_info: Optional[Dict[str, Any]] = Field(
         None, description="Dataset row details: seed, system_prompt, environment_context, etc"
     )
