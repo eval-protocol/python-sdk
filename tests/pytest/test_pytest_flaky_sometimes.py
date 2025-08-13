@@ -12,7 +12,7 @@ from eval_protocol.pytest import default_no_op_rollout_processor, evaluation_tes
 @pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping flaky test in CI")
 @evaluation_test(
     input_messages=[[Message(role="user", content="Return HEADS or TAILS at random.")]],
-    model=["dummy/local-model"],
+    completion_params=[{"model": "dummy/local-model"}],
     rollout_processor=default_no_op_rollout_processor,
     mode="pointwise",
     num_runs=5,

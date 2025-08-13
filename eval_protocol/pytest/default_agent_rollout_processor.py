@@ -117,7 +117,9 @@ async def default_agent_rollout_processor(
 ) -> List[EvaluationRow]:
     dataset: Dataset = []
     for row in rows:
-        agent = Agent(model=config.model, row=row, config_path=config.mcp_config_path, logger=config.logger)
+        agent = Agent(
+            model=config.completion_params.model, row=row, config_path=config.mcp_config_path, logger=config.logger
+        )
         await agent.setup()
         await agent.call_agent()
         dataset.append(agent.evaluation_row)

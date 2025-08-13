@@ -1,4 +1,4 @@
-from eval_protocol.models import EvaluateResult, Message, EvaluationRow
+from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import default_agent_rollout_processor, evaluation_test
 
 
@@ -19,7 +19,7 @@ from eval_protocol.pytest import default_agent_rollout_processor, evaluation_tes
         ]
     ],
     rollout_processor=default_agent_rollout_processor,
-    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}],
     mode="pointwise",
     mcp_config_path="tests/pytest/mcp_configurations/docs_mcp_config.json",
 )

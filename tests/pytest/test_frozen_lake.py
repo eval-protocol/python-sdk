@@ -38,8 +38,9 @@ def frozen_lake_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluation
 @evaluation_test(
     input_dataset=["tests/pytest/data/frozen_lake_dataset.jsonl"],
     dataset_adapter=frozen_lake_to_evaluation_row,
-    model=["fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"],
-    rollout_input_params=[{"temperature": 0.0, "max_tokens": 4096}],
+    completion_params=[
+        {"temperature": 0.0, "max_tokens": 4096, "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}
+    ],
     rollout_processor=default_mcp_gym_rollout_processor,
     passed_threshold=0.66,
     num_runs=1,

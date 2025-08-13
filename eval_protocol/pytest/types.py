@@ -12,7 +12,7 @@ from ..models import EvaluationRow, Message
 
 ModelParam = str  # gpt-4o, gpt-4o-mini, accounts/fireworks/models/llama-3.1-8b-instruct
 DatasetPathParam = str
-RolloutInputParam = Dict[str, Any]
+CompletionsParams = Dict[str, Any]
 InputMessagesParam = List[Message]
 EvaluationInputParam = Dict[str, Any]
 
@@ -40,8 +40,7 @@ Rollout processor types
 
 @dataclass
 class RolloutProcessorConfig:
-    model: ModelParam
-    input_params: RolloutInputParam  # optional input parameters for inference
+    completion_params: CompletionsParams  # input parameters for inference
     mcp_config_path: str
     server_script_path: Optional[str] = (
         None  # TODO: change from server_script_path to mcp_config_path for agent rollout processor

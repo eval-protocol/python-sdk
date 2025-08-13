@@ -17,7 +17,7 @@ from examples.math_example.main import evaluate as math_evaluate
             Message(role="user", content="What is the capital of the moon?"),
         ],
     ],
-    model=["accounts/fireworks/models/kimi-k2-instruct"],
+    completion_params=[{"model": "accounts/fireworks/models/kimi-k2-instruct"}],
 )
 async def test_pytest_async(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     """Run math evaluation on sample dataset using pytest interface."""
@@ -30,7 +30,7 @@ async def test_pytest_async(rows: List[EvaluationRow]) -> List[EvaluationRow]:
             Message(role="user", content="What is the capital of France?"),
         ],
     ],
-    model=["accounts/fireworks/models/kimi-k2-instruct"],
+    completion_params=[{"model": "accounts/fireworks/models/kimi-k2-instruct"}],
     mode="pointwise",
 )
 async def test_pytest_async_pointwise(row: EvaluationRow) -> EvaluationRow:

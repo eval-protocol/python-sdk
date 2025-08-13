@@ -186,6 +186,9 @@ class CompletionParams(BaseModel):
     max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
     max_tool_calls: Optional[int] = Field(None, description="Maximum tool calls per turn")
 
+    # there might be model or provider specific parameters that you want to pass that should be preserved
+    model_config = ConfigDict(extra="allow")
+
 
 class InputMetadata(BaseModel):
     """Comprehensive metadata for input to evaluation and logging systems."""

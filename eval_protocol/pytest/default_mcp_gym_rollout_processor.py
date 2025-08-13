@@ -219,10 +219,10 @@ async def default_mcp_gym_rollout_processor(
         server.start()
 
         policy = ep.LiteLLMPolicy(
-            model_id=config.model,
-            temperature=config.input_params.get("temperature", 0.0),
-            max_tokens=config.input_params.get("max_tokens", 4096),
-            reasoning_effort=config.input_params.get("reasoning_effort", None),
+            model_id=config.completion_params.model,
+            temperature=config.completion_params.get("temperature", 0.0),
+            max_tokens=config.completion_params.get("max_tokens", 4096),
+            reasoning_effort=config.completion_params.get("reasoning_effort", None),
         )
 
         # Create MCP environments directly from evaluation_rows

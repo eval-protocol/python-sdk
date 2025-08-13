@@ -20,7 +20,7 @@ from eval_protocol.pytest import default_agent_rollout_processor, evaluation_tes
         ]
     ],
     rollout_processor=default_agent_rollout_processor,
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-20b"],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b"}],
     mode="pointwise",
     mcp_config_path="tests/pytest/mcp_configurations/mock_discord_mcp_config.json",
 )

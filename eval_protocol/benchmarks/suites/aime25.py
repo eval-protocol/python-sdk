@@ -60,13 +60,18 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
 
 @export_benchmark("aime25")
 @evaluation_test(
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     input_dataset=[
         "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
         "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
     ],
     dataset_adapter=aime2025_dataset_adapter,
-    rollout_input_params=[{"max_tokens": 131000, "extra_body": {"reasoning_effort": "low"}}],
+    completion_params=[
+        {
+            "max_tokens": 131000,
+            "extra_body": {"reasoning_effort": "low"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+        }
+    ],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     num_runs=8,

@@ -33,17 +33,24 @@ async def default_single_turn_rollout_processor(
 
         messages_payload = [{"role": m.role, "content": m.content} for m in row.messages]
 
-        request_params = {"model": config.model, "messages": messages_payload, **config.input_params}
+        request_params = {
+            "model": config.completion_params.model,
+            "messages": messages_payload,
+            **config.completion_params,
+        }
         # Ensure caching is disabled only for this request (review feedback)
         request_params["cache"] = {"no-cache": True}
         # Single-level reasoning effort: expect `reasoning_effort` only
         effort_val = None
-        if isinstance(config.input_params, dict):
-            if "reasoning_effort" in config.input_params:
-                effort_val = str(config.input_params["reasoning_effort"])  # flat shape
-            elif isinstance(config.input_params.get("extra_body"), dict) and "reasoning_effort" in config.input_params["extra_body"]:
+        if isinstance(config.completion_params, dict):
+            if "reasoning_effort" in config.completion_params:
+                effort_val = str(config.completion_params["reasoning_effort"])  # flat shape
+            elif (
+                isinstance(config.completion_params.get("extra_body"), dict)
+                and "reasoning_effort" in config.completion_params["extra_body"]
+            ):
                 # Accept if user passed it directly inside extra_body
-                effort_val = str(config.input_params["extra_body"]["reasoning_effort"])  # already in extra_body
+                effort_val = str(config.completion_params["extra_body"]["reasoning_effort"])  # already in extra_body
 
         if effort_val:
             # Always under extra_body so LiteLLM forwards to provider-specific param set

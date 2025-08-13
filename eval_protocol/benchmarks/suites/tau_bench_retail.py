@@ -66,8 +66,13 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
 @evaluation_test(
     input_dataset=["tests/pytest/data/retail_dataset.jsonl"],
     dataset_adapter=tau_bench_retail_to_evaluation_row,
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
-    rollout_input_params=[{"temperature": 0.8, "extra_body": {"reasoning_effort": "medium"}}],
+    completion_params=[
+        {
+            "temperature": 0.8,
+            "extra_body": {"reasoning_effort": "medium"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+        }
+    ],
     rollout_processor=default_mcp_gym_rollout_processor,
     num_runs=8,
     mode="pointwise",

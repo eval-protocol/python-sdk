@@ -28,7 +28,7 @@ def test_evaluation_test_decorator(monkeypatch):
         input_dataset=[
             "tests/pytest/data/markdown_dataset.jsonl",
         ],
-        model=["dummy/local-model"],
+        completion_params=[{"temperature": 0.0, "model": "dummy/local-model"}],
         dataset_adapter=markdown_dataset_to_evaluation_row,
         rollout_processor=default_no_op_rollout_processor,
         mode="pointwise",
@@ -66,8 +66,10 @@ def test_evaluation_test_decorator_ids_single(monkeypatch):
             "tests/pytest/data/markdown_dataset.jsonl",
             "tests/pytest/data/markdown_dataset.jsonl",
         ],
-        rollout_input_params=[{"temperature": 0.0}, {"temperature": 1.0}],
-        model=["dummy/local-model"],
+        completion_params=[
+            {"temperature": 0.0, "model": "dummy/local-model"},
+            {"temperature": 1.0, "model": "dummy/local-model"},
+        ],
         dataset_adapter=markdown_dataset_to_evaluation_row,
         rollout_processor=default_no_op_rollout_processor,
         mode="pointwise",

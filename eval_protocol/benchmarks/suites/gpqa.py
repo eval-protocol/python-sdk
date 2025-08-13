@@ -60,9 +60,10 @@ _GPQA_INPUT_MESSAGES = _load_gpqa_messages_from_csv()
 
 @export_benchmark("gpqa")
 @evaluation_test(
-    model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     input_messages=_GPQA_INPUT_MESSAGES,
-    rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
+    completion_params=[
+        {"extra_body": {"reasoning_effort": "low"}, "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}
+    ],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
     num_runs=8,
