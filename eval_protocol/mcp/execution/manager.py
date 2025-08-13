@@ -12,7 +12,7 @@ import os
 import threading
 import time
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional, Union
 
 import anyio
 from openai.types import CompletionUsage
@@ -43,7 +43,7 @@ class ExecutionManager:
         openai_format_log_file: Optional[str] = None,
         max_concurrent_rollouts: int = 8,
         evaluation_rows: Optional[List[EvaluationRow]] = None,
-    ) -> List[EvaluationRow]:
+    ) -> AsyncIterator[EvaluationRow]:
         """
         Execute general rollouts using tool calling interface with automatic record/playback.
 
@@ -66,7 +66,7 @@ class ExecutionManager:
             - Set and file exists: Playback mode (uses recorded data)
 
         Returns:
-            List of EvaluationRow objects with unified evaluation data format
+            AsyncIterator of EvaluationRow objects with unified evaluation data format
         """
         start_time = time.time()
 
@@ -92,96 +92,77 @@ class ExecutionManager:
 
         logger.info(f"🧵 Starting {envs.n} rollouts with max {max_concurrent_rollouts} concurrent threads...")
 
-        results = {}
+        if evaluation_rows is None:
+            evaluation_rows = [EvaluationRow(messages=[], input_metadata=InputMetadata()) for _ in range(envs.n)]
+
+        shared_tool_schema = envs.tool_schemas
 
         semaphore = asyncio.Semaphore(max_concurrent_rollouts)
 
         async def _execute_with_semaphore(idx):
             async with semaphore:
-                result = await self._execute_rollout(
+                trajectory = await self._execute_rollout(
                     envs, policy, idx, steps, openai_logger, recording_mode, playback_mode, start_time
                 )
 
-                return result
+                # Convert trajectory to EvaluationRow immediately
+                evaluation_row = evaluation_rows[idx]
 
-        tasks = [_execute_with_semaphore(i) for i in range(envs.n)]
-        # exceptions will be try catched inside single _execute_rollout
-        trajectories = await asyncio.gather(*tasks)
+                # Handle multimodal content by extracting text from complex content structures
+                messages = []
+                for msg in trajectory.conversation_history:
+                    # Create a copy to avoid modifying the original
+                    msg_dict = dict(msg)
 
-        # Calculate durations
-        total_duration = time.time() - start_time
-        for trajectory in trajectories:
-            trajectory.duration = total_duration
+                    # Handle multimodal content (list of content blocks) by extracting text
+                    if isinstance(msg_dict.get("content"), list):
+                        text_content = None
+                        for content_block in msg_dict["content"]:
+                            if isinstance(content_block, dict) and content_block.get("type") == "text":
+                                text_content = content_block.get("text")
+                                break
+                        msg_dict["content"] = text_content or ""
 
-        shared_tool_schema = envs.tool_schemas
+                    messages.append(Message.model_validate(msg_dict))
 
-        # Enhanced reporting with control plane info
-        successful = sum(1 for traj in trajectories if traj.total_reward > 0)
-        terminated_by_control_plane = sum(
-            1
-            for traj in trajectories
-            if traj.control_plane_summary.get("termination_reason") == "control_plane_signal"
-        )
+                evaluation_row.messages = messages
+                evaluation_row.tools = shared_tool_schema
+                evaluation_row.usage = CompletionUsage(**trajectory.usage)
+                evaluation_row.input_metadata.completion_params = CompletionParams(
+                    model=policy.model_id,
+                    temperature=getattr(policy, "temperature", None),
+                    max_tokens=getattr(policy, "max_tokens", None),
+                    max_tool_calls=getattr(policy, "max_tools_per_turn", None),
+                )
 
-        logger.info(f"📊 Rollout complete: {successful}/{len(trajectories)} reached goal")
-        logger.info(f"🎛️  Control plane terminations: {terminated_by_control_plane}/{len(trajectories)}")
-        logger.info(f"⏱️  Total duration: {total_duration:.2f}s")
-        logger.info(f"🧵 Used {max_concurrent_rollouts} concurrent threads")
-
-        # Print log file locations if created
-        if openai_format_log_file:
-            logger.info(f"💬 OpenAI format log: {openai_format_log_file}")
-        if recording_mode:
-            logger.info(f"📝 Recorded trajectory: {playback_file}")
-            # Add note about control plane separation
-            logger.info(f"🎛️  Trajectories include control plane separation")
-
-        # Convert trajectories to unified EvaluationRow format. If no evaluation_rows are provided, create empty ones for backwards compatibility.
-        if evaluation_rows is None:
-            evaluation_rows = [EvaluationRow(messages=[], input_metadata=InputMetadata()) for _ in trajectories]
-
-        for idx, trajectory in enumerate(trajectories):
-            # Handle multimodal content by extracting text from complex content structures
-            messages = []
-            for msg in trajectory.conversation_history:
-                # Create a copy to avoid modifying the original
-                msg_dict = dict(msg)
-
-                # Handle multimodal content (list of content blocks) by extracting text
-                if isinstance(msg_dict.get("content"), list):
-                    text_content = None
-                    for content_block in msg_dict["content"]:
-                        if isinstance(content_block, dict) and content_block.get("type") == "text":
-                            text_content = content_block.get("text")
-                            break
-                    msg_dict["content"] = text_content or ""
-
-                messages.append(Message.model_validate(msg_dict))
-
-            evaluation_rows[idx].messages = messages
-            # evaluation_rows[idx].input_metadata.row_id = envs.dataset_rows[idx].id
-            # evaluation_rows[idx].input_metadata.dataset_info = asdict(envs.dataset_rows[idx])
-            evaluation_rows[idx].tools = shared_tool_schema
-            evaluation_rows[idx].usage = CompletionUsage(**trajectory.usage)
-            evaluation_rows[idx].input_metadata.completion_params = CompletionParams(
-                model=policy.model_id,
-                temperature=getattr(policy, "temperature", None),
-                max_tokens=getattr(policy, "max_tokens", None),
-                max_tool_calls=getattr(policy, "max_tools_per_turn", None),
-            )
-            if trajectory.terminated:
-                if trajectory.termination_reason == TerminationReason.ERROR:
-                    evaluation_rows[idx].rollout_status.status = "error"
-                    evaluation_rows[idx].rollout_status.termination_reason = trajectory.control_plane_summary.get(
-                        "error_message", None
-                    )
+                if trajectory.terminated:
+                    if trajectory.termination_reason == TerminationReason.ERROR:
+                        evaluation_row.rollout_status.status = "error"
+                        evaluation_row.rollout_status.error_message = trajectory.control_plane_summary.get(
+                            "error_message", None
+                        )
+                    else:
+                        evaluation_row.rollout_status.status = "finished"
+                        evaluation_row.rollout_status.termination_reason = trajectory.termination_reason
                 else:
-                    evaluation_rows[idx].rollout_status.status = "finished"
-                    evaluation_rows[idx].rollout_status.termination_reason = trajectory.termination_reason
-            else:
-                evaluation_rows[idx].rollout_status.status = "running"
+                    evaluation_row.rollout_status.status = "running"
 
-        return evaluation_rows
+                return evaluation_row
+
+        # Create all tasks
+        tasks = [asyncio.create_task(_execute_with_semaphore(i)) for i in range(envs.n)]
+
+        # Yield results as they complete (note that they're not necessarily in original order)
+        try:
+            for task in asyncio.as_completed(tasks):
+                try:
+                    yield await task
+                except Exception:
+                    logger.exception("Error processing rollout")
+        finally:
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _execute_rollout(
         self,

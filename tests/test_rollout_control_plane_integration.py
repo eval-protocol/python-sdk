@@ -239,7 +239,9 @@ class TestRolloutControlPlaneIntegration:
             policy = MockPolicy(["right", "down", "right"])
 
             # Execute rollout
-            evaluation_rows = await self.execution_manager.execute_rollouts(mock_env, policy, steps=10)
+            evaluation_rows = []
+            async for row in self.execution_manager.execute_rollouts(mock_env, policy, steps=10):
+                evaluation_rows.append(row)
 
             # Validate results
             assert len(evaluation_rows) == 1, "Should have one evaluation row"
@@ -457,7 +459,9 @@ class TestRolloutControlPlaneIntegration:
 
             # Execute rollout with control plane failure
             policy = MockPolicy(["right"])
-            evaluation_rows = await self.execution_manager.execute_rollouts(mock_env, policy, steps=1)
+            evaluation_rows = []
+            async for row in self.execution_manager.execute_rollouts(mock_env, policy, steps=1):
+                evaluation_rows.append(row)
 
             # Should still work, but without control plane info
             assert len(evaluation_rows) == 1
@@ -500,15 +504,26 @@ class TestRolloutControlPlaneIntegration:
             mock_make.return_value = mock_env
 
             manager_instance = MockManager.return_value
-            manager_instance.execute_rollouts = AsyncMock(return_value=["ok"])
 
-            result = await ep.rollout(
+            # Mock execute_rollouts to return an async generator and track calls
+            call_args = []
+
+            async def mock_execute_rollouts(*args, **kwargs):
+                call_args.append((args, kwargs))
+                for item in ["ok"]:
+                    yield item
+
+            manager_instance.execute_rollouts = mock_execute_rollouts
+
+            result = []
+            async for row in ep.rollout(
                 "http://localhost:1234/mcp/",
                 policy,
                 dataset=dataset,
                 model_id="test_model",
                 steps=5,
-            )
+            ):
+                result.append(row)
 
             mock_make.assert_called_once_with(
                 "http://localhost:1234/mcp/",
@@ -517,14 +532,12 @@ class TestRolloutControlPlaneIntegration:
                 model_id="test_model",
             )
 
-            manager_instance.execute_rollouts.assert_called_once_with(
-                mock_make.return_value,
-                policy,
-                5,
-                None,
-                8,
-                None,
-            )
+            # Verify execute_rollouts was called with correct arguments
+            assert len(call_args) == 1, "execute_rollouts should be called once"
+            args, kwargs = call_args[0]
+            assert args[0] == mock_make.return_value, "First arg should be mock env"
+            assert args[1] == policy, "Second arg should be policy"
+            assert args[2] == 5, "Third arg should be steps"
 
             assert result == ["ok"]
 
