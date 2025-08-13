@@ -31,12 +31,7 @@ async def default_single_turn_rollout_processor(
         if len(row.messages) == 0:
             raise ValueError("Messages is empty. Please provide a non-empty dataset")
 
-        # Filter out any sentinel ground-truth system messages (e.g., "__GT__:") before sending to the model
-        messages_payload = [
-            {"role": m.role, "content": m.content}
-            for m in row.messages
-            if not (m.role == "system" and (m.content or "").startswith("__GT__:"))
-        ]
+        messages_payload = [{"role": m.role, "content": m.content} for m in row.messages]
 
         request_params = {"model": config.model, "messages": messages_payload, **config.input_params}
         # Ensure caching is disabled only for this request (review feedback)

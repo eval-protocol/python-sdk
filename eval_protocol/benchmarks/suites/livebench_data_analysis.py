@@ -315,7 +315,7 @@ def _tablereformat_process_results(
 SYSTEM_PROMPT = "You are a helpful data analyst. Read the task and answer precisely."
 
 
-def _load_livebench_da_messages(task_name: str) -> List[List[Message]]:
+def _load_livebench_da_messages(task_name: str) -> List[EvaluationRow]:
     try:
         from datasets import load_dataset  # type: ignore
     except Exception as e:  # pragma: no cover
@@ -324,26 +324,25 @@ def _load_livebench_da_messages(task_name: str) -> List[List[Message]]:
         ) from e
 
     ds = load_dataset("livebench/data_analysis", split="test")
-    rows: List[List[Message]] = []
+    rows: List[EvaluationRow] = []
     for ex in ds:
         if str(ex.get("task", "")) != task_name:
             continue
         question_text = str(ex.get("turns", [""])[0])
         ground_truth = ex.get("ground_truth")
+        release = ex.get("livebench_release_date", "")
         try:
-            gt_json = json.dumps({
-                "ground_truth": ground_truth,
-                "release": ex.get("livebench_release_date", ""),
-            }, ensure_ascii=False)
+            gt_payload = json.dumps({"ground_truth": ground_truth, "release": release}, ensure_ascii=False)
         except TypeError:
-            # Some rows may include non-serializable types; fall back to string cast
-            gt_json = json.dumps({"ground_truth": str(ground_truth), "release": str(ex.get("livebench_release_date", ""))})
+            gt_payload = json.dumps({"ground_truth": str(ground_truth), "release": str(release)})
         rows.append(
-            [
-                Message(role="system", content=SYSTEM_PROMPT),
-                Message(role="user", content=question_text),
-                Message(role="system", content=f"__GT__:{gt_json}"),
-            ]
+            EvaluationRow(
+                messages=[
+                    Message(role="system", content=SYSTEM_PROMPT),
+                    Message(role="user", content=question_text),
+                ],
+                ground_truth=gt_payload,
+            )
         )
     if not rows:
         raise RuntimeError(f"No rows found for LiveBench data_analysis task '{task_name}'")
@@ -351,31 +350,31 @@ def _load_livebench_da_messages(task_name: str) -> List[List[Message]]:
 
 
 def _extract_gt(row: EvaluationRow) -> Dict[str, Any]:
-    gt_tokens = [
-        m.content
-        for m in row.messages
-        if m.role == "system" and (m.content or "").startswith("__GT__:")
-    ]
-    if not gt_tokens:
+    # For LiveBench Data Analysis, we fetch the ground truth from the HF dataset
+    # and store it in the top-level ground_truth field in the adapter below.
+    # Here, just parse row.ground_truth if it contains a JSON payload, else string.
+    if row.ground_truth is None:
         return {"ground_truth": None, "release": None}
     try:
-        payload = json.loads(gt_tokens[-1].split(":", 1)[1])
-        return payload if isinstance(payload, dict) else {"ground_truth": payload, "release": None}
+        payload = json.loads(row.ground_truth)
+        if isinstance(payload, dict):
+            return payload
     except Exception:
-        return {"ground_truth": gt_tokens[-1].split(":", 1)[1], "release": None}
+        pass
+    return {"ground_truth": row.ground_truth, "release": None}
 
 
 # -------------------------
 # CTA
 # -------------------------
 
-_CTA_MESSAGES = _load_livebench_da_messages("cta")
+_CTA_ROWS = _load_livebench_da_messages("cta")
 
 
 @export_benchmark("live_bench/data_analysis/cta")
 @evaluation_test(
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
-    input_messages=_CTA_MESSAGES,
+    input_messages=[[m for m in r.messages] for r in _CTA_ROWS],
     rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
@@ -412,13 +411,13 @@ def livebench_cta_pointwise(row: EvaluationRow) -> EvaluationRow:
 # Table Join
 # -------------------------
 
-_TABLEJOIN_MESSAGES = _load_livebench_da_messages("tablejoin")
+_TABLEJOIN_ROWS = _load_livebench_da_messages("tablejoin")
 
 
 @export_benchmark("live_bench/data_analysis/tablejoin")
 @evaluation_test(
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
-    input_messages=_TABLEJOIN_MESSAGES,
+    input_messages=[[m for m in r.messages] for r in _TABLEJOIN_ROWS],
     rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
@@ -456,13 +455,13 @@ def livebench_tablejoin_pointwise(row: EvaluationRow) -> EvaluationRow:
 # Table Reformat
 # -------------------------
 
-_TABLEREFORMAT_MESSAGES = _load_livebench_da_messages("tablereformat")
+_TABLEREFORMAT_ROWS = _load_livebench_da_messages("tablereformat")
 
 
 @export_benchmark("live_bench/data_analysis/tablereformat")
 @evaluation_test(
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
-    input_messages=_TABLEREFORMAT_MESSAGES,
+    input_messages=[[m for m in r.messages] for r in _TABLEREFORMAT_ROWS],
     rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
