@@ -24,5 +24,4 @@ export interface PivotConfig {
   selectedColumnFields: string[];
   selectedValueField: string;
   selectedAggregator: string;
-  filters: FilterGroup[];
 }

@@ -11,11 +11,10 @@ const DEFAULT_PIVOT_CONFIG: PivotConfig = {
   selectedColumnFields: ["$.input_metadata.completion_params.model"],
   selectedValueField: "$.evaluation_result.score",
   selectedAggregator: "avg",
-  filters: [],
 };
 
-// Default table filter configuration
-const DEFAULT_TABLE_FILTER_CONFIG: FilterGroup[] = [];
+// Default filter configuration
+const DEFAULT_FILTER_CONFIG: FilterGroup[] = [];
 
 // Default pagination configuration
 const DEFAULT_PAGINATION_CONFIG = {
@@ -31,10 +30,10 @@ export class GlobalState {
   expandedRows: Record<string, boolean> = {};
   // Pivot configuration
   pivotConfig: PivotConfig;
-  // Table filter configuration
-  tableFilterConfig: FilterGroup[];
-  // Debounced, actually applied table filter configuration (for performance while typing)
-  appliedTableFilterConfig: FilterGroup[];
+  // Unified filter configuration for both pivot and table views
+  filterConfig: FilterGroup[];
+  // Debounced, actually applied filter configuration (for performance while typing)
+  appliedFilterConfig: FilterGroup[];
   // Pagination configuration
   currentPage: number;
   pageSize: number;
@@ -49,19 +48,18 @@ export class GlobalState {
 
   // Debounce timers for localStorage saves and filter application
   private savePivotConfigTimer: ReturnType<typeof setTimeout> | null = null;
-  private saveTableFilterConfigTimer: ReturnType<typeof setTimeout> | null =
-    null;
+  private saveFilterConfigTimer: ReturnType<typeof setTimeout> | null = null;
   private savePaginationConfigTimer: ReturnType<typeof setTimeout> | null =
     null;
-  private applyTableFilterTimer: ReturnType<typeof setTimeout> | null = null;
+  private applyFilterTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     // Load pivot config from localStorage or use defaults
     this.pivotConfig = this.loadPivotConfig();
-    // Load table filter config from localStorage or use defaults
-    this.tableFilterConfig = this.loadTableFilterConfig();
+    // Load filter config from localStorage or use defaults
+    this.filterConfig = this.loadFilterConfig();
     // Initialize applied filter config with current value
-    this.appliedTableFilterConfig = this.tableFilterConfig.slice();
+    this.appliedFilterConfig = this.filterConfig.slice();
     // Load pagination config from localStorage or use defaults
     const paginationConfig = this.loadPaginationConfig();
     this.currentPage = paginationConfig.currentPage;
@@ -84,21 +82,18 @@ export class GlobalState {
     return { ...DEFAULT_PIVOT_CONFIG };
   }
 
-  // Load table filter configuration from localStorage
-  private loadTableFilterConfig(): FilterGroup[] {
+  // Load filter configuration from localStorage
+  private loadFilterConfig(): FilterGroup[] {
     try {
-      const stored = localStorage.getItem("tableFilterConfig");
+      const stored = localStorage.getItem("filterConfig");
       if (stored) {
         const parsed = JSON.parse(stored);
-        return Array.isArray(parsed) ? parsed : DEFAULT_TABLE_FILTER_CONFIG;
+        return Array.isArray(parsed) ? parsed : DEFAULT_FILTER_CONFIG;
       }
     } catch (error) {
-      console.warn(
-        "Failed to load table filter config from localStorage:",
-        error
-      );
+      console.warn("Failed to load filter config from localStorage:", error);
     }
-    return DEFAULT_TABLE_FILTER_CONFIG;
+    return DEFAULT_FILTER_CONFIG;
   }
 
   // Load pagination configuration from localStorage
@@ -116,7 +111,7 @@ export class GlobalState {
         error
       );
     }
-    return { ...DEFAULT_PAGINATION_CONFIG };
+    return DEFAULT_PAGINATION_CONFIG;
   }
 
   // Save pivot configuration to localStorage
@@ -131,21 +126,14 @@ export class GlobalState {
     }, 200);
   }
 
-  // Save table filter configuration to localStorage
-  private saveTableFilterConfig() {
-    if (this.saveTableFilterConfigTimer)
-      clearTimeout(this.saveTableFilterConfigTimer);
-    this.saveTableFilterConfigTimer = setTimeout(() => {
+  // Save filter configuration to localStorage
+  private saveFilterConfig() {
+    if (this.saveFilterConfigTimer) clearTimeout(this.saveFilterConfigTimer);
+    this.saveFilterConfigTimer = setTimeout(() => {
       try {
-        localStorage.setItem(
-          "tableFilterConfig",
-          JSON.stringify(this.tableFilterConfig)
-        );
+        localStorage.setItem("filterConfig", JSON.stringify(this.filterConfig));
       } catch (error) {
-        console.warn(
-          "Failed to save table filter config to localStorage:",
-          error
-        );
+        console.warn("Failed to save filter config to localStorage:", error);
       }
     }, 200);
   }
@@ -178,15 +166,15 @@ export class GlobalState {
     this.savePivotConfig();
   }
 
-  // Update table filter configuration and save to localStorage
-  updateTableFilterConfig(filters: FilterGroup[]) {
-    this.tableFilterConfig = filters;
-    this.saveTableFilterConfig();
+  // Update filter configuration and save to localStorage
+  updateFilterConfig(filters: FilterGroup[]) {
+    this.filterConfig = filters;
+    this.saveFilterConfig();
 
     // Debounce application of filters to avoid re-filtering on every keystroke
-    if (this.applyTableFilterTimer) clearTimeout(this.applyTableFilterTimer);
-    this.applyTableFilterTimer = setTimeout(() => {
-      this.appliedTableFilterConfig = this.tableFilterConfig.slice();
+    if (this.applyFilterTimer) clearTimeout(this.applyFilterTimer);
+    this.applyFilterTimer = setTimeout(() => {
+      this.appliedFilterConfig = this.filterConfig.slice();
     }, 150);
   }
 
@@ -205,18 +193,15 @@ export class GlobalState {
 
   // Reset pivot configuration to defaults
   resetPivotConfig() {
-    this.pivotConfig = {
-      ...DEFAULT_PIVOT_CONFIG,
-      filters: [], // Ensure filters is an empty array of FilterGroups
-    };
+    this.pivotConfig = { ...DEFAULT_PIVOT_CONFIG };
     this.savePivotConfig();
   }
 
-  // Reset table filter configuration to defaults
-  resetTableFilterConfig() {
-    this.tableFilterConfig = [...DEFAULT_TABLE_FILTER_CONFIG];
-    this.appliedTableFilterConfig = [...DEFAULT_TABLE_FILTER_CONFIG];
-    this.saveTableFilterConfig();
+  // Reset filter configuration to defaults
+  resetFilterConfig() {
+    this.filterConfig = [...DEFAULT_FILTER_CONFIG];
+    this.appliedFilterConfig = [...DEFAULT_FILTER_CONFIG];
+    this.saveFilterConfig();
   }
 
   // Reset pagination configuration to defaults
@@ -315,20 +300,20 @@ export class GlobalState {
   }
 
   get filteredFlattenedDataset() {
-    if (this.appliedTableFilterConfig.length === 0) {
+    if (this.appliedFilterConfig.length === 0) {
       return this.flattenedDataset;
     }
 
-    const filterFunction = createFilterFunction(this.appliedTableFilterConfig)!;
+    const filterFunction = createFilterFunction(this.appliedFilterConfig)!;
     return this.flattenedDataset.filter(filterFunction);
   }
 
   get filteredOriginalDataset() {
-    if (this.appliedTableFilterConfig.length === 0) {
+    if (this.appliedFilterConfig.length === 0) {
       return this.sortedDataset;
     }
 
-    const filterFunction = createFilterFunction(this.appliedTableFilterConfig)!;
+    const filterFunction = createFilterFunction(this.appliedFilterConfig)!;
     return this.sortedIds
       .filter((id) => filterFunction(this.flattenedById[id]))
       .map((id) => this.dataset[id]);

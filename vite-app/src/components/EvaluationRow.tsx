@@ -121,7 +121,6 @@ const RolloutId = observer(
     return (
       <span className="font-mono text-gray-900 whitespace-nowrap">
         {rolloutId}
-        <CopyButton text={rolloutId} />
       </span>
     );
   }
