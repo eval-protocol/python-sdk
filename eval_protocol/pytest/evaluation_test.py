@@ -705,11 +705,12 @@ def evaluation_test(  # noqa: C901
             """
             import asyncio
 
-            is_test_func_async = asyncio.iscoroutinefunction(test_func)
+            # Check if the test function is async
+            is_async = asyncio.iscoroutinefunction(test_func)
 
             async def call_test_func(**call_kwargs):
                 """Helper to call test_func with proper async/sync handling"""
-                if is_test_func_async:
+                if is_async:
                     return await test_func(**call_kwargs)
                 else:
                     return test_func(**call_kwargs)
