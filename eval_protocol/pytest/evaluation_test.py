@@ -59,7 +59,7 @@ def evaluation_test(  # noqa: C901
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
     rollout_processor_kwargs: Optional[RolloutProcessorInputParam] = None,
     aggregation_method: AggregationMethod = "mean",
-    passed_threshold: Optional[Union[EvaluationThreshold, float]] = None,
+    passed_threshold: Optional[Union[EvaluationThreshold, float, dict]] = None,
     num_runs: int = 1,
     max_dataset_rows: Optional[int] = None,
     mcp_config_path: Optional[str] = None,
