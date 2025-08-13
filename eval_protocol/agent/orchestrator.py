@@ -57,7 +57,6 @@ from .resources import (
     BFCLSimAPIResource,
     DockerResource,
     FileSystemResource,
-    HttpRolloutResource,
     PythonStateResource,
     SQLResource,
 )
@@ -244,8 +243,6 @@ class Orchestrator:
             "FileSystemResource": FileSystemResource,
             "DockerResource": DockerResource,
             "BFCLSimAPIResource": BFCLSimAPIResource,  # Add BFCLSimAPIResource to mapping
-            "HttpRolloutResource": HttpRolloutResource,  # Add HttpRolloutResource to mapping
-            "http_rollout": HttpRolloutResource,  # Allow lowercase alias for convenience
         }
         resource_class = mapping.get(resource_type_name)
 
