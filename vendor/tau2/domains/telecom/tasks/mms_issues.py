@@ -92,9 +92,7 @@ def break_apn_mms_setting(*args, **kwargs) -> list[EnvFunctionCall]:
     ]
 
 
-def _get_remove_app_permission_actions(
-    app_name: str = "messaging", permission: str = "sms"
-):
+def _get_remove_app_permission_actions(app_name: str = "messaging", permission: str = "sms"):
     """
     Get the remove app permission actions for the mms issue task.
     """
@@ -116,9 +114,7 @@ def break_app_storage_permission(*args, **kwargs) -> list[EnvFunctionCall]:
     """
     Break the app storage permission for the mms issue task.
     """
-    return [
-        _get_remove_app_permission_actions(app_name="messaging", permission="storage")
-    ]
+    return [_get_remove_app_permission_actions(app_name="messaging", permission="storage")]
 
 
 def break_app_both_permissions(*args, **kwargs) -> list[EnvFunctionCall]:
@@ -163,9 +159,7 @@ def fix_break_apn_mms_setting(*args, **kwargs) -> list[ToolCall]:
     ]
 
 
-def _get_grant_app_permission_actions(
-    app_name: str = "messaging", permission: str = "sms"
-) -> ToolCall:
+def _get_grant_app_permission_actions(app_name: str = "messaging", permission: str = "sms") -> ToolCall:
     """
     Get the grant app permission actions for the mms issue task.
     """
@@ -187,9 +181,7 @@ def fix_break_app_storage_permission(*args, **kwargs) -> list[ToolCall]:
     """
     Fix the break app storage permission issue.
     """
-    return [
-        _get_grant_app_permission_actions(app_name="messaging", permission="storage")
-    ]
+    return [_get_grant_app_permission_actions(app_name="messaging", permission="storage")]
 
 
 def fix_break_app_both_permissions(*args, **kwargs) -> list[ToolCall]:
@@ -277,11 +269,7 @@ mms_issues_selection_sets = [
     app_permission_issues,  # Step3.5
 ]
 
-selection_sets = (
-    service_issues_sample_sets
-    + mobile_data_issues_sample_sets
-    + mms_issues_selection_sets
-)
+selection_sets = service_issues_sample_sets + mobile_data_issues_sample_sets + mms_issues_selection_sets
 
 
 def task_validator(tasks: list[Optional[BaseTask]]):
@@ -304,9 +292,7 @@ def task_validator(tasks: list[Optional[BaseTask]]):
     num_tasks_mms_issues = len(
         [
             task
-            for task in tasks[
-                len(service_issues_sample_sets) + len(mobile_data_issues_sample_sets) :
-            ]
+            for task in tasks[len(service_issues_sample_sets) + len(mobile_data_issues_sample_sets) :]
             if task is not None
         ]
     )

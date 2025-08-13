@@ -121,7 +121,7 @@ def generate_sample_trajectory():
     print(f"\n📁 Trajectory saved to {output_dir}")
     print(f"   📊 {len(trajectory_data)} steps recorded")
     print(f"   🖼️  {len(list(output_dir.glob('*.png')))} images saved")
-    print(f"   📋 Summary: trajectory_summary.json")
+    print("   📋 Summary: trajectory_summary.json")
 
     env.close()
     return output_dir
@@ -153,7 +153,7 @@ def save_frame(frame_data: str, output_path: Path, step: int, action: str):
 if __name__ == "__main__":
     try:
         output_dir = generate_sample_trajectory()
-        print(f"\n✅ Sample trajectory generated successfully!")
+        print("\n✅ Sample trajectory generated successfully!")
         print(f"📁 View images in: {output_dir.absolute()}")
 
     except Exception as e:

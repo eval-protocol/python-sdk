@@ -32,7 +32,7 @@ class BlackjackAdapter(EnvironmentAdapter):
         natural = config.get("natural")
         if natural is None:
             natural = False
-            print(f"🔍 BlackjackAdapter.create_environment: natural is not set in the config, use False by default")
+            print("🔍 BlackjackAdapter.create_environment: natural is not set in the config, use False by default")
         if isinstance(natural, str):
             natural = natural.lower() == "true"
             print(f"🔍 BlackjackAdapter.create_environment: natural is a string, convert to boolean: {natural}")
@@ -42,7 +42,7 @@ class BlackjackAdapter(EnvironmentAdapter):
         sab = config.get("sab", False)
         if sab is None:
             sab = False
-            print(f"🔍 BlackjackAdapter.create_environment: sab is not set in the config, use False by default")
+            print("🔍 BlackjackAdapter.create_environment: sab is not set in the config, use False by default")
         if isinstance(sab, str):
             sab = sab.lower() == "true"
             print(f"🔍 BlackjackAdapter.create_environment: sab is a string, convert to boolean: {sab}")
@@ -50,7 +50,7 @@ class BlackjackAdapter(EnvironmentAdapter):
             sab = bool(sab)
 
         env = BlackjackEnv(render_mode="ansi", natural=natural, sab=sab)
-        print(f"🔍 BlackjackAdapter.create_environment: Created BlackjackEnv")
+        print("🔍 BlackjackAdapter.create_environment: Created BlackjackEnv")
         return env
 
     def create_environment_with_seed(

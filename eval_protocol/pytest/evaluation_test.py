@@ -8,7 +8,6 @@ import pathlib
 import re
 import statistics
 import time
-from dataclasses import replace
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 import pytest
@@ -25,8 +24,7 @@ from eval_protocol.models import (
     Message,
 )
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
-from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
-from eval_protocol.pytest.rollout_processor import RolloutProcessor
+from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
 from eval_protocol.pytest.types import (
     Dataset,
     DatasetPathParam,
@@ -34,6 +32,8 @@ from eval_protocol.pytest.types import (
     EvaluationTestMode,
     InputMessagesParam,
     ModelParam,
+    RolloutInputParam,
+    RolloutProcessor,
     RolloutProcessorConfig,
     RolloutProcessorInputParam,
     TestFunction,
@@ -42,14 +42,8 @@ from eval_protocol.pytest.utils import (
     AggregationMethod,
     aggregate,
     create_dynamically_parameterized_wrapper,
-    deep_update_dict,
     execute_function,
-    extract_effort_tag,
-    generate_parameter_combinations,
     log_eval_status_and_rows,
-    parse_ep_max_rows,
-    rollout_processor_with_retry,
-    sanitize_filename,
 )
 from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
 
@@ -58,15 +52,16 @@ from ..common_utils import load_jsonl
 
 def evaluation_test(  # noqa: C901
     *,
-    completion_params: List[CompletionParams],
+    model: List[ModelParam],
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
     dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
-    rollout_processor: RolloutProcessor = NoOpRolloutProcessor(),
+    rollout_input_params: Optional[List[RolloutInputParam]] = None,
+    rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
     rollout_processor_kwargs: Optional[RolloutProcessorInputParam] = None,
     aggregation_method: AggregationMethod = "mean",
-    passed_threshold: Optional[Union[EvaluationThreshold, float, dict]] = None,
+    passed_threshold: Optional[Union[EvaluationThreshold, float]] = None,
     num_runs: int = 1,
     max_dataset_rows: Optional[int] = None,
     mcp_config_path: Optional[str] = None,
@@ -114,6 +109,7 @@ def evaluation_test(  # noqa: C901
     which can be used to easily group and identify your dataset by.
 
     Args:
+        model: Model identifiers to query.
         input_messages: Messages to send to the model. This is useful if you
             don't have a dataset but can hard-code the messages. Will be passed as
             "input_dataset" to the test function.
@@ -122,12 +118,12 @@ def evaluation_test(  # noqa: C901
             to a list of EvaluationRows if you have a custom dataset format.
         dataset_adapter: Function to convert the input dataset to a list of
             EvaluationRows. This is useful if you have a custom dataset format.
-        completion_params: Generation parameters for the rollout.
+        rollout_input_params: Generation parameters for the rollout.
         rollout_processor: Function used to perform the rollout.
         evaluation_test_kwargs: Kwargs for the evaluation function.
         rollout_processor_kwargs: Kwargs for the rollout processor.
         aggregation_method: How to aggregate scores across rows.
-        passed_threshold: Threshold configuration for test success. Must be a float or EvaluationThreshold object.
+        passed_threshold: Threshold configuration for test success.
             Success rate must be above success, and if set, standard deviation must be below standard_deviation.
         num_runs: Number of times to repeat the rollout and evaluations.
         max_dataset_rows: Limit dataset to the first N rows.
@@ -207,15 +203,81 @@ def evaluation_test(  # noqa: C901
                 return test_func(**kwargs)
 
         # Calculate all possible combinations of parameters
+        def _parse_ep_max_rows(default_value: int | None) -> int | None:
+            """Read EP_MAX_DATASET_ROWS env override as int or None."""
+            raw = os.getenv("EP_MAX_DATASET_ROWS")
+            if raw is None:
+                return default_value
+            s = raw.strip().lower()
+            if s == "none":
+                return None
+            try:
+                return int(s)
+            except ValueError:
+                return default_value
 
-        combinations = generate_parameter_combinations(
-            input_dataset,
-            completion_params,
-            input_messages,
-            evaluation_test_kwargs,
-            max_dataset_rows,
-            combine_datasets,
-        )
+        def _deep_update_dict(base: dict, override: dict) -> dict:
+            """Recursively update nested dictionaries in-place and return base."""
+            for key, value in override.items():
+                if isinstance(value, dict) and isinstance(base.get(key), dict):
+                    _deep_update_dict(base[key], value)
+                else:
+                    base[key] = value
+            return base
+
+        def generate_combinations():
+            combinations = []
+
+            # Handle optional parameters with defaults
+            # Optionally combine multiple dataset paths into one logical dataset,
+            # or parameterize to run one dataset per test invocation.
+            if input_dataset is not None:
+                if combine_datasets:
+                    datasets: List[Optional[List[DatasetPathParam]]] = [input_dataset]  # type: ignore
+                else:
+                    # Fan out: one dataset path per parameterization
+                    if isinstance(input_dataset, list):  # type: ignore
+                        datasets = [[p] for p in input_dataset]  # type: ignore
+                    else:
+                        datasets = [[input_dataset]]  # type: ignore
+            else:
+                datasets = [None]
+            rips: List[Optional[RolloutInputParam]] = (
+                rollout_input_params if rollout_input_params is not None else [None]
+            )  # type: ignore
+            # Apply EP_MAX_DATASET_ROWS to input_messages, but do NOT parameterize over
+            # each row. Instead, pass the entire sliced list through in a single test run
+            # so summaries aggregate all rows together (AIME-style behavior).
+            if input_messages is not None and isinstance(input_messages, list):
+                effective_max_rows = _parse_ep_max_rows(max_dataset_rows)
+                if effective_max_rows is not None:
+                    sliced_messages = input_messages[:effective_max_rows]  # type: ignore
+                else:
+                    sliced_messages = input_messages  # type: ignore
+                # Wrap as a single parameter payload
+                messages = [sliced_messages]  # type: ignore
+            else:
+                messages = [None]  # type: ignore
+            kwargs: List[Optional[EvaluationInputParam]] = (
+                evaluation_test_kwargs if evaluation_test_kwargs is not None else [None]
+            )  # type: ignore
+
+            # Generate all combinations
+            for m in model:
+                for ds in datasets:
+                    for rip in rips:
+                        for im in messages:
+                            for etk in kwargs:
+                                # if no dataset and no messages, raise an error
+                                if ds is None and im is None:
+                                    raise ValueError(
+                                        "No dataset or messages provided. Please provide at least one of input_dataset or input_messages."
+                                    )
+                                combinations.append((m, ds, rip, im, etk))
+
+            return combinations
+
+        combinations = generate_combinations()
         if len(combinations) == 0:
             raise ValueError(
                 "No combinations of parameters were found. Please provide at least a model and one of input_dataset or input_messages."
@@ -224,12 +286,12 @@ def evaluation_test(  # noqa: C901
         # Create parameter tuples for pytest.mark.parametrize
         param_tuples = []
         for combo in combinations:
-            dataset, cp, messages, etk = combo
-            param_tuple = []
+            model_name, dataset, rip, messages, etk = combo
+            param_tuple = [model_name]
             if input_dataset is not None:
                 param_tuple.append(dataset)
-            if completion_params is not None:
-                param_tuple.append(cp)
+            if rollout_input_params is not None:
+                param_tuple.append(rip)
             if input_messages is not None:
                 param_tuple.append(messages)
             if evaluation_test_kwargs is not None:
@@ -237,11 +299,11 @@ def evaluation_test(  # noqa: C901
             param_tuples.append(tuple(param_tuple))
 
         # For batch mode, use the original parameter names
-        test_param_names = []
+        test_param_names = ["model"]
         if input_dataset is not None:
             test_param_names.append("dataset_path")
-        if completion_params is not None:
-            test_param_names.append("completion_params")
+        if rollout_input_params is not None:
+            test_param_names.append("input_params")
         if input_messages is not None:
             test_param_names.append("input_messages")
         if evaluation_test_kwargs is not None:
@@ -253,6 +315,7 @@ def evaluation_test(  # noqa: C901
             invocation_id = generate_id()
 
             async def wrapper_body(**kwargs):
+                model_name = kwargs["model"]
                 eval_metadata = None
                 all_results: List[List[EvaluationRow]] = [[] for _ in range(num_runs)]
 
@@ -277,7 +340,7 @@ def evaluation_test(  # noqa: C901
                         else:
                             data_jsonl = load_jsonl(ds_arg)
                         # Apply env override for max rows if present
-                        effective_max_rows = parse_ep_max_rows(max_dataset_rows)
+                        effective_max_rows = _parse_ep_max_rows(max_dataset_rows)
                         if effective_max_rows is not None:
                             data_jsonl = data_jsonl[:effective_max_rows]
                         data = dataset_adapter(data_jsonl)
@@ -293,16 +356,7 @@ def evaluation_test(  # noqa: C901
                     else:
                         raise ValueError("No input dataset or input messages provided")
 
-                    if "completion_params" not in kwargs or not kwargs["completion_params"]:
-                        raise ValueError(
-                            "No completion parameters provided. Please provide a completion parameters object."
-                        )
-                    completion_params = kwargs["completion_params"]
-                    if "model" not in completion_params or not completion_params["model"]:
-                        raise ValueError(
-                            "No model provided. Please provide a model in the completion parameters object."
-                        )
-
+                    input_params = kwargs.get("input_params") or {}
                     # Optional global overrides via environment for ad-hoc experimentation
                     # EP_INPUT_PARAMS_JSON can contain a JSON object that will be deep-merged
                     # into input_params (e.g., '{"temperature":0,"extra_body":{"reasoning":{"effort":"low"}}}').
@@ -313,7 +367,7 @@ def evaluation_test(  # noqa: C901
                         if _env_override:
                             override_obj = _json.loads(_env_override)
                             if isinstance(override_obj, dict):
-                                completion_params = deep_update_dict(dict(completion_params), override_obj)
+                                input_params = _deep_update_dict(dict(input_params), override_obj)
                     except Exception:
                         pass
 
@@ -326,6 +380,14 @@ def evaluation_test(  # noqa: C901
                         aggregation_method=aggregation_method,
                         passed_threshold=threshold,
                         passed=None,
+                    )
+
+                    # Populate completion_params in input_metadata for all rows and initialize eval_metadata BEFORE rollouts
+                    completion_params = CompletionParams(
+                        model=model_name,
+                        temperature=input_params.get("temperature"),
+                        max_tokens=input_params.get("max_tokens"),
+                        max_tool_calls=input_params.get("max_tool_calls"),
                     )
 
                     for row in data:
@@ -347,16 +409,15 @@ def evaluation_test(  # noqa: C901
 
                     # Prepare rollout processor config once; we will generate fresh outputs per run
                     config = RolloutProcessorConfig(
-                        completion_params=completion_params,
+                        model=model_name,
+                        input_params=input_params,
                         mcp_config_path=mcp_config_path or "",
                         max_concurrent_rollouts=max_concurrent_rollouts,
                         server_script_path=server_script_path,
                         steps=steps,
                         logger=active_logger,
-                        kwargs=rollout_processor_kwargs or {},
+                        kwargs=rollout_processor_kwargs,
                     )
-
-                    max_retry = int(os.getenv("EP_MAX_RETRY", "0"))
 
                     for i in range(num_runs):
                         # Regenerate outputs each run by deep-copying the pristine dataset
@@ -376,6 +437,8 @@ def evaluation_test(  # noqa: C901
                         for row in fresh_dataset:
                             active_logger.log(row)
 
+                        rollout_result = rollout_processor(fresh_dataset, config)
+
                         if mode == "pointwise":
                             # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
                             semaphore = asyncio.Semaphore(max_concurrent_rollouts)
@@ -383,8 +446,6 @@ def evaluation_test(  # noqa: C901
 
                             async def _execute_with_semaphore(row):
                                 async with semaphore:
-                                    # NOTE: we will still evaluate errored rows (give users control over this)
-                                    # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
                                     result = await execute_with_params(
                                         test_func,
                                         processed_row=row,
@@ -396,10 +457,7 @@ def evaluation_test(  # noqa: C901
                                         )
                                     return result
 
-                            # Use wrapper that handles retry logic internally
-                            async for row in rollout_processor_with_retry(
-                                rollout_processor, fresh_dataset, config, max_retry
-                            ):
+                            async for row in rollout_processor(fresh_dataset, config):
                                 tasks.append(asyncio.create_task(_execute_with_semaphore(row)))
 
                             all_results[i] = await asyncio.gather(*tasks)
@@ -407,12 +465,9 @@ def evaluation_test(  # noqa: C901
                         else:
                             # Batch mode: collect all results first, then evaluate (no pipelining)
                             input_dataset = []
-                            async for row in rollout_processor_with_retry(
-                                rollout_processor, fresh_dataset, config, max_retry
-                            ):
+                            async for row in rollout_result:
                                 input_dataset.append(row)
-                            # NOTE: we will still evaluate errored rows (give users control over this)
-                            # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
+
                             results = await execute_with_params(
                                 test_func,
                                 processed_dataset=input_dataset,
@@ -471,7 +526,7 @@ def evaluation_test(  # noqa: C901
 
                         passed = success_passed and std_passed
 
-                    # Update eval metadata passed field for all results
+                    # Update eval metadata status and passed field for all results
                     for result in all_results:
                         for r in result:
                             if r.eval_metadata is not None:
@@ -484,7 +539,7 @@ def evaluation_test(  # noqa: C901
                         should_print = os.getenv("EP_PRINT_SUMMARY") == "1"
                         summary_path = os.getenv("EP_SUMMARY_JSON")
                         suite_name = test_func.__name__
-                        model_used = config.completion_params["model"]
+                        model_used = model_name
                         total_rows = len([item for sublist in all_results for item in sublist])
                         summary_obj = {
                             "suite": suite_name,
@@ -541,9 +596,35 @@ def evaluation_test(  # noqa: C901
                                 )
                             # As per project convention, avoid printing per-metric CI lines to reduce noise
                         if summary_path:
-                            model_slug = sanitize_filename(model_used)
-                            effort_tag = extract_effort_tag(completion_params) or ""
-                            effort_suffix = f"__effort-{sanitize_filename(effort_tag)}" if effort_tag else ""
+
+                            def _sanitize_filename(text: str) -> str:
+                                safe = re.sub(r"[^A-Za-z0-9._-]+", "-", text.strip())
+                                return safe[:120]
+
+                            def _extract_effort_tag(params: dict) -> str | None:
+                                try:
+                                    if not isinstance(params, dict):
+                                        return None
+                                    # Common locations
+                                    if "extra_body" in params and isinstance(params["extra_body"], dict):
+                                        eb = params["extra_body"]
+                                        if isinstance(eb.get("reasoning"), dict) and "effort" in eb["reasoning"]:
+                                            return str(eb["reasoning"]["effort"]).lower()
+                                        if "reasoning_effort" in eb:
+                                            return str(eb["reasoning_effort"]).lower()
+                                    if (
+                                        "reasoning" in params
+                                        and isinstance(params["reasoning"], dict)
+                                        and "effort" in params["reasoning"]
+                                    ):
+                                        return str(params["reasoning"]["effort"]).lower()
+                                except Exception:
+                                    return None
+                                return None
+
+                            model_slug = _sanitize_filename(model_used)
+                            effort_tag = _extract_effort_tag(input_params) or ""
+                            effort_suffix = f"__effort-{_sanitize_filename(effort_tag)}" if effort_tag else ""
                             base_name = f"{suite_name}__{model_slug}{effort_suffix}__{mode}__runs{num_runs}.json"
 
                             p = pathlib.Path(summary_path)
@@ -561,7 +642,7 @@ def evaluation_test(  # noqa: C901
                                 parent.mkdir(parents=True, exist_ok=True)
                                 # If we detected an effort tag, fan out to separate files; otherwise write to the exact file
                                 if effort_tag:
-                                    out_file = parent / f"{p.stem}__{sanitize_filename(effort_tag)}{p.suffix}"
+                                    out_file = parent / f"{p.stem}__{_sanitize_filename(effort_tag)}{p.suffix}"
                                 else:
                                     out_file = p
 
@@ -590,13 +671,13 @@ def evaluation_test(  # noqa: C901
 
                     # Check threshold after logging
                     if threshold is not None and not passed:
-                        assert (
-                            agg_score >= threshold.success
-                        ), f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
+                        assert agg_score >= threshold.success, (
+                            f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
+                        )
                         if threshold.standard_deviation is not None:
-                            assert (
-                                score_std <= threshold.standard_deviation
-                            ), f"Standard deviation {score_std:.3f} above threshold {threshold.standard_deviation}"
+                            assert score_std <= threshold.standard_deviation, (
+                                f"Standard deviation {score_std:.3f} above threshold {threshold.standard_deviation}"
+                            )
 
                 except AssertionError:
                     _log_eval_error("finished", data if "data" in locals() else None, passed=False)
@@ -679,10 +760,11 @@ def evaluation_test(  # noqa: C901
         try:
             dual_mode_wrapper.__ep_original_test_func = test_func  # type: ignore[attr-defined]
             dual_mode_wrapper.__ep_config = {
+                "model": model,
                 "input_messages": input_messages,
                 "input_dataset": input_dataset,
                 "dataset_adapter": dataset_adapter,
-                "rollout_input_params": completion_params,
+                "rollout_input_params": rollout_input_params,
                 "rollout_processor": rollout_processor,
                 "evaluation_test_kwargs": evaluation_test_kwargs,
                 "rollout_processor_kwargs": rollout_processor_kwargs,
@@ -716,13 +798,14 @@ def evaluation_test(  # noqa: C901
                     rip = rip_list[0] if isinstance(rip_list, list) and rip_list else {}
                 return run_evaluation_test_direct(
                     test_func=dual_mode_wrapper.__ep_original_test_func,  # type: ignore[attr-defined]
+                    model=_model,
                     input_messages=cfg.get("input_messages"),
                     input_dataset=cfg.get("input_dataset"),
                     dataset_adapter=cfg.get("dataset_adapter"),
-                    completion_params=rip,
+                    rollout_input_params=rip,
                     rollout_processor=cfg.get("rollout_processor"),
                     aggregation_method=cfg.get("aggregation_method"),
-                    passed_threshold=cfg.get("passed_threshold"),
+                    threshold_of_success=cfg.get("passed_threshold"),
                     num_runs=(num_runs_override if num_runs_override is not None else cfg.get("num_runs")),
                     max_dataset_rows=cfg.get("max_dataset_rows"),
                     mcp_config_path=cfg.get("mcp_config_path"),
@@ -746,14 +829,15 @@ def evaluation_test(  # noqa: C901
 def run_evaluation_test_direct(
     *,
     test_func: TestFunction,
+    model: str,
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
     dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
-    completion_params: Optional[CompletionParams] = None,
-    rollout_processor: RolloutProcessor = NoOpRolloutProcessor(),
+    rollout_input_params: Optional[RolloutInputParam] = None,
+    rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
     rollout_processor_kwargs: Optional[RolloutProcessorInputParam] = None,
     aggregation_method: AggregationMethod = "mean",
-    passed_threshold: Optional[Union[EvaluationThreshold, float]] = None,
+    threshold_of_success: Optional[float] = None,
     num_runs: int = 1,
     max_dataset_rows: Optional[int] = None,
     mcp_config_path: Optional[str] = None,
@@ -769,8 +853,25 @@ def run_evaluation_test_direct(
     Returns a dict with keys: summary, results.
     """
 
-    if passed_threshold is not None and not isinstance(passed_threshold, EvaluationThreshold):
-        passed_threshold = EvaluationThreshold(success=passed_threshold)
+    def _parse_ep_max_rows(default_value: int | None) -> int | None:
+        raw = os.getenv("EP_MAX_DATASET_ROWS")
+        if raw is None:
+            return default_value
+        s = raw.strip().lower()
+        if s == "none":
+            return None
+        try:
+            return int(s)
+        except ValueError:
+            return default_value
+
+    def _deep_update_dict(base: dict, override: dict) -> dict:
+        for key, value in override.items():
+            if isinstance(value, dict) and isinstance(base.get(key), dict):
+                _deep_update_dict(base[key], value)
+            else:
+                base[key] = value
+        return base
 
     # Build dataset/messages
     data: List[EvaluationRow] = []
@@ -779,12 +880,12 @@ def run_evaluation_test_direct(
         data_jsonl: List[Dict[str, Any]] = []
         for p in input_dataset:
             data_jsonl.extend(load_jsonl(p))
-        effective_max_rows = parse_ep_max_rows(max_dataset_rows)
+        effective_max_rows = _parse_ep_max_rows(max_dataset_rows)
         if effective_max_rows is not None:
             data_jsonl = data_jsonl[:effective_max_rows]
         data = dataset_adapter(data_jsonl)
     elif input_messages is not None:
-        effective_max_rows = parse_ep_max_rows(max_dataset_rows)
+        effective_max_rows = _parse_ep_max_rows(max_dataset_rows)
         msgs = input_messages
         if effective_max_rows is not None and isinstance(msgs, list):
             msgs = msgs[:effective_max_rows]  # type: ignore
@@ -796,7 +897,7 @@ def run_evaluation_test_direct(
         raise ValueError("No input dataset or input messages provided")
 
     # Build input params and apply env JSON override
-    completion_params: Dict[str, Any] = completion_params or {}
+    input_params: Dict[str, Any] = rollout_input_params or {}
     try:
         import json as _json
 
@@ -804,7 +905,7 @@ def run_evaluation_test_direct(
         if _env_override:
             override_obj = _json.loads(_env_override)
             if isinstance(override_obj, dict):
-                completion_params = deep_update_dict(dict(completion_params), override_obj)
+                input_params = _deep_update_dict(dict(input_params), override_obj)
     except Exception:
         pass
 
@@ -815,8 +916,15 @@ def run_evaluation_test_direct(
         status="running",
         num_runs=num_runs,
         aggregation_method=aggregation_method,
-        passed_threshold=passed_threshold,
+        threshold_of_success=threshold_of_success,
         passed=None,
+    )
+
+    completion_params = CompletionParams(
+        model=model,
+        temperature=input_params.get("temperature"),
+        max_tokens=input_params.get("max_tokens"),
+        max_tool_calls=input_params.get("max_tool_calls"),
     )
 
     for row in data:
@@ -831,12 +939,13 @@ def run_evaluation_test_direct(
         default_logger.log(row)
 
     config = RolloutProcessorConfig(
-        completion_params=completion_params,
+        model=model,
+        input_params=input_params,
         mcp_config_path=mcp_config_path or "",
         max_concurrent_rollouts=max_concurrent_rollouts,
         server_script_path=server_script_path,
         steps=steps,
-        kwargs=rollout_processor_kwargs or {},
+        kwargs=rollout_processor_kwargs,
     )
 
     all_results: List[EvaluationRow] = []
@@ -881,8 +990,8 @@ def run_evaluation_test_direct(
                 ci_high = None
 
         passed = None
-        if passed_threshold is not None:
-            passed = agg_score >= passed_threshold.success
+        if threshold_of_success is not None:
+            passed = agg_score >= threshold_of_success
         for r in all_results:
             if r.eval_metadata is not None:
                 r.eval_metadata.status = "finished"
@@ -898,7 +1007,7 @@ def run_evaluation_test_direct(
             total_rows = len(all_results)
             summary_obj = {
                 "suite": suite_name,
-                "model": config.completion_params["model"],
+                "model": model,
                 "agg_score": float(agg_score) if agg_score is not None else None,
                 "num_runs": num_runs,
                 "rows": total_rows,
@@ -909,20 +1018,45 @@ def run_evaluation_test_direct(
             if should_print:
                 if ci_low is not None and ci_high is not None:
                     print(
-                        f"EP Summary | suite={suite_name} model={config.completion_params['model']} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
+                        f"EP Summary | suite={suite_name} model={model} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
                     )
                 else:
                     print(
-                        f"EP Summary | suite={suite_name} model={config.completion_params['model']} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
+                        f"EP Summary | suite={suite_name} model={model} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
                     )
             if summary_path:
                 import json as _json
                 import pathlib as _pathlib
+                import re as _re
                 import time as _time
 
-                model_slug = sanitize_filename(config.completion_params["model"])
-                effort_tag = extract_effort_tag(completion_params) or ""
-                effort_suffix = f"__effort-{sanitize_filename(effort_tag)}" if effort_tag else ""
+                def _sanitize_filename(text: str) -> str:
+                    safe = _re.sub(r"[^A-Za-z0-9._-]+", "-", text.strip())
+                    return safe[:120]
+
+                def _extract_effort_tag(params: dict) -> str | None:
+                    try:
+                        if not isinstance(params, dict):
+                            return None
+                        if "extra_body" in params and isinstance(params["extra_body"], dict):
+                            eb = params["extra_body"]
+                            if isinstance(eb.get("reasoning"), dict) and "effort" in eb["reasoning"]:
+                                return str(eb["reasoning"]["effort"]).lower()
+                            if "reasoning_effort" in eb:
+                                return str(eb["reasoning_effort"]).lower()
+                        if (
+                            "reasoning" in params
+                            and isinstance(params["reasoning"], dict)
+                            and "effort" in params["reasoning"]
+                        ):
+                            return str(params["reasoning"]["effort"]).lower()
+                    except Exception:
+                        return None
+                    return None
+
+                model_slug = _sanitize_filename(model)
+                effort_tag = _extract_effort_tag(input_params) or ""
+                effort_suffix = f"__effort-{_sanitize_filename(effort_tag)}" if effort_tag else ""
                 base_name = f"{suite_name}__{model_slug}{effort_suffix}__{mode}__runs{num_runs}.json"
 
                 p = _pathlib.Path(summary_path)
@@ -935,7 +1069,7 @@ def run_evaluation_test_direct(
                     parent = p.parent
                     parent.mkdir(parents=True, exist_ok=True)
                     if effort_tag:
-                        out_file = parent / f"{p.stem}__{sanitize_filename(effort_tag)}{p.suffix}"
+                        out_file = parent / f"{p.stem}__{_sanitize_filename(effort_tag)}{p.suffix}"
                     else:
                         out_file = p
                 with open(out_file, "w", encoding="utf-8") as f:
@@ -943,10 +1077,10 @@ def run_evaluation_test_direct(
         except Exception:
             pass
 
-        if passed_threshold is not None and not passed:
-            assert (
-                agg_score >= passed_threshold.success
-            ), f"Aggregated score {agg_score:.3f} below threshold {passed_threshold}"
+        if threshold_of_success is not None and not passed:
+            assert agg_score >= threshold_of_success, (
+                f"Aggregated score {agg_score:.3f} below threshold {threshold_of_success}"
+            )
 
         return {"summary": summary_obj, "results": all_results}
     except Exception:

@@ -105,7 +105,7 @@ async def _test_seed_handling_and_type_compatibility_impl():
                 stdout, stderr = server_process.communicate()
 
         # This is a CI environment issue, not a code issue - run a simplified test instead
-        print(f"⚠️ Server startup failed in CI environment, running simplified test...")
+        print("⚠️ Server startup failed in CI environment, running simplified test...")
         print(f"Server stdout: {stdout.decode()[:200]}")
         print(f"Server stderr: {stderr.decode()[:200]}")
 
@@ -376,4 +376,4 @@ async def test_mcp_resource_type_compatibility():
     print(f"   - Seed 42 map: {map1}")
     print(f"   - Seed 123 map: {map2}")
     print(f"   - Seed 999 map: {map3}")
-    print(f"   - JSON serialization: ✅")
+    print("   - JSON serialization: ✅")

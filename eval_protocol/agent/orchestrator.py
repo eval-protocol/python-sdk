@@ -416,9 +416,9 @@ class Orchestrator:
         episode_resource: Optional[ForkableResource] = None
         evaluation_result: Optional[Dict[str, Any]] = None
 
-        all_user_turns_successful_function_calls: List[List[Dict[str, Any]]] = (
-            []
-        )  # Track successful calls for reward fn, list of lists (per user turn)
+        all_user_turns_successful_function_calls: List[
+            List[Dict[str, Any]]
+        ] = []  # Track successful calls for reward fn, list of lists (per user turn)
         conversation_messages: List[Dict[str, Any]] = []  # Use dicts for API compatibility
 
         # --- Agent Model Setup ---
@@ -845,16 +845,16 @@ class Orchestrator:
                 eval_args["ground_truth"] = ground_truth_for_reward
 
             # Call the reward function
-            self.logger.info(f"=== CALLING REWARD FUNCTION DEBUG ===")
+            self.logger.info("=== CALLING REWARD FUNCTION DEBUG ===")
             self.logger.info(f"Reward function type: {type(self.reward_function)}")
             self.logger.info(f"Eval args keys: {list(eval_args.keys())}")
             self.logger.info(f"Task achieved: {eval_args.get('task_achieved', 'NOT_SET')}")
             self.logger.info(f"Messages count: {len(eval_args.get('messages', []))}")
             evaluation_result = self.reward_function(**eval_args)
-            self.logger.info(f"=== REWARD FUNCTION RESULT ===")
+            self.logger.info("=== REWARD FUNCTION RESULT ===")
             self.logger.info(f"Reward function result: {evaluation_result}")
             self.logger.info(f"Result type: {type(evaluation_result)}")
-            self.logger.info(f"=== END REWARD FUNCTION DEBUG ===")
+            self.logger.info("=== END REWARD FUNCTION DEBUG ===")
 
             # Return both the evaluation result and the inputs for trajectory capture
             return {

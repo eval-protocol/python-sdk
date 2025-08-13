@@ -7,7 +7,6 @@ from eval_protocol.cli import parse_args
 
 
 class TestCliArgParsing:
-
     # --- Tests for 'preview' command ---
     def test_preview_with_remote_url_and_samples(self):
         args_list = [

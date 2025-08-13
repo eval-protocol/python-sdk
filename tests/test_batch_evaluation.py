@@ -399,7 +399,6 @@ class TestBatchEvaluation:
                 patch.object(task_manager, "_start_resource_server", return_value=12345),
                 patch.object(task_manager, "_wait_for_server_health", return_value=True),
             ):
-
                 # Execute the task with batch evaluation
                 results = await task_manager.execute_tasks(
                     task_ids=[task_id],
@@ -413,9 +412,9 @@ class TestBatchEvaluation:
             result = results[task_id]
 
             # Should not be an error result
-            assert not (
-                isinstance(result, dict) and "error" in result
-            ), f"Task failed: {result.get('error', 'Unknown error')}"
+            assert not (isinstance(result, dict) and "error" in result), (
+                f"Task failed: {result.get('error', 'Unknown error')}"
+            )
 
             # Should be aggregated results
             assert isinstance(result, dict)
@@ -563,7 +562,6 @@ class TestBatchEvaluation:
                 patch.object(task_manager, "_start_resource_server", return_value=12346),
                 patch.object(task_manager, "_wait_for_server_health", return_value=True),
             ):
-
                 # Execute the task with batch evaluation
                 results = await task_manager.execute_tasks(
                     task_ids=[task_id],
@@ -577,9 +575,9 @@ class TestBatchEvaluation:
             result = results[task_id]
 
             # Should not be an error result
-            assert not (
-                isinstance(result, dict) and "error" in result
-            ), f"Task failed: {result.get('error', 'Unknown error')}"
+            assert not (isinstance(result, dict) and "error" in result), (
+                f"Task failed: {result.get('error', 'Unknown error')}"
+            )
 
             # Should be aggregated results
             assert isinstance(result, dict)
@@ -964,7 +962,6 @@ class TestBatchEvaluation:
                 patch.object(task_manager, "_start_resource_server", return_value=12347),
                 patch.object(task_manager, "_wait_for_server_health", return_value=True),
             ):
-
                 # Execute with parallel enabled
                 results = await task_manager.execute_tasks(
                     task_ids=[task_id],
@@ -1108,7 +1105,6 @@ class TestBatchEvaluation:
                 patch.object(task_manager, "_start_resource_server", return_value=12348),
                 patch.object(task_manager, "_wait_for_server_health", return_value=True),
             ):
-
                 # Execute task
                 results = await task_manager.execute_tasks(task_ids=[task_id], num_rollouts_override=2)
 

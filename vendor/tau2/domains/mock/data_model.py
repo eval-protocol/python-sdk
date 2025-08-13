@@ -24,12 +24,8 @@ class User(BaseModel):
 class MockDB(DB):
     """Simple database with users and their tasks."""
 
-    tasks: Dict[str, Task] = Field(
-        description="Dictionary of all tasks indexed by task ID"
-    )
-    users: Dict[str, User] = Field(
-        description="Dictionary of all users indexed by user ID"
-    )
+    tasks: Dict[str, Task] = Field(description="Dictionary of all tasks indexed by task ID")
+    users: Dict[str, User] = Field(description="Dictionary of all users indexed by user ID")
 
 
 def get_db():

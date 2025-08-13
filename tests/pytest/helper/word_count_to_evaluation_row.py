@@ -7,8 +7,7 @@ def word_count_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationR
     """Convert gsm8k dataset format to EvaluationRow for word_count evaluation."""
     return [
         EvaluationRow(
-            messages=[Message(role="user", content=row["user_query"])], 
-            ground_truth=row["ground_truth_for_eval"]
+            messages=[Message(role="user", content=row["user_query"])], ground_truth=row["ground_truth_for_eval"]
         )
         for row in data
-    ] 
+    ]

@@ -66,9 +66,7 @@ def compose_tasks(
     Return all the combinations of selecting 0 or more tasks from the selection sets
     """
 
-    product_tasks = list(
-        product(*[selection_set.tasks + [None] for selection_set in selection_sets])
-    )
+    product_tasks = list(product(*[selection_set.tasks + [None] for selection_set in selection_sets]))
     composed_tasks = []
     for tasks in product_tasks:
         if task_validator is not None:

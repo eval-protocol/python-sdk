@@ -36,14 +36,16 @@ class TestRewardProtocolImports:
 
     def test_core_classes_available(self):
         """Test that core classes are available through both imports."""
-        from eval_protocol import EvaluateResult
-        from eval_protocol import EvaluateResult as RPEvaluateResult
-        from eval_protocol import Message
-        from eval_protocol import Message as RPMessage
-        from eval_protocol import MetricResult
-        from eval_protocol import MetricResult as RPMetricResult
-        from eval_protocol import RewardFunction
-        from eval_protocol import RewardFunction as RPRewardFunction
+        from eval_protocol import (
+            EvaluateResult,
+            EvaluateResult as RPEvaluateResult,
+            Message,
+            Message as RPMessage,
+            MetricResult,
+            MetricResult as RPMetricResult,
+            RewardFunction,
+            RewardFunction as RPRewardFunction,
+        )
 
         # Classes should be the same
         assert RewardFunction is RPRewardFunction
@@ -53,16 +55,18 @@ class TestRewardProtocolImports:
 
     def test_functions_available(self):
         """Test that core functions are available through both imports."""
-        from eval_protocol import load_jsonl
-        from eval_protocol import load_jsonl as rp_load_jsonl
-        from eval_protocol import make
-        from eval_protocol import make as rp_make
-        from eval_protocol import reward_function
-        from eval_protocol import reward_function as rp_reward_function
-        from eval_protocol import rollout
-        from eval_protocol import rollout as rp_rollout
-        from eval_protocol import test_mcp
-        from eval_protocol import test_mcp as rp_test_mcp
+        from eval_protocol import (
+            load_jsonl,
+            load_jsonl as rp_load_jsonl,
+            make,
+            make as rp_make,
+            reward_function,
+            reward_function as rp_reward_function,
+            rollout,
+            rollout as rp_rollout,
+            test_mcp,
+            test_mcp as rp_test_mcp,
+        )
 
         # Functions should be the same
         assert reward_function is rp_reward_function
@@ -110,9 +114,11 @@ class TestRewardProtocolImports:
 
     def test_reward_function_decorator_works(self):
         """Test that the @reward_function decorator works through both imports."""
-        from eval_protocol import EvaluateResult
-        from eval_protocol import reward_function as rk_reward_function
-        from eval_protocol import reward_function as rp_reward_function
+        from eval_protocol import (
+            EvaluateResult,
+            reward_function as rk_reward_function,
+            reward_function as rp_reward_function,
+        )
 
         # Create a simple reward function using eval_protocol
         @rk_reward_function
@@ -147,8 +153,7 @@ class TestRewardProtocolImports:
 
     def test_message_class_works(self):
         """Test that Message class works through both imports."""
-        from eval_protocol import Message as RKMessage
-        from eval_protocol import Message as RPMessage
+        from eval_protocol import Message as RKMessage, Message as RPMessage
 
         # They should be the same class
         assert RKMessage is RPMessage
@@ -196,29 +201,28 @@ class TestRewardProtocolImports:
         """Test that deep imports work consistently."""
         try:
             # Test importing from submodules
-            from eval_protocol.models import Message as RKMessage
-            from eval_protocol.models import Message as RPMessage
+            from eval_protocol.models import Message as RKMessage, Message as RPMessage
 
             # Should be the same class
             assert RKMessage is RPMessage
         except ImportError:
             # If submodule imports don't work, that's expected in some install scenarios
             # Just verify the star import works
-            from eval_protocol import Message as RKMessage
-            from eval_protocol import Message as RPMessage
+            from eval_protocol import Message as RKMessage, Message as RPMessage
 
             assert RKMessage is RPMessage
 
         try:
             # Test another submodule - use a function that actually exists
-            from eval_protocol.auth import get_fireworks_account_id
-            from eval_protocol.auth import get_fireworks_account_id as rp_get_fireworks_account_id
+            from eval_protocol.auth import (
+                get_fireworks_account_id,
+                get_fireworks_account_id as rp_get_fireworks_account_id,
+            )
 
             assert get_fireworks_account_id is rp_get_fireworks_account_id
         except ImportError:
             # If submodule imports don't work, verify through star import
-            from eval_protocol import auth as rk_auth
-            from eval_protocol import auth as rp_auth
+            from eval_protocol import auth as rk_auth, auth as rp_auth
 
             assert rk_auth is rp_auth
 

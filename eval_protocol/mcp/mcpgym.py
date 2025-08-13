@@ -141,7 +141,7 @@ class McpGym(ABC):
         Creates stable session IDs based on client info (seed + config + client details)
         for consistent session management across reconnections.
         """
-        print(f"🔍 _get_session_id: Starting session ID extraction")
+        print("🔍 _get_session_id: Starting session ID extraction")
         print(f"🔍 _get_session_id: ctx type: {type(ctx)}")
         print(f"🔍 _get_session_id: hasattr(ctx, 'session'): {hasattr(ctx, 'session')}")
 
@@ -208,7 +208,6 @@ class McpGym(ABC):
         return self.sessions[session_id]
 
     def _register_session_reset_endpoint(self):
-
         @self.mcp.custom_route("/control/reset_session", methods=["POST"])
         async def reset_session_endpoint(request: Request) -> JSONResponse:
             session_id = request.headers.get("mcp-session-id")

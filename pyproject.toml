@@ -62,11 +62,8 @@ dev = [
     "pytest-asyncio",
     "pytest-httpserver",
     "werkzeug>=2.0.0",
-    "black>=21.5b2",
-    "isort>=5.0.0",
-    "mypy>=0.812",
-    "flake8>=3.9.2",
-    "autopep8>=1.5.0",
+    "ruff>=0.5.0",
+    "pyright>=1.1.365",
     "transformers>=4.0.0",
     "types-setuptools",
     "types-requests",
@@ -149,12 +146,7 @@ versionfile_build = "eval_protocol/_version.py"
 tag_prefix = "v"
 parentdir_prefix = "eval-protocol-"
 
-[tool.black]
-line-length = 119
-
-[tool.isort]
-profile = "black"
-line_length = 119
+### Black and isort removed; Ruff provides formatting and imports
 
 [tool.uv.sources]
 tau2 = { git = "https://github.com/sierra-research/tau2-bench.git" }
@@ -166,3 +158,26 @@ dev = [
     "haikus==0.3.8",
     "pytest>=8.4.1",
 ]
+
+[tool.ruff]
+line-length = 119
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+# Preserve current flake8 ignore behavior to minimize churn
+ignore = [
+    "E203", "E402", "E501", "F401",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["eval_protocol"]
+combine-as-imports = true
+
+[tool.pyright]
+typeCheckingMode = "standard"
+pythonVersion = "3.10"
+reportMissingImports = "none"
+reportMissingTypeStubs = "none"
+include = ["eval_protocol", "examples", "tests"]
+exclude = ["vite-app", "vendor"]

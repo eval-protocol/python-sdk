@@ -374,16 +374,16 @@ class TestDockerResource:
         await docker_resource.setup(config)
         create_file_command = "sh -c \"echo 'initial_data' > /data.txt\""
         create_file_result = await docker_resource.step("exec_command", {"command": create_file_command})
-        assert (
-            create_file_result["exit_code"] == 0
-        ), f"Failed to create /data.txt with '{create_file_command}': {create_file_result['output']}"
+        assert create_file_result["exit_code"] == 0, (
+            f"Failed to create /data.txt with '{create_file_command}': {create_file_result['output']}"
+        )
 
         # Optionally, verify file content immediately after creation in the source container
         verify_result = await docker_resource.step("exec_command", {"command": "cat /data.txt"})
         assert verify_result["exit_code"] == 0, f"Failed to cat /data.txt after creation: {verify_result['output']}"
-        assert (
-            "initial_data" in verify_result["output"]
-        ), f"/data.txt content mismatch after creation: {verify_result['output']}"
+        assert "initial_data" in verify_result["output"], (
+            f"/data.txt content mismatch after creation: {verify_result['output']}"
+        )
 
         checkpoint_info = await docker_resource.checkpoint()
         checkpoint_image_id = checkpoint_info["image_id"]

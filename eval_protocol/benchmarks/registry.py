@@ -199,6 +199,7 @@ def register_composite_benchmark(name: str, children: List[str]) -> None:
         _get_benchmark_runner = get_benchmark_runner
         import pathlib as _pathlib
         import time as _time
+
         _json = json
 
         child_summaries: List[Dict[str, Any]] = []
@@ -302,9 +303,7 @@ def register_composite_benchmark(name: str, children: List[str]) -> None:
                             f"EP Summary | suite={name} model={model} agg={combined['agg_score']:.3f} rows={total_rows}"
                         )
                 else:
-                    print(
-                        f"EP Summary | suite={name} model={model} agg=None rows={total_rows}"
-                    )
+                    print(f"EP Summary | suite={name} model={model} agg=None rows={total_rows}")
             except Exception:
                 pass
 

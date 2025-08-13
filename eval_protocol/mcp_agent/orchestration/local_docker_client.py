@@ -198,7 +198,7 @@ class LocalDockerOrchestrationClient(AbstractOrchestrationClient):
                 res.raise_for_status()
                 return True
             except Exception as e:
-                logger.warning(f"Startup check fail {attempt+1}/5: {e}")
+                logger.warning(f"Startup check fail {attempt + 1}/5: {e}")
                 if attempt < 4:
                     await asyncio.sleep(2)
         return False
@@ -233,7 +233,6 @@ class LocalDockerOrchestrationClient(AbstractOrchestrationClient):
             and (template_details or backend_config.template_data_path_host)
             and backend_config.container_template_data_path
         ):
-
             host_path_for_commit = template_details or backend_config.template_data_path_host
             if not host_path_for_commit or not backend_config.container_template_data_path:
                 raise ValueError(

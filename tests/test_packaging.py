@@ -19,7 +19,6 @@ if Path.cwd().as_posix() not in sys.path:
 
 
 class TestPackaging(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         # Create a unique dummy reward function file for testing to avoid race conditions

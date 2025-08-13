@@ -188,12 +188,12 @@ class HuggingFaceAdapter:
             return
 
         # Create completion parameters
-        completion_params: CompletionParams = {
-            "model": model_name,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
+        completion_params = CompletionParams(
+            model=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
             **completion_params_kwargs,
-        }
+        )
 
         # Convert each row
         for i in range(offset, end_idx):
@@ -413,7 +413,7 @@ def create_math_adapter(
         HuggingFaceAdapter configured for MATH dataset
     """
     default_system_prompt = (
-        "You are an expert mathematician. Solve this advanced math problem " "step by step, showing detailed work."
+        "You are an expert mathematician. Solve this advanced math problem step by step, showing detailed work."
     )
 
     system_content = system_prompt or default_system_prompt

@@ -20,7 +20,7 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
-*.sw? 
+*.sw?
 
 !package.json
 !dist/

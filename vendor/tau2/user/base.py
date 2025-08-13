@@ -63,9 +63,7 @@ class UserState(BaseModel):
                         )
                     )
                 else:
-                    raise ValueError(
-                        f"Tool calls are not supported in the flipped messages: {message}"
-                    )
+                    raise ValueError(f"Tool calls are not supported in the flipped messages: {message}")
             elif isinstance(message, ToolMessage):
                 if message.requestor == "user":
                     # Only add tool messages for the user
@@ -77,9 +75,7 @@ class UserState(BaseModel):
                         )
                     )
                 else:
-                    raise ValueError(
-                        f"Tool messages should be sent to the user in this message history: {message}"
-                    )
+                    raise ValueError(f"Tool messages should be sent to the user in this message history: {message}")
             else:
                 print(message, type(message))
                 raise ValueError(f"Unknown message role: {message.role}")
@@ -100,9 +96,7 @@ class BaseUser(ABC):
         self.instructions = instructions
 
     @abstractmethod
-    async def get_init_state(
-        self, message_history: Optional[list[Message]] = None
-    ) -> UserState:
+    async def get_init_state(self, message_history: Optional[list[Message]] = None) -> UserState:
         """Get the initial state of the user simulator.
 
         Args:

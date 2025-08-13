@@ -64,9 +64,7 @@ def evaluate(
             score=0.0,
             reason="No messages provided",
             is_score_valid=False,
-            metrics={
-                "parse_status": MetricResult(score=0.0, is_score_valid=False, reason="empty messages")
-            },
+            metrics={"parse_status": MetricResult(score=0.0, is_score_valid=False, reason="empty messages")},
         )
 
     last_msg = messages[-1]
@@ -106,5 +104,3 @@ def evaluate(
         is_score_valid=is_valid,
         metrics=metrics,
     )
-
-

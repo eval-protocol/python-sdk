@@ -7,9 +7,9 @@ from omegaconf import DictConfig, OmegaConf
 
 from eval_protocol.execution.pipeline import EvaluationPipeline
 from eval_protocol.generation.cache import ResponseCache
-from eval_protocol.generation.clients import GenerationResult  # Import GenerationResult
 from eval_protocol.generation.clients import (  # For type hinting and mocking
     FireworksModelClient,
+    GenerationResult,  # Import GenerationResult
 )
 from eval_protocol.models import EvaluateResult, Message, MetricResult
 

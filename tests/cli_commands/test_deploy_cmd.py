@@ -51,7 +51,6 @@ def mock_gcp_tools():
         patch("eval_protocol.cli_commands.deploy.deploy_to_cloud_run") as mock_deploy_run,
         patch("eval_protocol.cli_commands.deploy.ensure_gcp_secret") as mock_ensure_gcp_secret,
     ):
-
         mock_ensure_repo.return_value = True
         mock_gen_dockerfile.return_value = "DOCKERFILE CONTENT"
         mock_build_push.return_value = True
@@ -67,7 +66,6 @@ def mock_gcp_tools():
 
 
 class TestDeployCommandRemoteUrl:
-
     @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_remote_url_success(self, mock_create_evaluation_call, mock_check_environment, capsys):
         """Test successful registration of a remote URL via create_evaluation."""
@@ -167,11 +165,10 @@ class TestDeployCommandRemoteUrl:
 
         captured = capsys.readouterr()
         # Updated error message to match common registration block
-        assert f"An unexpected error occurred during Fireworks AI registration: Something broke" in captured.out
+        assert "An unexpected error occurred during Fireworks AI registration: Something broke" in captured.out
 
 
 class TestDeployCommandLocalMode:  # This class tests the "fireworks" target (packaging metrics)
-
     @patch("eval_protocol.cli_commands.deploy.create_evaluation")
     def test_deploy_local_mode_success(  # Renaming to reflect it tests "fireworks" target
         self, mock_create_eval, mock_check_environment, capsys
@@ -276,7 +273,7 @@ class TestDeployCommandGCPMode:
         captured = capsys.readouterr()
         # Check initial message from helper
         assert f"Starting GCP Cloud Run deployment for evaluator '{args.id}'..." in captured.out
-        assert f"Successfully built and pushed Docker image" in captured.out
+        assert "Successfully built and pushed Docker image" in captured.out
         assert (
             f"Successfully deployed to Cloud Run. Service URL: {mock_gcp_tools['deploy_run'].return_value}"
             in captured.out

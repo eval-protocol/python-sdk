@@ -53,7 +53,6 @@ def create_temp_jsonl(tmp_path: Path, samples_data: list) -> str:
 
 
 class TestPreviewCommandRemoteUrl:
-
     @patch("requests.post")
     def test_preview_remote_url_success_with_file(self, mock_post, mock_check_environment, tmp_path, capsys):
         mock_response = MagicMock()

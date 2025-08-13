@@ -180,7 +180,7 @@ def create_trl_adapter(
         if scores:
             logger.debug(
                 f"Batch rewards calculated by TRL adapter. Count: {len(scores)}, "
-                f"Min: {min(scores)}, Max: {max(scores)}, Avg: {sum(scores)/len(scores):.2f}"
+                f"Min: {min(scores)}, Max: {max(scores)}, Avg: {sum(scores) / len(scores):.2f}"
             )
         return scores
 

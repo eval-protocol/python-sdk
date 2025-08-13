@@ -6,16 +6,13 @@ from pydantic import ValidationError
 from eval_protocol.agent.models import StepData
 
 # Assuming these are the correct import paths based on our plan
-from eval_protocol.models import EvaluateResult
-from eval_protocol.models import Message as RewardKitMessage
-from eval_protocol.models import StepOutput
+from eval_protocol.models import EvaluateResult, Message as RewardKitMessage, StepOutput
 
 # Minimal Message for StepData if direct import from eval_protocol.models is problematic in tests
 # For now, assume RewardKitMessage from eval_protocol.models works.
 
 
 class TestRLDataStructures:
-
     def test_step_output_creation_valid(self):
         """Test valid creation of StepOutput."""
         so = StepOutput(step_index=0, base_reward=0.5, reason="Good step", metrics={"accuracy": 0.9})

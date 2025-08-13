@@ -69,7 +69,6 @@ def batch_invalid_output_func(rollouts_messages: List[List[Message]], ground_tru
 
 
 class TestTypedInterfaceRL:
-
     def test_pointwise_rl_rewards_valid_input(self):
         """Test pointwise RL reward function with valid dict messages."""
         raw_messages = [

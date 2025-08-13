@@ -485,9 +485,7 @@ data_mode_issues = SelectionSet(tasks=[data_mode_off_task])
 
 # Path 2.2: Slow Mobile Data
 # Requires workflow Step 2.2.1
-data_usage_exceeded_issues = SelectionSet(
-    tasks=[data_usage_exceeded_task, data_usage_exceeded_no_refuel_task]
-)
+data_usage_exceeded_issues = SelectionSet(tasks=[data_usage_exceeded_task, data_usage_exceeded_no_refuel_task])
 
 # Requires workflow Step 2.2.2
 data_saver_mode_issues = SelectionSet(tasks=[data_saver_mode_on_task])
@@ -518,9 +516,7 @@ def task_validator(tasks: list[Optional[BaseTask]]):
     # num_tasks_service_issues = len(
     #     [task for task in tasks[: len(service_issues_sample_sets)] if task is not None]
     # )
-    num_tasks_mobile_data_issues = len(
-        [task for task in tasks[len(service_issues_sample_sets) :] if task is not None]
-    )
+    num_tasks_mobile_data_issues = len([task for task in tasks[len(service_issues_sample_sets) :] if task is not None])
     return num_tasks_mobile_data_issues > 0
 
 

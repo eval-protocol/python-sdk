@@ -80,7 +80,7 @@ class ExecutionManager:
         elif playback_mode:
             logger.info(f"🎬 Playback mode: Using recorded data from {playback_file}")
         else:
-            logger.info(f"🚀 Live mode: No recording/playback")
+            logger.info("🚀 Live mode: No recording/playback")
 
         # Initialize OpenAI format logging for terminated trajectories only
         openai_logger = None
@@ -285,7 +285,6 @@ class ExecutionManager:
 
                     # Execute each tool call sequentially
                     for tool_call in tool_calls:
-
                         # Execute tool call for this environment
                         observation, reward, env_end, info = await envs.step(rollout_idx, tool_call)
 

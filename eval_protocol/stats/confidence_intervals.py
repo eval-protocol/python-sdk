@@ -112,5 +112,3 @@ def compute_fixed_set_mu_ci(
     ci_high = min(1.0, mu_hat + margin)
 
     return float(mu_hat), float(ci_low), float(ci_high)
-
-

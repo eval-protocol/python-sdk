@@ -90,7 +90,7 @@ import { EvaluationRowSchema } from '@/types';
 async function fetchEvaluationData(): Promise<EvaluationRow> {
   const response = await fetch('/api/evaluation');
   const data = await response.json();
-  
+
   // Validate the response
   return EvaluationRowSchema.parse(data);
 }
@@ -140,4 +140,4 @@ The TypeScript types closely mirror the Python Pydantic models:
 - `Optional[T]` → `z.optional()`
 - `List[T]` → `z.array()`
 - `Dict[str, Any]` → `z.record(z.any())`
-- `extra="allow"` → `.passthrough()` 
+- `extra="allow"` → `.passthrough()`

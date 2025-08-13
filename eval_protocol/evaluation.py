@@ -309,7 +309,7 @@ class Evaluator:
         files = self._load_python_files_from_folder(folder_path)
 
         self.code_files = files
-        logger.info(f"Loaded {len(files)} Python files from {folder_path} " f"for multi-metrics evaluation")
+        logger.info(f"Loaded {len(files)} Python files from {folder_path} for multi-metrics evaluation")
         return files
 
     def load_samples_from_jsonl(self, sample_file, max_samples=5):
@@ -327,7 +327,7 @@ class Evaluator:
                     sample = json.loads(line)
                     samples.append(sample)
                 except json.JSONDecodeError:
-                    logger.warning(f"Invalid JSON on line {i+1}, skipping")
+                    logger.warning(f"Invalid JSON on line {i + 1}, skipping")
         logger.info(f"Loaded {len(samples)} samples from {sample_file}")
         return samples
 
@@ -444,7 +444,9 @@ class Evaluator:
             # Fallback for multi_metrics if requirements were loaded differently (hypothetical)
             # This attribute doesn't exist yet, placeholder for future enhancement if needed.
             if self._loaded_multi_metric_requirements_str:  # type: ignore
-                requirements_list = [r.strip() for r in self._loaded_multi_metric_requirements_str.splitlines() if r.strip()]  # type: ignore
+                requirements_list = [
+                    r.strip() for r in self._loaded_multi_metric_requirements_str.splitlines() if r.strip()
+                ]  # type: ignore
                 for req_item in requirements_list:
                     all_requirements_set.add(req_item)
 
@@ -458,7 +460,7 @@ class Evaluator:
         for i, sample in enumerate(samples):
             try:
                 if "messages" not in sample:
-                    raise ValueError(f"Sample {i+1} is missing 'messages' field")
+                    raise ValueError(f"Sample {i + 1} is missing 'messages' field")
                 _ = sample.get("messages", [])
                 _ = sample.get("ground_truth", [])
                 _ = sample.get("tools", [])
@@ -486,7 +488,7 @@ class Evaluator:
                     per_metric_evals=per_metric_evals,
                 )
             except Exception as e:
-                logger.error(f"Error processing sample {i+1}: {str(e)}")
+                logger.error(f"Error processing sample {i + 1}: {str(e)}")
                 preview_result.add_result(
                     sample_index=i,
                     success=False,
@@ -873,7 +875,7 @@ def preview_folder_evaluation(  # This function might become redundant or need t
     if has_main_py and not multi_metrics:
         py_files = list(Path(evaluator_folder).glob("*.py"))
         if len(py_files) > 1:
-            logger.info(f"Auto-detecting multi-metrics mode based on folder structure for preview_folder_evaluation")
+            logger.info("Auto-detecting multi-metrics mode based on folder structure for preview_folder_evaluation")
             detected_multi_metrics = True
 
     # Call the unified preview_evaluation
@@ -947,7 +949,7 @@ def create_evaluation(
             )
     elif ts_mode_config:
         # ts_mode_config already handled in Evaluator.__init__ for self.code_files
-        logger.info(f"Configuring evaluator with direct Python code snippet (ts_mode).")
+        logger.info("Configuring evaluator with direct Python code snippet (ts_mode).")
     elif multi_metrics:  # Folder-based multi_metrics
         if not folder:
             raise ValueError("`folder` must be specified for folder-based multi_metrics mode.")
@@ -1008,7 +1010,7 @@ def deploy_folder_evaluation(  # This function might become redundant or need to
         if has_main_py and not multi_metrics:  # If user says not multi_metrics, but main.py is at root
             py_files = list(Path(evaluator_folder_abs).glob("*.py"))
             if len(py_files) > 1:  # Heuristic: if multiple .py files at root with main.py, likely multi-metric
-                logger.info(f"Auto-detecting multi-metrics mode for deploy_folder_evaluation.")
+                logger.info("Auto-detecting multi-metrics mode for deploy_folder_evaluation.")
                 detected_multi_metrics = True
 
         if detected_multi_metrics:

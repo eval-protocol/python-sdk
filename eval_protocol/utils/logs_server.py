@@ -195,7 +195,6 @@ class EvaluationWatcher:
         """Check if a row's status should be updated to 'stopped'."""
         # Check if the row has running status and a PID
         if row.eval_metadata and row.eval_metadata.status == "running" and row.pid is not None:
-
             # Check if the process is still running
             try:
                 process = psutil.Process(row.pid)

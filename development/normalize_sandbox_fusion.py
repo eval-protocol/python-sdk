@@ -56,7 +56,7 @@ OUTPUT_JSONL_FILE = "./development/CODING_DATASET.jsonl"
 try:
     repobench_p_tokenizer = AutoTokenizer.from_pretrained("gpt2")
 except OSError:
-    print("Warning: Could not load gpt2 tokenizer for Repobench-P. " "Falling back to basic split for token counting.")
+    print("Warning: Could not load gpt2 tokenizer for Repobench-P. Falling back to basic split for token counting.")
     repobench_p_tokenizer = None
 
 
@@ -108,8 +108,7 @@ def format_aider_prompt(problem_json: dict) -> str:
     """Format the prompt for Aider benchmark style problems."""
     question = problem_json.get("content", "")
     return (
-        f"{question}\n\nPlease generate the code in the following format:\n"
-        "```python\n# Your code response here\n```"
+        f"{question}\n\nPlease generate the code in the following format:\n```python\n# Your code response here\n```"
     )
 
 
@@ -327,7 +326,7 @@ def normalize_problem_to_openai_format(
             try:
                 labels = json.loads(labels_data)
             except json.JSONDecodeError:
-                print(f"Warning: Skipping ID {problem_id_str} in {filename} " "- malformed JSON in labels.")
+                print(f"Warning: Skipping ID {problem_id_str} in {filename} - malformed JSON in labels.")
                 return None
         elif isinstance(labels_data, dict):
             labels = labels_data
@@ -426,10 +425,10 @@ def normalize_problem_to_openai_format(
             )
             return None
         if not final_user_content.strip() or not final_assistant_content.strip():
-            print(f"Warning: Skipping ID {problem_id_str} in {filename} - " "empty processed content.")
+            print(f"Warning: Skipping ID {problem_id_str} in {filename} - empty processed content.")
             return None
         if final_assistant_content.strip() == "import sys; sys.exit(0)":
-            print(f"Warning: Skipping ID {problem_id_str} in {filename} - " "placeholder solution.")
+            print(f"Warning: Skipping ID {problem_id_str} in {filename} - placeholder solution.")
             return None
 
         return {
@@ -439,7 +438,7 @@ def normalize_problem_to_openai_format(
             ]
         }
     except Exception as e:
-        print(f"Warning: Skipping ID {problem_id_str} in {filename} - " f"error ({type(e).__name__}: {e}).")
+        print(f"Warning: Skipping ID {problem_id_str} in {filename} - error ({type(e).__name__}: {e}).")
         import traceback
 
         traceback.print_exc()
@@ -474,7 +473,7 @@ def main():
                 file_error_count += 1
                 continue
 
-            print(f"Processing file {filename_idx + 1}/{len(ALL_SOURCE_JSONL_FILES)}: " f"{filename}...")
+            print(f"Processing file {filename_idx + 1}/{len(ALL_SOURCE_JSONL_FILES)}: {filename}...")
             lines_in_file = 0
             processed_in_file = 0
             skipped_in_file = 0
@@ -488,7 +487,7 @@ def main():
                         try:
                             problem_data = json.loads(stripped_line)
                         except json.JSONDecodeError:
-                            print(f"Warning: Malformed JSON on line {line_number} " f"in {filepath}. Skipping line.")
+                            print(f"Warning: Malformed JSON on line {line_number} in {filepath}. Skipping line.")
                             skipped_in_file += 1
                             continue
 
@@ -507,7 +506,7 @@ def main():
                 processed_count += processed_in_file
                 skipped_count += skipped_in_file
             except Exception as e:
-                print(f"Error processing file {filepath}: {type(e).__name__}: {e}. " "Skipping rest of file.")
+                print(f"Error processing file {filepath}: {type(e).__name__}: {e}. Skipping rest of file.")
                 import traceback
 
                 traceback.print_exc()

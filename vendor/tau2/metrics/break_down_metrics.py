@@ -24,9 +24,7 @@ def get_write_tools(domain):
     return set(agent_write_tools), set(user_write_tools)
 
 
-def analyze_reward(
-    reward_info: RewardInfo, agent_write_tools: set[str], user_write_tools: set[str]
-):
+def analyze_reward(reward_info: RewardInfo, agent_write_tools: set[str], user_write_tools: set[str]):
     """
     Analyze the reward breakdown.
     """
@@ -34,26 +32,18 @@ def analyze_reward(
     try:
         if RewardType.COMMUNICATE in reward_info.reward_basis:
             communicate_success = (
-                is_successful(reward_breakdown[RewardType.COMMUNICATE])
-                if reward_breakdown is not None
-                else 0
+                is_successful(reward_breakdown[RewardType.COMMUNICATE]) if reward_breakdown is not None else 0
             )
         else:
             communicate_success = None
         if RewardType.ENV_ASSERTION in reward_info.reward_basis:
             env_success = (
-                is_successful(reward_breakdown[RewardType.ENV_ASSERTION])
-                if reward_breakdown is not None
-                else 0
+                is_successful(reward_breakdown[RewardType.ENV_ASSERTION]) if reward_breakdown is not None else 0
             )
         else:
             env_success = None
         if RewardType.DB in reward_info.reward_basis:
-            db_success = (
-                is_successful(reward_breakdown[RewardType.DB])
-                if reward_breakdown is not None
-                else 0
-            )
+            db_success = is_successful(reward_breakdown[RewardType.DB]) if reward_breakdown is not None else 0
         else:
             db_success = None
     except Exception as e:
@@ -110,13 +100,9 @@ def result_reward_analysis(results: Results):
     Analyze the reward breakdown.
     """
     rows = []
-    agent_write_tools, user_write_tools = get_write_tools(
-        results.info.environment_info.domain_name
-    )
+    agent_write_tools, user_write_tools = get_write_tools(results.info.environment_info.domain_name)
     for simulation in results.simulations:
-        reward_analysis = analyze_reward(
-            simulation.reward_info, agent_write_tools, user_write_tools
-        )
+        reward_analysis = analyze_reward(simulation.reward_info, agent_write_tools, user_write_tools)
         reward_analysis["task_id"] = simulation.task_id
         reward_analysis["trial"] = simulation.trial
         rows.append(reward_analysis)

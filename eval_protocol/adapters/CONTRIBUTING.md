@@ -37,36 +37,36 @@ except ImportError:
 
 class YourCustomAdapter:
     """Adapter for integrating with Your Custom Data Source.
-    
+
     This adapter loads data from Your Custom Data Source and converts it
     to EvaluationRow format for use in evaluation pipelines.
-    
+
     Examples:
         Basic usage:
         >>> adapter = YourCustomAdapter(api_key="your_key")
         >>> rows = list(adapter.get_evaluation_rows(limit=10))
     """
-    
+
     def __init__(self, **config):
         """Initialize the adapter with configuration."""
         if not DEPENDENCY_AVAILABLE:
             raise ImportError("your_external_library not installed")
-        
+
         # Initialize your client/connection here
         self.client = your_external_library.Client(**config)
-    
+
     def get_evaluation_rows(self, **kwargs) -> Iterator[EvaluationRow]:
         """Main method to fetch and convert data to EvaluationRow format.
-        
+
         Args:
             **kwargs: Adapter-specific parameters
-            
+
         Yields:
             EvaluationRow: Converted evaluation rows
         """
         # Implement your data fetching logic
         raw_data = self.client.fetch_data(**kwargs)
-        
+
         for item in raw_data:
             try:
                 eval_row = self._convert_to_evaluation_row(item)
@@ -75,51 +75,51 @@ class YourCustomAdapter:
             except Exception as e:
                 logger.warning(f"Failed to convert item: {e}")
                 continue
-    
+
     def _convert_to_evaluation_row(self, raw_item: Any) -> Optional[EvaluationRow]:
         """Convert a raw data item to EvaluationRow format.
-        
+
         Args:
             raw_item: Raw data item from your source
-            
+
         Returns:
             EvaluationRow or None if conversion fails
         """
         # Extract messages from your data format
         messages = self._extract_messages(raw_item)
-        
+
         # Extract metadata
         input_metadata = self._create_input_metadata(raw_item)
-        
+
         # Extract ground truth if available
         ground_truth = self._extract_ground_truth(raw_item)
-        
+
         # Extract tools if available (for tool calling scenarios)
         tools = self._extract_tools(raw_item)
-        
+
         return EvaluationRow(
             messages=messages,
             tools=tools,
             input_metadata=input_metadata,
             ground_truth=ground_truth,
         )
-    
+
     def _extract_messages(self, raw_item: Any) -> List[Message]:
         """Extract conversation messages from raw data."""
         # Implement message extraction logic
         # Convert your data format to List[Message]
         pass
-    
+
     def _create_input_metadata(self, raw_item: Any) -> InputMetadata:
         """Create InputMetadata from raw data."""
         # Implement metadata extraction
         pass
-    
+
     def _extract_ground_truth(self, raw_item: Any) -> Optional[str]:
         """Extract ground truth if available."""
         # Implement ground truth extraction
         pass
-    
+
     def _extract_tools(self, raw_item: Any) -> Optional[List[Dict[str, Any]]]:
         """Extract tool definitions if available."""
         # Implement tool extraction for tool calling scenarios
@@ -149,7 +149,7 @@ message = Message(
     content="I'll help you with that calculation.",
     tool_calls=[{
         "id": "call_123",
-        "type": "function", 
+        "type": "function",
         "function": {
             "name": "calculate",
             "arguments": '{"x": 5, "y": 3}'
@@ -185,7 +185,7 @@ input_metadata = InputMetadata(
     },
     session_data={
         "user_id": "user123",
-        "session_id": "session456", 
+        "session_id": "session456",
         "timestamp": "2024-01-01T00:00:00Z",
     }
 )
@@ -259,7 +259,7 @@ def get_evaluation_rows(self, **kwargs) -> Iterator[EvaluationRow]:
     except Exception as e:
         logger.error(f"Failed to fetch data: {e}")
         return
-    
+
     for item in data:
         try:
             row = self._convert_to_evaluation_row(item)
@@ -298,36 +298,36 @@ from eval_protocol.models import EvaluationRow
 
 class TestYourCustomAdapter:
     """Test suite for YourCustomAdapter."""
-    
+
     def test_initialization(self):
         """Test adapter initialization."""
         adapter = YourCustomAdapter(api_key="test_key")
         assert adapter.client is not None
-    
+
     def test_get_evaluation_rows(self):
         """Test conversion to EvaluationRow format."""
         adapter = YourCustomAdapter(api_key="test_key")
-        
+
         # Mock the external API response
         with patch.object(adapter.client, 'fetch_data') as mock_fetch:
             mock_fetch.return_value = [
                 # Mock data in your format
                 {"id": "1", "question": "Test?", "answer": "Yes"}
             ]
-            
+
             rows = list(adapter.get_evaluation_rows(limit=1))
-            
+
             assert len(rows) == 1
             assert isinstance(rows[0], EvaluationRow)
             assert len(rows[0].messages) > 0
-    
+
     def test_error_handling(self):
         """Test error handling."""
         adapter = YourCustomAdapter(api_key="test_key")
-        
+
         with patch.object(adapter.client, 'fetch_data') as mock_fetch:
             mock_fetch.side_effect = Exception("API Error")
-            
+
             rows = list(adapter.get_evaluation_rows())
             assert len(rows) == 0  # Should handle error gracefully
 ```
@@ -341,18 +341,18 @@ For simple chat data:
 ```python
 def _extract_messages(self, conversation: Dict) -> List[Message]:
     messages = []
-    
+
     # Add system prompt if available
     if conversation.get('system_prompt'):
         messages.append(Message(role="system", content=conversation['system_prompt']))
-    
+
     # Add conversation turns
     for turn in conversation['turns']:
         messages.append(Message(
             role=turn['role'],
             content=turn['content']
         ))
-    
+
     return messages
 ```
 
@@ -363,27 +363,27 @@ For tool calling scenarios:
 ```python
 def _extract_messages(self, trace: Dict) -> List[Message]:
     messages = []
-    
+
     for step in trace['steps']:
         if step['type'] == 'user_message':
             messages.append(Message(role="user", content=step['content']))
-        
+
         elif step['type'] == 'assistant_message':
             message = Message(role="assistant", content=step.get('content'))
-            
+
             # Add tool calls if present
             if step.get('tool_calls'):
                 message.tool_calls = step['tool_calls']
-            
+
             messages.append(message)
-        
+
         elif step['type'] == 'tool_response':
             messages.append(Message(
                 role="tool",
                 content=step['content'],
                 tool_call_id=step['tool_call_id']
             ))
-    
+
     return messages
 ```
 
@@ -515,7 +515,7 @@ Here are some potential adapters that would be valuable:
 
 - **OpenAI Evals**: Load data from OpenAI's evals repository
 - **LLM Evaluation Datasets**: MMLU, HellaSwag, etc.
-- **Chat Platforms**: Discord, Slack conversation exports  
+- **Chat Platforms**: Discord, Slack conversation exports
 - **Monitoring Tools**: Other observability platforms
 - **Custom APIs**: Company-specific data sources
 - **File Formats**: Parquet, Excel, database exports
