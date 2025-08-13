@@ -5,6 +5,68 @@ import { MetadataSection } from "./MetadataSection";
 import StatusIndicator from "./StatusIndicator";
 import { state } from "../App";
 import { TableCell, TableRowInteractive } from "./TableContainer";
+import { useState } from "react";
+
+// Copy button component
+const CopyButton = observer(({ text }: { text: string }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row expansion
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      // Reset to "Copy" state after 2 seconds
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
+
+  return (
+    <button
+      className="p-1 text-gray-400 hover:text-gray-600 transition-colors relative group cursor-pointer"
+      onClick={handleClick}
+      title="Copy to clipboard"
+    >
+      {/* Tooltip */}
+      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+        {copied ? "Copied!" : "Copy"}
+      </div>
+
+      {/* Icon */}
+      {copied ? (
+        <svg
+          className="w-3 h-3 text-green-600"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M5 13l4 4L19 7"
+          />
+        </svg>
+      ) : (
+        <svg
+          className="w-3 h-3"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
+        </svg>
+      )}
+    </button>
+  );
+});
 
 // Small, focused components following "dereference values late" principle
 const ExpandIcon = observer(({ rolloutId }: { rolloutId?: string }) => {
@@ -59,10 +121,23 @@ const RolloutId = observer(
     return (
       <span className="font-mono text-gray-900 whitespace-nowrap">
         {rolloutId}
+        <CopyButton text={rolloutId} />
       </span>
     );
   }
 );
+
+const InvocationId = observer(({ invocationId }: { invocationId?: string }) => {
+  if (!invocationId) {
+    return null;
+  }
+  return (
+    <span className="font-mono text-gray-900 whitespace-nowrap">
+      {invocationId}
+      <CopyButton text={invocationId} />
+    </span>
+  );
+});
 
 const RowModel = observer(({ model }: { model: string | undefined }) => (
   <span className="text-gray-900 truncate block">{model || "N/A"}</span>
@@ -224,6 +299,13 @@ export const EvaluationRow = observer(
             />
           </TableCell>
 
+          {/* Invocation ID */}
+          <TableCell className="py-3 text-xs">
+            <InvocationId
+              invocationId={row.execution_metadata?.invocation_id}
+            />
+          </TableCell>
+
           {/* Rollout ID */}
           <TableCell className="py-3 text-xs">
             <RolloutId rolloutId={row.execution_metadata?.rollout_id} />
@@ -248,7 +330,7 @@ export const EvaluationRow = observer(
         {/* Expanded Content Row */}
         {isExpanded && (
           <tr>
-            <td colSpan={8} className="p-0">
+            <td colSpan={9} className="p-0">
               <ExpandedContent
                 row={row}
                 messages={row.messages}

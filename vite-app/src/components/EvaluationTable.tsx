@@ -162,6 +162,7 @@ export const EvaluationTable = observer(() => {
                 <TableHeader className="w-8">&nbsp;</TableHeader>
                 <TableHeader>Name</TableHeader>
                 <TableHeader>Status</TableHeader>
+                <TableHeader>Invocation ID</TableHeader>
                 <TableHeader>Rollout ID</TableHeader>
                 <TableHeader>Model</TableHeader>
                 <TableHeader>Score</TableHeader>
