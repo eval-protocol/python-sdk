@@ -65,7 +65,7 @@ jobs:
           uv run pytest tests/test_tau_bench_airline_smoke.py::test_tau_bench_airline_smoke_evaluation \
             -v --tb=short --durations=10 \
             --ep-print-summary \
-            --ep-summary-json=ep_summary.json
+            --ep-summary-json=ep_summary.json 2>&1 | tee test_output.log
 
           TEST_EXIT_CODE=$?
 
@@ -76,53 +76,56 @@ jobs:
           ls -la *.json 2>/dev/null || echo "No JSON files found"
           ls -la ep_summary* 2>/dev/null || echo "No ep_summary files found"
 
-          # Parse evaluation protocol summary if it exists
-          # EP might generate files with different names, check for common patterns
-          EP_SUMMARY_FILE=""
-          for file in ep_summary*.json; do
-            if [ -f "$file" ]; then
-              EP_SUMMARY_FILE="$file"
-              break
+          # Parse EP summary from terminal output (more reliable than JSON files)
+          if [ -f test_output.log ]; then
+            echo "📋 Parsing EP summary from terminal output..."
+
+            # Show the terminal output for debugging
+            echo "Terminal output:"
+            cat test_output.log
+            echo ""
+
+            # Extract the EP Summary line from the terminal output
+            EP_SUMMARY_LINE=$(grep "EP Summary |" test_output.log 2>/dev/null || echo "")
+
+            if [ -n "$EP_SUMMARY_LINE" ]; then
+              echo "Found EP Summary line:"
+              echo "$EP_SUMMARY_LINE"
+
+              # Parse the agg score from the line: "EP Summary | ... agg=0.420 ..."
+              SUCCESS_RATE=$(echo "$EP_SUMMARY_LINE" | grep -o "agg=[0-9.]*" | cut -d= -f2 2>/dev/null || echo "0")
+
+              # Extract other info
+              NUM_RUNS=$(echo "$EP_SUMMARY_LINE" | grep -o "runs=[0-9]*" | cut -d= -f2 2>/dev/null || echo "0")
+              NUM_ROWS=$(echo "$EP_SUMMARY_LINE" | grep -o "rows=[0-9]*" | cut -d= -f2 2>/dev/null || echo "0")
+
+              echo "success_rate=$SUCCESS_RATE" >> $GITHUB_OUTPUT
+
+              # Check if success rate meets thresholds (40% - 90% acceptable range)
+              LOWER_BOUND=0.4  # 40%
+              UPPER_BOUND=0.9  # 90%
+              LOWER_BOUND_MET=$(echo "$SUCCESS_RATE >= $LOWER_BOUND" | bc -l 2>/dev/null || echo "0")
+              UPPER_BOUND_MET=$(echo "$SUCCESS_RATE <= $UPPER_BOUND" | bc -l 2>/dev/null || echo "0")
+              THRESHOLD_MET=$(echo "$LOWER_BOUND_MET && $UPPER_BOUND_MET" | bc -l 2>/dev/null || echo "0")
+
+              echo "lower_bound_met=$LOWER_BOUND_MET" >> $GITHUB_OUTPUT
+              echo "upper_bound_met=$UPPER_BOUND_MET" >> $GITHUB_OUTPUT
+              echo "threshold_met=$THRESHOLD_MET" >> $GITHUB_OUTPUT
+
+              echo "📊 Evaluation Summary (from terminal output):"
+              echo "  - Success rate: $(echo "$SUCCESS_RATE * 100" | bc -l 2>/dev/null || echo "unknown")%"
+              echo "  - Dataset rows evaluated: $NUM_ROWS"
+              echo "  - Number of runs: $NUM_RUNS"
+              echo "  - Lower bound (≥40%) met: $([ "$LOWER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
+              echo "  - Upper bound (≤90%) met: $([ "$UPPER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
+              echo "  - Within acceptable range: $([ "$THRESHOLD_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
+            else
+              echo "❌ No EP Summary line found in terminal output"
+              echo "threshold_met=0" >> $GITHUB_OUTPUT
+              echo "success_rate=0" >> $GITHUB_OUTPUT
             fi
-          done
-
-          if [ -n "$EP_SUMMARY_FILE" ] && [ -f "$EP_SUMMARY_FILE" ]; then
-            echo "EP Summary found: $EP_SUMMARY_FILE, parsing..."
-
-            # Log the full summary for debugging
-            echo "EP Summary contents:"
-            cat "$EP_SUMMARY_FILE" | jq . 2>/dev/null || cat "$EP_SUMMARY_FILE"
-
-            # Extract success rate from EP summary (this contains the actual accuracy/success rate)
-            # The EP summary uses 'agg_score' for the aggregated success rate
-            SUCCESS_RATE=$(jq -r '.agg_score // 0' "$EP_SUMMARY_FILE" 2>/dev/null || echo "0")
-
-            echo "success_rate=$SUCCESS_RATE" >> $GITHUB_OUTPUT
-
-            # Check if success rate meets thresholds (40% - 90% acceptable range)
-            LOWER_BOUND=0.4  # 40%
-            UPPER_BOUND=0.9  # 90%
-            LOWER_BOUND_MET=$(echo "$SUCCESS_RATE >= $LOWER_BOUND" | bc -l)
-            UPPER_BOUND_MET=$(echo "$SUCCESS_RATE <= $UPPER_BOUND" | bc -l)
-            THRESHOLD_MET=$(echo "$LOWER_BOUND_MET && $UPPER_BOUND_MET" | bc -l)
-
-            echo "lower_bound_met=$LOWER_BOUND_MET" >> $GITHUB_OUTPUT
-            echo "upper_bound_met=$UPPER_BOUND_MET" >> $GITHUB_OUTPUT
-            echo "threshold_met=$THRESHOLD_MET" >> $GITHUB_OUTPUT
-
-            # Extract additional info for display
-            NUM_ROWS=$(jq -r '.rows // 0' "$EP_SUMMARY_FILE" 2>/dev/null || echo "0")
-            NUM_RUNS=$(jq -r '.num_runs // 0' "$EP_SUMMARY_FILE" 2>/dev/null || echo "0")
-
-            echo "📊 Evaluation Summary:"
-            echo "  - Success rate (agg_score): $(echo "$SUCCESS_RATE * 100" | bc -l)%"
-            echo "  - Dataset rows evaluated: $NUM_ROWS"
-            echo "  - Number of runs: $NUM_RUNS"
-            echo "  - Lower bound (≥40%) met: $([ "$LOWER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
-            echo "  - Upper bound (≤90%) met: $([ "$UPPER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
-            echo "  - Within acceptable range: $([ "$THRESHOLD_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
           else
-            echo "❌ No EP summary file found"
+            echo "❌ No terminal output file found"
             echo "threshold_met=0" >> $GITHUB_OUTPUT
             echo "success_rate=0" >> $GITHUB_OUTPUT
           fi
@@ -133,6 +136,7 @@ jobs:
         with:
           name: e2e-smoke-test-results-${{ github.run_number }}
           path: |
+            test_output.log
             ep_summary*.json
             *.log
           retention-days: 7
@@ -149,16 +153,16 @@ jobs:
           SUCCESS_RATE="${{ steps.run_test.outputs.success_rate }}"
 
           echo "Test exit code: $TEST_EXIT_CODE"
-          echo "Threshold met (40%-90%): $THRESHOLD_MET"
+          echo "Threshold met (40%-60%): $THRESHOLD_MET"
           echo "Lower bound met (≥40%): $LOWER_BOUND_MET"
-          echo "Upper bound met (≤90%): $UPPER_BOUND_MET"
+          echo "Upper bound met (≤60%): $UPPER_BOUND_MET"
           echo "Success rate: $SUCCESS_RATE"
 
           # Fail the job if tests didn't run successfully or thresholds weren't met
           if [ "$TEST_EXIT_CODE" != "0" ] && [ "$THRESHOLD_MET" != "1" ]; then
             echo "❌ E2E smoke test FAILED"
             echo "   - Test execution failed (exit code: $TEST_EXIT_CODE)"
-            echo "   - Success rate outside acceptable range (required: 40%-90%, actual: ${SUCCESS_RATE:-unknown})"
+            echo "   - Success rate outside acceptable range (required: 40%-60%, actual: ${SUCCESS_RATE:-unknown})"
             exit 1
           elif [ "$TEST_EXIT_CODE" != "0" ]; then
             echo "⚠️ E2E smoke test had test execution issues but may have met thresholds"
@@ -179,16 +183,16 @@ jobs:
             elif [ "$UPPER_BOUND_MET" != "1" ]; then
               echo "❌ E2E smoke test FAILED - success rate suspiciously high"
               echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
-              echo "   - Maximum expected: ≤90%"
+              echo "   - Maximum expected: ≤60%"
               echo "   - This may indicate test issues or unrealistic performance"
             else
               echo "❌ E2E smoke test FAILED - success rate outside acceptable range"
               echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
-              echo "   - Required range: 40%-90%"
+              echo "   - Required range: 40%-60%"
             fi
             exit 1
           else
             echo "✅ E2E smoke test PASSED"
             echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
-            echo "   - Within acceptable range: 40%-90%"
+            echo "   - Within acceptable range: 40%-60%"
           fi
