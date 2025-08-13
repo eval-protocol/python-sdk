@@ -6,67 +6,105 @@ import StatusIndicator from "./StatusIndicator";
 import { state } from "../App";
 import { TableCell, TableRowInteractive } from "./TableContainer";
 import { useState } from "react";
+import type { FilterGroup, FilterConfig } from "../types/filters";
 
-// Copy button component
-const CopyButton = observer(({ text }: { text: string }) => {
-  const [copied, setCopied] = useState(false);
+// Add filter button component
+const AddFilterButton = observer(
+  ({
+    fieldPath,
+    value,
+    label,
+  }: {
+    fieldPath: string;
+    value: string;
+    label: string;
+  }) => {
+    const [added, setAdded] = useState(false);
 
-  const handleClick = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent row expansion
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      // Reset to "Copy" state after 2 seconds
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy text: ", err);
-    }
-  };
+    const handleClick = (e: React.MouseEvent) => {
+      e.stopPropagation(); // Prevent row expansion
 
-  return (
-    <button
-      className="p-1 text-gray-400 hover:text-gray-600 transition-colors relative group cursor-pointer"
-      onClick={handleClick}
-      title="Copy to clipboard"
-    >
-      {/* Tooltip */}
-      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-        {copied ? "Copied!" : "Copy"}
-      </div>
+      // Create a new filter for this field/value
+      const newFilter: FilterConfig = {
+        field: fieldPath,
+        operator: "==",
+        value: value,
+        type: "text",
+      };
 
-      {/* Icon */}
-      {copied ? (
-        <svg
-          className="w-3 h-3 text-green-600"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M5 13l4 4L19 7"
-          />
-        </svg>
-      ) : (
-        <svg
-          className="w-3 h-3"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-          />
-        </svg>
-      )}
-    </button>
-  );
-});
+      // Add the filter to the existing filter configuration
+      const currentFilters = state.filterConfig;
+      let newFilters: FilterGroup[];
+
+      if (currentFilters.length === 0) {
+        // If no filters exist, create a new filter group
+        newFilters = [
+          {
+            logic: "AND",
+            filters: [newFilter],
+          },
+        ];
+      } else {
+        // Add to the first filter group (assuming AND logic)
+        newFilters = [...currentFilters];
+        newFilters[0] = {
+          ...newFilters[0],
+          filters: [...newFilters[0].filters, newFilter],
+        };
+      }
+
+      state.updateFilterConfig(newFilters);
+      setAdded(true);
+
+      // Reset to "Add Filter" state after 2 seconds
+      setTimeout(() => setAdded(false), 2000);
+    };
+
+    return (
+      <button
+        className="text-gray-400 hover:text-gray-600 transition-colors relative group cursor-pointer"
+        onClick={handleClick}
+        title="Add filter for this value"
+      >
+        {/* Tooltip */}
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+          {added ? "Filter Added!" : `Add ${label} Filter`}
+        </div>
+
+        {/* Icon */}
+        {added ? (
+          <svg
+            className="w-3 h-3 text-green-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+        ) : (
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z"
+            />
+          </svg>
+        )}
+      </button>
+    );
+  }
+);
 
 // Small, focused components following "dereference values late" principle
 const ExpandIcon = observer(({ rolloutId }: { rolloutId?: string }) => {
@@ -131,9 +169,13 @@ const InvocationId = observer(({ invocationId }: { invocationId?: string }) => {
     return null;
   }
   return (
-    <span className="font-mono text-gray-900 whitespace-nowrap">
+    <span className="font-mono text-gray-900 whitespace-nowrap flex items-center gap-1">
       {invocationId}
-      <CopyButton text={invocationId} />
+      <AddFilterButton
+        fieldPath="$.execution_metadata.invocation_id"
+        value={invocationId}
+        label="Invocation"
+      />
     </span>
   );
 });
