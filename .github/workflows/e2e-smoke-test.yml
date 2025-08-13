@@ -101,9 +101,9 @@ jobs:
 
               echo "success_rate=$SUCCESS_RATE" >> $GITHUB_OUTPUT
 
-              # Check if success rate meets thresholds (40% - 90% acceptable range)
-              LOWER_BOUND=0.4  # 40%
-              UPPER_BOUND=0.9  # 90%
+              # Check if success rate meets thresholds (36% - 60% acceptable range)
+              LOWER_BOUND=0.36  # 36%
+              UPPER_BOUND=0.6  # 60%
               LOWER_BOUND_MET=$(echo "$SUCCESS_RATE >= $LOWER_BOUND" | bc -l 2>/dev/null || echo "0")
               UPPER_BOUND_MET=$(echo "$SUCCESS_RATE <= $UPPER_BOUND" | bc -l 2>/dev/null || echo "0")
               THRESHOLD_MET=$(echo "$LOWER_BOUND_MET && $UPPER_BOUND_MET" | bc -l 2>/dev/null || echo "0")
@@ -116,8 +116,8 @@ jobs:
               echo "  - Success rate: $(echo "$SUCCESS_RATE * 100" | bc -l 2>/dev/null || echo "unknown")%"
               echo "  - Dataset rows evaluated: $NUM_ROWS"
               echo "  - Number of runs: $NUM_RUNS"
-              echo "  - Lower bound (≥40%) met: $([ "$LOWER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
-              echo "  - Upper bound (≤90%) met: $([ "$UPPER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
+              echo "  - Lower bound (≥36%) met: $([ "$LOWER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
+              echo "  - Upper bound (≤60%) met: $([ "$UPPER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
               echo "  - Within acceptable range: $([ "$THRESHOLD_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
             else
               echo "❌ No EP Summary line found in terminal output"
