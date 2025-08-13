@@ -1,8 +1,13 @@
+import asyncio
 import copy
 import inspect
+import json
 import math
 import os
+import pathlib
+import re
 import statistics
+import time
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 import pytest
@@ -173,7 +178,7 @@ def evaluation_test(  # noqa: C901
             if sig.return_annotation is not List[EvaluationRow]:
                 raise ValueError("In batch mode, your eval function must return a list of EvaluationRow instances")
 
-        def execute_with_params(
+        async def execute_with_params(
             test_func: TestFunction,
             processed_row: EvaluationRow | None = None,
             processed_dataset: List[EvaluationRow] | None = None,
@@ -190,7 +195,12 @@ def evaluation_test(  # noqa: C901
                 if "rows" in evaluation_test_kwargs:
                     raise ValueError("'rows' is a reserved parameter for the evaluation function")
                 kwargs.update(evaluation_test_kwargs)
-            return execute_function(test_func, **kwargs)
+
+            # Handle both sync and async test functions
+            if asyncio.iscoroutinefunction(test_func):
+                return await test_func(**kwargs)
+            else:
+                return test_func(**kwargs)
 
         # Calculate all possible combinations of parameters
         def _parse_ep_max_rows(default_value: int | None) -> int | None:
@@ -300,7 +310,7 @@ def evaluation_test(  # noqa: C901
             # Create the function body that will be used
             invocation_id = generate_id()
 
-            def wrapper_body(**kwargs):
+            async def wrapper_body(**kwargs):
                 model_name = kwargs["model"]
                 eval_metadata = None
                 all_results: List[List[EvaluationRow]] = [[] for _ in range(num_runs)]
@@ -423,26 +433,40 @@ def evaluation_test(  # noqa: C901
                         for row in fresh_dataset:
                             active_logger.log(row)
 
-                        processed_dataset = execute_function(rollout_processor, rows=fresh_dataset, config=config)
+                        rollout_result = rollout_processor(fresh_dataset, config)
 
                         if mode == "pointwise":
-                            # Pointwise mode: apply the evaluator function to each row
-                            for row in processed_dataset:
-                                result = execute_with_params(
-                                    test_func,
-                                    processed_row=row,
-                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
-                                )
-                                if result is None or not isinstance(result, EvaluationRow):
-                                    raise ValueError(
-                                        f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
+                            # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
+                            semaphore = asyncio.Semaphore(max_concurrent_rollouts)
+                            tasks = []
+
+                            async def _execute_with_semaphore(row):
+                                async with semaphore:
+                                    result = await execute_with_params(
+                                        test_func,
+                                        processed_row=row,
+                                        evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                                     )
-                                all_results[i].append(result)
+                                    if result is None or not isinstance(result, EvaluationRow):
+                                        raise ValueError(
+                                            f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
+                                        )
+                                    return result
+
+                            async for row in rollout_processor(fresh_dataset, config):
+                                tasks.append(asyncio.create_task(_execute_with_semaphore(row)))
+
+                            all_results[i] = await asyncio.gather(*tasks)
+
                         else:
-                            # Batch mode: call the test function with the full dataset
-                            results = execute_with_params(
+                            # Batch mode: collect all results first, then evaluate (no pipelining)
+                            input_dataset = []
+                            async for row in rollout_result:
+                                input_dataset.append(row)
+
+                            results = await execute_with_params(
                                 test_func,
-                                processed_dataset=processed_dataset,
+                                processed_dataset=input_dataset,
                                 evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                             )
                             if results is None:
@@ -568,10 +592,6 @@ def evaluation_test(  # noqa: C901
                                 )
                             # As per project convention, avoid printing per-metric CI lines to reduce noise
                         if summary_path:
-                            import json
-                            import pathlib
-                            import re
-                            import time
 
                             def _sanitize_filename(text: str) -> str:
                                 safe = re.sub(r"[^A-Za-z0-9._-]+", "-", text.strip())
@@ -667,6 +687,7 @@ def evaluation_test(  # noqa: C901
         # Create the pytest wrapper
         pytest_wrapper = create_wrapper_with_signature()
         pytest_wrapper = pytest.mark.parametrize(test_param_names, param_tuples)(pytest_wrapper)
+        pytest_wrapper = pytest.mark.asyncio(pytest_wrapper)
 
         def create_dual_mode_wrapper() -> Callable:
             """
@@ -687,66 +708,39 @@ def evaluation_test(  # noqa: C901
             # Check if the test function is async
             is_async = asyncio.iscoroutinefunction(test_func)
 
-            if is_async:
+            async def call_test_func(**call_kwargs):
+                """Helper to call test_func with proper async/sync handling"""
+                if is_async:
+                    return await test_func(**call_kwargs)
+                else:
+                    return test_func(**call_kwargs)
 
-                async def dual_mode_wrapper(*args, **kwargs):
-                    # Check if this is a direct call with the expected signature
-                    if mode == "pointwise":
-                        # For pointwise mode, check if called with a single row argument
-                        if len(args) == 1 and isinstance(args[0], EvaluationRow) and not kwargs:
-                            return await test_func(row=args[0])
-                    else:
-                        # For batch mode, check if called with rows argument
-                        if (
-                            len(args) == 1
-                            and isinstance(args[0], list)
-                            and all(isinstance(r, EvaluationRow) for r in args[0])
-                            and not kwargs
-                        ):
-                            return await test_func(rows=args[0])
-                        # Also check if called with keyword argument 'rows'
-                        if (
-                            len(args) == 0
-                            and "rows" in kwargs
-                            and isinstance(kwargs["rows"], list)
-                            and all(isinstance(r, EvaluationRow) for r in kwargs["rows"])
-                        ):
-                            return await test_func(**kwargs)
+            async def dual_mode_wrapper(*args, **kwargs):
+                # Check if this is a direct call with the expected signature
+                if mode == "pointwise":
+                    # For pointwise mode, check if called with a single row argument
+                    if len(args) == 1 and isinstance(args[0], EvaluationRow) and not kwargs:
+                        return await call_test_func(row=args[0])
+                else:
+                    # For batch mode, check if called with rows argument
+                    if (
+                        len(args) == 1
+                        and isinstance(args[0], list)
+                        and all(isinstance(r, EvaluationRow) for r in args[0])
+                        and not kwargs
+                    ):
+                        return await call_test_func(rows=args[0])
+                    # Also check if called with keyword argument 'rows'
+                    if (
+                        len(args) == 0
+                        and "rows" in kwargs
+                        and isinstance(kwargs["rows"], list)
+                        and all(isinstance(r, EvaluationRow) for r in kwargs["rows"])
+                    ):
+                        return await call_test_func(**kwargs)
 
-                    # If not a direct call, use the pytest wrapper
-                    return pytest_wrapper(*args, **kwargs)
-
-            else:
-
-                def dual_mode_wrapper(*args, **kwargs):
-                    # Check if this is a direct call with the expected signature
-                    if mode == "pointwise":
-                        # For pointwise mode, check if called with a single row argument
-                        if len(args) == 1 and isinstance(args[0], EvaluationRow) and not kwargs:
-                            return test_func(row=args[0])
-
-                        if len(args) == 0 and "row" in kwargs and isinstance(kwargs["row"], EvaluationRow):
-                            return test_func(**kwargs)
-                    else:
-                        # For batch mode, check if called with rows argument
-                        if (
-                            len(args) == 1
-                            and isinstance(args[0], list)
-                            and all(isinstance(r, EvaluationRow) for r in args[0])
-                            and not kwargs
-                        ):
-                            return test_func(rows=args[0])
-                        # Also check if called with keyword argument 'rows'
-                        if (
-                            len(args) == 0
-                            and "rows" in kwargs
-                            and isinstance(kwargs["rows"], list)
-                            and all(isinstance(r, EvaluationRow) for r in kwargs["rows"])
-                        ):
-                            return test_func(**kwargs)
-
-                    # If not a direct call, use the pytest wrapper
-                    return pytest_wrapper(*args, **kwargs)
+                # If not a direct call, use the pytest wrapper
+                return await pytest_wrapper(*args, **kwargs)
 
             # Copy all attributes from the pytest wrapper to our dual mode wrapper
             import functools

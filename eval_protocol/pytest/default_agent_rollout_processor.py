@@ -1,7 +1,8 @@
 import asyncio
 import json
+import logging
 import os
-from typing import Any, List, Optional, Union
+from typing import Any, AsyncIterator, List, Optional, Union
 
 from mcp.types import CallToolResult, TextContent
 from openai import NOT_GIVEN, NotGiven
@@ -13,6 +14,8 @@ from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
+
+logger = logging.getLogger(__name__)
 
 
 class Agent:
@@ -114,13 +117,42 @@ class Agent:
 
 async def default_agent_rollout_processor(
     rows: List[EvaluationRow], config: RolloutProcessorConfig
-) -> List[EvaluationRow]:
-    dataset: Dataset = []
-    for row in rows:
+) -> AsyncIterator[EvaluationRow]:
+    """Process agent rollouts with bounded concurrency and yield as they complete."""
+
+    max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    async def process_row(row: EvaluationRow) -> EvaluationRow:
+        """Process a single row with agent rollout."""
         agent = Agent(model=config.model, row=row, config_path=config.mcp_config_path, logger=config.logger)
-        await agent.setup()
-        await agent.call_agent()
-        dataset.append(agent.evaluation_row)
-        if agent.mcp_client:
-            await agent.mcp_client.cleanup()
-    return dataset
+        try:
+            await agent.setup()
+            await agent.call_agent()
+            return agent.evaluation_row
+        finally:
+            if agent.mcp_client:
+                await agent.mcp_client.cleanup()
+
+    async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:
+        async with semaphore:
+            try:
+                return await process_row(r)
+            except Exception as e:
+                logger.exception(f"Error processing row {r.input_metadata.row_id}: {e}")
+                return r
+
+    # Create all tasks
+    tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
+
+    # Yield results as they complete (note that they're not necessarily in original order)
+    try:
+        for task in asyncio.as_completed(tasks):
+            try:
+                yield await task
+            except Exception:
+                logger.exception("Error processing row")
+    finally:
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)

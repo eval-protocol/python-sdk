@@ -41,11 +41,13 @@ MCP Integration:
 """
 
 import asyncio
+import hashlib
+import json
 
 # For legacy compatibility - import the facade functions
 import logging
 import random
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Union
 
 # Import all functionality from the new modular components
 from .mcp.execution.manager import ExecutionManager
@@ -53,9 +55,6 @@ from .mcp.execution.policy import AnthropicPolicy, FireworksPolicy, LiteLLMPolic
 from .mcp.session.manager import GeneralMCPVectorEnv
 from .models import EvaluationRow
 from .types import DatasetRow, MCPSession, MCPToolCall
-import asyncio
-import hashlib
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -247,7 +246,7 @@ async def rollout(
     steps: int = 512,
     openai_format_log_file: Optional[str] = None,
     max_concurrent_rollouts: int = 8,
-) -> List[EvaluationRow]:
+) -> AsyncIterator[EvaluationRow]:
     """
     Execute general rollouts using tool calling interface with automatic record/playback.
 
@@ -307,9 +306,10 @@ async def rollout(
     # Use the new ExecutionManager for execution
     execution_manager = ExecutionManager()
 
-    return await execution_manager.execute_rollouts(
+    async for evaluation_row in execution_manager.execute_rollouts(
         envs, policy, steps, openai_format_log_file, max_concurrent_rollouts, evaluation_rows
-    )
+    ):
+        yield evaluation_row
 
 
 async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:
