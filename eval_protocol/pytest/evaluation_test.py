@@ -308,7 +308,6 @@ def evaluation_test(  # noqa: C901
             invocation_id = generate_id()
 
             async def wrapper_body(**kwargs):
-                model_name = kwargs["model"]
                 eval_metadata = None
                 all_results: List[List[EvaluationRow]] = [[] for _ in range(num_runs)]
 
