@@ -207,7 +207,7 @@ class PlaybackPolicyBase(ABC):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List["MCPToolCall"], CompletionUsage]:
+    ) -> Tuple[List["MCPToolCall"], CompletionUsage, str]:
         """
         Generate tool calls in live mode. Concrete classes must implement this.
 
@@ -253,7 +253,7 @@ class PlaybackPolicyBase(ABC):
                 ]
 
             # Return the recorded tool call
-            return self._extract_tool_call_from_messages(messages, env_index), None
+            return self._extract_tool_call_from_messages(messages, env_index), None, None
         else:
             # Live mode - generate tool call using provided conversation history
             return await self._generate_live_tool_calls(tool_schemas, env_index, conversation_history)

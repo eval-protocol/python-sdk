@@ -35,6 +35,7 @@ from eval_protocol.pytest.types import (
     RolloutInputParam,
     RolloutProcessor,
     RolloutProcessorConfig,
+    RolloutProcessorInputParam,
     TestFunction,
 )
 from eval_protocol.pytest.utils import (
@@ -58,6 +59,7 @@ def evaluation_test(  # noqa: C901
     rollout_input_params: Optional[List[RolloutInputParam]] = None,
     rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
+    rollout_processor_kwargs: Optional[RolloutProcessorInputParam] = None,
     aggregation_method: AggregationMethod = "mean",
     passed_threshold: Optional[Union[EvaluationThreshold, float]] = None,
     num_runs: int = 1,
@@ -119,6 +121,7 @@ def evaluation_test(  # noqa: C901
         rollout_input_params: Generation parameters for the rollout.
         rollout_processor: Function used to perform the rollout.
         evaluation_test_kwargs: Kwargs for the evaluation function.
+        rollout_processor_kwargs: Kwargs for the rollout processor.
         aggregation_method: How to aggregate scores across rows.
         passed_threshold: Threshold configuration for test success.
             Success rate must be above success, and if set, standard deviation must be below standard_deviation.
@@ -409,6 +412,7 @@ def evaluation_test(  # noqa: C901
                         server_script_path=server_script_path,
                         steps=steps,
                         logger=active_logger,
+                        kwargs=rollout_processor_kwargs,
                     )
 
                     for i in range(num_runs):
@@ -758,6 +762,7 @@ def evaluation_test(  # noqa: C901
                 "rollout_input_params": rollout_input_params,
                 "rollout_processor": rollout_processor,
                 "evaluation_test_kwargs": evaluation_test_kwargs,
+                "rollout_processor_kwargs": rollout_processor_kwargs,
                 "aggregation_method": aggregation_method,
                 "passed_threshold": passed_threshold,
                 "num_runs": num_runs,
@@ -825,6 +830,7 @@ def run_evaluation_test_direct(
     dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
     rollout_input_params: Optional[RolloutInputParam] = None,
     rollout_processor: RolloutProcessor = default_no_op_rollout_processor,
+    rollout_processor_kwargs: Optional[RolloutProcessorInputParam] = None,
     aggregation_method: AggregationMethod = "mean",
     threshold_of_success: Optional[float] = None,
     num_runs: int = 1,
@@ -934,6 +940,7 @@ def run_evaluation_test_direct(
         max_concurrent_rollouts=max_concurrent_rollouts,
         server_script_path=server_script_path,
         steps=steps,
+        kwargs=rollout_processor_kwargs,
     )
 
     all_results: List[EvaluationRow] = []

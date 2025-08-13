@@ -1,16 +1,14 @@
 from typing import Any, Dict, List, Optional
 
+from eval_protocol.benchmarks.registry import export_benchmark
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     default_single_turn_rollout_processor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
-from eval_protocol.benchmarks.registry import export_benchmark
-
 
 SYSTEM_PROMPT = (
-    "You are a helpful math assistant. Please reason step by step, and put your "
-    "final answer within \\boxed{...}."
+    "You are a helpful math assistant. Please reason step by step, and put your " "final answer within \\boxed{...}."
 )
 
 
@@ -56,9 +54,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
             Message(role="system", content=SYSTEM_PROMPT),
             Message(role="user", content=str(question)),
         ]
-        converted.append(
-            EvaluationRow(messages=messages, ground_truth=str(answer) if answer is not None else None)
-        )
+        converted.append(EvaluationRow(messages=messages, ground_truth=str(answer) if answer is not None else None))
     return converted
 
 
@@ -73,7 +69,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     rollout_input_params=[{"max_tokens": 131000, "extra_body": {"reasoning_effort": "low"}}],
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
-    threshold_of_success=None,
+    passed_threshold=None,
     num_runs=8,
     max_dataset_rows=2,
     max_concurrent_rollouts=4,
@@ -114,5 +110,3 @@ def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
         metrics=metrics,
     )
     return row
-
-
