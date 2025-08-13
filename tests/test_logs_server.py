@@ -29,8 +29,6 @@ from eval_protocol.utils.logs_server import (
 class TestWebSocketManager:
     """Test WebSocketManager class."""
 
-    input_metadata = InputMetadata(row_id="test-123", completion_params={"model": "gpt-4o"})
-
     def test_initialization(self):
         """Test WebSocketManager initialization."""
         manager = WebSocketManager()
@@ -66,7 +64,7 @@ class TestWebSocketManager:
         mock_logs = [
             EvaluationRow(
                 messages=[Message(role="user", content="test")],
-                input_metadata=self.input_metadata,
+                input_metadata=InputMetadata(row_id="test-123"),
             )
         ]
 
@@ -84,7 +82,7 @@ class TestWebSocketManager:
         manager = WebSocketManager()
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
-            input_metadata=self.input_metadata,
+            input_metadata=InputMetadata(row_id="test-123"),
         )
 
         # Test that broadcast doesn't fail when no connections
@@ -98,7 +96,6 @@ class TestWebSocketManager:
         assert "row" in data
         assert data["row"]["messages"][0]["content"] == "test"
         assert data["row"]["input_metadata"]["row_id"] == "test-123"
-        assert data["row"]["input_metadata"]["completion_params"]["model"] == "gpt-4o"
 
     @pytest.mark.asyncio
     async def test_broadcast_loop(self):
@@ -224,7 +221,7 @@ class TestEvaluationWatcher:
 
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
-            input_metadata=self.input_metadata,
+            input_metadata=InputMetadata(row_id="test-123"),
             eval_metadata=EvalMetadata(name="test_eval", num_runs=1, aggregation_method="mean", status="running"),
             pid=12345,
         )
@@ -243,7 +240,7 @@ class TestEvaluationWatcher:
 
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
-            input_metadata=self.input_metadata,
+            input_metadata=InputMetadata(row_id="test-123"),
             eval_metadata=EvalMetadata(name="test_eval", num_runs=1, aggregation_method="mean", status="running"),
             pid=999,
         )
@@ -258,7 +255,7 @@ class TestEvaluationWatcher:
 
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
-            input_metadata=self.input_metadata,
+            input_metadata=InputMetadata(row_id="test-123"),
             eval_metadata=EvalMetadata(name="test_eval", num_runs=1, aggregation_method="mean", status="finished"),
             pid=12345,
         )
@@ -273,7 +270,7 @@ class TestEvaluationWatcher:
 
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
-            input_metadata=self.input_metadata,
+            input_metadata=InputMetadata(row_id="test-123"),
             eval_metadata=EvalMetadata(name="test_eval", num_runs=1, aggregation_method="mean", status="running"),
             pid=None,
         )
@@ -329,7 +326,7 @@ class TestLogsServer:
         # Test handling a log event
         test_row = {
             "messages": [{"role": "user", "content": "test"}],
-            "input_metadata": self.input_metadata.model_dump(),
+            "input_metadata": {"row_id": "test-123"},
         }
 
         server._handle_event(LOG_EVENT_TYPE, test_row)
@@ -546,7 +543,7 @@ class TestAsyncWebSocketOperations:
         # Test broadcasting without starting the loop
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
-            input_metadata=self.input_metadata,
+            input_metadata=InputMetadata(row_id="test-123"),
         )
         manager.broadcast_row_upserted(test_row)
 
@@ -576,7 +573,7 @@ class TestAsyncWebSocketOperations:
         # Test broadcasting to all without starting the loop
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
-            input_metadata=self.input_metadata,
+            input_metadata=InputMetadata(row_id="test-123"),
         )
         manager.broadcast_row_upserted(test_row)
 
