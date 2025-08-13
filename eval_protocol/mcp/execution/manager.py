@@ -470,12 +470,12 @@ class ExecutionManager:
                 f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {failure_reason}", exc_info=True
             )
         except (anyio.ClosedResourceError, anyio.BrokenResourceError):
+            failure_reason = "anyioconnection/resource error"
             logger.error(
                 f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {failure_reason}", exc_info=True
             )
-            failure_reason = "connection/resource error"
         except Exception as e:
-            error_msg = str(e) if str(e) else f"{type(e).__name__}: Connection/resource error"
+            error_msg = str(e) if str(e) else f"{type(e).__name__}: Unexpected error"
             logger.error(f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {error_msg}", exc_info=True)
             failure_reason = error_msg
         finally:
