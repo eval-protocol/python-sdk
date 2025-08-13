@@ -48,7 +48,7 @@ export const EvaluationTable = observer(() => {
   };
 
   const handleFiltersChange = (filters: any[]) => {
-    state.updateTableFilterConfig(filters);
+    state.updateFilterConfig(filters);
   };
 
   return (
@@ -59,7 +59,7 @@ export const EvaluationTable = observer(() => {
           <div className="flex items-center gap-4">
             <h3 className="text-sm font-medium text-gray-700">Table Filters</h3>
             <div className="text-xs text-gray-600">
-              {state.tableFilterConfig.length > 0 ? (
+              {state.filterConfig.length > 0 ? (
                 <>
                   Showing {totalRows} of {state.sortedDataset.length} rows
                   {totalRows !== state.sortedDataset.length && (
@@ -74,7 +74,7 @@ export const EvaluationTable = observer(() => {
         </div>
         <div className="bg-white rounded-lg">
           <FilterSelector
-            filters={state.tableFilterConfig}
+            filters={state.filterConfig}
             onFiltersChange={handleFiltersChange}
             availableKeys={state.flattenedDatasetKeys}
             title=""
@@ -162,6 +162,7 @@ export const EvaluationTable = observer(() => {
                 <TableHeader className="w-8">&nbsp;</TableHeader>
                 <TableHeader>Name</TableHeader>
                 <TableHeader>Status</TableHeader>
+                <TableHeader>Invocation ID</TableHeader>
                 <TableHeader>Rollout ID</TableHeader>
                 <TableHeader>Model</TableHeader>
                 <TableHeader>Score</TableHeader>

@@ -148,7 +148,7 @@ const PivotTab = observer(() => {
   };
 
   const updateFilters = (filters: FilterGroup[]) => {
-    state.updatePivotConfig({ filters });
+    state.updateFilterConfig(filters);
   };
 
   const createFieldHandler = (
@@ -246,7 +246,7 @@ const PivotTab = observer(() => {
       />
 
       <FilterSelector
-        filters={pivotConfig.filters}
+        filters={state.filterConfig}
         onFiltersChange={updateFilters}
         availableKeys={availableKeys}
         title="Filters"
@@ -287,7 +287,7 @@ const PivotTab = observer(() => {
         }
         showRowTotals
         showColumnTotals
-        filter={createFilterFunction(pivotConfig.filters)}
+        filter={createFilterFunction(state.filterConfig)}
       />
     </div>
   );

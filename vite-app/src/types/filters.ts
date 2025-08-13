@@ -1,16 +1,18 @@
+export type Operator = "==" | "!=" | ">" | "<" | ">=" | "<=" | "contains" | "!contains" | "between";
+
 // Filter configuration interface
 export interface FilterConfig {
   field: string;
-  operator: string;
+  operator: Operator;
   value: string;
   value2?: string; // For filtering between dates
   type?: "text" | "date" | "date-range";
 }
 
-export interface FilterOperator {
-  value: string;
+export type FilterOperator = {
+  value: Operator;
   label: string;
-}
+};
 
 // Filter group interface for AND/OR logic
 export interface FilterGroup {
@@ -24,5 +26,4 @@ export interface PivotConfig {
   selectedColumnFields: string[];
   selectedValueField: string;
   selectedAggregator: string;
-  filters: FilterGroup[];
 }
