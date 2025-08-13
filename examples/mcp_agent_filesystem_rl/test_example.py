@@ -3,7 +3,7 @@
 Test script for MCP Agent Filesystem RL Example
 
 This script verifies that the example setup is working correctly by:
-1. Testing the template directory structure
+1. Testing the dataset format
 2. Testing the reward function with mock data
 3. Testing MCP server connectivity (if running)
 """
@@ -17,30 +17,10 @@ from pathlib import Path
 # Add the eval-protocol package to the path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from eval_protocol.models import (  # Ensure EvaluateResult is imported
+from eval_protocol.models import (
     EvaluateResult,
     Message,
 )
-
-
-def test_template_structure():
-    """Test that the template directory has the correct structure."""
-    print("Testing template directory structure...")
-
-    # Construct path relative to this test file, then go to project root and find the template
-    base_path = Path(__file__).parent.parent.parent
-    template_path = base_path / "mcp_agent_test_templates" / "fs_rl_example_scenario"
-
-    # Check directories exist
-    assert template_path.exists(), f"Template directory not found: {template_path}"
-    assert (template_path / "source_files").exists(), "source_files directory missing"
-    assert (template_path / "archive").exists(), "archive directory missing"
-
-    # Check important_document.txt exists
-    important_doc = template_path / "source_files" / "important_document.txt"
-    assert important_doc.exists(), "important_document.txt missing from source_files"
-
-    print("✓ Template directory structure is correct")
 
 
 def test_dataset_format():

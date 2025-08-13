@@ -57,9 +57,9 @@ This strategy is preferred over `docker commit` for `mcp/filesystem` because the
 
 ### 4.1. Prepare Host Template Directory
 
-*   Create a directory structure on the host, e.g.:
+*   Create a directory structure on the host at a path of your choice, e.g.:
     ```
-    ./mcp_agent_test_templates/fs_move_scenario/
+    /path/to/fs_move_scenario/
     ├── source_dir/
     │   └── file_to_move.txt  (contains "Hello from source")
     └── target_dir/           (empty)
@@ -76,7 +76,7 @@ This strategy is preferred over `docker commit` for `mcp/filesystem` because the
       mcp_transport: "stdio"
       docker_image: "mcp/filesystem"
       container_command: ["/data"] # Served directory inside container
-      template_data_path_host: "./mcp_agent_test_templates/fs_move_scenario/" # Path to host template
+      template_data_path_host: "/path/to/fs_move_scenario/" # Path to host template
       # container_volumes can be omitted or will be overridden if template_data_path_host is used for filesystem type
     ```
 
