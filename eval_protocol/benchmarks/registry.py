@@ -12,7 +12,7 @@ Usage in a suite module (stack under @evaluation_test):
 
     from eval_protocol.benchmarks.registry import export_benchmark
 
-    @export_benchmark("aime25_low")
+    @export_benchmark("aime25")
     @evaluation_test(...)
     def test_aime_pointwise(row: EvaluationRow) -> EvaluationRow:
         ...
@@ -20,7 +20,7 @@ Usage in a suite module (stack under @evaluation_test):
 Programmatic run:
 
     from eval_protocol.benchmarks.registry import get_benchmark_runner
-    get_benchmark_runner("aime25_low")(model="fireworks_ai/...", print_summary=True, out="artifacts/aime.json")
+    get_benchmark_runner("aime25")(model="fireworks_ai/...", print_summary=True, out="artifacts/aime.json")
 """
 
 from __future__ import annotations
