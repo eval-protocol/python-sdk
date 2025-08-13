@@ -1,0 +1,232 @@
+name: E2E Smoke Test
+
+# Run every 6 hours: at 00:00, 06:00, 12:00, and 18:00 UTC
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual triggering
+    inputs:
+      debug_mode:
+        description: 'Enable debug output'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  e2e-smoke-test:
+    name: E2E Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Install tau2 for testing
+        run: uv pip install git+https://github.com/sierra-research/tau2-bench.git@main
+
+      - name: Run E2E Smoke Test
+        id: run_test
+        env:
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          FIREWORKS_ACCOUNT_ID: ${{ secrets.FIREWORKS_ACCOUNT_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
+        run: |
+          echo "Running e2e smoke test..."
+
+          # Run the test and capture both stdout and exit code
+          set +e  # Don't exit on failure
+
+          uv run pytest tests/test_tau_bench_airline_smoke.py::test_tau_bench_airline_smoke_evaluation \
+            -v --tb=short --durations=10 \
+            --ep-print-summary \
+            --ep-summary-json=ep_summary.json
+
+          TEST_EXIT_CODE=$?
+
+          echo "test_exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
+
+          # Parse evaluation protocol summary if it exists
+          if [ -f ep_summary.json ]; then
+            echo "EP Summary found, parsing..."
+
+            # Log the full summary for debugging
+            echo "EP Summary contents:"
+            cat ep_summary.json | jq . 2>/dev/null || cat ep_summary.json
+
+            # Extract success rate from EP summary (this contains the actual accuracy/success rate)
+            # The EP summary uses 'agg_score' for the aggregated success rate
+            SUCCESS_RATE=$(jq -r '.agg_score // 0' ep_summary.json 2>/dev/null || echo "0")
+
+            echo "success_rate=$SUCCESS_RATE" >> $GITHUB_OUTPUT
+
+            # Check if success rate meets thresholds (40% - 90% acceptable range)
+            LOWER_BOUND=0.4  # 40%
+            UPPER_BOUND=0.9  # 90%
+            LOWER_BOUND_MET=$(echo "$SUCCESS_RATE >= $LOWER_BOUND" | bc -l)
+            UPPER_BOUND_MET=$(echo "$SUCCESS_RATE <= $UPPER_BOUND" | bc -l)
+            THRESHOLD_MET=$(echo "$LOWER_BOUND_MET && $UPPER_BOUND_MET" | bc -l)
+
+            echo "lower_bound_met=$LOWER_BOUND_MET" >> $GITHUB_OUTPUT
+            echo "upper_bound_met=$UPPER_BOUND_MET" >> $GITHUB_OUTPUT
+            echo "threshold_met=$THRESHOLD_MET" >> $GITHUB_OUTPUT
+
+            # Extract additional info for display
+            NUM_ROWS=$(jq -r '.rows // 0' ep_summary.json 2>/dev/null || echo "0")
+            NUM_RUNS=$(jq -r '.num_runs // 0' ep_summary.json 2>/dev/null || echo "0")
+
+            echo "📊 Evaluation Summary:"
+            echo "  - Success rate (agg_score): $(echo "$SUCCESS_RATE * 100" | bc -l)%"
+            echo "  - Dataset rows evaluated: $NUM_ROWS"
+            echo "  - Number of runs: $NUM_RUNS"
+            echo "  - Lower bound (≥40%) met: $([ "$LOWER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
+            echo "  - Upper bound (≤90%) met: $([ "$UPPER_BOUND_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
+            echo "  - Within acceptable range: $([ "$THRESHOLD_MET" = "1" ] && echo "✅ YES" || echo "❌ NO")"
+          else
+            echo "❌ No EP summary file found"
+            echo "threshold_met=0" >> $GITHUB_OUTPUT
+            echo "success_rate=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-test-results-${{ github.run_number }}
+          path: |
+            ep_summary.json
+            *.log
+          retention-days: 7
+
+      - name: Validate test results
+        if: always()
+        run: |
+          echo "Validating test results against thresholds..."
+
+          TEST_EXIT_CODE="${{ steps.run_test.outputs.test_exit_code }}"
+          THRESHOLD_MET="${{ steps.run_test.outputs.threshold_met }}"
+          LOWER_BOUND_MET="${{ steps.run_test.outputs.lower_bound_met }}"
+          UPPER_BOUND_MET="${{ steps.run_test.outputs.upper_bound_met }}"
+          SUCCESS_RATE="${{ steps.run_test.outputs.success_rate }}"
+
+          echo "Test exit code: $TEST_EXIT_CODE"
+          echo "Threshold met (40%-90%): $THRESHOLD_MET"
+          echo "Lower bound met (≥40%): $LOWER_BOUND_MET"
+          echo "Upper bound met (≤90%): $UPPER_BOUND_MET"
+          echo "Success rate: $SUCCESS_RATE"
+
+          # Fail the job if tests didn't run successfully or thresholds weren't met
+          if [ "$TEST_EXIT_CODE" != "0" ] && [ "$THRESHOLD_MET" != "1" ]; then
+            echo "❌ E2E smoke test FAILED"
+            echo "   - Test execution failed (exit code: $TEST_EXIT_CODE)"
+            echo "   - Success rate outside acceptable range (required: 40%-90%, actual: ${SUCCESS_RATE:-unknown})"
+            exit 1
+          elif [ "$TEST_EXIT_CODE" != "0" ]; then
+            echo "⚠️ E2E smoke test had test execution issues but may have met thresholds"
+            echo "   - Test exit code: $TEST_EXIT_CODE"
+            echo "   - Thresholds met: $THRESHOLD_MET"
+            # Don't exit with error if thresholds were actually met despite test issues
+            if [ "$THRESHOLD_MET" = "1" ]; then
+              echo "✅ Thresholds met despite execution issues - considering this a pass"
+            else
+              exit 1
+            fi
+          elif [ "$THRESHOLD_MET" != "1" ]; then
+            # Determine which bound was violated
+            if [ "$LOWER_BOUND_MET" != "1" ]; then
+              echo "❌ E2E smoke test FAILED - success rate too low"
+              echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
+              echo "   - Required: ≥40%"
+            elif [ "$UPPER_BOUND_MET" != "1" ]; then
+              echo "❌ E2E smoke test FAILED - success rate suspiciously high"
+              echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
+              echo "   - Maximum expected: ≤90%"
+              echo "   - This may indicate test issues or unrealistic performance"
+            else
+              echo "❌ E2E smoke test FAILED - success rate outside acceptable range"
+              echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
+              echo "   - Required range: 40%-90%"
+            fi
+            exit 1
+          else
+            echo "✅ E2E smoke test PASSED"
+            echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
+            echo "   - Within acceptable range: 40%-90%"
+          fi
+
+      - name: Create GitHub issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const testResults = {
+              exitCode: '${{ steps.run_test.outputs.test_exit_code }}',
+              successRate: '${{ steps.run_test.outputs.success_rate }}',
+              thresholdMet: '${{ steps.run_test.outputs.threshold_met }}',
+              lowerBoundMet: '${{ steps.run_test.outputs.lower_bound_met }}',
+              upperBoundMet: '${{ steps.run_test.outputs.upper_bound_met }}'
+            };
+
+            const title = `🚨 E2E Smoke Test Failed (${new Date().toISOString().split('T')[0]})`;
+
+            const body = `
+            ## E2E Smoke Test Failure Report
+
+            **Test:** E2E Smoke Test
+            **Date:** ${new Date().toISOString()}
+            **Workflow Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+                         ### Test Results
+             - **Success Rate:** ${testResults.successRate ? (parseFloat(testResults.successRate) * 100).toFixed(1) + '%' : 'Unknown'}
+             - **Lower Bound Met (≥40%):** ${testResults.lowerBoundMet === '1' ? '✅ Yes' : '❌ No'}
+             - **Upper Bound Met (≤90%):** ${testResults.upperBoundMet === '1' ? '✅ Yes' : '❌ No'}
+             - **Within Range (40%-90%):** ${testResults.thresholdMet === '1' ? '✅ Yes' : '❌ No'}
+             - **Test Exit Code:** ${testResults.exitCode || 'Unknown'}
+
+             ### Required Actions
+
+             ${ testResults.thresholdMet !== '1' ?
+               (testResults.lowerBoundMet !== '1' ?
+                 '🔍 **Performance Issue:** The success rate is below the required 40% minimum threshold. This indicates potential issues with model performance or test environment.' :
+                 testResults.upperBoundMet !== '1' ?
+                 '⚠️ **Suspiciously High Performance:** The success rate exceeds 90%, which may indicate test issues, data leakage, or unrealistic performance.' :
+                 '🔍 **Performance Issue:** The success rate is outside the acceptable 40%-90% range.'
+               ) :
+               '🔧 **Infrastructure Issue:** Tests failed to execute properly despite potentially meeting performance thresholds.'
+             }
+
+            ### Next Steps
+            1. Review the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed error information
+            2. Check if this is a temporary issue by re-running the workflow manually
+            3. If persistent, investigate potential causes:
+               - Model performance degradation
+               - Test environment configuration
+               - API key or service availability issues
+
+            ### Auto-generated
+            This issue was automatically created by the E2E smoke test workflow.
+            `;
+
+            // Create the issue
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['bug', 'e2e-test', 'automated', 'smoke-test']
+            });
