@@ -5,15 +5,11 @@ This test demonstrates how to evaluate code correctness by executing Python code
 and comparing the output against expected results in a pointwise manner.
 """
 
-import logging
-import time
 from typing import Any, Dict, List
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
 from eval_protocol.rewards.code_execution import execute_python_code, extract_code_blocks
-
-logger = logging.getLogger(__name__)
 
 
 def coding_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
@@ -43,22 +39,18 @@ def test_coding_code_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
     Evaluation function that tests code correctness by executing it locally.
 
-
     This function:
     1. Extracts Python code from the assistant's response
     2. Executes the code locally with timeout=10
     3. Compares the output to ground_truth
     4. Returns a score of 1.0 if output matches, 0.0 otherwise
 
-
     Args:
         row: EvaluationRow containing the conversation messages and expected_output in ground_truth
-
 
     Returns:
         EvaluationRow with the evaluation result
     """
-    logger.info(f"STARTING TO EVALUATE ROW: {row.input_metadata.row_id} at time {time.time()}")
     # Check if we have an assistant response
     if len(row.messages) < 2 or row.messages[-1].role != "assistant":
         row.evaluation_result = EvaluateResult(score=0.0, reason="No assistant response found")
