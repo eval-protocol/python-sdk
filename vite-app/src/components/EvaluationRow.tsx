@@ -7,6 +7,7 @@ import { state } from "../App";
 import { TableCell, TableRowInteractive } from "./TableContainer";
 import { useState } from "react";
 import type { FilterGroup, FilterConfig } from "../types/filters";
+import { Tooltip } from "./Tooltip";
 
 // Add filter button component
 const AddFilterButton = observer(
@@ -61,47 +62,44 @@ const AddFilterButton = observer(
     };
 
     return (
-      <button
-        className="text-gray-400 hover:text-gray-600 transition-colors relative group cursor-pointer"
-        onClick={handleClick}
-        title="Add filter for this value"
+      <Tooltip
+        content={added ? "Filter Added!" : `Add ${label} Filter`}
+        position="top"
+        className="text-gray-400 hover:text-gray-600 transition-colors"
       >
-        {/* Tooltip */}
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-          {added ? "Filter Added!" : `Add ${label} Filter`}
-        </div>
-
-        {/* Icon */}
-        {added ? (
-          <svg
-            className="w-3 h-3 text-green-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-        ) : (
-          <svg
-            className="w-3 h-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z"
-            />
-          </svg>
-        )}
-      </button>
+        <button onClick={handleClick} title="Add filter for this value">
+          {/* Icon */}
+          {added ? (
+            <svg
+              className="w-3 h-3 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          ) : (
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z"
+              />
+            </svg>
+          )}
+        </button>
+      </Tooltip>
     );
   }
 );
