@@ -71,17 +71,31 @@ jobs:
 
           echo "test_exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
 
+          # List generated files for debugging
+          echo "📁 Generated files:"
+          ls -la *.json 2>/dev/null || echo "No JSON files found"
+          ls -la ep_summary* 2>/dev/null || echo "No ep_summary files found"
+
           # Parse evaluation protocol summary if it exists
-          if [ -f ep_summary.json ]; then
-            echo "EP Summary found, parsing..."
+          # EP might generate files with different names, check for common patterns
+          EP_SUMMARY_FILE=""
+          for file in ep_summary*.json; do
+            if [ -f "$file" ]; then
+              EP_SUMMARY_FILE="$file"
+              break
+            fi
+          done
+
+          if [ -n "$EP_SUMMARY_FILE" ] && [ -f "$EP_SUMMARY_FILE" ]; then
+            echo "EP Summary found: $EP_SUMMARY_FILE, parsing..."
 
             # Log the full summary for debugging
             echo "EP Summary contents:"
-            cat ep_summary.json | jq . 2>/dev/null || cat ep_summary.json
+            cat "$EP_SUMMARY_FILE" | jq . 2>/dev/null || cat "$EP_SUMMARY_FILE"
 
             # Extract success rate from EP summary (this contains the actual accuracy/success rate)
             # The EP summary uses 'agg_score' for the aggregated success rate
-            SUCCESS_RATE=$(jq -r '.agg_score // 0' ep_summary.json 2>/dev/null || echo "0")
+            SUCCESS_RATE=$(jq -r '.agg_score // 0' "$EP_SUMMARY_FILE" 2>/dev/null || echo "0")
 
             echo "success_rate=$SUCCESS_RATE" >> $GITHUB_OUTPUT
 
@@ -97,8 +111,8 @@ jobs:
             echo "threshold_met=$THRESHOLD_MET" >> $GITHUB_OUTPUT
 
             # Extract additional info for display
-            NUM_ROWS=$(jq -r '.rows // 0' ep_summary.json 2>/dev/null || echo "0")
-            NUM_RUNS=$(jq -r '.num_runs // 0' ep_summary.json 2>/dev/null || echo "0")
+            NUM_ROWS=$(jq -r '.rows // 0' "$EP_SUMMARY_FILE" 2>/dev/null || echo "0")
+            NUM_RUNS=$(jq -r '.num_runs // 0' "$EP_SUMMARY_FILE" 2>/dev/null || echo "0")
 
             echo "📊 Evaluation Summary:"
             echo "  - Success rate (agg_score): $(echo "$SUCCESS_RATE * 100" | bc -l)%"
@@ -119,7 +133,7 @@ jobs:
         with:
           name: e2e-smoke-test-results-${{ github.run_number }}
           path: |
-            ep_summary.json
+            ep_summary*.json
             *.log
           retention-days: 7
 
@@ -178,65 +192,3 @@ jobs:
             echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
             echo "   - Within acceptable range: 40%-90%"
           fi
-
-      - name: Create GitHub issue on failure
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const testResults = {
-              exitCode: '${{ steps.run_test.outputs.test_exit_code }}',
-              successRate: '${{ steps.run_test.outputs.success_rate }}',
-              thresholdMet: '${{ steps.run_test.outputs.threshold_met }}',
-              lowerBoundMet: '${{ steps.run_test.outputs.lower_bound_met }}',
-              upperBoundMet: '${{ steps.run_test.outputs.upper_bound_met }}'
-            };
-
-            const title = `🚨 E2E Smoke Test Failed (${new Date().toISOString().split('T')[0]})`;
-
-            const body = `
-            ## E2E Smoke Test Failure Report
-
-            **Test:** E2E Smoke Test
-            **Date:** ${new Date().toISOString()}
-            **Workflow Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-                         ### Test Results
-             - **Success Rate:** ${testResults.successRate ? (parseFloat(testResults.successRate) * 100).toFixed(1) + '%' : 'Unknown'}
-             - **Lower Bound Met (≥40%):** ${testResults.lowerBoundMet === '1' ? '✅ Yes' : '❌ No'}
-             - **Upper Bound Met (≤90%):** ${testResults.upperBoundMet === '1' ? '✅ Yes' : '❌ No'}
-             - **Within Range (40%-90%):** ${testResults.thresholdMet === '1' ? '✅ Yes' : '❌ No'}
-             - **Test Exit Code:** ${testResults.exitCode || 'Unknown'}
-
-             ### Required Actions
-
-             ${ testResults.thresholdMet !== '1' ?
-               (testResults.lowerBoundMet !== '1' ?
-                 '🔍 **Performance Issue:** The success rate is below the required 40% minimum threshold. This indicates potential issues with model performance or test environment.' :
-                 testResults.upperBoundMet !== '1' ?
-                 '⚠️ **Suspiciously High Performance:** The success rate exceeds 90%, which may indicate test issues, data leakage, or unrealistic performance.' :
-                 '🔍 **Performance Issue:** The success rate is outside the acceptable 40%-90% range.'
-               ) :
-               '🔧 **Infrastructure Issue:** Tests failed to execute properly despite potentially meeting performance thresholds.'
-             }
-
-            ### Next Steps
-            1. Review the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed error information
-            2. Check if this is a temporary issue by re-running the workflow manually
-            3. If persistent, investigate potential causes:
-               - Model performance degradation
-               - Test environment configuration
-               - API key or service availability issues
-
-            ### Auto-generated
-            This issue was automatically created by the E2E smoke test workflow.
-            `;
-
-            // Create the issue
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: title,
-              body: body,
-              labels: ['bug', 'e2e-test', 'automated', 'smoke-test']
-            });
