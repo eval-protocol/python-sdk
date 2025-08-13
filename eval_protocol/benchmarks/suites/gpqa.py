@@ -39,8 +39,6 @@ def _load_gpqa_messages_from_csv() -> List[List[Message]]:
             [
                 Message(role="system", content=SYSTEM_PROMPT),
                 Message(role="user", content=user_content),
-                # Correct answer is always option A by construction
-                Message(role="system", content="__GT__:A"),
             ]
         )
     if not messages_list:
@@ -57,14 +55,31 @@ def _extract_abcd_letter(text: str) -> str | None:
 
 _GPQA_INPUT_MESSAGES = _load_gpqa_messages_from_csv()
 
+def _strip_gt_messages(msgs: List[Message]) -> List[Message]:
+    return [m for m in msgs if not (m.role == "system" and (m.content or "").startswith("__GT__:"))]
+
+
+async def gpqa_strip_gt_rollout_processor(rows: List[EvaluationRow], config) -> List[EvaluationRow]:
+    """Preprocess rows to set ground_truth and remove __GT__ messages, then delegate to default processor."""
+    processed: List[EvaluationRow] = []
+    for r in rows:
+        gt_tokens = [m.content for m in r.messages if m.role == "system" and (m.content or "").startswith("__GT__:")]
+        if gt_tokens:
+            gt_val = gt_tokens[-1].split(":", 1)[1].strip()
+            r.ground_truth = gt_val
+            r.messages = [m for m in r.messages if not (m.role == "system" and (m.content or "").startswith("__GT__:"))]
+        processed.append(r)
+    return await default_single_turn_rollout_processor(processed, config)
+
 
 @export_benchmark("gpqa")
 @evaluation_test(
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     input_messages=_GPQA_INPUT_MESSAGES,
     rollout_input_params=[{"extra_body": {"reasoning_effort": "low"}}],
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=gpqa_strip_gt_rollout_processor,
     aggregation_method="mean",
+    passed_threshold=None,
     num_runs=8,
     mode="pointwise",
 )
@@ -73,9 +88,8 @@ def gpqa_pointwise(row: EvaluationRow) -> EvaluationRow:
     content = assistant_msgs[-1].content if assistant_msgs else ""
 
     pred = _extract_abcd_letter(content or "")
-    # Retrieve GT from the trailing system message we appended
-    gt_tokens = [m.content for m in row.messages if m.role == "system" and (m.content or "").startswith("__GT__:")]
-    gt = gt_tokens[-1].split(":", 1)[1].strip() if gt_tokens else None
+    # GPQA diamond CSV constructs options so that the correct answer is always A
+    gt = "A"
 
     is_valid = pred is not None and gt in {"A", "B", "C", "D"}
     score = 1.0 if (is_valid and pred == gt) else 0.0
