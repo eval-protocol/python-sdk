@@ -1,8 +1,9 @@
 """
-Pytest test for tau bench airline evaluation using the evaluation_test decorator.
+Smoke test for tau bench airline evaluation - runs with minimal configuration for CI/CD monitoring.
 
-This test demonstrates how to use tau bench environments within the pytest framework,
-similar to the test_entire_airline_dataset test but integrated with the pytest evaluation system.
+This is a lightweight version of the full tau bench airline test, designed specifically
+for automated smoke testing in CI/CD pipelines. It runs with only 1 iteration to provide
+quick feedback on system health while minimizing resource usage.
 """
 
 import json
@@ -28,12 +29,12 @@ from vendor.tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
 from vendor.tau2.registry import registry
 
 
-def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
+def tau_bench_airline_smoke_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
     """
-    Convert entries from airline dataset to EvaluationRow objects.
+    Convert entries from airline dataset to EvaluationRow objects for smoke testing.
     """
     rows = []
-    test_dir = Path(__file__).parent.parent.parent / "examples" / "tau2_mcp" / "tests"
+    test_dir = Path(__file__).parent.parent / "examples" / "tau2_mcp" / "tests"
 
     # Load system prompt from file so we can change it in one place
     domain = data[0]["environment_context"]["domain"]
@@ -63,22 +64,23 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
 
 @evaluation_test(
     input_dataset=["tests/pytest/data/airline_dataset.jsonl"],
-    dataset_adapter=tau_bench_airline_to_evaluation_row,
+    dataset_adapter=tau_bench_airline_smoke_to_evaluation_row,
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     rollout_input_params=[{"temperature": 0.8, "extra_body": {"reasoning_effort": "medium"}}],
     rollout_processor=default_mcp_gym_rollout_processor,
-    passed_threshold={"success": 0.4, "standard_deviation": 0.1},
-    num_runs=8,
+    passed_threshold=0.36,
+    num_runs=1,  # Smoke test: single run for quick feedback
     mode="pointwise",
-    max_concurrent_rollouts=50,
+    max_concurrent_rollouts=50,  # Standard concurrency
     server_script_path="examples/tau2_mcp/server.py",
 )
-def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
+def test_tau_bench_airline_smoke_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
-    Test tau bench airline evaluation using the pytest framework.
+    Smoke test for tau bench airline evaluation - single run version for CI/CD monitoring.
 
-    This test now uses the tau_bench_airline_reward function which automatically
-    extracts evaluation criteria from dataset entries. No wrapper needed!
+    This is a lightweight smoke test that runs the tau bench airline evaluation with
+    minimal configuration (1 run) to quickly validate system health and model performance.
+    It uses the same evaluation logic as the full test but with reduced resource usage.
 
     Args:
         row: EvaluationRow object from tau bench airline dataset after rollout
@@ -136,7 +138,7 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
     )
 
     task = Task(
-        id="Filler", evaluation_criteria=evaluation_criteria, user_scenario=UserScenario(instructions="Filler")
+        id="SmokeTest", evaluation_criteria=evaluation_criteria, user_scenario=UserScenario(instructions="SmokeTest")
     )  # id and user_scenario are required for the Task type but not used in calculating reward
 
     if RewardType.DB in task.evaluation_criteria.reward_basis:
@@ -224,7 +226,7 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
             failed_reasons.append("❌ Communication failed")
 
     # If everything passed, show success
-    reason = "\n".join(failed_reasons) if failed_reasons else "✅ All checks passed"
+    reason = "\n".join(failed_reasons) if failed_reasons else "✅ All checks passed [SMOKE TEST]"
 
     row.evaluation_result = EvaluateResult(
         score=reward,
