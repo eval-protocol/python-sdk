@@ -2,16 +2,6 @@ name: E2E Smoke Test
 
 # Run every 6 hours: at 00:00, 06:00, 12:00, and 18:00 UTC
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-  pull_request:
-    branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch: # Allow manual triggering
