@@ -69,6 +69,7 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     model=["fireworks_ai/accounts/fireworks/models/gpt-oss-120b"],
     rollout_input_params=[{"temperature": 0.8, "extra_body": {"reasoning_effort": "medium"}}],
     rollout_processor=default_mcp_gym_rollout_processor,
+    rollout_processor_kwargs={"domain": "retail"},
     num_runs=8,
     mode="pointwise",
     max_concurrent_rollouts=50,
