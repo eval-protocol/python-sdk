@@ -466,12 +466,13 @@ class ExecutionManager:
                 trajectory.control_plane_summary.update({"error_message": f"{failure_reason}"})
             try:
                 await envs.connection_manager.reset_session(session)
-            except:  # noqa: E722
-                logger.error(f"Error resetting session {session.session_id}")
+            except Exception as e:
+                logger.warning(f"Failed to reset session {session.session_id}: {type(e).__name__}: {e}", exc_info=True)
+
             try:
                 await envs.connection_manager.close_session(session)
-            except:  # noqa: E722
-                logger.error(f"Error closing session {session.session_id}")
+            except Exception as e:
+                logger.warning(f"Failed to close session {session.session_id}: {type(e).__name__}: {e}", exc_info=True)
         return trajectory
 
     async def _get_control_plane_status(self, session) -> Optional[Dict[str, Any]]:
