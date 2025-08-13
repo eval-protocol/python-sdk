@@ -5,6 +5,7 @@
    $.foo.bar[0].baz
    $['weird.key'][2]['spaced name']
  Only leaf primitives (string, number, boolean, null) are emitted.
+ Date objects are preserved as Date objects for filtering capabilities.
 */
 
 export type FlatJson = Record<string, unknown>;
@@ -38,8 +39,15 @@ export function flattenJson(input: unknown, root: string = "$" ): FlatJson {
 			value === null ||
 			typeof value === "string" ||
 			typeof value === "number" ||
-			typeof value === "boolean"
+			typeof value === "boolean" ||
+			value === undefined
 		) {
+			out[path] = value;
+			return;
+		}
+
+		// Handle Date objects by preserving them for filtering
+		if (value instanceof Date) {
 			out[path] = value;
 			return;
 		}

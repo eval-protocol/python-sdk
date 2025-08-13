@@ -139,10 +139,9 @@ def pytest_configure(config) -> None:
                         merged[k] = v
         reasoning_effort = config.getoption("--ep-reasoning-effort")
         if reasoning_effort:
-            # Standardize into extra_body.reasoning.effort in EP_INPUT_PARAMS_JSON
+            # Always place under extra_body to avoid LiteLLM rejecting top-level params
             eb = merged.setdefault("extra_body", {})
-            reasoning = eb.setdefault("reasoning", {})
-            reasoning["effort"] = str(reasoning_effort)
+            eb["reasoning_effort"] = str(reasoning_effort)
         if merged:
             os.environ["EP_INPUT_PARAMS_JSON"] = _json.dumps(merged)
     except Exception:

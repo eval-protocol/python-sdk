@@ -30,16 +30,17 @@ class SqliteEvaluationRowStore:
         self._EvaluationRow = EvaluationRow
 
         self._db.connect()
-        self._db.create_tables([EvaluationRow])
+        # Use safe=True to avoid errors when tables/indexes already exist
+        self._db.create_tables([EvaluationRow], safe=True)
 
     @property
     def db_path(self) -> str:
         return self._db_path
 
     def upsert_row(self, data: dict) -> None:
-        rollout_id = data["rollout_id"]
-        if "rollout_id" not in data:
-            raise ValueError("rollout_id is required to upsert a row")
+        rollout_id = data["execution_metadata"]["rollout_id"]
+        if rollout_id is None:
+            raise ValueError("execution_metadata.rollout_id is required to upsert a row")
         if self._EvaluationRow.select().where(self._EvaluationRow.rollout_id == rollout_id).exists():
             self._EvaluationRow.update(data=data).where(self._EvaluationRow.rollout_id == rollout_id).execute()
         else:

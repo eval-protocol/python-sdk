@@ -1,9 +1,9 @@
 import { observer } from "mobx-react";
-import { useState, useEffect } from "react";
 import { state } from "../App";
 import { EvaluationRow } from "./EvaluationRow";
 import Button from "./Button";
 import Select from "./Select";
+import FilterSelector from "./FilterSelector";
 import {
   TableHeader,
   TableHead,
@@ -14,13 +14,15 @@ const TableBody = observer(
   ({ currentPage, pageSize }: { currentPage: number; pageSize: number }) => {
     const startIndex = (currentPage - 1) * pageSize;
     const endIndex = startIndex + pageSize;
-    const paginatedData = state.sortedDataset.slice(startIndex, endIndex);
+    // Use filtered original data for pagination
+    const filteredData = state.filteredOriginalDataset;
+    const paginatedData = filteredData.slice(startIndex, endIndex);
 
     return (
       <TableBodyBase>
         {paginatedData.map((row, index) => (
           <EvaluationRow
-            key={row.rollout_id}
+            key={row.execution_metadata?.rollout_id}
             row={row}
             index={startIndex + index}
           />
@@ -32,30 +34,54 @@ const TableBody = observer(
 
 // Dedicated component for rendering the list - following MobX best practices
 export const EvaluationTable = observer(() => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-
-  const totalRows = state.sortedDataset.length;
-  const totalPages = Math.ceil(totalRows / pageSize);
-  const startRow = (currentPage - 1) * pageSize + 1;
-  const endRow = Math.min(currentPage * pageSize, totalRows);
+  const totalRows = state.filteredOriginalDataset.length;
+  const totalPages = Math.ceil(totalRows / state.pageSize);
+  const startRow = (state.currentPage - 1) * state.pageSize + 1;
+  const endRow = Math.min(state.currentPage * state.pageSize, totalRows);
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    state.setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
-    setPageSize(newPageSize);
-    setCurrentPage(1); // Reset to first page when changing page size
+    state.setPageSize(newPageSize);
   };
 
-  // Reset to first page when dataset changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [totalRows]);
+  const handleFiltersChange = (filters: any[]) => {
+    state.updateTableFilterConfig(filters);
+  };
 
   return (
     <div className="bg-white border border-gray-200">
+      {/* Filter Controls */}
+      <div className="px-3 py-3 border-b border-gray-200 bg-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h3 className="text-sm font-medium text-gray-700">Table Filters</h3>
+            <div className="text-xs text-gray-600">
+              {state.tableFilterConfig.length > 0 ? (
+                <>
+                  Showing {totalRows} of {state.sortedDataset.length} rows
+                  {totalRows !== state.sortedDataset.length && (
+                    <span className="text-blue-600 ml-1">(filtered)</span>
+                  )}
+                </>
+              ) : (
+                `Showing all ${state.sortedDataset.length} rows`
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg">
+          <FilterSelector
+            filters={state.tableFilterConfig}
+            onFiltersChange={handleFiltersChange}
+            availableKeys={state.flattenedDatasetKeys}
+            title=""
+          />
+        </div>
+      </div>
+
       {/* Pagination Controls - Fixed outside scrollable area */}
       <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -65,7 +91,7 @@ export const EvaluationTable = observer(() => {
           <div className="flex items-center gap-2">
             <label className="text-xs text-gray-600">Page size:</label>
             <Select
-              value={pageSize}
+              value={state.pageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
               size="sm"
             >
@@ -79,26 +105,26 @@ export const EvaluationTable = observer(() => {
         <div className="flex items-center gap-2">
           <Button
             onClick={() => handlePageChange(1)}
-            disabled={currentPage === 1}
+            disabled={state.currentPage === 1}
             size="sm"
             variant="secondary"
           >
             First
           </Button>
           <Button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
+            onClick={() => handlePageChange(state.currentPage - 1)}
+            disabled={state.currentPage === 1}
             size="sm"
             variant="secondary"
           >
             Previous
           </Button>
           <span className="text-xs text-gray-600 px-2">
-            Page {currentPage} of {totalPages}
+            Page {state.currentPage} of {totalPages}
           </span>
           <Button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
+            onClick={() => handlePageChange(state.currentPage + 1)}
+            disabled={state.currentPage === totalPages}
             size="sm"
             variant="secondary"
           >
@@ -106,7 +132,7 @@ export const EvaluationTable = observer(() => {
           </Button>
           <Button
             onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage === totalPages}
+            disabled={state.currentPage === totalPages}
             size="sm"
             variant="secondary"
           >
@@ -116,25 +142,41 @@ export const EvaluationTable = observer(() => {
       </div>
 
       {/* Table Container - Only this area scrolls */}
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-max">
-          {/* Table Header */}
-          <TableHead>
-            <tr>
-              <TableHeader className="w-8">&nbsp;</TableHeader>
-              <TableHeader>Name</TableHeader>
-              <TableHeader>Status</TableHeader>
-              <TableHeader>Rollout ID</TableHeader>
-              <TableHeader>Model</TableHeader>
-              <TableHeader>Score</TableHeader>
-              <TableHeader>Created</TableHeader>
-            </tr>
-          </TableHead>
+      {totalRows === 0 ? (
+        <div className="px-3 py-6 text-center text-xs text-gray-600">
+          <div className="mb-2">No rows match your current filters.</div>
+          <Button
+            onClick={() => handleFiltersChange([])}
+            size="sm"
+            variant="secondary"
+          >
+            Clear filters
+          </Button>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-max">
+            {/* Table Header */}
+            <TableHead>
+              <tr>
+                <TableHeader className="w-8">&nbsp;</TableHeader>
+                <TableHeader>Name</TableHeader>
+                <TableHeader>Status</TableHeader>
+                <TableHeader>Rollout ID</TableHeader>
+                <TableHeader>Model</TableHeader>
+                <TableHeader>Score</TableHeader>
+                <TableHeader>Created</TableHeader>
+              </tr>
+            </TableHead>
 
-          {/* Table Body */}
-          <TableBody currentPage={currentPage} pageSize={pageSize} />
-        </table>
-      </div>
+            {/* Table Body */}
+            <TableBody
+              currentPage={state.currentPage}
+              pageSize={state.pageSize}
+            />
+          </table>
+        </div>
+      )}
     </div>
   );
 });

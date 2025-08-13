@@ -88,8 +88,8 @@ def create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param
     from functools import wraps
 
     @wraps(test_func)
-    def wrapper(**kwargs):
-        return wrapper_body(**kwargs)
+    async def wrapper(**kwargs):
+        return await wrapper_body(**kwargs)
 
     parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names]
     wrapper.__signature__ = inspect.Signature(parameters)

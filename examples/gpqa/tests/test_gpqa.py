@@ -69,7 +69,7 @@ _GPQA_INPUT_MESSAGES = _load_gpqa_messages_from_csv()
     ],  # default to low effort; override via CLI plugin
     rollout_processor=default_single_turn_rollout_processor,
     aggregation_method="mean",
-    threshold_of_success=None,
+    passed_threshold=None,
     num_runs=8,
     mode="pointwise",
 )

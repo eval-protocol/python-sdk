@@ -94,15 +94,19 @@ export const RolloutStatusSchema = z.object({
   error_message: z.string().optional().describe('Error message if the rollout failed.')
 });
 
+export const ExecutionMetadataSchema = z.object({
+  invocation_id: z.string().optional().describe('The ID of the invocation that this row belongs to.'),
+  experiment_id: z.string().optional().describe('The ID of the experiment that this row belongs to.'),
+  rollout_id: z.string().optional().describe('The ID of the rollout that this row belongs to.'),
+  run_id: z.string().optional().describe('The ID of the run that this row belongs to.'),
+});
+
 export const EvaluationRowSchema = z.object({
   messages: z.array(MessageSchema).describe('List of messages in the conversation/trajectory.'),
   tools: z.array(z.record(z.string(), z.any())).optional().describe('Available tools/functions that were provided to the agent.'),
   input_metadata: InputMetadataSchema.describe('Metadata related to the input (dataset info, model config, session data, etc.).'),
   rollout_status: RolloutStatusSchema.default({ status: 'finished' }).describe('The status of the rollout.'),
-  invocation_id: z.string().optional().describe('The ID of the invocation that this row belongs to.'),
-  cohort_id: z.string().optional().describe('The ID of the cohort that this row belongs to.'),
-  rollout_id: z.string().optional().describe('The ID of the rollout that this row belongs to.'),
-  run_id: z.string().optional().describe('The ID of the run that this row belongs to.'),
+  execution_metadata: ExecutionMetadataSchema.optional().describe('Metadata about the execution of the evaluation.'),
   ground_truth: z.string().optional().describe('Optional ground truth reference for this evaluation.'),
   evaluation_result: EvaluateResultSchema.optional().describe('The evaluation result for this row/trajectory.'),
   usage: CompletionUsageSchema.optional().describe('Token usage statistics from LLM calls during execution.'),

@@ -12,8 +12,9 @@ import os
 import threading
 import time
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional, Union
 
+import anyio
 from openai.types import CompletionUsage
 
 from vendor.tau2.data_model.message import AssistantMessage, UserMessage
@@ -42,7 +43,7 @@ class ExecutionManager:
         openai_format_log_file: Optional[str] = None,
         max_concurrent_rollouts: int = 8,
         evaluation_rows: Optional[List[EvaluationRow]] = None,
-    ) -> List[EvaluationRow]:
+    ) -> AsyncIterator[EvaluationRow]:
         """
         Execute general rollouts using tool calling interface with automatic record/playback.
 
@@ -65,7 +66,7 @@ class ExecutionManager:
             - Set and file exists: Playback mode (uses recorded data)
 
         Returns:
-            List of EvaluationRow objects with unified evaluation data format
+            AsyncIterator of EvaluationRow objects with unified evaluation data format
         """
         start_time = time.time()
 
@@ -91,103 +92,77 @@ class ExecutionManager:
 
         logger.info(f"🧵 Starting {envs.n} rollouts with max {max_concurrent_rollouts} concurrent threads...")
 
-        results = {}
+        if evaluation_rows is None:
+            evaluation_rows = [EvaluationRow(messages=[], input_metadata=InputMetadata()) for _ in range(envs.n)]
+
+        shared_tool_schema = envs.tool_schemas
 
         semaphore = asyncio.Semaphore(max_concurrent_rollouts)
 
         async def _execute_with_semaphore(idx):
             async with semaphore:
-                result = await self._execute_rollout(
+                trajectory = await self._execute_rollout(
                     envs, policy, idx, steps, openai_logger, recording_mode, playback_mode, start_time
                 )
 
-                return result
+                # Convert trajectory to EvaluationRow immediately
+                evaluation_row = evaluation_rows[idx]
 
-        tasks = [_execute_with_semaphore(i) for i in range(envs.n)]
-        # exceptions will be try catched inside single _execute_rollout
-        trajectories = await asyncio.gather(*tasks)
+                # Handle multimodal content by extracting text from complex content structures
+                messages = []
+                for msg in trajectory.conversation_history:
+                    # Create a copy to avoid modifying the original
+                    msg_dict = dict(msg)
 
-        # Calculate durations
-        total_duration = time.time() - start_time
-        for trajectory in trajectories:
-            trajectory.duration = total_duration
+                    # Handle multimodal content (list of content blocks) by extracting text
+                    if isinstance(msg_dict.get("content"), list):
+                        text_content = None
+                        for content_block in msg_dict["content"]:
+                            if isinstance(content_block, dict) and content_block.get("type") == "text":
+                                text_content = content_block.get("text")
+                                break
+                        msg_dict["content"] = text_content or ""
 
-        shared_tool_schema = envs.tool_schemas
+                    messages.append(Message.model_validate(msg_dict))
 
-        # Enhanced reporting with control plane info
-        successful = sum(1 for traj in trajectories if traj.total_reward > 0)
-        terminated_by_control_plane = sum(
-            1
-            for traj in trajectories
-            if traj.control_plane_summary.get("termination_reason") == "control_plane_signal"
-        )
+                evaluation_row.messages = messages
+                evaluation_row.tools = shared_tool_schema
+                evaluation_row.usage = CompletionUsage(**trajectory.usage)
+                evaluation_row.input_metadata.completion_params = CompletionParams(
+                    model=policy.model_id,
+                    temperature=getattr(policy, "temperature", None),
+                    max_tokens=getattr(policy, "max_tokens", None),
+                    max_tool_calls=getattr(policy, "max_tools_per_turn", None),
+                )
 
-        logger.info(f"📊 Rollout complete: {successful}/{len(trajectories)} reached goal")
-        logger.info(f"🎛️  Control plane terminations: {terminated_by_control_plane}/{len(trajectories)}")
-        logger.info(f"⏱️  Total duration: {total_duration:.2f}s")
-        logger.info(f"🧵 Used {max_concurrent_rollouts} concurrent threads")
-
-        # Print log file locations if created
-        if openai_format_log_file:
-            logger.info(f"💬 OpenAI format log: {openai_format_log_file}")
-        if recording_mode:
-            logger.info(f"📝 Recorded trajectory: {playback_file}")
-            # Add note about control plane separation
-            logger.info(f"🎛️  Trajectories include control plane separation")
-
-        # Convert trajectories to unified EvaluationRow format. If no evaluation_rows are provided, create empty ones for backwards compatibility.
-        if evaluation_rows is None:
-            evaluation_rows = [EvaluationRow(messages=[], input_metadata=InputMetadata()) for _ in trajectories]
-
-        for idx, trajectory in enumerate(trajectories):
-            # Handle multimodal content by extracting text from complex content structures
-            messages = []
-            for msg in trajectory.conversation_history:
-                # Create a copy to avoid modifying the original
-                msg_dict = dict(msg)
-
-                # Handle multimodal content (list of content blocks) by extracting text
-                if isinstance(msg_dict.get("content"), list):
-                    text_content = None
-                    for content_block in msg_dict["content"]:
-                        if isinstance(content_block, dict) and content_block.get("type") == "text":
-                            text_content = content_block.get("text")
-                            break
-                    msg_dict["content"] = text_content or ""
-
-                messages.append(Message.model_validate(msg_dict))
-
-            evaluation_rows[idx].messages = messages
-            # evaluation_rows[idx].input_metadata.row_id = envs.dataset_rows[idx].id
-            # evaluation_rows[idx].input_metadata.dataset_info = asdict(envs.dataset_rows[idx])
-            evaluation_rows[idx].tools = shared_tool_schema
-            evaluation_rows[idx].usage = CompletionUsage(**trajectory.usage)
-            evaluation_rows[idx].input_metadata.completion_params = CompletionParams(
-                model=policy.model_id,
-                temperature=getattr(policy, "temperature", None),
-                max_tokens=getattr(policy, "max_tokens", None),
-                max_tool_calls=getattr(policy, "max_tools_per_turn", None),
-            )
-            if trajectory.terminated:
-                if trajectory.termination_reason in {
-                    TerminationReason.CONTROL_PLANE_SIGNAL,
-                    TerminationReason.USER_STOP,
-                }:
-                    evaluation_rows[idx].rollout_status.status = "finished"
-                elif trajectory.termination_reason in {TerminationReason.MAX_STEPS, TerminationReason.INTERRUPTED}:
-                    evaluation_rows[idx].rollout_status.status = "stopped"
-                    evaluation_rows[idx].rollout_status.error_message = trajectory.control_plane_summary.get(
-                        "termination_reason", trajectory.termination_reason
-                    )
+                if trajectory.terminated:
+                    if trajectory.termination_reason == TerminationReason.ERROR:
+                        evaluation_row.rollout_status.status = "error"
+                        evaluation_row.rollout_status.error_message = trajectory.control_plane_summary.get(
+                            "error_message", None
+                        )
+                    else:
+                        evaluation_row.rollout_status.status = "finished"
+                        evaluation_row.rollout_status.termination_reason = trajectory.termination_reason
                 else:
-                    evaluation_rows[idx].rollout_status.status = "error"
-                    evaluation_rows[idx].rollout_status.error_message = trajectory.control_plane_summary.get(
-                        "error_message", None
-                    )
-            else:
-                evaluation_rows[idx].rollout_status.status = "running"
+                    evaluation_row.rollout_status.status = "running"
 
-        return evaluation_rows
+                return evaluation_row
+
+        # Create all tasks
+        tasks = [asyncio.create_task(_execute_with_semaphore(i)) for i in range(envs.n)]
+
+        # Yield results as they complete (note that they're not necessarily in original order)
+        try:
+            for task in asyncio.as_completed(tasks):
+                try:
+                    yield await task
+                except Exception:
+                    logger.exception("Error processing rollout")
+        finally:
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _execute_rollout(
         self,
@@ -266,7 +241,7 @@ class ExecutionManager:
 
             # Run rollout loop for this specific environment
             step = 0
-            rollout_end = False
+            env_end = False  # if the env indicates the rollout reaches the goal
 
             while step < steps and not trajectory.terminated:
                 turn_completed = False
@@ -297,7 +272,9 @@ class ExecutionManager:
 
                 # In each turn: keep looping until assistant is ready to provide final response
                 while not turn_completed and not trajectory.terminated:
-                    tool_calls, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
+                    tool_calls, usage_stats, finish_reason = await policy(
+                        tool_schema, rollout_idx, conversation_history
+                    )
 
                     # calc llm usage stats happened in this turn if there is aany
                     if usage_stats:
@@ -311,17 +288,17 @@ class ExecutionManager:
                         if tool_calls[0].tool_name == "_no_tool_call" and user_simulator:
                             turn_completed = True
                             break
-                        # If there's no user simulator, no tool call means policy failed and we should terminate the rollout
+                        # If there's no user simulator, then it marks the end of the episode as LLM think there is no tool call needed.
                         elif tool_calls[0].tool_name in ["_playback_terminate", "_no_tool_call"]:
                             trajectory.terminated = True
-                            trajectory.termination_reason = TerminationReason.INTERRUPTED
+                            trajectory.termination_reason = TerminationReason.from_str(finish_reason)
                             break
 
                     # Execute each tool call sequentially
                     for tool_call in tool_calls:
 
                         # Execute tool call for this environment
-                        observation, reward, rollout_end, info = await envs.step(rollout_idx, tool_call)
+                        observation, reward, env_end, info = await envs.step(rollout_idx, tool_call)
 
                         tool_response = envs.format_tool_response(observation)
 
@@ -331,7 +308,7 @@ class ExecutionManager:
                             tool_response,
                             conversation_history,
                             reward,
-                            rollout_end,
+                            env_end,
                             info,
                         )
 
@@ -354,7 +331,7 @@ class ExecutionManager:
                             control_plane_step = {
                                 "step": step - 1,
                                 "reward": reward,
-                                "terminated": rollout_end,
+                                "terminated": env_end,
                                 "info": info.get("control_plane", {}),
                                 "tool_calls": [f"{tool_call.tool_name}({tool_call.arguments})"],
                                 "num_tool_calls": 1,
@@ -367,11 +344,13 @@ class ExecutionManager:
                             if recording_mode:
                                 policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
 
-                        if rollout_end:
+                        if env_end:
+                            # if the env marks the end of the rollout, break the tool call loop
+                            # but set the termination reason later after the final policy call
                             trajectory.terminated = True
-                            trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
                             break
-                        elif step >= steps:
+
+                        if step >= steps:
                             trajectory.terminated = True
                             trajectory.termination_reason = TerminationReason.MAX_STEPS
                             break
@@ -392,7 +371,7 @@ class ExecutionManager:
                     control_plane_step = {
                         "step": step - 1,
                         "reward": reward,
-                        "terminated": rollout_end,
+                        "terminated": env_end,
                         "info": info.get("control_plane", {}),
                         "tool_calls": tool_calls_summary,
                         "num_tool_calls": len(tool_calls),
@@ -404,19 +383,16 @@ class ExecutionManager:
                     if recording_mode:
                         policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
 
-                # Use control plane information for termination decision
-                if rollout_end:
-                    trajectory.terminated = True
-                    trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
-
-                    # tool indicates rollout should be terminated, call policy one last time to get the final response
-                    _, usage_stats = await policy(tool_schema, rollout_idx, conversation_history)
+                # if the env marks end, update control plane summary and do one last policy call, then break the agent loop
+                # this is to ensure each turn ends with an assistant message, which will align with the actual agentic llm behavior
+                if env_end:
+                    _, usage_stats, finish_reason = await policy(tool_schema, rollout_idx, conversation_history)
                     if usage_stats:
                         trajectory.usage["prompt_tokens"] += usage_stats.prompt_tokens
                         trajectory.usage["completion_tokens"] += usage_stats.completion_tokens
                         trajectory.usage["total_tokens"] += usage_stats.total_tokens
-
-                    # Add final control plane summary
+                    trajectory.terminated = True
+                    trajectory.termination_reason = TerminationReason.from_str(finish_reason)
                     trajectory.control_plane_summary.update(
                         {
                             "total_reward": trajectory.total_reward,
@@ -445,7 +421,7 @@ class ExecutionManager:
                             )
 
                     logger.info(
-                        f"🏁 Rollout {rollout_idx} terminated at step {step} (reward: {trajectory.total_reward}) in thread {threading.current_thread().name}"
+                        f"🏁 Environmnet indicates rollout {rollout_idx} terminated at step {step} (reward: {trajectory.total_reward}) in thread {threading.current_thread().name}"
                     )
                     break
 
@@ -470,11 +446,19 @@ class ExecutionManager:
             )
 
         except asyncio.CancelledError:
-            logger.error(f"🚨 AsyncIO Cancel Error in roll out {rollout_idx}", exc_info=True)
             failure_reason = "asyncio context cancelled"
+            logger.error(
+                f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {failure_reason}", exc_info=True
+            )
+        except (anyio.ClosedResourceError, anyio.BrokenResourceError):
+            failure_reason = "anyioconnection/resource error"
+            logger.error(
+                f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {failure_reason}", exc_info=True
+            )
         except Exception as e:
-            logger.error(f"🚨 Error in rollout {rollout_idx}: {e}", exc_info=True)
-            failure_reason = str(e)
+            error_msg = str(e) if str(e) else f"{type(e).__name__}: Unexpected error"
+            logger.error(f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {error_msg}", exc_info=True)
+            failure_reason = error_msg
         finally:
             if failure_reason:
                 trajectory.terminated = True

@@ -1,8 +1,9 @@
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
+
 from mcp.client.session import ClientSession
-from contextlib import AsyncExitStack
 
 
 class TerminationReason(str, Enum):
@@ -11,15 +12,38 @@ class TerminationReason(str, Enum):
     MAX_STEPS: Trajectory ends because we hit the step limit
     CONTROL_PLANE_SIGNAL: Trajectory ends because the control plane signals termination (e.g. env goal reached or failure condition)
     USER_STOP: Trajectory ends because the simulated user signals to stop
-    INTERRUPTED: Trajectory ends unexpectedly, for example, expecting tool call but there is no tool call
     ERROR: Trajectory ends because of an error
+    STOP: Trajectory ends by the policy (mapped to llm response stop reason "stop")
+    LENGTH: Trajectory ends by the policy (mapped to llm response stop reason "length")
+    TOOL_CALLS: Trajectory ends by the policy with a hanging tool call response (mapped to llm response stop reason "tool_calls")
     """
 
     MAX_STEPS = "max_steps"
     CONTROL_PLANE_SIGNAL = "control_plane_signal"
     USER_STOP = "user_stop"
-    INTERRUPTED = "interrupted"
     ERROR = "error"
+    STOP = "stop"
+    LENGTH = "length"
+    TOOL_CALLS = "tool_calls"
+
+    @classmethod
+    def from_str(cls, value: str) -> "TerminationReason":
+        if value == "stop":
+            return cls.STOP
+        elif value == "length":
+            return cls.LENGTH
+        elif value == "max_steps":
+            return cls.MAX_STEPS
+        elif value == "control_plane_signal":
+            return cls.CONTROL_PLANE_SIGNAL
+        elif value == "user_stop":
+            return cls.USER_STOP
+        elif value == "error":
+            return cls.ERROR
+        elif value == "tool_calls":
+            return cls.TOOL_CALLS
+        else:
+            raise ValueError(f"Invalid termination reason: {value}")
 
 
 @dataclass

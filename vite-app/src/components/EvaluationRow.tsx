@@ -133,10 +133,10 @@ const IdSection = observer(({ data }: { data: EvaluationRowType }) => (
   <MetadataSection
     title="IDs"
     data={{
-      rollout_id: data.rollout_id,
-      cohort_id: data.cohort_id,
-      invocation_id: data.invocation_id,
-      run_id: data.run_id,
+      rollout_id: data.execution_metadata?.rollout_id,
+      experiment_id: data.execution_metadata?.experiment_id,
+      invocation_id: data.execution_metadata?.invocation_id,
+      run_id: data.execution_metadata?.run_id,
     }}
   />
 ));
@@ -197,7 +197,7 @@ const ExpandedContent = observer(
 
 export const EvaluationRow = observer(
   ({ row }: { row: EvaluationRowType; index: number }) => {
-    const rolloutId = row.rollout_id;
+    const rolloutId = row.execution_metadata?.rollout_id;
     const isExpanded = state.isRowExpanded(rolloutId);
 
     const toggleExpanded = () => state.toggleRowExpansion(rolloutId);
@@ -226,7 +226,7 @@ export const EvaluationRow = observer(
 
           {/* Rollout ID */}
           <TableCell className="py-3 text-xs">
-            <RolloutId rolloutId={row.rollout_id} />
+            <RolloutId rolloutId={row.execution_metadata?.rollout_id} />
           </TableCell>
 
           {/* Model */}

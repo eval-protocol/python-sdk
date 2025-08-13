@@ -24,7 +24,7 @@ def test_update_log_and_read():
 
     logger = SqliteDatasetLoggerAdapter(store=store)
     logger.log(row)
-    saved = logger.read(row.rollout_id)[0]
+    saved = logger.read(row.execution_metadata.rollout_id)[0]
     assert row.messages == saved.messages
     assert row.input_metadata == saved.input_metadata
 
@@ -42,7 +42,7 @@ def test_create_log_and_read():
     row = EvaluationRow(input_metadata=input_metadata, messages=messages)
 
     logger.log(row)
-    saved = logger.read(rollout_id=row.rollout_id)[0]
+    saved = logger.read(rollout_id=row.execution_metadata.rollout_id)[0]
     assert row.messages == saved.messages
     assert row.input_metadata == saved.input_metadata
 

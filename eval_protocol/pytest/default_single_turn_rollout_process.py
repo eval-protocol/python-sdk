@@ -1,15 +1,23 @@
 import asyncio
 import logging
 import os
-from typing import List
+import time
+from typing import AsyncIterator, List
 
-from eval_protocol.models import ChatCompletionMessageToolCall, EvaluationRow, Message
+import litellm
+from litellm import acompletion
+from openai.types.chat.chat_completion_message import ChatCompletionMessageToolCall
+
+from eval_protocol.dataset_logger import default_logger
+from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.types import RolloutProcessorConfig
+
+logger = logging.getLogger(__name__)
 
 
 async def default_single_turn_rollout_processor(
     rows: List[EvaluationRow], config: RolloutProcessorConfig
-) -> List[EvaluationRow]:
+) -> AsyncIterator[EvaluationRow]:
     """Generate a single response from any supported model provider using LiteLLM."""
 
     # Quiet LiteLLM logs in test runs unless user overrode
@@ -36,11 +44,25 @@ async def default_single_turn_rollout_processor(
         request_params = {"model": config.model, "messages": messages_payload, **config.input_params}
         # Ensure caching is disabled only for this request (review feedback)
         request_params["cache"] = {"no-cache": True}
-        # Allow passing reasoning effort to Fireworks via LiteLLM using extra_body
-        # Expected: config.input_params may contain {"reasoning": {"effort": "low|medium|high"}}
-        if "reasoning" in config.input_params:
+        # Single-level reasoning effort: expect `reasoning_effort` only
+        effort_val = None
+        if isinstance(config.input_params, dict):
+            if "reasoning_effort" in config.input_params:
+                effort_val = str(config.input_params["reasoning_effort"])  # flat shape
+            elif (
+                isinstance(config.input_params.get("extra_body"), dict)
+                and "reasoning_effort" in config.input_params["extra_body"]
+            ):
+                # Accept if user passed it directly inside extra_body
+                effort_val = str(config.input_params["extra_body"]["reasoning_effort"])  # already in extra_body
+
+        if effort_val:
+            # Always under extra_body so LiteLLM forwards to provider-specific param set
             request_params.setdefault("extra_body", {})
-            request_params["extra_body"]["reasoning"] = config.input_params["reasoning"]
+            request_params["extra_body"]["reasoning_effort"] = effort_val
+            # Ensure unsupported top-level keys are not present
+            if "reasoning_effort" in request_params:
+                request_params.pop("reasoning_effort", None)
 
         if row.tools is not None:
             request_params["tools"] = row.tools
@@ -78,10 +100,10 @@ async def default_single_turn_rollout_processor(
         ]
 
         row.messages = messages
-        config.logger.log(row)
+        default_logger.log(row)
         return row
 
-    # Process rows with bounded concurrency if configured
+    # Process rows with bounded concurrency and yield as they complete
     max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
     semaphore = asyncio.Semaphore(max_concurrent)
 
@@ -94,7 +116,17 @@ async def default_single_turn_rollout_processor(
                 r.rollout_status.error_message = str(e)
                 return r
 
-    tasks = [_sem_wrapper(row) for row in rows]
-    dataset = list(await asyncio.gather(*tasks))
+    # Create all tasks
+    tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
 
-    return dataset
+    # Yield results as they complete (note that they're not necessarily in original order)
+    try:
+        for task in asyncio.as_completed(tasks):
+            try:
+                yield await task
+            except Exception:
+                logger.exception("Error processing row")
+    finally:
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
