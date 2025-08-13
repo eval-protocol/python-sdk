@@ -29,7 +29,6 @@ import json
 import os
 from typing import Any, Callable, Dict, List, Optional
 
-
 # Global registry: name -> callable runner
 _BENCHMARK_REGISTRY: Dict[str, Callable[..., Any]] = {}
 
@@ -61,9 +60,7 @@ def export_benchmark(name: str) -> Callable[[Callable[..., Any]], Callable[..., 
     def _decorator(test_wrapper: Callable[..., Any]) -> Callable[..., Any]:
         # Pull through metadata attached by evaluation_test
         ep_config: Dict[str, Any] = getattr(test_wrapper, "__ep_config", {})
-        original_test_func: Optional[Callable[..., Any]] = getattr(
-            test_wrapper, "__ep_original_test_func", None
-        )
+        original_test_func: Optional[Callable[..., Any]] = getattr(test_wrapper, "__ep_original_test_func", None)
 
         def _runner(
             *,
@@ -87,6 +84,7 @@ def export_benchmark(name: str) -> Callable[[Callable[..., Any]], Callable[..., 
                 # Fireworks OpenAI-compatible endpoint expects extra_body.reasoning_effort, not nested reasoning dict
                 merged.setdefault("extra_body", {})["reasoning_effort"] = str(reasoning_effort)
             if input_params_override:
+
                 def _deep_update(base: Dict[str, Any], over: Dict[str, Any]) -> Dict[str, Any]:
                     for k, v in over.items():
                         if isinstance(v, dict) and isinstance(base.get(k), dict):
@@ -94,6 +92,7 @@ def export_benchmark(name: str) -> Callable[[Callable[..., Any]], Callable[..., 
                         else:
                             base[k] = v
                     return base
+
                 merged = _deep_update(merged, dict(input_params_override))
             if merged:
                 os.environ["EP_INPUT_PARAMS_JSON"] = json.dumps(merged)
@@ -108,15 +107,14 @@ def export_benchmark(name: str) -> Callable[[Callable[..., Any]], Callable[..., 
             models: List[str] = ep_config.get("model") or []
             model_to_use = model or (models[0] if models else None)
             if not model_to_use:
-                raise ValueError(
-                    f"No model provided and none captured from evaluation_test for benchmark '{name}'"
-                )
+                raise ValueError(f"No model provided and none captured from evaluation_test for benchmark '{name}'")
 
             input_messages = ep_config.get("input_messages")
             input_dataset = ep_config.get("input_dataset")
             dataset_adapter = ep_config.get("dataset_adapter")
             rollout_input_params_list = ep_config.get("rollout_input_params")
             rollout_processor = ep_config.get("rollout_processor")
+            rollout_processor_kwargs = ep_config.get("rollout_processor_kwargs")
             aggregation_method = ep_config.get("aggregation_method")
             threshold = ep_config.get("threshold_of_success")
             default_num_runs = ep_config.get("num_runs")
@@ -149,6 +147,7 @@ def export_benchmark(name: str) -> Callable[[Callable[..., Any]], Callable[..., 
                 dataset_adapter=dataset_adapter,
                 rollout_input_params=rollout_params,
                 rollout_processor=rollout_processor,
+                rollout_processor_kwargs=rollout_processor_kwargs,
                 aggregation_method=aggregation_method,
                 threshold_of_success=threshold,
                 num_runs=(num_runs if num_runs is not None else default_num_runs),
@@ -170,5 +169,3 @@ def export_benchmark(name: str) -> Callable[[Callable[..., Any]], Callable[..., 
         return test_wrapper
 
     return _decorator
-
-
