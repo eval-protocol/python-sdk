@@ -101,7 +101,6 @@ async def default_single_turn_rollout_processor(
 
         row.messages = messages
         default_logger.log(row)
-        logger.info(f"FINISHED PROCESSING ROW: {row.input_metadata.row_id} at time {time.time()}")
         return row
 
     # Process rows with bounded concurrency and yield as they complete
@@ -118,31 +117,14 @@ async def default_single_turn_rollout_processor(
     # Create all tasks
     tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
 
-    # Yield results as they complete (not in original order)
+    # Yield results as they complete (note that they're not necessarily in original order)
     try:
-        while tasks:
-            # Wait for at least one task to complete
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-
-            # Yield completed results
-            for task in done:
-                try:
-                    result = await task
-                    yield result
-                except Exception as e:
-                    # Log error but continue processing other tasks
-                    print(f"Error processing row: {e}")
-                    # Could yield an error row or skip
-
-            # Update tasks list to only pending tasks
-            tasks = list(pending)
-
+        for task in asyncio.as_completed(tasks):
+            try:
+                yield await task
+            except Exception:
+                logger.exception("Error processing row")
     finally:
-        # Clean up any remaining tasks
-        for task in tasks:
-            if not task.done():
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)

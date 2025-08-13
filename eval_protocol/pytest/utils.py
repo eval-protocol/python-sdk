@@ -87,18 +87,9 @@ def create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param
     """
     from functools import wraps
 
-    # Check if wrapper_body is async and create appropriate wrapper
-    if asyncio.iscoroutinefunction(wrapper_body):
-
-        @wraps(test_func)
-        async def wrapper(**kwargs):
-            return await wrapper_body(**kwargs)
-
-    else:
-
-        @wraps(test_func)
-        def wrapper(**kwargs):
-            return wrapper_body(**kwargs)
+    @wraps(test_func)
+    async def wrapper(**kwargs):
+        return await wrapper_body(**kwargs)
 
     parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names]
     wrapper.__signature__ = inspect.Signature(parameters)
