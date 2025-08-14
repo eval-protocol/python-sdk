@@ -1,4 +1,4 @@
-from typing import List
+import os
 from unittest.mock import Mock, patch
 
 import eval_protocol.dataset_logger as dataset_logger
@@ -13,28 +13,21 @@ async def test_ensure_logging(monkeypatch):
     """
     Ensure that default SQLITE logger gets called by mocking the storage and checking that the storage is called.
     """
-    from eval_protocol.pytest.evaluation_test import evaluation_test
-
     # Mock the SqliteEvaluationRowStore to track calls
-    mock_store = Mock(spec=SqliteEvaluationRowStore)
+    mock_store = Mock()
     mock_store.upsert_row = Mock()
     mock_store.read_rows = Mock(return_value=[])
     mock_store.db_path = "/tmp/test.db"
 
-    # Create a custom logger that uses our mocked store
-    class MockSqliteLogger(DatasetLogger):
-        def __init__(self, store: SqliteEvaluationRowStore):
-            self._store = store
-
-        def log(self, row: EvaluationRow) -> None:
-            data = row.model_dump(exclude_none=True, mode="json")
-            self._store.upsert_row(data=data)
-
-        def read(self, rollout_id=None) -> List[EvaluationRow]:
-            results = self._store.read_rows(rollout_id=rollout_id)
-            return [EvaluationRow(**data) for data in results]
-
-    mock_logger = MockSqliteLogger(mock_store)
+    # Mock the SqliteEvaluationRowStore constructor so that when SqliteDatasetLoggerAdapter
+    # creates its store, it gets our mock instead
+    with patch(
+        "eval_protocol.dataset_logger.sqlite_dataset_logger_adapter.SqliteEvaluationRowStore", return_value=mock_store
+    ):
+        from eval_protocol.models import EvaluationRow
+        from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
+        from eval_protocol.pytest.evaluation_test import evaluation_test
+        from tests.pytest.test_markdown_highlighting import markdown_dataset_to_evaluation_row
 
     @evaluation_test(
         input_dataset=[
@@ -46,7 +39,7 @@ async def test_ensure_logging(monkeypatch):
         mode="pointwise",
         combine_datasets=False,
         num_runs=2,
-        logger=mock_logger,  # Use our mocked logger
+        # Don't pass logger parameter - let it use the default_logger (which we've replaced)
     )
     def eval_fn(row: EvaluationRow) -> EvaluationRow:
         return row

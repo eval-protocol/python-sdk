@@ -5,6 +5,110 @@ import { MetadataSection } from "./MetadataSection";
 import StatusIndicator from "./StatusIndicator";
 import { state } from "../App";
 import { TableCell, TableRowInteractive } from "./TableContainer";
+import { useState } from "react";
+import type { FilterGroup, FilterConfig } from "../types/filters";
+import { Tooltip } from "./Tooltip";
+
+// Add filter button component
+const AddFilterButton = observer(
+  ({
+    fieldPath,
+    value,
+    label,
+  }: {
+    fieldPath: string;
+    value: string;
+    label: string;
+  }) => {
+    const [added, setAdded] = useState(false);
+
+    const handleClick = (e: React.MouseEvent) => {
+      e.stopPropagation(); // Prevent row expansion
+
+      // Create a new filter for this field/value
+      const newFilter: FilterConfig = {
+        field: fieldPath,
+        operator: "==",
+        value: value,
+        type: "text",
+      };
+
+      // Add the filter to the existing filter configuration
+      const currentFilters = state.filterConfig;
+      let newFilters: FilterGroup[];
+
+      if (currentFilters.length === 0) {
+        // If no filters exist, create a new filter group
+        newFilters = [
+          {
+            logic: "AND",
+            filters: [newFilter],
+          },
+        ];
+      } else {
+        // Add to the first filter group (assuming AND logic)
+        newFilters = [...currentFilters];
+        newFilters[0] = {
+          ...newFilters[0],
+          filters: [...newFilters[0].filters, newFilter],
+        };
+      }
+
+      state.updateFilterConfig(newFilters);
+      setAdded(true);
+
+      // Reset to "Add Filter" state after 2 seconds
+      setTimeout(() => setAdded(false), 2000);
+    };
+
+    return (
+      <Tooltip
+        content={added ? "Filter Added!" : `Add ${label} Filter`}
+        position="top"
+        className="text-gray-400 hover:text-gray-600 transition-colors"
+      >
+        <div className="flex items-center gap-1">
+          <button
+            className="cursor-pointer"
+            onClick={handleClick}
+            title="Add filter for this value"
+          >
+            {/* Icon */}
+            {added ? (
+              <svg
+                className="w-3 h-3 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z"
+                />
+              </svg>
+            )}
+          </button>
+        </div>
+      </Tooltip>
+    );
+  }
+);
 
 // Small, focused components following "dereference values late" principle
 const ExpandIcon = observer(({ rolloutId }: { rolloutId?: string }) => {
@@ -63,6 +167,22 @@ const RolloutId = observer(
     );
   }
 );
+
+const InvocationId = observer(({ invocationId }: { invocationId?: string }) => {
+  if (!invocationId) {
+    return null;
+  }
+  return (
+    <span className="font-mono text-gray-900 whitespace-nowrap flex items-center gap-1">
+      {invocationId}
+      <AddFilterButton
+        fieldPath="$.execution_metadata.invocation_id"
+        value={invocationId}
+        label="Invocation"
+      />
+    </span>
+  );
+});
 
 const RowModel = observer(({ model }: { model: string | undefined }) => (
   <span className="text-gray-900 truncate block">{model || "N/A"}</span>
@@ -224,6 +344,13 @@ export const EvaluationRow = observer(
             />
           </TableCell>
 
+          {/* Invocation ID */}
+          <TableCell className="py-3 text-xs">
+            <InvocationId
+              invocationId={row.execution_metadata?.invocation_id}
+            />
+          </TableCell>
+
           {/* Rollout ID */}
           <TableCell className="py-3 text-xs">
             <RolloutId rolloutId={row.execution_metadata?.rollout_id} />
@@ -248,7 +375,7 @@ export const EvaluationRow = observer(
         {/* Expanded Content Row */}
         {isExpanded && (
           <tr>
-            <td colSpan={8} className="p-0">
+            <td colSpan={9} className="p-0">
               <ExpandedContent
                 row={row}
                 messages={row.messages}

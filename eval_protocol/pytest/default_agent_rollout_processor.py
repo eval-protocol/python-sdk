@@ -59,7 +59,7 @@ class Agent:
         self.append_message_and_log(message)
         if message.tool_calls:
             # Create tasks for all tool calls to run them in parallel
-            tool_tasks = []
+            tool_tasks: List[asyncio.Task[tuple[str, List[TextContent]]]] = []
             for tool_call in message.tool_calls:
                 tool_call_id = tool_call.id
                 tool_name = tool_call.function.name
@@ -71,7 +71,7 @@ class Agent:
                 tool_tasks.append(task)
 
             # Execute all tool calls in parallel
-            tool_results: List[tuple[str, List[TextContent]]] = await asyncio.gather(*tool_tasks)
+            tool_results = await asyncio.gather(*tool_tasks)
 
             # Add all tool results to messages (they will be in the same order as tool_calls)
             for tool_call, (tool_call_id, content) in zip(message.tool_calls, tool_results):
