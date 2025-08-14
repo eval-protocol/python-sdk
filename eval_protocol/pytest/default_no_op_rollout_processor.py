@@ -2,18 +2,16 @@ import asyncio
 from typing import List
 
 from eval_protocol.models import EvaluationRow
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
 
-class BaseRolloutProcessor:
+class NoOpRolloutProcessor(RolloutProcessor):
     """
-    Base rollout processor - minimal implementation that all others inherit from.
+    No-op rollout processor that passes input dataset through unchanged.
 
-    This is the Strategy pattern base class. It provides:
-    1. __call__(rows, config) -> tasks (the main interface)
-    2. cleanup() -> None (resource cleanup)
-
-    All other processors inherit from this and override as needed.
+    Simply returns the input rows as completed tasks. This is useful for testing
+    or when you want to handle rollout processing manually.
     """
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
@@ -26,6 +24,4 @@ class BaseRolloutProcessor:
         tasks = [asyncio.create_task(return_row(row)) for row in rows]
         return tasks
 
-    def cleanup(self) -> None:
-        """No-op cleanup - override in subclasses if needed."""
-        pass
+    # Inherits cleanup() from RolloutProcessor - no override needed

@@ -24,8 +24,9 @@ from eval_protocol.models import (
     InputMetadata,
     Message,
 )
-from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
+from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import (
     Dataset,
     DatasetPathParam,
@@ -61,7 +62,7 @@ def evaluation_test(  # noqa: C901
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
     dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
-    rollout_processor: BaseRolloutProcessor = BaseRolloutProcessor(),
+    rollout_processor: RolloutProcessor = NoOpRolloutProcessor(),
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
     rollout_processor_kwargs: Optional[RolloutProcessorInputParam] = None,
     aggregation_method: AggregationMethod = "mean",
@@ -749,7 +750,7 @@ def run_evaluation_test_direct(
     input_dataset: Optional[List[DatasetPathParam]] = None,
     dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
     completion_params: Optional[CompletionParams] = None,
-    rollout_processor: BaseRolloutProcessor = BaseRolloutProcessor(),
+    rollout_processor: RolloutProcessor = NoOpRolloutProcessor(),
     rollout_processor_kwargs: Optional[RolloutProcessorInputParam] = None,
     aggregation_method: AggregationMethod = "mean",
     passed_threshold: Optional[Union[EvaluationThreshold, float]] = None,

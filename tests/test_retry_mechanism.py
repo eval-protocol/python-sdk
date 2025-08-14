@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from typing import AsyncIterator, List
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, RolloutStatus
-from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
 from eval_protocol.pytest.evaluation_test import evaluation_test
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
 os.environ["EP_MAX_RETRY"] = "2"  # Allow up to 2 retries
@@ -20,7 +20,7 @@ start_time = time.time()
 timing_results = []  # Collect timing data for assertions
 
 
-class MockRolloutProcessorWithRetries(BaseRolloutProcessor):
+class MockRolloutProcessorWithRetries(RolloutProcessor):
     """Mock rollout processor that fails second task alphabetically on first attempt, succeeds on retry"""
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
@@ -52,8 +52,6 @@ class MockRolloutProcessorWithRetries(BaseRolloutProcessor):
         ]
 
         return tasks
-
-    # Inherits cleanup() from BaseRolloutProcessor - no override needed
 
 
 @evaluation_test(

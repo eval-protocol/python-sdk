@@ -6,14 +6,12 @@ import socket
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import List, Optional
 
 import eval_protocol as ep
-from eval_protocol.models import EvaluationRow, Message
-from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
+from eval_protocol.models import EvaluationRow
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
-
-CURRENT_RUN_STATE: Dict[str, Any] = {}
 
 
 class MCPServerManager:
@@ -195,7 +193,7 @@ class MCPServerManager:
         return False  # Don't suppress exceptions
 
 
-class MCPGymRolloutProcessor(BaseRolloutProcessor):
+class MCPGymRolloutProcessor(RolloutProcessor):
     """
     Rollout processor for tau bench environments.
 

@@ -2,21 +2,20 @@ import asyncio
 import logging
 import os
 import time
-from typing import AsyncIterator, List
+from typing import List
 
-import litellm
 from litellm import acompletion
 from openai.types.chat.chat_completion_message import ChatCompletionMessageToolCall
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
-from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
 logger = logging.getLogger(__name__)
 
 
-class SingleTurnRolloutProcessor(BaseRolloutProcessor):
+class SingleTurnRolloutProcessor(RolloutProcessor):
     """Single turn rollout processor for direct LLM calls."""
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:

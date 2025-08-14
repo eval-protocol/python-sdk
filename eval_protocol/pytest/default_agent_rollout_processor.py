@@ -13,7 +13,7 @@ from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message
-from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
 
 logger = logging.getLogger(__name__)
@@ -116,7 +116,7 @@ class Agent:
         return tool_result.content
 
 
-class AgentRolloutProcessor(BaseRolloutProcessor):
+class AgentRolloutProcessor(RolloutProcessor):
     """Agent rollout processor for tool-calling agents."""
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:

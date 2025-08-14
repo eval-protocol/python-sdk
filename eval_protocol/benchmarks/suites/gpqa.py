@@ -8,11 +8,11 @@ import requests
 
 from eval_protocol.benchmarks.registry import export_benchmark
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
-from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
 SYSTEM_PROMPT = (
@@ -63,7 +63,7 @@ def _strip_gt_messages(msgs: List[Message]) -> List[Message]:
     return [m for m in msgs if not (m.role == "system" and (m.content or "").startswith("__GT__:"))]
 
 
-class GPQAStripGTRolloutProcessor(BaseRolloutProcessor):
+class GPQAStripGTRolloutProcessor(RolloutProcessor):
     """Preprocess rows to set ground_truth and remove __GT__ messages, then delegate to SingleTurnRolloutProcessor."""
 
     def __init__(self):

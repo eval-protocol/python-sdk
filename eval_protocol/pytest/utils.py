@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.models import EvalMetadata, EvaluationRow
-from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import (
     CompletionParams,
     DatasetPathParam,
@@ -234,7 +234,7 @@ def generate_parameter_combinations(
 
 
 async def rollout_processor_with_retry(
-    rollout_processor: BaseRolloutProcessor,
+    rollout_processor: RolloutProcessor,
     fresh_dataset: List[EvaluationRow],
     config: RolloutProcessorConfig,
     max_retry: int,
