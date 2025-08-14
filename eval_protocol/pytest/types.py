@@ -2,8 +2,9 @@
 Parameter types
 """
 
+import asyncio
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Callable, Dict, List, Literal, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
@@ -49,6 +50,3 @@ class RolloutProcessorConfig:
     steps: int = 30  # max number of rollout steps
     logger: DatasetLogger = default_logger  # logger to use during rollout for mid-rollout logs
     kwargs: Dict[str, Any] = field(default_factory=dict)  # any additional kwargs to pass to the rollout processor
-
-
-RolloutProcessor = Callable[[List[EvaluationRow], RolloutProcessorConfig], AsyncIterator[EvaluationRow]]

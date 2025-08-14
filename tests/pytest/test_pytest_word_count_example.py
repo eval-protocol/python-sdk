@@ -1,7 +1,7 @@
 from haikus import haikus
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult
-from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
+from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 from tests.pytest.helper.word_count_to_evaluation_row import word_count_to_evaluation_row
 
 
@@ -11,7 +11,7 @@ from tests.pytest.helper.word_count_to_evaluation_row import word_count_to_evalu
     completion_params=[{"temperature": 0.0, "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     max_dataset_rows=5,
     passed_threshold=0.3,  # Reasonable threshold for word count evaluation
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     mode="pointwise",  # Use pointwise mode for elegant row-by-row evaluation
 )
 def test_word_count_evaluate(row: EvaluationRow) -> EvaluationRow:

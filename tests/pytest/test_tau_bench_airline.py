@@ -12,7 +12,7 @@ from typing import Any, Dict, List
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import evaluation_test
-from eval_protocol.pytest.default_mcp_gym_rollout_processor import default_mcp_gym_rollout_processor
+from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 from vendor.tau2.data_model.message import (
     AssistantMessage,
     SystemMessage,
@@ -72,7 +72,7 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         }
     ],
-    rollout_processor=default_mcp_gym_rollout_processor,
+    rollout_processor=MCPGymRolloutProcessor(),
     passed_threshold={"success": 0.4, "standard_deviation": 0.1},
     num_runs=8,
     mode="pointwise",

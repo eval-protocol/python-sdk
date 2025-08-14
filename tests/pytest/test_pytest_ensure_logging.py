@@ -18,7 +18,7 @@ async def test_ensure_logging(monkeypatch):
         "eval_protocol.dataset_logger.sqlite_dataset_logger_adapter.SqliteEvaluationRowStore", return_value=mock_store
     ):
         from eval_protocol.models import EvaluationRow
-        from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
+        from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
         from eval_protocol.pytest.evaluation_test import evaluation_test
         from tests.pytest.test_markdown_highlighting import markdown_dataset_to_evaluation_row
 
@@ -28,7 +28,7 @@ async def test_ensure_logging(monkeypatch):
             ],
             completion_params=[{"temperature": 0.0, "model": "dummy/local-model"}],
             dataset_adapter=markdown_dataset_to_evaluation_row,
-            rollout_processor=default_no_op_rollout_processor,
+            rollout_processor=NoOpRolloutProcessor(),
             mode="pointwise",
             combine_datasets=False,
             num_runs=2,

@@ -9,7 +9,7 @@ import json
 from typing import Any, Dict, List
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
-from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
+from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 from eval_protocol.rewards.apps_coding_reward import evaluate_apps_solution
 
 
@@ -30,7 +30,7 @@ def apps_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluatio
         {"temperature": 0.0, "max_tokens": 4096, "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}
     ],
     passed_threshold=0.33,
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     num_runs=1,
     mode="pointwise",
 )

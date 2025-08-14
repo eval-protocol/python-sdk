@@ -1,7 +1,7 @@
 import math
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult
-from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
+from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 from eval_protocol.rewards.length import count_tokens
 from eval_protocol.rewards.math import math_reward
 from examples.math_with_format_and_length.main import check_think_answer_format
@@ -14,7 +14,7 @@ from tests.pytest.helper.gsm8k_to_evaluation_row import gsm8k_to_evaluation_row
     completion_params=[{"temperature": 0.0, "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     max_dataset_rows=5,
     passed_threshold=0.0,
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     mode="pointwise",
     evaluation_test_kwargs=[
         {

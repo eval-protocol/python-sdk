@@ -1,9 +1,20 @@
 import asyncio
 import inspect
-from typing import Any, Callable, List, Literal, Optional
+import os
+import re
+from dataclasses import replace
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.models import EvalMetadata, EvaluationRow
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
+from eval_protocol.pytest.types import (
+    CompletionParams,
+    DatasetPathParam,
+    EvaluationInputParam,
+    InputMessagesParam,
+    RolloutProcessorConfig,
+)
 
 
 def execute_function(func: Callable, **kwargs) -> Any:
@@ -124,3 +135,223 @@ def log_eval_status_and_rows(
             if r.eval_metadata is not None:
                 r.eval_metadata.status = status
             logger.log(r)
+
+
+def parse_ep_max_rows(default_value: Optional[int]) -> Optional[int]:
+    """Read EP_MAX_DATASET_ROWS env override as int or None."""
+    raw = os.getenv("EP_MAX_DATASET_ROWS")
+    if raw is None:
+        return default_value
+    s = raw.strip().lower()
+    if s == "none":
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return default_value
+
+
+def deep_update_dict(base: dict, override: dict) -> dict:
+    """Recursively update nested dictionaries in-place and return base."""
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            deep_update_dict(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def generate_parameter_combinations(
+    input_dataset: Optional[List[DatasetPathParam]],
+    completion_params: List[CompletionParams],
+    input_messages: Optional[List[InputMessagesParam]],
+    evaluation_test_kwargs: Optional[List[EvaluationInputParam]],
+    max_dataset_rows: Optional[int],
+    combine_datasets: bool,
+) -> List[tuple]:
+    """
+    Generate all combinations of parameters for pytest parameterization.
+
+    Args:
+        input_dataset: Dataset paths to use
+        completion_params: Completion parameters to test
+        input_messages: Input messages to use
+        evaluation_test_kwargs: Additional kwargs for evaluation tests
+        max_dataset_rows: Maximum number of dataset rows to process
+        combine_datasets: Whether to combine multiple datasets into one test
+
+    Returns:
+        List of parameter tuples for pytest.mark.parametrize
+    """
+    combinations = []
+
+    # Handle optional parameters with defaults
+    # Optionally combine multiple dataset paths into one logical dataset,
+    # or parameterize to run one dataset per test invocation.
+    if input_dataset is not None:
+        if combine_datasets:
+            datasets: List[Optional[List[DatasetPathParam]]] = [input_dataset]  # type: ignore
+        else:
+            # Fan out: one dataset path per parameterization
+            if isinstance(input_dataset, list):  # type: ignore
+                datasets = [[p] for p in input_dataset]  # type: ignore
+            else:
+                datasets = [[input_dataset]]  # type: ignore
+    else:
+        datasets = [None]
+
+    cps: List[Optional[CompletionParams]] = completion_params if completion_params is not None else [None]  # type: ignore
+
+    # Apply EP_MAX_DATASET_ROWS to input_messages, but do NOT parameterize over
+    # each row. Instead, pass the entire sliced list through in a single test run
+    # so summaries aggregate all rows together (AIME-style behavior).
+    if input_messages is not None and isinstance(input_messages, list):
+        effective_max_rows = parse_ep_max_rows(max_dataset_rows)
+        if effective_max_rows is not None:
+            sliced_messages = input_messages[:effective_max_rows]  # type: ignore
+        else:
+            sliced_messages = input_messages  # type: ignore
+        # Wrap as a single parameter payload
+        messages = [sliced_messages]  # type: ignore
+    else:
+        messages = [None]  # type: ignore
+
+    kwargs: List[Optional[EvaluationInputParam]] = evaluation_test_kwargs if evaluation_test_kwargs is not None else [None]  # type: ignore
+
+    # Generate all combinations
+    for ds in datasets:
+        for cp in cps:
+            for im in messages:
+                for etk in kwargs:
+                    # if no dataset and no messages, raise an error
+                    if ds is None and im is None:
+                        raise ValueError(
+                            "No dataset or messages provided. Please provide at least one of input_dataset or input_messages."
+                        )
+                    combinations.append((ds, cp, im, etk))
+
+    return combinations
+
+
+async def rollout_processor_with_retry(
+    rollout_processor: RolloutProcessor,
+    fresh_dataset: List[EvaluationRow],
+    config: RolloutProcessorConfig,
+    max_retry: int,
+):
+    """
+    Wrapper around rollout_processor that handles retry logic internally.
+    Uses async queue pattern to yield results immediately as they become available.
+    Yields both successful and failed results, leaving it up to the user to handle them in test_func.
+    """
+
+    try:
+        queue = asyncio.Queue()
+        retry_counts = {r.execution_metadata.rollout_id: 0 for r in fresh_dataset}
+        failed_permanently = []
+
+        async def retry_handler(failed_row: EvaluationRow):
+            rollout_id = failed_row.execution_metadata.rollout_id
+            current_attempts = retry_counts.get(rollout_id, 0)
+
+            if current_attempts >= max_retry:
+                assert (
+                    failed_row.rollout_status and failed_row.rollout_status.status == "error"
+                ), f"Rollout {failed_row.execution_metadata.rollout_id} did not fail with error status"
+                failed_permanently.append(failed_row)
+                await queue.put(failed_row)  # put failed row on queue
+                return
+
+            retry_counts[rollout_id] = current_attempts + 1
+
+            # add kwargs start_server=False to config so we don't start new MCP server
+            retry_config = replace(config, kwargs={**(config.kwargs or {}), "start_server": False})
+
+            retry_tasks = rollout_processor([failed_row], retry_config)
+
+            try:
+                retry_result = await retry_tasks[0]
+                retry_result.rollout_status.status = "finished"
+                await queue.put(retry_result)
+            except Exception as e:
+                failed_row.rollout_status.status = "error"
+                failed_row.rollout_status.termination_reason = str(e)
+                asyncio.create_task(retry_handler(failed_row))  # retry failed, spawn another retry
+
+        async def initial_processor():
+            """Process initial batch and spawn retries for failures"""
+            base_tasks = rollout_processor(fresh_dataset, config)
+            pending = set(base_tasks)
+
+            while pending:
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+
+                for task in done:
+                    task_index = base_tasks.index(task)
+
+                    try:
+                        result = await task
+                        result.rollout_status.status = "finished"
+                        await queue.put(result)
+                    except Exception as e:
+                        failed_row = fresh_dataset[task_index]
+                        failed_row.rollout_status.status = "error"
+                        failed_row.rollout_status.termination_reason = str(e)
+                        asyncio.create_task(retry_handler(failed_row))  # rollout errored, spawn retry task
+
+        processor_task = asyncio.create_task(initial_processor())
+
+        # yield results as they become available
+        completed_count = 0
+        total_expected = len(fresh_dataset)
+
+        while completed_count < total_expected:
+            finished_row = await queue.get()
+
+            # only permanent failure rows are put on the queue, so we can check for them here
+            if finished_row.rollout_status and finished_row.rollout_status.status == "error":
+                if os.getenv("EP_FAIL_ON_PERMANENT_FAILURE", "true") != "false":
+                    raise RuntimeError(
+                        f"Rollout {finished_row.execution_metadata.rollout_id} failed after {max_retry} retries. Errors: {finished_row.rollout_status.termination_reason}"
+                    )
+
+            completed_count += 1
+            yield finished_row
+
+        await processor_task  # explicitly wait for task completion and catch any exceptions
+
+    finally:
+        rollout_processor.cleanup()
+
+
+def sanitize_filename(text: str) -> str:
+    """Sanitize text for use in filenames by replacing special characters with dashes."""
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", text.strip())
+    return safe[:120]
+
+
+def extract_effort_tag(params: dict) -> Optional[str]:
+    """
+    Extract effort tag from completion parameters for use in file naming.
+
+    Args:
+        params: Completion parameters dictionary
+
+    Returns:
+        Effort tag string if found, None otherwise
+    """
+    try:
+        if not isinstance(params, dict):
+            return None
+        # Common locations
+        if "extra_body" in params and isinstance(params["extra_body"], dict):
+            eb = params["extra_body"]
+            if isinstance(eb.get("reasoning"), dict) and "effort" in eb["reasoning"]:
+                return str(eb["reasoning"]["effort"]).lower()
+            if "reasoning_effort" in eb:
+                return str(eb["reasoning_effort"]).lower()
+        if "reasoning" in params and isinstance(params["reasoning"], dict) and "effort" in params["reasoning"]:
+            return str(params["reasoning"]["effort"]).lower()
+    except Exception:
+        return None
+    return None

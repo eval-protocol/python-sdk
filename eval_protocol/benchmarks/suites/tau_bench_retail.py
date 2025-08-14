@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 from eval_protocol.benchmarks.registry import export_benchmark
 from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import evaluation_test
-from eval_protocol.pytest.default_mcp_gym_rollout_processor import default_mcp_gym_rollout_processor
+from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 from vendor.tau2.data_model.message import (
     AssistantMessage,
     SystemMessage,
@@ -73,7 +73,7 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         }
     ],
-    rollout_processor=default_mcp_gym_rollout_processor,
+    rollout_processor=MCPGymRolloutProcessor(),
     rollout_processor_kwargs={"domain": "retail"},
     num_runs=8,
     mode="pointwise",

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from eval_protocol.benchmarks.registry import export_benchmark, register_composite_benchmark
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
-    default_single_turn_rollout_processor,
+    SingleTurnRolloutProcessor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
 
@@ -375,7 +375,7 @@ _CTA_ROWS = _load_livebench_da_messages("cta")
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_messages=[[m for m in r.messages] for r in _CTA_ROWS],
     rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=None,
     num_runs=4,
@@ -418,7 +418,7 @@ _TABLEJOIN_ROWS = _load_livebench_da_messages("tablejoin")
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_messages=[[m for m in r.messages] for r in _TABLEJOIN_ROWS],
     rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=None,
     num_runs=4,
@@ -462,7 +462,7 @@ _TABLEREFORMAT_ROWS = _load_livebench_da_messages("tablereformat")
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_messages=[[m for m in r.messages] for r in _TABLEREFORMAT_ROWS],
     rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=None,
     num_runs=4,

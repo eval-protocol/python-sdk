@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List
 
 from eval_protocol.models import EvaluationRow, Message
-from eval_protocol.pytest import default_agent_rollout_processor, evaluation_test
+from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
 
 
 @evaluation_test(
@@ -16,7 +16,7 @@ from eval_protocol.pytest import default_agent_rollout_processor, evaluation_tes
             )
         ]
     ],
-    rollout_processor=default_agent_rollout_processor,
+    rollout_processor=AgentRolloutProcessor(),
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}],
 )
 def test_pytest_default_agent_rollout_processor(rows: List[EvaluationRow]) -> List[EvaluationRow]:

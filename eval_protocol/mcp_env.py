@@ -236,7 +236,7 @@ def make(
     return mcp_envs
 
 
-async def rollout(
+def rollout(
     envs: GeneralMCPVectorEnv,
     policy: Union[FireworksPolicy, LLMBasePolicy, Callable],
     *,
@@ -246,7 +246,7 @@ async def rollout(
     steps: int = 512,
     openai_format_log_file: Optional[str] = None,
     max_concurrent_rollouts: int = 8,
-) -> AsyncIterator[EvaluationRow]:
+) -> List[asyncio.Task[EvaluationRow]]:
     """
     Execute general rollouts using tool calling interface with automatic record/playback.
 
@@ -274,14 +274,14 @@ async def rollout(
         - Set and file exists: Playback mode (uses recorded data)
 
     Returns:
-        List of EvaluationRow objects
+        List of asyncio.Task objects for external handling
 
     Example:
         # Live mode
-        evaluation_rows = await ep.rollout(envs, policy)
+        tasks = ep.rollout(envs, policy)
 
         # Create environments automatically
-        trajectories = await ep.rollout(
+        tasks = ep.rollout(
             "http://localhost:8000/mcp/",
             policy,
             evaluation_rows=my_evaluation_rows,
@@ -290,10 +290,10 @@ async def rollout(
 
         # Recording mode
         os.environ["EP_PLAYBACK_FILE"] = "record.jsonl"
-        evaluation_rows = await ep.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
+        tasks = ep.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
 
         # Playback mode (after recording file exists)
-        evaluation_rows = await ep.rollout(envs, policy)
+        tasks = ep.rollout(envs, policy)
     """
     # Automatically create environments if a base URL is provided
     if isinstance(envs, str):
@@ -301,15 +301,15 @@ async def rollout(
             raise ValueError("Either 'evaluation_rows' or 'dataset' must be provided when envs is a URL")
 
         auto_model_id = model_id or getattr(policy, "model_id", "unknown")
-        envs = await make(envs, evaluation_rows=evaluation_rows, dataset=dataset, model_id=auto_model_id)
+        envs = make(envs, evaluation_rows=evaluation_rows, dataset=dataset, model_id=auto_model_id)
 
     # Use the new ExecutionManager for execution
     execution_manager = ExecutionManager()
 
-    async for evaluation_row in execution_manager.execute_rollouts(
+    tasks = execution_manager.execute_rollouts(
         envs, policy, steps, openai_format_log_file, max_concurrent_rollouts, evaluation_rows
-    ):
-        yield evaluation_row
+    )
+    return tasks
 
 
 async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:
@@ -336,7 +336,7 @@ async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:
             policy = FireworksPolicy("test-model")
 
             # Run short rollout
-            evaluation_rows = await rollout(envs, policy=policy, steps=10)
+            evaluation_rows = rollout(envs, policy=policy, steps=10)
 
             if evaluation_rows and len(evaluation_rows[0].messages) > 1:
                 results["successful"] += 1
