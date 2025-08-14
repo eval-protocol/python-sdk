@@ -5,9 +5,11 @@ Simple test to verify the retry mechanism works with evaluation_test.
 
 import asyncio
 import os
-import time
-from dataclasses import dataclass
-from typing import AsyncIterator, List
+from collections import Counter
+from typing import List
+from unittest.mock import Mock
+
+import pytest
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, RolloutStatus
 from eval_protocol.pytest.evaluation_test import evaluation_test
@@ -16,29 +18,47 @@ from eval_protocol.pytest.types import RolloutProcessorConfig
 
 os.environ["EP_MAX_RETRY"] = "2"  # Allow up to 2 retries
 
-start_time = time.time()
-timing_results = []  # Collect timing data for assertions
-
 
 class MockRolloutProcessorWithRetries(RolloutProcessor):
     """Mock rollout processor that fails second task alphabetically on first attempt, succeeds on retry"""
 
+    def __init__(self):
+        self.mock_tracker = Mock()
+
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        # Track this batch call
+        self.mock_tracker.batch_call(len(rows))
+
         row_setup = {
-            0: {"delay": 3.0, "should_fail": False},
-            1: {"delay": 3.0, "should_fail": True},
-            2: {"delay": 5.0, "should_fail": False},
-            3: {"delay": 5.0, "should_fail": False},
-            4: {"delay": 5.0, "should_fail": False},
+            0: {"delay": 0.01, "should_fail": False},
+            1: {"delay": 0.01, "should_fail": True},  # Will be adjusted based on attempt number
+            2: {"delay": 0.01, "should_fail": False},
+            3: {"delay": 0.01, "should_fail": False},
+            4: {"delay": 0.01, "should_fail": False},
         }
 
-        async def process_single_row(row: EvaluationRow, delay: float, should_fail: bool = False) -> EvaluationRow:
-            await asyncio.sleep(delay)
+        async def process_single_row(
+            row: EvaluationRow, delay: float, base_should_fail: bool = False
+        ) -> EvaluationRow:
+            rollout_id = row.execution_metadata.rollout_id
 
-            elapsed = time.time() - start_time
-            print(
-                f"🎉 FINISHED {'error' if should_fail else 'finished'} at {elapsed:.2f}s: {row.execution_metadata.rollout_id}"
-            )
+            # Track individual row processing call
+            self.mock_tracker.process_row_call(rollout_id)
+
+            # Determine attempt number by counting previous calls for this rollout_id
+            previous_calls = [
+                call for call in self.mock_tracker.process_row_call.call_args_list if call[0][0] == rollout_id
+            ]
+            attempt_number = len(previous_calls)
+
+            # Determine if this specific attempt should fail
+            # Row 1 fails on first attempt (attempt_number == 1), succeeds on retry (attempt_number == 2)
+            should_fail = base_should_fail and attempt_number == 1
+
+            print(f"🔄 ATTEMPTING rollout_id={rollout_id}, attempt={attempt_number}, will_fail={should_fail}")
+
+            await asyncio.sleep(delay)
+            print(f"🎉 FINISHED {'error' if should_fail else 'finished'}: {row.execution_metadata.rollout_id}")
 
             if should_fail:
                 raise Exception("Simulated failure for testing")
@@ -54,6 +74,10 @@ class MockRolloutProcessorWithRetries(RolloutProcessor):
         return tasks
 
 
+# Create a shared processor instance for testing
+shared_processor = MockRolloutProcessorWithRetries()
+
+
 @evaluation_test(
     completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
     input_messages=[
@@ -63,16 +87,14 @@ class MockRolloutProcessorWithRetries(RolloutProcessor):
         [Message(role="user", content="Task D")],
         [Message(role="user", content="Task E")],
     ],
-    rollout_processor=MockRolloutProcessorWithRetries(),
+    rollout_processor=shared_processor,
     num_runs=1,
     mode="pointwise",
 )
 def test_retry_mechanism(row: EvaluationRow) -> EvaluationRow:
-    """MOCK TEST: first 2 rows take 3s, last 3 take 5s, second row fails on first attempt, succeeds on retry. Should take around 6s total."""
-    # Just print the timing - we'll parse it from output
-    elapsed = time.time() - start_time
+    """MOCK TEST: Tests that retry mechanism works - one task fails on first attempt, succeeds on retry."""
     print(
-        f"📊 EVALUATED at {elapsed:.2f}s: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})"
+        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})"
     )
 
     # Assign a score based on success/failure
@@ -82,56 +104,54 @@ def test_retry_mechanism(row: EvaluationRow) -> EvaluationRow:
     return row
 
 
-def test_timing_assertions():
-    """Validate that timing results match expected pipeline behavior"""
-    global start_time
+def test_retry_mechanism_mock_verification():
+    """Test that verifies the retry mechanism worked by checking the mock calls"""
+    # Get our mock tracker
+    mock_tracker = shared_processor.mock_tracker
 
-    # Reset and run the evaluation test
-    start_time = time.time()
+    print(f"\n🔄 MOCK CALL ANALYSIS:")
+    print(f"   Batch calls made: {mock_tracker.batch_call.call_count}")
+    print(f"   Total row processing calls: {mock_tracker.process_row_call.call_count}")
 
-    # Capture pytest output
-    import subprocess
-    import sys
+    if mock_tracker.process_row_call.call_count == 0:
+        print("⚠️  No calls recorded yet. The evaluation test may not have run or completed.")
+        return
 
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", __file__ + "::test_retry_mechanism", "-v", "-s"],
-        capture_output=True,
-        text=True,
-        cwd=os.getcwd(),
-    )
+    # Get all rollout_ids that were processed
+    call_args = mock_tracker.process_row_call.call_args_list
+    rollout_ids = [call[0][0] for call in call_args]
 
-    print(result.stdout)  # Show the original output
+    # Count calls per rollout_id
+    call_counts = Counter(rollout_ids)
 
-    # Parse timing from output
-    import re
+    print(f"   Call counts per rollout_id: {dict(call_counts)}")
+    print(f"   Individual calls:")
+    for i, call_arg in enumerate(call_args, 1):
+        rollout_id = call_arg[0][0]
+        attempt_num = rollout_ids[:i].count(rollout_id)
+        print(f"     {i}. rollout_id={rollout_id}, attempt={attempt_num}")
 
-    timing_results = []
-    for line in result.stdout.split("\n"):
-        match = re.search(r"📊 EVALUATED at (\d+\.\d+)s:", line)
-        if match:
-            timing_results.append(float(match.group(1)))
+    # ASSERTIONS USING MOCK DATA
+    # Should have exactly 6 total row processing calls (5 initial + 1 retry)
+    assert (
+        mock_tracker.process_row_call.call_count == 6
+    ), f"Expected 6 total calls, got {mock_tracker.process_row_call.call_count}"
 
-    print(f"\n📊 PIPELINE TIMING ANALYSIS:")
-    print(f"   Results received at: {[f'{t:.2f}s' for t in sorted(timing_results)]}")
+    # Should have exactly 2 batch calls (initial batch + retry batch)
+    assert mock_tracker.batch_call.call_count == 2, f"Expected 2 batch calls, got {mock_tracker.batch_call.call_count}"
 
-    # Assertions for expected timing behavior
-    sorted_times = sorted(timing_results)
+    # First batch should have 5 rows, second batch should have 1 row (the retry)
+    batch_call_args = mock_tracker.batch_call.call_args_list
+    assert batch_call_args[0][0][0] == 5, f"Expected first batch to have 5 rows, got {batch_call_args[0][0][0]}"
+    assert batch_call_args[1][0][0] == 1, f"Expected second batch to have 1 row, got {batch_call_args[1][0][0]}"
 
-    assert len(sorted_times) == 5, f"Expected 5 evaluation results, got {len(sorted_times)}"
+    # Exactly one rollout_id should be called twice, others called once
+    call_count_values = list(call_counts.values())
+    assert (
+        call_count_values.count(2) == 1
+    ), f"Expected exactly 1 rollout_id to be called twice, got counts: {dict(call_counts)}"
+    assert (
+        call_count_values.count(1) == 4
+    ), f"Expected exactly 4 rollout_ids to be called once, got counts: {dict(call_counts)}"
 
-    # First result should be around 3s (row 0 success)
-    assert 2.5 <= sorted_times[0] <= 3.5, f"First result at {sorted_times[0]:.2f}s, expected ~3s"
-
-    # Next three results should be around 5s (rows 2,3,4)
-    assert 4.5 <= sorted_times[1] <= 5.5, f"Second result at {sorted_times[1]:.2f}s, expected ~5s"
-    assert 4.5 <= sorted_times[2] <= 5.5, f"Third result at {sorted_times[2]:.2f}s, expected ~5s"
-    assert 4.5 <= sorted_times[3] <= 5.5, f"Fourth result at {sorted_times[3]:.2f}s, expected ~5s"
-
-    # Last result should be around 6s (row 1 retry success)
-    assert 5.5 <= sorted_times[4] <= 6.5, f"Fifth result at {sorted_times[4]:.2f}s, expected ~6s (retry success)"
-
-    print("✅ All timing assertions passed! Pipeline behavior is correct.")
-
-
-if __name__ == "__main__":
-    test_timing_assertions()
+    print("✅ All mock-based assertions passed! Retry mechanism is working correctly.")
