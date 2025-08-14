@@ -278,10 +278,10 @@ def rollout(
 
     Example:
         # Live mode
-        tasks = await ep.rollout(envs, policy)
+        tasks = ep.rollout(envs, policy)
 
         # Create environments automatically
-        tasks = await ep.rollout(
+        tasks = ep.rollout(
             "http://localhost:8000/mcp/",
             policy,
             evaluation_rows=my_evaluation_rows,
@@ -290,10 +290,10 @@ def rollout(
 
         # Recording mode
         os.environ["EP_PLAYBACK_FILE"] = "record.jsonl"
-        tasks = await ep.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
+        tasks = ep.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
 
         # Playback mode (after recording file exists)
-        tasks = await ep.rollout(envs, policy)
+        tasks = ep.rollout(envs, policy)
     """
     # Automatically create environments if a base URL is provided
     if isinstance(envs, str):
