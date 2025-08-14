@@ -194,14 +194,14 @@ class MCPServerManager:
         return False  # Don't suppress exceptions
 
 
-async def default_mcp_gym_rollout_processor(
+def default_mcp_gym_rollout_processor(
     rows: List[EvaluationRow], config: RolloutProcessorConfig
-) -> AsyncIterator[EvaluationRow]:
+) -> List[asyncio.Task[EvaluationRow]]:
     """
     Rollout processor for tau bench environments.
 
-    This processor starts an MCP server, creates tau bench environments, and runs rollouts
-    using the eval_protocol framework, yielding results as they complete.
+    This processor starts an MCP server, creates tau bench environments, and returns rollout tasks
+    using the eval_protocol framework.
 
     Args:
         rows: List of EvaluationRow objects containing messages and dataset info in input_metadata
@@ -210,7 +210,7 @@ async def default_mcp_gym_rollout_processor(
                 - start_server (bool): If True, create fresh server and environments. If False, reuse existing ones. Default: True.
 
     Returns:
-        AsyncIterator of EvaluationRow objects with completed conversations
+        List of asyncio.Task objects for external handling
     """
     start_server = config.kwargs.get("start_server", True) if config.kwargs else True
     if start_server:
@@ -260,15 +260,15 @@ async def default_mcp_gym_rollout_processor(
         envs = CURRENT_RUN_STATE["envs"]
         policy = CURRENT_RUN_STATE["policy"]
 
-    # Run rollout with environments and policy (automatically resets environments)
-    async for evaluation_row in ep.rollout(
+    # Get rollout tasks from ep.rollout
+    tasks = ep.rollout(
         envs,
         policy=policy,
         evaluation_rows=rows,
         steps=config.steps,
         max_concurrent_rollouts=config.max_concurrent_rollouts,
-    ):
-        yield evaluation_row
+    )
+    return tasks
 
 
 # Add cleanup method directly to the function object

@@ -19,9 +19,9 @@ start_time = time.time()
 timing_results = []  # Collect timing data for assertions
 
 
-async def mock_rollout_processor_with_retries(
+def mock_rollout_processor_with_retries(
     rows: List[EvaluationRow], config: RolloutProcessorConfig
-) -> AsyncIterator[EvaluationRow]:
+) -> List[asyncio.Task[EvaluationRow]]:
     """Mock rollout processor that fails second task alphabetically on first attempt, succeeds on retry"""
     row_setup = {
         0: {"delay": 3.0, "should_fail": False},
@@ -34,25 +34,23 @@ async def mock_rollout_processor_with_retries(
     async def process_single_row(row: EvaluationRow, delay: float, should_fail: bool = False) -> EvaluationRow:
         await asyncio.sleep(delay)
 
+        elapsed = time.time() - start_time
+        print(
+            f"🎉 FINISHED {'error' if should_fail else 'finished'} at {elapsed:.2f}s: {row.execution_metadata.rollout_id}"
+        )
+
         if should_fail:
-            row.rollout_status = RolloutStatus(status="error", termination_reason="Simulated failure for testing")
-        else:
-            row.rollout_status = RolloutStatus(status="finished")
+            raise Exception("Simulated failure for testing")
 
         return row
 
-    # Create tasks for concurrent processing
+    # Create and return tasks (let evaluation_test handle them)
     tasks = [
         asyncio.create_task(process_single_row(row, row_setup[i]["delay"], row_setup[i]["should_fail"]))
         for i, row in enumerate(rows)
     ]
 
-    # Yield results as they complete
-    for completed_task in asyncio.as_completed(tasks):
-        result = await completed_task
-        elapsed = time.time() - start_time
-        print(f"🎉 FINISHED {result.rollout_status.status} at {elapsed:.2f}s: {result.execution_metadata.rollout_id}")
-        yield result
+    return tasks
 
 
 @evaluation_test(

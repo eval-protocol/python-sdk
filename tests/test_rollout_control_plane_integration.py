@@ -239,8 +239,10 @@ class TestRolloutControlPlaneIntegration:
             policy = MockPolicy(["right", "down", "right"])
 
             # Execute rollout
+            tasks = self.execution_manager.execute_rollouts(mock_env, policy, steps=10)
             evaluation_rows = []
-            async for row in self.execution_manager.execute_rollouts(mock_env, policy, steps=10):
+            for task in tasks:
+                row = await task
                 evaluation_rows.append(row)
 
             # Validate results
@@ -459,8 +461,10 @@ class TestRolloutControlPlaneIntegration:
 
             # Execute rollout with control plane failure
             policy = MockPolicy(["right"])
+            tasks = self.execution_manager.execute_rollouts(mock_env, policy, steps=1)
             evaluation_rows = []
-            async for row in self.execution_manager.execute_rollouts(mock_env, policy, steps=1):
+            for task in tasks:
+                row = await task
                 evaluation_rows.append(row)
 
             # Should still work, but without control plane info
@@ -497,7 +501,7 @@ class TestRolloutControlPlaneIntegration:
         policy = MockPolicy(["right"])
 
         with (
-            patch("eval_protocol.mcp_env.make", new_callable=AsyncMock) as mock_make,
+            patch("eval_protocol.mcp_env.make") as mock_make,
             patch("eval_protocol.mcp_env.ExecutionManager") as MockManager,
         ):
             mock_env = MagicMock()
@@ -505,24 +509,30 @@ class TestRolloutControlPlaneIntegration:
 
             manager_instance = MockManager.return_value
 
-            # Mock execute_rollouts to return an async generator and track calls
+            # Mock execute_rollouts to return tasks and track calls
             call_args = []
 
-            async def mock_execute_rollouts(*args, **kwargs):
+            async def mock_task():
+                return "ok"
+
+            def mock_execute_rollouts(*args, **kwargs):
                 call_args.append((args, kwargs))
-                for item in ["ok"]:
-                    yield item
+                import asyncio
+
+                return [asyncio.create_task(mock_task())]
 
             manager_instance.execute_rollouts = mock_execute_rollouts
 
             result = []
-            async for row in ep.rollout(
+            tasks = ep.rollout(
                 "http://localhost:1234/mcp/",
                 policy,
                 dataset=dataset,
                 model_id="test_model",
                 steps=5,
-            ):
+            )
+            for task in tasks:
+                row = await task
                 result.append(row)
 
             mock_make.assert_called_once_with(

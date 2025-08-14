@@ -35,7 +35,7 @@ class ExecutionManager:
     Manage rollout for MCP environments.
     """
 
-    async def execute_rollouts(
+    def execute_rollouts(
         self,
         envs: "GeneralMCPVectorEnv",
         policy: Union["LLMBasePolicy", Callable],
@@ -43,7 +43,7 @@ class ExecutionManager:
         openai_format_log_file: Optional[str] = None,
         max_concurrent_rollouts: int = 8,
         evaluation_rows: Optional[List[EvaluationRow]] = None,
-    ) -> AsyncIterator[EvaluationRow]:
+    ) -> List[asyncio.Task[EvaluationRow]]:
         """
         Execute general rollouts using tool calling interface with automatic record/playback.
 
@@ -66,7 +66,7 @@ class ExecutionManager:
             - Set and file exists: Playback mode (uses recorded data)
 
         Returns:
-            AsyncIterator of EvaluationRow objects with unified evaluation data format
+            List of asyncio.Task objects for external handling
         """
         start_time = time.time()
 
@@ -151,18 +151,7 @@ class ExecutionManager:
 
         # Create all tasks
         tasks = [asyncio.create_task(_execute_with_semaphore(i)) for i in range(envs.n)]
-
-        # Yield results as they complete (note that they're not necessarily in original order)
-        try:
-            for task in asyncio.as_completed(tasks):
-                try:
-                    yield await task
-                except Exception:
-                    logger.exception("Error processing rollout")
-        finally:
-            for t in tasks:
-                t.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+        return tasks
 
     async def _execute_rollout(
         self,

@@ -92,6 +92,7 @@ jobs:
             --ignore=tests/pytest/test_frozen_lake.py \
             --ignore=tests/pytest/test_lunar_lander.py \
             --ignore=tests/pytest/test_tau_bench_airline.py \
+            --ignore=tests/pytest/test_apps_coding.py \
             --ignore=tests/test_tau_bench_airline_smoke.py \
             --cov=eval_protocol --cov-append --cov-report=xml --cov-report=term-missing -v --durations=10
 

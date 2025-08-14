@@ -15,10 +15,10 @@ from eval_protocol.pytest.types import RolloutProcessorConfig
 logger = logging.getLogger(__name__)
 
 
-async def default_single_turn_rollout_processor(
+def default_single_turn_rollout_processor(
     rows: List[EvaluationRow], config: RolloutProcessorConfig
-) -> AsyncIterator[EvaluationRow]:
-    """Generate a single response from any supported model provider using LiteLLM."""
+) -> List[asyncio.Task[EvaluationRow]]:
+    """Generate single turn rollout tasks and return them for external handling."""
 
     # Quiet LiteLLM logs in test runs unless user overrode
     try:
@@ -103,30 +103,15 @@ async def default_single_turn_rollout_processor(
         default_logger.log(row)
         return row
 
-    # Process rows with bounded concurrency and yield as they complete
+    # Process rows with bounded concurrency
     max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
     semaphore = asyncio.Semaphore(max_concurrent)
 
     async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:
         async with semaphore:
-            try:
-                return await process_row(r)
-            except Exception as e:
-                r.rollout_status.status = "error"
-                r.rollout_status.termination_reason = str(e)
-                return r
+            result = await process_row(r)
+            return result
 
-    # Create all tasks
+    # Create and return tasks for external handling
     tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
-
-    # Yield results as they complete (note that they're not necessarily in original order)
-    try:
-        for task in asyncio.as_completed(tasks):
-            try:
-                yield await task
-            except Exception:
-                logger.exception("Error processing row")
-    finally:
-        for t in tasks:
-            t.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+    return tasks

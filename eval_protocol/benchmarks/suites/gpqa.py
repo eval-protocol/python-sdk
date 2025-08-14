@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import io
 import re
@@ -60,7 +61,7 @@ def _strip_gt_messages(msgs: List[Message]) -> List[Message]:
     return [m for m in msgs if not (m.role == "system" and (m.content or "").startswith("__GT__:"))]
 
 
-async def gpqa_strip_gt_rollout_processor(rows: List[EvaluationRow], config) -> List[EvaluationRow]:
+def gpqa_strip_gt_rollout_processor(rows: List[EvaluationRow], config) -> List[asyncio.Task[EvaluationRow]]:
     """Preprocess rows to set ground_truth and remove __GT__ messages, then delegate to default processor."""
     processed: List[EvaluationRow] = []
     for r in rows:
@@ -72,7 +73,7 @@ async def gpqa_strip_gt_rollout_processor(rows: List[EvaluationRow], config) -> 
                 m for m in r.messages if not (m.role == "system" and (m.content or "").startswith("__GT__:"))
             ]
         processed.append(r)
-    return await default_single_turn_rollout_processor(processed, config)
+    return default_single_turn_rollout_processor(processed, config)
 
 
 @export_benchmark("gpqa")

@@ -304,21 +304,37 @@ def evaluation_test(  # noqa: C901
                     # add kwargs start_server=False to config so we don't start new MCP server
                     retry_config = replace(config, kwargs={**(config.kwargs or {}), "start_server": False})
 
-                    retry_call = rollout_processor([failed_row], retry_config)
+                    retry_tasks = rollout_processor([failed_row], retry_config)
 
-                    retry_result = await anext(retry_call)
-                    if retry_result.rollout_status and retry_result.rollout_status.status == "finished":
+                    try:
+                        retry_result = await retry_tasks[0]
+                        retry_result.rollout_status.status = "finished"
                         await queue.put(retry_result)
-                    else:
-                        asyncio.create_task(retry_handler(retry_result))  # retry failed, spawn another retry
+                    except Exception as e:
+                        failed_row.rollout_status.status = "error"
+                        failed_row.rollout_status.termination_reason = str(e)
+                        asyncio.create_task(retry_handler(failed_row))  # retry failed, spawn another retry
 
                 async def initial_processor():
                     """Process initial batch and spawn retries for failures"""
-                    async for initial_row in rollout_processor(fresh_dataset, config):
-                        if initial_row.rollout_status and initial_row.rollout_status.status == "finished":
-                            await queue.put(initial_row)  # rollout succeeded, put on queue
-                        else:
-                            asyncio.create_task(retry_handler(initial_row))  # rollout errored, spawn retry task
+                    base_tasks = rollout_processor(fresh_dataset, config)
+                    pending = set(base_tasks)
+
+                    while pending:
+                        done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+
+                        for task in done:
+                            task_index = base_tasks.index(task)
+
+                            try:
+                                result = await task
+                                result.rollout_status.status = "finished"
+                                await queue.put(result)
+                            except Exception as e:
+                                failed_row = fresh_dataset[task_index]
+                                failed_row.rollout_status.status = "error"
+                                failed_row.rollout_status.termination_reason = str(e)
+                                asyncio.create_task(retry_handler(failed_row))  # rollout errored, spawn retry task
 
                 processor_task = asyncio.create_task(initial_processor())
 
@@ -606,7 +622,7 @@ def evaluation_test(  # noqa: C901
                     for result in all_results:
                         for r in result:
                             if r.eval_metadata is not None:
-                                r.eval_metadata.status = "finished"
+                                r.eval_metadata.status = "finished"  # TODO: might not be needed
                                 r.eval_metadata.passed = passed
                             active_logger.log(r)
 
