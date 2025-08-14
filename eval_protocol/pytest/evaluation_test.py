@@ -471,11 +471,10 @@ def evaluation_test(  # noqa: C901
 
                         passed = success_passed and std_passed
 
-                    # Update eval metadata status and passed field for all results
+                    # Update eval metadata passed field for all results
                     for result in all_results:
                         for r in result:
                             if r.eval_metadata is not None:
-                                r.eval_metadata.status = "finished"  # TODO: might not be needed
                                 r.eval_metadata.passed = passed
                             active_logger.log(r)
 
