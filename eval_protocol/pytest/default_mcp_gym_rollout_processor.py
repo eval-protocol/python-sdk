@@ -204,7 +204,8 @@ class MCPGymRolloutProcessor(BaseRolloutProcessor):
     """
 
     def __init__(self):
-        self.current_run_state: Dict[str, Any] = {}
+        self.server = None
+        self.policy = None
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Process evaluation rows with MCP gym environments."""
@@ -215,52 +216,43 @@ class MCPGymRolloutProcessor(BaseRolloutProcessor):
             if config.server_script_path is None:
                 raise ValueError("server_script_path is required for MCPGymRolloutProcessor")
 
-            server = MCPServerManager(config.server_script_path, port=9700, **(config.kwargs or {}))
+            self.server = MCPServerManager(config.server_script_path, port=9700, **(config.kwargs or {}))
 
             try:
-                server.start()
+                self.server.start()
 
-                policy = ep.LiteLLMPolicy(
+                self.policy = ep.LiteLLMPolicy(
                     model_id=config.completion_params.get("model", None),
                     temperature=config.completion_params.get("temperature", 0.0),
                     max_tokens=config.completion_params.get("max_tokens", 4096),
                     reasoning_effort=config.completion_params.get("reasoning_effort", None),
                 )
 
-                # Store in instance state for cleanup
-                self.current_run_state.update(
-                    {
-                        "server": server,
-                        "policy": policy,
-                    }
-                )
-
             except Exception as e:
-                server.stop()
-                self.current_run_state.clear()
+                if self.server:
+                    self.server.stop()
+                self.server = None
+                self.policy = None
                 raise e
 
         else:
             # Reuse existing MCP environments for retry
-            if not self.current_run_state:
+            if not self.server or not self.policy:
                 raise RuntimeError(
                     "Cannot retry without existing server/environments. Call with start_server=True first."
                 )
-
-        server = self.current_run_state["server"]
-        policy = self.current_run_state["policy"]
 
         # Create MCP environments directly from evaluation_rows
         envs = ep.make(
             "http://localhost:9700/mcp/",
             evaluation_rows=rows,
-            model_id=policy.model_id,
+            model_id=self.policy.model_id,
         )
 
         # Get rollout tasks from ep.rollout
         tasks = ep.rollout(
             envs,
-            policy=policy,
+            policy=self.policy,
             evaluation_rows=rows,
             steps=config.steps,
             max_concurrent_rollouts=config.max_concurrent_rollouts,
@@ -269,6 +261,7 @@ class MCPGymRolloutProcessor(BaseRolloutProcessor):
 
     def cleanup(self) -> None:
         """Cleanup MCP server and environments."""
-        if self.current_run_state and "server" in self.current_run_state:
-            self.current_run_state["server"].stop()
-            self.current_run_state.clear()
+        if self.server:
+            self.server.stop()
+            self.server = None
+            self.policy = None
