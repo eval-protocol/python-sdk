@@ -112,6 +112,8 @@ async def default_single_turn_rollout_processor(
             try:
                 return await process_row(r)
             except Exception as e:
+                r.rollout_status.status = "error"
+                r.rollout_status.termination_reason = str(e)
                 return r
 
     # Create all tasks

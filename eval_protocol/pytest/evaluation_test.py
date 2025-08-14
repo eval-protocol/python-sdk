@@ -8,6 +8,7 @@ import pathlib
 import re
 import statistics
 import time
+from dataclasses import replace
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 import pytest
@@ -269,6 +270,82 @@ def evaluation_test(  # noqa: C901
 
             return combinations
 
+        async def rollout_processor_with_retry(
+            rollout_processor: RolloutProcessor,
+            fresh_dataset: List[EvaluationRow],
+            config: RolloutProcessorConfig,
+            max_retry: int,
+        ):
+            """
+            Wrapper around rollout_processor that handles retry logic internally.
+            Uses async queue pattern to yield results immediately as they become available.
+            Yields both successful and failed results, leaving it up to the user to handle them in test_func.
+            """
+
+            try:
+                queue = asyncio.Queue()
+                retry_counts = {r.execution_metadata.rollout_id: 0 for r in fresh_dataset}
+                failed_permanently = []
+
+                async def retry_handler(failed_row: EvaluationRow):
+                    rollout_id = failed_row.execution_metadata.rollout_id
+                    current_attempts = retry_counts.get(rollout_id, 0)
+
+                    if current_attempts >= max_retry:
+                        assert (
+                            failed_row.rollout_status and failed_row.rollout_status.status == "error"
+                        ), f"Rollout {failed_row.execution_metadata.rollout_id} did not fail with error status"
+                        failed_permanently.append(failed_row)
+                        await queue.put(failed_row)  # put failed row on queue
+                        return
+
+                    retry_counts[rollout_id] = current_attempts + 1
+
+                    # add kwargs start_server=False to config so we don't start new MCP server
+                    retry_config = replace(config, kwargs={**(config.kwargs or {}), "start_server": False})
+
+                    retry_call = rollout_processor([failed_row], retry_config)
+
+                    retry_result = await anext(retry_call)
+                    if retry_result.rollout_status and retry_result.rollout_status.status == "finished":
+                        await queue.put(retry_result)
+                    else:
+                        asyncio.create_task(retry_handler(retry_result))  # retry failed, spawn another retry
+
+                async def initial_processor():
+                    """Process initial batch and spawn retries for failures"""
+                    async for initial_row in rollout_processor(fresh_dataset, config):
+                        if initial_row.rollout_status and initial_row.rollout_status.status == "finished":
+                            await queue.put(initial_row)  # rollout succeeded, put on queue
+                        else:
+                            asyncio.create_task(retry_handler(initial_row))  # rollout errored, spawn retry task
+
+                processor_task = asyncio.create_task(initial_processor())
+
+                # yield results as they become available
+                completed_count = 0
+                total_expected = len(fresh_dataset)
+
+                while completed_count < total_expected:
+                    finished_row = await queue.get()
+
+                    # only permanent failure rows are put on the queue, so we can check for them here
+                    if finished_row.rollout_status and finished_row.rollout_status.status == "error":
+                        if os.getenv("EP_FAIL_ON_PERMANENT_FAILURE", "true") != "false":
+                            raise RuntimeError(
+                                f"Rollout {finished_row.execution_metadata.rollout_id} failed after {max_retry} retries. Errors: {finished_row.rollout_status.termination_reason}"
+                            )
+
+                    completed_count += 1
+                    yield finished_row
+
+                await processor_task  # explicitly wait for task completion and catch any exceptions
+
+            finally:
+                # processor clean up after themselves if they have a cleanup method
+                if hasattr(rollout_processor, "cleanup"):
+                    rollout_processor.cleanup()
+
         combinations = generate_combinations()
         if len(combinations) == 0:
             raise ValueError(
@@ -410,6 +487,8 @@ def evaluation_test(  # noqa: C901
                         kwargs=rollout_processor_kwargs or {},
                     )
 
+                    max_retry = int(os.getenv("EP_MAX_RETRY", "0"))
+
                     for i in range(num_runs):
                         # Regenerate outputs each run by deep-copying the pristine dataset
                         # so model responses are not reused across runs.
@@ -428,8 +507,6 @@ def evaluation_test(  # noqa: C901
                         for row in fresh_dataset:
                             active_logger.log(row)
 
-                        rollout_result = rollout_processor(fresh_dataset, config)
-
                         if mode == "pointwise":
                             # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
                             semaphore = asyncio.Semaphore(max_concurrent_rollouts)
@@ -437,6 +514,8 @@ def evaluation_test(  # noqa: C901
 
                             async def _execute_with_semaphore(row):
                                 async with semaphore:
+                                    # NOTE: we will still evaluate errored rows (give users control over this)
+                                    # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
                                     result = await execute_with_params(
                                         test_func,
                                         processed_row=row,
@@ -448,7 +527,10 @@ def evaluation_test(  # noqa: C901
                                         )
                                     return result
 
-                            async for row in rollout_processor(fresh_dataset, config):
+                            # Use wrapper that handles retry logic internally
+                            async for row in rollout_processor_with_retry(
+                                rollout_processor, fresh_dataset, config, max_retry
+                            ):
                                 tasks.append(asyncio.create_task(_execute_with_semaphore(row)))
 
                             all_results[i] = await asyncio.gather(*tasks)
@@ -456,9 +538,12 @@ def evaluation_test(  # noqa: C901
                         else:
                             # Batch mode: collect all results first, then evaluate (no pipelining)
                             input_dataset = []
-                            async for row in rollout_result:
+                            async for row in rollout_processor_with_retry(
+                                rollout_processor, fresh_dataset, config, max_retry
+                            ):
                                 input_dataset.append(row)
-
+                            # NOTE: we will still evaluate errored rows (give users control over this)
+                            # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
                             results = await execute_with_params(
                                 test_func,
                                 processed_dataset=input_dataset,
@@ -530,7 +615,7 @@ def evaluation_test(  # noqa: C901
                         should_print = os.getenv("EP_PRINT_SUMMARY") == "1"
                         summary_path = os.getenv("EP_SUMMARY_JSON")
                         suite_name = test_func.__name__
-                        model_used = config.completion_params.model
+                        model_used = config.completion_params["model"]
                         total_rows = len([item for sublist in all_results for item in sublist])
                         summary_obj = {
                             "suite": suite_name,
@@ -990,7 +1075,7 @@ def run_evaluation_test_direct(
             total_rows = len(all_results)
             summary_obj = {
                 "suite": suite_name,
-                "model": config.completion_params.model,
+                "model": config.completion_params["model"],
                 "agg_score": float(agg_score) if agg_score is not None else None,
                 "num_runs": num_runs,
                 "rows": total_rows,
@@ -1001,11 +1086,11 @@ def run_evaluation_test_direct(
             if should_print:
                 if ci_low is not None and ci_high is not None:
                     print(
-                        f"EP Summary | suite={suite_name} model={config.completion_params.model} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
+                        f"EP Summary | suite={suite_name} model={config.completion_params['model']} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
                     )
                 else:
                     print(
-                        f"EP Summary | suite={suite_name} model={config.completion_params.model} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
+                        f"EP Summary | suite={suite_name} model={config.completion_params['model']} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
                     )
             if summary_path:
                 import json as _json
@@ -1037,7 +1122,7 @@ def run_evaluation_test_direct(
                         return None
                     return None
 
-                model_slug = _sanitize_filename(config.completion_params.model)
+                model_slug = _sanitize_filename(config.completion_params["model"])
                 effort_tag = _extract_effort_tag(completion_params) or ""
                 effort_suffix = f"__effort-{_sanitize_filename(effort_tag)}" if effort_tag else ""
                 base_name = f"{suite_name}__{model_slug}{effort_suffix}__{mode}__runs{num_runs}.json"

@@ -59,6 +59,23 @@ def pytest_addoption(parser) -> None:
             "Values: low|medium|high"
         ),
     )
+    group.addoption(
+        "--ep-max-retry",
+        action="store",
+        type=int,
+        default=None,
+        help=("Failed rollouts (with rollout_status.status == 'error') will be retried up to this many times."),
+    )
+    group.addoption(
+        "--ep-fail-on-permanent-failure",
+        action="store",
+        default=None,
+        choices=["true", "false"],
+        help=(
+            "Whether to fail the entire rollout when permanent failures occur after max retries. "
+            "Default: true (fail on permanent failures). Set to 'false' to continue with remaining rollouts."
+        ),
+    )
 
 
 def _normalize_max_rows(val: Optional[str]) -> Optional[str]:
@@ -99,6 +116,14 @@ def pytest_configure(config) -> None:
     summary_json_path = config.getoption("--ep-summary-json")
     if summary_json_path:
         os.environ["EP_SUMMARY_JSON"] = summary_json_path
+
+    max_retry = config.getoption("--ep-max-retry")
+    if max_retry is not None:
+        os.environ["EP_MAX_RETRY"] = str(max_retry)
+
+    fail_on_permanent_failure = config.getoption("--ep-fail-on-permanent-failure")
+    if fail_on_permanent_failure is not None:
+        os.environ["EP_FAIL_ON_PERMANENT_FAILURE"] = fail_on_permanent_failure
 
     # Allow ad-hoc overrides of input params via CLI flags
     try:

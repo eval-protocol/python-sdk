@@ -126,7 +126,7 @@ async def default_agent_rollout_processor(
     async def process_row(row: EvaluationRow) -> EvaluationRow:
         """Process a single row with agent rollout."""
         agent = Agent(
-            model=config.completion_params.model, row=row, config_path=config.mcp_config_path, logger=config.logger
+            model=config.completion_params["model"], row=row, config_path=config.mcp_config_path, logger=config.logger
         )
         try:
             await agent.setup()
@@ -141,7 +141,8 @@ async def default_agent_rollout_processor(
             try:
                 return await process_row(r)
             except Exception as e:
-                logger.exception(f"Error processing row {r.input_metadata.row_id}: {e}")
+                r.rollout_status.status = "error"
+                r.rollout_status.termination_reason = str(e)
                 return r
 
     # Create all tasks
