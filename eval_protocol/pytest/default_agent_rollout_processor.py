@@ -74,14 +74,9 @@ class Agent:
 
             # Add all tool results to messages (they will be in the same order as tool_calls)
             for tool_call, (tool_call_id, content) in zip(message.tool_calls, tool_results):
+                tool_message_content = self._format_tool_message_content(content)
                 self.append_message_and_log(
-                    Message(
-                        role="tool",
-                        content=[
-                            ChatCompletionContentPartTextParam(text=content.text, type="text") for content in content
-                        ],
-                        tool_call_id=tool_call_id,
-                    )
+                    Message(role="tool", content=tool_message_content, tool_call_id=tool_call_id)
                 )
             return await self.call_agent()
         return message.content
@@ -113,6 +108,18 @@ class Agent:
         if not all(isinstance(content, TextContent) for content in tool_result.content):
             raise NotImplementedError("Non-text content is not supported yet")
         return tool_result.content
+
+    def _format_tool_message_content(
+        self, content: List[TextContent]
+    ) -> Union[str, List[ChatCompletionContentPartTextParam]]:
+        """Format tool result content for inclusion in a tool message.
+
+        - If a single text item, return plain string per OpenAI semantics.
+        - If multiple items, return a list of text parts.
+        """
+        if len(content) == 1 and isinstance(content[0], TextContent):
+            return content[0].text
+        return [ChatCompletionContentPartTextParam(text=c.text, type="text") for c in content]
 
 
 async def default_agent_rollout_processor(
