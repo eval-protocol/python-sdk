@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from eval_protocol.benchmarks.registry import export_benchmark
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
-    default_single_turn_rollout_processor,
+    SingleTurnRolloutProcessor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
 
@@ -72,7 +72,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         }
     ],
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=None,
     num_runs=8,

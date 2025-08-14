@@ -5,7 +5,7 @@ from typing import List
 import pytest
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
-from eval_protocol.pytest import default_no_op_rollout_processor, evaluation_test
+from eval_protocol.pytest import BaseRolloutProcessor, evaluation_test
 
 
 # skip in CI since it will intentionally fail. This is useful for local generation of logs
@@ -13,7 +13,7 @@ from eval_protocol.pytest import default_no_op_rollout_processor, evaluation_tes
 @evaluation_test(
     input_messages=[[Message(role="user", content="Return HEADS or TAILS at random.")]],
     completion_params=[{"model": "dummy/local-model"}],
-    rollout_processor=default_no_op_rollout_processor,
+    rollout_processor=BaseRolloutProcessor(),
     mode="pointwise",
     num_runs=5,
 )

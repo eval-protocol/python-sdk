@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import AsyncIterator, List
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, RolloutStatus
+from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
 from eval_protocol.pytest.evaluation_test import evaluation_test
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
@@ -19,38 +20,40 @@ start_time = time.time()
 timing_results = []  # Collect timing data for assertions
 
 
-def mock_rollout_processor_with_retries(
-    rows: List[EvaluationRow], config: RolloutProcessorConfig
-) -> List[asyncio.Task[EvaluationRow]]:
+class MockRolloutProcessorWithRetries(BaseRolloutProcessor):
     """Mock rollout processor that fails second task alphabetically on first attempt, succeeds on retry"""
-    row_setup = {
-        0: {"delay": 3.0, "should_fail": False},
-        1: {"delay": 3.0, "should_fail": True},
-        2: {"delay": 5.0, "should_fail": False},
-        3: {"delay": 5.0, "should_fail": False},
-        4: {"delay": 5.0, "should_fail": False},
-    }
 
-    async def process_single_row(row: EvaluationRow, delay: float, should_fail: bool = False) -> EvaluationRow:
-        await asyncio.sleep(delay)
+    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        row_setup = {
+            0: {"delay": 3.0, "should_fail": False},
+            1: {"delay": 3.0, "should_fail": True},
+            2: {"delay": 5.0, "should_fail": False},
+            3: {"delay": 5.0, "should_fail": False},
+            4: {"delay": 5.0, "should_fail": False},
+        }
 
-        elapsed = time.time() - start_time
-        print(
-            f"🎉 FINISHED {'error' if should_fail else 'finished'} at {elapsed:.2f}s: {row.execution_metadata.rollout_id}"
-        )
+        async def process_single_row(row: EvaluationRow, delay: float, should_fail: bool = False) -> EvaluationRow:
+            await asyncio.sleep(delay)
 
-        if should_fail:
-            raise Exception("Simulated failure for testing")
+            elapsed = time.time() - start_time
+            print(
+                f"🎉 FINISHED {'error' if should_fail else 'finished'} at {elapsed:.2f}s: {row.execution_metadata.rollout_id}"
+            )
 
-        return row
+            if should_fail:
+                raise Exception("Simulated failure for testing")
 
-    # Create and return tasks (let evaluation_test handle them)
-    tasks = [
-        asyncio.create_task(process_single_row(row, row_setup[i]["delay"], row_setup[i]["should_fail"]))
-        for i, row in enumerate(rows)
-    ]
+            return row
 
-    return tasks
+        # Create and return tasks (let evaluation_test handle them)
+        tasks = [
+            asyncio.create_task(process_single_row(row, row_setup[i]["delay"], row_setup[i]["should_fail"]))
+            for i, row in enumerate(rows)
+        ]
+
+        return tasks
+
+    # Inherits cleanup() from BaseRolloutProcessor - no override needed
 
 
 @evaluation_test(
@@ -62,7 +65,7 @@ def mock_rollout_processor_with_retries(
         [Message(role="user", content="Task D")],
         [Message(role="user", content="Task E")],
     ],
-    rollout_processor=mock_rollout_processor_with_retries,
+    rollout_processor=MockRolloutProcessorWithRetries(),
     num_runs=1,
     mode="pointwise",
 )

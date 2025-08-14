@@ -8,7 +8,7 @@ and comparing the output against expected results in a pointwise manner.
 from typing import Any, Dict, List
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
-from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
+from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 from eval_protocol.rewards.code_execution import execute_python_code, extract_code_blocks
 
 
@@ -32,7 +32,7 @@ def coding_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluat
         {"temperature": 0.0, "max_tokens": 4096, "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}
     ],
     passed_threshold=0.8,
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     num_runs=1,
     mode="pointwise",
 )

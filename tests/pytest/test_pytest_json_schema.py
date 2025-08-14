@@ -2,7 +2,7 @@ import json
 from typing import Any, Dict, List
 
 from eval_protocol.models import EvaluationRow
-from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
+from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 from eval_protocol.rewards.json_schema import json_schema_reward
 
 
@@ -26,7 +26,7 @@ def json_schema_to_evaluation_row(rows: List[Dict[str, Any]]) -> List[Evaluation
     input_dataset=["tests/pytest/data/json_schema.jsonl"],
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     mode="pointwise",
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     dataset_adapter=json_schema_to_evaluation_row,
 )
 async def test_pytest_function_calling(row: EvaluationRow) -> EvaluationRow:

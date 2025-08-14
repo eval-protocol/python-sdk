@@ -5,7 +5,7 @@ import eval_protocol.dataset_logger as dataset_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.dataset_logger.sqlite_evaluation_row_store import SqliteEvaluationRowStore
 from eval_protocol.models import EvaluationRow
-from eval_protocol.pytest.default_no_op_rollout_process import default_no_op_rollout_processor
+from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
 from tests.pytest.test_markdown_highlighting import markdown_dataset_to_evaluation_row
 
 
@@ -42,7 +42,7 @@ async def test_ensure_logging(monkeypatch):
         ],
         completion_params=[{"temperature": 0.0, "model": "dummy/local-model"}],
         dataset_adapter=markdown_dataset_to_evaluation_row,
-        rollout_processor=default_no_op_rollout_processor,
+        rollout_processor=BaseRolloutProcessor(),
         mode="pointwise",
         combine_datasets=False,
         num_runs=2,

@@ -8,10 +8,12 @@ import requests
 
 from eval_protocol.benchmarks.registry import export_benchmark
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
+from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
 from eval_protocol.pytest.default_single_turn_rollout_process import (
-    default_single_turn_rollout_processor,
+    SingleTurnRolloutProcessor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
+from eval_protocol.pytest.types import RolloutProcessorConfig
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant. Read the question and options carefully. "
@@ -61,19 +63,31 @@ def _strip_gt_messages(msgs: List[Message]) -> List[Message]:
     return [m for m in msgs if not (m.role == "system" and (m.content or "").startswith("__GT__:"))]
 
 
-def gpqa_strip_gt_rollout_processor(rows: List[EvaluationRow], config) -> List[asyncio.Task[EvaluationRow]]:
-    """Preprocess rows to set ground_truth and remove __GT__ messages, then delegate to default processor."""
-    processed: List[EvaluationRow] = []
-    for r in rows:
-        gt_tokens = [m.content for m in r.messages if m.role == "system" and (m.content or "").startswith("__GT__:")]
-        if gt_tokens:
-            gt_val = gt_tokens[-1].split(":", 1)[1].strip()
-            r.ground_truth = gt_val
-            r.messages = [
-                m for m in r.messages if not (m.role == "system" and (m.content or "").startswith("__GT__:"))
+class GPQAStripGTRolloutProcessor(BaseRolloutProcessor):
+    """Preprocess rows to set ground_truth and remove __GT__ messages, then delegate to SingleTurnRolloutProcessor."""
+
+    def __init__(self):
+        super().__init__()
+        self.single_turn_processor = SingleTurnRolloutProcessor()
+
+    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        """Preprocess rows and delegate to SingleTurnRolloutProcessor."""
+        processed: List[EvaluationRow] = []
+
+        for r in rows:
+            gt_tokens = [
+                m.content for m in r.messages if m.role == "system" and (m.content or "").startswith("__GT__:")
             ]
-        processed.append(r)
-    return default_single_turn_rollout_processor(processed, config)
+            if gt_tokens:
+                gt_val = gt_tokens[-1].split(":", 1)[1].strip()
+                r.ground_truth = gt_val
+                r.messages = [
+                    m for m in r.messages if not (m.role == "system" and (m.content or "").startswith("__GT__:"))
+                ]
+            processed.append(r)
+
+        # Delegate to SingleTurnRolloutProcessor
+        return self.single_turn_processor(processed, config)
 
 
 @export_benchmark("gpqa")
@@ -82,7 +96,7 @@ def gpqa_strip_gt_rollout_processor(rows: List[EvaluationRow], config) -> List[a
     completion_params=[
         {"extra_body": {"reasoning_effort": "low"}, "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}
     ],
-    rollout_processor=gpqa_strip_gt_rollout_processor,
+    rollout_processor=GPQAStripGTRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=None,
     num_runs=8,

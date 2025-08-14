@@ -10,6 +10,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 import eval_protocol as ep
 from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
 CURRENT_RUN_STATE: Dict[str, Any] = {}
@@ -194,90 +195,80 @@ class MCPServerManager:
         return False  # Don't suppress exceptions
 
 
-def default_mcp_gym_rollout_processor(
-    rows: List[EvaluationRow], config: RolloutProcessorConfig
-) -> List[asyncio.Task[EvaluationRow]]:
+class MCPGymRolloutProcessor(BaseRolloutProcessor):
     """
     Rollout processor for tau bench environments.
 
     This processor starts an MCP server, creates tau bench environments, and returns rollout tasks
-    using the eval_protocol framework.
-
-    Args:
-        rows: List of EvaluationRow objects containing messages and dataset info in input_metadata
-        config: RolloutProcessorConfig with model and other parameters
-            - config.kwargs can include:
-                - start_server (bool): If True, create fresh server and environments. If False, reuse existing ones. Default: True.
-
-    Returns:
-        List of asyncio.Task objects for external handling
+    using the eval_protocol framework with proper cleanup handling.
     """
-    start_server = config.kwargs.get("start_server", True) if config.kwargs else True
-    if start_server:
-        # Create fresh MCP server and environments for this run
-        if config.server_script_path is None:
-            raise ValueError("server_script_path is required for default_mcp_gym_rollout_processor")
 
-        server = MCPServerManager(config.server_script_path, port=9700, **(config.kwargs or {}))
+    def __init__(self):
+        self.current_run_state: Dict[str, Any] = {}
 
-        try:
-            server.start()
+    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        """Process evaluation rows with MCP gym environments."""
+        start_server = config.kwargs.get("start_server", True) if config.kwargs else True
 
-            policy = ep.LiteLLMPolicy(
-                model_id=config.completion_params.get("model", None),
-                temperature=config.completion_params.get("temperature", 0.0),
-                max_tokens=config.completion_params.get("max_tokens", 4096),
-                reasoning_effort=config.completion_params.get("reasoning_effort", None),
-            )
+        if start_server:
+            # Create fresh MCP server and environments for this run
+            if config.server_script_path is None:
+                raise ValueError("server_script_path is required for MCPGymRolloutProcessor")
 
-            # Create MCP environments directly from evaluation_rows
-            envs = ep.make(
-                "http://localhost:9700/mcp/",
-                evaluation_rows=rows,
-                model_id=policy.model_id,
-            )
+            server = MCPServerManager(config.server_script_path, port=9700, **(config.kwargs or {}))
 
-            # Store in current run state for reuse within this run
-            CURRENT_RUN_STATE.update(
-                {
-                    "server": server,
-                    "envs": envs,
-                    "policy": policy,
-                }
-            )
+            try:
+                server.start()
 
-        except Exception as e:
-            server.stop()
-            CURRENT_RUN_STATE.clear()
-            raise e
+                policy = ep.LiteLLMPolicy(
+                    model_id=config.completion_params.get("model", None),
+                    temperature=config.completion_params.get("temperature", 0.0),
+                    max_tokens=config.completion_params.get("max_tokens", 4096),
+                    reasoning_effort=config.completion_params.get("reasoning_effort", None),
+                )
 
-    else:
-        # Reuse existing MCP environments for retry
-        if not CURRENT_RUN_STATE:
-            raise RuntimeError("Cannot retry without existing server/environments. Call with start_server=True first.")
+                # Store in instance state for cleanup
+                self.current_run_state.update(
+                    {
+                        "server": server,
+                        "policy": policy,
+                    }
+                )
 
-        server = CURRENT_RUN_STATE["server"]
-        envs = CURRENT_RUN_STATE["envs"]
-        policy = CURRENT_RUN_STATE["policy"]
+            except Exception as e:
+                server.stop()
+                self.current_run_state.clear()
+                raise e
 
-    # Get rollout tasks from ep.rollout
-    tasks = ep.rollout(
-        envs,
-        policy=policy,
-        evaluation_rows=rows,
-        steps=config.steps,
-        max_concurrent_rollouts=config.max_concurrent_rollouts,
-    )
-    return tasks
+        else:
+            # Reuse existing MCP environments for retry
+            if not self.current_run_state:
+                raise RuntimeError(
+                    "Cannot retry without existing server/environments. Call with start_server=True first."
+                )
 
+        server = self.current_run_state["server"]
+        policy = self.current_run_state["policy"]
 
-# Add cleanup method directly to the function object
-def _cleanup_mcp_gym_rollout_processor():
-    """Cleanup function for MCP gym rollout processor"""
-    if CURRENT_RUN_STATE and "server" in CURRENT_RUN_STATE:
-        CURRENT_RUN_STATE["server"].stop()
-        CURRENT_RUN_STATE.clear()  # Clear for next run
+        # Create MCP environments directly from evaluation_rows
+        envs = ep.make(
+            "http://localhost:9700/mcp/",
+            evaluation_rows=rows,
+            model_id=policy.model_id,
+        )
 
+        # Get rollout tasks from ep.rollout
+        tasks = ep.rollout(
+            envs,
+            policy=policy,
+            evaluation_rows=rows,
+            steps=config.steps,
+            max_concurrent_rollouts=config.max_concurrent_rollouts,
+        )
+        return tasks
 
-# Attach cleanup method to the processor function
-default_mcp_gym_rollout_processor.cleanup = _cleanup_mcp_gym_rollout_processor
+    def cleanup(self) -> None:
+        """Cleanup MCP server and environments."""
+        if self.current_run_state and "server" in self.current_run_state:
+            self.current_run_state["server"].stop()
+            self.current_run_state.clear()

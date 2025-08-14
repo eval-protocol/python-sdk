@@ -3,7 +3,7 @@ from typing import Dict, List
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
-    default_single_turn_rollout_processor,
+    SingleTurnRolloutProcessor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
 
@@ -51,7 +51,7 @@ for s in _HB_SAMPLES:
     completion_params=[
         {"temperature": 0.2, "max_tokens": 512, "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}
     ],
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=None,
     num_runs=1,

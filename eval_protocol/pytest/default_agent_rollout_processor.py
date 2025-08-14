@@ -13,6 +13,7 @@ from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.pytest.default_base_rollout_process import BaseRolloutProcessor
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
 
 logger = logging.getLogger(__name__)
@@ -115,32 +116,36 @@ class Agent:
         return tool_result.content
 
 
-def default_agent_rollout_processor(
-    rows: List[EvaluationRow], config: RolloutProcessorConfig
-) -> List[asyncio.Task[EvaluationRow]]:
-    """Create agent rollout tasks and return them for external handling."""
+class AgentRolloutProcessor(BaseRolloutProcessor):
+    """Agent rollout processor for tool-calling agents."""
 
-    max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
-    semaphore = asyncio.Semaphore(max_concurrent)
+    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        """Create agent rollout tasks and return them for external handling."""
 
-    async def process_row(row: EvaluationRow) -> EvaluationRow:
-        """Process a single row with agent rollout."""
-        agent = Agent(
-            model=config.completion_params["model"], row=row, config_path=config.mcp_config_path, logger=config.logger
-        )
-        try:
-            await agent.setup()
-            await agent.call_agent()
-            return agent.evaluation_row
-        finally:
-            if agent.mcp_client:
-                await agent.mcp_client.cleanup()
+        max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
+        semaphore = asyncio.Semaphore(max_concurrent)
 
-    async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:
-        async with semaphore:
-            result = await process_row(r)
-            return result
+        async def process_row(row: EvaluationRow) -> EvaluationRow:
+            """Process a single row with agent rollout."""
+            agent = Agent(
+                model=config.completion_params["model"],
+                row=row,
+                config_path=config.mcp_config_path,
+                logger=config.logger,
+            )
+            try:
+                await agent.setup()
+                await agent.call_agent()
+                return agent.evaluation_row
+            finally:
+                if agent.mcp_client:
+                    await agent.mcp_client.cleanup()
 
-    # Create and return tasks for external handling
-    tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
-    return tasks
+        async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:
+            async with semaphore:
+                result = await process_row(r)
+                return result
+
+        # Create and return tasks for external handling
+        tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
+        return tasks

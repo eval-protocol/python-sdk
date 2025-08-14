@@ -12,7 +12,7 @@ from typing import Any, Dict, List
 import litellm
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
-from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
+from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 
 # Configure the judge model for LiteLLM
 JUDGE_MODEL = "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"
@@ -35,7 +35,7 @@ def hallucination_dataset_adapter(data: List[Dict[str, Any]]) -> List[Evaluation
     completion_params=[
         {"temperature": 0.0, "max_tokens": 512, "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}
     ],
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=0.33,
     num_runs=1,
     mode="pointwise",

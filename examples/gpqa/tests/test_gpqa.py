@@ -7,7 +7,7 @@ import requests
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
-    default_single_turn_rollout_processor,
+    SingleTurnRolloutProcessor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
 
@@ -66,7 +66,7 @@ _GPQA_INPUT_MESSAGES = _load_gpqa_messages_from_csv()
     completion_params=[
         {"extra_body": {"reasoning_effort": "low"}, "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}
     ],  # default to low effort; override via CLI plugin
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=None,
     num_runs=8,
