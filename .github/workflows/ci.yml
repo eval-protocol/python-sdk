@@ -95,6 +95,7 @@ jobs:
             --ignore=tests/pytest/test_apps_coding.py \
             --ignore=tests/test_tau_bench_airline_smoke.py \
             --ignore=tests/pytest/test_svgbench.py \
+            --ignore=tests/pytest/test_livesvgbench.py \
             --cov=eval_protocol --cov-append --cov-report=xml --cov-report=term-missing -v --durations=10
 
       - name: Store coverage file

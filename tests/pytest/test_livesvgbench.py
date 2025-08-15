@@ -15,12 +15,13 @@ import logging
 import os
 import re
 import tempfile
+import time
 from typing import Any, Dict, List, Optional
 
 import litellm
 from pydantic import BaseModel
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message
+from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message, MetricResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
 
@@ -264,6 +265,141 @@ Requirements:
         raise ValueError("Missing required field in response")
 
 
+class HumanPreferenceResponse(BaseModel):
+    """Response structure for human preference evaluation with detailed rubrics."""
+
+    intent_reasoning: str
+    intent_matching_score: float  # 0-1: Does the content match the intended purpose?
+
+    content_reasoning: str
+    content_recognizability_score: float  # 0-1: Are key elements actually recognizable?
+
+    spatial_reasoning: str
+    spatial_design_score: float  # 0-1: Quality of layout, hierarchy, professional appearance
+
+    ux_reasoning: str
+    user_experience_score: float  # 0-1: Would humans find this usable/appropriate?
+
+    coherence_reasoning: str
+    visual_coherence_score: float  # 0-1: Do all elements work together harmoniously?
+
+    overall_reasoning: str
+    overall_human_preference_score: float  # Weighted combination of above scores
+
+
+def evaluate_with_human_preference_rubrics(
+    image_path: str, original_prompt: str, requirements: List[str]
+) -> Dict[str, Any]:
+    """
+    Evaluate image using human preference rubrics focusing on intent matching,
+    recognizability, spatial design, and user experience.
+
+    This addresses issues like the Google logo being colored circles instead of actual letterforms.
+    """
+    # Read and encode image
+    with open(image_path, "rb") as f:
+        image_data = base64.b64encode(f.read()).decode("utf-8")
+
+    # Create comprehensive evaluation prompt focusing on human preference
+    evaluate_prompt = f"""You are evaluating an SVG image from a human preference perspective.
+
+Original Request: {original_prompt}
+
+Evaluate the image across these 5 key rubrics that matter to humans:
+
+**1. INTENT MATCHING (Weight: 30%)**
+Does the content actually fulfill the intended purpose? Look beyond surface requirements.
+- For logos: Are they actually recognizable as the intended brand/text, not just colored shapes?
+- For UI: Does it look like a functional interface users would recognize?
+- For objects: Would humans identify the main subject correctly?
+
+**2. CONTENT RECOGNIZABILITY (Weight: 25%)**
+Are the key elements genuinely recognizable, not abstract representations?
+- Text/logos: Can you read the actual letters/words, or are they just shapes?
+- Objects: Are they clearly identifiable with proper features?
+- Brands/icons: Do they match what humans would expect to see?
+
+**3. SPATIAL DESIGN QUALITY (Weight: 20%)**
+Professional layout, visual hierarchy, and design principles:
+- Visual hierarchy: Do important elements stand out appropriately?
+- Layout balance: Is the composition well-balanced and professional?
+- Spacing and alignment: Does it follow good design principles?
+- Proportions: Are elements sized appropriately relative to each other?
+
+**4. USER EXPERIENCE (Weight: 15%)**
+Would humans find this usable and appropriate?
+- Functionality: For UI elements, do they look clickable/interactive?
+- Clarity: Is the purpose and function immediately clear?
+- Accessibility: Is text readable, elements distinguishable?
+- Professional appearance: Does it meet basic quality standards?
+
+**5. VISUAL COHERENCE (Weight: 10%)**
+Do all elements work together harmoniously?
+- Style consistency: Do elements match in style and quality?
+- Color harmony: Do colors work well together?
+- Visual flow: Does the eye move through the design naturally?
+
+**CRITICAL: Be very strict about content that looks like abstract shapes instead of the intended content.**
+For example, colored circles arranged in Google colors should score very low for intent matching and recognizability.
+
+Original Requirements (for context):
+{chr(10).join([f"{i+1}. {req}" for i, req in enumerate(requirements)])}
+
+Respond with JSON in this exact format:
+{{
+    "intent_matching_score": <0.0-1.0>,
+    "intent_reasoning": "<detailed explanation of how well content matches intended purpose>",
+    "content_recognizability_score": <0.0-1.0>,
+    "content_reasoning": "<detailed explanation of whether key elements are actually recognizable>",
+    "spatial_design_score": <0.0-1.0>,
+    "spatial_reasoning": "<detailed explanation of layout and design quality>",
+    "user_experience_score": <0.0-1.0>,
+    "ux_reasoning": "<detailed explanation of usability and appropriateness>",
+    "visual_coherence_score": <0.0-1.0>,
+    "coherence_reasoning": "<detailed explanation of visual harmony>",
+    "overall_human_preference_score": <weighted average of above scores>,
+    "overall_reasoning": "<summary of human preference evaluation>"
+}}"""
+
+    # Prepare messages with image
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": evaluate_prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}},
+            ],
+        }
+    ]
+
+    # Use GPT-4.1 for evaluation
+    response = litellm.completion(
+        model="gpt-4.1",
+        messages=messages,
+        temperature=0.0,
+        response_format={
+            "type": "json_schema",
+            "json_schema": {"name": "HumanPreferenceResponse", "schema": HumanPreferenceResponse.model_json_schema()},
+        },
+    )
+
+    # Parse response
+    response_content = response.choices[0].message.content
+
+    if not response_content or response_content.strip() == "":
+        raise ValueError("Empty response from human preference evaluator")
+
+    result = json.loads(response_content)
+
+    # Validate the result has required fields
+    required_fields = ["intent_matching_score", "content_recognizability_score", "overall_human_preference_score"]
+    for field in required_fields:
+        if field not in result:
+            raise ValueError(f"Missing required field in response: {field}")
+
+    return result
+
+
 @evaluation_test(
     input_dataset=["tests/pytest/data/svgbench_dataset.jsonl"],
     dataset_adapter=svgbench_to_evaluation_row,
@@ -276,26 +412,20 @@ Requirements:
         },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
-    passed_threshold=0.5,  # 50% average score to pass
+    passed_threshold=0.6,  # Higher threshold for combined evaluation
     num_runs=1,
     mode="pointwise",
     max_concurrent_rollouts=50,
 )
-def test_svg_generation_evaluation(row: EvaluationRow) -> EvaluationRow:
+def test_svg_combined_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
-    Test SVG generation and evaluation using SVGBench methodology.
+    Combined SVG evaluation using both requirement fulfillment and human preference rubrics.
 
-    This test:
-    1. Extracts SVG code from the model's response
-    2. Renders SVG to PNG using Selenium
-    3. Uses LLM judge to evaluate requirement fulfillment
-    4. Calculates score based on fulfilled requirements ratio
+    This runs two evaluations:
+    1. Original: Specific requirements per row (listwise)
+    2. Human Preference: Universal rubrics for all rows (pointwise)
 
-    Args:
-        row: EvaluationRow with model's SVG generation response
-
-    Returns:
-        EvaluationRow with evaluation results
+    Combines results to catch issues like Google logos that are just colored circles.
     """
     # Extract dataset info
     requirements = row.input_metadata.dataset_info["requirements"]
@@ -313,34 +443,27 @@ def test_svg_generation_evaluation(row: EvaluationRow) -> EvaluationRow:
 
     model_response = row.messages[-1].content
 
-    # Extract SVG code with better error reporting (matching original)
+    # Extract SVG code
     try:
         svg_code = extract_svg_code(model_response)
         if not svg_code:
             raise ValueError("No valid SVG code found in response")
     except Exception as e:
         logger.error(f"Error extracting SVG code for question {row_id}: {e}")
-        if save_debug_files:
-            logger.error(f"Full response: {model_response}")
-
         row.evaluation_result = EvaluateResult(score=0.0, reason=f"SVG extraction failed: {str(e)}")
         return row
 
     # Setup file paths
     if save_debug_files:
-        # Create debug directory
         model = row.input_metadata.completion_params["model"]
-        # Sanitize model name for filesystem (replace slashes with underscores)
         safe_model_name = model.replace("/", "_").replace(":", "_")
-        debug_dir = "svgbench_debug"
+        debug_dir = "svgbench_debug_combined"
         os.makedirs(debug_dir, exist_ok=True)
         png_path = os.path.join(debug_dir, f"question_{row_id}_{safe_model_name}.png")
         svg_path = os.path.join(debug_dir, f"question_{row_id}_{safe_model_name}.svg")
-        # Save SVG file for debugging
         with open(svg_path, "w") as f:
             f.write(svg_code)
     else:
-        # Use temporary file
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             png_path = f.name
 
@@ -350,23 +473,100 @@ def test_svg_generation_evaluation(row: EvaluationRow) -> EvaluationRow:
             row.evaluation_result = EvaluateResult(score=0.0, reason="Failed to render SVG to PNG")
             return row
 
-        # Evaluate with LLM judge
-        judge_result = evaluate_with_llm_judge(png_path, requirements)
+        # Run BOTH evaluations
 
-        # Calculate score
-        fulfilled_count = judge_result.get("number_of_fulfilled_requirements", 0)
-        fulfilled_count = max(0, min(fulfilled_count, total_requirements))  # Clamp to valid range
-        score = fulfilled_count / total_requirements
+        # 1. Original requirements-based evaluation (listwise - different per row)
+        requirements_result = evaluate_with_llm_judge(png_path, requirements)
+        fulfilled_count = requirements_result.get("number_of_fulfilled_requirements", 0)
+        fulfilled_count = max(0, min(fulfilled_count, total_requirements))
+        requirements_score = fulfilled_count / total_requirements
 
-        row.evaluation_result = EvaluateResult(
-            score=score,
-            reason=judge_result.get("reasoning", ""),
-        )
+        # 2. Human preference evaluation (pointwise - same rubrics for all rows)
+        human_pref_result = evaluate_with_human_preference_rubrics(png_path, original_prompt, requirements)
+        human_pref_score = human_pref_result.get("overall_human_preference_score", 0.0)
+
+        # Combine scores (you can adjust the weighting)
+        combined_score = (requirements_score * 0.3) + (human_pref_score * 0.7)  # Emphasize human preference
+
+        # Create comprehensive reasoning showing both evaluations
+        combined_reasoning = f"""COMBINED EVALUATION (Requirements 30% + Human Preference 70%):
+
+=== REQUIREMENTS EVALUATION (Listwise - Row-Specific) ===
+Score: {requirements_score:.3f}
+{requirements_result.get('reasoning', 'No reasoning provided')}
+
+=== HUMAN PREFERENCE EVALUATION (Pointwise - Universal Rubrics) ===
+Score: {human_pref_score:.3f}
+
+🎯 Intent Matching: {human_pref_result.get('intent_matching_score', 0.0):.2f}/1.0
+{human_pref_result.get('intent_reasoning', 'No reasoning provided')}
+
+👁️ Content Recognizability: {human_pref_result.get('content_recognizability_score', 0.0):.2f}/1.0
+{human_pref_result.get('content_reasoning', 'No reasoning provided')}
+
+📐 Spatial Design Quality: {human_pref_result.get('spatial_design_score', 0.0):.2f}/1.0
+{human_pref_result.get('spatial_reasoning', 'No reasoning provided')}
+
+👤 User Experience: {human_pref_result.get('user_experience_score', 0.0):.2f}/1.0
+{human_pref_result.get('ux_reasoning', 'No reasoning provided')}
+
+🎨 Visual Coherence: {human_pref_result.get('visual_coherence_score', 0.0):.2f}/1.0
+{human_pref_result.get('coherence_reasoning', 'No reasoning provided')}
+
+{human_pref_result.get('overall_reasoning', 'No overall reasoning provided')}
+
+=== FINAL COMBINED SCORE ===
+Requirements: {requirements_score:.3f} × 30% = {requirements_score * 0.3:.3f}
+Human Preference: {human_pref_score:.3f} × 70% = {human_pref_score * 0.7:.3f}
+Combined: {combined_score:.3f}
+
+The human preference evaluation helps catch issues like unrecognizable content that meets technical requirements."""
+
+        # Store individual scores in metrics for analysis
+        metrics = {
+            "original_requirements_score": MetricResult(
+                score=requirements_score,
+                reason=f"Requirements fulfillment: {fulfilled_count}/{total_requirements} requirements met",
+                is_score_valid=True,
+            ),
+            "overall_human_preference_score": MetricResult(
+                score=human_pref_score,
+                reason=human_pref_result.get("overall_reasoning", "Human preference evaluation"),
+                is_score_valid=True,
+            ),
+            "intent_matching_score": MetricResult(
+                score=human_pref_result.get("intent_matching_score", 0.0),
+                reason=human_pref_result.get("intent_reasoning", "Intent matching evaluation"),
+                is_score_valid=True,
+            ),
+            "content_recognizability_score": MetricResult(
+                score=human_pref_result.get("content_recognizability_score", 0.0),
+                reason=human_pref_result.get("content_reasoning", "Content recognizability evaluation"),
+                is_score_valid=True,
+            ),
+            "spatial_design_score": MetricResult(
+                score=human_pref_result.get("spatial_design_score", 0.0),
+                reason=human_pref_result.get("spatial_reasoning", "Spatial design evaluation"),
+                is_score_valid=True,
+            ),
+            "user_experience_score": MetricResult(
+                score=human_pref_result.get("user_experience_score", 0.0),
+                reason=human_pref_result.get("ux_reasoning", "User experience evaluation"),
+                is_score_valid=True,
+            ),
+            "visual_coherence_score": MetricResult(
+                score=human_pref_result.get("visual_coherence_score", 0.0),
+                reason=human_pref_result.get("coherence_reasoning", "Visual coherence evaluation"),
+                is_score_valid=True,
+            ),
+        }
+
+        row.evaluation_result = EvaluateResult(score=combined_score, reason=combined_reasoning, metrics=metrics)
 
         return row
 
     except Exception as e:
-        logger.error(f"Evaluation failed for question {row_id}: {e}")
+        logger.error(f"Combined evaluation failed for question {row_id}: {e}")
         row.evaluation_result = EvaluateResult(score=0.0, reason=f"Evaluation error: {str(e)}")
         return row
 

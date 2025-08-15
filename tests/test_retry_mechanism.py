@@ -7,7 +7,7 @@ import asyncio
 import os
 from collections import Counter
 from typing import List
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -15,8 +15,6 @@ from eval_protocol.models import EvaluateResult, EvaluationRow, Message, Rollout
 from eval_protocol.pytest.evaluation_test import evaluation_test
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
-
-os.environ["EP_MAX_RETRY"] = "2"  # Allow up to 2 retries
 
 
 class MockRolloutProcessorWithRetries(RolloutProcessor):
@@ -78,6 +76,7 @@ class MockRolloutProcessorWithRetries(RolloutProcessor):
 shared_processor = MockRolloutProcessorWithRetries()
 
 
+@patch.dict(os.environ, {"EP_MAX_RETRY": "2"})
 @evaluation_test(
     completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
     input_messages=[
@@ -104,6 +103,7 @@ def test_retry_mechanism(row: EvaluationRow) -> EvaluationRow:
     return row
 
 
+@patch.dict(os.environ, {"EP_MAX_RETRY": "2"})
 def test_retry_mechanism_mock_verification():
     """Test that verifies the retry mechanism worked by checking the mock calls"""
     # Get our mock tracker

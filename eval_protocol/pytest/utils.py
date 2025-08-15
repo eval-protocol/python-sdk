@@ -280,7 +280,13 @@ async def rollout_processor_with_retry(
 
         async def initial_processor():
             """Process initial batch and spawn retries for failures"""
-            base_tasks = rollout_processor(fresh_dataset, config)
+            # catch any task creation errors and raise them immediately, i.e. port already in use
+            try:
+                base_tasks = rollout_processor(fresh_dataset, config)
+            except Exception as e:
+                print(f"❌ Rollout processor failed to initialize: {e}")
+                raise e
+
             pending = set(base_tasks)
 
             while pending:
@@ -310,7 +316,7 @@ async def rollout_processor_with_retry(
 
             # only permanent failure rows are put on the queue, so we can check for them here
             if finished_row.rollout_status and finished_row.rollout_status.status == "error":
-                if os.getenv("EP_FAIL_ON_PERMANENT_FAILURE", "true") != "false":
+                if max_retry > 0 and os.getenv("EP_FAIL_ON_MAX_RETRY", "true") != "false":
                     raise RuntimeError(
                         f"Rollout {finished_row.execution_metadata.rollout_id} failed after {max_retry} retries. Errors: {finished_row.rollout_status.termination_reason}"
                     )
