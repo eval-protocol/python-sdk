@@ -117,6 +117,8 @@ class EvaluateResult(BaseModel):
         error (Optional[str]): Optional error message if evaluation failed.
         trajectory_info (Optional[Dict[str, Any]]): Additional trajectory-level information.
         final_control_plane_info (Optional[Dict[str, Any]]): The final control plane state that led to termination.
+        agg_score (Optional[float]): The aggregated score of the evaluation across all runs.
+        standard_error (Optional[float]): The standard error of the evaluation across all runs.
     """
 
     score: float = Field(..., description="The overall evaluation score, typically between 0.0 and 1.0.")
@@ -146,6 +148,16 @@ class EvaluateResult(BaseModel):
 
     final_control_plane_info: Optional[Dict[str, Any]] = Field(
         default=None, description="The final control plane state that led to termination."
+    )
+
+    agg_score: Optional[float] = Field(
+        default=None,
+        description="The aggregated score of the evaluation across all runs.",
+    )
+
+    standard_error: Optional[float] = Field(
+        default=None,
+        description="The standard error of the evaluation across all runs.",
     )
 
     def __getitem__(self, key: str) -> Any:
@@ -213,14 +225,14 @@ class EvaluationThreshold(BaseModel):
     """Threshold configuration for evaluation tests.
 
     The success field is required - tests must specify a minimum success rate.
-    The standard_deviation field is optional - if provided, tests must also meet the maximum standard deviation requirement.
+    The standard_error field is optional - if provided, tests must also meet the maximum standard error requirement.
     """
 
     success: float = Field(
         ..., description="Minimum success rate threshold (fraction of total score, 0.0 to 1.0)", ge=0.0, le=1.0
     )
-    standard_deviation: Optional[float] = Field(
-        None, description="Maximum standard deviation threshold (fraction of total score, 0.0 to 1.0)", ge=0.0, le=1.0
+    standard_error: Optional[float] = Field(
+        None, description="Maximum standard error threshold (fraction of total score, 0.0 to 1.0)", ge=0.0, le=1.0
     )
 
 
