@@ -403,7 +403,9 @@ def evaluation_test(  # noqa: C901
                             ):
                                 tasks.append(asyncio.create_task(_execute_with_semaphore(row)))
 
-                            all_results[i] = await asyncio.gather(*tasks)
+                            results = await asyncio.gather(*tasks)
+
+                            all_results[i] = results
 
                         else:
                             # Batch mode: collect all results first, then evaluate (no pipelining)
@@ -438,7 +440,9 @@ def evaluation_test(  # noqa: C901
                             all_results[i] = results
 
                         for r in results:
-                            r.eval_metadata.status = "finished"
+                            if r.eval_metadata is not None:
+                                r.eval_metadata.status = "finished"
+                            active_logger.log(r)
 
                     scores = [
                         sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
