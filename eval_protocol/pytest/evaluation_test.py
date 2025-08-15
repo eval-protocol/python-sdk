@@ -483,6 +483,7 @@ def evaluation_test(  # noqa: C901
                         for r in result:
                             if r.eval_metadata is not None:
                                 r.eval_metadata.passed = passed
+                            if r.evaluation_result is not None:
                                 r.evaluation_result.agg_score = agg_score
                                 r.evaluation_result.standard_error = standard_error
                             active_logger.log(r)
