@@ -427,7 +427,6 @@ def test_svg_combined_evaluation(row: EvaluationRow) -> EvaluationRow:
 
     Combines results to catch issues like Google logos that are just colored circles.
     """
-    logger.info(f"Evaluating row {row.input_metadata.row_id} at {time.time()}")
     # Extract dataset info
     requirements = row.input_metadata.dataset_info["requirements"]
     total_requirements = row.input_metadata.dataset_info["total_requirements"]
