@@ -465,14 +465,14 @@ def evaluation_test(  # noqa: C901
                     passed = None
 
                     if threshold is not None:
-                        success_passed, std_passed = True, True
+                        success_passed, standard_error_passed = True, True
 
                         success_passed = agg_score >= threshold.success
 
                         if threshold.standard_error is not None:
-                            std_passed = standard_error <= threshold.standard_error
+                            standard_error_passed = standard_error <= threshold.standard_error
 
-                        passed = success_passed and std_passed
+                        passed = success_passed and standard_error_passed
 
                     # Update eval metadata passed field for all results
                     for result in all_results:
