@@ -9,7 +9,7 @@ on:
       debug_mode:
         description: 'Enable debug output'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 jobs:
@@ -143,8 +143,8 @@ jobs:
           SUCCESS_RATE="${{ steps.run_test.outputs.success_rate }}"
 
           echo "Test exit code: $TEST_EXIT_CODE"
-          echo "Threshold met (40%-60%): $THRESHOLD_MET"
-          echo "Lower bound met (≥40%): $LOWER_BOUND_MET"
+          echo "Threshold met (36%-60%): $THRESHOLD_MET"
+          echo "Lower bound met (≥36%): $LOWER_BOUND_MET"
           echo "Upper bound met (≤60%): $UPPER_BOUND_MET"
           echo "Success rate: $SUCCESS_RATE"
 
@@ -152,7 +152,7 @@ jobs:
           if [ "$TEST_EXIT_CODE" != "0" ] && [ "$THRESHOLD_MET" != "1" ]; then
             echo "❌ E2E smoke test FAILED"
             echo "   - Test execution failed (exit code: $TEST_EXIT_CODE)"
-            echo "   - Success rate outside acceptable range (required: 40%-60%, actual: ${SUCCESS_RATE:-unknown})"
+            echo "   - Success rate outside acceptable range (required: 36%-60%, actual: ${SUCCESS_RATE:-unknown})"
             exit 1
           elif [ "$TEST_EXIT_CODE" != "0" ]; then
             echo "⚠️ E2E smoke test had test execution issues but may have met thresholds"
@@ -169,7 +169,7 @@ jobs:
             if [ "$LOWER_BOUND_MET" != "1" ]; then
               echo "❌ E2E smoke test FAILED - success rate too low"
               echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
-              echo "   - Required: ≥40%"
+              echo "   - Required: ≥36%"
             elif [ "$UPPER_BOUND_MET" != "1" ]; then
               echo "❌ E2E smoke test FAILED - success rate suspiciously high"
               echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
@@ -178,11 +178,11 @@ jobs:
             else
               echo "❌ E2E smoke test FAILED - success rate outside acceptable range"
               echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
-              echo "   - Required range: 40%-60%"
+              echo "   - Required range: 36%-60%"
             fi
             exit 1
           else
             echo "✅ E2E smoke test PASSED"
             echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
-            echo "   - Within acceptable range: 40%-60%"
+            echo "   - Within acceptable range: 36%-60%"
           fi
