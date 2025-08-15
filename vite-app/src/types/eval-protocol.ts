@@ -51,7 +51,9 @@ export const EvaluateResultSchema = z.object({
   step_outputs: z.array(StepOutputSchema).optional().describe('For RL, a list of outputs for each conceptual step, providing base rewards.'),
   error: z.string().optional().describe('Optional error message if the evaluation itself encountered an issue.'),
   trajectory_info: z.record(z.string(), z.any()).optional().describe('Additional trajectory-level information (duration, steps, termination_reason, etc.).'),
-  final_control_plane_info: z.record(z.string(), z.any()).optional().describe('The final control plane state that led to termination.')
+  final_control_plane_info: z.record(z.string(), z.any()).optional().describe('The final control plane state that led to termination.'),
+  agg_score: z.number().optional().describe('The aggregated score of the evaluation across all runs.'),
+  standard_error: z.number().optional().describe('The standard error of the evaluation across all runs.')
 });
 
 export const CompletionParamsSchema = z.record(z.string(), z.any());
