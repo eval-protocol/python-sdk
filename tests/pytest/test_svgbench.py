@@ -22,12 +22,13 @@ from pydantic import BaseModel
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import evaluation_test
-from eval_protocol.pytest.default_single_turn_rollout_process import default_single_turn_rollout_processor
+from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
 
 logger = logging.getLogger(__name__)
 
 
 class SVGBenchResponse(BaseModel):
+    reasoning: str
     number_of_fulfilled_requirements: int
 
 
@@ -43,7 +44,7 @@ def svgbench_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow
     """
     rows = []
 
-    for row in data:
+    for i, row in enumerate(data):
         # Format requirements as numbered list
         requirements = "\n".join([f"{i+1}. {req}" for i, req in enumerate(row["requirements"])])
 
@@ -63,7 +64,7 @@ Requirements:
         eval_row = EvaluationRow(
             messages=[Message(role="user", content=prompt)],
             input_metadata=InputMetadata(
-                row_id=row["id"],
+                row_id=f"row_{i}",
                 dataset_info={
                     "original_prompt": row["prompt"],
                     "requirements": row["requirements"],
@@ -197,7 +198,7 @@ def render_svg_to_png(svg_code: str, output_path: str) -> bool:
 def evaluate_with_llm_judge(image_path: str, requirements: List[str]) -> Dict[str, Any]:
     """
     Use LLM judge to evaluate how many requirements are fulfilled.
-    Uses GPT-4o for vision capabilities to match project's model preferences. (note original repo uses Gemini 2.5 flashs)
+    Uses GPT-4.1 for vision capabilities to match project's model preferences. (note original repo uses Gemini 2.5 flashs)
 
     Args:
         image_path: Path to rendered PNG image
@@ -213,7 +214,8 @@ def evaluate_with_llm_judge(image_path: str, requirements: List[str]) -> Dict[st
     evaluate_prompt = f"""Examine the generated image. How many of the following {len(requirements)} requirements were fulfilled?
 
 Be strict about the requirements and respond ONLY with a JSON object in this exact format:
-{{"number_of_fulfilled_requirements": <count>}}
+{{"number_of_fulfilled_requirements": <count>,
+"reasoning": <reasoning_text>}}
 
 Where <count> is a number between 0 and {len(requirements)}.
 
@@ -235,12 +237,11 @@ Requirements:
         }
     ]
 
-    # Use GPT-4o for vision capabilities to match project's OpenAI model preference
+    # Use GPT-4.1 for vision capabilities to match project's OpenAI model preference
     response = litellm.completion(
-        model="gpt-4o",
+        model="gpt-4.1",
         messages=messages,
         temperature=0.0,
-        max_tokens=200,
         response_format={
             "type": "json_schema",
             "json_schema": {"name": "SVGBenchResponse", "schema": SVGBenchResponse.model_json_schema()},
@@ -267,18 +268,18 @@ Requirements:
     input_dataset=["tests/pytest/data/svgbench_dataset.jsonl"],
     dataset_adapter=svgbench_to_evaluation_row,
     completion_params=[
-        {"temperature": 0.0, "max_tokens": 4096, "model": "gpt-4.1"},
+        {"temperature": 0.0, "model": "gpt-4.1"},
         {
             "temperature": 0.8,
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
             "extra_body": {"reasoning_effort": "high"},
         },
     ],
-    rollout_processor=default_single_turn_rollout_processor,
+    rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=0.5,  # 50% average score to pass
     num_runs=1,
     mode="pointwise",
-    max_concurrent_rollouts=3,
+    max_concurrent_rollouts=50,
 )
 def test_svg_generation_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
@@ -359,7 +360,7 @@ def test_svg_generation_evaluation(row: EvaluationRow) -> EvaluationRow:
 
         row.evaluation_result = EvaluateResult(
             score=score,
-            reason=f"Fulfilled {fulfilled_count}/{total_requirements} requirements ({score:.1%}) for prompt: '{original_prompt}'",
+            reason=judge_result.get("reasoning", ""),
         )
 
         return row

@@ -475,6 +475,7 @@ def evaluation_test(  # noqa: C901
                     for result in all_results:
                         for r in result:
                             if r.eval_metadata is not None:
+                                r.eval_metadata.status = "finished"
                                 r.eval_metadata.passed = passed
                             active_logger.log(r)
 
