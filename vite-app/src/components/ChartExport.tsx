@@ -93,10 +93,11 @@ const ChartExport = <T extends Record<string, unknown>>({
         return {
           label: colLabel,
           data,
-          backgroundColor: color,
+          backgroundColor: selectedChartType === "line" ? "transparent" : color,
           borderColor: color,
-          borderWidth: 1,
-          type: selectedChartType as "bar" | "line",
+          borderWidth: selectedChartType === "line" ? 2 : 1,
+          fill: selectedChartType === "line" ? false : true,
+          tension: selectedChartType === "line" ? 0.1 : undefined,
         };
       });
 
@@ -153,6 +154,21 @@ const ChartExport = <T extends Record<string, unknown>>({
     );
   }
 
+  // Additional safety check for line charts
+  if (
+    selectedChartType === "line" &&
+    chartData.datasets.some((dataset) => dataset.data.length === 0)
+  ) {
+    return (
+      <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white">
+        <div className="text-center text-gray-500 py-8">
+          Line charts require data in all datasets. Please check your pivot
+          configuration.
+        </div>
+      </div>
+    );
+  }
+
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -192,6 +208,18 @@ const ChartExport = <T extends Record<string, unknown>>({
                 display: true,
                 text: rowFields.map((f) => String(f)).join(" / "),
               },
+            },
+          }
+        : undefined,
+    elements:
+      selectedChartType === "line"
+        ? {
+            line: {
+              tension: 0.1,
+            },
+            point: {
+              radius: 3,
+              hoverRadius: 5,
             },
           }
         : undefined,
@@ -262,10 +290,7 @@ const ChartExport = <T extends Record<string, unknown>>({
         change the exported image dimensions.
       </div>
 
-      <div
-        ref={chartRef}
-        className="w-full h-96 bg-white border border-gray-200 rounded p-4"
-      >
+      <div ref={chartRef} className="w-full h-96 bg-white p-4">
         <Chart
           type={selectedChartType}
           data={chartData}
