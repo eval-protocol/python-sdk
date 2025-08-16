@@ -59,8 +59,6 @@ const ChartExport = <T extends Record<string, unknown>>({
   valueField,
   aggregator,
   chartType = "bar",
-  showRowTotals = true,
-  showColumnTotals = true,
 }: ChartExportProps<T>) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [selectedChartType, setSelectedChartType] =
@@ -69,7 +67,7 @@ const ChartExport = <T extends Record<string, unknown>>({
 
   // Convert pivot data to Chart.js format
   const getChartData = useCallback(() => {
-    const { rowKeyTuples, colKeyTuples, cells, rowTotals } = pivotData;
+    const { rowKeyTuples, colKeyTuples, cells } = pivotData;
 
     if (selectedChartType === "bar" || selectedChartType === "line") {
       // For bar/line charts, use row groups as labels and columns as datasets
@@ -101,23 +99,6 @@ const ChartExport = <T extends Record<string, unknown>>({
           type: selectedChartType as "bar" | "line",
         };
       });
-
-      // Add row totals if enabled
-      if (showRowTotals) {
-        const totalData = rowKeyTuples.map((rowTuple) => {
-          const rowKey = rowTuple.map((v) => String(v ?? "")).join("||");
-          return rowTotals[rowKey] ?? 0;
-        });
-
-        datasets.push({
-          label: "Total",
-          data: totalData,
-          backgroundColor: "hsl(180, 60%, 60%)",
-          borderColor: "hsl(180, 60%, 60%)",
-          borderWidth: 2,
-          type: selectedChartType === "bar" ? "bar" : "line",
-        });
-      }
 
       return { labels, datasets };
     } else {
@@ -156,7 +137,7 @@ const ChartExport = <T extends Record<string, unknown>>({
         ],
       };
     }
-  }, [pivotData, rowFields, columnFields, selectedChartType, showRowTotals]);
+  }, [pivotData, rowFields, columnFields, selectedChartType]);
 
   const chartData = getChartData();
 
