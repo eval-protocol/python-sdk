@@ -109,10 +109,18 @@ huggingface = [
     "datasets>=2.0.0",
     "transformers>=4.0.0",
 ]
+bigquery = [
+    "google-cloud-bigquery>=3.0.0",
+    "google-auth>=2.0.0",
+    "google-auth-oauthlib>=1.0.0",
+]
 adapters = [
     "langfuse>=2.0.0",
     "datasets>=2.0.0",
     "transformers>=4.0.0",
+    "google-cloud-bigquery>=3.0.0",
+    "google-auth>=2.0.0",
+    "google-auth-oauthlib>=1.0.0",
 ]
 svgbench = [
     "selenium>=4.0.0",

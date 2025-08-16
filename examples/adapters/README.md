@@ -43,6 +43,34 @@ Loads datasets from HuggingFace Hub and converts them to EvaluationRow format.
 pip install 'eval-protocol[huggingface]'
 ```
 
+### 3. BigQuery Adapter (`bigquery_example.py`)
+
+Queries data from Google BigQuery tables and converts them to EvaluationRow format.
+
+**Features:**
+- Execute custom SQL queries against BigQuery datasets
+- Support for parameterized queries and batch processing
+- Built-in convenience adapters for conversation and Q&A data
+- Rich metadata preservation including query information
+- Integration with Google Cloud authentication
+- Schema introspection and dataset exploration
+
+**Prerequisites:**
+```bash
+pip install 'eval-protocol[bigquery]'
+```
+
+**Environment Variables:**
+```bash
+export GOOGLE_CLOUD_PROJECT="your-project-id"
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"  # optional
+```
+
+**Alternative Authentication:**
+```bash
+gcloud auth application-default login
+```
+
 ## Running the Examples
 
 ### Basic Usage
@@ -51,8 +79,11 @@ pip install 'eval-protocol[huggingface]'
 # Run Langfuse example
 python examples/adapters/langfuse_example.py
 
-# Run HuggingFace example  
+# Run HuggingFace example
 python examples/adapters/huggingface_example.py
+
+# Run BigQuery example
+python examples/adapters/bigquery_example.py
 
 # Run GSM8K replacement example
 python examples/adapters/gsm8k_replacement_example.py
@@ -65,6 +96,11 @@ python examples/adapters/gsm8k_replacement_example.py
 export LANGFUSE_PUBLIC_KEY="pk_..."
 export LANGFUSE_SECRET_KEY="sk_..."
 python examples/adapters/langfuse_example.py
+
+# Set up Google Cloud credentials for BigQuery
+export GOOGLE_CLOUD_PROJECT="your-project-id"
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"  # optional
+python examples/adapters/bigquery_example.py
 
 # HuggingFace works without credentials for public datasets
 python examples/adapters/huggingface_example.py
@@ -100,7 +136,7 @@ def custom_gsm8k_transform(row):
 from eval_protocol.adapters.huggingface import create_huggingface_adapter
 custom_adapter = create_huggingface_adapter(
     dataset_id="gsm8k",
-    config_name="main", 
+    config_name="main",
     transform_fn=custom_gsm8k_transform
 )
 ```
@@ -150,7 +186,7 @@ rows = list(adapter.get_evaluation_rows(limit=10))
 for row in rows:
     # Add model response (you would generate this)
     row.messages.append(Message(role="assistant", content="..."))
-    
+
     # Evaluate
     result = math_reward(messages=row.messages, ground_truth=row.ground_truth)
     print(f"Score: {result.score}")
@@ -222,7 +258,7 @@ class MyCustomAdapter:
     def __init__(self, **config):
         # Initialize your data source connection
         pass
-    
+
     def get_evaluation_rows(self, **kwargs) -> Iterator[EvaluationRow]:
         # Fetch data and convert to EvaluationRow format
         pass
