@@ -73,9 +73,7 @@ class BaseAgent(ABC, Generic[AgentState]):
         """
         Set the seed for the agent. [Optional]
         """
-        logger.warning(
-            f"Setting seed for agent is not implemented for class {self.__class__.__name__}"
-        )
+        logger.warning(f"Setting seed for agent is not implemented for class {self.__class__.__name__}")
 
 
 class LocalAgent(BaseAgent[AgentState]):

@@ -5,6 +5,7 @@ Mock Environment for τ²-Bench Integration
 This module implements a MockEnvironment that integrates the τ²-Bench simulation
 pattern (Agent/User/Environment communication) with the MCP-Gym framework.
 """
+
 import json
 import logging
 import os

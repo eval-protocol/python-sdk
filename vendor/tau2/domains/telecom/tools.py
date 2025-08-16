@@ -102,10 +102,7 @@ class TelecomTools(ToolKitBase):
         matching_customers = []
 
         for customer in self.db.customers:
-            if (
-                customer.full_name.lower() == full_name.lower()
-                and customer.date_of_birth == dob
-            ):
+            if customer.full_name.lower() == full_name.lower() and customer.date_of_birth == dob:
                 matching_customers.append(customer)
 
         return matching_customers
@@ -259,9 +256,7 @@ class TelecomTools(ToolKitBase):
             raise ValueError(f"Unknown ID format or type: {id}")
 
     @is_tool(ToolType.WRITE)
-    def suspend_line(
-        self, customer_id: str, line_id: str, reason: str
-    ) -> Dict[str, Any]:
+    def suspend_line(self, customer_id: str, line_id: str, reason: str) -> Dict[str, Any]:
         """
         Suspends a specific line (max 6 months).
         Checks: Line status must be Active.
@@ -411,9 +406,7 @@ class TelecomTools(ToolKitBase):
         bill.status = BillStatus.PAID
         return f"Bill {bill_id} set to paid"
 
-    def _apply_one_time_charge(
-        self, customer_id: str, amount: float, description: str
-    ) -> None:
+    def _apply_one_time_charge(self, customer_id: str, amount: float, description: str) -> None:
         """
         Internal function to add a specific charge LineItem to the customer's next bill.
         Creates a pending bill if none exists.
@@ -453,11 +446,7 @@ class TelecomTools(ToolKitBase):
                 period_start=next_month,
                 period_end=next_month.replace(
                     month=next_month.month + 1 if next_month.month < 12 else 1,
-                    year=(
-                        next_month.year
-                        if next_month.month < 12
-                        else next_month.year + 1
-                    ),
+                    year=(next_month.year if next_month.month < 12 else next_month.year + 1),
                 )
                 - timedelta(days=1),
                 issue_date=next_month,
@@ -501,9 +490,7 @@ class TelecomTools(ToolKitBase):
         plan = self._get_plan_by_id(target_line.plan_id)
 
         today = get_today()
-        cycle_end_date = date(
-            today.year, today.month + 1 if today.month < 12 else 1, 1
-        ) - timedelta(days=1)
+        cycle_end_date = date(today.year, today.month + 1 if today.month < 12 else 1, 1) - timedelta(days=1)
 
         return {
             "line_id": line_id,
@@ -513,9 +500,7 @@ class TelecomTools(ToolKitBase):
             "cycle_end_date": cycle_end_date,
         }
 
-    def set_data_usage(
-        self, customer_id: str, line_id: str, data_used_gb: float
-    ) -> str:
+    def set_data_usage(self, customer_id: str, line_id: str, data_used_gb: float) -> str:
         """
         Sets the data usage for a line.
         Note: This method is not decorated as a tool but follows similar error handling.
@@ -605,9 +590,7 @@ class TelecomTools(ToolKitBase):
         return "Transfer successful"
 
     @is_tool(ToolType.WRITE)
-    def refuel_data(
-        self, customer_id: str, line_id: str, gb_amount: float
-    ) -> Dict[str, Any]:
+    def refuel_data(self, customer_id: str, line_id: str, gb_amount: float) -> Dict[str, Any]:
         """
         Refuels data for a specific line, adding to the customer's bill.
         Checks: Line status must be Active, Customer owns the line.
@@ -646,9 +629,7 @@ class TelecomTools(ToolKitBase):
             f"Data refueling: {gb_amount} GB at ${plan.data_refueling_price_per_gb}/GB",
         )
 
-        logger.info(
-            f"Data refueled for line {line_id}: {gb_amount} GB added, charge: ${charge_amount:.2f}"
-        )
+        logger.info(f"Data refueled for line {line_id}: {gb_amount} GB added, charge: ${charge_amount:.2f}")
 
         return {
             "message": f"Successfully added {gb_amount} GB of data for line {line_id} for ${charge_amount:.2f}",
@@ -721,27 +702,21 @@ class TelecomTools(ToolKitBase):
         return f"Line {line_id} suspended for unpaid bill {new_bill_id}. Contract ended: {contract_ended}"
 
     ### Assertions
-    def assert_data_refueling_amount(
-        self, customer_id: str, line_id: str, expected_amount: float
-    ) -> bool:
+    def assert_data_refueling_amount(self, customer_id: str, line_id: str, expected_amount: float) -> bool:
         """
         Assert that the data refueling amount is as expected.
         """
         target_line = self._get_target_line(customer_id, line_id)
         return abs(target_line.data_refueling_gb - expected_amount) < 1e-6
 
-    def assert_line_status(
-        self, customer_id: str, line_id: str, expected_status: LineStatus
-    ) -> bool:
+    def assert_line_status(self, customer_id: str, line_id: str, expected_status: LineStatus) -> bool:
         """
         Assert that the line status is as expected.
         """
         target_line = self._get_target_line(customer_id, line_id)
         return target_line.status == expected_status
 
-    def assert_overdue_bill_exists(
-        self, customer_id: str, overdue_bill_id: str
-    ) -> bool:
+    def assert_overdue_bill_exists(self, customer_id: str, overdue_bill_id: str) -> bool:
         """
         Assert that the overdue bill exists.
         """

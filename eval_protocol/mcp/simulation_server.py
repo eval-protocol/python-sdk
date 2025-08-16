@@ -398,7 +398,7 @@ class SimulationServerBase(ABC):
             host: Host to bind to
             **kwargs: Additional arguments for uvicorn
         """
-        print(f"📡 Starting simulation server with StreamableHTTPSessionManager")
+        print("📡 Starting simulation server with StreamableHTTPSessionManager")
         print(f"🎮 Domain tools: {list(self._domain_tools.keys())}")
         print(f"📦 Domain resources: {list(self._domain_resources.keys())}")
         if self.production_server_app:

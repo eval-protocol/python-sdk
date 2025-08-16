@@ -13,9 +13,7 @@ from vendor.tau2.domains.mock.utils import (
 from vendor.tau2.environment.environment import Environment
 
 
-def get_environment(
-    db: Optional[MockDB] = None, solo_mode: bool = False
-) -> Environment:
+def get_environment(db: Optional[MockDB] = None, solo_mode: bool = False) -> Environment:
     if db is None:
         db = MockDB.load(MOCK_DB_PATH)
     tools = MockTools(db)

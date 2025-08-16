@@ -126,9 +126,9 @@ def _get_tag_reason(tag: str, opening_count: int, closing_count: int, require_ba
         return f"Found {opening_count} balanced '{tag}' tag(s)"
     else:
         if require_balanced:
-            return f"Unbalanced tags: {opening_count} opening vs " f"{closing_count} closing '{tag}' tags"
+            return f"Unbalanced tags: {opening_count} opening vs {closing_count} closing '{tag}' tags"
         else:
-            return f"Found '{tag}' tags (unbalanced: {opening_count} opening, " f"{closing_count} closing)"
+            return f"Found '{tag}' tags (unbalanced: {opening_count} opening, {closing_count} closing)"
 
 
 def _get_overall_reason(

@@ -68,7 +68,7 @@ This function returns true if the number is even and false if it's odd.""",
             pytest.skip(f"Skipping due to E2B connection issue: {error_msg}")
         # Also check for error in main result reason
         if result.reason and "Invalid API key" in result.reason:
-            pytest.skip(f"Skipping due to invalid E2B API key")
+            pytest.skip("Skipping due to invalid E2B API key")
 
     # Otherwise, it should be a successful result
     assert result.score == 1.0

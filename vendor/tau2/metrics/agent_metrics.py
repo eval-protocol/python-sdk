@@ -55,9 +55,7 @@ def get_metrics_df(results: Results) -> tuple[pd.DataFrame, int]:
     df = results.to_df()
     df["success"] = df.reward.apply(is_successful)
     if len(df.info_num_trials.unique()) > 1:
-        logger.warning(
-            f"All simulations must have the same number of trials. Found {df.info_num_trials.unique()}"
-        )
+        logger.warning(f"All simulations must have the same number of trials. Found {df.info_num_trials.unique()}")
     max_k = df.info_num_trials.max()
 
     task_ids_counts = [(tid, count) for tid, count in df.task_id.value_counts().items()]
@@ -78,9 +76,7 @@ def get_tasks_pass_hat_k(results: Results) -> pd.DataFrame:
     df, max_k = get_metrics_df(results)
     dfs = []
     for k in range(1, max_k + 1):
-        res = df.groupby("task_id")["success"].apply(
-            lambda df: pass_hat_k(len(df), df.sum(), k)
-        )
+        res = df.groupby("task_id")["success"].apply(lambda df: pass_hat_k(len(df), df.sum(), k))
         res.name = f"pass^{k}"
         dfs.append(res)
     df_pass_hat_k = pd.concat(dfs, axis=1)

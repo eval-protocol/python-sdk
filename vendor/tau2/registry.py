@@ -7,29 +7,25 @@ from pydantic import BaseModel
 from vendor.tau2.agent.base import BaseAgent
 from vendor.tau2.agent.llm_agent import LLMAgent, LLMGTAgent, LLMSoloAgent
 from vendor.tau2.data_model.tasks import Task
-from vendor.tau2.domains.airline.environment import \
-    get_environment as airline_domain_get_environment
-from vendor.tau2.domains.airline.environment import \
-    get_tasks as airline_domain_get_tasks
-from vendor.tau2.domains.mock.environment import \
-    get_environment as mock_domain_get_environment
-from vendor.tau2.domains.mock.environment import get_tasks as mock_domain_get_tasks
-from vendor.tau2.domains.retail.environment import \
-    get_environment as retail_domain_get_environment
-from vendor.tau2.domains.retail.environment import \
-    get_tasks as retail_domain_get_tasks
-from vendor.tau2.domains.telecom.environment import \
-    get_environment_manual_policy as \
-    telecom_domain_get_environment_manual_policy
-from vendor.tau2.domains.telecom.environment import \
-    get_environment_workflow_policy as \
-    telecom_domain_get_environment_workflow_policy
-from vendor.tau2.domains.telecom.environment import \
-    get_tasks as telecom_domain_get_tasks
-from vendor.tau2.domains.telecom.environment import \
-    get_tasks_full as telecom_domain_get_tasks_full
-from vendor.tau2.domains.telecom.environment import \
-    get_tasks_small as telecom_domain_get_tasks_small
+from vendor.tau2.domains.airline.environment import (
+    get_environment as airline_domain_get_environment,
+    get_tasks as airline_domain_get_tasks,
+)
+from vendor.tau2.domains.mock.environment import (
+    get_environment as mock_domain_get_environment,
+    get_tasks as mock_domain_get_tasks,
+)
+from vendor.tau2.domains.retail.environment import (
+    get_environment as retail_domain_get_environment,
+    get_tasks as retail_domain_get_tasks,
+)
+from vendor.tau2.domains.telecom.environment import (
+    get_environment_manual_policy as telecom_domain_get_environment_manual_policy,
+    get_environment_workflow_policy as telecom_domain_get_environment_workflow_policy,
+    get_tasks as telecom_domain_get_tasks,
+    get_tasks_full as telecom_domain_get_tasks_full,
+    get_tasks_small as telecom_domain_get_tasks_small,
+)
 from vendor.tau2.environment.environment import Environment
 from vendor.tau2.user.base import BaseUser
 from vendor.tau2.user.user_simulator import DummyUser, UserSimulator
@@ -184,13 +180,13 @@ try:
     registry.register_domain(retail_domain_get_environment, "retail")
     registry.register_tasks(retail_domain_get_tasks, "retail")
     registry.register_domain(telecom_domain_get_environment_manual_policy, "telecom")
-    registry.register_domain(
-        telecom_domain_get_environment_workflow_policy, "telecom-workflow"
-    )
+    registry.register_domain(telecom_domain_get_environment_workflow_policy, "telecom-workflow")
     registry.register_tasks(telecom_domain_get_tasks_full, "telecom_full")
     registry.register_tasks(telecom_domain_get_tasks_small, "telecom_small")
     registry.register_tasks(telecom_domain_get_tasks, "telecom")
     registry.register_tasks(telecom_domain_get_tasks, "telecom-workflow")
-    logger.debug(f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}")
+    logger.debug(
+        f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
+    )
 except Exception as e:
     logger.error(f"Error initializing registry: {str(e)}")

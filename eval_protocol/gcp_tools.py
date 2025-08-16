@@ -453,7 +453,7 @@ if __name__ == "__main__":
         dry_run=True,
     )
 
-    print(f"\n2. Simulating deploy to Cloud Run (dry_run=True)")
+    print("\n2. Simulating deploy to Cloud Run (dry_run=True)")
     deploy_to_cloud_run(
         service_name="my-reward-service",
         image_name_tag=ar_img_name,  # Use AR image name
@@ -465,7 +465,7 @@ if __name__ == "__main__":
         dry_run=True,
     )
 
-    print(f"\n3. Simulating ensure_artifact_registry_repo_exists (dry_run=True)")
+    print("\n3. Simulating ensure_artifact_registry_repo_exists (dry_run=True)")
     ensure_artifact_registry_repo_exists(
         project_id="my-test-project",
         region="us-central1",
@@ -473,7 +473,7 @@ if __name__ == "__main__":
         dry_run=True,
     )
 
-    print(f"\n4. Simulating ensure_gcp_secret (dry_run=True)")
+    print("\n4. Simulating ensure_gcp_secret (dry_run=True)")
     ensure_gcp_secret(
         project_id="my-test-project",
         secret_id="my-test-api-key-secret",

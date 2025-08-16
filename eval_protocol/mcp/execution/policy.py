@@ -72,7 +72,7 @@ class LiteLLMPolicy(LLMBasePolicy):
             self._setup_litellm_caching(use_caching, cache_type, redis_url)
             logger.info(f"✅ Initialized LiteLLM policy: {self.model_id}")
         else:
-            logger.info(f"🎬 Playback mode: Skipping LiteLLM initialization for performance")
+            logger.info("🎬 Playback mode: Skipping LiteLLM initialization for performance")
 
     def _setup_litellm_caching(
         self, use_caching: bool, cache_type: Literal["memory", "redis", "dual", "s3", "disk"], redis_url: Optional[str]

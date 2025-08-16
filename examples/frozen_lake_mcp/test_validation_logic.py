@@ -95,7 +95,7 @@ def test_validation_with_existing_data():
         print("\n✅ All validations passed - no bugs detected")
         return True
     else:
-        print(f"\n❌ Validation caught bugs (as expected):")
+        print("\n❌ Validation caught bugs (as expected):")
         print(f"  - Repeated states bug: {'No' if repeated_states_ok else 'Yes'}")
         print(f"  - Control plane sync bug: {'No' if control_plane_ok else 'Yes'}")
         print(f"  - Trajectory termination bug: {'No' if trajectory_termination_ok else 'Yes'}")

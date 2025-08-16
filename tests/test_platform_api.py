@@ -15,7 +15,6 @@ original_get_fireworks_api_base = auth.get_fireworks_api_base
 
 
 class TestPlatformAPI(unittest.TestCase):
-
     def setUp(self):
         # Patch auth functions for isolation
         self.mock_api_key = "test_api_key"

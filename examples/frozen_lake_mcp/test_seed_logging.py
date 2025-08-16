@@ -36,7 +36,7 @@ async def test_seed_logging():
         # Reset environments to trigger session creation
         print("🔄 Resetting environments...")
         observations, tool_schemas, system_prompts = await envs.reset()
-        print(f"✅ Reset complete")
+        print("✅ Reset complete")
         print(f"📊 Observations: {observations}")
         print(f"🛠️  Tool schemas: {len(tool_schemas[0])} tools available")
 

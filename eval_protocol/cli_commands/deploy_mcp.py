@@ -9,9 +9,12 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Optional
 
-from eval_protocol.config import GCPCloudRunConfig, RewardKitConfig
-from eval_protocol.config import _config_file_path as global_loaded_config_path
-from eval_protocol.config import get_config
+from eval_protocol.config import (
+    GCPCloudRunConfig,
+    RewardKitConfig,
+    _config_file_path as global_loaded_config_path,
+    get_config,
+)
 from eval_protocol.gcp_tools import (
     build_and_push_docker_image,
     deploy_to_cloud_run,
@@ -235,7 +238,7 @@ def _deploy_mcp_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
         print("Failed to deploy to Cloud Run or retrieve service URL. Aborting.")
         return None
 
-    print(f"🚀 Successfully deployed MCP server to Cloud Run!")
+    print("🚀 Successfully deployed MCP server to Cloud Run!")
     print(f"📍 Service URL: {cloud_run_service_url}")
     print(f"🔗 MCP Connection URL: {cloud_run_service_url}")
     print(f"📋 Service Name: {args.id}")

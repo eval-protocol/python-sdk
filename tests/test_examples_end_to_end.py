@@ -47,7 +47,6 @@ def mock_requests():
         patch("requests.get") as mock_get,
         patch("requests.delete") as mock_delete,
     ):
-
         # Configure mock_post for different use cases
         def post_side_effect(*args, **kwargs):
             url = args[0]

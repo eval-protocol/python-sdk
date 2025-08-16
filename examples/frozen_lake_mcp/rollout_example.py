@@ -90,7 +90,7 @@ class MCPGymRolloutManager:
         evaluation_rows = []
 
         for i, env in enumerate(envs):
-            self.logger.info(f"Running rollout {i+1}/{len(envs)}")
+            self.logger.info(f"Running rollout {i + 1}/{len(envs)}")
 
             trajectory = {
                 "environment": env.__class__.__name__,
@@ -136,7 +136,7 @@ class MCPGymRolloutManager:
                     break
 
             evaluation_rows.append(trajectory)
-            self.logger.info(f"Rollout {i+1} completed: {trajectory['total_reward']} total reward")
+            self.logger.info(f"Rollout {i + 1} completed: {trajectory['total_reward']} total reward")
 
         return evaluation_rows
 
@@ -147,7 +147,7 @@ class MCPGymRolloutManager:
         print("=" * 60)
 
         for i, traj in enumerate(evaluation_rows):
-            print(f"\nEvaluation {i+1}:")
+            print(f"\nEvaluation {i + 1}:")
             print(f"  Environment: {traj['environment']}")
             print(f"  Seed: {traj['seed']}")
             print(f"  Steps: {len(traj['steps'])}")
@@ -169,7 +169,7 @@ class MCPGymRolloutManager:
             else 0
         )
 
-        print(f"\nOverall Statistics:")
+        print("\nOverall Statistics:")
         print(f"  Total Environments: {len(evaluation_rows)}")
         print(f"  Average Reward: {avg_reward:.2f}")
         print(f"  Success Rate: {success_rate:.2%}")

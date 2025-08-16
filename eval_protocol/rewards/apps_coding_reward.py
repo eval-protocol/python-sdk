@@ -244,7 +244,7 @@ sys.setrecursionlimit(6*10**5)
         # as our system prompt now asks for a main() that handles IO.
         # The generated code itself should be a runnable script.
         del in_outs_for_check["fn_name"]
-        logger.info(f"Removed 'fn_name' from in_outs for check_correctness to use standard_input path.")
+        logger.info("Removed 'fn_name' from in_outs for check_correctness to use standard_input path.")
 
     final_code_to_execute = code_solution  # The model's full response (after extraction)
 

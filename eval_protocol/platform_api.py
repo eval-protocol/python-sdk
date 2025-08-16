@@ -290,7 +290,7 @@ if __name__ == "__main__":
     test_api_key = get_fireworks_api_key()  # Not passed directly, functions will resolve
     test_api_base = get_fireworks_api_base()
 
-    logger.info(f"Attempting to use the following configuration for testing Fireworks secrets API:")
+    logger.info("Attempting to use the following configuration for testing Fireworks secrets API:")
     logger.info(f"  Resolved FIREWORKS_ACCOUNT_ID: {test_account_id}")
     logger.info(f"  Resolved FIREWORKS_API_BASE: {test_api_base}")
     logger.info(

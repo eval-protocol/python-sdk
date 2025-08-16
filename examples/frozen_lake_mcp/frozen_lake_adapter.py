@@ -46,12 +46,12 @@ class FrozenLakeAdapter(EnvironmentAdapter):
             desc = generate_random_map(size=grid_size, p=0.8, seed=seed)
             print(f"🔍 FrozenLakeAdapter.create_environment: Generated map desc: {desc}")
         else:
-            print(f"🔍 FrozenLakeAdapter.create_environment: Generating map without seed")
+            print("🔍 FrozenLakeAdapter.create_environment: Generating map without seed")
             desc = generate_random_map(size=grid_size, p=0.8)
             print(f"🔍 FrozenLakeAdapter.create_environment: Generated map desc: {desc}")
 
         env = FrozenLakeEnv(desc=desc, is_slippery=False, render_mode="ansi")
-        print(f"🔍 FrozenLakeAdapter.create_environment: Created FrozenLakeEnv")
+        print("🔍 FrozenLakeAdapter.create_environment: Created FrozenLakeEnv")
         return env
 
     def create_environment_with_seed(

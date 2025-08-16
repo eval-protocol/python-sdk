@@ -562,7 +562,6 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
     # Start server for this test
     server = _create_test_server(9600)
     try:
-
         # Set up recording
         os.environ["EP_PLAYBACK_FILE"] = multi_env_recording_file
 
@@ -661,7 +660,7 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
     print("\n🏁 Validating trajectory termination...")
     _validate_trajectory_termination(env_recordings, dataset)
 
-    print(f"✅ Recording integrity validation completed")
+    print("✅ Recording integrity validation completed")
 
 
 def _validate_no_repeated_initial_states(env_recordings: Dict, dataset: List[Dict]):
@@ -746,9 +745,9 @@ def _validate_state_progression(env_recordings: Dict):
             try:
                 response_data = json.loads(response)
                 game_states.append(response_data)
-                print(f"    Step {i+1}: Game state {response_data}")
+                print(f"    Step {i + 1}: Game state {response_data}")
             except json.JSONDecodeError:
-                pytest.fail(f"❌ Invalid JSON in tool response {i+1} for env {env_idx}: {response}")
+                pytest.fail(f"❌ Invalid JSON in tool response {i + 1} for env {env_idx}: {response}")
 
         # Check that player_sum changes when HIT action is taken
         for i in range(len(game_states) - 1):
@@ -763,21 +762,21 @@ def _validate_state_progression(env_recordings: Dict):
                 if current_player_sum == next_player_sum:
                     pytest.fail(
                         f"❌ STATE PROGRESSION BUG DETECTED in Env {env_idx}: "
-                        f"After HIT action at step {i+1}, player_sum remained {current_player_sum}. "
+                        f"After HIT action at step {i + 1}, player_sum remained {current_player_sum}. "
                         f"When hitting, player should draw a card and player_sum should change. "
                         f"Current state: {current_state}, Next state: {next_state}"
                     )
                 else:
                     print(
-                        f"    ✅ Step {i+1}: HIT action changed player_sum from {current_player_sum} to {next_player_sum}"
+                        f"    ✅ Step {i + 1}: HIT action changed player_sum from {current_player_sum} to {next_player_sum}"
                     )
             elif current_action == "STAND":
                 # STAND action should not change player_sum (dealer's turn)
                 print(
-                    f"    ℹ️  Step {i+1}: STAND action - player_sum transition from {current_player_sum} to {next_player_sum}"
+                    f"    ℹ️  Step {i + 1}: STAND action - player_sum transition from {current_player_sum} to {next_player_sum}"
                 )
             else:
-                print(f"    ⚠️  Step {i+1}: Unknown action '{current_action}' - skipping validation")
+                print(f"    ⚠️  Step {i + 1}: Unknown action '{current_action}' - skipping validation")
 
         print(f"  ✅ Env {env_idx}: State progression validation completed successfully")
 
@@ -833,7 +832,7 @@ def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
     elif terminated_steps == 0:
         print(f"  ⚠️  Warning: No terminated=True found in {total_steps} steps (may be expected for short runs)")
     else:
-        print(f"  ✅ Found some termination signals - control plane appears to be working")
+        print("  ✅ Found some termination signals - control plane appears to be working")
 
 
 def _validate_no_tool_calls_after_termination(env_recordings: Dict, dataset: List[Dict]):
@@ -934,7 +933,7 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
                 f"Expected: Substantial trajectories should end with terminated=True."
             )
         elif last_terminated:
-            print(f"    ✅ Trajectory properly terminated")
+            print("    ✅ Trajectory properly terminated")
         else:
             print(f"    ℹ️  Short trajectory ({total_steps} steps) - termination not required")
 
@@ -1019,7 +1018,6 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
     # Start server for this test
     server = _create_test_server(9700)
     try:
-
         # Set up recording
         os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
 
@@ -1144,7 +1142,6 @@ async def test_control_plane_state_querying(multi_env_dataset):
     # Start server for this test
     server = _create_test_server(9700)
     try:
-
         # Create policy with shorter sequence for testing
         policy = create_blackjack_static_policy(action_sequence=["HIT", "STAND"])
 

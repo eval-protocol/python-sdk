@@ -372,7 +372,6 @@ def run_grpo_training_example():
     def combine_rewards(
         reward_adapter_configs: List[Dict[str, Any]],  # Each dict: {'adapter': callable, 'weight': float}
     ) -> Callable[[List[Any], List[str]], List[float]]:  # Corrected return type hint
-
         total_weight = sum(c["weight"] for c in reward_adapter_configs)
         if abs(total_weight - 1.0) > 1e-6:
             logger.warning(f"Sum of weights is {total_weight}, normalizing to 1.0.")

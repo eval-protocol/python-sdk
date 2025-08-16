@@ -108,7 +108,11 @@ class DummyMetric(BaseMetric):  # type: ignore
 
 
 class DummyGEval(BaseMetric):  # type: ignore
-    evaluation_params = [LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT, LLMTestCaseParams.EXPECTED_OUTPUT] if DEEPEVAL_AVAILABLE and hasattr(LLMTestCaseParams, "INPUT") else []  # type: ignore
+    evaluation_params = (
+        [LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT, LLMTestCaseParams.EXPECTED_OUTPUT]
+        if DEEPEVAL_AVAILABLE and hasattr(LLMTestCaseParams, "INPUT")
+        else []
+    )  # type: ignore
 
     def __init__(self, threshold: float = 0.0) -> None:
         self.threshold = threshold
@@ -199,7 +203,9 @@ class TestDeepevalIntegration(unittest.TestCase):
         if parsed_fireworks_model_name not in valid_gpt_models:
             valid_gpt_models.append(parsed_fireworks_model_name)  # type: ignore
 
-        actual_fireworks_model_for_geval = GPTModel(model=fireworks_model_name_for_api, _openai_api_key=fireworks_api_key)  # type: ignore
+        actual_fireworks_model_for_geval = GPTModel(
+            model=fireworks_model_name_for_api, _openai_api_key=fireworks_api_key
+        )  # type: ignore
         actual_fireworks_model_for_geval.model_name = fireworks_model_name_for_api  # type: ignore
 
         if fireworks_model_name_for_api not in model_pricing:
@@ -340,7 +346,13 @@ class TestDeepevalIntegration(unittest.TestCase):
             "openai.resources.chat.completions.AsyncCompletions.create",
             new=mock_chat_completions_create,
         ):
-            geval_metric = GEval(name="Fireworks GEval Mocked", criteria="Evaluate the helpfulness and relevance of the actual output based on the input.", evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT], model=actual_fireworks_model_for_geval, strict_mode=False)  # type: ignore
+            geval_metric = GEval(
+                name="Fireworks GEval Mocked",
+                criteria="Evaluate the helpfulness and relevance of the actual output based on the input.",
+                evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
+                model=actual_fireworks_model_for_geval,
+                strict_mode=False,
+            )  # type: ignore
             wrapped_metric = adapt_metric(geval_metric)
             messages_data = [
                 {"role": "user", "content": "What is the capital of France?"},
@@ -353,7 +365,11 @@ class TestDeepevalIntegration(unittest.TestCase):
         self.assertIsNotNone(result.score, "GEval score should not be None")
         self.assertEqual(result.score, 1.0, f"GEval score {result.score} was not 1.0 with mock.")
         expected_metric_key = f"{geval_metric.name} ({geval_metric.__class__.__name__})"  # type: ignore
-        self.assertIn(expected_metric_key, result.metrics, f"Constructed metric key '{expected_metric_key}' not found. Keys: {list(result.metrics.keys())}")  # type: ignore
+        self.assertIn(
+            expected_metric_key,
+            result.metrics,
+            f"Constructed metric key '{expected_metric_key}' not found. Keys: {list(result.metrics.keys())}",
+        )  # type: ignore
         self.assertIsNotNone(result.metrics[expected_metric_key].reason)  # type: ignore
 
 

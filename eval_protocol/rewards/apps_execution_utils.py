@@ -47,7 +47,7 @@ def _temp_run(
     # Temporarily disable stdout/stderr redirection to see debug prints from run_test
     # sys.stdout = open(os.devnull, "w")
     # sys.stderr = open(os.devnull, "w")
-    print(f"[_temp_run] Executing run_test for sample. Debug prints from run_test should be visible.")
+    print("[_temp_run] Executing run_test for sample. Debug prints from run_test should be visible.")
 
     try:
         res, metadata = run_test(in_outs=sample, test=generation, debug=debug, timeout=timeout)

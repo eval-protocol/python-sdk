@@ -216,7 +216,9 @@ def generate_parameter_combinations(
     else:
         messages = [None]  # type: ignore
 
-    kwargs: List[Optional[EvaluationInputParam]] = evaluation_test_kwargs if evaluation_test_kwargs is not None else [None]  # type: ignore
+    kwargs: List[Optional[EvaluationInputParam]] = (
+        evaluation_test_kwargs if evaluation_test_kwargs is not None else [None]
+    )  # type: ignore
 
     # Generate all combinations
     for ds in datasets:
@@ -255,9 +257,9 @@ async def rollout_processor_with_retry(
             current_attempts = retry_counts.get(rollout_id, 0)
 
             if current_attempts >= max_retry:
-                assert (
-                    failed_row.rollout_status and failed_row.rollout_status.status == "error"
-                ), f"Rollout {failed_row.execution_metadata.rollout_id} did not fail with error status"
+                assert failed_row.rollout_status and failed_row.rollout_status.status == "error", (
+                    f"Rollout {failed_row.execution_metadata.rollout_id} did not fail with error status"
+                )
                 failed_permanently.append(failed_row)
                 await queue.put(failed_row)  # put failed row on queue
                 return

@@ -115,7 +115,7 @@ def agent_eval_command(args):
                         logger.info(f"  - Standard deviation: {result.get('std_dev', 0.0):.4f}")
                         logger.info(f"  - Score range: {result['min_score']:.4f} - {result['max_score']:.4f}")
                         if "aggregated_metrics" in result:
-                            logger.info(f"  - Aggregated metrics:")
+                            logger.info("  - Aggregated metrics:")
                             for metric_name, metric_data in result["aggregated_metrics"].items():
                                 logger.info(
                                     f"    * {metric_name}: avg={metric_data['avg_score']:.4f}, range={metric_data['min_score']:.4f}-{metric_data['max_score']:.4f}"

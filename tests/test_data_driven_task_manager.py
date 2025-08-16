@@ -168,7 +168,6 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
             patch.object(self.task_manager, "_stop_resource_server"),
             patch("eval_protocol.agent.task_manager.Orchestrator") as mock_orchestrator_class,
         ):
-
             # Set up mock orchestrator
             mock_orchestrator = AsyncMock()
             mock_orchestrator.setup_base_resource = AsyncMock()
@@ -206,7 +205,6 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
             patch.object(self.task_manager, "_stop_resource_server"),
             patch("eval_protocol.agent.task_manager.Orchestrator") as mock_orchestrator_class,
         ):
-
             # Set up mock orchestrator to return different scores for each rollout
             mock_orchestrator = AsyncMock()
             mock_orchestrator.setup_base_resource = AsyncMock()
@@ -250,7 +248,6 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
             patch.object(self.task_manager, "_stop_resource_server"),
             patch("eval_protocol.agent.task_manager.Orchestrator") as mock_orchestrator_class,
         ):
-
             # Set up mock orchestrator with one success and one failure
             mock_orchestrator = AsyncMock()
             mock_orchestrator.setup_base_resource = AsyncMock()
@@ -307,7 +304,6 @@ class TestDataDrivenExecution(TestDataDrivenTaskManager):
             patch.object(self.task_manager, "_stop_resource_server"),
             patch("eval_protocol.agent.task_manager.Orchestrator") as mock_orchestrator_class,
         ):
-
             mock_orchestrator = AsyncMock()
             mock_orchestrator.setup_base_resource = AsyncMock()
             mock_orchestrator.execute_task_poc = AsyncMock(side_effect=mock_execute)
@@ -355,7 +351,6 @@ class TestTaskExecutionFlow(TestDataDrivenTaskManager):
                 patch.object(self.task_manager, "_execute_data_driven_rollouts") as mock_data_driven,
                 patch.object(self.task_manager, "_execute_batch_rollouts") as mock_traditional,
             ):
-
                 mock_data_driven.return_value = [{"score": 1.0}]
                 mock_traditional.return_value = [{"score": 0.5}]
 

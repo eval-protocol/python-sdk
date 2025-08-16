@@ -82,9 +82,9 @@ class LLMAgent(LocalAgent[LLMAgentState]):
         """
         if message_history is None:
             message_history = []
-        assert all(
-            is_valid_agent_history_message(m) for m in message_history
-        ), "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
+        assert all(is_valid_agent_history_message(m) for m in message_history), (
+            "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
+        )
         return LLMAgentState(
             system_messages=[SystemMessage(role="system", content=self.system_prompt)],
             messages=message_history,
@@ -206,9 +206,9 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
         """
         if message_history is None:
             message_history = []
-        assert all(
-            is_valid_agent_history_message(m) for m in message_history
-        ), "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
+        assert all(is_valid_agent_history_message(m) for m in message_history), (
+            "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
+        )
         return LLMAgentState(
             system_messages=[SystemMessage(role="system", content=self.system_prompt)],
             messages=message_history,
@@ -416,9 +416,9 @@ class LLMSoloAgent(LocalAgent[LLMAgentState]):
         """
         if message_history is None:
             message_history = []
-        assert all(
-            is_valid_agent_history_message(m) for m in message_history
-        ), "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
+        assert all(is_valid_agent_history_message(m) for m in message_history), (
+            "Message history must contain only AssistantMessage, UserMessage, or ToolMessage to Agent."
+        )
         return LLMAgentState(
             system_messages=[SystemMessage(role="system", content=self.system_prompt)],
             messages=message_history,

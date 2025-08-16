@@ -225,14 +225,14 @@ async def test_lunar_lander_with_conda_isolation():
                             f"    Step {step_idx}: control_plane_step is not a dict, type: {type(control_plane_step)}"
                         )
             else:
-                print(f"  🔍 No control plane messages found")
+                print("  🔍 No control plane messages found")
 
             print(f"  ✅ Episode {i} validation passed")
 
         print(f"📁 All evaluation data saved to {output_dir}")
-        print(f"   - Episode summaries: episode_*_summary.json")
-        print(f"   - Control plane debug data: episode_*_first_control_plane_debug.json")
-        print(f"   - Rendered frames: episode_*_step_*.png (if available)")
+        print("   - Episode summaries: episode_*_summary.json")
+        print("   - Control plane debug data: episode_*_first_control_plane_debug.json")
+        print("   - Rendered frames: episode_*_step_*.png (if available)")
 
         print("🎉 All tests passed! Conda isolation working correctly.")
         return True

@@ -98,7 +98,6 @@ async def demonstrate_control_plane_rollout():
         patch.object(GeneralMCPVectorEnv, "step") as mock_step,
         patch.object(GeneralMCPVectorEnv, "close") as mock_close,
     ):
-
         # Setup mock vector environment
         mock_env = GeneralMCPVectorEnv(sessions, dataset_rows)
         mock_env.sessions = sessions
@@ -273,14 +272,14 @@ async def demonstrate_control_plane_rollout():
         # Analyze the trajectory
         trajectory = trajectories[0]
 
-        print(f"Basic Trajectory Info:")
+        print("Basic Trajectory Info:")
         print(f"  • Total Steps: {trajectory.steps}")
         print(f"  • Total Reward: {trajectory.total_reward}")
         print(f"  • Terminated: {trajectory.terminated}")
         print(f"  • Duration: {trajectory.duration:.3f}s")
         print()
 
-        print(f"Data Plane Analysis (Observations):")
+        print("Data Plane Analysis (Observations):")
         print(f"  • Observation Count: {len(trajectory.observations)}")
         for i, obs in enumerate(trajectory.observations):
             if i == 0:
@@ -289,14 +288,14 @@ async def demonstrate_control_plane_rollout():
                 print(f"    Step {i}: {obs}")
         print()
 
-        print(f"Control Plane Analysis (Rewards/Termination):")
+        print("Control Plane Analysis (Rewards/Termination):")
         print(f"  • Reward Count: {len(trajectory.rewards)}")
         print(f"  • Rewards: {trajectory.rewards}")
         print(f"  • Actions: {trajectory.actions}")
         print()
 
         # Validate control plane separation
-        print(f"Control Plane Separation Validation:")
+        print("Control Plane Separation Validation:")
 
         # Check data plane contains no rewards
         data_plane_clean = True

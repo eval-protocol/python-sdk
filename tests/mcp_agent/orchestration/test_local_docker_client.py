@@ -160,7 +160,6 @@ async def test_provision_deprovision_http_instance(
             "eval_protocol.mcp_agent.orchestration.local_docker_client.streamablehttp_client",
             new_callable=MagicMock,
         ) as mock_streamablehttp_client_func:
-
             # Configure the mock Async Context Manager (ACM) that mock_streamablehttp_client_func will return
             mock_acm_instance = AsyncMock()  # This object needs __aenter__ and __aexit__
 
@@ -327,7 +326,7 @@ async def test_provision_deprovision_stdio_instance(
         assert len(read_content_list) == 1
         assert read_content_list[0].get("type") == "text"
         assert read_content_list[0].get("text") == test_file_content
-        logger.info(f"Successfully called 'read_file' via stdio, content matches template.")
+        logger.info("Successfully called 'read_file' via stdio, content matches template.")
 
     finally:
         if provisioned_instances:

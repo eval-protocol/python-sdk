@@ -110,7 +110,7 @@ def preview_command(args):
                     processed_messages.append(msg_item)
                 else:
                     print(
-                        f"Warning: Sample {i+1} has unexpected message item type: {type(msg_item)}. Skipping this message item."
+                        f"Warning: Sample {i + 1} has unexpected message item type: {type(msg_item)}. Skipping this message item."
                     )
 
             try:
@@ -120,13 +120,13 @@ def preview_command(args):
                     kwargs=sample_kwargs,
                 )
             except Exception as e:  # Pydantic validation for EvaluationRequest
-                print(f"\n--- Sample {i+1} ---")
+                print(f"\n--- Sample {i + 1} ---")
                 print(f"  Error creating request payload for sample: {e}")
                 print(f"  Sample data: {sample_data}")
                 print("--- End Sample ---")
                 continue  # Skip to next sample
 
-            print(f"\n--- Sample {i+1} ---")
+            print(f"\n--- Sample {i + 1} ---")
 
             try:
                 response = requests.post(

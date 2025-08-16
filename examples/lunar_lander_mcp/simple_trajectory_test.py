@@ -90,7 +90,7 @@ async def test_lunar_lander_direct():
                 actions = ["NOTHING", "FIRE_MAIN", "FIRE_LEFT", "FIRE_RIGHT", "NOTHING"]
 
                 for i, action in enumerate(actions):
-                    print(f"🎮 Step {i+1}: {action}")
+                    print(f"🎮 Step {i + 1}: {action}")
 
                     # Call lander_action tool
                     result = await session.call_tool("lander_action", {"action": action})
@@ -113,7 +113,7 @@ async def test_lunar_lander_direct():
                                         "status": response_data.get("status", "Unknown"),
                                     }
 
-                                    with open(output_dir / f"step_{i+1:03d}_summary.json", "w") as f:
+                                    with open(output_dir / f"step_{i + 1:03d}_summary.json", "w") as f:
                                         json.dump(step_summary, f, indent=2)
 
                                     # Save rendered frame if available
@@ -123,14 +123,14 @@ async def test_lunar_lander_direct():
                                             image_data = frame_data.split(",")[1]
                                             image_bytes = base64.b64decode(image_data)
 
-                                            frame_path = output_dir / f"step_{i+1:03d}_{action.lower()}.png"
+                                            frame_path = output_dir / f"step_{i + 1:03d}_{action.lower()}.png"
                                             with open(frame_path, "wb") as f:
                                                 f.write(image_bytes)
                                             print(f"  💾 Saved frame: {frame_path}")
                                         else:
-                                            print(f"  ⚠️  No rendered frame in response")
+                                            print("  ⚠️  No rendered frame in response")
                                     else:
-                                        print(f"  ⚠️  No rendered_frame field in response")
+                                        print("  ⚠️  No rendered_frame field in response")
 
                                 except json.JSONDecodeError as e:
                                     print(f"  ❌ Could not parse response as JSON: {e}")

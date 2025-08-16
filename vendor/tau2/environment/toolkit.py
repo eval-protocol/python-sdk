@@ -102,18 +102,10 @@ class ToolKitBase(metaclass=ToolKitType):
     def get_statistics(self) -> dict[str, Any]:
         """Get the statistics of the ToolKit."""
         num_tools = len(self.tools)
-        num_read_tools = sum(
-            self.tool_type(name) == ToolType.READ for name in self.tools
-        )
-        num_write_tools = sum(
-            self.tool_type(name) == ToolType.WRITE for name in self.tools
-        )
-        num_think_tools = sum(
-            self.tool_type(name) == ToolType.THINK for name in self.tools
-        )
-        num_generic_tools = sum(
-            self.tool_type(name) == ToolType.GENERIC for name in self.tools
-        )
+        num_read_tools = sum(self.tool_type(name) == ToolType.READ for name in self.tools)
+        num_write_tools = sum(self.tool_type(name) == ToolType.WRITE for name in self.tools)
+        num_think_tools = sum(self.tool_type(name) == ToolType.THINK for name in self.tools)
+        num_generic_tools = sum(self.tool_type(name) == ToolType.GENERIC for name in self.tools)
         return {
             "num_tools": num_tools,
             "num_read_tools": num_read_tools,

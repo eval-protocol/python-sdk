@@ -91,7 +91,6 @@ class TestGCPTools(unittest.TestCase):
     )  # os.path.exists mock removed as not directly used by SUT for this path
     @patch("builtins.open", new_callable=mock_open)
     def test_build_and_push_docker_image_success(self, mock_open_file, mock_os_remove, mock_run_gcloud, MockGCPPath):
-
         mock_path_instance = MockGCPPath.return_value
 
         mock_dockerfile_path_obj = MagicMock(spec=Path)
@@ -276,7 +275,6 @@ class TestGCPTools(unittest.TestCase):
 
     @patch("eval_protocol.gcp_tools._run_gcloud_command")
     def test_deploy_to_cloud_run_success(self, mock_run_gcloud):
-
         # Mock for deploy command
         mock_run_gcloud.side_effect = [
             (True, "Deploy success", ""),  # For initial deploy

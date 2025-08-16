@@ -216,9 +216,7 @@ class RewardInfo(BaseModel):
     """
 
     reward: Annotated[float, Field(description="The reward received by the agent.")]
-    db_check: Annotated[
-        Optional[DBCheck], Field(description="The database check.", default=None)
-    ]
+    db_check: Annotated[Optional[DBCheck], Field(description="The database check.", default=None)]
     env_assertions: Annotated[
         Optional[list[EnvAssertionCheck]],
         Field(description="The environment assertions.", default=None),
@@ -265,9 +263,7 @@ class AgentInfo(BaseModel):
 
     implementation: str = Field(description="The type of agent.")
     llm: Optional[str] = Field(description="The LLM used by the agent.", default=None)
-    llm_args: Optional[dict] = Field(
-        description="The arguments to pass to the LLM for the agent.", default=None
-    )
+    llm_args: Optional[dict] = Field(description="The arguments to pass to the LLM for the agent.", default=None)
 
 
 class UserInfo(BaseModel):
@@ -277,9 +273,7 @@ class UserInfo(BaseModel):
 
     implementation: str = Field(description="The type of user.")
     llm: Optional[str] = Field(description="The LLM used by the user.", default=None)
-    llm_args: Optional[dict] = Field(
-        description="The arguments to pass to the LLM for the user.", default=None
-    )
+    llm_args: Optional[dict] = Field(description="The arguments to pass to the LLM for the user.", default=None)
     global_simulation_guidelines: Optional[str] = Field(
         description="The global simulation guidelines for the user.", default=None
     )
@@ -295,9 +289,7 @@ class Info(BaseModel):
     user_info: UserInfo = Field(description="User information.")
     agent_info: AgentInfo = Field(description="Agent information.")
     environment_info: EnvironmentInfo = Field(description="Environment information.")
-    seed: Optional[int] = Field(
-        description="The seed used for the simulation.", default=None
-    )
+    seed: Optional[int] = Field(description="The seed used for the simulation.", default=None)
 
 
 class TerminationReason(str, Enum):
@@ -314,31 +306,17 @@ class SimulationRun(BaseModel):
 
     id: str = Field(description="The unique identifier for the simulation run.")
     task_id: str = Field(description="The unique identifier for the task.")
-    timestamp: str = Field(
-        description="The timestamp of the simulation.", default_factory=get_now
-    )
+    timestamp: str = Field(description="The timestamp of the simulation.", default_factory=get_now)
     start_time: str = Field(description="The start time of the simulation.")
     end_time: str = Field(description="The end time of the simulation.")
     duration: float = Field(description="The duration of the simulation.")
-    termination_reason: TerminationReason = Field(
-        description="The reason for the termination of the simulation."
-    )
-    agent_cost: Optional[float] = Field(
-        description="The cost of the agent.", default=None
-    )
-    user_cost: Optional[float] = Field(
-        description="The cost of the user.", default=None
-    )
-    reward_info: Optional[RewardInfo] = Field(
-        description="The reward received by the agent.", default=None
-    )
-    messages: list[Message] = Field(
-        description="The messages exchanged between the user, agent and environment."
-    )
+    termination_reason: TerminationReason = Field(description="The reason for the termination of the simulation.")
+    agent_cost: Optional[float] = Field(description="The cost of the agent.", default=None)
+    user_cost: Optional[float] = Field(description="The cost of the user.", default=None)
+    reward_info: Optional[RewardInfo] = Field(description="The reward received by the agent.", default=None)
+    messages: list[Message] = Field(description="The messages exchanged between the user, agent and environment.")
     trial: Optional[int] = Field(description="Trial number", default=None)
-    seed: Optional[int] = Field(
-        description="Seed used for the simulation.", default=None
-    )
+    seed: Optional[int] = Field(description="Seed used for the simulation.", default=None)
 
 
 class Results(BaseModel):
@@ -346,9 +324,7 @@ class Results(BaseModel):
     Run results
     """
 
-    timestamp: Optional[str] = Field(
-        description="The timestamp of the simulation.", default_factory=get_now
-    )
+    timestamp: Optional[str] = Field(description="The timestamp of the simulation.", default_factory=get_now)
     info: Info = Field(description="Information.")
     tasks: list[Task] = Field(description="The list of tasks.")
     simulations: list[SimulationRun] = Field(description="The list of simulations.")
@@ -387,14 +363,8 @@ class Results(BaseModel):
             return False
 
         def get_task_metrics(task: Task) -> dict:
-            eval_metrics = (
-                task.evaluation_criteria.info()
-                if task.evaluation_criteria is not None
-                else {}
-            )
-            num_actions = (
-                eval_metrics["num_agent_actions"] + eval_metrics["num_user_actions"]
-            )
+            eval_metrics = task.evaluation_criteria.info() if task.evaluation_criteria is not None else {}
+            num_actions = eval_metrics["num_agent_actions"] + eval_metrics["num_user_actions"]
             if transfer_only(task):
                 num_actions = -1
             info = {

@@ -30,9 +30,7 @@ class MockTools(ToolKitBase):
             raise ValueError(f"User {user_id} not found")
 
         task_id = f"task_{len(self.db.tasks) + 1}"
-        task = Task(
-            task_id=task_id, title=title, description=description, status="pending"
-        )
+        task = Task(task_id=task_id, title=title, description=description, status="pending")
 
         self.db.tasks[task_id] = task
         self.db.users[user_id].tasks.append(task_id)
