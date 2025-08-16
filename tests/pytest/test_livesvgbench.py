@@ -47,10 +47,10 @@ def svgbench_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow
 
     for i, row in enumerate(data):
         # Format requirements as numbered list
-        requirements = "\n".join([f"{i+1}. {req}" for i, req in enumerate(row["requirements"])])
+        requirements = "\n".join([f"{i + 1}. {req}" for i, req in enumerate(row["requirements"])])
 
         # Create the generation prompt following SVGBench format
-        prompt = f"""{row['prompt']} Wrap the SVG code in an SVG code block following the example below.
+        prompt = f"""{row["prompt"]} Wrap the SVG code in an SVG code block following the example below.
 
 Example:
 ```svg
@@ -166,7 +166,7 @@ def render_svg_to_png(svg_code: str, output_path: str) -> bool:
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument(f"--window-size={width+40},{height+40}")
+        chrome_options.add_argument(f"--window-size={width + 40},{height + 40}")
 
         # Create temporary HTML file
         with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
@@ -209,7 +209,7 @@ def evaluate_with_llm_judge(image_path: str, requirements: List[str]) -> Dict[st
         Dictionary with evaluation results
     """
     # Format requirements for evaluation (exactly as in original)
-    requirements_text = "\n".join([f"{i+1}. {req}" for i, req in enumerate(requirements)])
+    requirements_text = "\n".join([f"{i + 1}. {req}" for i, req in enumerate(requirements)])
 
     # Create evaluation prompt with JSON response format
     evaluate_prompt = f"""Examine the generated image. How many of the following {len(requirements)} requirements were fulfilled?
@@ -343,7 +343,7 @@ Do all elements work together harmoniously?
 For example, colored circles arranged in Google colors should score very low for intent matching and recognizability.
 
 Original Requirements (for context):
-{chr(10).join([f"{i+1}. {req}" for i, req in enumerate(requirements)])}
+{chr(10).join([f"{i + 1}. {req}" for i, req in enumerate(requirements)])}
 
 Respond with JSON in this exact format:
 {{
@@ -493,27 +493,27 @@ def test_svg_combined_evaluation(row: EvaluationRow) -> EvaluationRow:
 
 === REQUIREMENTS EVALUATION (Listwise - Row-Specific) ===
 Score: {requirements_score:.3f}
-{requirements_result.get('reasoning', 'No reasoning provided')}
+{requirements_result.get("reasoning", "No reasoning provided")}
 
 === HUMAN PREFERENCE EVALUATION (Pointwise - Universal Rubrics) ===
 Score: {human_pref_score:.3f}
 
-🎯 Intent Matching: {human_pref_result.get('intent_matching_score', 0.0):.2f}/1.0
-{human_pref_result.get('intent_reasoning', 'No reasoning provided')}
+🎯 Intent Matching: {human_pref_result.get("intent_matching_score", 0.0):.2f}/1.0
+{human_pref_result.get("intent_reasoning", "No reasoning provided")}
 
-👁️ Content Recognizability: {human_pref_result.get('content_recognizability_score', 0.0):.2f}/1.0
-{human_pref_result.get('content_reasoning', 'No reasoning provided')}
+👁️ Content Recognizability: {human_pref_result.get("content_recognizability_score", 0.0):.2f}/1.0
+{human_pref_result.get("content_reasoning", "No reasoning provided")}
 
-📐 Spatial Design Quality: {human_pref_result.get('spatial_design_score', 0.0):.2f}/1.0
-{human_pref_result.get('spatial_reasoning', 'No reasoning provided')}
+📐 Spatial Design Quality: {human_pref_result.get("spatial_design_score", 0.0):.2f}/1.0
+{human_pref_result.get("spatial_reasoning", "No reasoning provided")}
 
-👤 User Experience: {human_pref_result.get('user_experience_score', 0.0):.2f}/1.0
-{human_pref_result.get('ux_reasoning', 'No reasoning provided')}
+👤 User Experience: {human_pref_result.get("user_experience_score", 0.0):.2f}/1.0
+{human_pref_result.get("ux_reasoning", "No reasoning provided")}
 
-🎨 Visual Coherence: {human_pref_result.get('visual_coherence_score', 0.0):.2f}/1.0
-{human_pref_result.get('coherence_reasoning', 'No reasoning provided')}
+🎨 Visual Coherence: {human_pref_result.get("visual_coherence_score", 0.0):.2f}/1.0
+{human_pref_result.get("coherence_reasoning", "No reasoning provided")}
 
-{human_pref_result.get('overall_reasoning', 'No overall reasoning provided')}
+{human_pref_result.get("overall_reasoning", "No overall reasoning provided")}
 
 === FINAL COMBINED SCORE ===
 Requirements: {requirements_score:.3f} × 30% = {requirements_score * 0.3:.3f}

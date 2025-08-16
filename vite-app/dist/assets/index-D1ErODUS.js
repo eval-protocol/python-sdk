@@ -81,7 +81,7 @@ In order to be iterable, non-array objects must have a [Symbol.iterator]() metho
             path: iss.path ? [${X}, ...iss.path] : [${X}]
           })));
         }
-        
+
         if (${V}.value === undefined) {
           if (${X} in input) {
             newResult[${X}] = undefined;

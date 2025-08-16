@@ -188,12 +188,12 @@ class HuggingFaceAdapter:
             return
 
         # Create completion parameters
-        completion_params = CompletionParams(
-            model=model_name,
-            temperature=temperature,
-            max_tokens=max_tokens,
+        completion_params: CompletionParams = {
+            "model": model_name,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
             **completion_params_kwargs,
-        )
+        }
 
         # Convert each row
         for i in range(offset, end_idx):

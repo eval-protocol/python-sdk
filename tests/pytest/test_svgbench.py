@@ -46,10 +46,10 @@ def svgbench_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow
 
     for i, row in enumerate(data):
         # Format requirements as numbered list
-        requirements = "\n".join([f"{i+1}. {req}" for i, req in enumerate(row["requirements"])])
+        requirements = "\n".join([f"{i + 1}. {req}" for i, req in enumerate(row["requirements"])])
 
         # Create the generation prompt following SVGBench format
-        prompt = f"""{row['prompt']} Wrap the SVG code in an SVG code block following the example below.
+        prompt = f"""{row["prompt"]} Wrap the SVG code in an SVG code block following the example below.
 
 Example:
 ```svg
@@ -165,7 +165,7 @@ def render_svg_to_png(svg_code: str, output_path: str) -> bool:
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument(f"--window-size={width+40},{height+40}")
+        chrome_options.add_argument(f"--window-size={width + 40},{height + 40}")
 
         # Create temporary HTML file
         with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
@@ -208,7 +208,7 @@ def evaluate_with_llm_judge(image_path: str, requirements: List[str]) -> Dict[st
         Dictionary with evaluation results
     """
     # Format requirements for evaluation (exactly as in original)
-    requirements_text = "\n".join([f"{i+1}. {req}" for i, req in enumerate(requirements)])
+    requirements_text = "\n".join([f"{i + 1}. {req}" for i, req in enumerate(requirements)])
 
     # Create evaluation prompt with JSON response format
     evaluate_prompt = f"""Examine the generated image. How many of the following {len(requirements)} requirements were fulfilled?

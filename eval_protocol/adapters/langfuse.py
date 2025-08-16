@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Optional
 
-from eval_protocol.models import CompletionParams, EvaluationRow, InputMetadata, Message
+from eval_protocol.models import EvaluationRow, InputMetadata, Message
 
 logger = logging.getLogger(__name__)
 
@@ -277,20 +277,20 @@ class LangfuseAdapter:
             InputMetadata object
         """
         # Extract completion parameters from observations
-        completion_params = CompletionParams()
+        completion_params = {}
 
         # Look for model parameters in observations
         for obs in observations:
             if hasattr(obs, "model") and obs.model:
-                completion_params.model = obs.model
+                completion_params["model"] = obs.model
             if hasattr(obs, "model_parameters") and obs.model_parameters:
                 params = obs.model_parameters
                 if "temperature" in params:
-                    completion_params.temperature = params["temperature"]
+                    completion_params["temperature"] = params["temperature"]
                 if "max_tokens" in params:
-                    completion_params.max_tokens = params["max_tokens"]
+                    completion_params["max_tokens"] = params["max_tokens"]
                 if "top_p" in params:
-                    completion_params.top_p = params["top_p"]
+                    completion_params["top_p"] = params["top_p"]
                 break
 
         # Create dataset info from trace metadata
