@@ -229,7 +229,7 @@ const ChartExport = <T extends Record<string, unknown>>({
   ];
 
   return (
-    <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white">
+    <div className="mb-4 bg-white">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-gray-900">Chart Export</h3>
         <div className="flex items-center space-x-2">

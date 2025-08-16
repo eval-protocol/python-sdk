@@ -74,7 +74,7 @@ export function usePivotData(
 			aggregator,
 			filter: createFilterFunction(state.filterConfig),
 		});
-	}, [hasValidConfiguration, processedRowFields, processedColumnFields, processedValueField, aggregator]);
+	}, [hasValidConfiguration, processedRowFields, processedColumnFields, processedValueField, aggregator, state.filterConfig]);
 
 	return {
 		rowFields: processedRowFields,
