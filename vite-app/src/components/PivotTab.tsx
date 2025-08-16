@@ -4,10 +4,19 @@ import ChartExport from "./ChartExport";
 import SearchableSelect from "./SearchableSelect";
 import Button from "./Button";
 import FilterSelector from "./FilterSelector";
-import { state } from "../App";
 import { type FilterGroup } from "../types/filters";
-import { createFilterFunction } from "../util/filter-utils";
-import { computePivot } from "../util/pivot";
+import { usePivotData } from "../hooks/usePivotData";
+import {
+  createFieldHandlerSet,
+  getAvailableKeys,
+  getPivotConfig,
+  updatePivotConfig,
+  resetPivotConfig,
+  updateFilterConfig,
+  getFlattenedDataset,
+  createFilterFunction,
+  getFilterConfig,
+} from "../util/field-processors";
 
 interface FieldSelectorProps {
   title: string;
@@ -127,61 +136,35 @@ const AggregatorSelector = ({
 );
 
 const PivotTab = observer(() => {
-  const { pivotConfig } = state;
+  const pivotConfig = getPivotConfig();
+  const availableKeys = getAvailableKeys();
 
-  const updateRowFields = (index: number, value: string) => {
-    const newRowFields = [...pivotConfig.selectedRowFields];
-    newRowFields[index] = value;
-    state.updatePivotConfig({ selectedRowFields: newRowFields });
-  };
-
-  const updateColumnFields = (index: number, value: string) => {
-    const newColumnFields = [...pivotConfig.selectedColumnFields];
-    newColumnFields[index] = value;
-    state.updatePivotConfig({ selectedColumnFields: newColumnFields });
-  };
+  // Use the pivot data hook
+  const pivotData = usePivotData({
+    rowFields: pivotConfig.selectedRowFields,
+    columnFields: pivotConfig.selectedColumnFields,
+    valueField: pivotConfig.selectedValueField,
+    aggregator: pivotConfig.selectedAggregator as
+      | "count"
+      | "sum"
+      | "avg"
+      | "min"
+      | "max",
+    showRowTotals: true,
+    showColumnTotals: true,
+  });
 
   const updateValueField = (value: string) => {
-    state.updatePivotConfig({ selectedValueField: value });
+    updatePivotConfig({ selectedValueField: value });
   };
 
   const updateAggregator = (value: string) => {
-    state.updatePivotConfig({ selectedAggregator: value });
+    updatePivotConfig({ selectedAggregator: value });
   };
 
   const updateFilters = (filters: FilterGroup[]) => {
-    state.updateFilterConfig(filters);
+    updateFilterConfig(filters);
   };
-
-  const createFieldHandler = (
-    updater: (index: number, value: string) => void
-  ) => {
-    return (index: number, value: string) => {
-      updater(index, value);
-    };
-  };
-
-  const createAddHandler = (
-    fields: string[],
-    updater: (fields: string[]) => void
-  ) => {
-    return () => {
-      if (fields.length < 3) {
-        updater([...fields, ""]);
-      }
-    };
-  };
-
-  const createRemoveHandler = (
-    fields: string[],
-    updater: (fields: string[]) => void
-  ) => {
-    return (index: number) => {
-      updater(fields.filter((_, i) => i !== index));
-    };
-  };
-
-  const availableKeys = state.flattenedDatasetKeys;
 
   return (
     <div>
@@ -196,7 +179,7 @@ const PivotTab = observer(() => {
       {/* Controls Section with Reset Button */}
       <div className="mb-4 flex justify-between items-center">
         <Button
-          onClick={() => state.resetPivotConfig()}
+          onClick={() => resetPivotConfig()}
           variant="secondary"
           size="sm"
         >
@@ -207,13 +190,8 @@ const PivotTab = observer(() => {
       <FieldSelector
         title="Row Fields"
         fields={pivotConfig.selectedRowFields}
-        onFieldChange={createFieldHandler(updateRowFields)}
-        onAddField={createAddHandler(pivotConfig.selectedRowFields, (fields) =>
-          state.updatePivotConfig({ selectedRowFields: fields })
-        )}
-        onRemoveField={createRemoveHandler(
-          pivotConfig.selectedRowFields,
-          (fields) => state.updatePivotConfig({ selectedRowFields: fields })
+        {...createFieldHandlerSet(pivotConfig.selectedRowFields, (fields) =>
+          updatePivotConfig({ selectedRowFields: fields })
         )}
         availableKeys={availableKeys}
         variant="row"
@@ -222,14 +200,8 @@ const PivotTab = observer(() => {
       <FieldSelector
         title="Column Fields"
         fields={pivotConfig.selectedColumnFields}
-        onFieldChange={createFieldHandler(updateColumnFields)}
-        onAddField={createAddHandler(
-          pivotConfig.selectedColumnFields,
-          (fields) => state.updatePivotConfig({ selectedColumnFields: fields })
-        )}
-        onRemoveField={createRemoveHandler(
-          pivotConfig.selectedColumnFields,
-          (fields) => state.updatePivotConfig({ selectedColumnFields: fields })
+        {...createFieldHandlerSet(pivotConfig.selectedColumnFields, (fields) =>
+          updatePivotConfig({ selectedColumnFields: fields })
         )}
         availableKeys={availableKeys}
         variant="column"
@@ -248,7 +220,7 @@ const PivotTab = observer(() => {
       />
 
       <FilterSelector
-        filters={state.filterConfig}
+        filters={getFilterConfig()}
         onFiltersChange={updateFilters}
         availableKeys={availableKeys}
         title="Filters"
@@ -265,72 +237,27 @@ const PivotTab = observer(() => {
       */}
 
       {/* Chart Export Component */}
-      {pivotConfig.selectedRowFields.some((field) => field !== "") &&
-        pivotConfig.selectedColumnFields.some((field) => field !== "") && (
-          <ChartExport
-            pivotData={computePivot({
-              data: state.flattenedDataset,
-              rowFields: pivotConfig.selectedRowFields.filter(
-                (field) => field !== ""
-              ) as (keyof (typeof state.flattenedDataset)[number])[],
-              columnFields: pivotConfig.selectedColumnFields.filter(
-                (field) => field !== ""
-              ) as (keyof (typeof state.flattenedDataset)[number])[],
-              valueField:
-                pivotConfig.selectedValueField as keyof (typeof state.flattenedDataset)[number],
-              aggregator: pivotConfig.selectedAggregator as
-                | "count"
-                | "sum"
-                | "avg"
-                | "min"
-                | "max",
-              filter: createFilterFunction(state.filterConfig),
-            })}
-            rowFields={
-              pivotConfig.selectedRowFields.filter(
-                (field) => field !== ""
-              ) as (keyof (typeof state.flattenedDataset)[number])[]
-            }
-            columnFields={
-              pivotConfig.selectedColumnFields.filter(
-                (field) => field !== ""
-              ) as (keyof (typeof state.flattenedDataset)[number])[]
-            }
-            valueField={
-              pivotConfig.selectedValueField as keyof (typeof state.flattenedDataset)[number]
-            }
-            aggregator={pivotConfig.selectedAggregator}
-            showRowTotals
-            showColumnTotals
-          />
-        )}
+      {pivotData.hasValidConfiguration && (
+        <ChartExport
+          pivotData={pivotData.pivotResult}
+          rowFields={pivotData.rowFields}
+          columnFields={pivotData.columnFields}
+          valueField={pivotData.valueField}
+          aggregator={pivotData.aggregator}
+          showRowTotals
+          showColumnTotals
+        />
+      )}
 
       <PivotTable
-        data={state.flattenedDataset}
-        rowFields={
-          pivotConfig.selectedRowFields.filter(
-            (field) => field !== ""
-          ) as (keyof (typeof state.flattenedDataset)[number])[]
-        }
-        columnFields={
-          pivotConfig.selectedColumnFields.filter(
-            (field) => field !== ""
-          ) as (keyof (typeof state.flattenedDataset)[number])[]
-        }
-        valueField={
-          pivotConfig.selectedValueField as keyof (typeof state.flattenedDataset)[number]
-        }
-        aggregator={
-          pivotConfig.selectedAggregator as
-            | "count"
-            | "sum"
-            | "avg"
-            | "min"
-            | "max"
-        }
+        data={getFlattenedDataset()}
+        rowFields={pivotData.rowFields}
+        columnFields={pivotData.columnFields}
+        valueField={pivotData.valueField}
+        aggregator={pivotData.aggregator}
         showRowTotals
         showColumnTotals
-        filter={createFilterFunction(state.filterConfig)}
+        filter={createFilterFunction()}
       />
     </div>
   );

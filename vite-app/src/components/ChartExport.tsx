@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState } from "react";
 import { Chart as ChartJS, registerables } from "chart.js";
 import { Chart } from "react-chartjs-2";
 import html2canvas from "html2canvas-oklch";
@@ -159,10 +159,6 @@ const ChartExport = <T extends Record<string, unknown>>({
   }, [pivotData, rowFields, columnFields, selectedChartType, showRowTotals]);
 
   const chartData = getChartData();
-
-  // Debug logging
-  console.log("Chart data:", chartData);
-  console.log("Chart type:", selectedChartType);
 
   // Don't render chart if no data
   if (!chartData.labels.length || !chartData.datasets.length) {
