@@ -1,11 +1,13 @@
 import { observer } from "mobx-react";
 import PivotTable from "./PivotTable";
+import ChartExport from "./ChartExport";
 import SearchableSelect from "./SearchableSelect";
 import Button from "./Button";
 import FilterSelector from "./FilterSelector";
 import { state } from "../App";
 import { type FilterGroup } from "../types/filters";
 import { createFilterFunction } from "../util/filter-utils";
+import { computePivot } from "../util/pivot";
 
 interface FieldSelectorProps {
   title: string;
@@ -261,6 +263,47 @@ const PivotTab = observer(() => {
         - Example: Group 2 (OR): field3 = "value3" OR field4 = "value4"
         - Result: (field1 = "value1" AND field2 > 10) AND (field3 = "value3" OR field4 = "value4")
       */}
+
+      {/* Chart Export Component */}
+      {pivotConfig.selectedRowFields.some((field) => field !== "") &&
+        pivotConfig.selectedColumnFields.some((field) => field !== "") && (
+          <ChartExport
+            pivotData={computePivot({
+              data: state.flattenedDataset,
+              rowFields: pivotConfig.selectedRowFields.filter(
+                (field) => field !== ""
+              ) as (keyof (typeof state.flattenedDataset)[number])[],
+              columnFields: pivotConfig.selectedColumnFields.filter(
+                (field) => field !== ""
+              ) as (keyof (typeof state.flattenedDataset)[number])[],
+              valueField:
+                pivotConfig.selectedValueField as keyof (typeof state.flattenedDataset)[number],
+              aggregator: pivotConfig.selectedAggregator as
+                | "count"
+                | "sum"
+                | "avg"
+                | "min"
+                | "max",
+              filter: createFilterFunction(state.filterConfig),
+            })}
+            rowFields={
+              pivotConfig.selectedRowFields.filter(
+                (field) => field !== ""
+              ) as (keyof (typeof state.flattenedDataset)[number])[]
+            }
+            columnFields={
+              pivotConfig.selectedColumnFields.filter(
+                (field) => field !== ""
+              ) as (keyof (typeof state.flattenedDataset)[number])[]
+            }
+            valueField={
+              pivotConfig.selectedValueField as keyof (typeof state.flattenedDataset)[number]
+            }
+            aggregator={pivotConfig.selectedAggregator}
+            showRowTotals
+            showColumnTotals
+          />
+        )}
 
       <PivotTable
         data={state.flattenedDataset}
