@@ -182,7 +182,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         # This is crucial for proper tool call ID management in add_tool_response
         assistant_message_for_history = {
             "role": "assistant",
-            "content": response["choices"][0]["message"]["content"],
+            "content": response["choices"][0]["message"].get("content", ""),
         }
         usage_stats = CompletionUsage(
             prompt_tokens=response["usage"]["prompt_tokens"],
