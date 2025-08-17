@@ -59,9 +59,7 @@ def main(domain: str):
 
     except KeyError:
         available_domains = registry.get_domains()
-        logger.error(
-            f"Domain '{domain}' not found. Available domains: {available_domains}"
-        )
+        logger.error(f"Domain '{domain}' not found. Available domains: {available_domains}")
         exit(1)
     except Exception as e:
         logger.error(f"Failed to start domain documentation server: {str(e)}")

@@ -43,7 +43,6 @@ import subprocess
 
 # --- End-to-End Script Tests for Math Example ---
 class TestMathExampleEndToEndScripts:
-
     BASE_MATH_EXAMPLE_PATH = os.path.join(os.path.dirname(__file__), "../examples/math_example")
 
     def run_script(
@@ -201,7 +200,6 @@ class TestMathExampleEndToEndScripts:
 
 # --- End-to-End Script Tests for Math Example (OpenR1) ---
 class TestMathExampleOpenR1EndToEndScripts:
-
     BASE_MATH_EXAMPLE_OPENR1_PATH = os.path.join(os.path.dirname(__file__), "../examples/math_example_openr1")
 
     def run_script(

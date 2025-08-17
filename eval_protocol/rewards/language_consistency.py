@@ -646,7 +646,7 @@ def language_consistency_reward(
     if total_counted == 0:
         return EvaluateResult(
             score=0.0,
-            reason=f"No language markers found in model response to evaluate.",
+            reason="No language markers found in model response to evaluate.",
             metrics={
                 "language_consistency": MetricResult(
                     score=0.0,

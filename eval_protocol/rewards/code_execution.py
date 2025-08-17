@@ -276,7 +276,6 @@ def _execute_code_in_process(execute_func: Callable, args: Tuple, timeout: int =
     Returns:
         Dictionary with execution results
     """
-    import multiprocessing
 
     manager = multiprocessing.Manager()
     result_dict = manager.dict()

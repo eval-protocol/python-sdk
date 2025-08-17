@@ -1,4 +1,6 @@
 import json
+import logging
+import os
 import re
 from typing import Any, Optional
 
@@ -7,8 +9,6 @@ from litellm import acompletion, completion_cost
 from litellm.caching.caching import Cache
 from litellm.main import ModelResponse, Usage
 from loguru import logger
-import logging
-import os
 
 from vendor.tau2.config import (
     DEFAULT_LLM_CACHE_TYPE,

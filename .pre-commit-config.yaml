@@ -1,43 +1,29 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+exclude: |
+  (^vite-app/|\.snap$)
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
     -   id: trailing-whitespace
+        exclude: "(^vite-app/|\\.snap$)"
     -   id: end-of-file-fixer
+        exclude: "(^vite-app/|\\.snap$)"
     -   id: check-yaml
     -   id: check-added-large-files
     -   id: check-merge-conflict
     -   id: check-toml
     -   id: detect-private-key
 
--   repo: https://github.com/psf/black
-    rev: 25.1.0
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.8
     hooks:
-    -   id: black
-        args: [--line-length=119]
+    -   id: ruff-format
+    -   id: ruff
+        args: ["--fix"]
 
--   repo: https://github.com/pycqa/isort
-    rev: 6.0.1
+-   repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.403
     hooks:
-    -   id: isort
-        name: isort (python)
-        args: ["--profile", "black", "--line-length", "119", "--filter-files"]
-
--   repo: https://github.com/pycqa/flake8
-    rev: 7.3.0
-    hooks:
-    -   id: flake8
-        args: [--max-line-length=119, --max-complexity=100, "--ignore=E402,F401,F541,W503,E203,F811,E226,F841,E704,E713,E712,E231,E731,E501"]
-        # additional_dependencies: [flake8-docstrings, flake8-import-order] # Optional: add flake8 plugins
-
--   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.17.0
-    hooks:
-    -   id: mypy
-        args: [--ignore-missing-imports, --install-types, --non-interactive]
-        additional_dependencies:
-        - types-requests
-        - types-setuptools
-        # Add other types-* packages your project uses
+    -   id: pyright

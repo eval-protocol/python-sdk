@@ -40,8 +40,7 @@ class TaxiSimServer(TaxiAdapter, SimulationServerBase):
         # Validate action
         if not action or not isinstance(action, str):
             raise ValueError(
-                f"Invalid action parameter: '{action}'. "
-                f"Must be a non-empty string. Valid actions: {self.ACTION_NAMES}"
+                f"Invalid action parameter: '{action}'. Must be a non-empty string. Valid actions: {self.ACTION_NAMES}"
             )
 
         action = action.strip().upper()
@@ -133,7 +132,7 @@ def main():
 
     args = parser.parse_args()
 
-    print(f"🚀 Starting Taxi Simulation Server")
+    print("🚀 Starting Taxi Simulation Server")
     print(f"🌐 Host: {args.host}")
     print(f"🌐 Port: {args.port}")
     print("🎯 Framework: Unified SimulationServerBase")

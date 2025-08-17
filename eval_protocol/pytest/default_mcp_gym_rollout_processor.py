@@ -86,12 +86,12 @@ class MCPServerManager:
             try:
                 with open(self._log_file_path, "r") as f:
                     log_content = f.read()
-                print(f"❌ Server failed to start!")
+                print("❌ Server failed to start!")
                 print(f"📋 Server log ({self._log_file_path}):")
                 print("=" * 50)
                 print(log_content)
                 print("=" * 50)
-                raise RuntimeError(f"Server failed to start or become ready. Check log above for details.")
+                raise RuntimeError("Server failed to start or become ready. Check log above for details.")
             except Exception as e:
                 stdout, stderr = self.process.communicate()
                 raise RuntimeError(f"Server failed to start or become ready. stderr: {stderr}, log error: {e}")
@@ -108,7 +108,7 @@ class MCPServerManager:
         while time.time() - start_time < timeout:
             # Check if process is still running
             if self.process.poll() is not None:
-                print(f"Server process exited early")
+                print("Server process exited early")
                 return False
 
             try:

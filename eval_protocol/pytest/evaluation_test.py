@@ -590,13 +590,13 @@ def evaluation_test(  # noqa: C901
 
                     # Check threshold after logging
                     if threshold is not None and not passed:
-                        assert (
-                            agg_score >= threshold.success
-                        ), f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
+                        assert agg_score >= threshold.success, (
+                            f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
+                        )
                         if threshold.standard_deviation is not None:
-                            assert (
-                                score_std <= threshold.standard_deviation
-                            ), f"Standard deviation {score_std:.3f} above threshold {threshold.standard_deviation}"
+                            assert score_std <= threshold.standard_deviation, (
+                                f"Standard deviation {score_std:.3f} above threshold {threshold.standard_deviation}"
+                            )
 
                 except AssertionError:
                     _log_eval_error("finished", data if "data" in locals() else None, passed=False)
@@ -944,9 +944,9 @@ def run_evaluation_test_direct(
             pass
 
         if passed_threshold is not None and not passed:
-            assert (
-                agg_score >= passed_threshold.success
-            ), f"Aggregated score {agg_score:.3f} below threshold {passed_threshold}"
+            assert agg_score >= passed_threshold.success, (
+                f"Aggregated score {agg_score:.3f} below threshold {passed_threshold}"
+            )
 
         return {"summary": summary_obj, "results": all_results}
     except Exception:

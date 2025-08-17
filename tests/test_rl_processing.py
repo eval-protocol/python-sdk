@@ -9,14 +9,11 @@ from typing import (  # Optional was already here, this is fine.
 import pytest
 
 from eval_protocol.agent.models import StepData
-from eval_protocol.models import EvaluateResult
-from eval_protocol.models import Message as RewardKitMessage
-from eval_protocol.models import StepOutput
+from eval_protocol.models import EvaluateResult, Message as RewardKitMessage, StepOutput
 from eval_protocol.rl_processing import RLDataAligner
 
 
 class TestRLDataAligner:
-
     def create_mock_step_data(
         self,
         system_step_index: int,

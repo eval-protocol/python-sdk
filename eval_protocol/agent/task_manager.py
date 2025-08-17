@@ -918,7 +918,7 @@ class TaskManager:
         output_path = Path(output_file)
 
         try:
-            self.logger.info(f"=== TRAJECTORY SAVE DEBUG START ===")
+            self.logger.info("=== TRAJECTORY SAVE DEBUG START ===")
             self.logger.info(f"Saving trajectory data to: {output_path}")
             self.logger.info(f"Chosen directory: {chosen_dir}")
             self.logger.info(f"Individual results count: {len(aggregated_result.get('individual_results', []))}")
@@ -992,7 +992,7 @@ class TaskManager:
 
             self.logger.info(f"Successfully saved trajectory data to: {output_path}")
             self.logger.info(f"Trajectory file size: {output_path.stat().st_size} bytes")
-            self.logger.info(f"=== TRAJECTORY SAVE DEBUG END ===")
+            self.logger.info("=== TRAJECTORY SAVE DEBUG END ===")
             return str(output_path)
 
         except Exception as e:

@@ -29,7 +29,7 @@ class CliffWalkingAdapter(EnvironmentAdapter):
         """
         print(f"🔍 CliffWalkingAdapter.create_environment: config: {config}")
         env = CliffWalkingEnv(render_mode="ansi", is_slippery=False)
-        print(f"🔍 CliffWalkingAdapter.create_environment: Created CliffWalkingEnv")
+        print("🔍 CliffWalkingAdapter.create_environment: Created CliffWalkingEnv")
         return env
 
     def create_environment_with_seed(

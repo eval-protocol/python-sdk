@@ -127,7 +127,7 @@ async def main():
                 if not fs_instance_id:
                     raise ValueError(f"Instance ID not found for filesystem instance #{i}")
 
-                logger.info(f"\n--- Testing Filesystem Instance #{i+1} (ID: {fs_instance_id}) ---")
+                logger.info(f"\n--- Testing Filesystem Instance #{i + 1} (ID: {fs_instance_id}) ---")
 
                 # --- Verify Initial State ---
                 logger.info(f"[{fs_instance_id}] Verifying initial state...")

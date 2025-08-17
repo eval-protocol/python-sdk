@@ -29,9 +29,7 @@ else:
 # Check if data directory exists and is accessible
 if not DATA_DIR.exists():
     logger.warning(f"Data directory does not exist: {DATA_DIR}")
-    logger.warning(
-        "Set TAU2_DATA_DIR environment variable to point to your data directory"
-    )
+    logger.warning("Set TAU2_DATA_DIR environment variable to point to your data directory")
     logger.warning("Or ensure the data directory exists in the expected location")
 
 
@@ -72,11 +70,7 @@ def get_commit_hash() -> str:
     Get the commit hash of the current directory.
     """
     try:
-        commit_hash = (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], text=True)
-            .strip()
-            .split("\n")[0]
-        )
+        commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip().split("\n")[0]
     except Exception as e:
         logger.error(f"Failed to get git hash: {e}")
         commit_hash = "unknown"

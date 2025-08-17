@@ -102,8 +102,7 @@ class TestLoadRewardFunction:
 # --- Tests for FastAPI app endpoints ---
 from fastapi.testclient import TestClient
 
-from eval_protocol.generic_server import EvaluationRequest
-from eval_protocol.generic_server import app as generic_fastapi_app
+from eval_protocol.generic_server import EvaluationRequest, app as generic_fastapi_app
 from eval_protocol.models import EvaluateResult, Message, MetricResult
 
 

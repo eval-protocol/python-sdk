@@ -145,9 +145,7 @@ class EnvironmentManager:
 
         @self.app.post("/start_environment")
         async def start_env(request: StartEnvironmentRequest) -> EnvironmentResponse:
-            env_id = self.start_environment(
-                domain=request.domain, env_id=request.env_id
-            )
+            env_id = self.start_environment(domain=request.domain, env_id=request.env_id)
             return EnvironmentResponse(env_id=env_id)
 
         @self.app.post("/{env_id}/set_state")
@@ -169,9 +167,7 @@ class EnvironmentManager:
             return self.get_environment_info(env_id)
 
         @self.app.post("/{env_id}/tools/{tool_name}")
-        async def execute_tool(
-            env_id: str, tool_name: str, request: ToolCall
-        ) -> ToolMessage:
+        async def execute_tool(env_id: str, tool_name: str, request: ToolCall) -> ToolMessage:
             return self.execute_tool(env_id=env_id, tool_call=request)
 
     def get_environment_id(self) -> str:
@@ -210,12 +206,8 @@ class EnvironmentManager:
         Set the state of an environment.
         """
 
-        self.environments[env_id].set_state(
-            initialization_data, initialization_actions, message_history
-        )
-        self.trajectories[env_id] = [
-            msg for msg in message_history if is_valid_environment_message(msg)
-        ]
+        self.environments[env_id].set_state(initialization_data, initialization_actions, message_history)
+        self.trajectories[env_id] = [msg for msg in message_history if is_valid_environment_message(msg)]
 
     def stop_environment(self, env_id: str):
         """
@@ -225,9 +217,7 @@ class EnvironmentManager:
             # Get the router instance
             router = self.app.router
             # Filter out the routes we want to remove
-            router.routes = [
-                route for route in router.routes if route not in self.routes[env_id]
-            ]
+            router.routes = [route for route in router.routes if route not in self.routes[env_id]]
             del self.routes[env_id]
 
         if env_id in self.environments:

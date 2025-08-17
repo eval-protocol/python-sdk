@@ -50,7 +50,7 @@ async def test_control_plane_separation():
         successful_path = ["DOWN", "RIGHT", "RIGHT", "RIGHT", "DOWN", "DOWN"]
 
         for i, action in enumerate(successful_path):
-            print(f"\n--- Step {i+1}: {action} ---")
+            print(f"\n--- Step {i + 1}: {action} ---")
 
             # Execute tool call (data plane)
             tool_result = await session.call_tool("lake_move", {"action": action})

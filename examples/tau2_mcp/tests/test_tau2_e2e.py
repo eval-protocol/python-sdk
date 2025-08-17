@@ -31,7 +31,6 @@ warnings.filterwarnings("ignore", message=".*serializer warnings.*")
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*class-based.*config.*")
 
 # Set environment variable to suppress pydantic warnings at runtime
-import os
 
 os.environ["PYTHONWARNINGS"] = "ignore::UserWarning:pydantic,ignore::DeprecationWarning:pydantic"
 
@@ -140,12 +139,12 @@ class MCPServerManager:
             try:
                 with open(self._log_file_path, "r") as f:
                     log_content = f.read()
-                print(f"❌ Server failed to start!")
+                print("❌ Server failed to start!")
                 print(f"📋 Server log ({self._log_file_path}):")
                 print("=" * 50)
                 print(log_content)
                 print("=" * 50)
-                raise RuntimeError(f"Server failed to start. Check log above for details.")
+                raise RuntimeError("Server failed to start. Check log above for details.")
             except Exception as e:
                 stdout, stderr = self.process.communicate()
                 raise RuntimeError(f"Server failed to start. stderr: {stderr}, log error: {e}")
@@ -438,9 +437,9 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
                     }
 
                 states.append(state_info)
-                print(f"    Step {i+1}: {state_info}")
+                print(f"    Step {i + 1}: {state_info}")
             except (json.JSONDecodeError, TypeError) as e:
-                pytest.fail(f"❌ Invalid JSON in tool response {i+1} for env {env_idx}: {response}. Error: {e}")
+                pytest.fail(f"❌ Invalid JSON in tool response {i + 1} for env {env_idx}: {response}. Error: {e}")
 
         # For airline, we expect state to remain consistent between steps (same reservation details)
         if len(states) >= 2:
@@ -467,7 +466,7 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
     print("\n🏁 Validating trajectory termination...")
     _validate_trajectory_termination(env_recordings, dataset)
 
-    print(f"✅ Recording integrity validation completed")
+    print("✅ Recording integrity validation completed")
 
 
 def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
@@ -554,7 +553,7 @@ def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
                 print(
                     f"⚠️  WARNING: Env {env_idx}: State {longest_sequence[0]} repeated {longest_sequence[1]} times starting from step {longest_sequence[2]}."
                 )
-                print(f"    This might indicate session state or control plane termination issues.")
+                print("    This might indicate session state or control plane termination issues.")
                 print(f"    All states: {[state for _, state in reservation_states]}")
         else:
             print(f"  ✅ Env {env_idx}: No repeated states detected - good state progression!")
@@ -598,9 +597,9 @@ def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
         print(f"  ℹ️  {missing_envs} environments not recorded (likely terminated immediately)")
 
     if terminated_steps == 0:
-        print(f"  ⚠️  Warning: No terminated=True found in metadata (may be expected for short runs)")
+        print("  ⚠️  Warning: No terminated=True found in metadata (may be expected for short runs)")
     else:
-        print(f"  ✅ Found some termination signals - control plane appears to be working")
+        print("  ✅ Found some termination signals - control plane appears to be working")
 
 
 def _validate_no_tool_calls_after_termination(env_recordings: Dict, dataset: List[Dict]):
@@ -688,11 +687,11 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
         if total_steps >= 8 and not last_terminated:
             print(f"  ⚠️  Env {env_idx}: Trajectory has {total_steps} steps but final metadata shows terminated=False.")
             print(
-                f"    This might indicate: 1) Conversation still in progress, 2) Control plane sync issues, or 3) User still interacting"
+                "    This might indicate: 1) Conversation still in progress, 2) Control plane sync issues, or 3) User still interacting"
             )
             print(f"    Last metadata: {last_tool_metadata}")
         elif last_terminated:
-            print(f"    ✅ Trajectory properly terminated")
+            print("    ✅ Trajectory properly terminated")
         else:
             print(f"    ℹ️  Short trajectory ({total_steps} steps) - termination not required")
 
@@ -914,7 +913,6 @@ async def test_fireworks_multi_airline_environment_sessions(
     # Start server for this test
     server = _create_test_server(9700)
     try:
-
         # Set up recording
         os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_airline_recording_file
 
@@ -942,9 +940,9 @@ async def test_fireworks_multi_airline_environment_sessions(
         duration = time.time() - start_time
 
         # Validate results
-        assert len(evaluation_rows) == len(
-            multi_env_airline_dataset
-        ), "Should have evaluation row for each environment"
+        assert len(evaluation_rows) == len(multi_env_airline_dataset), (
+            "Should have evaluation row for each environment"
+        )
         assert all(eval_row.get_steps() > 0 for eval_row in evaluation_rows), "All evaluation rows should have steps"
 
         print(
@@ -1057,7 +1055,6 @@ async def test_entire_airline_dataset(multi_env_airline_full_dataset, fireworks_
     # Start server for this test
     server = _create_test_server(9700)
     try:
-
         # Set up recording
         os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_airline_recording_file
 
@@ -1090,9 +1087,9 @@ async def test_entire_airline_dataset(multi_env_airline_full_dataset, fireworks_
         duration = time.time() - start_time
 
         # Validate results
-        assert len(evaluation_rows) == len(
-            multi_env_airline_full_dataset
-        ), "Should have evaluation row for each environment"
+        assert len(evaluation_rows) == len(multi_env_airline_full_dataset), (
+            "Should have evaluation row for each environment"
+        )
         assert all(eval_row.get_steps() > 0 for eval_row in evaluation_rows), "All evaluation rows should have steps"
 
         print(
@@ -1211,7 +1208,7 @@ async def test_entire_airline_dataset(multi_env_airline_full_dataset, fireworks_
             all_results.append(result)
 
         # Summary Statistics
-        print(f"\n📈 Summary Statistics:")
+        print("\n📈 Summary Statistics:")
         avg_score = sum(r["score"] for r in all_results) / len(all_results) if all_results else 0
         total_cost = sum(r["cost_info"]["total_cost"] for r in all_results)
 
@@ -1219,7 +1216,7 @@ async def test_entire_airline_dataset(multi_env_airline_full_dataset, fireworks_
             f"   {policy.model_id}: {avg_score:.2%} success rate ({sum(r['score'] for r in all_results)}/{len(all_results)}) - Cost: ${total_cost:.2f}"
         )
         print(f"\n💰 Total evaluation cost: ${total_cost:.2f}")
-        print(f"📊 Cost calculation uses actual API usage data.")
+        print("📊 Cost calculation uses actual API usage data.")
 
         def save_results_jsonl(
             evaluation_records: List[Dict], output_file: str = "evaluation_outputs/all_evaluations.jsonl"
@@ -1307,7 +1304,7 @@ async def test_entire_airline_dataset(multi_env_airline_full_dataset, fireworks_
 
             print(f"\n📁 Saved evaluation files to: {output_path}")
             print(f"   - {len(evaluation_records)} individual evaluation files")
-            print(f"   - 1 evaluation summary file")
+            print("   - 1 evaluation summary file")
 
             return output_path
 
@@ -1382,7 +1379,7 @@ async def test_entire_airline_dataset(multi_env_airline_full_dataset, fireworks_
 
             print(f"\n📁 Saved trajectory files to: {output_path}")
             print(f"   - {len(trajectory_records)} individual trajectory files")
-            print(f"   - 1 trajectory summary file")
+            print("   - 1 trajectory summary file")
 
             return output_path
 

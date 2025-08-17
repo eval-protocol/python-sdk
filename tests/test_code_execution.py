@@ -7,7 +7,6 @@ import json  # Added import for json.loads
 import pytest
 
 from eval_protocol.models import EvaluateResult, Message  # Added for new tests
-from eval_protocol.rewards.code_execution import fractional_code_reward  # Added for new tests
 from eval_protocol.rewards.code_execution import (
     _HAS_E2B,
     compare_outputs,
@@ -16,6 +15,7 @@ from eval_protocol.rewards.code_execution import (
     execute_javascript_code,
     execute_python_code,
     extract_code_blocks,
+    fractional_code_reward,  # Added for new tests
     local_code_execution_reward,
     string_similarity,
 )
@@ -464,9 +464,9 @@ class TestFractionalCodeRewardArgParsing:
                     and len(actual_test_run_details_list) > 0
                 ):
                     actual_output_str = actual_test_run_details_list[0].get("actual_output")
-                    assert actual_output_str == repr(
-                        expected_return_val
-                    ), f"Actual output '{actual_output_str}' did not match expected '{repr(expected_return_val)}' for input '{test_input_str}'"
+                    assert actual_output_str == repr(expected_return_val), (
+                        f"Actual output '{actual_output_str}' did not match expected '{repr(expected_return_val)}' for input '{test_input_str}'"
+                    )
             except json.JSONDecodeError:  # Catch specifically json.JSONDecodeError
                 # Accessing reason from MetricResult object
                 print(

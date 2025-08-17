@@ -51,7 +51,6 @@ def test_reward_function_import():
     print("Testing reward function import...")
 
     # Import EvaluateResult specifically within this function's scope
-    from eval_protocol.models import EvaluateResult
     from examples.mcp_agent_filesystem_rl import main as filesystem_rl_main
 
     assert hasattr(filesystem_rl_main, "evaluate"), "Reward function 'evaluate' not found in main.py"
@@ -106,9 +105,9 @@ def test_reward_function_import():
 
     assert isinstance(result_success, EvaluateResult), "evaluate function did not return an EvaluateResult"
     # Based on main.py logic, a perfect move should result in score 1.0
-    assert (
-        result_success.score == 1.0
-    ), f"Expected score 1.0 for mock success, got {result_success.score}. Reason: {result_success.reason}"
+    assert result_success.score == 1.0, (
+        f"Expected score 1.0 for mock success, got {result_success.score}. Reason: {result_success.reason}"
+    )
     assert result_success.is_score_valid
 
     print("✓ Reward function 'evaluate' import and basic validation works")

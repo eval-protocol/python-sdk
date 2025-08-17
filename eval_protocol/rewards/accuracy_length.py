@@ -132,7 +132,7 @@ def cosine_scaled_accuracy_length_reward(
     # Prepare detailed reason
     reward_type = "reward" if accuracy_success else "penalty"
     length_reason = (
-        f"Length-based {reward_type}: {token_count}/{max_length} tokens, " f"cosine factor: {cosine_factor:.2f}"
+        f"Length-based {reward_type}: {token_count}/{max_length} tokens, cosine factor: {cosine_factor:.2f}"
     )
 
     combined_reason = (

@@ -8,7 +8,7 @@ from eval_protocol.pytest.default_single_turn_rollout_process import (
 from eval_protocol.pytest.evaluation_test import evaluation_test
 
 SYSTEM_PROMPT = (
-    "You are a helpful math assistant. Please reason step by step, and put your " "final answer within \\boxed{...}."
+    "You are a helpful math assistant. Please reason step by step, and put your final answer within \\boxed{...}."
 )
 
 

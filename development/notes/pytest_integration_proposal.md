@@ -115,7 +115,7 @@ def tau2_rollout_processor(row: EvaluationRow, model: str, input_params: Dict, *
     #    from the dataset and provide a simulated tool response.
     # 4. Call the model again with the tool response.
     # 5. Construct a final EvaluationRow with the full transcript.
-    
+
     # The logic is encapsulated here, away from the test definition.
     processed_row = ep.default_rollout_processor(row, model, input_params)[0] # Simplified for example
     return [processed_row]
@@ -186,11 +186,11 @@ def best_of_n_processor(row: EvaluationRow, model: str, input_params: Dict, **kw
 
     # Then, apply a reward function to score each candidate.
     scored_rows = ep.evaluate(candidate_rows, score_politeness)
-    
+
     # Finally, select the best row.
     # This logic could be encapsulated in a helper, e.g., ep.select_best().
     best_row = select_best_by_group(scored_rows, score_key='politeness')
-    
+
     return [best_row]
 
 @evaluation_test(

@@ -73,8 +73,8 @@ async def test_north_star_interface():
 
         if recording_mode:
             print(f"📝 Recorded to: {playback_file}")
-            print(f"💬 OpenAI format: clean_openai_format.jsonl")
-            print(f"🔄 Run again to test playback mode!")
+            print("💬 OpenAI format: clean_openai_format.jsonl")
+            print("🔄 Run again to test playback mode!")
         else:
             # Assume ~90s for recording time for speedup calculation (taxi is more complex)
             estimated_recording_time = 90.0

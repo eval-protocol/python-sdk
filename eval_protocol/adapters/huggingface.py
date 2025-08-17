@@ -413,7 +413,7 @@ def create_math_adapter(
         HuggingFaceAdapter configured for MATH dataset
     """
     default_system_prompt = (
-        "You are an expert mathematician. Solve this advanced math problem " "step by step, showing detailed work."
+        "You are an expert mathematician. Solve this advanced math problem step by step, showing detailed work."
     )
 
     system_content = system_prompt or default_system_prompt

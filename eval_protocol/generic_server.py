@@ -153,7 +153,7 @@ if __name__ == "__main__":
     try:
         load_reward_function(args.import_string)
     except Exception:
-        print(f"Failed to load reward function. Exiting.")
+        print("Failed to load reward function. Exiting.")
         exit(1)
 
     if not _LOADED_REWARD_FUNCTION:
