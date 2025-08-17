@@ -14,6 +14,8 @@ import time
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
+import anyio
+import httpx
 from openai.types import CompletionUsage
 
 from vendor.tau2.data_model.message import AssistantMessage, UserMessage
@@ -463,12 +465,13 @@ class ExecutionManager:
                 f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}"
             )
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
             logger.error(f"🚨 AsyncIO Cancel Error in roll out {rollout_idx}", exc_info=True)
-            failure_reason = "asyncio context cancelled"
-        except Exception as e:
-            logger.error(f"🚨 Error in rollout {rollout_idx}: {e}", exc_info=True)
             failure_reason = str(e)
+        except Exception as e:
+            error_msg = str(e) if str(e) else f"{type(e).__name__}: Rollout Failed"
+            logger.error(f"🚨 Error in rollout {rollout_idx}: {e}", exc_info=True)
+            failure_reason = error_msg
         finally:
             if failure_reason:
                 trajectory.terminated = True
