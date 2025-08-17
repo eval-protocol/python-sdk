@@ -1,19 +1,17 @@
 import asyncio
 import json
 import logging
-import os
-from typing import Any, AsyncIterator, List, Optional, Union
+from typing import AsyncIterator, List, Optional, Union
 
 from mcp.types import CallToolResult, TextContent
 from openai import NOT_GIVEN, NotGiven
-from openai.types.chat import ChatCompletionContentPartTextParam, ChatCompletionMessage, ChatCompletionToolParam
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
+from openai.types.chat import ChatCompletionContentPartTextParam, ChatCompletionToolParam
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message
-from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
+from eval_protocol.pytest.types import RolloutProcessorConfig
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +21,27 @@ class Agent:
     A really simple agent that calls the model until no more tool calls are needed.
     """
 
-    def __init__(self, model: str, row: EvaluationRow, config_path: str, logger: DatasetLogger):
+    def __init__(
+        self,
+        model: str,
+        row: EvaluationRow,
+        config_path: str,
+        logger: DatasetLogger,
+        completion_params: dict | None = None,
+    ):
         self.model = model
         self.evaluation_row: EvaluationRow = row
-        self._policy = LiteLLMPolicy(model_id=model)
+        # Initialize LiteLLM policy using provided completion params (temperature, max_tokens, base_url, etc.)
+        cp = completion_params or {}
+        self._policy = LiteLLMPolicy(
+            model_id=cp.get("model", model),
+            temperature=cp.get("temperature", 0),
+            max_tokens=cp.get("max_tokens", 1024),
+            base_url=cp.get("base_url"),
+            top_p=cp.get("top_p"),
+            frequency_penalty=cp.get("frequency_penalty"),
+            presence_penalty=cp.get("presence_penalty"),
+        )
         self.mcp_client = MCPMultiClient(config_path=config_path) if config_path else None
         self.tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN
         self.logger: DatasetLogger = logger
@@ -133,7 +148,11 @@ async def default_agent_rollout_processor(
     async def process_row(row: EvaluationRow) -> EvaluationRow:
         """Process a single row with agent rollout."""
         agent = Agent(
-            model=config.completion_params["model"], row=row, config_path=config.mcp_config_path, logger=config.logger
+            model=config.completion_params["model"],
+            row=row,
+            config_path=config.mcp_config_path,
+            logger=config.logger,
+            completion_params=config.completion_params,
         )
         try:
             await agent.setup()
@@ -148,7 +167,7 @@ async def default_agent_rollout_processor(
             try:
                 return await process_row(r)
             except Exception as e:
-                logger.exception(f"Error processing row {r.input_metadata.row_id}: {e}")
+                logger.exception("Error processing row %s: %s", r.input_metadata.row_id, e)
                 return r
 
     # Create all tasks
@@ -159,8 +178,8 @@ async def default_agent_rollout_processor(
         for task in asyncio.as_completed(tasks):
             try:
                 yield await task
-            except Exception:
-                logger.exception("Error processing row")
+            except Exception as e:
+                logger.exception("Error processing row: %s", e)
     finally:
         for t in tasks:
             t.cancel()

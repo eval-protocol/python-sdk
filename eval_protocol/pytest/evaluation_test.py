@@ -530,7 +530,10 @@ def evaluation_test(  # noqa: C901
                         should_print = os.getenv("EP_PRINT_SUMMARY") == "1"
                         summary_path = os.getenv("EP_SUMMARY_JSON")
                         suite_name = test_func.__name__
-                        model_used = config.completion_params.model
+                        try:
+                            model_used = config.completion_params.get("model")
+                        except Exception:
+                            model_used = getattr(config.completion_params, "model", None)
                         total_rows = len([item for sublist in all_results for item in sublist])
                         summary_obj = {
                             "suite": suite_name,
@@ -579,11 +582,11 @@ def evaluation_test(  # noqa: C901
                         if should_print:
                             if ci_low is not None and ci_high is not None:
                                 print(
-                                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
+                                    f"EP Summary | suite={suite_name} model={(model_used or 'unknown-model')} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
                                 )
                             else:
                                 print(
-                                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
+                                    f"EP Summary | suite={suite_name} model={(model_used or 'unknown-model')} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
                                 )
                             # As per project convention, avoid printing per-metric CI lines to reduce noise
                         if summary_path:

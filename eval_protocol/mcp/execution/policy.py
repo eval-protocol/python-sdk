@@ -166,8 +166,12 @@ class LiteLLMPolicy(LLMBasePolicy):
             "caching": True,
             "num_retries": self.num_retries,
             "retry_strategy": self.retry_strategy,
-            "base_url": self.base_url,
         }
+        # For OpenAI-compatible providers (e.g., Fireworks), LiteLLM expects provider to be inferable from model id
+        # Ensure model id is prefixed with 'fireworks_ai/' when base_url points to Fireworks
+        if self.base_url and "fireworks.ai" in self.base_url and not self.model_id.startswith("fireworks_ai/"):
+            self.model_id = f"fireworks_ai/{self.model_id}"
+            request_params["api_base"] = self.base_url
 
         # Add additional parameters from kwargs (like reasoning_effort)
         if self.additional_params:
