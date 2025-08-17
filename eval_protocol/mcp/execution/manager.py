@@ -15,6 +15,7 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional, Union
 
 import anyio
+import httpx
 from openai.types import CompletionUsage
 
 from vendor.tau2.data_model.message import AssistantMessage, UserMessage
