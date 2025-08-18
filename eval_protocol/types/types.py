@@ -13,6 +13,7 @@ class TerminationReason(str, Enum):
     CONTROL_PLANE_SIGNAL: Trajectory ends because the control plane signals termination (e.g. env goal reached or failure condition)
     USER_STOP: Trajectory ends because the simulated user signals to stop
     ERROR: Trajectory ends because of an error
+    INTERRUPTED: Trajectory is interrupted by some non-system related reason (e.g. policy returns unexpected response and we need to terminate the rollout).
     STOP: Trajectory ends by the policy (mapped to llm response stop reason "stop")
     LENGTH: Trajectory ends by the policy (mapped to llm response stop reason "length")
     TOOL_CALLS: Trajectory ends by the policy with a hanging tool call response (mapped to llm response stop reason "tool_calls")
@@ -22,6 +23,7 @@ class TerminationReason(str, Enum):
     CONTROL_PLANE_SIGNAL = "control_plane_signal"
     USER_STOP = "user_stop"
     ERROR = "error"
+    INTERRUPTED = "interrupted"
     STOP = "stop"
     LENGTH = "length"
     TOOL_CALLS = "tool_calls"
