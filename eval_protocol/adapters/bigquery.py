@@ -4,8 +4,10 @@ This adapter allows querying data from Google BigQuery tables and converting it
 to EvaluationRow format for use in evaluation pipelines.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any, Callable, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
 
 from eval_protocol.models import CompletionParams, EvaluationRow, InputMetadata, Message
 
@@ -20,7 +22,19 @@ try:
     BIGQUERY_AVAILABLE = True
 except ImportError:
     BIGQUERY_AVAILABLE = False
-    logger.warning("Google Cloud BigQuery not installed. Install with: pip install 'eval-protocol[bigquery]'")
+    # Optional dependency: avoid noisy warnings during import
+    logger.debug("Google Cloud BigQuery not installed. Optional feature disabled.")
+
+# Avoid importing BigQuery types at runtime for annotations when not installed
+if TYPE_CHECKING:
+    from google.cloud import bigquery as _bigquery_type
+
+    QueryParameterType = Union[
+        _bigquery_type.ScalarQueryParameter,
+        _bigquery_type.ArrayQueryParameter,
+    ]
+else:
+    QueryParameterType = Any
 
 # Type alias for transformation function
 TransformFunction = Callable[[Dict[str, Any]], Dict[str, Any]]
@@ -96,7 +110,7 @@ class BigQueryAdapter:
     def get_evaluation_rows(
         self,
         query: str,
-        query_params: Optional[List[Union[bigquery.ScalarQueryParameter, bigquery.ArrayQueryParameter]]] = None,
+        query_params: Optional[List[QueryParameterType]] = None,
         limit: Optional[int] = None,
         offset: int = 0,
         model_name: str = "gpt-3.5-turbo",

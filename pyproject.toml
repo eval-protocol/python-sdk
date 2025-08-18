@@ -111,6 +111,10 @@ adapters = [
     "datasets>=2.0.0",
     "transformers>=4.0.0",
 ]
+bigquery = [
+    "google-cloud-bigquery>=3.0.0",
+    "google-auth>=2.0.0",
+]
 svgbench = [
     "selenium>=4.0.0",
 ]
