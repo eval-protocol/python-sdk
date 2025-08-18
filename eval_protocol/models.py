@@ -421,6 +421,10 @@ class EvaluationRow(BaseModel):
                 return msg.control_plane_step["termination_reason"]
         return "unknown"
 
+    def __hash__(self) -> int:
+        json_str = self.model_dump_json(exclude_none=True)
+        return hash(json_str)
+
 
 # Original dataclass-based models for backwards compatibility
 # These are deprecated and will be removed in a future version
