@@ -23,8 +23,8 @@ capabilities.
 Here's a simple test function that checks if a model's response contains **bold** text formatting:
 
 ```python test_bold_format.py
-from eval_protocol.models import EvaluateResult, EvaluationRow
-from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
+from eval_protocol.models import EvaluateResult, EvaluationRow, Message
+from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 
 @evaluation_test(
     input_messages=[
@@ -33,8 +33,8 @@ from eval_protocol.pytest import default_single_turn_rollout_processor, evaluati
             Message(role="user", content="Explain why **evaluations** matter for building AI agents. Make it dramatic!"),
         ],
     ],
-    model=["accounts/fireworks/models/llama-v3p1-8b-instruct"],
-    rollout_processor=default_single_turn_rollout_processor,
+    completion_params=[{"model": "accounts/fireworks/models/llama-v3p1-8b-instruct"}],
+    rollout_processor=SingleTurnRolloutProcessor(),
     mode="pointwise",
 )
 def test_bold_format(row: EvaluationRow) -> EvaluationRow:
