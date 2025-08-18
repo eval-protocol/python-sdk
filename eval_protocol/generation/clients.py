@@ -226,7 +226,7 @@ class FireworksModelClient(ModelClient):
                     # ... (rest of the error handling as before) ...
                     elif response.status == 429:  # Rate limit
                         retry_after = int(response.headers.get("Retry-After", "5"))
-                        logger.warning(f"Rate limited. Retrying after {retry_after}s (attempt {attempt+1}).")
+                        logger.warning(f"Rate limited. Retrying after {retry_after}s (attempt {attempt + 1}).")
                         await asyncio.sleep(retry_after)
                     elif response.status in [401, 403]:  # Auth errors
                         error_text = await response.text()
@@ -234,7 +234,7 @@ class FireworksModelClient(ModelClient):
                         return GenerationResult()  # Empty result on auth error
                     elif response.status >= 500:  # Server errors
                         logger.warning(
-                            f"Fireworks API Server Error ({response.status}). Retrying (attempt {attempt+1})."
+                            f"Fireworks API Server Error ({response.status}). Retrying (attempt {attempt + 1})."
                         )
                         await asyncio.sleep(2**attempt)
                     else:  # Other client errors

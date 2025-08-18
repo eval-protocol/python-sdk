@@ -23,8 +23,7 @@ from eval_protocol.mcp_agent.session import IntermediarySessionData
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)  # Removed: Let level be set by main config
 
-from mcp.server.fastmcp.server import Context as FastMCPContext
-from mcp.server.fastmcp.server import FastMCP
+from mcp.server.fastmcp.server import Context as FastMCPContext, FastMCP
 
 # RequestContext is not directly used by handlers anymore, mcp_ctx is.
 

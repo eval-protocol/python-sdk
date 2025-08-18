@@ -31,9 +31,9 @@ class RewardKitConfig(BaseModel):
     default_deployment_target: Optional[Literal["gcp-cloud-run", "aws-lambda", "fireworks", "local"]] = "fireworks"
     gcp_cloud_run: Optional[GCPCloudRunConfig] = GCPCloudRunConfig()
     aws_lambda: Optional[AWSLambdaConfig] = AWSLambdaConfig()
-    evaluator_endpoint_keys: Optional[Dict[str, str]] = (
-        {}  # Stores generated API keys for self-hosted evaluator endpoints
-    )
+    evaluator_endpoint_keys: Optional[
+        Dict[str, str]
+    ] = {}  # Stores generated API keys for self-hosted evaluator endpoints
 
 
 # --- Global variable to hold the loaded configuration ---

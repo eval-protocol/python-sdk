@@ -19,6 +19,3 @@ Environment variables expected:
 - `FIREWORKS_API_KEY`
 
 To scale up, adjust parameters in the decorator (e.g., `threshold_of_success`, `max_dataset_rows`).
-
-
-

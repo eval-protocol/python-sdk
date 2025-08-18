@@ -12,7 +12,7 @@ def logs_command(args):
     """Serve logs with file watching and real-time updates"""
 
     port = args.port
-    print(f"🚀 Starting Eval Protocol Logs Server")
+    print("🚀 Starting Eval Protocol Logs Server")
     print(f"🌐 URL: http://localhost:{port}")
     print(f"🔌 WebSocket: ws://localhost:{port}/ws")
     print(f"👀 Watching paths: {['current directory']}")

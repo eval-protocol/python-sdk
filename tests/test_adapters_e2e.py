@@ -554,7 +554,9 @@ class TestBigQueryAdapterE2E:
             frequency_desc = (
                 "high frequency"
                 if term_frequency > 1000
-                else "moderate frequency" if term_frequency > 100 else "low frequency"
+                else "moderate frequency"
+                if term_frequency > 100
+                else "low frequency"
             )
             document_desc = (
                 f"appears in {document_frequency} documents" if document_frequency > 0 else "rare occurrence"

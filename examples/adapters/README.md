@@ -43,34 +43,6 @@ Loads datasets from HuggingFace Hub and converts them to EvaluationRow format.
 pip install 'eval-protocol[huggingface]'
 ```
 
-### 3. BigQuery Adapter (`bigquery_example.py`)
-
-Queries data from Google BigQuery tables and converts them to EvaluationRow format.
-
-**Features:**
-- Execute custom SQL queries against BigQuery datasets
-- Support for parameterized queries and batch processing
-- Built-in convenience adapters for conversation and Q&A data
-- Rich metadata preservation including query information
-- Integration with Google Cloud authentication
-- Schema introspection and dataset exploration
-
-**Prerequisites:**
-```bash
-pip install 'eval-protocol[bigquery]'
-```
-
-**Environment Variables:**
-```bash
-export GOOGLE_CLOUD_PROJECT="your-project-id"
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"  # optional
-```
-
-**Alternative Authentication:**
-```bash
-gcloud auth application-default login
-```
-
 ## Running the Examples
 
 ### Basic Usage
@@ -81,9 +53,6 @@ python examples/adapters/langfuse_example.py
 
 # Run HuggingFace example
 python examples/adapters/huggingface_example.py
-
-# Run BigQuery example
-python examples/adapters/bigquery_example.py
 
 # Run GSM8K replacement example
 python examples/adapters/gsm8k_replacement_example.py
@@ -96,11 +65,6 @@ python examples/adapters/gsm8k_replacement_example.py
 export LANGFUSE_PUBLIC_KEY="pk_..."
 export LANGFUSE_SECRET_KEY="sk_..."
 python examples/adapters/langfuse_example.py
-
-# Set up Google Cloud credentials for BigQuery
-export GOOGLE_CLOUD_PROJECT="your-project-id"
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"  # optional
-python examples/adapters/bigquery_example.py
 
 # HuggingFace works without credentials for public datasets
 python examples/adapters/huggingface_example.py

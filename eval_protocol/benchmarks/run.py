@@ -14,10 +14,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import pkgutil
+from importlib import import_module
 from typing import Any
 
-from importlib import import_module
-import pkgutil
 import eval_protocol.benchmarks.suites as suites_pkg
 from eval_protocol.benchmarks.registry import get_benchmark_runner, list_benchmarks
 
@@ -49,7 +49,9 @@ def main() -> int:
     args = _parse_args()
     # Auto-import all suite modules so their @export_benchmark decorators register
     # Import all suite modules so their @export_benchmark decorators register
-    import sys, traceback
+    import sys
+    import traceback
+
     for modinfo in pkgutil.iter_modules(suites_pkg.__path__):
         mod_name = f"{suites_pkg.__name__}.{modinfo.name}"
         try:
@@ -96,5 +98,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

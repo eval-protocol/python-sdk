@@ -109,7 +109,7 @@ def test_retry_mechanism_mock_verification():
     # Get our mock tracker
     mock_tracker = shared_processor.mock_tracker
 
-    print(f"\n🔄 MOCK CALL ANALYSIS:")
+    print("\n🔄 MOCK CALL ANALYSIS:")
     print(f"   Batch calls made: {mock_tracker.batch_call.call_count}")
     print(f"   Total row processing calls: {mock_tracker.process_row_call.call_count}")
 
@@ -125,7 +125,7 @@ def test_retry_mechanism_mock_verification():
     call_counts = Counter(rollout_ids)
 
     print(f"   Call counts per rollout_id: {dict(call_counts)}")
-    print(f"   Individual calls:")
+    print("   Individual calls:")
     for i, call_arg in enumerate(call_args, 1):
         rollout_id = call_arg[0][0]
         attempt_num = rollout_ids[:i].count(rollout_id)
@@ -133,9 +133,9 @@ def test_retry_mechanism_mock_verification():
 
     # ASSERTIONS USING MOCK DATA
     # Should have exactly 6 total row processing calls (5 initial + 1 retry)
-    assert (
-        mock_tracker.process_row_call.call_count == 6
-    ), f"Expected 6 total calls, got {mock_tracker.process_row_call.call_count}"
+    assert mock_tracker.process_row_call.call_count == 6, (
+        f"Expected 6 total calls, got {mock_tracker.process_row_call.call_count}"
+    )
 
     # Should have exactly 2 batch calls (initial batch + retry batch)
     assert mock_tracker.batch_call.call_count == 2, f"Expected 2 batch calls, got {mock_tracker.batch_call.call_count}"
@@ -147,11 +147,11 @@ def test_retry_mechanism_mock_verification():
 
     # Exactly one rollout_id should be called twice, others called once
     call_count_values = list(call_counts.values())
-    assert (
-        call_count_values.count(2) == 1
-    ), f"Expected exactly 1 rollout_id to be called twice, got counts: {dict(call_counts)}"
-    assert (
-        call_count_values.count(1) == 4
-    ), f"Expected exactly 4 rollout_ids to be called once, got counts: {dict(call_counts)}"
+    assert call_count_values.count(2) == 1, (
+        f"Expected exactly 1 rollout_id to be called twice, got counts: {dict(call_counts)}"
+    )
+    assert call_count_values.count(1) == 4, (
+        f"Expected exactly 4 rollout_ids to be called once, got counts: {dict(call_counts)}"
+    )
 
     print("✅ All mock-based assertions passed! Retry mechanism is working correctly.")

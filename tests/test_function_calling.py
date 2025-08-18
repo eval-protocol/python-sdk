@@ -4,8 +4,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from eval_protocol.models import EvaluateResult  # Changed
-from eval_protocol.models import Message  # Added import
+from eval_protocol.models import (
+    EvaluateResult,  # Changed
+    Message,  # Added import
+)
 from eval_protocol.rewards.function_calling import (
     calculate_jaccard_similarity,
     composite_function_call_reward,
@@ -93,16 +95,14 @@ class TestFunctionCalling:
         assert result.metrics["function_name_match"].score == 0.0
         assert (
             result.metrics["function_name_match"].reason is not None
-            and "Function name does not match"
-            in result.metrics["function_name_match"].reason  # type: ignore[operator]
+            and "Function name does not match" in result.metrics["function_name_match"].reason  # type: ignore[operator]
         )
         # Dictionary access
         assert result["score"] < 1.0
         assert result["metrics"]["function_name_match"]["score"] == 0.0
         assert (
             result["metrics"]["function_name_match"]["reason"] is not None
-            and "Function name does not match"
-            in result["metrics"]["function_name_match"]["reason"]  # type: ignore[operator]
+            and "Function name does not match" in result["metrics"]["function_name_match"]["reason"]  # type: ignore[operator]
         )
 
     def test_missing_required_argument(self):

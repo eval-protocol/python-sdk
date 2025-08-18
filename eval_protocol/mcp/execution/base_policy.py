@@ -109,7 +109,6 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
 
         # Add control plane metadata if provided
         if reward != 0.0 or terminated or info:
-
             tool_message["metadata"] = {
                 "reward": reward,
                 "terminated": terminated,
@@ -182,7 +181,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         # This is crucial for proper tool call ID management in add_tool_response
         assistant_message_for_history = {
             "role": "assistant",
-            "content": response["choices"][0]["message"].get("content", ""),
+            "content": response["choices"][0]["message"]["content"],
         }
         usage_stats = CompletionUsage(
             prompt_tokens=response["usage"]["prompt_tokens"],

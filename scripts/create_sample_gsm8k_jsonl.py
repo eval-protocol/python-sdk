@@ -54,7 +54,7 @@ def create_sample_jsonl():
     if samples_written > 0:
         print(f"Successfully wrote {samples_written} samples to {output_filepath}")
     else:
-        print(f"No samples were written. Check dataset loading and content.")
+        print("No samples were written. Check dataset loading and content.")
 
 
 if __name__ == "__main__":

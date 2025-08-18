@@ -42,11 +42,14 @@ jobs:
       - name: Install tau2 for testing
         run: uv pip install git+https://github.com/sierra-research/tau2-bench.git@main
 
-      - name: Lint with flake8
-        run: uv run flake8 eval_protocol tests examples scripts --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+      - name: Ruff format (check)
+        run: uv run ruff format --check .
 
-      - name: Type check with mypy
-        run: uv run mypy eval_protocol
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Type check with pyright
+        run: uv run pyright
 
   test-core:
     name: Core Tests (Python ${{ matrix.python-version }})

@@ -95,9 +95,7 @@ class ConsoleDisplay:
             if task.description.purpose:
                 content_parts.append(f"[white]Purpose:[/] {task.description.purpose}")
             if task.description.relevant_policies:
-                content_parts.append(
-                    f"[white]Relevant Policies:[/] {task.description.relevant_policies}"
-                )
+                content_parts.append(f"[white]Relevant Policies:[/] {task.description.relevant_policies}")
             if task.description.notes:
                 content_parts.append(f"[white]Notes:[/] {task.description.notes}")
 
@@ -108,14 +106,10 @@ class ConsoleDisplay:
             scenario_parts.append(f"[white]Persona:[/] {task.user_scenario.persona}")
 
         # User Instruction
-        scenario_parts.append(
-            f"[white]Task Instructions:[/] {task.user_scenario.instructions}"
-        )
+        scenario_parts.append(f"[white]Task Instructions:[/] {task.user_scenario.instructions}")
 
         if scenario_parts:
-            content_parts.append(
-                "[bold cyan]User Scenario:[/]\n" + "\n".join(scenario_parts)
-            )
+            content_parts.append("[bold cyan]User Scenario:[/]\n" + "\n".join(scenario_parts))
 
         # Initial State section
         if task.initial_state:
@@ -134,9 +128,7 @@ class ConsoleDisplay:
                 )
 
             if initial_state_parts:
-                content_parts.append(
-                    "[bold cyan]Initial State:[/]\n" + "\n".join(initial_state_parts)
-                )
+                content_parts.append("[bold cyan]Initial State:[/]\n" + "\n".join(initial_state_parts))
 
         # Evaluation Criteria section
         if task.evaluation_criteria:
@@ -154,15 +146,11 @@ class ConsoleDisplay:
                     f"[white]Information to Communicate:[/]\n{json.dumps(task.evaluation_criteria.communicate_info, indent=2)}"
                 )
             if eval_parts:
-                content_parts.append(
-                    "[bold cyan]Evaluation Criteria:[/]\n" + "\n".join(eval_parts)
-                )
+                content_parts.append("[bold cyan]Evaluation Criteria:[/]\n" + "\n".join(eval_parts))
         content = "\n\n".join(content_parts)
 
         # Create and display panel
-        task_panel = Panel(
-            content, title="[bold blue]Task Details", border_style="blue", expand=True
-        )
+        task_panel = Panel(content, title="[bold blue]Task Details", border_style="blue", expand=True)
 
         cls.console.print(task_panel)
 
@@ -203,18 +191,11 @@ class ConsoleDisplay:
             marker = "✅" if is_successful(simulation.reward_info.reward) else "❌"
             sim_info.append("Reward: ", style="bold cyan")
             if simulation.reward_info.reward_breakdown:
-                breakdown = sorted(
-                    [
-                        f"{k.value}: {v:.1f}"
-                        for k, v in simulation.reward_info.reward_breakdown.items()
-                    ]
-                )
+                breakdown = sorted([f"{k.value}: {v:.1f}" for k, v in simulation.reward_info.reward_breakdown.items()])
             else:
                 breakdown = []
 
-            sim_info.append(
-                f"{marker} {simulation.reward_info.reward:.4f} ({', '.join(breakdown)})\n"
-            )
+            sim_info.append(f"{marker} {simulation.reward_info.reward:.4f} ({', '.join(breakdown)})\n")
 
             # Add DB check info if present
             if simulation.reward_info.db_check:
@@ -243,9 +224,7 @@ class ConsoleDisplay:
             if simulation.reward_info.communicate_checks:
                 sim_info.append("\nCommunicate Checks:\n", style="bold magenta")
                 for i, check in enumerate(simulation.reward_info.communicate_checks):
-                    sim_info.append(
-                        f"- {i}: {check.info} {'✅' if check.met else '❌'}\n"
-                    )
+                    sim_info.append(f"- {i}: {check.info} {'✅' if check.met else '❌'}\n")
 
             # Add NL assertions if present
             if simulation.reward_info.nl_assertions:
@@ -261,9 +240,7 @@ class ConsoleDisplay:
                 for key, value in simulation.reward_info.info.items():
                     sim_info.append(f"{key}: {value}\n")
 
-        cls.console.print(
-            Panel(sim_info, title="Simulation Overview", border_style="blue")
-        )
+        cls.console.print(Panel(sim_info, title="Simulation Overview", border_style="blue"))
 
         # Create messages table
         if simulation.messages:
@@ -390,15 +367,8 @@ class MarkdownDisplay:
 
         # Add reward info if present
         if sim.reward_info:
-            breakdown = sorted(
-                [
-                    f"{k.value}: {v:.1f}"
-                    for k, v in sim.reward_info.reward_breakdown.items()
-                ]
-            )
-            output.append(
-                f"**Reward**: {sim.reward_info.reward:.4f} ({', '.join(breakdown)})\n"
-            )
+            breakdown = sorted([f"{k.value}: {v:.1f}" for k, v in sim.reward_info.reward_breakdown.items()])
+            output.append(f"**Reward**: {sim.reward_info.reward:.4f} ({', '.join(breakdown)})\n")
             output.append(f"**Reward**: {sim.reward_info.reward:.4f}")
 
             # Add DB check info if present
@@ -428,9 +398,7 @@ class MarkdownDisplay:
             if sim.reward_info.communicate_checks:
                 output.append("\n**Communicate Checks**")
                 for i, check in enumerate(sim.reward_info.communicate_checks):
-                    output.append(
-                        f"- {i}: {check.info} {'✅' if check.met else '❌'} {check.justification}"
-                    )
+                    output.append(f"- {i}: {check.info} {'✅' if check.met else '❌'} {check.justification}")
 
             # Add NL assertions if present
             if sim.reward_info.nl_assertions:

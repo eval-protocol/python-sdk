@@ -22,7 +22,6 @@ def _get_default_logger():
 
 # Lazy property that creates the logger only when accessed
 class _LazyLogger(DatasetLogger):
-
     def log(self, row):
         return _get_default_logger().log(row)
 

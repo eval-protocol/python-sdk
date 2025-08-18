@@ -85,7 +85,8 @@ All successful responses will return the tool's output directly. Errors will ret
                 description.append(content)
 
         # Add the tools section
-        description.append("""
+        description.append(
+            """
 
 ## Tools
 
@@ -98,7 +99,8 @@ No authentication is required for this API.
 ### Response Format
 
 All successful responses will return the tool's output directly. Errors will return a 400 status code with an error message.
-""")
+"""
+        )
 
         return "\n".join(description)
 
@@ -161,20 +163,14 @@ All successful responses will return the tool's output directly. Errors will ret
             ) -> Any:
                 try:
                     if route_prefix == "user_tools":
-                        result = self.environment.use_user_tool(
-                            tool_name=tool_name, **request.model_dump()
-                        )
+                        result = self.environment.use_user_tool(tool_name=tool_name, **request.model_dump())
                     else:
-                        result = self.environment.use_tool(
-                            tool_name=tool_name, **request.model_dump()
-                        )
+                        result = self.environment.use_tool(tool_name=tool_name, **request.model_dump())
                     return result
                 except Exception as e:
                     raise HTTPException(status_code=400, detail=str(e))
 
-    def _format_tool_description(
-        self, doc: str, returns: Optional[dict] = None, is_user_tool: bool = False
-    ) -> str:
+    def _format_tool_description(self, doc: str, returns: Optional[dict] = None, is_user_tool: bool = False) -> str:
         """Format tool documentation for better ReDoc rendering"""
         import re
 

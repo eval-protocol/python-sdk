@@ -9,9 +9,9 @@ from typing import Any, Dict, List, Optional, Union
 
 from ..models import EvaluateResult, Message, MetricResult
 from ..reward_function import reward_function
-from .code_execution import _HAS_E2B  # Import _HAS_E2B to check E2B availability
-from .code_execution import _run_test_cases  # Import the main test case runner
 from .code_execution import (
+    _HAS_E2B,  # Import _HAS_E2B to check E2B availability
+    _run_test_cases,  # Import the main test case runner
     compare_outputs,
     execute_code_with_e2b,
     execute_javascript_code,
