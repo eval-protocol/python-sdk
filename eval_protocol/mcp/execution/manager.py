@@ -15,6 +15,7 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional, Union
 
 import anyio
+import httpx
 from openai.types import CompletionUsage
 
 from vendor.tau2.data_model.message import AssistantMessage, UserMessage
@@ -221,7 +222,7 @@ class ExecutionManager:
                 current_observation = user_message.content if user_message.content else ""
 
             user_prompt = envs.format_user_prompt(rollout_idx, current_observation)
-            conversation_history = [
+            trajectory.conversation_history = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ]
@@ -241,7 +242,7 @@ class ExecutionManager:
 
                 if user_simulator and user_simulator_state:
                     # Get user simulator messages and find the last assistant message
-                    user_simulator_messages = self._get_user_simulator_messages(conversation_history)
+                    user_simulator_messages = self._get_user_simulator_messages(trajectory.conversation_history)
 
                     # Last message was agent, simulated user response
                     if user_simulator_messages and isinstance(user_simulator_messages[-1], AssistantMessage):
@@ -252,7 +253,7 @@ class ExecutionManager:
                         user_content = user_message.content if user_message.content else ""
 
                         user_prompt = envs.format_user_prompt(rollout_idx, user_content)
-                        conversation_history.append({"role": "user", "content": user_prompt})
+                        trajectory.conversation_history.append({"role": "user", "content": user_prompt})
 
                         # Check if user simulator signaled termination
                         if UserSimulator.is_stop(user_message):
@@ -262,7 +263,7 @@ class ExecutionManager:
                 # In each turn: keep looping until assistant is ready to provide final response
                 while not turn_completed and not trajectory.terminated:
                     tool_calls, usage_stats, finish_reason = await policy(
-                        tool_schema, rollout_idx, conversation_history
+                        tool_schema, rollout_idx, trajectory.conversation_history
                     )
 
                     # calc llm usage stats happened in this turn if there is aany
@@ -294,7 +295,7 @@ class ExecutionManager:
                             rollout_idx,
                             tool_call,
                             tool_response,
-                            conversation_history,
+                            trajectory.conversation_history,
                             reward,
                             env_end,
                             info,
@@ -325,12 +326,14 @@ class ExecutionManager:
                                 "num_tool_calls": 1,
                             }
                             print(f"🔍 control_plane_step: {control_plane_step}")
-                            conversation_history[-1]["control_plane_step"] = control_plane_step
+                            trajectory.conversation_history[-1]["control_plane_step"] = control_plane_step
                             trajectory.control_plane_steps.append(control_plane_step)
 
                             # Log conversation state for playback if in recording mode
                             if recording_mode:
-                                policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
+                                policy.log_conversation_state_for_playback(
+                                    rollout_idx, step - 1, trajectory.conversation_history
+                                )
 
                         if env_end:
                             # if the env marks the end of the rollout, break the tool call loop
@@ -364,17 +367,21 @@ class ExecutionManager:
                         "tool_calls": tool_calls_summary,
                         "num_tool_calls": len(tool_calls),
                     }
-                    conversation_history[-1]["control_plane_step"] = control_plane_step
+                    trajectory.conversation_history[-1]["control_plane_step"] = control_plane_step
                     trajectory.control_plane_steps.append(control_plane_step)
 
                     # Log conversation state for playback if in recording mode
                     if recording_mode:
-                        policy.log_conversation_state_for_playback(rollout_idx, step - 1, conversation_history)
+                        policy.log_conversation_state_for_playback(
+                            rollout_idx, step - 1, trajectory.conversation_history
+                        )
 
                 # if the env marks end, update control plane summary and do one last policy call, then break the agent loop
                 # this is to ensure each turn ends with an assistant message, which will align with the actual agentic llm behavior
                 if env_end:
-                    _, usage_stats, finish_reason = await policy(tool_schema, rollout_idx, conversation_history)
+                    _, usage_stats, finish_reason = await policy(
+                        tool_schema, rollout_idx, trajectory.conversation_history
+                    )
                     if usage_stats:
                         trajectory.usage["prompt_tokens"] += usage_stats.prompt_tokens
                         trajectory.usage["completion_tokens"] += usage_stats.completion_tokens
@@ -392,10 +399,10 @@ class ExecutionManager:
 
                     # Log final OpenAI conversation for terminated trajectories only
                     if openai_logger:
-                        if conversation_history and len(conversation_history) > 0:
+                        if trajectory.conversation_history and len(trajectory.conversation_history) > 0:
                             openai_logger(
                                 {
-                                    "messages": conversation_history,
+                                    "messages": trajectory.conversation_history,
                                     "metadata": {
                                         "session_id": session.session_id,
                                         "seed": session.seed,
@@ -420,8 +427,6 @@ class ExecutionManager:
             # Set termination reason if not already set (e.g., due to step limit)
             if not trajectory.termination_reason and step >= steps:
                 trajectory.termination_reason = TerminationReason.MAX_STEPS
-
-            trajectory.conversation_history = conversation_history
 
             # Add termination_reason to the final control_plane_step
             for msg in reversed(trajectory.conversation_history):
