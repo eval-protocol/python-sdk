@@ -36,7 +36,7 @@ def compute_fixed_set_mu_ci(
     rows: List[EvaluationRow],
     *,
     z_value: float = 1.96,
-) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
     """Compute the benchmark-conditional 95% CI for the mean accuracy μ on a fixed item set.
 
     This treats questions/items as fixed and repeats as within-item Bernoulli draws.
@@ -53,10 +53,10 @@ def compute_fixed_set_mu_ci(
     - Scores are taken from `row.evaluation_result.score` when available and numeric.
 
     Returns:
-        (mu_hat, ci_low, ci_high). Returns (None, None, None) if insufficient data.
+        (mu_hat, ci_low, ci_high, standard_error). Returns (None, None, None, None) if insufficient data.
     """
     if not rows:
-        return None, None, None
+        return None, None, None, None
 
     # Group scores by question id
     question_to_scores: Dict[str, List[float]] = defaultdict(list)
@@ -80,7 +80,7 @@ def compute_fixed_set_mu_ci(
 
     Q = len(question_to_scores)
     if Q == 0:
-        return None, None, None
+        return None, None, None, None
 
     # Compute per-question means and the plug-in variance contribution
     ybars: List[float] = []
@@ -99,16 +99,16 @@ def compute_fixed_set_mu_ci(
             var_terms.append(ybar_i * (1.0 - ybar_i) / m_i)
 
     if not ybars:
-        return None, None, None
+        return None, None, None, None
 
     mu_hat = sum(ybars) / len(ybars)
 
     # Standard error for CI of μ
     se_sq = sum(var_terms) / (Q * Q)
-    se = math.sqrt(se_sq) if se_sq > 0.0 else 0.0
+    standard_error = math.sqrt(se_sq) if se_sq > 0.0 else 0.0
 
-    margin = z_value * se
+    margin = z_value * standard_error
     ci_low = max(0.0, mu_hat - margin)
     ci_high = min(1.0, mu_hat + margin)
 
-    return float(mu_hat), float(ci_low), float(ci_high)
+    return float(mu_hat), float(ci_low), float(ci_high), float(standard_error)

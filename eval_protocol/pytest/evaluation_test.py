@@ -128,7 +128,8 @@ def evaluation_test(  # noqa: C901
         rollout_processor_kwargs: Kwargs for the rollout processor.
         aggregation_method: How to aggregate scores across rows.
         passed_threshold: Threshold configuration for test success. Must be a float or EvaluationThreshold object.
-            Success rate must be above success, and if set, standard deviation must be below standard_deviation.
+            Success rate must be above success, and if set, standard error must be below standard_error.
+            Success rate +/- one standard_error is equivalent to 68% confidence interval.
         num_runs: Number of times to repeat the rollout and evaluations.
         max_dataset_rows: Limit dataset to the first N rows.
         mcp_config_path: Path to MCP config file that follows MCPMultiClientConfiguration schema
@@ -402,7 +403,9 @@ def evaluation_test(  # noqa: C901
                             ):
                                 tasks.append(asyncio.create_task(_execute_with_semaphore(row)))
 
-                            all_results[i] = await asyncio.gather(*tasks)
+                            results = await asyncio.gather(*tasks)
+
+                            all_results[i] = results
 
                         else:
                             # Batch mode: collect all results first, then evaluate (no pipelining)
@@ -436,12 +439,16 @@ def evaluation_test(  # noqa: C901
                                 )
                             all_results[i] = results
 
+                        for r in results:
+                            if r.eval_metadata is not None:
+                                r.eval_metadata.status = "finished"
+                            active_logger.log(r)
+
                     scores = [
                         sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
                         for result in all_results
                     ]
                     agg_score = aggregate(scores, aggregation_method)
-                    score_std = statistics.stdev(scores) if len(scores) > 1 else 0.0
 
                     # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
                     ci_low: float | None = None
@@ -449,7 +456,7 @@ def evaluation_test(  # noqa: C901
                     if aggregation_method == "mean":
                         try:
                             result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
-                            mu_ci_low, mu_ci_high = result_ci[1], result_ci[2]
+                            _, mu_ci_low, mu_ci_high, standard_error = result_ci
                             if mu_ci_low is not None and mu_ci_high is not None:
                                 ci_low = float(mu_ci_low)
                                 ci_high = float(mu_ci_high)
@@ -462,21 +469,23 @@ def evaluation_test(  # noqa: C901
                     passed = None
 
                     if threshold is not None:
-                        success_passed, std_passed = True, True
+                        success_passed, standard_error_passed = True, True
 
                         success_passed = agg_score >= threshold.success
 
-                        if threshold.standard_deviation is not None:
-                            std_passed = score_std <= threshold.standard_deviation
+                        if threshold.standard_error is not None and standard_error is not None:
+                            standard_error_passed = standard_error <= threshold.standard_error
 
-                        passed = success_passed and std_passed
+                        passed = success_passed and standard_error_passed
 
                     # Update eval metadata passed field for all results
                     for result in all_results:
                         for r in result:
                             if r.eval_metadata is not None:
-                                r.eval_metadata.status = "finished"
                                 r.eval_metadata.passed = passed
+                            if r.evaluation_result is not None:
+                                r.evaluation_result.agg_score = agg_score
+                                r.evaluation_result.standard_error = standard_error
                             active_logger.log(r)
 
                     # Optional: print and/or persist a summary artifact for CI
@@ -593,9 +602,9 @@ def evaluation_test(  # noqa: C901
                         assert agg_score >= threshold.success, (
                             f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
                         )
-                        if threshold.standard_deviation is not None:
-                            assert score_std <= threshold.standard_deviation, (
-                                f"Standard deviation {score_std:.3f} above threshold {threshold.standard_deviation}"
+                        if threshold.standard_error is not None and standard_error is not None:
+                            assert standard_error <= threshold.standard_error, (
+                                f"Standard error {standard_error:.3f} above threshold {threshold.standard_error}"
                             )
 
                 except AssertionError:
