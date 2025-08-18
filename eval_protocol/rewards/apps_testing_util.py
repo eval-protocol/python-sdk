@@ -109,7 +109,7 @@ def _load_module_from_string(module_name, code_string):
     try:
         exec(code_string, module.__dict__)
         # sys.modules[module_name] = module # Optional: if other parts of the code expect it in sys.modules
-    except Exception as e:
+    except Exception:
         raise
     return module
 

@@ -267,7 +267,7 @@ def main():
             print(f"Test {test.__name__} crashed: {e}")
             failed += 1
 
-    print(f"\n=== Results ===")
+    print("\n=== Results ===")
     print(f"Passed: {passed}")
     print(f"Failed: {failed}")
     print(f"Total: {passed + failed}")

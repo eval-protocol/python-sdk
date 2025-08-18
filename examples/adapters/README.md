@@ -51,7 +51,7 @@ pip install 'eval-protocol[huggingface]'
 # Run Langfuse example
 python examples/adapters/langfuse_example.py
 
-# Run HuggingFace example  
+# Run HuggingFace example
 python examples/adapters/huggingface_example.py
 
 # Run GSM8K replacement example
@@ -100,7 +100,7 @@ def custom_gsm8k_transform(row):
 from eval_protocol.adapters.huggingface import create_huggingface_adapter
 custom_adapter = create_huggingface_adapter(
     dataset_id="gsm8k",
-    config_name="main", 
+    config_name="main",
     transform_fn=custom_gsm8k_transform
 )
 ```
@@ -150,7 +150,7 @@ rows = list(adapter.get_evaluation_rows(limit=10))
 for row in rows:
     # Add model response (you would generate this)
     row.messages.append(Message(role="assistant", content="..."))
-    
+
     # Evaluate
     result = math_reward(messages=row.messages, ground_truth=row.ground_truth)
     print(f"Score: {result.score}")
@@ -222,7 +222,7 @@ class MyCustomAdapter:
     def __init__(self, **config):
         # Initialize your data source connection
         pass
-    
+
     def get_evaluation_rows(self, **kwargs) -> Iterator[EvaluationRow]:
         # Fetch data and convert to EvaluationRow format
         pass

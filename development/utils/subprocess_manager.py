@@ -139,7 +139,7 @@ def start_ngrok_and_get_url(
         # Or by setting NGROK_AUTHTOKEN environment variable.
         # Forcing it via command line is also an option but less common for persistent setup.
         print(
-            f"Note: Ngrok authtoken should be pre-configured by the user (e.g., 'ngrok config add-authtoken <token>') or via NGROK_AUTHTOKEN env var."
+            "Note: Ngrok authtoken should be pre-configured by the user (e.g., 'ngrok config add-authtoken <token>') or via NGROK_AUTHTOKEN env var."
         )
         # Example if passing via env for the subprocess:
         # ngrok_env = os.environ.copy()

@@ -473,7 +473,7 @@ def evaluation_test(  # noqa: C901
 
                         success_passed = agg_score >= threshold.success
 
-                        if threshold.standard_error is not None:
+                        if threshold.standard_error is not None and standard_error is not None:
                             standard_error_passed = standard_error <= threshold.standard_error
 
                         passed = success_passed and standard_error_passed
@@ -599,13 +599,13 @@ def evaluation_test(  # noqa: C901
 
                     # Check threshold after logging
                     if threshold is not None and not passed:
-                        assert (
-                            agg_score >= threshold.success
-                        ), f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
-                        if threshold.standard_error is not None:
-                            assert (
-                                standard_error <= threshold.standard_error
-                            ), f"Standard error {standard_error:.3f} above threshold {threshold.standard_error}"
+                        assert agg_score >= threshold.success, (
+                            f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
+                        )
+                        if threshold.standard_error is not None and standard_error is not None:
+                            assert standard_error <= threshold.standard_error, (
+                                f"Standard error {standard_error:.3f} above threshold {threshold.standard_error}"
+                            )
 
                 except AssertionError:
                     _log_eval_error("finished", data if "data" in locals() else None, passed=False)
@@ -953,9 +953,9 @@ def run_evaluation_test_direct(
             pass
 
         if passed_threshold is not None and not passed:
-            assert (
-                agg_score >= passed_threshold.success
-            ), f"Aggregated score {agg_score:.3f} below threshold {passed_threshold}"
+            assert agg_score >= passed_threshold.success, (
+                f"Aggregated score {agg_score:.3f} below threshold {passed_threshold}"
+            )
 
         return {"summary": summary_obj, "results": all_results}
     except Exception:

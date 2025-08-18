@@ -4,8 +4,7 @@ import sys
 from pathlib import Path
 
 # Import BFCL File and Directory for isinstance checks from local implementation
-from .bfcl_envs.gorilla_file_system import Directory as BFCLDirectory
-from .bfcl_envs.gorilla_file_system import File as BFCLFile
+from .bfcl_envs.gorilla_file_system import Directory as BFCLDirectory, File as BFCLFile
 
 BFCL_TYPES_AVAILABLE = True
 import gc

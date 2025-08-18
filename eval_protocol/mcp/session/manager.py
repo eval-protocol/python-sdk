@@ -226,4 +226,4 @@ class GeneralMCPVectorEnv:
         print(f"🧹 Closing {self.n} MCP sessions...")
         tasks = [self.connection_manager.close_session(session) for session in self.sessions]
         await asyncio.gather(*tasks)
-        print(f"✅ All MCP sessions closed.")
+        print("✅ All MCP sessions closed.")

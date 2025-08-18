@@ -18,9 +18,7 @@ def kill_process_on_port(port):
                 connections = proc.net_connections()
                 for conn in connections:
                     if hasattr(conn, "laddr") and conn.laddr.port == port:
-                        logger.warning(
-                            f"Killing existing process {proc.pid} on port {port}"
-                        )
+                        logger.warning(f"Killing existing process {proc.pid} on port {port}")
                         proc.terminate()
                         time.sleep(0.5)  # Give it a moment to terminate
                         if proc.is_running():  # If still running
@@ -82,9 +80,7 @@ def main():
     try:
         with ThreadPoolExecutor(max_workers=len(servers)) as executor:
             # Start each server in a separate thread
-            futures = [
-                executor.submit(run_server, command, port) for command, port in servers
-            ]
+            futures = [executor.submit(run_server, command, port) for command, port in servers]
 
             # Wait for all servers to complete
             for future in futures:

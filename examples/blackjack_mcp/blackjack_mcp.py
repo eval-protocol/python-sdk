@@ -71,7 +71,7 @@ class BlackjackMcp(McpGym):
             # Validate action
             if not action or not isinstance(action, str):
                 raise ValueError(
-                    f"Invalid action parameter: '{action}'. " f"Must be a non-empty string. Valid actions: STICK, HIT"
+                    f"Invalid action parameter: '{action}'. Must be a non-empty string. Valid actions: STICK, HIT"
                 )
 
             action = action.strip().upper()

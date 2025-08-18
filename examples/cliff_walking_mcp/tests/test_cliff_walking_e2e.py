@@ -565,7 +565,6 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
     # Start server for this test
     server = _create_test_server(9600)
     try:
-
         # Set up recording
         os.environ["EP_PLAYBACK_FILE"] = multi_env_recording_file
 
@@ -680,7 +679,7 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
     print("\n🏁 Validating trajectory termination...")
     _validate_trajectory_termination(env_recordings, dataset)
 
-    print(f"✅ Recording integrity validation completed")
+    print("✅ Recording integrity validation completed")
 
 
 def _validate_multi_seed_environments(env_recordings: Dict, dataset: List[Dict]):
@@ -760,9 +759,9 @@ def _validate_state_progression(env_recordings: Dict, dataset: List[Dict]):
                 position = response_data.get("position")
                 if position is not None:
                     positions.append(position)
-                    print(f"    Step {i+1}: Position {position}")
+                    print(f"    Step {i + 1}: Position {position}")
             except json.JSONDecodeError:
-                pytest.fail(f"❌ Invalid JSON in tool response {i+1} for env {env_idx}: {response}")
+                pytest.fail(f"❌ Invalid JSON in tool response {i + 1} for env {env_idx}: {response}")
 
         if len(positions) < 2:
             print(f"  Env {env_idx}: Only {len(positions)} valid positions, skipping progression check")
@@ -801,7 +800,7 @@ def _validate_state_progression(env_recordings: Dict, dataset: List[Dict]):
                 f"Full position sequence: {positions}"
             )
         else:
-            print(f"  ✅ Valid state progression - all position changes follow Cliff Walking rules")
+            print("  ✅ Valid state progression - all position changes follow Cliff Walking rules")
 
 
 def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
@@ -855,7 +854,7 @@ def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
     elif terminated_steps == 0:
         print(f"  ⚠️  Warning: No terminated=True found in {total_steps} steps (may be expected for short runs)")
     else:
-        print(f"  ✅ Found some termination signals - control plane appears to be working")
+        print("  ✅ Found some termination signals - control plane appears to be working")
 
 
 def _validate_no_tool_calls_after_termination(env_recordings: Dict, dataset: List[Dict]):
@@ -960,7 +959,7 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
                 f"Expected: Substantial trajectories should end with terminated=True."
             )
         elif last_terminated:
-            print(f"    ✅ Trajectory properly terminated")
+            print("    ✅ Trajectory properly terminated")
         else:
             print(f"    ℹ️  Short trajectory ({total_steps} steps) - termination not required")
 
@@ -1045,7 +1044,6 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
     # Start server for this test
     server = _create_test_server(9700)
     try:
-
         # Set up recording
         os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
 
@@ -1173,7 +1171,6 @@ async def test_control_plane_state_querying(multi_env_dataset):
     # Start server for this test
     server = _create_test_server(9700)
     try:
-
         # Create policy with shorter sequence for testing
         policy = create_cliff_walking_static_policy(action_sequence=["UP", "UP"])
 

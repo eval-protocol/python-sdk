@@ -618,7 +618,6 @@ async def test_multi_environment_sessions(multi_env_dataset, multi_env_recording
     # Start server for this test
     server = _create_test_server(9600)
     try:
-
         # Set up recording
         os.environ["EP_PLAYBACK_FILE"] = multi_env_recording_file
 
@@ -790,9 +789,9 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
                     "reward": response_data.get("reward", 0.0),
                 }
                 states.append(state_info)
-                print(f"    Step {i+1}: {state_info}")
+                print(f"    Step {i + 1}: {state_info}")
             except (json.JSONDecodeError, TypeError) as e:
-                pytest.fail(f"❌ Invalid JSON in tool response {i+1} for env {env_idx}: {response}. Error: {e}")
+                pytest.fail(f"❌ Invalid JSON in tool response {i + 1} for env {env_idx}: {response}. Error: {e}")
 
         # For lunar lander, we expect state to change between steps
         if len(states) >= 2:
@@ -819,7 +818,7 @@ async def _validate_recording_integrity(recording_file: str, dataset: List[Dict]
     print("\n🏁 Validating trajectory termination...")
     _validate_trajectory_termination(env_recordings, dataset)
 
-    print(f"✅ Recording integrity validation completed")
+    print("✅ Recording integrity validation completed")
 
 
 def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
@@ -899,7 +898,7 @@ def _validate_no_repeated_states(env_recordings: Dict, dataset: List[Dict]):
                 print(
                     f"⚠️  WARNING: Env {env_idx}: Position {longest_sequence[0]} repeated {longest_sequence[1]} times starting from step {longest_sequence[2]}."
                 )
-                print(f"    This might indicate session state or control plane termination issues.")
+                print("    This might indicate session state or control plane termination issues.")
                 print(f"    All positions: {[pos for _, pos in positions]}")
         else:
             print(f"  ✅ Env {env_idx}: No repeated states detected - good state progression!")
@@ -952,9 +951,9 @@ def _validate_control_plane_sync(env_recordings: Dict, dataset: List[Dict]):
     #         f"Expected: At least some episodes should terminate when lander crashes or lands successfully."
     #      )
     if terminated_steps == 0:
-        print(f"  ⚠️  Warning: No terminated=True found in (may be expected for short runs)")
+        print("  ⚠️  Warning: No terminated=True found in (may be expected for short runs)")
     else:
-        print(f"  ✅ Found some termination signals - control plane appears to be working")
+        print("  ✅ Found some termination signals - control plane appears to be working")
 
 
 def _validate_no_tool_calls_after_termination(env_recordings: Dict, dataset: List[Dict]):
@@ -1042,11 +1041,11 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
         if total_steps >= 8 and not last_terminated:
             print(f"  ⚠️  Env {env_idx}: Trajectory has {total_steps} steps but final metadata shows terminated=False.")
             print(
-                f"    This might indicate: 1) Episode still in progress, 2) Control plane sync issues, or 3) Lander hasn't crashed/landed yet"
+                "    This might indicate: 1) Episode still in progress, 2) Control plane sync issues, or 3) Lander hasn't crashed/landed yet"
             )
             print(f"    Last metadata: {last_tool_metadata}")
         elif last_terminated:
-            print(f"    ✅ Trajectory properly terminated")
+            print("    ✅ Trajectory properly terminated")
         else:
             print(f"    ℹ️  Short trajectory ({total_steps} steps) - termination not required")
 
@@ -1103,7 +1102,6 @@ async def test_fireworks_multi_environment_sessions(multi_env_dataset, fireworks
     # Start server for this test
     server = _create_test_server(9700)
     try:
-
         # Set up recording
         os.environ["EP_PLAYBACK_FILE"] = fireworks_multi_env_recording_file
 
@@ -1223,7 +1221,6 @@ async def test_control_plane_state_querying(multi_env_dataset):
     # Start server for this test
     server = _create_test_server(9700)
     try:
-
         # Create policy with shorter sequence for testing
         policy = create_lunar_lander_static_policy(action_sequence=["FIRE_MAIN", "FIRE_LEFT"])
 

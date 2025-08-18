@@ -286,7 +286,7 @@ def bfcl_reward(
         final_score = 0.0
         reason = "State or function calls did not perfectly match ground truth."
         if state_match_score < 0.5:
-            reason += f" State match failed."
+            reason += " State match failed."
             if state_diffs:
                 reason += f" Differences: {json.dumps(state_diffs)}"
         if func_match_score < 0.5:  # Check against 0.5 as perfect score for this component

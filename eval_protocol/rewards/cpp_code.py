@@ -484,7 +484,7 @@ async def run_cpp_test_cases(
     for i, test_case in enumerate(test_cases):
         test_input = test_case.get("input", "")
         expected_output = test_case.get("expected_output", "")
-        test_name = test_case.get("name", f"Test {i+1}")
+        test_name = test_case.get("name", f"Test {i + 1}")
 
         execution_result = await execute_cpp_code(
             code=code,

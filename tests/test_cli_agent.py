@@ -41,7 +41,7 @@ class TestAgentEvalCommand:
     def test_agent_eval_success_yaml(self, MockPath, MockTaskManager, caplog):
         # Configure caplog to capture logs from the agent_eval logger
         caplog.set_level(logging.INFO, logger="agent_eval")
-        
+
         # Setup Path mock
         mock_path_instance = Mock()
         MockPath.return_value = mock_path_instance
@@ -207,9 +207,7 @@ class TestAgentEvalCommand:
         mock_task_manager.register_task.return_value = "task1"
 
         # Make execute_tasks raise an exception
-        mock_task_manager.execute_tasks = AsyncMock(
-            side_effect=RuntimeError("Execution failed")
-        )  # type: ignore[attr-defined]
+        mock_task_manager.execute_tasks = AsyncMock(side_effect=RuntimeError("Execution failed"))  # type: ignore[attr-defined]
         mock_task_manager.cleanup = AsyncMock()
 
         args = argparse.Namespace(task_def="dummy_task.yaml")

@@ -89,7 +89,7 @@ class MockPolicy:
             {
                 "role": "tool",
                 "content": response,
-                "tool_call_id": tool_call.tool_call_id or f"call_{len(conversation_history)-1}",
+                "tool_call_id": tool_call.tool_call_id or f"call_{len(conversation_history) - 1}",
                 "control_plane_step": {
                     "step": env_index,
                     "reward": reward,
@@ -149,7 +149,6 @@ class TestRolloutControlPlaneIntegration:
             patch.object(GeneralMCPVectorEnv, "close") as mock_close,
             patch.object(GeneralMCPVectorEnv, "format_user_prompt") as mock_format_user_prompt,
         ):
-
             # Setup mock vector environment
             mock_env = GeneralMCPVectorEnv(sessions, dataset_rows)
             mock_env.sessions = sessions
@@ -269,9 +268,9 @@ class TestRolloutControlPlaneIntegration:
                     # Tool responses should only contain data plane information
                     content = msg.content or ""
                     # The content should not directly contain rewards or termination (they're in control_plane_step)
-                    assert (
-                        "reward" not in content.lower() or "reward_source" in content.lower()
-                    ), "Tool response should not directly contain reward"
+                    assert "reward" not in content.lower() or "reward_source" in content.lower(), (
+                        "Tool response should not directly contain reward"
+                    )
 
             # Validate control plane information from messages
             rewards = [msg.control_plane_step["reward"] for msg in messages_with_control_plane]
@@ -433,7 +432,6 @@ class TestRolloutControlPlaneIntegration:
             patch.object(GeneralMCPVectorEnv, "close") as mock_close,
             patch.object(GeneralMCPVectorEnv, "format_user_prompt") as mock_format_user_prompt,
         ):
-
             mock_env = GeneralMCPVectorEnv(sessions, dataset_rows)
             mock_env.sessions = sessions
             mock_env.dataset_rows = dataset_rows

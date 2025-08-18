@@ -62,11 +62,8 @@ dev = [
     "pytest-asyncio",
     "pytest-httpserver",
     "werkzeug>=2.0.0",
-    "black>=21.5b2",
-    "isort>=5.0.0",
-    "mypy>=0.812",
-    "flake8>=3.9.2",
-    "autopep8>=1.5.0",
+    "ruff>=0.5.0",
+    "pyright>=1.1.365",
     "transformers>=4.0.0",
     "types-setuptools",
     "types-requests",
@@ -114,6 +111,10 @@ adapters = [
     "datasets>=2.0.0",
     "transformers>=4.0.0",
 ]
+bigquery = [
+    "google-cloud-bigquery>=3.0.0",
+    "google-auth>=2.0.0",
+]
 svgbench = [
     "selenium>=4.0.0",
 ]
@@ -149,12 +150,7 @@ versionfile_build = "eval_protocol/_version.py"
 tag_prefix = "v"
 parentdir_prefix = "eval-protocol-"
 
-[tool.black]
-line-length = 119
-
-[tool.isort]
-profile = "black"
-line_length = 119
+### Black and isort removed; Ruff provides formatting and imports
 
 [tool.uv.sources]
 tau2 = { git = "https://github.com/sierra-research/tau2-bench.git" }
@@ -166,3 +162,64 @@ dev = [
     "haikus==0.3.8",
     "pytest>=8.4.1",
 ]
+
+[tool.ruff]
+line-length = 119
+target-version = "py310"
+exclude = ["vite-app", "vendor", "local_evals"]
+
+[tool.ruff.lint]
+# Relax: only enforce core errors (E/F); drop W/I for now
+select = ["E", "F"]
+# Preserve current flake8 ignore behavior to minimize churn
+ignore = ["E203", "E402", "E501", "F401"]
+
+# Suppress noisy rules in tests/examples/vendor where readability patterns differ
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["F841", "E712", "E731", "F821"]
+"examples/**/*.py" = ["F841", "E712", "E731", "F821"]
+"eval_protocol/pytest/**/*.py" = ["F841", "E712", "E731", "F811"]
+"vendor/**" = ["F841", "E712", "E731", "F811"]
+"development/**/*.py" = ["F841", "E712", "E731"]
+"eval_protocol/**/*.py" = ["F841", "F811", "E731", "E721"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["eval_protocol"]
+combine-as-imports = true
+
+[tool.pyright]
+typeCheckingMode = "basic"
+pythonVersion = "3.10"
+reportMissingImports = "none"
+reportMissingTypeStubs = "none"
+reportMissingModuleSource = "none"
+include = ["eval_protocol", "examples", "tests"]
+exclude = ["vite-app", "vendor"]
+# Ignore diagnostics for vendored generator code
+ignore = ["versioneer.py"]
+# Relax noisy diagnostics commonly triggered in tests and dynamic libs
+reportAttributeAccessIssue = "none"
+reportCallIssue = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportPossiblyUnboundVariable = "none"
+# Additional suppressions per request
+reportOptionalMemberAccess = "none"
+reportIndexIssue = "none"
+reportReturnType = "none"
+reportOptionalCall = "none"
+reportGeneralTypeIssues = "none"
+reportOperatorIssue = "none"
+reportOptionalSubscript = "none"
+reportUnsupportedDunderAll = "none"
+reportOptionalContextManager = "none"
+reportInvalidTypeForm = "none"
+reportRedeclaration = "none"
+reportUndefinedVariable = "none"
+reportPrivateImportUsage = "none"
+reportOptionalIterable = "none"
+# Make incompatibilities and argument types warnings instead of errors for now
+# and suppress warnings output entirely
+reportIncompatibleVariableOverride = "none"
+reportArgumentType = "none"
+reportAssignmentType = "none"

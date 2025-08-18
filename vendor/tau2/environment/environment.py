@@ -258,9 +258,9 @@ class Environment:
         Set the state of the environment given initialization data and a list of messages.
         """
         if self.solo_mode:
-            assert all(
-                [not isinstance(message, UserMessage) for message in message_history]
-            ), "User messages are not allowed in solo mode"
+            assert all([not isinstance(message, UserMessage) for message in message_history]), (
+                "User messages are not allowed in solo mode"
+            )
 
         def get_actions_from_messages(
             messages: list[Message],

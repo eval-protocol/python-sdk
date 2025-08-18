@@ -87,17 +87,6 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
 
   return (
     <div className="text-sm">
-      {/* Summary */}
-      <div className="mb-4 bg-white border border-gray-200 p-3">
-        <h2 className="text-sm font-semibold text-gray-900 mb-2">
-          Dataset Summary
-        </h2>
-        <div className="text-xs">
-          <span className="font-semibold text-gray-700">Total Rows:</span>{" "}
-          {state.totalCount}
-        </div>
-      </div>
-
       {/* Content Area */}
       {state.isLoading ? (
         <LoadingState />

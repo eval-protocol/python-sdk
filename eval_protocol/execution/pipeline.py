@@ -78,7 +78,7 @@ class EvaluationPipeline:
         if self.cfg.get("agent") and self.cfg.agent.get("type") == "mcp_agent":
             if not self.cfg.agent.get("intermediary_server_url"):
                 raise ValueError("agent.intermediary_server_url must be configured for mcp_agent type.")
-            logger.info(f"Pipeline configured for mcp_agent. IntermediaryMCPClient will be initialized in run().")
+            logger.info("Pipeline configured for mcp_agent. IntermediaryMCPClient will be initialized in run().")
 
     async def _discover_tools_for_sample(self, sample_id: str, mcp_backend_ref: str) -> List[Dict[str, Any]]:
         """Discover available tools from MCP backend for a sample."""
@@ -348,7 +348,7 @@ class EvaluationPipeline:
                             )
                         except Exception as e_tool_exec:
                             logger.error(
-                                f"Sample {sample_id}, Turn {turn_num+1}: Error executing/parsing tool '{tool_name}': {e_tool_exec}",
+                                f"Sample {sample_id}, Turn {turn_num + 1}: Error executing/parsing tool '{tool_name}': {e_tool_exec}",
                                 exc_info=True,
                             )
                             error_payload = {"error": str(e_tool_exec)}
@@ -381,11 +381,11 @@ class EvaluationPipeline:
                     assistant_msg_for_history["content"] = final_llm_text_response
                     current_messages_for_rollout.append(assistant_msg_for_history)
                     final_assistant_output_for_log = final_llm_text_response
-                    logger.info(f"Sample {sample_id}, Turn {turn_num+1}: LLM responded with text. Ending rollout.")
+                    logger.info(f"Sample {sample_id}, Turn {turn_num + 1}: LLM responded with text. Ending rollout.")
                     break
                 else:
                     logger.warning(
-                        f"Sample {sample_id}, Turn {turn_num+1}: LLM provided no content or tool calls. Ending rollout."
+                        f"Sample {sample_id}, Turn {turn_num + 1}: LLM provided no content or tool calls. Ending rollout."
                     )
                     final_llm_text_response = "LLM provided no actionable response in this turn."
                     assistant_msg_for_history["content"] = final_llm_text_response

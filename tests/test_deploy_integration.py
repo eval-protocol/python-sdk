@@ -174,7 +174,6 @@ def test_deploy_gcp_with_inline_requirements(
             return_value={"name": evaluator_id},
         ) as mock_create_eval,
     ):
-
         # Configure mock_get_config to return a basic config
         mock_config_instance = RewardKitConfig(
             gcp_cloud_run=GCPCloudRunConfig(
