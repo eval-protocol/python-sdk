@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
 from openai.types import CompletionUsage
@@ -11,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from eval_protocol.get_pep440_version import get_pep440_version
 from eval_protocol.human_id import generate_id
+from eval_protocol.types import TerminationReason
 
 
 class ChatCompletionContentPartTextParam(BaseModel):
@@ -285,14 +287,20 @@ class RolloutStatus(BaseModel):
 
     """
     running: Unfinished rollout which is still in progress.
-    finished: Rollout finished successfully.
-    error: Rollout failed.
-    stopped: Rollout terminated unexpectedly (e.g. max step, control plane signal, user stop).
+    finished: Rollout finished.
+    error: Rollout failed due to unexpected error. The rollout record should be discard.
     """
-    status: Literal["running", "finished", "error"] = Field("running", description="Status of the rollout.")
-    termination_reason: Optional[str] = Field(
-        "", description="reason of the rollout status, mapped to values in TerminationReason"
+
+    class Status(str, Enum):
+        RUNNING = "running"
+        FINISHED = "finished"
+        ERROR = "error"
+
+    status: Status = Field(Status.RUNNING, description="Status of the rollout.")
+    termination_reason: Optional[TerminationReason] = Field(
+        None, description="reason of the rollout status, mapped to values in TerminationReason"
     )
+    extra_info: Optional[Dict[str, Any]] = Field(None, description="Extra information about the rollout status.")
 
 
 class EvaluationRow(BaseModel):

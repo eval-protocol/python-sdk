@@ -12,17 +12,16 @@ import os
 import threading
 import time
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import anyio
-import httpx
 from openai.types import CompletionUsage
 
 from vendor.tau2.data_model.message import AssistantMessage, UserMessage
 from vendor.tau2.user.user_simulator import UserSimulator
 
-from ...models import EvaluationRow, InputMetadata, Message
-from ...types import MCPSession, MCPToolCall, TerminationReason, Trajectory
+from ...models import EvaluationRow, InputMetadata, Message, RolloutStatus
+from ...types import TerminationReason, Trajectory, NonSkippableException
 
 if TYPE_CHECKING:
     from ..session.manager import GeneralMCPVectorEnv
@@ -107,7 +106,7 @@ class ExecutionManager:
                 )
 
                 # Convert trajectory to EvaluationRow immediately
-                evaluation_row = evaluation_rows[idx]
+                evaluation_row: EvaluationRow = evaluation_rows[idx]
 
                 # Handle multimodal content by extracting text from complex content structures
                 messages = []
@@ -137,16 +136,15 @@ class ExecutionManager:
                 }
 
                 if trajectory.terminated:
-                    if trajectory.termination_reason == TerminationReason.ERROR:
-                        evaluation_row.rollout_status.status = "error"
-                        evaluation_row.rollout_status.termination_reason = trajectory.control_plane_summary.get(
-                            "error_message", None
-                        )
-                    else:
-                        evaluation_row.rollout_status.status = "finished"
-                        evaluation_row.rollout_status.termination_reason = trajectory.termination_reason
+                    evaluation_row.rollout_status.termination_reason = trajectory.termination_reason
+                    evaluation_row.rollout_status.status = RolloutStatus.Status.FINISHED
+                    # preserve the true error mesage if there are any
+                    if trajectory.control_plane_summary.get("error_message"):
+                        evaluation_row.rollout_status.extra_info = {
+                            "error_message": trajectory.control_plane_summary.get("error_message")
+                        }
                 else:
-                    evaluation_row.rollout_status.status = "running"
+                    evaluation_row.rollout_status.status = RolloutStatus.Status.RUNNING
 
                 return evaluation_row
 
@@ -437,31 +435,18 @@ class ExecutionManager:
             logger.info(
                 f"✅ Rollout {rollout_idx} completed: {trajectory.steps} steps, reward: {trajectory.total_reward:.2f}, termination: {trajectory.termination_reason}, in thread {threading.current_thread().name}"
             )
-
-        except asyncio.CancelledError:
-            failure_reason = "asyncio context cancelled"
-            logger.error(
-                f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {failure_reason}", exc_info=True
-            )
-        except (anyio.ClosedResourceError, anyio.BrokenResourceError):
-            failure_reason = "anyioconnection/resource error"
-            logger.error(
-                f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {failure_reason}", exc_info=True
-            )
-        except Exception as e:
-            error_msg = str(e) if str(e) else f"{type(e).__name__}: Unexpected error"
-            logger.error(f"🚨 Error in rollout {session.dataset_row.id} {rollout_idx}: {error_msg}", exc_info=True)
-            failure_reason = error_msg
+        except NonSkippableException as e:
+            # terminate the rollout right away, no retry and preserve the current trajectory history.
+            # for other types of exceptions, keep propagate them to upper layers and handle them with retry handler.
+            trajectory.terminated = True
+            trajectory.termination_reason = TerminationReason.NON_SKIPPABLE_ERROR
+            trajectory.control_plane_summary.update({"error_message": str(e)})
+            logger.error(f"🚨 Rollout {rollout_idx} terminated due to non-skippable error: {str(e)}", exc_info=True)
         finally:
-            if failure_reason:
-                trajectory.terminated = True
-                trajectory.termination_reason = TerminationReason.ERROR
-                trajectory.control_plane_summary.update({"error_message": f"{failure_reason}"})
             try:
                 await envs.connection_manager.reset_session(session)
             except Exception as e:
                 logger.warning(f"Failed to reset session {session.session_id}: {type(e).__name__}: {e}", exc_info=True)
-
             try:
                 await envs.connection_manager.close_session(session)
             except Exception as e:

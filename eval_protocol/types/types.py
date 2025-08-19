@@ -12,7 +12,8 @@ class TerminationReason(str, Enum):
     MAX_STEPS: Trajectory ends because we hit the step limit
     CONTROL_PLANE_SIGNAL: Trajectory ends because the control plane signals termination (e.g. env goal reached or failure condition)
     USER_STOP: Trajectory ends because the simulated user signals to stop
-    ERROR: Trajectory ends because of an error
+    SKIPPABLE_ERROR: Trajectory ends because of an error, this trajectory can be discarded/skipped during postprocessing/evaluation.
+    NON_SKIPPABLE_ERROR: Trajectory is interrupted due to some non-skippable error (e.g. policy returns unexpected response and we need to terminate the rollout).
     STOP: Trajectory ends by the policy (mapped to llm response stop reason "stop")
     LENGTH: Trajectory ends by the policy (mapped to llm response stop reason "length")
     TOOL_CALLS: Trajectory ends by the policy with a hanging tool call response (mapped to llm response stop reason "tool_calls")
@@ -21,7 +22,8 @@ class TerminationReason(str, Enum):
     MAX_STEPS = "max_steps"
     CONTROL_PLANE_SIGNAL = "control_plane_signal"
     USER_STOP = "user_stop"
-    ERROR = "error"
+    SKIPPABLE_ERROR = "skippable_error"
+    NON_SKIPPABLE_ERROR = "non_skippable_error"
     STOP = "stop"
     LENGTH = "length"
     TOOL_CALLS = "tool_calls"
@@ -38,8 +40,10 @@ class TerminationReason(str, Enum):
             return cls.CONTROL_PLANE_SIGNAL
         elif value == "user_stop":
             return cls.USER_STOP
-        elif value == "error":
-            return cls.ERROR
+        elif value == "skippable_error":
+            return cls.SKIPPABLE_ERROR
+        elif value == "non_skippable_error":
+            return cls.NON_SKIPPABLE_ERROR
         elif value == "tool_calls":
             return cls.TOOL_CALLS
         else:
