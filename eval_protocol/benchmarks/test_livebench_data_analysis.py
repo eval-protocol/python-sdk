@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 from typing import Any, Dict, List, Optional
@@ -7,6 +8,8 @@ from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
+from eval_protocol.pytest.types import RolloutProcessorConfig
 
 # -------------------------
 # Lightweight ports of LiveBench scoring utilities for data_analysis tasks
@@ -307,6 +310,41 @@ def _tablereformat_process_results(input_command: str, ground_truth: str, llm_an
 
 
 # -------------------------
+# Custom Rollout Processor to preserve ground truth
+# -------------------------
+
+
+class LiveBenchGroundTruthRolloutProcessor(RolloutProcessor):
+    """Rollout processor that preserves ground truth data from pre-loaded datasets."""
+
+    def __init__(self, task_rows: List[EvaluationRow]):
+        super().__init__()
+        self.single_turn_processor = SingleTurnRolloutProcessor()
+        # Create a mapping from message content to ground truth
+        self.ground_truth_map = {}
+        for row in task_rows:
+            if row.messages and len(row.messages) >= 2:  # system + user messages
+                user_msg = row.messages[1].content  # user message is typically second
+                if user_msg:
+                    self.ground_truth_map[str(user_msg)] = row.ground_truth
+
+    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        """Set ground truth on rows based on message content, then delegate to SingleTurnRolloutProcessor."""
+        processed: List[EvaluationRow] = []
+
+        for row in rows:
+            # Find matching ground truth based on user message content
+            if row.messages and len(row.messages) >= 2:
+                user_msg = row.messages[1].content  # user message
+                if user_msg and str(user_msg) in self.ground_truth_map:
+                    row.ground_truth = self.ground_truth_map[str(user_msg)]
+            processed.append(row)
+
+        # Delegate to SingleTurnRolloutProcessor
+        return self.single_turn_processor(processed, config)
+
+
+# -------------------------
 # Dataset loading from Hugging Face at import time
 # -------------------------
 
@@ -415,10 +453,10 @@ _TABLEJOIN_ROWS = _load_livebench_da_messages("tablejoin")
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_messages=[[m for m in r.messages] for r in _TABLEJOIN_ROWS],
     rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
-    rollout_processor=SingleTurnRolloutProcessor(),
+    rollout_processor=LiveBenchGroundTruthRolloutProcessor(_TABLEJOIN_ROWS),
     aggregation_method="mean",
     passed_threshold=None,
-    num_runs=1,
+    num_runs=4,
     mode="pointwise",
 )
 def test_livebench_tablejoin_pointwise(row: EvaluationRow) -> EvaluationRow:
@@ -458,7 +496,7 @@ _TABLEREFORMAT_ROWS = _load_livebench_da_messages("tablereformat")
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_messages=[[m for m in r.messages] for r in _TABLEREFORMAT_ROWS],
     rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
-    rollout_processor=SingleTurnRolloutProcessor(),
+    rollout_processor=LiveBenchGroundTruthRolloutProcessor(_TABLEREFORMAT_ROWS),
     aggregation_method="mean",
     passed_threshold=None,
     num_runs=4,
