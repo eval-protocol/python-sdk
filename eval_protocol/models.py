@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
 from openai.types import CompletionUsage
@@ -289,7 +290,13 @@ class RolloutStatus(BaseModel):
     finished: Rollout finished.
     error: Rollout failed due to unexpected error. The rollout record should be discard.
     """
-    status: Literal["running", "finished", "error"] = Field("running", description="Status of the rollout.")
+
+    class Status(str, Enum):
+        RUNNING = "running"
+        FINISHED = "finished"
+        ERROR = "error"
+
+    status: Status = Field(Status.RUNNING, description="Status of the rollout.")
     termination_reason: Optional[TerminationReason] = Field(
         None, description="reason of the rollout status, mapped to values in TerminationReason"
     )
