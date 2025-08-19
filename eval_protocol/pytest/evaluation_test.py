@@ -58,17 +58,18 @@ from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
 from ..common_utils import load_jsonl
 
 
-def postprocess(all_results: List[List[EvaluationRow]],
-                aggregation_method: AggregationMethod,
-                threshold: Optional[EvaluationThreshold],
-                active_logger: DatasetLogger,
-                mode: EvaluationTestMode,
-                completion_params: CompletionParams,
-                test_func_name: str,
-                num_runs: int):
+def postprocess(
+    all_results: List[List[EvaluationRow]],
+    aggregation_method: AggregationMethod,
+    threshold: Optional[EvaluationThreshold],
+    active_logger: DatasetLogger,
+    mode: EvaluationTestMode,
+    completion_params: CompletionParams,
+    test_func_name: str,
+    num_runs: int,
+):
     scores = [
-        sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
-        for result in all_results
+        sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result) for result in all_results
     ]
     agg_score = aggregate(scores, aggregation_method)
 
@@ -220,9 +221,7 @@ def postprocess(all_results: List[List[EvaluationRow]],
 
     # Check threshold after logging
     if threshold is not None and not passed:
-        assert agg_score >= threshold.success, (
-            f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
-        )
+        assert agg_score >= threshold.success, f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
         if threshold.standard_error is not None and standard_error is not None:
             assert standard_error <= threshold.standard_error, (
                 f"Standard error {standard_error:.3f} above threshold {threshold.standard_error}"
@@ -350,21 +349,15 @@ def evaluation_test(  # noqa: C901
             # additional check for groupwise evaluation
         elif mode == "groupwise":
             if "rows" not in sig.parameters:
-                raise ValueError(
-                    "In listwise mode, your eval function must have a parameter named 'rows'"
-                )
+                raise ValueError("In listwise mode, your eval function must have a parameter named 'rows'")
 
             # validate that "Rows" is of type List[EvaluationRow]
             if sig.parameters["rows"].annotation is not List[EvaluationRow]:
-                raise ValueError(
-                    "In listwise mode, the 'rows' parameter must be of type List[EvaluationRow"
-                )
+                raise ValueError("In listwise mode, the 'rows' parameter must be of type List[EvaluationRow")
 
             # validate that the function has a return type of List[EvaluationRow]
             if sig.return_annotation is not List[EvaluationRow]:
-                raise ValueError(
-                    "In listwise mode, your eval function must return a list of EvaluationRow instances"
-                )
+                raise ValueError("In listwise mode, your eval function must return a list of EvaluationRow instances")
             if len(completion_params) < 2:
                 raise ValueError("In groupwise mode, you must provide at least 2 completion parameters")
         else:
@@ -378,9 +371,7 @@ def evaluation_test(  # noqa: C901
 
             # validate that the function has a return type of List[EvaluationRow]
             if sig.return_annotation is not List[EvaluationRow]:
-                raise ValueError(
-                    "In listwise mode, your eval function must return a list of EvaluationRow instances"
-                )
+                raise ValueError("In listwise mode, your eval function must return a list of EvaluationRow instances")
 
         async def execute_with_params(
             test_func: TestFunction,
@@ -411,7 +402,9 @@ def evaluation_test(  # noqa: C901
 
         # Calculate all possible combinations of parameters
         if mode == "groupwise":
-            combinations = generate_parameter_combinations(input_dataset, None, input_dataset, evaluation_test_kwargs, max_dataset_rows, combine_datasets)
+            combinations = generate_parameter_combinations(
+                input_dataset, None, input_dataset, evaluation_test_kwargs, max_dataset_rows, combine_datasets
+            )
         else:
             combinations = generate_parameter_combinations(
                 input_dataset,
@@ -619,7 +612,7 @@ def evaluation_test(  # noqa: C901
                             all_results[i] = results
                         elif mode == "groupwise":
                             # rollout all the completion_params for the same row at once, and then send the output to the test_func
-                            row_groups = defaultdict(list) # key: row_id, value: list of rollout_result
+                            row_groups = defaultdict(list)  # key: row_id, value: list of rollout_result
                             tasks: List[asyncio.Task[List[EvaluationRow]]] = []
                             # completion_groups = []
                             for idx, cp in enumerate(original_completion_params_list):
@@ -636,7 +629,9 @@ def evaluation_test(  # noqa: C901
 
                                 async def _collect_result(config, lst, max_retry):
                                     result = []
-                                    async for row in rollout_processor_with_retry(rollout_processor, lst, config, max_retry):
+                                    async for row in rollout_processor_with_retry(
+                                        rollout_processor, lst, config, max_retry
+                                    ):
                                         result.append(row)
                                     return result
 
@@ -654,7 +649,9 @@ def evaluation_test(  # noqa: C901
                             results = []
                             for row_id, rows in row_groups.items():
                                 result = await execute_with_params(
-                                    test_func, processed_dataset=rows, evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {}
+                                    test_func,
+                                    processed_dataset=rows,
+                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                                 )
                                 results.extend(result)
                             all_results[i] = results
@@ -670,10 +667,7 @@ def evaluation_test(  # noqa: C901
                             results = await execute_with_params(
                                 test_func,
                                 processed_dataset=input_dataset,
-                                evaluation_test_kwargs=kwargs.get(
-                                    "evaluation_test_kwargs"
-                                )
-                                or {},
+                                evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                             )
                             if results is None:
                                 raise ValueError(
@@ -698,17 +692,37 @@ def evaluation_test(  # noqa: C901
                                 r.eval_metadata.status = "finished"
                             active_logger.log(r)
 
-                    # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them  
+                    # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them
                     # rollout_id is used to differentiate the result from different completion_params
                     if mode == "groupwise":
-                        results_by_group = [[[] for _ in range(num_runs)] for _ in range(len(original_completion_params_list))]
+                        results_by_group = [
+                            [[] for _ in range(num_runs)] for _ in range(len(original_completion_params_list))
+                        ]
                         for i, result in enumerate(all_results):
                             for r in result:
                                 results_by_group[int(r.execution_metadata.rollout_id)][i].append(r)
                         for i, result in enumerate(results_by_group):
-                            postprocess(result, aggregation_method, threshold, active_logger, mode, original_completion_params_list[i], test_func.__name__, num_runs)
+                            postprocess(
+                                result,
+                                aggregation_method,
+                                threshold,
+                                active_logger,
+                                mode,
+                                original_completion_params_list[i],
+                                test_func.__name__,
+                                num_runs,
+                            )
                     else:
-                        postprocess(all_results, aggregation_method, threshold, active_logger, mode, completion_params, test_func.__name__, num_runs)
+                        postprocess(
+                            all_results,
+                            aggregation_method,
+                            threshold,
+                            active_logger,
+                            mode,
+                            completion_params,
+                            test_func.__name__,
+                            num_runs,
+                        )
 
                 except AssertionError:
                     _log_eval_error("finished", data if "data" in locals() else None, passed=False)
