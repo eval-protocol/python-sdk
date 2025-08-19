@@ -10,6 +10,7 @@ from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 
 from ..models import CompletionParams, EvaluationRow, Message
+from .exception_config import ExceptionHandlerConfig
 
 ModelParam = str  # gpt-4o, gpt-4o-mini, accounts/fireworks/models/llama-3.1-8b-instruct
 DatasetPathParam = str
@@ -50,3 +51,6 @@ class RolloutProcessorConfig:
     steps: int = 30  # max number of rollout steps
     logger: DatasetLogger = default_logger  # logger to use during rollout for mid-rollout logs
     kwargs: Dict[str, Any] = field(default_factory=dict)  # any additional kwargs to pass to the rollout processor
+    exception_handler_config: Optional[ExceptionHandlerConfig] = (
+        None  # configuration for exception handling with backoff
+    )

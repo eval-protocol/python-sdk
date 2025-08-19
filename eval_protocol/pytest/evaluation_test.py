@@ -51,6 +51,7 @@ from eval_protocol.pytest.utils import (
     rollout_processor_with_retry,
     sanitize_filename,
 )
+from eval_protocol.pytest.exception_config import ExceptionHandlerConfig
 from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
 
 from ..common_utils import load_jsonl
@@ -76,6 +77,7 @@ def evaluation_test(  # noqa: C901
     mode: EvaluationTestMode = "batch",
     combine_datasets: bool = True,
     logger: Optional[DatasetLogger] = None,
+    exception_handler_config: Optional[ExceptionHandlerConfig] = None,
 ) -> Callable[
     [TestFunction],
     TestFunction,
@@ -140,6 +142,8 @@ def evaluation_test(  # noqa: C901
             full dataset. "pointwise" applies test function to each row. If your evaluation requires
             the full rollout of all rows to compute the score, use
         logger: DatasetLogger to use for logging. If not provided, a default logger will be used.
+        exception_handler_config: Configuration for exception handling and backoff retry logic.
+            If not provided, a default configuration will be used with common retryable exceptions.
     """
 
     active_logger: DatasetLogger = logger if logger else default_logger
@@ -365,9 +369,8 @@ def evaluation_test(  # noqa: C901
                         steps=steps,
                         logger=active_logger,
                         kwargs=rollout_processor_kwargs or {},
+                        exception_handler_config=exception_handler_config,
                     )
-
-                    max_retry = int(os.getenv("EP_MAX_RETRY", "0"))
 
                     for i in range(num_runs):
                         # Regenerate outputs each run by deep-copying the pristine dataset
@@ -408,9 +411,7 @@ def evaluation_test(  # noqa: C901
                                     return result
 
                             # Use wrapper that handles retry logic internally
-                            async for row in rollout_processor_with_retry(
-                                rollout_processor, fresh_dataset, config, max_retry
-                            ):
+                            async for row in rollout_processor_with_retry(rollout_processor, fresh_dataset, config):
                                 tasks.append(asyncio.create_task(_execute_with_semaphore(row)))
 
                             results = await asyncio.gather(*tasks)
@@ -420,9 +421,7 @@ def evaluation_test(  # noqa: C901
                         else:
                             # Batch mode: collect all results first, then evaluate (no pipelining)
                             input_dataset = []
-                            async for row in rollout_processor_with_retry(
-                                rollout_processor, fresh_dataset, config, max_retry
-                            ):
+                            async for row in rollout_processor_with_retry(rollout_processor, fresh_dataset, config):
                                 input_dataset.append(row)
                             # NOTE: we will still evaluate errored rows (give users control over this)
                             # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
