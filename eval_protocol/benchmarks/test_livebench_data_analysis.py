@@ -456,7 +456,7 @@ _TABLEJOIN_ROWS = _load_livebench_da_messages("tablejoin")
     rollout_processor=LiveBenchGroundTruthRolloutProcessor(_TABLEJOIN_ROWS),
     aggregation_method="mean",
     passed_threshold=None,
-    num_runs=1,
+    num_runs=4,
     mode="pointwise",
 )
 def test_livebench_tablejoin_pointwise(row: EvaluationRow) -> EvaluationRow:

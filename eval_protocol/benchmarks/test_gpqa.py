@@ -97,7 +97,7 @@ class GPQAStripGTRolloutProcessor(RolloutProcessor):
     rollout_processor=GPQAStripGTRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=None,
-    num_runs=1,
+    num_runs=8,
     mode="pointwise",
 )
 def test_gpqa_pointwise(row: EvaluationRow) -> EvaluationRow:
