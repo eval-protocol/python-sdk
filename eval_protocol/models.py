@@ -211,7 +211,14 @@ class InputMetadata(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    row_id: Optional[str] = Field(None, description="Unique string to ID the row")
+    row_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Unique string to ID the row. If not provided, a stable hash will be generated "
+            "based on the row's content. The hash removes fields that are not typically stable "
+            "across processes such as created_at, execution_metadata, and pid."
+        ),
+    )
     completion_params: CompletionParams = Field(
         default_factory=dict, description="Completion endpoint parameters used"
     )
@@ -430,20 +437,53 @@ class EvaluationRow(BaseModel):
         return "unknown"
 
     def __hash__(self) -> int:
-        # Use a stable hash by sorting keys and ensuring compact output
-        json_str = self.stable_json(self)
-        return hash(json_str)
+        # Use a stable hash that works across Python processes
+        return self._stable_hash()
 
-    @classmethod
-    def stable_json(cls, row: "EvaluationRow") -> int:
-        json_str = row.model_dump_json(
+    def _stable_hash(self) -> int:
+        """Generate a stable hash that works across Python processes."""
+        import hashlib
+
+        # Get the stable JSON representation
+        json_str = self._stable_json()
+
+        # Use SHA-256 for deterministic hashing across processes
+        hash_obj = hashlib.sha256(json_str.encode("utf-8"))
+
+        # Convert to a positive integer (first 8 bytes)
+        hash_bytes = hash_obj.digest()[:8]
+        return int.from_bytes(hash_bytes, byteorder="big")
+
+    def _stable_json(self) -> str:
+        """Generate a stable JSON string representation for hashing."""
+        # Produce a canonical, key-sorted JSON across nested structures and
+        # exclude volatile fields that can differ across processes
+        import json
+        from enum import Enum
+
+        def canonicalize(value):
+            # Recursively convert to a structure with deterministic key ordering
+            if isinstance(value, dict):
+                return {k: canonicalize(value[k]) for k in sorted(value.keys())}
+            if isinstance(value, list):
+                return [canonicalize(v) for v in value]
+            if isinstance(value, Enum):
+                return value.value
+            return value
+
+        # Dump to a plain Python structure first
+        data = self.model_dump(
             exclude_none=True,
             exclude_defaults=True,
             by_alias=True,
-            indent=None,
-            exclude=["created_at", "execution_metadata"],
+            exclude={"created_at", "execution_metadata", "pid"},
         )
-        return json_str
+
+        # Ensure deterministic ordering for all nested dicts
+        canonical_data = canonicalize(data)
+
+        # Compact, sorted JSON string
+        return json.dumps(canonical_data, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
 
 
 # Original dataclass-based models for backwards compatibility
