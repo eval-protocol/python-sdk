@@ -78,7 +78,7 @@ def generate_id(
     return separator.join(parts)
 
 
-def num_combinations(word_count: int) -> int:
+def num_combinations(word_count: int = 5) -> int:
     """
     Return the total number of unique IDs possible for the given word_count.
 
