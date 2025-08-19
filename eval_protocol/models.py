@@ -211,7 +211,14 @@ class InputMetadata(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    row_id: Optional[str] = Field(None, description="Unique string to ID the row")
+    row_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Unique string to ID the row. If not provided, a stable hash will be generated "
+            "based on the row's content. The hash removes fields that are not typically stable "
+            "across processes such as created_at, execution_metadata, and pid."
+        ),
+    )
     completion_params: CompletionParams = Field(
         default_factory=dict, description="Completion endpoint parameters used"
     )
