@@ -28,6 +28,7 @@ from .cli_commands.deploy_mcp import deploy_mcp_command
 from .cli_commands.logs import logs_command
 from .cli_commands.preview import preview_command
 from .cli_commands.run_eval_cmd import hydra_cli_entry_point
+from .cli_commands.login import login_command
 
 
 def parse_args(args=None):
@@ -36,6 +37,30 @@ def parse_args(args=None):
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
+
+    # Login command
+    login_parser = subparsers.add_parser(
+        "login", help="Sign in to Fireworks via API key or OAuth2 device flow"
+    )
+    # API key flow
+    login_parser.add_argument("--api-key", help="Fireworks API key (prompted if not provided)")
+    # OAuth2 flow toggles
+    login_parser.add_argument("--oauth", action="store_true", help="Use OAuth2 device flow (like firectl)")
+    login_parser.add_argument("--issuer", help="OIDC issuer URL (e.g., https://auth.fireworks.ai)")
+    login_parser.add_argument("--client-id", help="OAuth2 public client id for device flow")
+    login_parser.add_argument(
+        "--scope",
+        help="OAuth2 scopes (default: 'openid offline_access email profile')",
+    )
+    login_parser.add_argument(
+        "--open-browser", action="store_true", help="Attempt to open the verification URL in a browser"
+    )
+    # Common options
+    login_parser.add_argument("--account-id", help="Fireworks Account ID to associate with this login")
+    login_parser.add_argument("--api-base", help="Custom API base (defaults to https://api.fireworks.ai)")
+    vgroup = login_parser.add_mutually_exclusive_group()
+    vgroup.add_argument("--validate", action="store_true", help="Validate account with a test API call (API key flow)")
+    vgroup.add_argument("--no-validate", action="store_true", help="Do not validate; just write the file")
 
     # Preview command
     preview_parser = subparsers.add_parser("preview", help="Preview an evaluator with sample data")
@@ -338,6 +363,10 @@ def main():
 
     if args.command == "preview":
         return preview_command(args)
+    elif args.command == "login":
+        # translate mutually exclusive group into a single boolean
+        setattr(args, "validate", bool(getattr(args, "validate", False) and not getattr(args, "no_validate", False)))
+        return login_command(args)
     elif args.command == "deploy":
         return deploy_command(args)
     elif args.command == "deploy-mcp":

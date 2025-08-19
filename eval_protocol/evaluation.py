@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 import requests
 
-from eval_protocol.auth import get_fireworks_account_id, get_fireworks_api_key
+from eval_protocol.auth import get_fireworks_account_id, get_auth_bearer
 from eval_protocol.typed_interface import EvaluationMode
 
 logger = logging.getLogger(__name__)
@@ -345,7 +345,7 @@ class Evaluator:
             raise ValueError(f"No valid samples found in {sample_file}")
 
         account_id = self.account_id or get_fireworks_account_id()
-        auth_token = self.api_key or get_fireworks_api_key()
+        auth_token = self.api_key or get_auth_bearer()
         logger.debug(f"Preview using account_id: {account_id}")
 
         if not account_id or not auth_token:
@@ -504,7 +504,7 @@ class Evaluator:
             raise ValueError("No code files loaded. Load metric folder(s) or provide ts_mode_config/remote_url first.")
 
         account_id = self.account_id or get_fireworks_account_id()
-        auth_token = self.api_key or get_fireworks_api_key()
+        auth_token = self.api_key or get_auth_bearer()
         if not auth_token or not account_id:
             logger.error("Authentication error: API credentials appear to be invalid or incomplete.")
             raise ValueError("Invalid or missing API credentials.")
@@ -762,7 +762,7 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
 
     def _get_authentication(self):
         account_id = get_fireworks_account_id()
-        auth_token = get_fireworks_api_key()
+        auth_token = get_auth_bearer()
         if not account_id:
             logger.error("Authentication error: Fireworks Account ID not found.")
             raise ValueError("Fireworks Account ID not found.")

@@ -70,6 +70,28 @@ Install with pip:
 pip install eval-protocol
 ```
 
+## Fireworks Login (REST)
+
+Use the CLI to sign in without gRPC.
+
+```
+# API key flow
+eval-protocol login --api-key YOUR_KEY --account-id YOUR_ACCOUNT_ID --validate
+
+# OAuth2 device flow (like firectl)
+eval-protocol login --oauth --issuer https://YOUR_ISSUER --client-id YOUR_PUBLIC_CLIENT_ID \
+  --account-id YOUR_ACCOUNT_ID --open-browser
+```
+
+- Omit `--api-key` to be prompted securely.
+- Omit `--account-id` to save only the key; you can add it later.
+- Add `--api-base https://api.fireworks.ai` for a custom base, if needed.
+- For OAuth2, you can also set env vars: `FIREWORKS_OIDC_ISSUER`, `FIREWORKS_OAUTH_CLIENT_ID`, `FIREWORKS_OAUTH_SCOPE`.
+
+Credentials are stored at `~/.fireworks/auth.ini` with 600 permissions and are read automatically by the SDK.
+
+Note: Model/LLM calls still require a Fireworks API key. OAuth login alone does not enable LLM calls yet; ensure `FIREWORKS_API_KEY` is set or saved via `eval-protocol login --api-key ...`.
+
 ## License
 
 [MIT](LICENSE)

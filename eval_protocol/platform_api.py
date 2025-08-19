@@ -6,11 +6,7 @@ from typing import Any, Dict, Optional
 import requests
 from dotenv import find_dotenv, load_dotenv
 
-from eval_protocol.auth import (
-    get_fireworks_account_id,
-    get_fireworks_api_base,
-    get_fireworks_api_key,
-)
+from eval_protocol.auth import get_fireworks_api_base, get_auth_bearer
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +70,7 @@ def create_or_update_fireworks_secret(
     Returns:
         True if successful, False otherwise.
     """
-    resolved_api_key = api_key or get_fireworks_api_key()
+    resolved_api_key = api_key or get_auth_bearer()
     resolved_api_base = api_base or get_fireworks_api_base()
     resolved_account_id = account_id  # Must be provided
 
@@ -82,10 +78,7 @@ def create_or_update_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for creating/updating secret.")
         return False
 
-    headers = {
-        "Authorization": f"Bearer {resolved_api_key}",
-        "Content-Type": "application/json",
-    }
+    headers = {"Authorization": f"Bearer {resolved_api_key}", "Content-Type": "application/json"}
 
     # The secret_id for GET/PATCH/DELETE operations is the key_name.
     # The 'name' field in the gatewaySecret model for POST/PATCH is a bit ambiguous.
@@ -200,7 +193,7 @@ def get_fireworks_secret(
     Note: This typically does not return the secret's actual value for security reasons,
           but rather its metadata.
     """
-    resolved_api_key = api_key or get_fireworks_api_key()
+    resolved_api_key = api_key or get_auth_bearer()
     resolved_api_base = api_base or get_fireworks_api_base()
     resolved_account_id = account_id
 
@@ -285,6 +278,8 @@ if __name__ == "__main__":
     # FIREWORKS_API_KEY="your_fireworks_api_key"
     # FIREWORKS_ACCOUNT_ID="your_fireworks_account_id"
     # FIREWORKS_API_BASE="https://api.fireworks.ai" # or your dev/staging endpoint
+
+    from eval_protocol.auth import get_fireworks_account_id, get_fireworks_api_key
 
     test_account_id = get_fireworks_account_id()
     test_api_key = get_fireworks_api_key()  # Not passed directly, functions will resolve
