@@ -339,8 +339,8 @@ def test_stable_json():
         messages=[Message(role="user", content="What is 2+2?"), Message(role="assistant", content="2+2 equals 4.")],
         ground_truth="4",
     )
-    stable_json = row.model_dump_json()
-    stable_json2 = row2.model_dump_json()
+    stable_json = row._stable_json()
+    stable_json2 = row2._stable_json()
     assert stable_json == stable_json2
     assert "created_at" not in stable_json
     assert "execution_metadata" not in stable_json
