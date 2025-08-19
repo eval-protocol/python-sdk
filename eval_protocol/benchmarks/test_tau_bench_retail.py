@@ -30,12 +30,12 @@ from vendor.tau2.registry import registry
 
 def _get_retail_dataset_path() -> str:
     """Get the retail dataset file path."""
-    return str(Path(__file__).parent.parent.parent.parent / "tests" / "pytest" / "data" / "retail_dataset.jsonl")
+    return str(Path(__file__).parent.parent.parent / "tests" / "pytest" / "data" / "retail_dataset.jsonl")
 
 
 def _get_server_script_path() -> str:
     """Get the tau2 mcp server script path."""
-    return str(Path(__file__).parent.parent.parent.parent / "examples" / "tau2_mcp" / "server.py")
+    return str(Path(__file__).parent.parent.parent / "examples" / "tau2_mcp" / "server.py")
 
 
 def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
@@ -43,7 +43,7 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     Convert entries from retail dataset to EvaluationRow objects.
     """
     rows = []
-    test_dir = Path(__file__).parent.parent.parent.parent / "examples" / "tau2_mcp" / "tests"
+    test_dir = Path(__file__).parent.parent.parent / "examples" / "tau2_mcp" / "tests"
 
     # Load system prompt from file so we can change it in one place
     domain = data[0]["environment_context"]["domain"]
