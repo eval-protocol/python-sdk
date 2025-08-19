@@ -2,7 +2,6 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-from eval_protocol.benchmarks.registry import export_benchmark, register_composite_benchmark
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
@@ -370,7 +369,6 @@ def _extract_gt(row: EvaluationRow) -> Dict[str, Any]:
 _CTA_ROWS = _load_livebench_da_messages("cta")
 
 
-@export_benchmark("live_bench/data_analysis/cta")
 @evaluation_test(
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_messages=[[m for m in r.messages] for r in _CTA_ROWS],
@@ -381,7 +379,7 @@ _CTA_ROWS = _load_livebench_da_messages("cta")
     num_runs=4,
     mode="pointwise",
 )
-def livebench_cta_pointwise(row: EvaluationRow) -> EvaluationRow:
+def test_livebench_cta_pointwise(row: EvaluationRow) -> EvaluationRow:
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
     content = assistant_msgs[-1].content if assistant_msgs else ""
     payload = _extract_gt(row)
@@ -413,7 +411,6 @@ def livebench_cta_pointwise(row: EvaluationRow) -> EvaluationRow:
 _TABLEJOIN_ROWS = _load_livebench_da_messages("tablejoin")
 
 
-@export_benchmark("live_bench/data_analysis/tablejoin")
 @evaluation_test(
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_messages=[[m for m in r.messages] for r in _TABLEJOIN_ROWS],
@@ -421,10 +418,10 @@ _TABLEJOIN_ROWS = _load_livebench_da_messages("tablejoin")
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=None,
-    num_runs=4,
+    num_runs=1,
     mode="pointwise",
 )
-def livebench_tablejoin_pointwise(row: EvaluationRow) -> EvaluationRow:
+def test_livebench_tablejoin_pointwise(row: EvaluationRow) -> EvaluationRow:
     user_msgs = [m for m in row.messages if m.role == "user"]
     question = user_msgs[-1].content if user_msgs else ""
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
@@ -457,7 +454,6 @@ def livebench_tablejoin_pointwise(row: EvaluationRow) -> EvaluationRow:
 _TABLEREFORMAT_ROWS = _load_livebench_da_messages("tablereformat")
 
 
-@export_benchmark("live_bench/data_analysis/tablereformat")
 @evaluation_test(
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_messages=[[m for m in r.messages] for r in _TABLEREFORMAT_ROWS],
@@ -468,7 +464,7 @@ _TABLEREFORMAT_ROWS = _load_livebench_da_messages("tablereformat")
     num_runs=4,
     mode="pointwise",
 )
-def livebench_tablereformat_pointwise(row: EvaluationRow) -> EvaluationRow:
+def test_livebench_tablereformat_pointwise(row: EvaluationRow) -> EvaluationRow:
     user_msgs = [m for m in row.messages if m.role == "user"]
     question = user_msgs[-1].content if user_msgs else ""
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
@@ -496,14 +492,3 @@ def livebench_tablereformat_pointwise(row: EvaluationRow) -> EvaluationRow:
         },
     )
     return row
-
-
-# Register a composite benchmark that aggregates all three LiveBench Data Analysis tests
-register_composite_benchmark(
-    name="live_bench/data_analysis",
-    children=[
-        "live_bench/data_analysis/cta",
-        "live_bench/data_analysis/tablejoin",
-        "live_bench/data_analysis/tablereformat",
-    ],
-)

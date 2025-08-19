@@ -10,7 +10,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-from eval_protocol.benchmarks.registry import export_benchmark
 from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
@@ -29,12 +28,22 @@ from vendor.tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
 from vendor.tau2.registry import registry
 
 
+def _get_retail_dataset_path() -> str:
+    """Get the retail dataset file path."""
+    return str(Path(__file__).parent.parent.parent / "tests" / "pytest" / "data" / "retail_dataset.jsonl")
+
+
+def _get_server_script_path() -> str:
+    """Get the tau2 mcp server script path."""
+    return str(Path(__file__).parent.parent.parent / "examples" / "tau2_mcp" / "server.py")
+
+
 def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
     """
     Convert entries from retail dataset to EvaluationRow objects.
     """
     rows = []
-    test_dir = Path(__file__).parent.parent.parent.parent / "examples" / "tau2_mcp" / "tests"
+    test_dir = Path(__file__).parent.parent.parent / "examples" / "tau2_mcp" / "tests"
 
     # Load system prompt from file so we can change it in one place
     domain = data[0]["environment_context"]["domain"]
@@ -62,9 +71,8 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     return rows
 
 
-@export_benchmark("tau_bench_retail")
 @evaluation_test(
-    input_dataset=["tests/pytest/data/retail_dataset.jsonl"],
+    input_dataset=[_get_retail_dataset_path()],
     dataset_adapter=tau_bench_retail_to_evaluation_row,
     completion_params=[
         {
@@ -78,7 +86,7 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     num_runs=8,
     mode="pointwise",
     max_concurrent_rollouts=50,
-    server_script_path="examples/tau2_mcp/server.py",
+    server_script_path=_get_server_script_path(),
 )
 def test_tau_bench_retail_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
