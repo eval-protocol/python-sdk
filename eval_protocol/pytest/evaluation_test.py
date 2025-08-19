@@ -15,7 +15,7 @@ import pytest
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
-from eval_protocol.human_id import generate_id
+from eval_protocol.human_id import generate_id, num_combinations
 from eval_protocol.models import (
     CompletionParams,
     EvalMetadata,
@@ -293,6 +293,16 @@ def evaluation_test(  # noqa: C901
                             data = [EvaluationRow(messages=m) for m in im]
                     else:
                         raise ValueError("No input dataset or input messages provided")
+
+                    for row in data:
+                        # generate a stable row_id for each row
+                        if row.input_metadata.row_id is None:
+                            # Generate a stable, deterministic row_id using the row's hash and num_combinations
+                            index = hash(row)
+                            max_index = num_combinations() - 1
+                            # Ensure index is a non-negative integer within [0, max_index]
+                            index = abs(index) % (max_index + 1)
+                            row.input_metadata.row_id = generate_id(seed=0, index=index)
 
                     if "completion_params" not in kwargs or not kwargs["completion_params"]:
                         raise ValueError(

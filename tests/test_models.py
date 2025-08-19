@@ -289,6 +289,23 @@ def test_evaluation_row_creation():
     assert not row.is_trajectory_evaluation()
 
 
+def test_stable_hash():
+    """Test the stable hash method."""
+    row = EvaluationRow(
+        messages=[Message(role="user", content="What is 2+2?"), Message(role="assistant", content="2+2 equals 4.")],
+        ground_truth="4",
+    )
+    row2 = EvaluationRow(
+        messages=[Message(role="user", content="What is 2+2?"), Message(role="assistant", content="2+2 equals 4.")],
+        ground_truth="4",
+    )
+    stable_json = EvaluationRow.stable_json(row)
+    stable_json2 = EvaluationRow.stable_json(row2)
+    assert stable_json == stable_json2
+    assert "created_at" not in stable_json
+    assert "execution_metadata" not in stable_json
+
+
 def test_evaluation_row_trajectory_evaluation():
     """Test EvaluationRow with trajectory evaluation."""
     messages = [

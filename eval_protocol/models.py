@@ -211,7 +211,7 @@ class InputMetadata(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    row_id: Optional[str] = Field(default_factory=generate_id, description="Unique string to ID the row")
+    row_id: Optional[str] = Field(None, description="Unique string to ID the row")
     completion_params: CompletionParams = Field(
         default_factory=dict, description="Completion endpoint parameters used"
     )
@@ -428,6 +428,22 @@ class EvaluationRow(BaseModel):
             if msg.control_plane_step and msg.control_plane_step.get("termination_reason"):
                 return msg.control_plane_step["termination_reason"]
         return "unknown"
+
+    def __hash__(self) -> int:
+        # Use a stable hash by sorting keys and ensuring compact output
+        json_str = self.stable_json(self)
+        return hash(json_str)
+
+    @classmethod
+    def stable_json(cls, row: "EvaluationRow") -> int:
+        json_str = row.model_dump_json(
+            exclude_none=True,
+            exclude_defaults=True,
+            by_alias=True,
+            indent=None,
+            exclude=["created_at", "execution_metadata"],
+        )
+        return json_str
 
 
 # Original dataclass-based models for backwards compatibility
