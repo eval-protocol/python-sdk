@@ -1,6 +1,5 @@
 from typing import Any, Dict, List, Optional
 
-from eval_protocol.benchmarks.registry import export_benchmark
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
@@ -58,7 +57,6 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     return converted
 
 
-@export_benchmark("aime25")
 @evaluation_test(
     input_dataset=[
         "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",

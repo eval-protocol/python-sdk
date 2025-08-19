@@ -6,7 +6,6 @@ from typing import List
 
 import requests
 
-from eval_protocol.benchmarks.registry import export_benchmark
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
@@ -90,7 +89,6 @@ class GPQAStripGTRolloutProcessor(RolloutProcessor):
         return self.single_turn_processor(processed, config)
 
 
-@export_benchmark("gpqa")
 @evaluation_test(
     input_messages=_GPQA_INPUT_MESSAGES,
     completion_params=[
@@ -99,10 +97,10 @@ class GPQAStripGTRolloutProcessor(RolloutProcessor):
     rollout_processor=GPQAStripGTRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=None,
-    num_runs=8,
+    num_runs=1,
     mode="pointwise",
 )
-def gpqa_pointwise(row: EvaluationRow) -> EvaluationRow:
+def test_gpqa_pointwise(row: EvaluationRow) -> EvaluationRow:
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
     content = assistant_msgs[-1].content if assistant_msgs else ""
 
