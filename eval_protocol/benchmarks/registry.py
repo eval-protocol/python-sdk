@@ -139,17 +139,21 @@ def export_benchmark(name: str) -> Callable[[Callable[..., Any]], Callable[..., 
             _mod = importlib.import_module("eval_protocol.pytest.evaluation_test")
             run_evaluation_test_direct = getattr(_mod, "run_evaluation_test_direct")
 
+            # Ensure the model override is applied to completion params
+            effective_params = dict(rollout_params or {})
+            if model_to_use:
+                effective_params["model"] = model_to_use
+
             return run_evaluation_test_direct(
                 test_func=original_test_func or test_wrapper,
-                model=model_to_use,
                 input_messages=input_messages,
                 input_dataset=input_dataset,
                 dataset_adapter=dataset_adapter,
-                rollout_input_params=rollout_params,
+                completion_params=effective_params,
                 rollout_processor=rollout_processor,
                 rollout_processor_kwargs=rollout_processor_kwargs,
                 aggregation_method=aggregation_method,
-                threshold_of_success=threshold,
+                passed_threshold=threshold,
                 num_runs=(num_runs if num_runs is not None else default_num_runs),
                 max_dataset_rows=max_dataset_rows,
                 mcp_config_path=mcp_config_path,

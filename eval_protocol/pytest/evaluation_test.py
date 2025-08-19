@@ -841,28 +841,43 @@ def run_evaluation_test_direct(
 
     all_results: List[EvaluationRow] = []
     try:
-        for _ in range(num_runs):
-            fresh_rows = [copy.deepcopy(r) for r in data]
-            processed_rows = execute_function(rollout_processor, rows=fresh_rows, config=config)
+        import asyncio as _asyncio
+
+        async def _run_once_async(fresh: List[EvaluationRow]) -> List[EvaluationRow]:
+            processed = rollout_processor(fresh, config)
+            if processed and isinstance(processed[0], _asyncio.Task):
+                completed = await _asyncio.gather(*processed)
+            else:
+                completed = processed
+
+            out: List[EvaluationRow] = []
             if mode == "pointwise":
-                for row in processed_rows:
-                    result = execute_function(test_func, row=row)
-                    if result is None or not isinstance(result, EvaluationRow):
+                for r in completed:
+                    if _asyncio.iscoroutinefunction(test_func):
+                        res = await test_func(row=r)  # type: ignore[misc]
+                    else:
+                        res = test_func(row=r)  # type: ignore[misc]
+                    if res is None or not isinstance(res, EvaluationRow):
                         raise ValueError(
                             f"Test function {test_func.__name__} did not return an EvaluationRow instance."
                         )
-                    all_results.append(result)
+                    out.append(res)
             else:
-                results = execute_function(test_func, rows=processed_rows)
-                if results is None or not isinstance(results, list) or not results:
+                if _asyncio.iscoroutinefunction(test_func):
+                    res_list = await test_func(rows=completed)  # type: ignore[misc]
+                else:
+                    res_list = test_func(rows=completed)  # type: ignore[misc]
+                if res_list is None or not isinstance(res_list, list) or not res_list:
                     raise ValueError(
                         f"Test function {test_func.__name__} did not return a non-empty list of EvaluationRow instances."
                     )
-                if not all(isinstance(r, EvaluationRow) for r in results):
-                    raise ValueError(
-                        f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances."
-                    )
-                all_results.extend(results)
+                out.extend(res_list)
+            return out
+
+        for _ in range(num_runs):
+            fresh_rows = [copy.deepcopy(r) for r in data]
+            run_results = _asyncio.run(_run_once_async(fresh_rows))
+            all_results.extend(run_results)
 
         scores = [r.evaluation_result.score for r in all_results if r.evaluation_result]
         agg_score = aggregate(scores, aggregation_method)

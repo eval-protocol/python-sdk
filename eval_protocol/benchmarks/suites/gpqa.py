@@ -94,7 +94,17 @@ class GPQAStripGTRolloutProcessor(RolloutProcessor):
 @evaluation_test(
     input_messages=_GPQA_INPUT_MESSAGES,
     completion_params=[
-        {"extra_body": {"reasoning_effort": "low"}, "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}
+        {
+            # Fireworks expects integer `logprobs` specifying top-k; no top_logprobs
+            "logprobs": 5,
+            "extra_body": {
+                "reasoning_effort": "low",
+                "logprobs": 5,
+            },
+            # Force completions endpoint for reliable logprobs on first token
+            "use_fireworks_completions_for_logprobs": True,
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+        }
     ],
     rollout_processor=GPQAStripGTRolloutProcessor(),
     aggregation_method="mean",
@@ -102,7 +112,7 @@ class GPQAStripGTRolloutProcessor(RolloutProcessor):
     num_runs=8,
     mode="pointwise",
 )
-def gpqa_pointwise(row: EvaluationRow) -> EvaluationRow:
+def test_gpqa_pointwise(row: EvaluationRow) -> EvaluationRow:
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
     content = assistant_msgs[-1].content if assistant_msgs else ""
 
