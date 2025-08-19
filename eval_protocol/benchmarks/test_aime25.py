@@ -113,3 +113,69 @@ def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
         metrics=metrics,
     )
     return row
+
+
+# @evaluation_test(
+#     input_dataset=[
+#         "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
+#         # "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
+#     ],
+#     dataset_adapter=aime2025_dataset_adapter,
+#     completion_params=[
+#         {
+#             "max_tokens": 131000,
+#             "extra_body": {"reasoning_effort": "low"},
+#             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+#         },
+#         {
+#             "max_tokens": 131000,
+#             "extra_body": {"reasoning_effort": "low"},
+#             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
+#         }
+#     ],
+#     rollout_processor=SingleTurnRolloutProcessor(),
+#     aggregation_method="mean",
+#     passed_threshold=None,
+#     num_runs=1,
+#     max_dataset_rows=2,
+#     max_concurrent_rollouts=4,
+#     mode="groupwise",
+# )
+# def test_aime25_groupwise(rows: List[EvaluationRow]) -> List[EvaluationRow]:
+#     output = []
+#     for row in rows:
+#         assistant_msgs = [m for m in row.messages if m.role == "assistant"]
+#         content = assistant_msgs[-1].content if assistant_msgs else ""
+
+#         extracted_text = _extract_boxed_text(content or "")
+#         extracted_int = _normalize_to_int_or_none(extracted_text)
+#         gt_int = _normalize_to_int_or_none(row.ground_truth or "")
+
+#         is_valid = extracted_int is not None and gt_int is not None
+#         score = 1.0 if (is_valid and extracted_int == gt_int) else 0.0
+
+#         metrics = {
+#             "exact_match": MetricResult(
+#                 score=score,
+#                 is_score_valid=is_valid,
+#                 reason=(
+#                     "Parsed both integers and they matched"
+#                     if score == 1.0
+#                     else ("Parsed integers did not match" if is_valid else "Failed to parse integer")
+#                 ),
+#                 data={
+#                     "extracted_text": extracted_text,
+#                     "extracted_int": extracted_int,
+#                     "ground_truth_int": gt_int,
+#                 },
+#             )
+#         }
+
+#         row.evaluation_result = EvaluateResult(
+#             score=score,
+#             reason=("Answer correct" if score == 1.0 else "Answer incorrect"),
+#             is_score_valid=is_valid,
+#             metrics=metrics,
+#         )
+#         output.append(row)
+#     return output

@@ -10,7 +10,9 @@ import statistics
 import time
 from dataclasses import replace
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from collections import defaultdict
 
+from mcp.types import Completion
 import pytest
 
 from eval_protocol.dataset_logger import default_logger
@@ -56,6 +58,177 @@ from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
 from ..common_utils import load_jsonl
 
 
+def postprocess(all_results: List[List[EvaluationRow]],
+                aggregation_method: AggregationMethod,
+                threshold: Optional[EvaluationThreshold],
+                active_logger: DatasetLogger,
+                mode: EvaluationTestMode,
+                completion_params: CompletionParams,
+                test_func_name: str,
+                num_runs: int):
+    scores = [
+        sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
+        for result in all_results
+    ]
+    agg_score = aggregate(scores, aggregation_method)
+
+    # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
+    ci_low: float | None = None
+    ci_high: float | None = None
+    if aggregation_method == "mean":
+        try:
+            result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
+            _, mu_ci_low, mu_ci_high, standard_error = result_ci
+            if mu_ci_low is not None and mu_ci_high is not None:
+                ci_low = float(mu_ci_low)
+                ci_high = float(mu_ci_high)
+                # Keep agg_score as-is (mean over scores). For equal repeats per question these match.
+        except Exception:
+            ci_low = None
+            ci_high = None
+
+    # Determine if the evaluation passed based on threshold
+    passed = None
+
+    if threshold is not None:
+        success_passed, standard_error_passed = True, True
+
+        success_passed = agg_score >= threshold.success
+
+        if threshold.standard_error is not None and standard_error is not None:
+            standard_error_passed = standard_error <= threshold.standard_error
+
+        passed = success_passed and standard_error_passed
+
+    # Update eval metadata passed field for all results
+    for result in all_results:
+        for r in result:
+            if r.eval_metadata is not None:
+                r.eval_metadata.passed = passed
+            if r.evaluation_result is not None:
+                r.evaluation_result.agg_score = agg_score
+                r.evaluation_result.standard_error = standard_error
+            active_logger.log(r)
+
+    # Optional: print and/or persist a summary artifact for CI
+    try:
+        should_print = os.getenv("EP_PRINT_SUMMARY") == "1"
+        summary_path = os.getenv("EP_SUMMARY_JSON")
+        suite_name = test_func_name
+        model_used = completion_params["model"]
+        total_rows = len([item for sublist in all_results for item in sublist])
+        summary_obj = {
+            "suite": suite_name,
+            "model": model_used,
+            "agg_score": float(agg_score) if agg_score is not None else None,
+            "num_runs": num_runs,
+            "rows": total_rows,
+        }
+        if ci_low is not None and ci_high is not None:
+            summary_obj["agg_ci_low"] = ci_low
+            summary_obj["agg_ci_high"] = ci_high
+
+        # Aggregate per-metric mean and 95% CI when available
+        metrics_summary: Dict[str, Dict[str, float]] = {}
+
+        metric_scores: Dict[str, list] = defaultdict(list)
+        for r in [item for sublist in all_results for item in sublist]:
+            if r.evaluation_result and r.evaluation_result.metrics:
+                for m_name, m_res in r.evaluation_result.metrics.items():
+                    if m_res is not None and getattr(m_res, "score", None) is not None:
+                        metric_scores[m_name].append(m_res.score)
+        for m_name, vals in metric_scores.items():
+            if len(vals) == 0:
+                continue
+            m_mean = sum(vals) / len(vals)
+            m_low = None
+            m_high = None
+            if len(vals) >= 2:
+                try:
+                    m_std = statistics.stdev(vals)
+                    m_se = m_std / math.sqrt(len(vals))
+                    m_margin = 1.96 * m_se
+                    m_low = max(0.0, m_mean - m_margin)
+                    m_high = min(1.0, m_mean + m_margin)
+                except Exception:
+                    m_low = None
+                    m_high = None
+            entry: Dict[str, float] = {"mean": float(m_mean)}
+            if m_low is not None and m_high is not None:
+                entry["ci_low"] = float(m_low)
+                entry["ci_high"] = float(m_high)
+            metrics_summary[m_name] = entry
+        if metrics_summary:
+            summary_obj["metrics_agg"] = metrics_summary
+        if should_print:
+            if ci_low is not None and ci_high is not None:
+                print(
+                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
+                )
+            else:
+                print(
+                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
+                )
+            # As per project convention, avoid printing per-metric CI lines to reduce noise
+        if summary_path:
+            model_slug = sanitize_filename(model_used)
+            effort_tag = extract_effort_tag(completion_params) or ""
+            effort_suffix = f"__effort-{sanitize_filename(effort_tag)}" if effort_tag else ""
+            base_name = f"{suite_name}__{model_slug}{effort_suffix}__{mode}__runs{num_runs}.json"
+
+            p = pathlib.Path(summary_path)
+            summary_obj["timestamp"] = int(time.time())
+
+            # When a directory is provided (or a path without .json), write per-combination files inside it
+            if p.suffix.lower() != ".json" or summary_path.endswith("/") or p.is_dir():
+                out_dir = p
+                out_dir.mkdir(parents=True, exist_ok=True)
+                out_file = out_dir / base_name
+            else:
+                # A file path was provided
+                # If multiple parameterizations exist, write side-by-side files with suffixes based on base name
+                parent = p.parent
+                parent.mkdir(parents=True, exist_ok=True)
+                # If we detected an effort tag, fan out to separate files; otherwise write to the exact file
+                if effort_tag:
+                    out_file = parent / f"{p.stem}__{sanitize_filename(effort_tag)}{p.suffix}"
+                else:
+                    out_file = p
+
+            with open(out_file, "w", encoding="utf-8") as f:
+                json.dump(summary_obj, f)
+    except Exception:
+        # Do not fail evaluation if summary writing fails
+        pass
+
+    # # Write all rows from active_logger.read() to a JSONL file in the same directory as the summary
+    # try:
+    #     if active_logger is not None:
+    #         rows = active_logger.read()
+    #         # Write to a .jsonl file alongside the summary file
+    #         jsonl_path = "logs.jsonl"
+    #         import json
+
+    #         with open(jsonl_path, "w", encoding="utf-8") as f_jsonl:
+    #             for row in rows:
+    #                 json.dump(row.model_dump(exclude_none=True, mode="json"), f_jsonl)
+    #                 f_jsonl.write("\n")
+    # except Exception as e:
+    #     # Do not fail evaluation if log writing fails
+    #     print(e)
+    #     pass
+
+    # Check threshold after logging
+    if threshold is not None and not passed:
+        assert agg_score >= threshold.success, (
+            f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
+        )
+        if threshold.standard_error is not None and standard_error is not None:
+            assert standard_error <= threshold.standard_error, (
+                f"Standard error {standard_error:.3f} above threshold {threshold.standard_error}"
+            )
+
+
 def evaluation_test(  # noqa: C901
     *,
     completion_params: List[CompletionParams],
@@ -73,7 +246,7 @@ def evaluation_test(  # noqa: C901
     max_concurrent_rollouts: int = 8,
     server_script_path: Optional[str] = None,
     steps: int = 30,
-    mode: EvaluationTestMode = "batch",
+    mode: EvaluationTestMode = "pointwise",
     combine_datasets: bool = True,
     logger: Optional[DatasetLogger] = None,
 ) -> Callable[
@@ -136,9 +309,9 @@ def evaluation_test(  # noqa: C901
         max_concurrent_rollouts: Maximum number of concurrent rollouts to run in parallel.
         server_script_path: Path to the MCP server script to run (default: "examples/tau2_mcp/server.py").
         steps: Number of rollout steps to execute (default: 30).
-        mode: Evaluation mode. "batch" (default) expects test function to handle
-            full dataset. "pointwise" applies test function to each row. If your evaluation requires
-            the full rollout of all rows to compute the score, use
+        mode: Evaluation mode. "pointwise" (default) applies test function to each row (rollout result).
+            "groupwise" applies test function to a group of rollout results from the same original row (for use cases such as dpo/grpo).
+            "listwise" applies test function to the whole dataset.
         logger: DatasetLogger to use for logging. If not provided, a default logger will be used.
     """
 
@@ -156,8 +329,11 @@ def evaluation_test(  # noqa: C901
             threshold = None
 
         sig = inspect.signature(test_func)
+        if not completion_params:
+            raise ValueError("completion_params is required")
 
-        # For pointwise/rowwise mode, we expect a different signature
+        # For pointwise/groupwise mode, we expect a different signature
+        # we expect single row to be passed in as the original row
         if mode == "pointwise":
             # Pointwise mode: function should accept messages and other row-level params
             if "row" not in sig.parameters:
@@ -170,8 +346,29 @@ def evaluation_test(  # noqa: C901
             # validate that the function has a return type of EvaluationRow
             if sig.return_annotation is not EvaluationRow:
                 raise ValueError("In pointwise mode, your eval function must return an EvaluationRow instance")
+
+            # additional check for groupwise evaluation
+        elif mode == "groupwise":
+            if "rows" not in sig.parameters:
+                raise ValueError(
+                    "In listwise mode, your eval function must have a parameter named 'rows'"
+                )
+
+            # validate that "Rows" is of type List[EvaluationRow]
+            if sig.parameters["rows"].annotation is not List[EvaluationRow]:
+                raise ValueError(
+                    "In listwise mode, the 'rows' parameter must be of type List[EvaluationRow"
+                )
+
+            # validate that the function has a return type of List[EvaluationRow]
+            if sig.return_annotation is not List[EvaluationRow]:
+                raise ValueError(
+                    "In listwise mode, your eval function must return a list of EvaluationRow instances"
+                )
+            if len(completion_params) < 2:
+                raise ValueError("In groupwise mode, you must provide at least 2 completion parameters")
         else:
-            # Batch mode: function should accept input_dataset and model
+            # listwise mode: function should accept input_dataset and model
             if "rows" not in sig.parameters:
                 raise ValueError("In batch mode, your eval function must have a parameter named 'rows'")
 
@@ -181,7 +378,9 @@ def evaluation_test(  # noqa: C901
 
             # validate that the function has a return type of List[EvaluationRow]
             if sig.return_annotation is not List[EvaluationRow]:
-                raise ValueError("In batch mode, your eval function must return a list of EvaluationRow instances")
+                raise ValueError(
+                    "In listwise mode, your eval function must return a list of EvaluationRow instances"
+                )
 
         async def execute_with_params(
             test_func: TestFunction,
@@ -207,16 +406,21 @@ def evaluation_test(  # noqa: C901
             else:
                 return test_func(**kwargs)
 
-        # Calculate all possible combinations of parameters
+        # preserve the original completion_params list for groupwise mode
+        original_completion_params_list = completion_params
 
-        combinations = generate_parameter_combinations(
-            input_dataset,
-            completion_params,
-            input_messages,
-            evaluation_test_kwargs,
-            max_dataset_rows,
-            combine_datasets,
-        )
+        # Calculate all possible combinations of parameters
+        if mode == "groupwise":
+            combinations = generate_parameter_combinations(input_dataset, None, input_dataset, evaluation_test_kwargs, max_dataset_rows, combine_datasets)
+        else:
+            combinations = generate_parameter_combinations(
+                input_dataset,
+                completion_params,
+                input_messages,
+                evaluation_test_kwargs,
+                max_dataset_rows,
+                combine_datasets,
+            )
         if len(combinations) == 0:
             raise ValueError(
                 "No combinations of parameters were found. Please provide at least a model and one of input_dataset or input_messages."
@@ -237,7 +441,7 @@ def evaluation_test(  # noqa: C901
                 param_tuple.append(etk)
             param_tuples.append(tuple(param_tuple))
 
-        # For batch mode, use the original parameter names
+        # For listwise mode, preserve the original parameter names
         test_param_names = []
         if input_dataset is not None:
             test_param_names.append("dataset_path")
@@ -309,7 +513,7 @@ def evaluation_test(  # noqa: C901
                             "No completion parameters provided. Please provide a completion parameters object."
                         )
                     completion_params = kwargs["completion_params"]
-                    if "model" not in completion_params or not completion_params["model"]:
+                    if completion_params and ("model" not in completion_params or not completion_params["model"]):
                         raise ValueError(
                             "No model provided. Please provide a model in the completion parameters object."
                         )
@@ -338,7 +542,6 @@ def evaluation_test(  # noqa: C901
                         passed_threshold=threshold,
                         passed=None,
                     )
-
                     for row in data:
                         if row.input_metadata is None:
                             row.input_metadata = InputMetadata()
@@ -366,9 +569,7 @@ def evaluation_test(  # noqa: C901
                         logger=active_logger,
                         kwargs=rollout_processor_kwargs or {},
                     )
-
                     max_retry = int(os.getenv("EP_MAX_RETRY", "0"))
-
                     for i in range(num_runs):
                         # Regenerate outputs each run by deep-copying the pristine dataset
                         # so model responses are not reused across runs.
@@ -416,7 +617,47 @@ def evaluation_test(  # noqa: C901
                             results = await asyncio.gather(*tasks)
 
                             all_results[i] = results
+                        elif mode == "groupwise":
+                            # rollout all the completion_params for the same row at once, and then send the output to the test_func
+                            row_groups = defaultdict(list) # key: row_id, value: list of rollout_result
+                            tasks: List[asyncio.Task[List[EvaluationRow]]] = []
+                            # completion_groups = []
+                            for idx, cp in enumerate(original_completion_params_list):
+                                config = RolloutProcessorConfig(
+                                    completion_params=cp,
+                                    mcp_config_path=mcp_config_path or "",
+                                    max_concurrent_rollouts=max_concurrent_rollouts,
+                                    server_script_path=server_script_path,
+                                    steps=steps,
+                                    logger=active_logger,
+                                    kwargs=rollout_processor_kwargs or {},
+                                )
+                                lst = []
 
+                                async def _collect_result(config, lst, max_retry):
+                                    result = []
+                                    async for row in rollout_processor_with_retry(rollout_processor, lst, config, max_retry):
+                                        result.append(row)
+                                    return result
+
+                                for ori_row in fresh_dataset:
+                                    copied_row = ori_row.model_copy(deep=True)
+                                    # overwrite the rollout_id to the index of the completion_params
+                                    copied_row.execution_metadata.rollout_id = str(idx)
+                                    copied_row.input_metadata.completion_params = cp
+                                    lst.append(copied_row)
+                                tasks.append(asyncio.create_task(_collect_result(config, lst, max_retry)))
+                            rollout_results = await asyncio.gather(*tasks)
+                            for result in rollout_results:
+                                for row in result:
+                                    row_groups[row.input_metadata.row_id].append(row)
+                            results = []
+                            for row_id, rows in row_groups.items():
+                                result = await execute_with_params(
+                                    test_func, processed_dataset=rows, evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {}
+                                )
+                                results.extend(result)
+                            all_results[i] = results
                         else:
                             # Batch mode: collect all results first, then evaluate (no pipelining)
                             input_dataset = []
@@ -429,7 +670,10 @@ def evaluation_test(  # noqa: C901
                             results = await execute_with_params(
                                 test_func,
                                 processed_dataset=input_dataset,
-                                evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                evaluation_test_kwargs=kwargs.get(
+                                    "evaluation_test_kwargs"
+                                )
+                                or {},
                             )
                             if results is None:
                                 raise ValueError(
@@ -454,168 +698,17 @@ def evaluation_test(  # noqa: C901
                                 r.eval_metadata.status = "finished"
                             active_logger.log(r)
 
-                    scores = [
-                        sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
-                        for result in all_results
-                    ]
-                    agg_score = aggregate(scores, aggregation_method)
-
-                    # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
-                    ci_low: float | None = None
-                    ci_high: float | None = None
-                    if aggregation_method == "mean":
-                        try:
-                            result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
-                            _, mu_ci_low, mu_ci_high, standard_error = result_ci
-                            if mu_ci_low is not None and mu_ci_high is not None:
-                                ci_low = float(mu_ci_low)
-                                ci_high = float(mu_ci_high)
-                                # Keep agg_score as-is (mean over scores). For equal repeats per question these match.
-                        except Exception:
-                            ci_low = None
-                            ci_high = None
-
-                    # Determine if the evaluation passed based on threshold
-                    passed = None
-
-                    if threshold is not None:
-                        success_passed, standard_error_passed = True, True
-
-                        success_passed = agg_score >= threshold.success
-
-                        if threshold.standard_error is not None and standard_error is not None:
-                            standard_error_passed = standard_error <= threshold.standard_error
-
-                        passed = success_passed and standard_error_passed
-
-                    # Update eval metadata passed field for all results
-                    for result in all_results:
-                        for r in result:
-                            if r.eval_metadata is not None:
-                                r.eval_metadata.passed = passed
-                            if r.evaluation_result is not None:
-                                r.evaluation_result.agg_score = agg_score
-                                r.evaluation_result.standard_error = standard_error
-                            active_logger.log(r)
-
-                    # Optional: print and/or persist a summary artifact for CI
-                    try:
-                        should_print = os.getenv("EP_PRINT_SUMMARY") == "1"
-                        summary_path = os.getenv("EP_SUMMARY_JSON")
-                        suite_name = test_func.__name__
-                        model_used = config.completion_params["model"]
-                        total_rows = len([item for sublist in all_results for item in sublist])
-                        summary_obj = {
-                            "suite": suite_name,
-                            "model": model_used,
-                            "agg_score": float(agg_score) if agg_score is not None else None,
-                            "num_runs": num_runs,
-                            "rows": total_rows,
-                        }
-                        if ci_low is not None and ci_high is not None:
-                            summary_obj["agg_ci_low"] = ci_low
-                            summary_obj["agg_ci_high"] = ci_high
-
-                        # Aggregate per-metric mean and 95% CI when available
-                        metrics_summary: Dict[str, Dict[str, float]] = {}
-                        from collections import defaultdict
-
-                        metric_scores: Dict[str, list] = defaultdict(list)
-                        for r in [item for sublist in all_results for item in sublist]:
-                            if r.evaluation_result and r.evaluation_result.metrics:
-                                for m_name, m_res in r.evaluation_result.metrics.items():
-                                    if m_res is not None and getattr(m_res, "score", None) is not None:
-                                        metric_scores[m_name].append(m_res.score)
-                        for m_name, vals in metric_scores.items():
-                            if len(vals) == 0:
-                                continue
-                            m_mean = sum(vals) / len(vals)
-                            m_low = None
-                            m_high = None
-                            if len(vals) >= 2:
-                                try:
-                                    m_std = statistics.stdev(vals)
-                                    m_se = m_std / math.sqrt(len(vals))
-                                    m_margin = 1.96 * m_se
-                                    m_low = max(0.0, m_mean - m_margin)
-                                    m_high = min(1.0, m_mean + m_margin)
-                                except Exception:
-                                    m_low = None
-                                    m_high = None
-                            entry: Dict[str, float] = {"mean": float(m_mean)}
-                            if m_low is not None and m_high is not None:
-                                entry["ci_low"] = float(m_low)
-                                entry["ci_high"] = float(m_high)
-                            metrics_summary[m_name] = entry
-                        if metrics_summary:
-                            summary_obj["metrics_agg"] = metrics_summary
-                        if should_print:
-                            if ci_low is not None and ci_high is not None:
-                                print(
-                                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
-                                )
-                            else:
-                                print(
-                                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
-                                )
-                            # As per project convention, avoid printing per-metric CI lines to reduce noise
-                        if summary_path:
-                            model_slug = sanitize_filename(model_used)
-                            effort_tag = extract_effort_tag(completion_params) or ""
-                            effort_suffix = f"__effort-{sanitize_filename(effort_tag)}" if effort_tag else ""
-                            base_name = f"{suite_name}__{model_slug}{effort_suffix}__{mode}__runs{num_runs}.json"
-
-                            p = pathlib.Path(summary_path)
-                            summary_obj["timestamp"] = int(time.time())
-
-                            # When a directory is provided (or a path without .json), write per-combination files inside it
-                            if p.suffix.lower() != ".json" or summary_path.endswith("/") or p.is_dir():
-                                out_dir = p
-                                out_dir.mkdir(parents=True, exist_ok=True)
-                                out_file = out_dir / base_name
-                            else:
-                                # A file path was provided
-                                # If multiple parameterizations exist, write side-by-side files with suffixes based on base name
-                                parent = p.parent
-                                parent.mkdir(parents=True, exist_ok=True)
-                                # If we detected an effort tag, fan out to separate files; otherwise write to the exact file
-                                if effort_tag:
-                                    out_file = parent / f"{p.stem}__{sanitize_filename(effort_tag)}{p.suffix}"
-                                else:
-                                    out_file = p
-
-                            with open(out_file, "w", encoding="utf-8") as f:
-                                json.dump(summary_obj, f)
-                    except Exception:
-                        # Do not fail evaluation if summary writing fails
-                        pass
-
-                    # # Write all rows from active_logger.read() to a JSONL file in the same directory as the summary
-                    # try:
-                    #     if active_logger is not None:
-                    #         rows = active_logger.read()
-                    #         # Write to a .jsonl file alongside the summary file
-                    #         jsonl_path = "logs.jsonl"
-                    #         import json
-
-                    #         with open(jsonl_path, "w", encoding="utf-8") as f_jsonl:
-                    #             for row in rows:
-                    #                 json.dump(row.model_dump(exclude_none=True, mode="json"), f_jsonl)
-                    #                 f_jsonl.write("\n")
-                    # except Exception as e:
-                    #     # Do not fail evaluation if log writing fails
-                    #     print(e)
-                    #     pass
-
-                    # Check threshold after logging
-                    if threshold is not None and not passed:
-                        assert agg_score >= threshold.success, (
-                            f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
-                        )
-                        if threshold.standard_error is not None and standard_error is not None:
-                            assert standard_error <= threshold.standard_error, (
-                                f"Standard error {standard_error:.3f} above threshold {threshold.standard_error}"
-                            )
+                    # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them  
+                    # rollout_id is used to differentiate the result from different completion_params
+                    if mode == "groupwise":
+                        results_by_group = [[[] for _ in range(num_runs)] for _ in range(len(original_completion_params_list))]
+                        for i, result in enumerate(all_results):
+                            for r in result:
+                                results_by_group[int(r.execution_metadata.rollout_id)][i].append(r)
+                        for i, result in enumerate(results_by_group):
+                            postprocess(result, aggregation_method, threshold, active_logger, mode, original_completion_params_list[i], test_func.__name__, num_runs)
+                    else:
+                        postprocess(all_results, aggregation_method, threshold, active_logger, mode, completion_params, test_func.__name__, num_runs)
 
                 except AssertionError:
                     _log_eval_error("finished", data if "data" in locals() else None, passed=False)
