@@ -27,16 +27,12 @@ from vendor.tau2.evaluator.evaluator_action import ActionEvaluator
 from vendor.tau2.evaluator.evaluator_communicate import CommunicateEvaluator
 from vendor.tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator
 from vendor.tau2.registry import registry
+from eval_protocol.mcp_servers.tau2 import get_server_script_path, get_system_prompt
 
 
 def _get_retail_dataset_path() -> str:
     """Get the retail dataset file path."""
-    return str(Path(__file__).parent.parent.parent / "tests" / "pytest" / "data" / "retail_dataset.jsonl")
-
-
-def _get_server_script_path() -> str:
-    """Get the tau2 mcp server script path."""
-    return str(Path(__file__).parent.parent.parent / "examples" / "tau2_mcp" / "server.py")
+    return str(Path(__file__).parent / "data" / "retail_dataset.jsonl")
 
 
 def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
@@ -44,14 +40,9 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     Convert entries from retail dataset to EvaluationRow objects.
     """
     rows = []
-    test_dir = Path(__file__).parent.parent.parent / "examples" / "tau2_mcp" / "tests"
-
     # Load system prompt from file so we can change it in one place
     domain = data[0]["environment_context"]["domain"]
-    prompt_file = test_dir / f"system_prompts/{domain}_agent_system_prompt.md"
-
-    with open(prompt_file, "r") as f:
-        system_prompt = f.read().strip()
+    system_prompt = get_system_prompt(domain)
 
     for row in data:
         eval_row = EvaluationRow(
@@ -87,7 +78,7 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     num_runs=8,
     mode="pointwise",
     max_concurrent_rollouts=50,
-    server_script_path=_get_server_script_path(),
+    server_script_path=get_server_script_path(),
     exception_handler_config=ExceptionHandlerConfig(
         retryable_exceptions={
             litellm.RateLimitError,
