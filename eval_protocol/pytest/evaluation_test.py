@@ -403,7 +403,7 @@ def evaluation_test(  # noqa: C901
         # Calculate all possible combinations of parameters
         if mode == "groupwise":
             combinations = generate_parameter_combinations(
-                input_dataset, None, input_dataset, evaluation_test_kwargs, max_dataset_rows, combine_datasets
+                input_dataset, None, input_messages, evaluation_test_kwargs, max_dataset_rows, combine_datasets
             )
         else:
             combinations = generate_parameter_combinations(
