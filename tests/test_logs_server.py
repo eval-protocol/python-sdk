@@ -499,7 +499,7 @@ class TestLogsServerIntegration:
         server_process.start()
 
         # Wait for server to be ready
-        for _ in range(20):
+        for _ in range(30):
             try:
                 response = httpx.get(f"http://localhost:{test_port}/health", timeout=1)
                 if response.status_code == 200:
