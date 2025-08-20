@@ -140,12 +140,13 @@ ep = "eval_protocol.cli:main"
 eval_protocol = "eval_protocol.pytest.plugin"
 
 [tool.setuptools.packages.find]
-include = ["eval_protocol*", "development*", "vendor*", "examples*"]
+include = ["eval_protocol*", "development*", "vendor*"]
 
 [tool.setuptools.package-data]
 "eval_protocol" = [
     "../vite-app/dist/**/*",
-    "benchmarks/data/*"
+    "benchmarks/data/*",
+    "examples/tau2_mcp/*",
 ]
 
 [tool.versioneer]
