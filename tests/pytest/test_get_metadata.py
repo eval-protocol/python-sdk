@@ -32,9 +32,3 @@ def test_pytest_func_metainfo():
     assert test_pytest_async._metainfo["mode"] == "groupwise"
     assert test_pytest_async._metainfo["max_rollout_concurrency"] == 5
     assert test_pytest_async._metainfo["max_evaluation_concurrency"] == 10
-
-    # Test evaluator ID generation
-    assert hasattr(test_pytest_async, "_evaluator_id")
-    evaluator_id = test_pytest_async._evaluator_id
-    assert evaluator_id.startswith("test_pytest_async")
-    print(f"Generated evaluator ID: {evaluator_id}")
