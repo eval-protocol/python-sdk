@@ -16,6 +16,13 @@ from eval_protocol.pytest.types import (
     RolloutProcessorConfig,
 )
 
+def is_in_event_loop():
+    try:
+        asyncio.get_event_loop()
+        return True
+    except RuntimeError:
+        return False
+
 
 def execute_function(func: Callable, **kwargs) -> Any:
     """
