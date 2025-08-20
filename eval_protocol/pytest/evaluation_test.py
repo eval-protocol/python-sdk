@@ -729,13 +729,15 @@ def evaluation_test(  # noqa: C901
                 except Exception:
                     _log_eval_error("error", data if "data" in locals() else None, passed=False)
                     raise
+
             if asyncio.iscoroutinefunction(test_func):
                 return create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names)
             else:
+
                 def sync_wrapper_body(**kwargs):
                     return asyncio.run(wrapper_body(**kwargs))
-                return create_dynamically_parameterized_wrapper(test_func, sync_wrapper_body, test_param_names)
 
+                return create_dynamically_parameterized_wrapper(test_func, sync_wrapper_body, test_param_names)
 
         # Create the pytest wrapper
         pytest_wrapper = create_wrapper_with_signature()
@@ -763,6 +765,7 @@ def evaluation_test(  # noqa: C901
             is_async = asyncio.iscoroutinefunction(test_func)
 
             if is_async:
+
                 async def dual_mode_wrapper(*args, **kwargs):
                     # Check if this is a direct call with the expected signature
                     if mode == "pointwise":
@@ -789,20 +792,30 @@ def evaluation_test(  # noqa: C901
 
                     # If not a direct call, use the pytest wrapper
                     return await pytest_wrapper(*args, **kwargs)
-                
+
                 _dual_model_wrapper_fn = dual_mode_wrapper
             else:
+
                 def dual_mode_wrapper(*args, **kwargs):
                     if mode == "pointwise":
                         if len(args) == 1 and isinstance(args[0], EvaluationRow) and not kwargs:
                             return test_func(row=args[0])
                     else:
-                        if len(args) == 1 and isinstance(args[0], list) and all(isinstance(r, EvaluationRow) for r in args[0]) and not kwargs:
+                        if (
+                            len(args) == 1
+                            and isinstance(args[0], list)
+                            and all(isinstance(r, EvaluationRow) for r in args[0])
+                            and not kwargs
+                        ):
                             return test_func(rows=args[0])
-                        if "rows" in kwargs and isinstance(kwargs["rows"], list) and all(isinstance(r, EvaluationRow) for r in kwargs["rows"]):
+                        if (
+                            "rows" in kwargs
+                            and isinstance(kwargs["rows"], list)
+                            and all(isinstance(r, EvaluationRow) for r in kwargs["rows"])
+                        ):
                             return test_func(**kwargs)
                     return pytest_wrapper(*args, **kwargs)
-                
+
                 _dual_model_wrapper_fn = dual_mode_wrapper
 
             # Copy all attributes from the pytest wrapper to our dual mode wrapper
