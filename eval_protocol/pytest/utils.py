@@ -16,6 +16,7 @@ from eval_protocol.pytest.types import (
     RolloutProcessorConfig,
 )
 
+
 def is_in_event_loop():
     try:
         asyncio.get_event_loop()
