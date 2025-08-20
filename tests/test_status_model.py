@@ -302,21 +302,6 @@ class TestStatusMigration:
         assert row.rollout_status.message == "Rollout is running"
         assert row.rollout_status.details == []
 
-    def test_backwards_compatibility_methods(self):
-        """Test the backwards compatibility methods."""
-        row = EvaluationRow(messages=[])
-
-        # Test get_rollout_status
-        status = row.get_rollout_status()
-        assert status.code == Status.Code.OK
-        assert status.message == "Rollout is running"
-
-        # Test set_rollout_status
-        new_status = Status.rollout_finished()
-        row.set_rollout_status(new_status)
-        assert row.rollout_status.code == Status.Code.FINISHED
-        assert row.rollout_status.message == "Rollout finished"
-
     def test_status_transitions(self):
         """Test transitioning between different status states."""
         row = EvaluationRow(messages=[])

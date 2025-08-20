@@ -42,34 +42,6 @@ class TestStatusFieldNamePreservation:
         assert row.rollout_status.code == Status.Code.FINISHED
 
 
-class TestBackwardsCompatibilityMethods:
-    """Test the backwards compatibility methods."""
-
-    def test_get_rollout_status_method(self):
-        """Test the get_rollout_status method."""
-        row = EvaluationRow(messages=[])
-
-        # Method should return the current rollout_status
-        status = row.get_rollout_status()
-        assert status.code == Status.Code.OK
-        assert status.message == "Rollout is running"
-
-        # Should be the same object reference
-        assert status is row.rollout_status
-
-    def test_set_rollout_status_method(self):
-        """Test the set_rollout_status method."""
-        row = EvaluationRow(messages=[])
-
-        # Method should update the rollout_status
-        new_status = Status.rollout_error("Test error")
-        row.set_rollout_status(new_status)
-
-        assert row.rollout_status.code == Status.Code.INTERNAL
-        assert row.rollout_status.message == "Test error"
-        assert row.rollout_status is new_status
-
-
 class TestStatusTransitions:
     """Test transitioning between different status states."""
 

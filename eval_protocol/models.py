@@ -576,14 +576,6 @@ class EvaluationRow(BaseModel):
             and len(self.evaluation_result.step_outputs) > 0
         )
 
-    def get_rollout_status(self) -> Status:
-        """Get the rollout status (backwards compatibility method)."""
-        return self.rollout_status
-
-    def set_rollout_status(self, status: Status) -> None:
-        """Set the rollout status (backwards compatibility method)."""
-        self.rollout_status = status
-
     def get_conversation_length(self) -> int:
         """Returns the number of messages in the conversation."""
         return len(self.messages)
