@@ -30,7 +30,7 @@ from vendor.tau2.registry import registry
 
 def _get_retail_dataset_path() -> str:
     """Get the retail dataset file path."""
-    return str(Path(__file__).parent.parent.parent / "tests" / "pytest" / "data" / "retail_dataset.jsonl")
+    return str(Path(__file__).parent / "data" / "retail_dataset.jsonl")
 
 
 def _get_server_script_path() -> str:
