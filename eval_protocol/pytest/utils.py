@@ -300,12 +300,12 @@ async def rollout_processor_with_retry(
                     except Exception as retry_error:
                         # Backoff gave up
                         row.rollout_status.status = RolloutStatus.Status.ERROR
-                        row.rollout_status.termination_reason = str(retry_error)
+                        # row.rollout_status.termination_reason = str(retry_error)
                         return row
                 else:
                     # Non-retryable exception - fail immediately
                     row.rollout_status.status = RolloutStatus.Status.ERROR
-                    row.rollout_status.termination_reason = str(e)
+                    # row.rollout_status.termination_reason = str(e)
                     return row
 
         # Process all tasks concurrently with backoff retry
