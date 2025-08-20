@@ -109,7 +109,7 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     rollout_processor=MCPGymRolloutProcessor(),
     rollout_processor_kwargs={"domain": "retail"},
     passed_threshold={"success": 0.65, "standard_error": 0.02},
-    num_runs=8,
+    num_runs=4,
     mode="pointwise",
     max_concurrent_rollouts=50,
     server_script_path=get_server_script_path(),

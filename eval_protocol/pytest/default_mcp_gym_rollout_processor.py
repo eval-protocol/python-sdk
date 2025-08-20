@@ -223,7 +223,7 @@ class MCPGymRolloutProcessor(RolloutProcessor):
                     model_id=config.completion_params.get("model", None),
                     temperature=config.completion_params.get("temperature", 0.0),
                     max_tokens=config.completion_params.get("max_tokens", 4096),
-                    reasoning_effort=config.completion_params.get("reasoning_effort", None),
+                    **(config.completion_params.get("extra_body", {}) or {}),
                 )
 
             except Exception as e:
