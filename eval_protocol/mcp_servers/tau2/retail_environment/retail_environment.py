@@ -20,41 +20,7 @@ from vendor.tau2.domains.retail.tools import RetailTools
 
 logger = logging.getLogger(__name__)
 
-
-def _get_retail_db_path():
-    """Get retail database path, downloading if necessary."""
-    import os
-    import tempfile
-    import urllib.request
-    from pathlib import Path
-
-    # Try local development path first
-    try:
-        from vendor.tau2.domains.retail.utils import RETAIL_DB_PATH
-
-        if Path(RETAIL_DB_PATH).exists():
-            return RETAIL_DB_PATH
-    except (ImportError, FileNotFoundError):
-        pass
-
-    # Use a cache directory in user's temp/cache area
-    cache_dir = Path(tempfile.gettempdir()) / "tau2_bench_cache"
-    cache_dir.mkdir(exist_ok=True)
-    retail_db_path = cache_dir / "retail_db.json"
-
-    if not retail_db_path.exists():
-        print(f"📥 Downloading retail database to {retail_db_path}...")
-        url = "https://raw.githubusercontent.com/sierra-research/tau2-bench/40f46d3540dc95aca145ddecb0464fdd9a1e8c15/data/tau2/domains/retail/db.json"
-        try:
-            urllib.request.urlretrieve(url, retail_db_path)
-            print("✅ Download complete!")
-        except Exception as e:
-            raise RuntimeError(f"Failed to download retail database: {e}")
-
-    return retail_db_path
-
-
-RETAIL_DB_PATH = _get_retail_db_path()
+from vendor.tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class RetailEnvironment:

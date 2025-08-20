@@ -20,41 +20,7 @@ from vendor.tau2.domains.mock.tools import MockTools
 
 logger = logging.getLogger(__name__)
 
-
-def _get_mock_db_path():
-    """Get mock database path, downloading if necessary."""
-    import os
-    import tempfile
-    import urllib.request
-    from pathlib import Path
-
-    # Try local development path first
-    try:
-        from vendor.tau2.domains.mock.utils import MOCK_DB_PATH
-
-        if Path(MOCK_DB_PATH).exists():
-            return MOCK_DB_PATH
-    except (ImportError, FileNotFoundError):
-        pass
-
-    # Use a cache directory in user's temp/cache area
-    cache_dir = Path(tempfile.gettempdir()) / "tau2_bench_cache"
-    cache_dir.mkdir(exist_ok=True)
-    mock_db_path = cache_dir / "mock_db.json"
-
-    if not mock_db_path.exists():
-        print(f"📥 Downloading mock database to {mock_db_path}...")
-        url = "https://raw.githubusercontent.com/sierra-research/tau2-bench/main/data/tau2/domains/mock/db.json"
-        try:
-            urllib.request.urlretrieve(url, mock_db_path)
-            print("✅ Download complete!")
-        except Exception as e:
-            raise RuntimeError(f"Failed to download mock database: {e}")
-
-    return mock_db_path
-
-
-MOCK_DB_PATH = _get_mock_db_path()
+from vendor.tau2.domains.mock.utils import MOCK_DB_PATH
 
 
 class MockEnvironment:

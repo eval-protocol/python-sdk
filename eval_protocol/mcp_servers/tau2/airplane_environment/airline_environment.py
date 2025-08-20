@@ -21,41 +21,7 @@ from vendor.tau2.domains.airline.tools import AirlineTools
 
 logger = logging.getLogger(__name__)
 
-
-def _get_airline_db_path():
-    """Get airline database path, downloading if necessary."""
-    import os
-    import tempfile
-    import urllib.request
-    from pathlib import Path
-
-    # Try local development path first
-    try:
-        from vendor.tau2.domains.airline.utils import AIRLINE_DB_PATH
-
-        if Path(AIRLINE_DB_PATH).exists():
-            return AIRLINE_DB_PATH
-    except (ImportError, FileNotFoundError):
-        pass
-
-    # Use a cache directory in user's temp/cache area
-    cache_dir = Path(tempfile.gettempdir()) / "tau2_bench_cache"
-    cache_dir.mkdir(exist_ok=True)
-    airline_db_path = cache_dir / "airline_db.json"
-
-    if not airline_db_path.exists():
-        print(f"📥 Downloading airline database to {airline_db_path}...")
-        url = "https://raw.githubusercontent.com/sierra-research/tau2-bench/main/data/tau2/domains/airline/db.json"
-        try:
-            urllib.request.urlretrieve(url, airline_db_path)
-            print("✅ Download complete!")
-        except Exception as e:
-            raise RuntimeError(f"Failed to download airline database: {e}")
-
-    return airline_db_path
-
-
-AIRLINE_DB_PATH = _get_airline_db_path()
+from vendor.tau2.domains.airline.utils import AIRLINE_DB_PATH
 
 
 class AirlineEnvironment:
