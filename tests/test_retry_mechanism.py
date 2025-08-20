@@ -191,9 +191,9 @@ shared_processor_fail_fast = MockRolloutProcessorFailFast()
 def test_fail_fast_exceptions(row: EvaluationRow) -> EvaluationRow:
     """Test that fail-fast exceptions like ValueError are not retried."""
     print(
-        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})"
+        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.is_finished() else 'FAILURE'})"
     )
-    score = 1.0 if row.rollout_status.status == "finished" else 0.0
+    score = 1.0 if row.rollout_status.is_finished() else 0.0
     row.evaluation_result = EvaluateResult(score=score)
     return row
 
@@ -283,8 +283,8 @@ def custom_http_giveup(e):
 def test_custom_giveup_function(row: EvaluationRow) -> EvaluationRow:
     """Test custom giveup function behavior."""
     task_content = row.messages[0].content if row.messages else ""
-    print(f"📊 EVALUATED: {task_content} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})")
-    score = 1.0 if row.rollout_status.status == "finished" else 0.0
+    print(f"📊 EVALUATED: {task_content} ({'SUCCESS' if row.rollout_status.is_finished() else 'FAILURE'})")
+    score = 1.0 if row.rollout_status.is_finished() else 0.0
     row.evaluation_result = EvaluateResult(score=score)
     return row
 
@@ -368,9 +368,9 @@ def simple_4xx_giveup(e):
 def test_simple_giveup_function(row: EvaluationRow) -> EvaluationRow:
     """Test that giveup function prevents retries immediately."""
     print(
-        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})"
+        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.is_finished() else 'FAILURE'})"
     )
-    score = 1.0 if row.rollout_status.status == "finished" else 0.0
+    score = 1.0 if row.rollout_status.is_finished() else 0.0
     row.evaluation_result = EvaluateResult(score=score)
     return row
 
