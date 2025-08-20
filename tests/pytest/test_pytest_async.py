@@ -32,7 +32,7 @@ async def test_pytest_async(rows: List[EvaluationRow]) -> List[EvaluationRow]:
         ],
     ],
     completion_params=[{"model": "accounts/fireworks/models/kimi-k2-instruct"}],
-    mode="all",
+    mode="pointwise",
 )
 async def test_pytest_async_pointwise(row: EvaluationRow) -> EvaluationRow:
     """Run pointwise evaluation on sample dataset using pytest interface."""
