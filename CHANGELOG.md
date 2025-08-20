@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - (Your now removed features here)
 
 ### Fixed
-- (Your bug fixes here)
+- Pin minimum `datasets` version to `>=3.0.0` to avoid import failures with `pyarrow>=21` (AttributeError: `pyarrow.PyExtensionType`). This ensures compatibility when installing via pip/uv in clean CI environments.
 
 ### Security
 - (Your vulnerabilities patched here)
