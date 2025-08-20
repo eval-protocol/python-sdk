@@ -595,7 +595,7 @@ def evaluation_test(  # noqa: C901
                                 if "row" in kwargs:
                                     result = await execute_with_params(
                                         test_func,
-                                        processed_row=kwargs["rows"],
+                                        processed_row=kwargs["row"],
                                         evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                                     )
                                     if result is None or not isinstance(result, EvaluationRow):
@@ -805,7 +805,6 @@ def evaluation_test(  # noqa: C901
                 return await pytest_wrapper(*args, **kwargs)
 
             dual_mode_wrapper._origin_func = test_func
-            dual_mode_wrapper._evaluator_id = test_func.__name__
             # Generate (stable) evaluator ID from function source code hash
             try:
                 func_source = inspect.getsource(test_func)
@@ -813,7 +812,7 @@ def evaluation_test(  # noqa: C901
                 normalized_source = ast.unparse(parsed)
                 clean_source = "".join(normalized_source.split()) + test_func.__name__
                 func_hash = hashlib.sha256(clean_source.encode("utf-8")).hexdigest()[:12]
-                dual_mode_wrapper._version = f"{test_func.__name__}_{func_hash}"
+                dual_mode_wrapper._evaluator_id= f"{test_func.__name__}_{func_hash}"
             except (OSError, TypeError, SyntaxError):
                 pass
             dual_mode_wrapper._metainfo = {

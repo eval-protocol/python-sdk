@@ -36,6 +36,5 @@ def test_pytest_func_metainfo():
     # Test evaluator ID generation
     assert hasattr(test_pytest_async, "_evaluator_id")
     evaluator_id = test_pytest_async._evaluator_id
-    assert evaluator_id.startswith("eval_")
-    assert len(evaluator_id) == 17  # "eval_" + 12 character hash
+    assert evaluator_id.startswith("test_pytest_async")
     print(f"Generated evaluator ID: {evaluator_id}")
