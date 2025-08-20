@@ -28,6 +28,15 @@ class ErrorInfo(BaseModel):
         metadata (Dict[str, Any]): Additional dynamic information as context.
     """
 
+    # Constants for reason values
+    REASON_TERMINATION_REASON = "TERMINATION_REASON"
+    REASON_EXTRA_INFO = "EXTRA_INFO"
+    REASON_ROLLOUT_ERROR = "ROLLOUT_ERROR"
+    REASON_STOPPED = "STOPPED"
+
+    # Domain constant
+    DOMAIN = "evalprotocol.io"
+
     reason: str = Field(..., description="Short snake_case description of the error cause")
     domain: str = Field(..., description="Logical grouping for the error reason")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional dynamic information as context")
@@ -42,24 +51,30 @@ class ErrorInfo(BaseModel):
         }
 
     @classmethod
-    def termination_reason(cls, reason: str) -> "ErrorInfo":
+    def termination_reason(cls, reason: Union[str, TerminationReason]) -> "ErrorInfo":
         """Create an ErrorInfo for termination reason."""
-        return cls(reason="TERMINATION_REASON", domain="evalprotocol.io", metadata={"termination_reason": reason})
+        # Convert TerminationReason enum to string if needed
+        reason_str = reason.value if isinstance(reason, TerminationReason) else reason
+        return cls(
+            reason=cls.REASON_TERMINATION_REASON, domain=cls.DOMAIN, metadata={"termination_reason": reason_str}
+        )
 
     @classmethod
     def extra_info(cls, metadata: Dict[str, Any]) -> "ErrorInfo":
         """Create an ErrorInfo for extra information."""
-        return cls(reason="EXTRA_INFO", domain="evalprotocol.io", metadata=metadata)
+        return cls(reason=cls.REASON_EXTRA_INFO, domain=cls.DOMAIN, metadata=metadata)
 
     @classmethod
     def rollout_error(cls, metadata: Dict[str, Any]) -> "ErrorInfo":
         """Create an ErrorInfo for rollout errors."""
-        return cls(reason="ROLLOUT_ERROR", domain="evalprotocol.io", metadata=metadata)
+        return cls(reason=cls.REASON_ROLLOUT_ERROR, domain=cls.DOMAIN, metadata=metadata)
 
     @classmethod
-    def stopped_reason(cls, reason: str) -> "ErrorInfo":
+    def stopped_reason(cls, reason: Union[str, TerminationReason]) -> "ErrorInfo":
         """Create an ErrorInfo for stopped reason."""
-        return cls(reason="STOPPED", domain="evalprotocol.io", metadata={"reason": reason})
+        # Convert TerminationReason enum to string if needed
+        reason_str = reason.value if isinstance(reason, TerminationReason) else reason
+        return cls(reason=cls.REASON_STOPPED, domain=cls.DOMAIN, metadata={"reason": reason_str})
 
 
 class Status(BaseModel):
@@ -116,7 +131,9 @@ class Status(BaseModel):
 
     @classmethod
     def rollout_finished(
-        cls, termination_reason: Optional[str] = None, extra_info: Optional[Dict[str, Any]] = None
+        cls,
+        termination_reason: Optional[Union[str, TerminationReason]] = None,
+        extra_info: Optional[Dict[str, Any]] = None,
     ) -> "Status":
         """Create a status indicating the rollout finished."""
         details = []
@@ -140,13 +157,15 @@ class Status(BaseModel):
         return cls(code=cls.Code.INTERNAL, message=error_message, details=details)
 
     @classmethod
-    def rollout_stopped(cls, reason: str = "Rollout stopped") -> "Status":
+    def rollout_stopped(cls, reason: Union[str, TerminationReason] = "Rollout stopped") -> "Status":
         """Create a status indicating the rollout was stopped."""
         details = [ErrorInfo.stopped_reason(reason).to_aip193_format()]
         return cls(code=cls.Code.CANCELLED, message=reason, details=details)
 
     @classmethod
-    def with_termination_reason(cls, termination_reason: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+    def with_termination_reason(
+        cls, termination_reason: Union[str, TerminationReason], extra_info: Optional[Dict[str, Any]] = None
+    ) -> "Status":
         """Create a status indicating the rollout finished with termination reason."""
         details = [ErrorInfo.termination_reason(termination_reason).to_aip193_format()]
 
@@ -171,24 +190,26 @@ class Status(BaseModel):
         """Check if the status indicates the rollout was stopped."""
         return self.code == self.Code.CANCELLED
 
-    def get_termination_reason(self) -> Optional[str]:
+    def get_termination_reason(self) -> Optional[TerminationReason]:
         """Extract termination reason from details if present."""
         for detail in self.details:
-            if detail.get("@type") == "type.googleapis.com/google.rpc.ErrorInfo":
-                metadata = detail.get("metadata", {})
-                if detail.get("reason") == "TERMINATION_REASON" and "termination_reason" in metadata:
-                    return metadata["termination_reason"]
+            metadata = detail.get("metadata", {})
+            if detail.get("reason") == ErrorInfo.REASON_TERMINATION_REASON and "termination_reason" in metadata:
+                try:
+                    return TerminationReason.from_str(metadata["termination_reason"])
+                except ValueError:
+                    # If the reason is not a valid enum value, return None
+                    return None
         return None
 
     def get_extra_info(self) -> Optional[Dict[str, Any]]:
         """Extract extra info from details if present."""
         for detail in self.details:
-            if detail.get("@type") == "type.googleapis.com/google.rpc.ErrorInfo":
-                metadata = detail.get("metadata", {})
-                reason = detail.get("reason")
-                # Skip termination_reason and stopped details, return other error info
-                if reason not in ["TERMINATION_REASON", "STOPPED"]:
-                    return metadata
+            metadata = detail.get("metadata", {})
+            reason = detail.get("reason")
+            # Skip termination_reason and stopped details, return other error info
+            if reason not in [ErrorInfo.REASON_TERMINATION_REASON, ErrorInfo.REASON_STOPPED]:
+                return metadata
         return None
 
     def __hash__(self) -> int:
