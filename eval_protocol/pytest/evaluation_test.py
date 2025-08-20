@@ -11,7 +11,8 @@ import time
 from dataclasses import replace
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 from collections import defaultdict
-
+import hashlib
+import ast
 from mcp.types import Completion
 import pytest
 
@@ -244,6 +245,7 @@ def evaluation_test(  # noqa: C901
     max_dataset_rows: Optional[int] = None,
     mcp_config_path: Optional[str] = None,
     max_concurrent_rollouts: int = 8,
+    max_concurrent_evaluations: int = 64,
     server_script_path: Optional[str] = None,
     steps: int = 30,
     mode: EvaluationTestMode = "pointwise",
@@ -308,6 +310,7 @@ def evaluation_test(  # noqa: C901
         max_dataset_rows: Limit dataset to the first N rows.
         mcp_config_path: Path to MCP config file that follows MCPMultiClientConfiguration schema
         max_concurrent_rollouts: Maximum number of concurrent rollouts to run in parallel.
+        max_concurrent_evaluations: Maximum number of concurrent evaluations to run in parallel.
         server_script_path: Path to the MCP server script to run (default: "examples/tau2_mcp/server.py").
         steps: Number of rollout steps to execute (default: 30).
         mode: Evaluation mode. "pointwise" (default) applies test function to each row (rollout result).
@@ -581,19 +584,17 @@ def evaluation_test(  # noqa: C901
                         # log the fresh_dataset
                         for row in fresh_dataset:
                             active_logger.log(row)
-
-                        if mode == "pointwise":
-                            # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
-                            semaphore = asyncio.Semaphore(max_concurrent_rollouts)
-                            tasks = []
-
-                            async def _execute_with_semaphore(row):
-                                async with semaphore:
-                                    # NOTE: we will still evaluate errored rows (give users control over this)
-                                    # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
+                            
+                        # prepare parallel eval helper function
+                        semaphore = asyncio.Semaphore(max_concurrent_evaluations)
+                        async def _execute_eval_with_semaphore(**kwargs):
+                            async with semaphore:
+                                # NOTE: we will still evaluate errored rows (give users control over this)
+                                # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
+                                if "row" in kwargs:
                                     result = await execute_with_params(
                                         test_func,
-                                        processed_row=row,
+                                        processed_row=kwargs["rows"],
                                         evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                                     )
                                     if result is None or not isinstance(result, EvaluationRow):
@@ -601,10 +602,24 @@ def evaluation_test(  # noqa: C901
                                             f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
                                         )
                                     return result
+                                if "rows" in kwargs:
+                                    results = await execute_with_params(
+                                        test_func,
+                                        processed_dataset=kwargs["rows"],
+                                        evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                    )
+                                    if results is None or not isinstance(results, list):
+                                        raise ValueError(
+                                            f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                                        )
+                                    return results
 
+                        if mode == "pointwise":
+                            # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
+                            tasks = []
                             # Use wrapper that handles retry logic internally
                             async for row in rollout_processor_with_retry(rollout_processor, fresh_dataset, config):
-                                tasks.append(asyncio.create_task(_execute_with_semaphore(row)))
+                                tasks.append(asyncio.create_task(_execute_eval_with_semaphore(row=row)))
 
                             results = await asyncio.gather(*tasks)
 
@@ -645,14 +660,13 @@ def evaluation_test(  # noqa: C901
                             for result in rollout_results:
                                 for row in result:
                                     row_groups[row.input_metadata.row_id].append(row)
-                            results = []
+                            tasks = []
                             for row_id, rows in row_groups.items():
-                                result = await execute_with_params(
-                                    test_func,
-                                    processed_dataset=rows,
-                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
-                                )
-                                results.extend(result)
+                                tasks.append(asyncio.create_task(_execute_eval_with_semaphore(rows=rows)))
+                            results = []
+                            for task in tasks:
+                                res = await task
+                                results.extend(res)
                             all_results[i] = results
                         else:
                             # Batch mode: collect all results first, then evaluate (no pipelining)
@@ -788,6 +802,24 @@ def evaluation_test(  # noqa: C901
 
                 # If not a direct call, use the pytest wrapper
                 return await pytest_wrapper(*args, **kwargs)
+            
+            dual_mode_wrapper._origin_func = test_func 
+            dual_mode_wrapper._evaluator_id = test_func.__name__
+            # Generate (stable) evaluator ID from function source code hash
+            try:
+                func_source = inspect.getsource(test_func)
+                parsed = ast.parse(func_source)
+                normalized_source = ast.unparse(parsed)
+                clean_source = ''.join(normalized_source.split()) + test_func.__name__
+                func_hash = hashlib.sha256(clean_source.encode('utf-8')).hexdigest()[:12]
+                dual_mode_wrapper._version = f"{test_func.__name__}_{func_hash}"
+            except (OSError, TypeError, SyntaxError):
+                pass
+            dual_mode_wrapper._metainfo = {
+               "mode": mode,
+               "max_rollout_concurrency": max_concurrent_rollouts,
+               "max_evaluation_concurrency": max_concurrent_evaluations,
+            }
 
             # Copy all attributes from the pytest wrapper to our dual mode wrapper
             import functools
