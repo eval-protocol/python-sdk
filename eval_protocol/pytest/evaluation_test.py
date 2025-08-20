@@ -588,14 +588,14 @@ def evaluation_test(  # noqa: C901
                         # prepare parallel eval helper function
                         semaphore = asyncio.Semaphore(max_concurrent_evaluations)
 
-                        async def _execute_eval_with_semaphore(**kwargs):
+                        async def _execute_eval_with_semaphore(**inner_kwargs):
                             async with semaphore:
                                 # NOTE: we will still evaluate errored rows (give users control over this)
                                 # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
-                                if "row" in kwargs:
+                                if "row" in inner_kwargs:
                                     result = await execute_with_params(
                                         test_func,
-                                        processed_row=kwargs["row"],
+                                        processed_row=inner_kwargs["row"],
                                         evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                                     )
                                     if result is None or not isinstance(result, EvaluationRow):
@@ -603,10 +603,10 @@ def evaluation_test(  # noqa: C901
                                             f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
                                         )
                                     return result
-                                if "rows" in kwargs:
+                                if "rows" in inner_kwargs:
                                     results = await execute_with_params(
                                         test_func,
-                                        processed_dataset=kwargs["rows"],
+                                        processed_dataset=inner_kwargs["rows"],
                                         evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                                     )
                                     if results is None or not isinstance(results, list):
@@ -805,16 +805,6 @@ def evaluation_test(  # noqa: C901
                 return await pytest_wrapper(*args, **kwargs)
 
             dual_mode_wrapper._origin_func = test_func
-            # Generate (stable) evaluator ID from function source code hash
-            try:
-                func_source = inspect.getsource(test_func)
-                parsed = ast.parse(func_source)
-                normalized_source = ast.unparse(parsed)
-                clean_source = "".join(normalized_source.split()) + test_func.__name__
-                func_hash = hashlib.sha256(clean_source.encode("utf-8")).hexdigest()[:12]
-                dual_mode_wrapper._evaluator_id = f"{test_func.__name__}_{func_hash}"
-            except (OSError, TypeError, SyntaxError):
-                pass
             dual_mode_wrapper._metainfo = {
                 "mode": mode,
                 "max_rollout_concurrency": max_concurrent_rollouts,
