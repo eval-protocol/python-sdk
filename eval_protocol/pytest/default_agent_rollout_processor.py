@@ -135,7 +135,7 @@ class AgentRolloutProcessor(RolloutProcessor):
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with agent rollout."""
             agent = Agent(
-                model=config.completion_params["model"],
+                model=row.input_metadata.completion_params["model"],
                 row=row,
                 config_path=config.mcp_config_path,
                 logger=config.logger,
