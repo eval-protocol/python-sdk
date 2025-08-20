@@ -290,11 +290,6 @@ class TestStatusModelIntegration:
         assert row.rollout_status.is_error()
         assert row.rollout_status.code == Status.Code.INTERNAL
 
-        # Test stopped status
-        row.rollout_status = Status.rollout_stopped("User stop")
-        assert row.rollout_status.is_stopped()
-        assert row.rollout_status.code == Status.Code.CANCELLED
-
     def test_termination_reason_integration(self):
         """Test integration of termination reason with status."""
         row = EvaluationRow(messages=[])
@@ -434,7 +429,6 @@ class TestAIP193Compliance:
             (Status.rollout_running(), Status.Code.OK),
             (Status.rollout_finished(), Status.Code.FINISHED),  # Custom code
             (Status.rollout_error("Test"), Status.Code.INTERNAL),
-            (Status.rollout_stopped("Test"), Status.Code.CANCELLED),
         ]
 
         for status, expected_code in statuses:

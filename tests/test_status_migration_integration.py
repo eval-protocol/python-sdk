@@ -71,19 +71,6 @@ class TestStatusTransitions:
         assert not row.rollout_status.is_running()
         assert row.rollout_status.is_error()
 
-    def test_running_to_stopped_transition(self):
-        """Test transition from running to stopped."""
-        row = EvaluationRow(messages=[])
-
-        # Start with running
-        assert row.rollout_status.is_running()
-        assert not row.rollout_status.is_stopped()
-
-        # Transition to stopped
-        row.rollout_status = Status.rollout_stopped("User requested stop")
-        assert not row.rollout_status.is_running()
-        assert row.rollout_status.is_stopped()
-
     def test_error_to_finished_transition(self):
         """Test transition from error to finished."""
         row = EvaluationRow(messages=[])
@@ -292,7 +279,6 @@ class TestAIP193Compliance:
             (Status.rollout_running(), Status.Code.OK),
             (Status.rollout_finished(), Status.Code.FINISHED),
             (Status.rollout_error("Test"), Status.Code.INTERNAL),
-            (Status.rollout_stopped("Test"), Status.Code.CANCELLED),
         ]
 
         for status, expected_code in statuses:

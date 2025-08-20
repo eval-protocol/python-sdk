@@ -31,8 +31,6 @@ class ErrorInfo(BaseModel):
     # Constants for reason values
     REASON_TERMINATION_REASON: ClassVar[str] = "TERMINATION_REASON"
     REASON_EXTRA_INFO: ClassVar[str] = "EXTRA_INFO"
-    REASON_ROLLOUT_ERROR: ClassVar[str] = "ROLLOUT_ERROR"
-    REASON_STOPPED: ClassVar[str] = "STOPPED"
 
     # Domain constant
     DOMAIN: ClassVar[str] = "evalprotocol.io"
@@ -63,18 +61,6 @@ class ErrorInfo(BaseModel):
     def extra_info(cls, metadata: Dict[str, Any]) -> "ErrorInfo":
         """Create an ErrorInfo for extra information."""
         return cls(reason=cls.REASON_EXTRA_INFO, domain=cls.DOMAIN, metadata=metadata)
-
-    @classmethod
-    def rollout_error(cls, metadata: Dict[str, Any]) -> "ErrorInfo":
-        """Create an ErrorInfo for rollout errors."""
-        return cls(reason=cls.REASON_ROLLOUT_ERROR, domain=cls.DOMAIN, metadata=metadata)
-
-    @classmethod
-    def stopped_reason(cls, reason: Union[str, TerminationReason]) -> "ErrorInfo":
-        """Create an ErrorInfo for stopped reason."""
-        # Convert TerminationReason enum to string if needed
-        reason_str = reason.value if isinstance(reason, TerminationReason) else reason
-        return cls(reason=cls.REASON_STOPPED, domain=cls.DOMAIN, metadata={"reason": reason_str})
 
 
 class Status(BaseModel):
@@ -155,14 +141,6 @@ class Status(BaseModel):
     def error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
         """Create a status indicating the rollout failed with an error."""
         return cls(code=cls.Code.INTERNAL, message=error_message, details=details)
-
-    @classmethod
-    def rollout_stopped(cls, message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
-        """Create a status indicating the rollout was stopped."""
-        details = []
-        if extra_info:
-            details.append(ErrorInfo.extra_info(extra_info).to_aip193_format())
-        return cls(code=cls.Code.CANCELLED, message=message, details=details)
 
     def is_running(self) -> bool:
         """Check if the status indicates the rollout is running."""

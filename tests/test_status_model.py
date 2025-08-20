@@ -53,18 +53,6 @@ class TestErrorInfoModel:
         assert extra_error.domain == "evalprotocol.io"
         assert extra_error.metadata == {"steps": 10, "reward": 0.8}
 
-        # Test rollout_error
-        rollout_error = ErrorInfo.rollout_error({"error_code": "E001"})
-        assert rollout_error.reason == "ROLLOUT_ERROR"
-        assert rollout_error.domain == "evalprotocol.io"
-        assert rollout_error.metadata == {"error_code": "E001"}
-
-        # Test stopped_reason
-        stopped_error = ErrorInfo.stopped_reason("user_request")
-        assert stopped_error.reason == "STOPPED"
-        assert stopped_error.domain == "evalprotocol.io"
-        assert stopped_error.metadata["reason"] == "user_request"
-
 
 class TestStatusModel:
     """Test the AIP-193 compatible Status model."""
@@ -121,12 +109,6 @@ class TestStatusModel:
         assert error_status_with_info.details[0]["domain"] == "evalprotocol.io"
         assert error_status_with_info.details[0]["metadata"] == extra_info
 
-        # Test stopped status
-        stopped_status = Status.rollout_stopped("User requested stop")
-        assert stopped_status.code == Status.Code.CANCELLED
-        assert stopped_status.message == "User requested stop"
-        assert stopped_status.details == []
-
         # Test with termination reason
         termination_status = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL)
         assert termination_status.code == Status.Code.FINISHED
@@ -172,13 +154,6 @@ class TestStatusModel:
         assert error_status.is_finished() is False
         assert error_status.is_error() is True
         assert error_status.is_stopped() is False
-
-        # Test is_stopped
-        stopped_status = Status.rollout_stopped("Test stop")
-        assert stopped_status.is_running() is False
-        assert stopped_status.is_finished() is False
-        assert stopped_status.is_error() is False
-        assert stopped_status.is_stopped() is True
 
     def test_get_termination_reason(self):
         """Test extracting termination reason from status details."""
@@ -312,11 +287,6 @@ class TestStatusMigration:
         row.rollout_status = Status.rollout_error("Something went wrong")
         assert row.rollout_status.is_error()
         assert not row.rollout_status.is_finished()
-
-        # Transition to stopped
-        row.rollout_status = Status.rollout_stopped("User requested stop")
-        assert row.rollout_status.is_stopped()
-        assert not row.rollout_status.is_error()
 
     def test_termination_reason_integration(self):
         """Test integration of termination reason with status."""
