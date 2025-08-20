@@ -812,7 +812,7 @@ def evaluation_test(  # noqa: C901
                 normalized_source = ast.unparse(parsed)
                 clean_source = "".join(normalized_source.split()) + test_func.__name__
                 func_hash = hashlib.sha256(clean_source.encode("utf-8")).hexdigest()[:12]
-                dual_mode_wrapper._evaluator_id= f"{test_func.__name__}_{func_hash}"
+                dual_mode_wrapper._evaluator_id = f"{test_func.__name__}_{func_hash}"
             except (OSError, TypeError, SyntaxError):
                 pass
             dual_mode_wrapper._metainfo = {
