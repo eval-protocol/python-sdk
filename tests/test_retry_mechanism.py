@@ -11,7 +11,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message, RolloutStatus
+from eval_protocol.models import EvaluateResult, EvaluationRow, Message, Status
 from eval_protocol.pytest.evaluation_test import evaluation_test
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
@@ -95,11 +95,11 @@ shared_processor = MockRolloutProcessorWithRetries()
 def test_retry_mechanism(row: EvaluationRow) -> EvaluationRow:
     """MOCK TEST: Tests that retry mechanism works - one task fails on first attempt, succeeds on retry."""
     print(
-        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})"
+        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.is_finished() else 'FAILURE'})"
     )
 
     # Assign a score based on success/failure
-    score = 1.0 if row.rollout_status.status == "finished" else 0.0
+    score = 1.0 if row.rollout_status.is_finished() else 0.0
     row.evaluation_result = EvaluateResult(score=score)
 
     return row
@@ -191,9 +191,9 @@ shared_processor_fail_fast = MockRolloutProcessorFailFast()
 def test_fail_fast_exceptions(row: EvaluationRow) -> EvaluationRow:
     """Test that fail-fast exceptions like ValueError are not retried."""
     print(
-        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})"
+        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.is_finished() else 'FAILURE'})"
     )
-    score = 1.0 if row.rollout_status.status == "finished" else 0.0
+    score = 1.0 if row.rollout_status.is_finished() else 0.0
     row.evaluation_result = EvaluateResult(score=score)
     return row
 
@@ -283,8 +283,8 @@ def custom_http_giveup(e):
 def test_custom_giveup_function(row: EvaluationRow) -> EvaluationRow:
     """Test custom giveup function behavior."""
     task_content = row.messages[0].content if row.messages else ""
-    print(f"📊 EVALUATED: {task_content} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})")
-    score = 1.0 if row.rollout_status.status == "finished" else 0.0
+    print(f"📊 EVALUATED: {task_content} ({'SUCCESS' if row.rollout_status.is_finished() else 'FAILURE'})")
+    score = 1.0 if row.rollout_status.is_finished() else 0.0
     row.evaluation_result = EvaluateResult(score=score)
     return row
 
@@ -368,9 +368,9 @@ def simple_4xx_giveup(e):
 def test_simple_giveup_function(row: EvaluationRow) -> EvaluationRow:
     """Test that giveup function prevents retries immediately."""
     print(
-        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})"
+        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.is_finished() else 'FAILURE'})"
     )
-    score = 1.0 if row.rollout_status.status == "finished" else 0.0
+    score = 1.0 if row.rollout_status.is_finished() else 0.0
     row.evaluation_result = EvaluateResult(score=score)
     return row
 

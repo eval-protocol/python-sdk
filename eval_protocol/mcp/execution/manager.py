@@ -20,7 +20,7 @@ from openai.types import CompletionUsage
 from vendor.tau2.data_model.message import AssistantMessage, UserMessage
 from vendor.tau2.user.user_simulator import UserSimulator
 
-from ...models import EvaluationRow, InputMetadata, Message, RolloutStatus
+from ...models import EvaluationRow, InputMetadata, Message, Status
 from ...types import TerminationReason, Trajectory, NonSkippableException
 
 if TYPE_CHECKING:
@@ -136,15 +136,14 @@ class ExecutionManager:
                 }
 
                 if trajectory.terminated:
-                    evaluation_row.rollout_status.termination_reason = trajectory.termination_reason
-                    evaluation_row.rollout_status.status = RolloutStatus.Status.FINISHED
-                    # preserve the true error mesage if there are any
+                    extra_info = None
                     if trajectory.control_plane_summary.get("error_message"):
-                        evaluation_row.rollout_status.extra_info = {
-                            "error_message": trajectory.control_plane_summary.get("error_message")
-                        }
+                        extra_info = {"error_message": trajectory.control_plane_summary.get("error_message")}
+                    evaluation_row.rollout_status = Status.rollout_finished(
+                        termination_reason=trajectory.termination_reason, extra_info=extra_info
+                    )
                 else:
-                    evaluation_row.rollout_status.status = RolloutStatus.Status.RUNNING
+                    evaluation_row.rollout_status = Status.rollout_running()
 
                 return evaluation_row
 

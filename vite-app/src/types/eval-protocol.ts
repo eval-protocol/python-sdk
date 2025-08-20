@@ -81,13 +81,11 @@ export const EvalMetadataSchema = z.object({
   passed: z.boolean().optional().describe('Whether the evaluation passed based on the threshold')
 });
 
-// Rollout status model (matches Python RolloutStatus)
-export const RolloutStatusSchema = z.object({
-  status: z
-    .enum(['running', 'finished', 'error', 'stopped'])
-    .default('finished')
-    .describe('Status of the rollout.'),
-  error_message: z.string().optional().describe('Error message if the rollout failed.')
+// AIP-193 compatible Status model (matches Python Status)
+export const StatusSchema = z.object({
+  code: z.number().describe('The status code (numeric value from google.rpc.Code enum)'),
+  message: z.string().describe('Developer-facing, human-readable debug message in English'),
+  details: z.array(z.record(z.string(), z.any())).default([]).describe('Additional error information, each packed in a google.protobuf.Any message format')
 });
 
 export const ExecutionMetadataSchema = z.object({
@@ -101,7 +99,7 @@ export const EvaluationRowSchema = z.object({
   messages: z.array(MessageSchema).describe('List of messages in the conversation/trajectory.'),
   tools: z.array(z.record(z.string(), z.any())).optional().describe('Available tools/functions that were provided to the agent.'),
   input_metadata: InputMetadataSchema.describe('Metadata related to the input (dataset info, model config, session data, etc.).'),
-  rollout_status: RolloutStatusSchema.default({ status: 'finished' }).describe('The status of the rollout.'),
+  rollout_status: StatusSchema.default({ code: 0, message: 'Rollout is running', details: [] }).describe('The status of the rollout following AIP-193 standards.'),
   execution_metadata: ExecutionMetadataSchema.optional().describe('Metadata about the execution of the evaluation.'),
   ground_truth: z.string().optional().describe('Optional ground truth reference for this evaluation.'),
   evaluation_result: EvaluateResultSchema.optional().describe('The evaluation result for this row/trajectory.'),
@@ -171,7 +169,7 @@ export type InputMetadata = z.infer<typeof InputMetadataSchema>;
 export type CompletionUsage = z.infer<typeof CompletionUsageSchema>;
 export type EvalMetadata = z.infer<typeof EvalMetadataSchema>;
 export type EvaluationRow = z.infer<typeof EvaluationRowSchema>;
-export type RolloutStatus = z.infer<typeof RolloutStatusSchema>;
+export type Status = z.infer<typeof StatusSchema>;
 export type ResourceServerConfig = z.infer<typeof ResourceServerConfigSchema>;
 export type EvaluationCriteriaModel = z.infer<typeof EvaluationCriteriaModelSchema>;
 export type TaskDefinitionModel = z.infer<typeof TaskDefinitionModelSchema>;

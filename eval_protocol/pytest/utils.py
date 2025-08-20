@@ -6,7 +6,7 @@ from dataclasses import replace
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
-from eval_protocol.models import EvalMetadata, EvaluationRow, RolloutStatus
+from eval_protocol.models import EvalMetadata, EvaluationRow, Status
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import (
     CompletionParams,
@@ -282,7 +282,7 @@ async def rollout_processor_with_retry(
             try:
                 # Try original task first
                 result = await task
-                result.rollout_status.status = RolloutStatus.Status.FINISHED
+                result.rollout_status = Status.rollout_finished()
                 return result
             except Exception as e:
                 # NOTE: we perform these checks because we don't put the backoff decorator on initial batch call. we don't want to retry whole batch if anything fails.
@@ -295,17 +295,15 @@ async def rollout_processor_with_retry(
                     # Use shared backoff function for retryable exceptions
                     try:
                         result = await execute_row_with_backoff_retry(row)
-                        result.rollout_status.status = RolloutStatus.Status.FINISHED
+                        result.rollout_status = Status.rollout_finished()
                         return result
                     except Exception as retry_error:
                         # Backoff gave up
-                        row.rollout_status.status = RolloutStatus.Status.ERROR
-                        # row.rollout_status.termination_reason = str(retry_error)
+                        row.rollout_status = Status.rollout_error(str(retry_error))
                         return row
                 else:
                     # Non-retryable exception - fail immediately
-                    row.rollout_status.status = RolloutStatus.Status.ERROR
-                    # row.rollout_status.termination_reason = str(e)
+                    row.rollout_status = Status.rollout_error(str(e))
                     return row
 
         # Process all tasks concurrently with backoff retry
