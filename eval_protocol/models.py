@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
+from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Union
 
 from openai.types import CompletionUsage
 from openai.types.chat.chat_completion_message import (
@@ -29,13 +29,13 @@ class ErrorInfo(BaseModel):
     """
 
     # Constants for reason values
-    REASON_TERMINATION_REASON = "TERMINATION_REASON"
-    REASON_EXTRA_INFO = "EXTRA_INFO"
-    REASON_ROLLOUT_ERROR = "ROLLOUT_ERROR"
-    REASON_STOPPED = "STOPPED"
+    REASON_TERMINATION_REASON: ClassVar[str] = "TERMINATION_REASON"
+    REASON_EXTRA_INFO: ClassVar[str] = "EXTRA_INFO"
+    REASON_ROLLOUT_ERROR: ClassVar[str] = "ROLLOUT_ERROR"
+    REASON_STOPPED: ClassVar[str] = "STOPPED"
 
     # Domain constant
-    DOMAIN = "evalprotocol.io"
+    DOMAIN: ClassVar[str] = "evalprotocol.io"
 
     reason: str = Field(..., description="Short snake_case description of the error cause")
     domain: str = Field(..., description="Logical grouping for the error reason")
@@ -51,7 +51,7 @@ class ErrorInfo(BaseModel):
         }
 
     @classmethod
-    def termination_reason(cls, reason: Union[str, TerminationReason]) -> "ErrorInfo":
+    def termination_reason(cls, reason: TerminationReason) -> "ErrorInfo":
         """Create an ErrorInfo for termination reason."""
         # Convert TerminationReason enum to string if needed
         reason_str = reason.value if isinstance(reason, TerminationReason) else reason
@@ -132,7 +132,7 @@ class Status(BaseModel):
     @classmethod
     def rollout_finished(
         cls,
-        termination_reason: Optional[Union[str, TerminationReason]] = None,
+        termination_reason: Optional[TerminationReason] = None,
         extra_info: Optional[Dict[str, Any]] = None,
     ) -> "Status":
         """Create a status indicating the rollout finished."""
@@ -157,14 +157,16 @@ class Status(BaseModel):
         return cls(code=cls.Code.INTERNAL, message=error_message, details=details)
 
     @classmethod
-    def rollout_stopped(cls, reason: Union[str, TerminationReason] = "Rollout stopped") -> "Status":
+    def rollout_stopped(cls, message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
         """Create a status indicating the rollout was stopped."""
-        details = [ErrorInfo.stopped_reason(reason).to_aip193_format()]
-        return cls(code=cls.Code.CANCELLED, message=reason, details=details)
+        details = []
+        if extra_info:
+            details.append(ErrorInfo.extra_info(extra_info).to_aip193_format())
+        return cls(code=cls.Code.CANCELLED, message=message, details=details)
 
     @classmethod
     def with_termination_reason(
-        cls, termination_reason: Union[str, TerminationReason], extra_info: Optional[Dict[str, Any]] = None
+        cls, termination_reason: TerminationReason, extra_info: Optional[Dict[str, Any]] = None
     ) -> "Status":
         """Create a status indicating the rollout finished with termination reason."""
         details = [ErrorInfo.termination_reason(termination_reason).to_aip193_format()]
