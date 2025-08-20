@@ -35,7 +35,7 @@ def _get_airline_db_path():
 
         if Path(AIRLINE_DB_PATH).exists():
             return AIRLINE_DB_PATH
-    except ImportError:
+    except (ImportError, FileNotFoundError):
         pass
 
     # Use a cache directory in user's temp/cache area

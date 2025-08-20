@@ -30,6 +30,46 @@ from vendor.tau2.registry import registry
 from eval_protocol.mcp_servers.tau2 import get_server_script_path, get_system_prompt
 
 
+def _ensure_tau2_databases():
+    """Ensure tau2 database files exist, downloading if necessary."""
+    import os
+    import urllib.request
+    from pathlib import Path
+
+    # Get the vendor/tau2/data directory path
+    try:
+        from vendor.tau2.utils.utils import DATA_DIR
+
+        domains_dir = DATA_DIR / "domains"
+    except ImportError:
+        # Fallback: find vendor/tau2 relative to this file
+        vendor_tau2 = Path(__file__).parent.parent.parent / "vendor" / "tau2"
+        domains_dir = vendor_tau2 / "data" / "domains"
+
+    # Database files to download
+    databases = {
+        "retail/db.json": "https://raw.githubusercontent.com/sierra-research/tau2-bench/40f46d3540dc95aca145ddecb0464fdd9a1e8c15/data/tau2/domains/retail/db.json",
+        "airline/db.json": "https://raw.githubusercontent.com/sierra-research/tau2-bench/main/data/tau2/domains/airline/db.json",
+        "mock/db.json": "https://raw.githubusercontent.com/sierra-research/tau2-bench/main/data/tau2/domains/mock/db.json",
+    }
+
+    for rel_path, url in databases.items():
+        file_path = domains_dir / rel_path
+        if not file_path.exists():
+            print(f"📥 Downloading {rel_path} to {file_path}...")
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                urllib.request.urlretrieve(url, file_path)
+                print(f"✅ Downloaded {rel_path} ({file_path.stat().st_size:,} bytes)")
+            except Exception as e:
+                print(f"❌ Failed to download {rel_path}: {e}")
+                raise
+
+
+# Ensure databases are available before test runs
+_ensure_tau2_databases()
+
+
 def _get_retail_dataset_path() -> str:
     """Get the retail dataset file path."""
     return str(Path(__file__).parent / "data" / "retail_dataset.jsonl")

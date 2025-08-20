@@ -34,7 +34,7 @@ def _get_retail_db_path():
 
         if Path(RETAIL_DB_PATH).exists():
             return RETAIL_DB_PATH
-    except ImportError:
+    except (ImportError, FileNotFoundError):
         pass
 
     # Use a cache directory in user's temp/cache area

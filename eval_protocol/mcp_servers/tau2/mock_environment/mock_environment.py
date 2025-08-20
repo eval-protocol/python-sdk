@@ -34,7 +34,7 @@ def _get_mock_db_path():
 
         if Path(MOCK_DB_PATH).exists():
             return MOCK_DB_PATH
-    except ImportError:
+    except (ImportError, FileNotFoundError):
         pass
 
     # Use a cache directory in user's temp/cache area
