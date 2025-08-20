@@ -143,7 +143,10 @@ eval_protocol = "eval_protocol.pytest.plugin"
 include = ["eval_protocol*", "development*", "vendor*", "examples*"]
 
 [tool.setuptools.package-data]
-"eval_protocol" = ["../vite-app/dist/**/*"]
+"eval_protocol" = [
+    "../vite-app/dist/**/*",
+    "benchmarks/data/*"
+]
 
 [tool.versioneer]
 VCS = "git"
