@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message, RolloutStatus
+from eval_protocol.models import EvaluateResult, EvaluationRow, Message, Status
 from eval_protocol.pytest.evaluation_test import evaluation_test
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
@@ -93,11 +93,11 @@ shared_processor = MockRolloutProcessorWithRetries()
 def test_retry_mechanism(row: EvaluationRow) -> EvaluationRow:
     """MOCK TEST: Tests that retry mechanism works - one task fails on first attempt, succeeds on retry."""
     print(
-        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})"
+        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.is_finished() else 'FAILURE'})"
     )
 
     # Assign a score based on success/failure
-    score = 1.0 if row.rollout_status.status == "finished" else 0.0
+    score = 1.0 if row.rollout_status.is_finished() else 0.0
     row.evaluation_result = EvaluateResult(score=score)
 
     return row

@@ -6,7 +6,7 @@ from dataclasses import replace
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
-from eval_protocol.models import EvalMetadata, EvaluationRow, RolloutStatus
+from eval_protocol.models import EvalMetadata, EvaluationRow, Status
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import (
     CompletionParams,
@@ -257,7 +257,7 @@ async def rollout_processor_with_retry(
             current_attempts = retry_counts.get(rollout_id, 0)
 
             if current_attempts >= max_retry:
-                assert failed_row.rollout_status and failed_row.rollout_status.status == RolloutStatus.Status.ERROR, (
+                assert failed_row.rollout_status and failed_row.rollout_status.is_error(), (
                     f"Rollout {failed_row.execution_metadata.rollout_id} did not fail with error status"
                 )
                 failed_permanently.append(failed_row)
@@ -273,11 +273,10 @@ async def rollout_processor_with_retry(
 
             try:
                 retry_result = await retry_tasks[0]
-                retry_result.rollout_status.status = RolloutStatus.Status.FINISHED
+                retry_result.rollout_status = Status.rollout_finished()
                 await queue.put(retry_result)
             except Exception as e:
-                failed_row.rollout_status.status = RolloutStatus.Status.ERROR
-                failed_row.rollout_status.termination_reason = str(e)
+                failed_row.rollout_status = Status.rollout_error(str(e))
                 asyncio.create_task(retry_handler(failed_row))  # retry failed, spawn another retry
 
         async def initial_processor():
@@ -299,12 +298,11 @@ async def rollout_processor_with_retry(
 
                     try:
                         result = await task
-                        result.rollout_status.status = RolloutStatus.Status.FINISHED
+                        result.rollout_status = Status.rollout_finished()
                         await queue.put(result)
                     except Exception as e:
                         failed_row = fresh_dataset[task_index]
-                        failed_row.rollout_status.status = RolloutStatus.Status.ERROR
-                        failed_row.rollout_status.termination_reason = str(e)
+                        failed_row.rollout_status = Status.rollout_error(str(e))
                         asyncio.create_task(retry_handler(failed_row))  # rollout errored, spawn retry task
 
         processor_task = asyncio.create_task(initial_processor())
@@ -317,10 +315,11 @@ async def rollout_processor_with_retry(
             finished_row = await queue.get()
 
             # only permanent failure rows are put on the queue, so we can check for them here
-            if finished_row.rollout_status and finished_row.rollout_status.status == RolloutStatus.Status.ERROR:
+            if finished_row.rollout_status and finished_row.rollout_status.is_error():
                 if max_retry > 0 and os.getenv("EP_FAIL_ON_MAX_RETRY", "true") != "false":
+                    termination_reason = finished_row.rollout_status.get_termination_reason() or "Unknown error"
                     raise RuntimeError(
-                        f"Rollout {finished_row.execution_metadata.rollout_id} failed after {max_retry} retries. Errors: {finished_row.rollout_status.termination_reason}"
+                        f"Rollout {finished_row.execution_metadata.rollout_id} failed after {max_retry} retries. Errors: {termination_reason}"
                     )
 
             completed_count += 1

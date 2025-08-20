@@ -64,7 +64,7 @@ def pytest_addoption(parser) -> None:
         action="store",
         type=int,
         default=0,
-        help=("Failed rollouts (with rollout_status.status == 'error') will be retried up to this many times."),
+        help=("Failed rollouts (with rollout_status.code indicating error) will be retried up to this many times."),
     )
     group.addoption(
         "--ep-fail-on-max-retry",

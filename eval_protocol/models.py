@@ -15,6 +15,199 @@ from eval_protocol.human_id import generate_id
 from eval_protocol.types import TerminationReason
 
 
+class ErrorInfo(BaseModel):
+    """
+    AIP-193 ErrorInfo model for structured error details.
+
+    This model follows Google's AIP-193 standard for ErrorInfo:
+    https://google.aip.dev/193#errorinfo
+
+    Attributes:
+        reason (str): A short snake_case description of the cause of the error.
+        domain (str): The logical grouping to which the reason belongs.
+        metadata (Dict[str, Any]): Additional dynamic information as context.
+    """
+
+    reason: str = Field(..., description="Short snake_case description of the error cause")
+    domain: str = Field(..., description="Logical grouping for the error reason")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional dynamic information as context")
+
+    def to_aip193_format(self) -> Dict[str, Any]:
+        """Convert to AIP-193 format with @type field."""
+        return {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            "reason": self.reason,
+            "domain": self.domain,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def termination_reason(cls, reason: str) -> "ErrorInfo":
+        """Create an ErrorInfo for termination reason."""
+        return cls(reason="TERMINATION_REASON", domain="evalprotocol.io", metadata={"termination_reason": reason})
+
+    @classmethod
+    def extra_info(cls, metadata: Dict[str, Any]) -> "ErrorInfo":
+        """Create an ErrorInfo for extra information."""
+        return cls(reason="EXTRA_INFO", domain="evalprotocol.io", metadata=metadata)
+
+    @classmethod
+    def rollout_error(cls, metadata: Dict[str, Any]) -> "ErrorInfo":
+        """Create an ErrorInfo for rollout errors."""
+        return cls(reason="ROLLOUT_ERROR", domain="evalprotocol.io", metadata=metadata)
+
+    @classmethod
+    def stopped_reason(cls, reason: str) -> "ErrorInfo":
+        """Create an ErrorInfo for stopped reason."""
+        return cls(reason="STOPPED", domain="evalprotocol.io", metadata={"reason": reason})
+
+
+class Status(BaseModel):
+    """
+    AIP-193 compatible Status model for standardized error responses.
+
+    This model follows Google's AIP-193 standard for error handling:
+    https://google.aip.dev/193
+
+    Attributes:
+        code (int): The status code, must be the numeric value of one of the elements
+                   of google.rpc.Code enum (e.g., 5 for NOT_FOUND).
+        message (str): Developer-facing, human-readable debug message in English.
+        details (List[Dict[str, Any]]): Additional error information, each packed in
+                                       a google.protobuf.Any message format.
+    """
+
+    code: "Status.Code" = Field(..., description="The status code from google.rpc.Code enum")
+    message: str = Field(..., description="Developer-facing, human-readable debug message in English")
+    details: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Additional error information, each packed in a google.protobuf.Any message format",
+    )
+
+    # Convenience constants for common status codes
+    class Code(int, Enum):
+        """Common gRPC status codes as defined in google.rpc.Code"""
+
+        OK = 0
+        CANCELLED = 1
+        UNKNOWN = 2
+        INVALID_ARGUMENT = 3
+        DEADLINE_EXCEEDED = 4
+        NOT_FOUND = 5
+        ALREADY_EXISTS = 6
+        PERMISSION_DENIED = 7
+        RESOURCE_EXHAUSTED = 8
+        FAILED_PRECONDITION = 9
+        ABORTED = 10
+        OUT_OF_RANGE = 11
+        UNIMPLEMENTED = 12
+        INTERNAL = 13
+        UNAVAILABLE = 14
+        DATA_LOSS = 15
+        UNAUTHENTICATED = 16
+
+        # Custom codes for rollout states (using higher numbers to avoid conflicts)
+        FINISHED = 100  # Custom code for rollout finished
+
+    @classmethod
+    def rollout_running(cls) -> "Status":
+        """Create a status indicating the rollout is running."""
+        return cls(code=cls.Code.OK, message="Rollout is running", details=[])
+
+    @classmethod
+    def rollout_finished(
+        cls, termination_reason: Optional[str] = None, extra_info: Optional[Dict[str, Any]] = None
+    ) -> "Status":
+        """Create a status indicating the rollout finished."""
+        details = []
+        if termination_reason:
+            details.append(ErrorInfo.termination_reason(termination_reason).to_aip193_format())
+        if extra_info:
+            details.append(ErrorInfo.extra_info(extra_info).to_aip193_format())
+        return cls(code=cls.Code.FINISHED, message="Rollout finished", details=details)
+
+    @classmethod
+    def rollout_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout failed with an error."""
+        details = []
+        if extra_info:
+            details.append(ErrorInfo.rollout_error(extra_info).to_aip193_format())
+        return cls.error(error_message, details)
+
+    @classmethod
+    def error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating the rollout failed with an error."""
+        return cls(code=cls.Code.INTERNAL, message=error_message, details=details)
+
+    @classmethod
+    def rollout_stopped(cls, reason: str = "Rollout stopped") -> "Status":
+        """Create a status indicating the rollout was stopped."""
+        details = [ErrorInfo.stopped_reason(reason).to_aip193_format()]
+        return cls(code=cls.Code.CANCELLED, message=reason, details=details)
+
+    @classmethod
+    def with_termination_reason(cls, termination_reason: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout finished with termination reason."""
+        details = [ErrorInfo.termination_reason(termination_reason).to_aip193_format()]
+
+        if extra_info:
+            details.append(ErrorInfo.extra_info(extra_info).to_aip193_format())
+
+        return cls(code=cls.Code.FINISHED, message="Rollout finished", details=details)
+
+    def is_running(self) -> bool:
+        """Check if the status indicates the rollout is running."""
+        return self.code == self.Code.OK and self.message == "Rollout is running"
+
+    def is_finished(self) -> bool:
+        """Check if the status indicates the rollout finished successfully."""
+        return self.code == self.Code.FINISHED
+
+    def is_error(self) -> bool:
+        """Check if the status indicates the rollout failed with an error."""
+        return self.code == self.Code.INTERNAL
+
+    def is_stopped(self) -> bool:
+        """Check if the status indicates the rollout was stopped."""
+        return self.code == self.Code.CANCELLED
+
+    def get_termination_reason(self) -> Optional[str]:
+        """Extract termination reason from details if present."""
+        for detail in self.details:
+            if detail.get("@type") == "type.googleapis.com/google.rpc.ErrorInfo":
+                metadata = detail.get("metadata", {})
+                if detail.get("reason") == "TERMINATION_REASON" and "termination_reason" in metadata:
+                    return metadata["termination_reason"]
+        return None
+
+    def get_extra_info(self) -> Optional[Dict[str, Any]]:
+        """Extract extra info from details if present."""
+        for detail in self.details:
+            if detail.get("@type") == "type.googleapis.com/google.rpc.ErrorInfo":
+                metadata = detail.get("metadata", {})
+                reason = detail.get("reason")
+                # Skip termination_reason and stopped details, return other error info
+                if reason not in ["TERMINATION_REASON", "STOPPED"]:
+                    return metadata
+        return None
+
+    def __hash__(self) -> int:
+        """Generate a hash for the Status object."""
+        # Use a stable hash based on code, message, and details
+        import hashlib
+
+        # Create a stable string representation
+        hash_data = f"{self.code}:{self.message}:{len(self.details)}"
+
+        # Add details content for more uniqueness
+        for detail in sorted(self.details, key=lambda x: str(x)):
+            hash_data += f":{str(detail)}"
+
+        # Generate hash
+        hash_obj = hashlib.sha256(hash_data.encode("utf-8"))
+        return int.from_bytes(hash_obj.digest()[:8], byteorder="big")
+
+
 class ChatCompletionContentPartTextParam(BaseModel):
     text: str = Field(..., description="The text content.")
     type: Literal["text"] = Field("text", description="The type of the content part.")
@@ -289,27 +482,6 @@ class ExecutionMetadata(BaseModel):
     )
 
 
-class RolloutStatus(BaseModel):
-    """Status of the rollout."""
-
-    """
-    running: Unfinished rollout which is still in progress.
-    finished: Rollout finished.
-    error: Rollout failed due to unexpected error. The rollout record should be discard.
-    """
-
-    class Status(str, Enum):
-        RUNNING = "running"
-        FINISHED = "finished"
-        ERROR = "error"
-
-    status: Status = Field(Status.RUNNING, description="Status of the rollout.")
-    termination_reason: Optional[TerminationReason] = Field(
-        None, description="reason of the rollout status, mapped to values in TerminationReason"
-    )
-    extra_info: Optional[Dict[str, Any]] = Field(None, description="Extra information about the rollout status.")
-
-
 class EvaluationRow(BaseModel):
     """
     Unified data structure for a single evaluation unit that contains messages,
@@ -334,9 +506,9 @@ class EvaluationRow(BaseModel):
         description="Metadata related to the input (dataset info, model config, session data, etc.).",
     )
 
-    rollout_status: RolloutStatus = Field(
-        default_factory=RolloutStatus,
-        description="The status of the rollout.",
+    rollout_status: Status = Field(
+        default_factory=Status.rollout_running,
+        description="The status of the rollout following AIP-193 standards.",
     )
 
     # Ground truth reference (moved from EvaluateResult to top level)
@@ -380,6 +552,14 @@ class EvaluationRow(BaseModel):
             and self.evaluation_result.step_outputs is not None
             and len(self.evaluation_result.step_outputs) > 0
         )
+
+    def get_rollout_status(self) -> Status:
+        """Get the rollout status (backwards compatibility method)."""
+        return self.rollout_status
+
+    def set_rollout_status(self, status: Status) -> None:
+        """Set the rollout status (backwards compatibility method)."""
+        self.rollout_status = status
 
     def get_conversation_length(self) -> int:
         """Returns the number of messages in the conversation."""
