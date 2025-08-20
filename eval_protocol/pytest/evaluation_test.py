@@ -501,10 +501,6 @@ def evaluation_test(  # noqa: C901
                             index = abs(index) % (max_index + 1)
                             row.input_metadata.row_id = generate_id(seed=0, index=index)
 
-                    if "completion_params" not in kwargs or not kwargs["completion_params"]:
-                        raise ValueError(
-                            "No completion parameters provided. Please provide a completion parameters object."
-                        )
                     completion_params = kwargs["completion_params"]
                     if completion_params and ("model" not in completion_params or not completion_params["model"]):
                         raise ValueError(
@@ -638,7 +634,7 @@ def evaluation_test(  # noqa: C901
                                 for ori_row in fresh_dataset:
                                     copied_row = ori_row.model_copy(deep=True)
                                     # overwrite the rollout_id to the index of the completion_params
-                                    copied_row.execution_metadata.rollout_id = str(idx)
+                                    copied_row.execution_metadata.rollout_id = str(ori_row.execution_metadata.rollout_id) + "_" + str(idx)
                                     copied_row.input_metadata.completion_params = cp
                                     lst.append(copied_row)
                                 tasks.append(asyncio.create_task(_collect_result(config, lst, max_retry)))
@@ -698,17 +694,18 @@ def evaluation_test(  # noqa: C901
                         results_by_group = [
                             [[] for _ in range(num_runs)] for _ in range(len(original_completion_params_list))
                         ]
-                        for i, result in enumerate(all_results):
+                        for i_run, result in enumerate(all_results):
                             for r in result:
-                                results_by_group[int(r.execution_metadata.rollout_id)][i].append(r)
-                        for i, result in enumerate(results_by_group):
+                                completion_param_idx = int(r.execution_metadata.rollout_id.split("_")[1])
+                                results_by_group[completion_param_idx][i_run].append(r)
+                        for rollout_id, result in enumerate(results_by_group):
                             postprocess(
                                 result,
                                 aggregation_method,
                                 threshold,
                                 active_logger,
                                 mode,
-                                original_completion_params_list[i],
+                                original_completion_params_list[rollout_id],
                                 test_func.__name__,
                                 num_runs,
                             )

@@ -18,6 +18,7 @@ from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
     ],
     rollout_processor=AgentRolloutProcessor(),
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}],
+    mode="listwise",
 )
 def test_pytest_default_agent_rollout_processor(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     """Run math evaluation on sample dataset using pytest interface."""

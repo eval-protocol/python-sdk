@@ -73,9 +73,11 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
             _litellm = importlib.import_module("litellm")
             acompletion = getattr(_litellm, "acompletion")
+            logger.debug(f'********** request_params: {request_params} **********')
             response = await acompletion(**request_params)
 
             assistant_content = response.choices[0].message.content or ""
+            logger.debug(f'********** assistant_content: {assistant_content} **********')
             tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
 
             converted_tool_calls = None

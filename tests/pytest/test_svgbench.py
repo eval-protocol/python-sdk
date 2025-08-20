@@ -264,6 +264,74 @@ Requirements:
         raise ValueError("Missing required field in response")
 
 
+def evaluate_with_llm_judge_groupwise(image_paths: List[str], requirements: List[str]) -> Dict[str, Any]:
+    """
+    Use LLM judge to evaluate how many requirements are fulfilled.
+    Uses GPT-4.1 for vision capabilities to match project's model preferences. (note original repo uses Gemini 2.5 flashs)
+
+    Args:
+        image_path: Path to rendered PNG image
+        requirements: List of requirements to evaluate
+
+    Returns:
+        Dictionary with evaluation results
+    """
+    # Format requirements for evaluation (exactly as in original)
+    requirements_text = "\n".join([f"{i + 1}. {req}" for i, req in enumerate(requirements)])
+
+    # Create evaluation prompt with JSON response format
+    evaluate_prompt = f"""Examine the generated images you are given. Based on the following {len(requirements)} requirements, which one is better?
+
+Respond ONLY with a JSON object in this exact format:
+{{"best_image_index": <index>, "reasoning": <reasoning_text>}}
+
+Requirements:
+{requirements_text}"""
+
+
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": evaluate_prompt},
+            ],
+        }
+    ]
+
+    # Read and encode image
+    for image_path in image_paths:
+        with open(image_path, "rb") as f:
+            image_data = base64.b64encode(f.read()).decode("utf-8")
+            messages[0]["content"].append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}})
+
+    # Use GPT-4.1 for vision capabilities to match project's OpenAI model preference
+    response = litellm.completion(
+        model="gpt-4.1",
+        messages=messages,
+        temperature=0.0,
+        response_format={
+            "type": "json_schema",
+            "json_schema": {"name": "SVGBenchResponse", "schema": SVGBenchResponse.model_json_schema()},
+        },
+    )
+
+    # Parse response
+    response_content = response.choices[0].message.content
+
+    # Handle empty response
+    if not response_content or response_content.strip() == "":
+        raise ValueError("Empty response from LLM judge")
+
+    result = json.loads(response_content)
+
+    # Validate the result
+    if "best_image_index" in result:
+        return result
+    else:
+        raise ValueError("Missing required field in response")
+
+
+
 @evaluation_test(
     input_dataset=["tests/pytest/data/svgbench_dataset.jsonl"],
     dataset_adapter=svgbench_to_evaluation_row,
@@ -279,6 +347,7 @@ Requirements:
     passed_threshold=0.5,  # 50% average score to pass
     num_runs=1,
     mode="pointwise",
+    max_dataset_rows=1,
     max_concurrent_rollouts=50,
 )
 def test_svg_generation_evaluation(row: EvaluationRow) -> EvaluationRow:
@@ -378,3 +447,112 @@ def test_svg_generation_evaluation(row: EvaluationRow) -> EvaluationRow:
                     os.unlink(png_path)
             except Exception:
                 pass
+
+
+@evaluation_test(
+    input_dataset=["tests/pytest/data/svgbench_dataset.jsonl"],
+    dataset_adapter=svgbench_to_evaluation_row,
+    completion_params=[
+        {"temperature": 0.0, "model": "gpt-4.1"},
+        {
+            "temperature": 0.8,
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+            "extra_body": {"reasoning_effort": "high"},
+        },
+    ],
+    rollout_processor=SingleTurnRolloutProcessor(),
+    passed_threshold=None,
+    num_runs=1,
+    max_dataset_rows=3,
+    mode="groupwise",
+    max_concurrent_rollouts=50,
+)
+def test_svg_generation_evaluation_groupwise(rows: List[EvaluationRow]) -> List[EvaluationRow]:
+    """
+    Test SVG generation and evaluation using SVGBench methodology.
+
+    This test:
+    1. Extracts SVG code from the model's response
+    2. Renders SVG to PNG using Selenium
+    3. Uses LLM judge to evaluate requirement fulfillment
+    4. Calculates score based on fulfilled requirements ratio
+
+    Args:
+        row: EvaluationRow with model's SVG generation response
+
+    Returns:
+        EvaluationRow with evaluation results
+    """
+    # Extract dataset info
+    image_paths = []
+    requirements = rows[0].input_metadata.dataset_info["requirements"]
+    for row in rows:
+        row_id = row.input_metadata.row_id
+
+        # Check if we should save debug files
+        save_debug_files = os.environ.get("SVGBENCH_SAVE_DEBUG_FILES", "false").lower() == "true"
+
+        # Get model response
+        if not row.messages or len(row.messages) < 2:
+            row.evaluation_result = EvaluateResult(score=0.0, reason="No model response found")
+            continue
+
+        model_response = row.messages[-1].content
+
+        # Extract SVG code with better error reporting (matching original)
+        try:
+            svg_code = extract_svg_code(model_response)
+            if not svg_code:
+                raise ValueError("No valid SVG code found in response")
+        except Exception as e:
+            logger.error(f"Error extracting SVG code for question {row_id}: {e}")
+            if save_debug_files:
+                logger.error(f"Full response: {model_response}")
+
+            row.evaluation_result = EvaluateResult(score=0.0, reason=f"SVG extraction failed: {str(e)}")
+            continue
+
+        # Setup file paths
+        if save_debug_files:
+            # Create debug directory
+            model = row.input_metadata.completion_params["model"]
+            # Sanitize model name for filesystem (replace slashes with underscores)
+            safe_model_name = model.replace("/", "_").replace(":", "_")
+            debug_dir = "svgbench_debug"
+            os.makedirs(debug_dir, exist_ok=True)
+            png_path = os.path.join(debug_dir, f"question_{row_id}_{safe_model_name}.png")
+            svg_path = os.path.join(debug_dir, f"question_{row_id}_{safe_model_name}.svg")
+            # Save SVG file for debugging
+            with open(svg_path, "w") as f:
+                f.write(svg_code)
+        else:
+            # Use temporary file
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+                png_path = f.name
+        image_paths.append(png_path)
+        try:
+            # Render SVG to PNG
+            if not render_svg_to_png(svg_code, png_path):
+                row.evaluation_result = EvaluateResult(score=0.0, reason="Failed to render SVG to PNG")
+
+        except Exception as e:
+            logger.error(f"Evaluation failed for question {row_id}: {e}")
+            row.evaluation_result = EvaluateResult(score=0.0, reason=f"Evaluation error: {str(e)}")
+
+    judge_result = evaluate_with_llm_judge_groupwise(image_paths, requirements)
+    print(f'********** judge_result: {judge_result} **********')
+    if judge_result.get("best_image_index") == 0:
+        rows[0].evaluation_result = EvaluateResult(score=1.0, reason=judge_result.get("reasoning", ""))
+        rows[1].evaluation_result = EvaluateResult(score=0.0, reason=judge_result.get("reasoning", ""))
+    else:
+        rows[0].evaluation_result = EvaluateResult(score=0.0, reason=judge_result.get("reasoning", ""))
+        rows[1].evaluation_result = EvaluateResult(score=1.0, reason=judge_result.get("reasoning", ""))
+    
+    
+    # Clean up temporary PNG file (only if not saving debug files)
+    if not save_debug_files:
+        for png_path in image_paths:
+            if os.path.exists(png_path):
+                os.unlink(png_path)
+
+    return rows

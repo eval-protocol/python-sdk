@@ -12,6 +12,7 @@ from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
     ],
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     rollout_processor=SingleTurnRolloutProcessor(),
+    mode="listwise",
 )
 def test_input_messages_in_decorator(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     """Run math evaluation on sample dataset using pytest interface."""
