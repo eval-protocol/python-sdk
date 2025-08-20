@@ -122,7 +122,7 @@ class Status(BaseModel):
         UNAUTHENTICATED = 16
 
         # Custom codes for rollout states (using higher numbers to avoid conflicts)
-        FINISHED = 100  # Custom code for rollout finished
+        FINISHED = 100
 
     @classmethod
     def rollout_running(cls) -> "Status":
