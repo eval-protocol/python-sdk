@@ -23,7 +23,7 @@ class TestMCPExecutionManagerMigration:
         # Mock trajectory with termination
         trajectory = Mock()
         trajectory.terminated = True
-        trajectory.termination_reason = "goal_reached"
+        trajectory.termination_reason = TerminationReason.CONTROL_PLANE_SIGNAL
         trajectory.control_plane_summary = {"error_message": "No errors"}
 
         # Create evaluation row
@@ -63,7 +63,7 @@ class TestMCPExecutionManagerMigration:
         assert row.rollout_status.is_finished()
 
         # Verify termination reason
-        assert row.rollout_status.get_termination_reason() == "goal_reached"
+        assert row.rollout_status.get_termination_reason() == TerminationReason.CONTROL_PLANE_SIGNAL
 
         # Verify extra info
         assert row.rollout_status.get_extra_info() == {"error_message": "No errors"}
@@ -98,7 +98,7 @@ class TestMCPExecutionManagerMigration:
         # Mock trajectory with termination but no error
         trajectory = Mock()
         trajectory.terminated = True
-        trajectory.termination_reason = "timeout"
+        trajectory.termination_reason = TerminationReason.USER_STOP
         trajectory.control_plane_summary = {}
 
         # Create evaluation row
@@ -137,7 +137,7 @@ class TestMCPExecutionManagerMigration:
         # Verify the status
         assert row.rollout_status.code == Status.Code.FINISHED
         assert row.rollout_status.is_finished()
-        assert row.rollout_status.get_termination_reason() == "timeout"
+        assert row.rollout_status.get_termination_reason() == TerminationReason.USER_STOP
 
         # Should not have extra info since there was no error message
         assert row.rollout_status.get_extra_info() is None
@@ -300,19 +300,19 @@ class TestStatusModelIntegration:
         row = EvaluationRow(messages=[])
 
         # Test with termination reason
-        termination_status = Status.with_termination_reason("goal_reached")
+        termination_status = Status.with_termination_reason(TerminationReason.CONTROL_PLANE_SIGNAL)
         row.rollout_status = termination_status
 
         assert row.rollout_status.is_finished()
-        assert row.rollout_status.get_termination_reason() == "goal_reached"
+        assert row.rollout_status.get_termination_reason() == TerminationReason.CONTROL_PLANE_SIGNAL
 
         # Test with termination reason and extra info
         extra_info = {"steps": 10, "reward": 0.8}
-        termination_status_with_info = Status.with_termination_reason("timeout", extra_info)
+        termination_status_with_info = Status.with_termination_reason(TerminationReason.USER_STOP, extra_info)
         row.rollout_status = termination_status_with_info
 
         assert row.rollout_status.is_finished()
-        assert row.rollout_status.get_termination_reason() == "timeout"
+        assert row.rollout_status.get_termination_reason() == TerminationReason.USER_STOP
         assert row.rollout_status.get_extra_info() == extra_info
 
     def test_error_handling_integration(self):
