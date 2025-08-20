@@ -148,7 +148,7 @@ class Status(BaseModel):
         """Create a status indicating the rollout failed with an error."""
         details = []
         if extra_info:
-            details.append(ErrorInfo.rollout_error(extra_info).to_aip193_format())
+            details.append(ErrorInfo.extra_info(extra_info).to_aip193_format())
         return cls.error(error_message, details)
 
     @classmethod
@@ -210,7 +210,7 @@ class Status(BaseModel):
             metadata = detail.get("metadata", {})
             reason = detail.get("reason")
             # Skip termination_reason and stopped details, return other error info
-            if reason not in [ErrorInfo.REASON_TERMINATION_REASON, ErrorInfo.REASON_STOPPED]:
+            if reason in [ErrorInfo.REASON_EXTRA_INFO]:
                 return metadata
         return None
 

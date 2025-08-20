@@ -106,14 +106,14 @@ class TestTerminationReasonIntegration:
         row = EvaluationRow(messages=[])
 
         # Set status with termination reason
-        termination_status = Status.with_termination_reason("goal_reached")
+        termination_status = Status.with_termination_reason(TerminationReason.CONTROL_PLANE_SIGNAL)
         row.rollout_status = termination_status
 
         # Should be finished
         assert row.rollout_status.is_finished()
 
         # Should have termination reason in details
-        assert row.rollout_status.get_termination_reason() == "goal_reached"
+        assert row.rollout_status.get_termination_reason() == TerminationReason.CONTROL_PLANE_SIGNAL
 
         # Check details structure
         assert len(row.rollout_status.details) == 1
@@ -121,18 +121,18 @@ class TestTerminationReasonIntegration:
         assert detail["@type"] == "type.googleapis.com/google.rpc.ErrorInfo"
         assert detail["reason"] == "TERMINATION_REASON"
         assert detail["domain"] == "evalprotocol.io"
-        assert detail["metadata"]["termination_reason"] == "goal_reached"
+        assert detail["metadata"]["termination_reason"] == TerminationReason.CONTROL_PLANE_SIGNAL
 
     def test_termination_reason_with_extra_info(self):
         """Test termination reason with additional extra info."""
         row = EvaluationRow(messages=[])
 
         extra_info = {"steps": 10, "reward": 0.8}
-        termination_status = Status.with_termination_reason("timeout", extra_info)
+        termination_status = Status.with_termination_reason(TerminationReason.USER_STOP, extra_info)
         row.rollout_status = termination_status
 
         # Should have both termination reason and extra info
-        assert row.rollout_status.get_termination_reason() == "timeout"
+        assert row.rollout_status.get_termination_reason() == TerminationReason.USER_STOP
         assert row.rollout_status.get_extra_info() == extra_info
 
         # Check details structure
@@ -157,13 +157,13 @@ class TestTerminationReasonIntegration:
                 "@type": "type.googleapis.com/google.rpc.ErrorInfo",
                 "reason": "TERMINATION_REASON",
                 "domain": "evalprotocol.io",
-                "metadata": {"termination_reason": "first"},
+                "metadata": {"termination_reason": TerminationReason.USER_STOP},
             },
             {
                 "@type": "type.googleapis.com/google.rpc.ErrorInfo",
                 "reason": "TERMINATION_REASON",
                 "domain": "evalprotocol.io",
-                "metadata": {"termination_reason": "second"},
+                "metadata": {"termination_reason": TerminationReason.SKIPPABLE_ERROR},
             },
         ]
 
@@ -171,7 +171,7 @@ class TestTerminationReasonIntegration:
         row.rollout_status = status
 
         # Should return the first termination reason found
-        assert row.rollout_status.get_termination_reason() == "first"
+        assert row.rollout_status.get_termination_reason() == TerminationReason.USER_STOP
 
 
 class TestErrorHandlingIntegration:
@@ -204,7 +204,7 @@ class TestErrorHandlingIntegration:
         assert len(row.rollout_status.details) == 1
         detail = row.rollout_status.details[0]
         assert detail["@type"] == "type.googleapis.com/google.rpc.ErrorInfo"
-        assert detail["reason"] == "ROLLOUT_ERROR"
+        assert detail["reason"] == "EXTRA_INFO"
         assert detail["domain"] == "evalprotocol.io"
         assert detail["metadata"] == error_info
 
@@ -331,7 +331,7 @@ class TestSerializationAndDeserialization:
 
         # Set a complex status
         extra_info = {"steps": 10, "reward": 0.8}
-        original_status = Status.with_termination_reason("goal_reached", extra_info)
+        original_status = Status.with_termination_reason(TerminationReason.CONTROL_PLANE_SIGNAL, extra_info)
         row.rollout_status = original_status
 
         # Dump and reconstruct
@@ -344,7 +344,7 @@ class TestSerializationAndDeserialization:
         assert len(reconstructed_status.details) == len(original_status.details)
 
         # Should preserve functionality
-        assert reconstructed_status.get_termination_reason() == "goal_reached"
+        assert reconstructed_status.get_termination_reason() == TerminationReason.CONTROL_PLANE_SIGNAL
         assert reconstructed_status.get_extra_info() == extra_info
 
 
@@ -377,7 +377,7 @@ class TestEdgeCases:
         row.rollout_status = malformed_status
 
         # Should handle gracefully
-        assert row.rollout_status.get_termination_reason() == "test"
+        assert row.rollout_status.get_termination_reason() is None
         assert row.rollout_status.get_extra_info() is None
 
     def test_large_metadata_handling(self):
