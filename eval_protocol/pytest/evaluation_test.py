@@ -584,9 +584,10 @@ def evaluation_test(  # noqa: C901
                         # log the fresh_dataset
                         for row in fresh_dataset:
                             active_logger.log(row)
-                            
+
                         # prepare parallel eval helper function
                         semaphore = asyncio.Semaphore(max_concurrent_evaluations)
+
                         async def _execute_eval_with_semaphore(**kwargs):
                             async with semaphore:
                                 # NOTE: we will still evaluate errored rows (give users control over this)
@@ -802,23 +803,23 @@ def evaluation_test(  # noqa: C901
 
                 # If not a direct call, use the pytest wrapper
                 return await pytest_wrapper(*args, **kwargs)
-            
-            dual_mode_wrapper._origin_func = test_func 
+
+            dual_mode_wrapper._origin_func = test_func
             dual_mode_wrapper._evaluator_id = test_func.__name__
             # Generate (stable) evaluator ID from function source code hash
             try:
                 func_source = inspect.getsource(test_func)
                 parsed = ast.parse(func_source)
                 normalized_source = ast.unparse(parsed)
-                clean_source = ''.join(normalized_source.split()) + test_func.__name__
-                func_hash = hashlib.sha256(clean_source.encode('utf-8')).hexdigest()[:12]
+                clean_source = "".join(normalized_source.split()) + test_func.__name__
+                func_hash = hashlib.sha256(clean_source.encode("utf-8")).hexdigest()[:12]
                 dual_mode_wrapper._version = f"{test_func.__name__}_{func_hash}"
             except (OSError, TypeError, SyntaxError):
                 pass
             dual_mode_wrapper._metainfo = {
-               "mode": mode,
-               "max_rollout_concurrency": max_concurrent_rollouts,
-               "max_evaluation_concurrency": max_concurrent_evaluations,
+                "mode": mode,
+                "max_rollout_concurrency": max_concurrent_rollouts,
+                "max_evaluation_concurrency": max_concurrent_evaluations,
             }
 
             # Copy all attributes from the pytest wrapper to our dual mode wrapper

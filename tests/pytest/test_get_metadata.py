@@ -4,6 +4,7 @@ from typing import Dict, List
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.models import EvaluationRow, Message
 
+
 @evaluation_test(
     input_messages=[
         [
@@ -23,24 +24,18 @@ def test_pytest_async(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     return rows
 
 
-
 def test_pytest_func_metainfo():
-    assert hasattr(test_pytest_async, "_origin_func") 
+    assert hasattr(test_pytest_async, "_origin_func")
     origin_func = test_pytest_async._origin_func
     assert not asyncio.iscoroutinefunction(origin_func)
     assert asyncio.iscoroutinefunction(test_pytest_async)
     assert test_pytest_async._metainfo["mode"] == "groupwise"
     assert test_pytest_async._metainfo["max_rollout_concurrency"] == 5
     assert test_pytest_async._metainfo["max_evaluation_concurrency"] == 10
-    
+
     # Test evaluator ID generation
     assert hasattr(test_pytest_async, "_evaluator_id")
     evaluator_id = test_pytest_async._evaluator_id
     assert evaluator_id.startswith("eval_")
     assert len(evaluator_id) == 17  # "eval_" + 12 character hash
     print(f"Generated evaluator ID: {evaluator_id}")
-    
-
-    
-    
-    
