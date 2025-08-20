@@ -1,8 +1,8 @@
 """
-Pytest test for tau bench retail evaluation using the evaluation_test decorator.
+Pytest test for tau bench airline evaluation using the evaluation_test decorator.
 
 This test demonstrates how to use tau bench environments within the pytest framework,
-similar to the test_entire_retail_dataset test but integrated with the pytest evaluation system.
+similar to the test_entire_airline_dataset test but integrated with the pytest evaluation system.
 """
 
 import json
@@ -30,8 +30,8 @@ from vendor.tau2.registry import registry
 from eval_protocol.mcp_servers.tau2 import get_server_script_path, get_system_prompt
 
 
-def _ensure_retail_database():
-    """Ensure retail database exists, downloading if necessary."""
+def _ensure_airline_database():
+    """Ensure airline database exists, downloading if necessary."""
     import urllib.request
     from pathlib import Path
 
@@ -45,35 +45,44 @@ def _ensure_retail_database():
         vendor_tau2 = Path(__file__).parent.parent.parent / "vendor" / "tau2"
         domains_dir = vendor_tau2 / "data" / "domains"
 
-    # Only download retail database for this test
-    retail_db_path = domains_dir / "retail" / "db.json"
-    if not retail_db_path.exists():
-        print(f"📥 Downloading retail database to {retail_db_path}...")
-        retail_db_path.parent.mkdir(parents=True, exist_ok=True)
+    # Only download airline database for this test
+    airline_db_path = domains_dir / "airline" / "db.json"
+    if not airline_db_path.exists():
+        print(f"📥 Downloading airline database to {airline_db_path}...")
+        airline_db_path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            url = "https://raw.githubusercontent.com/sierra-research/tau2-bench/main/data/tau2/domains/retail/db.json"
-            urllib.request.urlretrieve(url, retail_db_path)
-            print(f"✅ Downloaded retail database ({retail_db_path.stat().st_size:,} bytes)")
+            url = "https://raw.githubusercontent.com/sierra-research/tau2-bench/main/data/tau2/domains/airline/db.json"
+            urllib.request.urlretrieve(url, airline_db_path)
+            print(f"✅ Downloaded airline database ({airline_db_path.stat().st_size:,} bytes)")
         except Exception as e:
-            print(f"❌ Failed to download retail database: {e}")
+            print(f"❌ Failed to download airline database: {e}")
             raise
 
 
-# Ensure retail database is available before test runs
-_ensure_retail_database()
+# Ensure airline database is available before test runs
+_ensure_airline_database()
 
 
-def _get_retail_dataset_path() -> str:
-    """Get the retail dataset file path."""
-    return str(Path(__file__).parent / "data" / "retail_dataset.jsonl")
+def _get_airline_dataset_path() -> str:
+    """Get the airline dataset file path."""
+    return str(Path(__file__).parent / "data" / "airline_dataset.jsonl")
 
 
-def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
+def _get_server_script_path() -> str:
+    """Get the tau2 mcp server script path."""
+    from eval_protocol.mcp_servers.tau2 import get_server_script_path
+
+    return get_server_script_path()
+
+
+def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
     """
-    Convert entries from retail dataset to EvaluationRow objects.
+    Convert entries from airline dataset to EvaluationRow objects.
     """
     rows = []
     # Load system prompt from file so we can change it in one place
+    from eval_protocol.mcp_servers.tau2 import get_system_prompt
+
     domain = data[0]["environment_context"]["domain"]
     system_prompt = get_system_prompt(domain)
 
@@ -97,22 +106,23 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
 
 
 @evaluation_test(
-    input_dataset=[_get_retail_dataset_path()],
-    dataset_adapter=tau_bench_retail_to_evaluation_row,
+    input_dataset=[_get_airline_dataset_path()],
+    dataset_adapter=tau_bench_airline_to_evaluation_row,
     completion_params=[
         {
             "temperature": 0.8,
+            "max_tokens": 4096,
             "extra_body": {"reasoning_effort": "medium"},
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         }
     ],
     rollout_processor=MCPGymRolloutProcessor(),
-    rollout_processor_kwargs={"domain": "retail"},
-    passed_threshold={"success": 0.65, "standard_error": 0.02},
+    rollout_processor_kwargs={"domain": "airline"},
+    passed_threshold={"success": 0.4, "standard_error": 0.02},
     num_runs=8,
     mode="pointwise",
     max_concurrent_rollouts=50,
-    server_script_path=get_server_script_path(),
+    server_script_path=_get_server_script_path(),
     exception_handler_config=ExceptionHandlerConfig(
         retryable_exceptions={
             litellm.RateLimitError,
@@ -120,15 +130,15 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
         }
     ),
 )
-def test_tau_bench_retail_evaluation(row: EvaluationRow) -> EvaluationRow:
+def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
-    Test tau bench retail evaluation using the pytest framework.
+    Test tau bench airline evaluation using the pytest framework.
 
-    This test now uses the tau_bench_retail_reward function which automatically
+    This test now uses the tau_bench_airline_reward function which automatically
     extracts evaluation criteria from dataset entries. No wrapper needed!
 
     Args:
-        row: EvaluationRow object from tau bench retail dataset after rollout
+        row: EvaluationRow object from tau bench airline dataset after rollout
 
     Returns:
         EvaluationRow with tau2 evaluation results
@@ -176,7 +186,7 @@ def test_tau_bench_retail_evaluation(row: EvaluationRow) -> EvaluationRow:
         nl_assertions=nl_assertions,
         communicate_info=communicate_info,
         actions=actions,
-        reward_basis=[  # Use this to adjust how to calculate reward. Tau2-bench uses DB and COMMUNICATE by default for retail tasks.
+        reward_basis=[  # Use this to adjust how to calculate reward. Tau2-bench uses DB and COMMUNICATE by default for airline tasks.
             RewardType.DB,
             RewardType.COMMUNICATE,
         ],
@@ -188,7 +198,7 @@ def test_tau_bench_retail_evaluation(row: EvaluationRow) -> EvaluationRow:
 
     if RewardType.DB in task.evaluation_criteria.reward_basis:
         env_reward_info = EnvironmentEvaluator.calculate_reward(
-            environment_constructor=registry.get_env_constructor("retail"),
+            environment_constructor=registry.get_env_constructor("airline"),
             task=task,
             full_trajectory=trajectory_objects,
         )

@@ -52,6 +52,7 @@ dependencies = [
     "pytest>=6.0.0",
     "pytest-asyncio>=0.21.0",
     "peewee>=3.18.2",
+    "backoff>=2.2.0",
 ]
 
 [project.urls]
@@ -144,6 +145,10 @@ include = ["eval_protocol*", "development*", "vendor*"]
 
 [tool.setuptools.package-data]
 "eval_protocol" = ["../vite-app/dist/**/*"]
+"eval_protocol.mcp_servers.tau2" = ["*.md", "tests/system_prompts/*.md"]
+"eval_protocol.benchmarks" = ["data/*.jsonl"]
+"vendor.tau2" = ["data/**/*.md"]
+
 
 [tool.versioneer]
 VCS = "git"

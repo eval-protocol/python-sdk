@@ -4,6 +4,7 @@ from .default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 from .default_no_op_rollout_processor import NoOpRolloutProcessor
 from .default_single_turn_rollout_process import SingleTurnRolloutProcessor
 from .evaluation_test import evaluation_test
+from .exception_config import ExceptionHandlerConfig, BackoffConfig, get_default_exception_handler_config
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
 
@@ -16,4 +17,7 @@ __all__ = [
     "default_dataset_adapter",
     "RolloutProcessorConfig",
     "evaluation_test",
+    "ExceptionHandlerConfig",
+    "BackoffConfig",
+    "get_default_exception_handler_config",
 ]

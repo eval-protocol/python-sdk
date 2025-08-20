@@ -15,6 +15,7 @@ from eval_protocol.pytest.types import (
     InputMessagesParam,
     RolloutProcessorConfig,
 )
+from eval_protocol.pytest.exception_config import ExceptionHandlerConfig, get_default_exception_handler_config
 
 
 def execute_function(func: Callable, **kwargs) -> Any:
@@ -239,93 +240,83 @@ async def rollout_processor_with_retry(
     rollout_processor: RolloutProcessor,
     fresh_dataset: List[EvaluationRow],
     config: RolloutProcessorConfig,
-    max_retry: int,
 ):
     """
-    Wrapper around rollout_processor that handles retry logic internally.
-    Uses async queue pattern to yield results immediately as they become available.
-    Yields both successful and failed results, leaving it up to the user to handle them in test_func.
+    Wrapper around rollout_processor that handles retry logic using the Python backoff library.
+
+    Provides configurable exception handling with automatic retry for specific exception types:
+    - Retryable exceptions (e.g., ConnectionError, TimeoutError) are automatically retried with backoff
+    - Fail-fast exceptions (e.g., ValueError, TypeError) are not retried and return immediately
+    - Unknown exceptions can be configured to either re-raise or return as failed rows
+
+    The backoff behavior (exponential/constant, delays, max attempts) is fully configurable
+    through the ExceptionHandlerConfig in the RolloutProcessorConfig.
+
+    Yields results as they complete, allowing for concurrent processing while handling
+    retries transparently in the background.
     """
 
+    # Use provided exception handler config or fall back to default
+    # Environment variable overrides are automatically applied in __post_init__
+    exception_config = config.exception_handler_config or get_default_exception_handler_config()
+
     try:
-        queue: asyncio.Queue[EvaluationRow] = asyncio.Queue()
-        retry_counts = {r.execution_metadata.rollout_id: 0 for r in fresh_dataset}
-        failed_permanently = []
+        # Create initial batch of tasks (preserves indexing for mock processors)
+        try:
+            base_tasks = rollout_processor(fresh_dataset, config)
+        except Exception as e:
+            print(f"❌ Rollout processor failed to initialize: {e}")
+            raise e
 
-        async def retry_handler(failed_row: EvaluationRow):
-            rollout_id = failed_row.execution_metadata.rollout_id
-            current_attempts = retry_counts.get(rollout_id, 0)
-
-            if current_attempts >= max_retry:
-                assert failed_row.rollout_status and failed_row.rollout_status.is_error(), (
-                    f"Rollout {failed_row.execution_metadata.rollout_id} did not fail with error status"
-                )
-                failed_permanently.append(failed_row)
-                await queue.put(failed_row)  # put failed row on queue
-                return
-
-            retry_counts[rollout_id] = current_attempts + 1
-
-            # add kwargs start_server=False to config so we don't start new MCP server
+        # Create a single backoff-decorated retry function that can be reused
+        @exception_config.get_backoff_decorator()
+        async def execute_row_with_backoff_retry(row: EvaluationRow):
+            """Execute rollout for a single row with backoff retry."""
             retry_config = replace(config, kwargs={**(config.kwargs or {}), "start_server": False})
+            retry_tasks = rollout_processor([row], retry_config)
+            return await retry_tasks[0]
 
-            retry_tasks = rollout_processor([failed_row], retry_config)
+        async def execute_row_with_backoff(task: asyncio.Task, row: EvaluationRow) -> EvaluationRow:
+            """Execute a single row task with backoff retry."""
 
             try:
-                retry_result = await retry_tasks[0]
-                retry_result.rollout_status = Status.rollout_finished()
-                await queue.put(retry_result)
+                # Try original task first
+                result = await task
+                result.rollout_status.status = RolloutStatus.Status.FINISHED
+                return result
             except Exception as e:
-                failed_row.rollout_status = Status.rollout_error(str(e))
-                asyncio.create_task(retry_handler(failed_row))  # retry failed, spawn another retry
+                # NOTE: we perform these checks because we don't put the backoff decorator on initial batch call. we don't want to retry whole batch if anything fails.
+                # Check if this exception should be retried
+                is_retryable = any(isinstance(e, exc_type) for exc_type in exception_config.retryable_exceptions)
+                giveup_func = exception_config.backoff_config.giveup_func
+                should_giveup = giveup_func and giveup_func(e)
 
-        async def initial_processor():
-            """Process initial batch and spawn retries for failures"""
-            # catch any task creation errors and raise them immediately, i.e. port already in use
-            try:
-                base_tasks = rollout_processor(fresh_dataset, config)
-            except Exception as e:
-                print(f"❌ Rollout processor failed to initialize: {e}")
-                raise e
-
-            pending = set(base_tasks)
-
-            while pending:
-                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-
-                for task in done:
-                    task_index = base_tasks.index(task)
-
+                if is_retryable and not should_giveup:
+                    # Use shared backoff function for retryable exceptions
                     try:
-                        result = await task
-                        result.rollout_status = Status.rollout_finished()
-                        await queue.put(result)
-                    except Exception as e:
-                        failed_row = fresh_dataset[task_index]
-                        failed_row.rollout_status = Status.rollout_error(str(e))
-                        asyncio.create_task(retry_handler(failed_row))  # rollout errored, spawn retry task
+                        result = await execute_row_with_backoff_retry(row)
+                        result.rollout_status.status = RolloutStatus.Status.FINISHED
+                        return result
+                    except Exception as retry_error:
+                        # Backoff gave up
+                        row.rollout_status.status = RolloutStatus.Status.ERROR
+                        # row.rollout_status.termination_reason = str(retry_error)
+                        return row
+                else:
+                    # Non-retryable exception - fail immediately
+                    row.rollout_status.status = RolloutStatus.Status.ERROR
+                    # row.rollout_status.termination_reason = str(e)
+                    return row
 
-        processor_task = asyncio.create_task(initial_processor())
+        # Process all tasks concurrently with backoff retry
+        retry_tasks = [
+            asyncio.create_task(execute_row_with_backoff(task, fresh_dataset[i])) for i, task in enumerate(base_tasks)
+        ]
 
-        # yield results as they become available
-        completed_count = 0
-        total_expected = len(fresh_dataset)
-
-        while completed_count < total_expected:
-            finished_row = await queue.get()
-
-            # only permanent failure rows are put on the queue, so we can check for them here
-            if finished_row.rollout_status and finished_row.rollout_status.is_error():
-                if max_retry > 0 and os.getenv("EP_FAIL_ON_MAX_RETRY", "true") != "false":
-                    termination_reason = finished_row.rollout_status.get_termination_reason() or "Unknown error"
-                    raise RuntimeError(
-                        f"Rollout {finished_row.execution_metadata.rollout_id} failed after {max_retry} retries. Errors: {termination_reason}"
-                    )
-
-            completed_count += 1
-            yield finished_row
-
-        await processor_task  # explicitly wait for task completion and catch any exceptions
+        # Yield results as they complete
+        for task in asyncio.as_completed(retry_tasks):
+            result = await task
+            yield result
 
     finally:
         rollout_processor.cleanup()

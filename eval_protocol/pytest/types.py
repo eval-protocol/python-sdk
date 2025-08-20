@@ -10,6 +10,7 @@ from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 
 from ..models import CompletionParams, EvaluationRow, Message
+from .exception_config import ExceptionHandlerConfig
 
 ModelParam = str  # gpt-4o, gpt-4o-mini, accounts/fireworks/models/llama-3.1-8b-instruct
 DatasetPathParam = str
@@ -19,14 +20,11 @@ RolloutProcessorInputParam = Dict[str, Any]
 
 Dataset = List[EvaluationRow]
 
-EvaluationTestMode = Literal["batch", "pointwise"]
+EvaluationTestMode = Literal["pointwise", "groupwise", "all"]
 """
-"batch": (default) expects test function to handle full dataset.
-"pointwise": applies test function to each row.
-
-How to choose between "batch" and "pointwise":
-If your evaluation requires the rollout of all rows to be passed into your eval compute the score, use "batch".
-If your evaluation can be computed pointwise, use "pointwise" as EP can pipeline the rollouts and evals to be faster.
+"pointwise": (default) applies test function to each row (rollout result).
+"groupwise": applies test function to a group of rollout results from the same original row (for use cases such as dpo/grpo).
+"all": applies test function to the whole dataset.
 """
 
 """
@@ -50,3 +48,6 @@ class RolloutProcessorConfig:
     steps: int = 30  # max number of rollout steps
     logger: DatasetLogger = default_logger  # logger to use during rollout for mid-rollout logs
     kwargs: Dict[str, Any] = field(default_factory=dict)  # any additional kwargs to pass to the rollout processor
+    exception_handler_config: Optional[ExceptionHandlerConfig] = (
+        None  # configuration for exception handling with backoff
+    )
