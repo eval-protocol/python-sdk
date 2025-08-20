@@ -300,7 +300,7 @@ class TestStatusModelIntegration:
         row = EvaluationRow(messages=[])
 
         # Test with termination reason
-        termination_status = Status.with_termination_reason(TerminationReason.CONTROL_PLANE_SIGNAL)
+        termination_status = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL)
         row.rollout_status = termination_status
 
         assert row.rollout_status.is_finished()
@@ -308,7 +308,7 @@ class TestStatusModelIntegration:
 
         # Test with termination reason and extra info
         extra_info = {"steps": 10, "reward": 0.8}
-        termination_status_with_info = Status.with_termination_reason(TerminationReason.USER_STOP, extra_info)
+        termination_status_with_info = Status.rollout_finished(TerminationReason.USER_STOP, extra_info)
         row.rollout_status = termination_status_with_info
 
         assert row.rollout_status.is_finished()
@@ -392,7 +392,7 @@ class TestAIP193Compliance:
         row = EvaluationRow(messages=[])
 
         # Create status with termination reason
-        termination_status = Status.with_termination_reason("goal_reached")
+        termination_status = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL)
         row.rollout_status = termination_status
 
         # Check AIP-193 structure
@@ -411,7 +411,7 @@ class TestAIP193Compliance:
 
         # Create status with both termination reason and extra info
         extra_info = {"steps": 15, "reward": 0.9}
-        status = Status.with_termination_reason("goal_reached", extra_info)
+        status = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL, extra_info)
         row.rollout_status = status
 
         # Should have two details

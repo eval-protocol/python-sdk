@@ -164,18 +164,6 @@ class Status(BaseModel):
             details.append(ErrorInfo.extra_info(extra_info).to_aip193_format())
         return cls(code=cls.Code.CANCELLED, message=message, details=details)
 
-    @classmethod
-    def with_termination_reason(
-        cls, termination_reason: TerminationReason, extra_info: Optional[Dict[str, Any]] = None
-    ) -> "Status":
-        """Create a status indicating the rollout finished with termination reason."""
-        details = [ErrorInfo.termination_reason(termination_reason).to_aip193_format()]
-
-        if extra_info:
-            details.append(ErrorInfo.extra_info(extra_info).to_aip193_format())
-
-        return cls(code=cls.Code.FINISHED, message="Rollout finished", details=details)
-
     def is_running(self) -> bool:
         """Check if the status indicates the rollout is running."""
         return self.code == self.Code.OK and self.message == "Rollout is running"

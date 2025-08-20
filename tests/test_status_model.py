@@ -117,7 +117,7 @@ class TestStatusModel:
         assert error_status_with_info.message == "Something went wrong"
         assert len(error_status_with_info.details) == 1
         assert error_status_with_info.details[0]["@type"] == "type.googleapis.com/google.rpc.ErrorInfo"
-        assert error_status_with_info.details[0]["reason"] == "ROLLOUT_ERROR"
+        assert error_status_with_info.details[0]["reason"] == "EXTRA_INFO"
         assert error_status_with_info.details[0]["domain"] == "evalprotocol.io"
         assert error_status_with_info.details[0]["metadata"] == extra_info
 
@@ -128,7 +128,7 @@ class TestStatusModel:
         assert stopped_status.details == []
 
         # Test with termination reason
-        termination_status = Status.with_termination_reason(TerminationReason.CONTROL_PLANE_SIGNAL)
+        termination_status = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL)
         assert termination_status.code == Status.Code.FINISHED
         assert termination_status.message == "Rollout finished"
         assert len(termination_status.details) == 1
@@ -141,9 +141,7 @@ class TestStatusModel:
 
         # Test with termination reason and extra info
         extra_info = {"steps": 10, "reward": 0.8}
-        termination_status_with_info = Status.with_termination_reason(
-            TerminationReason.CONTROL_PLANE_SIGNAL, extra_info
-        )
+        termination_status_with_info = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL, extra_info)
         assert termination_status_with_info.code == Status.Code.FINISHED
         assert len(termination_status_with_info.details) == 2
         # First detail should be termination reason
@@ -190,14 +188,12 @@ class TestStatusModel:
         assert running_status.get_termination_reason() is None
 
         # Status with termination reason
-        termination_status = Status.with_termination_reason(TerminationReason.CONTROL_PLANE_SIGNAL)
+        termination_status = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL)
         assert termination_status.get_termination_reason() == TerminationReason.CONTROL_PLANE_SIGNAL
 
         # Status with termination reason and extra info
         extra_info = {"steps": 10}
-        termination_status_with_info = Status.with_termination_reason(
-            TerminationReason.CONTROL_PLANE_SIGNAL, extra_info
-        )
+        termination_status_with_info = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL, extra_info)
         assert termination_status_with_info.get_termination_reason() == TerminationReason.CONTROL_PLANE_SIGNAL
 
     def test_get_extra_info(self):
@@ -208,7 +204,7 @@ class TestStatusModel:
         assert running_status.get_extra_info() is None
 
         # Status with only termination reason (no extra info)
-        termination_status = Status.with_termination_reason(TerminationReason.CONTROL_PLANE_SIGNAL)
+        termination_status = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL)
         assert termination_status.get_extra_info() is None
 
         # Status with extra info
@@ -217,9 +213,7 @@ class TestStatusModel:
         assert error_status.get_extra_info() == extra_info
 
         # Status with both termination reason and extra info
-        termination_status_with_info = Status.with_termination_reason(
-            TerminationReason.CONTROL_PLANE_SIGNAL, extra_info
-        )
+        termination_status_with_info = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL, extra_info)
         assert termination_status_with_info.get_extra_info() == extra_info
 
     def test_aip_193_compliance(self):
@@ -233,12 +227,12 @@ class TestStatusModel:
 
         # Check AIP-193 ErrorInfo structure
         assert detail["@type"] == "type.googleapis.com/google.rpc.ErrorInfo"
-        assert detail["reason"] == "ROLLOUT_ERROR"
+        assert detail["reason"] == "EXTRA_INFO"
         assert detail["domain"] == "evalprotocol.io"
         assert detail["metadata"] == extra_info
 
         # Test multiple details
-        termination_status = Status.with_termination_reason(TerminationReason.CONTROL_PLANE_SIGNAL, extra_info)
+        termination_status = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL, extra_info)
         assert len(termination_status.details) == 2
 
         # First detail should be termination reason
@@ -253,7 +247,7 @@ class TestStatusModel:
 
     def test_status_serialization(self):
         """Test that Status can be serialized and deserialized."""
-        original_status = Status.with_termination_reason(TerminationReason.CONTROL_PLANE_SIGNAL, {"steps": 10})
+        original_status = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL, {"steps": 10})
 
         # Test model_dump
         status_dict = original_status.model_dump()
@@ -329,7 +323,7 @@ class TestStatusMigration:
         row = EvaluationRow(messages=[])
 
         # Set status with termination reason
-        termination_status = Status.with_termination_reason(TerminationReason.CONTROL_PLANE_SIGNAL, {"steps": 15})
+        termination_status = Status.rollout_finished(TerminationReason.CONTROL_PLANE_SIGNAL, {"steps": 15})
         row.rollout_status = termination_status
 
         # Should be finished
