@@ -52,6 +52,7 @@ dependencies = [
     "pytest>=6.0.0",
     "pytest-asyncio>=0.21.0",
     "peewee>=3.18.2",
+    "backoff>=2.2.0",
 ]
 
 [project.urls]

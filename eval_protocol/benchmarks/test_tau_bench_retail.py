@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message
-from eval_protocol.pytest import evaluation_test
+from eval_protocol.pytest import evaluation_test, ExceptionHandlerConfig
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
+import litellm
 from vendor.tau2.data_model.message import (
     AssistantMessage,
     SystemMessage,
@@ -87,6 +88,12 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     mode="pointwise",
     max_concurrent_rollouts=50,
     server_script_path=_get_server_script_path(),
+    exception_handler_config=ExceptionHandlerConfig(
+        retryable_exceptions={
+            litellm.RateLimitError,
+            litellm.APIConnectionError,
+        }
+    ),
 )
 def test_tau_bench_retail_evaluation(row: EvaluationRow) -> EvaluationRow:
     """

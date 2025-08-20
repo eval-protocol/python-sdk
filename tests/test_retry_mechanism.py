@@ -7,7 +7,7 @@ import asyncio
 import os
 from collections import Counter
 from typing import List
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -15,6 +15,8 @@ from eval_protocol.models import EvaluateResult, EvaluationRow, Message, Rollout
 from eval_protocol.pytest.evaluation_test import evaluation_test
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
+from eval_protocol.pytest.exception_config import ExceptionHandlerConfig, BackoffConfig
+import litellm
 
 
 class MockRolloutProcessorWithRetries(RolloutProcessor):
@@ -59,7 +61,7 @@ class MockRolloutProcessorWithRetries(RolloutProcessor):
             print(f"🎉 FINISHED {'error' if should_fail else 'finished'}: {row.execution_metadata.rollout_id}")
 
             if should_fail:
-                raise Exception("Simulated failure for testing")
+                raise ConnectionError("Simulated failure for testing")
 
             return row
 
@@ -76,7 +78,6 @@ class MockRolloutProcessorWithRetries(RolloutProcessor):
 shared_processor = MockRolloutProcessorWithRetries()
 
 
-@patch.dict(os.environ, {"EP_MAX_RETRY": "2"})
 @evaluation_test(
     completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
     input_messages=[
@@ -89,6 +90,7 @@ shared_processor = MockRolloutProcessorWithRetries()
     rollout_processor=shared_processor,
     num_runs=1,
     mode="pointwise",
+    exception_handler_config=ExceptionHandlerConfig(backoff_config=BackoffConfig(max_tries=3)),
 )
 def test_retry_mechanism(row: EvaluationRow) -> EvaluationRow:
     """MOCK TEST: Tests that retry mechanism works - one task fails on first attempt, succeeds on retry."""
@@ -103,7 +105,6 @@ def test_retry_mechanism(row: EvaluationRow) -> EvaluationRow:
     return row
 
 
-@patch.dict(os.environ, {"EP_MAX_RETRY": "2"})
 def test_retry_mechanism_mock_verification():
     """Test that verifies the retry mechanism worked by checking the mock calls"""
     # Get our mock tracker
@@ -155,3 +156,237 @@ def test_retry_mechanism_mock_verification():
     )
 
     print("✅ All mock-based assertions passed! Retry mechanism is working correctly.")
+
+
+# Test 2: Fail-fast exceptions should not retry
+class MockRolloutProcessorFailFast(RolloutProcessor):
+    """Mock processor that always raises ValueError (fail-fast exception)"""
+
+    def __init__(self):
+        self.mock_tracker = Mock()
+
+    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        self.mock_tracker.batch_call(len(rows))
+
+        async def process_single_row(row: EvaluationRow) -> EvaluationRow:
+            self.mock_tracker.process_row_call(row.execution_metadata.rollout_id)
+            # Always raise ValueError (fail-fast exception)
+            raise ValueError("This should not be retried")
+
+        tasks = [asyncio.create_task(process_single_row(row)) for row in rows]
+        return tasks
+
+
+shared_processor_fail_fast = MockRolloutProcessorFailFast()
+
+
+@evaluation_test(
+    completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
+    input_messages=[[Message(role="user", content="Test")]],
+    rollout_processor=shared_processor_fail_fast,
+    num_runs=1,
+    mode="pointwise",
+    exception_handler_config=ExceptionHandlerConfig(backoff_config=BackoffConfig(max_tries=4)),
+)
+def test_fail_fast_exceptions(row: EvaluationRow) -> EvaluationRow:
+    """Test that fail-fast exceptions like ValueError are not retried."""
+    print(
+        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})"
+    )
+    score = 1.0 if row.rollout_status.status == "finished" else 0.0
+    row.evaluation_result = EvaluateResult(score=score)
+    return row
+
+
+def test_fail_fast_verification():
+    """Verify that fail-fast exceptions are not retried"""
+    mock_tracker = shared_processor_fail_fast.mock_tracker
+
+    print("\n🔄 FAIL-FAST TEST ANALYSIS:")
+    print(f"   Batch calls made: {mock_tracker.batch_call.call_count}")
+    print(f"   Total row processing calls: {mock_tracker.process_row_call.call_count}")
+
+    # Debug: Print all the calls that were made
+    print("   Batch call args:", mock_tracker.batch_call.call_args_list)
+    print("   Process row call args:", mock_tracker.process_row_call.call_args_list)
+
+    # Should have exactly 1 call (no retries for fail-fast exceptions)
+    assert mock_tracker.process_row_call.call_count == 1, (
+        f"Expected 1 call for fail-fast exception, got {mock_tracker.process_row_call.call_count}"
+    )
+
+    # Should have exactly 1 batch call (no retry batches)
+    assert mock_tracker.batch_call.call_count == 1, f"Expected 1 batch call, got {mock_tracker.batch_call.call_count}"
+
+    print("✅ Fail-fast exception test passed! ValueError was not retried.")
+
+
+# Test 3: Custom giveup function
+class MockRolloutProcessorCustomGiveup(RolloutProcessor):
+    """Mock processor for testing custom giveup functions"""
+
+    def __init__(self):
+        self.mock_tracker = Mock()
+
+    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        self.mock_tracker.batch_call(len(rows))
+
+        async def process_single_row(row: EvaluationRow) -> EvaluationRow:
+            self.mock_tracker.process_row_call(row.execution_metadata.rollout_id)
+
+            # Raise real litellm exceptions based on task content
+            task_content = row.messages[0].content if row.messages else ""
+            if "429" in task_content:
+                raise litellm.RateLimitError(
+                    "Rate limit exceeded", llm_provider="test", model="test-model"
+                )  # Should retry
+            else:
+                raise litellm.BadRequestError(
+                    "Bad request", model="test-model", llm_provider="test"
+                )  # Should not retry
+
+        tasks = [asyncio.create_task(process_single_row(row)) for row in rows]
+        return tasks
+
+
+shared_processor_custom_giveup = MockRolloutProcessorCustomGiveup()
+
+
+# Custom giveup function for litellm exceptions
+def custom_http_giveup(e):
+    # Don't retry bad requests (400-level errors), but do retry rate limits (429)
+    if isinstance(e, litellm.BadRequestError):
+        return True  # Give up immediately on bad requests
+    elif isinstance(e, litellm.RateLimitError):
+        return False  # Retry rate limits with backoff
+
+    return False  # Retry everything else
+
+
+@evaluation_test(
+    completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
+    input_messages=[
+        [Message(role="user", content="Test 429")],  # Should retry
+        [Message(role="user", content="Test 400")],  # Should not retry
+    ],
+    rollout_processor=shared_processor_custom_giveup,
+    num_runs=1,
+    mode="pointwise",
+    exception_handler_config=ExceptionHandlerConfig(
+        retryable_exceptions={
+            litellm.RateLimitError,
+            litellm.BadRequestError,
+        },
+        backoff_config=BackoffConfig(max_tries=3, giveup_func=custom_http_giveup),
+    ),
+)
+def test_custom_giveup_function(row: EvaluationRow) -> EvaluationRow:
+    """Test custom giveup function behavior."""
+    task_content = row.messages[0].content if row.messages else ""
+    print(f"📊 EVALUATED: {task_content} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})")
+    score = 1.0 if row.rollout_status.status == "finished" else 0.0
+    row.evaluation_result = EvaluateResult(score=score)
+    return row
+
+
+def test_custom_giveup_verification():
+    """Verify custom giveup function works correctly"""
+    mock_tracker = shared_processor_custom_giveup.mock_tracker
+
+    print("\n🔄 CUSTOM GIVEUP TEST ANALYSIS:")
+    print(f"   Batch calls made: {mock_tracker.batch_call.call_count}")
+    print(f"   Total row processing calls: {mock_tracker.process_row_call.call_count}")
+
+    call_args = mock_tracker.process_row_call.call_args_list
+    rollout_ids = [call[0][0] for call in call_args]
+    call_counts = Counter(rollout_ids)
+
+    print(f"   Call counts per rollout_id: {dict(call_counts)}")
+
+    # Should have 5 calls: 1 for 400 error (giveup immediately), 4 for 429 error (1 original + 3 backoff)
+    assert mock_tracker.process_row_call.call_count == 5, (
+        f"Expected 5 calls total, got {mock_tracker.process_row_call.call_count}"
+    )
+
+    # One rollout should be called 4 times (RateLimitError: 1 original + 3 backoff), one called once (BadRequestError: immediate giveup)
+    call_count_values = list(call_counts.values())
+    assert call_count_values.count(4) == 1, (
+        f"Expected 1 rollout with 4 calls (RateLimitError: 1 original + 3 backoff), got {call_count_values}"
+    )
+    assert call_count_values.count(1) == 1, (
+        f"Expected 1 rollout with 1 call (BadRequestError: immediate giveup), got {call_count_values}"
+    )
+
+    print("✅ Custom giveup function test passed! HTTP status-based retry logic worked correctly.")
+
+
+# Test 4: Simple giveup function - retry all exceptions but give up on 4xx
+class MockRolloutProcessorSimpleGiveup(RolloutProcessor):
+    """Mock processor that raises BadRequestError"""
+
+    def __init__(self):
+        self.mock_tracker = Mock()
+
+    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        self.mock_tracker.batch_call(len(rows))
+
+        async def process_single_row(row: EvaluationRow) -> EvaluationRow:
+            self.mock_tracker.process_row_call(row.execution_metadata.rollout_id)
+            # Always raise BadRequestError (400) - should be caught by giveup
+            mock_response = Mock()
+            mock_response.status_code = 400
+            error = litellm.BadRequestError("Bad request", model="test-model", llm_provider="test")
+            error.response = mock_response
+            raise error
+
+        tasks = [asyncio.create_task(process_single_row(row)) for row in rows]
+        return tasks
+
+
+shared_processor_simple_giveup = MockRolloutProcessorSimpleGiveup()
+
+
+# Simple giveup function for 4xx errors
+def simple_4xx_giveup(e):
+    if hasattr(e, "response") and hasattr(e.response, "status_code"):
+        status = e.response.status_code
+        return 400 <= status < 500  # Give up on all 4xx client errors
+    return False  # Retry everything else
+
+
+@evaluation_test(
+    completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
+    input_messages=[[Message(role="user", content="Test 400 giveup")]],
+    rollout_processor=shared_processor_simple_giveup,
+    num_runs=1,
+    mode="pointwise",
+    exception_handler_config=ExceptionHandlerConfig(
+        retryable_exceptions={Exception},  # Retry all exceptions
+        backoff_config=BackoffConfig(max_tries=5, giveup_func=simple_4xx_giveup),
+    ),
+)
+def test_simple_giveup_function(row: EvaluationRow) -> EvaluationRow:
+    """Test that giveup function prevents retries immediately."""
+    print(
+        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.status == 'finished' else 'FAILURE'})"
+    )
+    score = 1.0 if row.rollout_status.status == "finished" else 0.0
+    row.evaluation_result = EvaluateResult(score=score)
+    return row
+
+
+def test_simple_giveup_verification():
+    """Verify that giveup function prevents retries."""
+    mock_tracker = shared_processor_simple_giveup.mock_tracker
+
+    print("\n🔄 SIMPLE GIVEUP TEST ANALYSIS:")
+    print(f"   Batch calls made: {mock_tracker.batch_call.call_count}")
+    print(f"   Total row processing calls: {mock_tracker.process_row_call.call_count}")
+    print("   Process row call args:", mock_tracker.process_row_call.call_args_list)
+
+    # Should have exactly 1 call (giveup function should prevent retries)
+    assert mock_tracker.process_row_call.call_count == 1, (
+        f"Expected 1 call due to giveup, got {mock_tracker.process_row_call.call_count}"
+    )
+
+    print("✅ Simple giveup test passed! 4xx error was not retried due to giveup function.")
