@@ -17,8 +17,13 @@ import os
 import sys
 from pathlib import Path
 
-# Add root directory to path so we can import eval_protocol
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Add current directory first for local imports (tau2_mcp)
+sys.path.insert(0, str(Path(__file__).parent))
+
+# Add eval_protocol parent to path, but use append to avoid priority conflicts
+parent_dir = str(Path(__file__).parent.parent.parent)
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
 
 from tau2_mcp import AirlineDomainMcp, MockDomainMcp, RetailDomainMcp
 

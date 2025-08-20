@@ -20,7 +20,7 @@ from vendor.tau2.domains.mock.tools import MockTools
 
 logger = logging.getLogger(__name__)
 
-MOCK_DB_PATH = Path(__file__).parent / "db.json"
+from vendor.tau2.domains.mock.utils import MOCK_DB_PATH
 
 
 class MockEnvironment:

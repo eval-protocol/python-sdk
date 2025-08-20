@@ -11,11 +11,19 @@ import json
 import os
 from typing import Annotated, Any, Dict, List, Optional
 
-from eval_protocol.mcp_servers.tau2.airplane_environment.airline_environment import AirlineEnvironment
+try:
+    # Try relative imports first (when run as module)
+    from .airplane_environment.airline_environment import AirlineEnvironment
+    from .mock_environment.mock_environment import MockEnvironment
+    from .retail_environment.retail_environment import RetailEnvironment
+except ImportError:
+    # Fallback to direct imports (when run as script)
+    from airplane_environment.airline_environment import AirlineEnvironment
+    from mock_environment.mock_environment import MockEnvironment
+    from retail_environment.retail_environment import RetailEnvironment
+
 from mcp.server.fastmcp import Context
-from eval_protocol.mcp_servers.tau2.mock_environment.mock_environment import MockEnvironment
 from pydantic import Field
-from eval_protocol.mcp_servers.tau2.retail_environment.retail_environment import RetailEnvironment
 
 from eval_protocol.mcp import EnvironmentAdapter, McpGym
 from eval_protocol.mcp.mcpgym import control_plane_endpoint

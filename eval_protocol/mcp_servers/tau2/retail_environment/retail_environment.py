@@ -20,7 +20,7 @@ from vendor.tau2.domains.retail.tools import RetailTools
 
 logger = logging.getLogger(__name__)
 
-RETAIL_DB_PATH = Path(__file__).parent / "db.json"
+from vendor.tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class RetailEnvironment:
