@@ -634,7 +634,9 @@ def evaluation_test(  # noqa: C901
                                 for ori_row in fresh_dataset:
                                     copied_row = ori_row.model_copy(deep=True)
                                     # overwrite the rollout_id to the index of the completion_params
-                                    copied_row.execution_metadata.rollout_id = str(ori_row.execution_metadata.rollout_id) + "_" + str(idx)
+                                    copied_row.execution_metadata.rollout_id = (
+                                        str(ori_row.execution_metadata.rollout_id) + "_" + str(idx)
+                                    )
                                     copied_row.input_metadata.completion_params = cp
                                     lst.append(copied_row)
                                 tasks.append(asyncio.create_task(_collect_result(config, lst, max_retry)))

@@ -3,6 +3,7 @@ from typing import List
 from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 
+
 @evaluation_test(
     input_messages=[
         [

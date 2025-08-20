@@ -288,7 +288,6 @@ Respond ONLY with a JSON object in this exact format:
 Requirements:
 {requirements_text}"""
 
-
     messages = [
         {
             "role": "user",
@@ -302,7 +301,9 @@ Requirements:
     for image_path in image_paths:
         with open(image_path, "rb") as f:
             image_data = base64.b64encode(f.read()).decode("utf-8")
-            messages[0]["content"].append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}})
+            messages[0]["content"].append(
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}}
+            )
 
     # Use GPT-4.1 for vision capabilities to match project's OpenAI model preference
     response = litellm.completion(
@@ -329,7 +330,6 @@ Requirements:
         return result
     else:
         raise ValueError("Missing required field in response")
-
 
 
 @evaluation_test(
@@ -540,15 +540,14 @@ def test_svg_generation_evaluation_groupwise(rows: List[EvaluationRow]) -> List[
             row.evaluation_result = EvaluateResult(score=0.0, reason=f"Evaluation error: {str(e)}")
 
     judge_result = evaluate_with_llm_judge_groupwise(image_paths, requirements)
-    print(f'********** judge_result: {judge_result} **********')
+    print(f"********** judge_result: {judge_result} **********")
     if judge_result.get("best_image_index") == 0:
         rows[0].evaluation_result = EvaluateResult(score=1.0, reason=judge_result.get("reasoning", ""))
         rows[1].evaluation_result = EvaluateResult(score=0.0, reason=judge_result.get("reasoning", ""))
     else:
         rows[0].evaluation_result = EvaluateResult(score=0.0, reason=judge_result.get("reasoning", ""))
         rows[1].evaluation_result = EvaluateResult(score=1.0, reason=judge_result.get("reasoning", ""))
-    
-    
+
     # Clean up temporary PNG file (only if not saving debug files)
     if not save_debug_files:
         for png_path in image_paths:
