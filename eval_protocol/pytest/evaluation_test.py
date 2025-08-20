@@ -310,7 +310,7 @@ def evaluation_test(  # noqa: C901
         steps: Number of rollout steps to execute (default: 30).
         mode: Evaluation mode. "pointwise" (default) applies test function to each row (rollout result).
             "groupwise" applies test function to a group of rollout results from the same original row (for use cases such as dpo/grpo).
-            "listwise" applies test function to the whole dataset.
+            "all" applies test function to the whole dataset.
         logger: DatasetLogger to use for logging. If not provided, a default logger will be used.
     """
 
@@ -349,29 +349,29 @@ def evaluation_test(  # noqa: C901
             # additional check for groupwise evaluation
         elif mode == "groupwise":
             if "rows" not in sig.parameters:
-                raise ValueError("In listwise mode, your eval function must have a parameter named 'rows'")
+                raise ValueError("In groupwise mode, your eval function must have a parameter named 'rows'")
 
             # validate that "Rows" is of type List[EvaluationRow]
             if sig.parameters["rows"].annotation is not List[EvaluationRow]:
-                raise ValueError("In listwise mode, the 'rows' parameter must be of type List[EvaluationRow")
+                raise ValueError("In groupwise mode, the 'rows' parameter must be of type List[EvaluationRow")
 
             # validate that the function has a return type of List[EvaluationRow]
             if sig.return_annotation is not List[EvaluationRow]:
-                raise ValueError("In listwise mode, your eval function must return a list of EvaluationRow instances")
+                raise ValueError("In groupwise mode, your eval function must return a list of EvaluationRow instances")
             if len(completion_params) < 2:
                 raise ValueError("In groupwise mode, you must provide at least 2 completion parameters")
         else:
-            # listwise mode: function should accept input_dataset and model
+            # all mode: function should accept input_dataset and model
             if "rows" not in sig.parameters:
-                raise ValueError("In batch mode, your eval function must have a parameter named 'rows'")
+                raise ValueError("In all mode, your eval function must have a parameter named 'rows'")
 
             # validate that "Rows" is of type List[EvaluationRow]
             if sig.parameters["rows"].annotation is not List[EvaluationRow]:
-                raise ValueError("In batch mode, the 'rows' parameter must be of type List[EvaluationRow")
+                raise ValueError("In all mode, the 'rows' parameter must be of type List[EvaluationRow")
 
             # validate that the function has a return type of List[EvaluationRow]
             if sig.return_annotation is not List[EvaluationRow]:
-                raise ValueError("In listwise mode, your eval function must return a list of EvaluationRow instances")
+                raise ValueError("In all mode, your eval function must return a list of EvaluationRow instances")
 
         async def execute_with_params(
             test_func: TestFunction,
@@ -434,7 +434,7 @@ def evaluation_test(  # noqa: C901
                 param_tuple.append(etk)
             param_tuples.append(tuple(param_tuple))
 
-        # For listwise mode, preserve the original parameter names
+        # For all mode, preserve the original parameter names
         test_param_names = []
         if input_dataset is not None:
             test_param_names.append("dataset_path")

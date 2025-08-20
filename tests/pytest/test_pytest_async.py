@@ -18,7 +18,7 @@ from examples.math_example.main import evaluate as math_evaluate
         ],
     ],
     completion_params=[{"model": "accounts/fireworks/models/kimi-k2-instruct"}],
-    mode="listwise",
+    mode="all",
 )
 async def test_pytest_async(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     """Run math evaluation on sample dataset using pytest interface."""
@@ -32,7 +32,7 @@ async def test_pytest_async(rows: List[EvaluationRow]) -> List[EvaluationRow]:
         ],
     ],
     completion_params=[{"model": "accounts/fireworks/models/kimi-k2-instruct"}],
-    mode="pointwise",
+    mode="all",
 )
 async def test_pytest_async_pointwise(row: EvaluationRow) -> EvaluationRow:
     """Run pointwise evaluation on sample dataset using pytest interface."""

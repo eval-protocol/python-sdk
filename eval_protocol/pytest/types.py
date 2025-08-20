@@ -19,11 +19,11 @@ RolloutProcessorInputParam = Dict[str, Any]
 
 Dataset = List[EvaluationRow]
 
-EvaluationTestMode = Literal["pointwise", "groupwise", "listwise"]
+EvaluationTestMode = Literal["pointwise", "groupwise", "all"]
 """
 "pointwise": (default) applies test function to each row (rollout result).
 "groupwise": applies test function to a group of rollout results from the same original row (for use cases such as dpo/grpo).
-"listwise": applies test function to the whole dataset.
+"all": applies test function to the whole dataset.
 """
 
 """
