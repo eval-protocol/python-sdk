@@ -474,6 +474,8 @@ def evaluation_test(  # noqa: C901
                 try:
                     # Handle dataset loading
                     data: List[EvaluationRow] = []
+                    # Track all rows processed in the current run for error logging
+                    processed_rows_in_run: List[EvaluationRow] = []
                     if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
                         ds_arg = kwargs["dataset_path"]
                         # Support either a single path or a list of paths; if a list is provided,
@@ -587,6 +589,7 @@ def evaluation_test(  # noqa: C901
                         # log the fresh_dataset
                         for row in fresh_dataset:
                             active_logger.log(row)
+                            processed_rows_in_run.append(row)
 
                         # prepare parallel eval helper function
                         semaphore = asyncio.Semaphore(max_concurrent_evaluations)
@@ -741,10 +744,16 @@ def evaluation_test(  # noqa: C901
                         )
 
                 except AssertionError:
-                    _log_eval_error("finished", data if "data" in locals() else None, passed=False)
+                    _log_eval_error(
+                        "finished",
+                        processed_rows_in_run if "processed_rows_in_run" in locals() else None,
+                        passed=False,
+                    )
                     raise
                 except Exception:
-                    _log_eval_error("error", data if "data" in locals() else None, passed=False)
+                    _log_eval_error(
+                        "error", processed_rows_in_run if "processed_rows_in_run" in locals() else None, passed=False
+                    )
                     raise
 
             return create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names)
