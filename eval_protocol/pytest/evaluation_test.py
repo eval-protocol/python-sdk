@@ -81,14 +81,16 @@ def postprocess(
     if aggregation_method == "mean":
         try:
             result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
-            _, mu_ci_low, mu_ci_high, standard_error = result_ci
-            if mu_ci_low is not None and mu_ci_high is not None:
+            _, mu_ci_low, mu_ci_high, se = result_ci
+            if mu_ci_low is not None and mu_ci_high is not None and se is not None:
                 ci_low = float(mu_ci_low)
                 ci_high = float(mu_ci_high)
+                standard_error = float(se)
                 # Keep agg_score as-is (mean over scores). For equal repeats per question these match.
         except Exception:
             ci_low = None
             ci_high = None
+            standard_error = None
 
     # Determine if the evaluation passed based on threshold
     passed = None
@@ -127,9 +129,10 @@ def postprocess(
             "num_runs": num_runs,
             "rows": total_rows,
         }
-        if ci_low is not None and ci_high is not None:
+        if ci_low is not None and ci_high is not None and standard_error is not None:
             summary_obj["agg_ci_low"] = ci_low
             summary_obj["agg_ci_high"] = ci_high
+            summary_obj["standard_error"] = standard_error
 
         # Aggregate per-metric mean and 95% CI when available
         metrics_summary: Dict[str, Dict[str, float]] = {}
@@ -164,9 +167,9 @@ def postprocess(
         if metrics_summary:
             summary_obj["metrics_agg"] = metrics_summary
         if should_print:
-            if ci_low is not None and ci_high is not None:
+            if ci_low is not None and ci_high is not None and standard_error is not None:
                 print(
-                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
+                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} se={summary_obj['standard_error']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
                 )
             else:
                 print(

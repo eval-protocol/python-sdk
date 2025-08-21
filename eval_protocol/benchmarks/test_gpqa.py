@@ -96,7 +96,7 @@ class GPQAStripGTRolloutProcessor(RolloutProcessor):
     ],
     rollout_processor=GPQAStripGTRolloutProcessor(),
     aggregation_method="mean",
-    passed_threshold=None,
+    passed_threshold=0.6,
     num_runs=8,
     mode="pointwise",
 )
