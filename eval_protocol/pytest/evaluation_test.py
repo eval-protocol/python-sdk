@@ -36,6 +36,7 @@ from eval_protocol.pytest.types import (
     EvaluationInputParam,
     EvaluationTestMode,
     InputMessagesParam,
+    InputRowsParam,
     ModelParam,
     RolloutProcessorConfig,
     RolloutProcessorInputParam,
@@ -238,6 +239,7 @@ def evaluation_test(  # noqa: C901
     completion_params: List[CompletionParams],
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
+    input_rows: Optional[List[InputRowsParam]] = None,
     dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
     rollout_processor: RolloutProcessor = NoOpRolloutProcessor(),
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
@@ -299,6 +301,9 @@ def evaluation_test(  # noqa: C901
         input_dataset: Paths to JSONL datasets. This is useful if you have a
             dataset already. Provide a dataset_adapter to convert the input dataset
             to a list of EvaluationRows if you have a custom dataset format.
+        input_rows: Pre-constructed EvaluationRow objects to use directly. This is useful
+            when you want to provide EvaluationRow objects with custom metadata, input_messages,
+            or other fields already populated. Will be passed as "input_dataset" to the test function.
         dataset_adapter: Function to convert the input dataset to a list of
             EvaluationRows. This is useful if you have a custom dataset format.
         completion_params: Generation parameters for the rollout.
@@ -413,26 +418,33 @@ def evaluation_test(  # noqa: C901
         # Calculate all possible combinations of parameters
         if mode == "groupwise":
             combinations = generate_parameter_combinations(
-                input_dataset, None, input_messages, evaluation_test_kwargs, max_dataset_rows, combine_datasets
+                input_dataset,
+                None,
+                input_messages,
+                input_rows,
+                evaluation_test_kwargs,
+                max_dataset_rows,
+                combine_datasets,
             )
         else:
             combinations = generate_parameter_combinations(
                 input_dataset,
                 completion_params,
                 input_messages,
+                input_rows,
                 evaluation_test_kwargs,
                 max_dataset_rows,
                 combine_datasets,
             )
         if len(combinations) == 0:
             raise ValueError(
-                "No combinations of parameters were found. Please provide at least a model and one of input_dataset or input_messages."
+                "No combinations of parameters were found. Please provide at least a model and one of input_dataset, input_messages, or input_rows."
             )
 
         # Create parameter tuples for pytest.mark.parametrize
         param_tuples = []
         for combo in combinations:
-            dataset, cp, messages, etk = combo
+            dataset, cp, messages, rows, etk = combo
             param_tuple = []
             if input_dataset is not None:
                 param_tuple.append(dataset)
@@ -440,6 +452,8 @@ def evaluation_test(  # noqa: C901
                 param_tuple.append(cp)
             if input_messages is not None:
                 param_tuple.append(messages)
+            if input_rows is not None:
+                param_tuple.append(rows)
             if evaluation_test_kwargs is not None:
                 param_tuple.append(etk)
             param_tuples.append(tuple(param_tuple))
@@ -452,6 +466,8 @@ def evaluation_test(  # noqa: C901
             test_param_names.append("completion_params")
         if input_messages is not None:
             test_param_names.append("input_messages")
+        if input_rows is not None:
+            test_param_names.append("input_rows")
         if evaluation_test_kwargs is not None:
             test_param_names.append("evaluation_test_kwargs")
 
@@ -500,8 +516,11 @@ def evaluation_test(  # noqa: C901
                         else:
                             # Multiple rows: list of List[Message]
                             data = [EvaluationRow(messages=m) for m in im]
+                    elif "input_rows" in kwargs and kwargs["input_rows"] is not None:
+                        # Use pre-constructed EvaluationRow objects directly
+                        data = kwargs["input_rows"]
                     else:
-                        raise ValueError("No input dataset or input messages provided")
+                        raise ValueError("No input dataset, input messages, or input rows provided")
 
                     for row in data:
                         # generate a stable row_id for each row
