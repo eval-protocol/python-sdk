@@ -29,6 +29,12 @@ def pytest_addoption(parser) -> None:
         ),
     )
     group.addoption(
+        "--ep-num-runs",
+        action="store",
+        default=None,
+        help=("Override the number of runs for evaluation_test. Pass an integer (e.g., 1, 5, 10)."),
+    )
+    group.addoption(
         "--ep-print-summary",
         action="store_true",
         default=False,
@@ -92,6 +98,20 @@ def _normalize_max_rows(val: Optional[str]) -> Optional[str]:
         return None
 
 
+def _normalize_num_runs(val: Optional[str]) -> Optional[str]:
+    if val is None:
+        return None
+    s = val.strip()
+    # Validate int; if invalid, ignore and return None (no override)
+    try:
+        num = int(s)
+        if num <= 0:
+            return None  # num_runs must be positive
+        return str(num)
+    except ValueError:
+        return None
+
+
 def pytest_configure(config) -> None:
     # Quiet LiteLLM INFO spam early in pytest session unless user set a level
     try:
@@ -109,6 +129,11 @@ def pytest_configure(config) -> None:
     norm = _normalize_max_rows(cli_val)
     if norm is not None:
         os.environ["EP_MAX_DATASET_ROWS"] = norm
+
+    num_runs_val = config.getoption("--ep-num-runs")
+    norm_runs = _normalize_num_runs(num_runs_val)
+    if norm_runs is not None:
+        os.environ["EP_NUM_RUNS"] = norm_runs
 
     if config.getoption("--ep-print-summary"):
         os.environ["EP_PRINT_SUMMARY"] = "1"

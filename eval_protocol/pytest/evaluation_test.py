@@ -50,6 +50,7 @@ from eval_protocol.pytest.utils import (
     generate_parameter_combinations,
     log_eval_status_and_rows,
     parse_ep_max_rows,
+    parse_ep_num_runs,
     rollout_processor_with_retry,
     sanitize_filename,
 )
@@ -456,7 +457,10 @@ def evaluation_test(  # noqa: C901
 
             async def wrapper_body(**kwargs):
                 eval_metadata = None
-                all_results: List[List[EvaluationRow]] = [[] for _ in range(num_runs)]
+
+                # Apply environment override for num_runs if present
+                effective_num_runs = parse_ep_num_runs(num_runs)
+                all_results: List[List[EvaluationRow]] = [[] for _ in range(effective_num_runs)]
 
                 experiment_id = generate_id()
 
@@ -530,7 +534,7 @@ def evaluation_test(  # noqa: C901
                         name=test_func.__name__,
                         description=test_func.__doc__,
                         status="running",
-                        num_runs=num_runs,
+                        num_runs=effective_num_runs,
                         aggregation_method=aggregation_method,
                         passed_threshold=threshold,
                         passed=None,
@@ -564,7 +568,7 @@ def evaluation_test(  # noqa: C901
                         exception_handler_config=exception_handler_config,
                     )
 
-                    for i in range(num_runs):
+                    for i in range(effective_num_runs):
                         # Regenerate outputs each run by deep-copying the pristine dataset
                         # so model responses are not reused across runs.
                         run_id = generate_id()
@@ -693,7 +697,8 @@ def evaluation_test(  # noqa: C901
                     # rollout_id is used to differentiate the result from different completion_params
                     if mode == "groupwise":
                         results_by_group = [
-                            [[] for _ in range(num_runs)] for _ in range(len(original_completion_params_list))
+                            [[] for _ in range(effective_num_runs)]
+                            for _ in range(len(original_completion_params_list))
                         ]
                         for i_run, result in enumerate(all_results):
                             for r in result:
@@ -708,7 +713,7 @@ def evaluation_test(  # noqa: C901
                                 mode,
                                 original_completion_params_list[rollout_id],
                                 test_func.__name__,
-                                num_runs,
+                                effective_num_runs,
                             )
                     else:
                         postprocess(
@@ -719,7 +724,7 @@ def evaluation_test(  # noqa: C901
                             mode,
                             completion_params,
                             test_func.__name__,
-                            num_runs,
+                            effective_num_runs,
                         )
 
                 except AssertionError:
