@@ -74,7 +74,7 @@ def tau_bench_airline_smoke_to_evaluation_row(data: List[Dict[str, Any]]) -> Lis
     ],
     rollout_processor=MCPGymRolloutProcessor(),
     passed_threshold=0.36,
-    num_runs=1,  # Smoke test: single run for quick feedback
+    num_runs=8,  # Smoke test: single run for quick feedback
     mode="pointwise",
     max_concurrent_rollouts=50,  # Standard concurrency
     server_script_path="examples/tau2_mcp/server.py",
