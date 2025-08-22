@@ -83,7 +83,6 @@ def pytest_addoption(parser) -> None:
         default="true",
         choices=["true", "false"],
         help=(
-            # TODO: this is not working as expected
             "Whether to fail the entire rollout when permanent failures occur after max retries. "
             "Default: true (fail on permanent failures). Set to 'false' to continue with remaining rollouts."
         ),
