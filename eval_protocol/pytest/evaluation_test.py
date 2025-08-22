@@ -617,7 +617,7 @@ def evaluation_test(  # noqa: C901
                             processed_rows_in_run.append(row)
 
                         # prepare parallel eval helper function
-                        semaphore = asyncio.Semaphore(max_concurrent_rollouts)
+                        semaphore = asyncio.Semaphore(max_concurrent_evaluations)
 
                         async def _execute_eval_with_semaphore(**inner_kwargs):
                             async with semaphore:
