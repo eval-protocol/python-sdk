@@ -61,3 +61,8 @@ async def test_pytest_propagate_error():
     # assert that the status of eval_metadata.status is "error"
     assert len(rollouts) == 5
     assert all(row.eval_metadata.status.is_error() for row in rollouts.values())
+
+    # make sure the error message includes details of the error
+    assert all("HTTPStatusError" in row.rollout_status.message for row in rollouts.values())
+    assert all("405 Method Not Allowed" in row.rollout_status.message for row in rollouts.values())
+    assert all("https://docs.fireworks.ai/mcp-non-existent" in row.rollout_status.message for row in rollouts.values())

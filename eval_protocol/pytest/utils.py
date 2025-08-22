@@ -318,7 +318,7 @@ async def rollout_processor_with_retry(
                         return row
                 else:
                     # Non-retryable exception - fail immediately
-                    row.rollout_status = Status.rollout_error(str(e))
+                    row.rollout_status = Status.rollout_error(repr(e))
                     return row
 
         async def execute_row_with_backoff_and_log(task: asyncio.Task, row: EvaluationRow) -> EvaluationRow:
