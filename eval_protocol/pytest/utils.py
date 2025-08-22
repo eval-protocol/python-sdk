@@ -13,7 +13,6 @@ from eval_protocol.pytest.types import (
     DatasetPathParam,
     EvaluationInputParam,
     InputMessagesParam,
-    InputRowsParam,
     RolloutProcessorConfig,
 )
 from eval_protocol.pytest.exception_config import ExceptionHandlerConfig, get_default_exception_handler_config
@@ -167,7 +166,7 @@ def generate_parameter_combinations(
     input_dataset: Optional[List[DatasetPathParam]],
     completion_params: List[CompletionParams],
     input_messages: Optional[List[InputMessagesParam]],
-    input_rows: Optional[List[InputRowsParam]],
+    input_rows: Optional[List[EvaluationRow]],
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]],
     max_dataset_rows: Optional[int],
     combine_datasets: bool,
