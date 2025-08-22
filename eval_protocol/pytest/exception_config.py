@@ -109,8 +109,7 @@ class ExceptionHandlerConfig:
         # Override backoff settings from environment variables
         if "EP_MAX_RETRY" in os.environ:
             max_retry = int(os.environ["EP_MAX_RETRY"])
-            if max_retry > 0:
-                self.backoff_config.max_tries = max_retry
+            self.backoff_config.max_tries = max_retry
 
         if "EP_FAIL_ON_MAX_RETRY" in os.environ:
             fail_on_max_retry = os.environ["EP_FAIL_ON_MAX_RETRY"].lower()
