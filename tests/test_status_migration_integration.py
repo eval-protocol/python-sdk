@@ -34,7 +34,7 @@ class TestStatusFieldNamePreservation:
         row = EvaluationRow(messages=[])
 
         # Should be able to access directly
-        assert row.rollout_status.code == Status.Code.OK
+        assert row.rollout_status.code == Status.Code.RUNNING
         assert row.rollout_status.message == "Rollout is running"
 
         # Should be able to set directly
@@ -276,7 +276,7 @@ class TestAIP193Compliance:
 
         # Test different status types and their codes
         statuses = [
-            (Status.rollout_running(), Status.Code.OK),
+            (Status.rollout_running(), Status.Code.RUNNING),
             (Status.rollout_finished(), Status.Code.FINISHED),
             (Status.rollout_error("Test"), Status.Code.INTERNAL),
         ]

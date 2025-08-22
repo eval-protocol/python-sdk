@@ -82,7 +82,7 @@ class TestStatusModel:
         """Test the convenience methods for creating Status instances."""
         # Test running status
         running_status = Status.rollout_running()
-        assert running_status.code == Status.Code.OK
+        assert running_status.code == Status.Code.RUNNING
         assert running_status.message == "Rollout is running"
         assert running_status.details == []
 
@@ -267,7 +267,7 @@ class TestStatusMigration:
         assert not hasattr(row, "status")
 
         # Default status should be running
-        assert row.rollout_status.code == Status.Code.OK
+        assert row.rollout_status.code == Status.Code.RUNNING
         assert row.rollout_status.message == "Rollout is running"
         assert row.rollout_status.details == []
 
@@ -344,6 +344,16 @@ class TestStatusEdgeCases:
         assert status.get_extra_info() == large_metadata
         assert len(status.details) == 1
         assert status.details[0]["metadata"] == large_metadata
+
+    def test_empty_details_error(self):
+        """Test Status with empty details and error message."""
+        status = Status.error("Test error")
+        assert status.is_error()
+
+    def test_empty_details_error_finished(self):
+        """Test Status with empty details and error message."""
+        status = Status.finished("Test error")
+        assert status.is_finished()
 
 
 if __name__ == "__main__":

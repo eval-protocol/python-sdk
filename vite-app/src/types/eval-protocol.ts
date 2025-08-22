@@ -57,12 +57,67 @@ export const EvaluateResultSchema = z.object({
 
 export const CompletionParamsSchema = z.record(z.string(), z.any());
 
+// AIP-193 ErrorInfo model for structured error details
+export const ErrorInfoSchema = z.object({
+  reason: z.string().describe('Short snake_case description of the error cause'),
+  domain: z.string().describe('Logical grouping for the error reason'),
+  metadata: z.record(z.string(), z.any()).default({}).describe('Additional dynamic information as context')
+});
+
+// AIP-193 compatible Status model (matches Python Status)
+export const StatusCodeSchema = z.enum([
+  'OK', 'CANCELLED', 'UNKNOWN', 'INVALID_ARGUMENT', 'DEADLINE_EXCEEDED', 'NOT_FOUND',
+  'ALREADY_EXISTS', 'PERMISSION_DENIED', 'RESOURCE_EXHAUSTED', 'FAILED_PRECONDITION',
+  'ABORTED', 'OUT_OF_RANGE', 'UNIMPLEMENTED', 'INTERNAL', 'UNAVAILABLE', 'DATA_LOSS',
+  'UNAUTHENTICATED', 'FINISHED', 'RUNNING'
+]).describe('Common gRPC status codes as defined in google.rpc.Code');
+
+// Mapping from integer status codes to their corresponding code names
+export const STATUS_CODE_MAP: Record<number, StatusCode> = {
+  0: 'OK',
+  1: 'CANCELLED',
+  2: 'UNKNOWN',
+  3: 'INVALID_ARGUMENT',
+  4: 'DEADLINE_EXCEEDED',
+  5: 'NOT_FOUND',
+  6: 'ALREADY_EXISTS',
+  7: 'PERMISSION_DENIED',
+  8: 'RESOURCE_EXHAUSTED',
+  9: 'FAILED_PRECONDITION',
+  10: 'ABORTED',
+  11: 'OUT_OF_RANGE',
+  12: 'UNIMPLEMENTED',
+  13: 'INTERNAL',
+  14: 'UNAVAILABLE',
+  15: 'DATA_LOSS',
+  16: 'UNAUTHENTICATED',
+  100: 'FINISHED',
+  101: 'RUNNING'
+} as const;
+
+// Helper function to get status code name from integer
+export const getStatusCodeName = (code: number): StatusCode => {
+  return STATUS_CODE_MAP[code] || 'UNKNOWN';
+};
+
+export const StatusSchema = z.object({
+  code: z.number().describe('The status code (numeric value from google.rpc.Code enum)'),
+  message: z.string().describe('Developer-facing, human-readable debug message in English'),
+  details: z.array(z.record(z.string(), z.any())).default([]).describe('Additional error information, each packed in a google.protobuf.Any message format')
+});
+
+// Evaluation threshold configuration
+export const EvaluationThresholdSchema = z.object({
+  success: z.number().min(0.0).max(1.0).describe('Minimum success rate threshold (fraction of total score, 0.0 to 1.0)'),
+  standard_error: z.number().min(0.0).max(1.0).optional().describe('Maximum standard error threshold (fraction of total score, 0.0 to 1.0)')
+});
+
 export const InputMetadataSchema = z.object({
-  row_id: z.string().optional().describe('Unique string to ID the row'),
+  row_id: z.string().optional().describe('Unique string to ID the row. If not provided, a stable hash will be generated based on the row\'s content. The hash removes fields that are not typically stable across processes such as created_at, execution_metadata, and pid.'),
   completion_params: CompletionParamsSchema.describe('Completion endpoint parameters used'),
   dataset_info: z.record(z.string(), z.any()).optional().describe('Dataset row details: seed, system_prompt, environment_context, etc'),
   session_data: z.record(z.string(), z.any()).optional().describe('Session metadata like timestamp (input only, no duration/usage)')
-}).loose();
+}).loose(); // equivalent to extra="allow" in Pydantic
 
 export const CompletionUsageSchema = z.object({
   prompt_tokens: z.number(),
@@ -73,19 +128,12 @@ export const CompletionUsageSchema = z.object({
 export const EvalMetadataSchema = z.object({
   name: z.string().describe('Name of the evaluation'),
   description: z.string().optional().describe('Description of the evaluation'),
-  version: z.string().describe('Version of the evaluation. By default, we will populate this with the current commit hash.'),
-  status: z.enum(['running', 'finished', 'error', 'stopped']).optional().describe('Status of the evaluation'),
+  version: z.string().describe('Version of the evaluation. Should be populated with a PEP 440 version string.'),
+  status: StatusSchema.optional().describe('Status of the evaluation'),
   num_runs: z.number().int().describe('Number of times the evaluation was repeated'),
   aggregation_method: z.string().describe('Method used to aggregate scores across runs'),
-  threshold_of_success: z.number().optional().describe('Threshold score for test success'),
+  passed_threshold: EvaluationThresholdSchema.optional().describe('Threshold configuration for test success'),
   passed: z.boolean().optional().describe('Whether the evaluation passed based on the threshold')
-});
-
-// AIP-193 compatible Status model (matches Python Status)
-export const StatusSchema = z.object({
-  code: z.number().describe('The status code (numeric value from google.rpc.Code enum)'),
-  message: z.string().describe('Developer-facing, human-readable debug message in English'),
-  details: z.array(z.record(z.string(), z.any())).default([]).describe('Additional error information, each packed in a google.protobuf.Any message format')
 });
 
 export const ExecutionMetadataSchema = z.object({
@@ -99,7 +147,7 @@ export const EvaluationRowSchema = z.object({
   messages: z.array(MessageSchema).describe('List of messages in the conversation/trajectory.'),
   tools: z.array(z.record(z.string(), z.any())).optional().describe('Available tools/functions that were provided to the agent.'),
   input_metadata: InputMetadataSchema.describe('Metadata related to the input (dataset info, model config, session data, etc.).'),
-  rollout_status: StatusSchema.default({ code: 0, message: 'Rollout is running', details: [] }).describe('The status of the rollout following AIP-193 standards.'),
+  rollout_status: StatusSchema.describe('The status of the rollout following AIP-193 standards.'),
   execution_metadata: ExecutionMetadataSchema.optional().describe('Metadata about the execution of the evaluation.'),
   ground_truth: z.string().optional().describe('Optional ground truth reference for this evaluation.'),
   evaluation_result: EvaluateResultSchema.optional().describe('The evaluation result for this row/trajectory.'),
@@ -170,6 +218,9 @@ export type CompletionUsage = z.infer<typeof CompletionUsageSchema>;
 export type EvalMetadata = z.infer<typeof EvalMetadataSchema>;
 export type EvaluationRow = z.infer<typeof EvaluationRowSchema>;
 export type Status = z.infer<typeof StatusSchema>;
+export type StatusCode = z.infer<typeof StatusCodeSchema>;
+export type ErrorInfo = z.infer<typeof ErrorInfoSchema>;
+export type EvaluationThreshold = z.infer<typeof EvaluationThresholdSchema>;
 export type ResourceServerConfig = z.infer<typeof ResourceServerConfigSchema>;
 export type EvaluationCriteriaModel = z.infer<typeof EvaluationCriteriaModelSchema>;
 export type TaskDefinitionModel = z.infer<typeof TaskDefinitionModelSchema>;

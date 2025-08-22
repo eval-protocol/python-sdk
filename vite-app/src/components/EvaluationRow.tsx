@@ -1,5 +1,8 @@
 import { observer } from "mobx-react";
-import type { EvaluationRow as EvaluationRowType } from "../types/eval-protocol";
+import type {
+  EvaluationRow as EvaluationRowType,
+  Status,
+} from "../types/eval-protocol";
 import { ChatInterface } from "./ChatInterface";
 import { MetadataSection } from "./MetadataSection";
 import StatusIndicator from "./StatusIndicator";
@@ -146,11 +149,14 @@ const RowStatus = observer(
     status,
     showSpinner,
   }: {
-    status: string | undefined;
+    status: Status | undefined;
     showSpinner: boolean;
   }) => (
     <div className="whitespace-nowrap">
-      <StatusIndicator showSpinner={showSpinner} status={status || "N/A"} />
+      <StatusIndicator
+        showSpinner={showSpinner}
+        status={status || { code: 2, message: "N/A", details: [] }}
+      />
     </div>
   )
 );
@@ -221,6 +227,16 @@ const EvalMetadataSection = observer(
   )
 );
 
+const RolloutStatusSection = observer(
+  ({ data }: { data: EvaluationRowType["rollout_status"] }) => (
+    <MetadataSection
+      title="Rollout Status"
+      data={data}
+      defaultExpanded={true}
+    />
+  )
+);
+
 const EvaluationResultSection = observer(
   ({ data }: { data: EvaluationRowType["evaluation_result"] }) => (
     <MetadataSection
@@ -283,6 +299,7 @@ const ExpandedContent = observer(
     usage,
     input_metadata,
     tools,
+    rollout_status,
   }: {
     row: EvaluationRowType;
     messages: EvaluationRowType["messages"];
@@ -292,6 +309,7 @@ const ExpandedContent = observer(
     usage: EvaluationRowType["usage"];
     input_metadata: EvaluationRowType["input_metadata"];
     tools: EvaluationRowType["tools"];
+    rollout_status: EvaluationRowType["rollout_status"];
   }) => (
     <div className="p-4 bg-gray-50">
       <div className="flex gap-3 w-fit">
@@ -304,6 +322,7 @@ const ExpandedContent = observer(
         <div className="w-[500px] flex-shrink-0 space-y-3">
           <EvalMetadataSection data={eval_metadata} />
           <EvaluationResultSection data={evaluation_result} />
+          <RolloutStatusSection data={rollout_status} />
           <IdSection data={row} />
           <GroundTruthSection data={ground_truth} />
           <UsageStatsSection data={usage} />
@@ -336,11 +355,19 @@ export const EvaluationRow = observer(
             <RowName name={row.eval_metadata?.name} />
           </TableCell>
 
-          {/* Status */}
+          {/* Eval Status */}
           <TableCell className="py-3 text-xs">
             <RowStatus
               status={row.eval_metadata?.status}
-              showSpinner={row.eval_metadata?.status === "running"}
+              showSpinner={row.eval_metadata?.status?.code === 101}
+            />
+          </TableCell>
+
+          {/* Rollout Status */}
+          <TableCell className="py-3 text-xs">
+            <RowStatus
+              status={row.rollout_status}
+              showSpinner={row.rollout_status?.code === 101}
             />
           </TableCell>
 
@@ -385,6 +412,7 @@ export const EvaluationRow = observer(
                 usage={row.usage}
                 input_metadata={row.input_metadata}
                 tools={row.tools}
+                rollout_status={row.rollout_status}
               />
             </td>
           </tr>

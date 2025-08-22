@@ -1,7 +1,8 @@
 import React from "react";
+import { getStatusCodeName, type Status } from "../types/eval-protocol";
 
 interface StatusIndicatorProps {
-  status: string;
+  status: Status;
   className?: string;
   showSpinner?: boolean;
 }
@@ -17,39 +18,41 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   className = "",
   showSpinner = false,
 }) => {
-  const getStatusConfig = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "connected":
+  const getStatusConfig = (status: Status) => {
+    const statusCodeName = getStatusCodeName(status.code);
+
+    switch (statusCodeName) {
+      case "OK":
         return {
           dotColor: "bg-green-500",
           textColor: "text-green-700",
           text: "Connected",
         };
-      case "disconnected":
+      case "CANCELLED":
         return {
           dotColor: "bg-red-500",
           textColor: "text-red-700",
           text: "Disconnected",
         };
-      case "finished":
+      case "FINISHED":
         return {
           dotColor: "bg-green-500",
           textColor: "text-green-700",
           text: "finished",
         };
-      case "running":
+      case "RUNNING":
         return {
           dotColor: "bg-blue-500",
           textColor: "text-blue-700",
           text: "running",
         };
-      case "error":
+      case "INTERNAL":
         return {
           dotColor: "bg-red-500",
           textColor: "text-red-700",
           text: "error",
         };
-      case "stopped":
+      case "ABORTED":
         return {
           dotColor: "bg-yellow-500",
           textColor: "text-yellow-700",
@@ -59,13 +62,13 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
         return {
           dotColor: "bg-gray-500",
           textColor: "text-gray-700",
-          text: status,
+          text: status.message,
         };
     }
   };
 
   const config = getStatusConfig(status);
-  const shouldShowSpinner = showSpinner && status.toLowerCase() === "running";
+  const shouldShowSpinner = showSpinner && status.code === 101;
 
   return (
     <div

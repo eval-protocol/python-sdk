@@ -83,10 +83,10 @@ class TestMCPExecutionManagerMigration:
         row = EvaluationRow(messages=[])
 
         # Simulate the status assignment from MCP execution manager
-        row.rollout_status = Status(code=Status.Code.OK, message="Rollout is running", details=[])
+        row.rollout_status = Status(code=Status.Code.RUNNING, message="Rollout is running", details=[])
 
         # Verify the status
-        assert row.rollout_status.code == Status.Code.OK
+        assert row.rollout_status.code == Status.Code.RUNNING
         assert row.rollout_status.message == "Rollout is running"
         assert row.rollout_status.is_running()
         assert not row.rollout_status.is_finished()
@@ -278,7 +278,7 @@ class TestStatusModelIntegration:
         # Test running status
         row.rollout_status = Status.rollout_running()
         assert row.rollout_status.is_running()
-        assert row.rollout_status.code == Status.Code.OK
+        assert row.rollout_status.code == Status.Code.RUNNING
 
         # Test finished status
         row.rollout_status = Status.rollout_finished()
@@ -426,7 +426,7 @@ class TestAIP193Compliance:
 
         # Test standard gRPC codes
         statuses = [
-            (Status.rollout_running(), Status.Code.OK),
+            (Status.rollout_running(), Status.Code.RUNNING),
             (Status.rollout_finished(), Status.Code.FINISHED),  # Custom code
             (Status.rollout_error("Test"), Status.Code.INTERNAL),
         ]

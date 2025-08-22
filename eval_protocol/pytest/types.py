@@ -15,7 +15,6 @@ from .exception_config import ExceptionHandlerConfig
 ModelParam = str  # gpt-4o, gpt-4o-mini, accounts/fireworks/models/llama-3.1-8b-instruct
 DatasetPathParam = str
 InputMessagesParam = List[Message]
-InputRowsParam = List[EvaluationRow]
 EvaluationInputParam = Dict[str, Any]
 RolloutProcessorInputParam = Dict[str, Any]
 
@@ -31,7 +30,7 @@ EvaluationTestMode = Literal["pointwise", "groupwise", "all"]
 """
 Test function types
 """
-TestFunction = Callable[..., Dataset]
+TestFunction = Callable
 
 """
 Rollout processor types

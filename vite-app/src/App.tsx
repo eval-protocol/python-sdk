@@ -150,7 +150,11 @@ const App = observer(() => {
             </div>
             <div className="flex items-center gap-2">
               <StatusIndicator
-                status={state.isConnected ? "connected" : "disconnected"}
+                status={
+                  state.isConnected
+                    ? { code: 0, message: "Connected", details: [] }
+                    : { code: 1, message: "Disconnected", details: [] }
+                }
               />
               <Button onClick={handleManualRefresh} className="ml-2">
                 Refresh

@@ -69,10 +69,7 @@ class MCPMultiClient:
             return
 
         for server_name, server_config in self.config.mcpServers.items():
-            try:
-                await self._connect_to_server(server_name, server_config)
-            except Exception as e:
-                print(f"Failed to connect to server '{server_name}': {e}")
+            await self._connect_to_server(server_name, server_config)
 
     async def _connect_to_server(
         self, server_name: str, server_config: Union[MCPConfigurationServerStdio, MCPConfigurationServerUrl]

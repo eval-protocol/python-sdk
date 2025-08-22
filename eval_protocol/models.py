@@ -107,13 +107,29 @@ class Status(BaseModel):
         DATA_LOSS = 15
         UNAUTHENTICATED = 16
 
-        # Custom codes for rollout states (using higher numbers to avoid conflicts)
+        # Custom codes for EP (using higher numbers to avoid conflicts)
         FINISHED = 100
+        RUNNING = 101
 
     @classmethod
     def rollout_running(cls) -> "Status":
         """Create a status indicating the rollout is running."""
-        return cls(code=cls.Code.OK, message="Rollout is running", details=[])
+        return cls(code=cls.Code.RUNNING, message="Rollout is running", details=[])
+
+    @classmethod
+    def eval_running(cls) -> "Status":
+        """Create a status indicating the evaluation is running."""
+        return cls(code=cls.Code.RUNNING, message="Evaluation is running", details=[])
+
+    @classmethod
+    def eval_finished(cls) -> "Status":
+        """Create a status indicating the evaluation finished."""
+        return cls(code=cls.Code.FINISHED, message="Evaluation finished", details=[])
+
+    @classmethod
+    def aborted(cls, message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating the evaluation was aborted."""
+        return cls(code=cls.Code.ABORTED, message=message, details=details or [])
 
     @classmethod
     def rollout_finished(
@@ -127,7 +143,12 @@ class Status(BaseModel):
             details.append(ErrorInfo.termination_reason(termination_reason).to_aip193_format())
         if extra_info:
             details.append(ErrorInfo.extra_info(extra_info).to_aip193_format())
-        return cls(code=cls.Code.FINISHED, message="Rollout finished", details=details)
+        return cls.finished("Rollout finished", details)
+
+    @classmethod
+    def finished(cls, message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating the rollout finished."""
+        return cls(code=cls.Code.FINISHED, message=message, details=details or [])
 
     @classmethod
     def rollout_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
@@ -140,11 +161,11 @@ class Status(BaseModel):
     @classmethod
     def error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
         """Create a status indicating the rollout failed with an error."""
-        return cls(code=cls.Code.INTERNAL, message=error_message, details=details)
+        return cls(code=cls.Code.INTERNAL, message=error_message, details=details or [])
 
     def is_running(self) -> bool:
         """Check if the status indicates the rollout is running."""
-        return self.code == self.Code.OK and self.message == "Rollout is running"
+        return self.code == self.Code.RUNNING
 
     def is_finished(self) -> bool:
         """Check if the status indicates the rollout finished successfully."""
@@ -436,9 +457,7 @@ class EvalMetadata(BaseModel):
         default_factory=get_pep440_version,
         description="Version of the evaluation. Should be populated with a PEP 440 version string.",
     )
-    status: Optional[Literal["running", "finished", "error", "stopped"]] = Field(
-        None, description="Status of the evaluation"
-    )
+    status: Optional[Status] = Field(None, description="Status of the evaluation")
     num_runs: int = Field(..., description="Number of times the evaluation was repeated")
     aggregation_method: str = Field(..., description="Method used to aggregate scores across runs")
     passed_threshold: Optional[EvaluationThreshold] = Field(
@@ -527,7 +546,7 @@ class EvaluationRow(BaseModel):
     )
 
     pid: Optional[int] = Field(
-        None,
+        default=None,
         description="The PID of the process that created the row. This is used by the evaluation watcher to detect stopped evaluations.",
     )
 

@@ -15,6 +15,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import LOG_EVENT_TYPE
 from eval_protocol.event_bus import event_bus
+from eval_protocol.models import Status
 from eval_protocol.utils.vite_server import ViteServer
 
 if TYPE_CHECKING:
@@ -178,8 +179,17 @@ class EvaluationWatcher:
             for row in logs:
                 if self._should_update_status(row):
                     logger.info(f"Updating status to 'stopped' for row {row.input_metadata.row_id} (PID {row.pid})")
-                    if row.eval_metadata is not None:
-                        row.eval_metadata.status = "stopped"
+
+                    # Update eval_metadata.status if it's running
+                    if row.eval_metadata and row.eval_metadata.status and row.eval_metadata.status.is_running():
+                        row.eval_metadata.status = Status.aborted(
+                            f"Evaluation aborted since process {row.pid} stopped"
+                        )
+
+                    # Update rollout_status if it's running
+                    if row.rollout_status and row.rollout_status.is_running():
+                        row.rollout_status = Status.aborted(f"Rollout aborted since process {row.pid} stopped")
+
                     updated_rows.append(row)
 
             # Log all updated rows
@@ -193,11 +203,18 @@ class EvaluationWatcher:
 
     def _should_update_status(self, row: "EvaluationRow") -> bool:
         """Check if a row's status should be updated to 'stopped'."""
-        # Check if the row has running status and a PID
-        if row.eval_metadata and row.eval_metadata.status == "running" and row.pid is not None:
+        # Check if any status field should be updated
+        return self._should_update_status_field(
+            row.eval_metadata.status if row.eval_metadata else None, row.pid
+        ) or self._should_update_status_field(row.rollout_status, row.pid)
+
+    def _should_update_status_field(self, status: Optional["Status"], pid: Optional[int]) -> bool:
+        """Check if a specific status field should be updated to 'stopped'."""
+        # Check if the status is running and there's a PID
+        if status and status.is_running() and pid is not None:
             # Check if the process is still running
             try:
-                process = psutil.Process(row.pid)
+                process = psutil.Process(pid)
                 # Check if process is still running
                 if not process.is_running():
                     return True
@@ -206,10 +223,10 @@ class EvaluationWatcher:
                 return True
             except psutil.AccessDenied:
                 # Can't access process info, assume it's stopped
-                logger.warning(f"Access denied to process {row.pid}, assuming stopped")
+                logger.warning(f"Access denied to process {pid}, assuming stopped")
                 return True
             except Exception as e:
-                logger.error(f"Error checking process {row.pid}: {e}")
+                logger.error(f"Error checking process {pid}: {e}")
                 # On error, assume process is still running to be safe
                 return False
 

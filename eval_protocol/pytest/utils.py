@@ -13,7 +13,6 @@ from eval_protocol.pytest.types import (
     DatasetPathParam,
     EvaluationInputParam,
     InputMessagesParam,
-    InputRowsParam,
     RolloutProcessorConfig,
 )
 from eval_protocol.pytest.exception_config import ExceptionHandlerConfig, get_default_exception_handler_config
@@ -115,7 +114,7 @@ def create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param
 def log_eval_status_and_rows(
     eval_metadata: Optional[EvalMetadata],
     rows: Optional[List[EvaluationRow]] | None,
-    status: Literal["finished", "error"],
+    status: Status,
     passed: bool,
     logger: DatasetLogger,
 ) -> None:
@@ -185,7 +184,7 @@ def generate_parameter_combinations(
     input_dataset: Optional[List[DatasetPathParam]],
     completion_params: List[CompletionParams],
     input_messages: Optional[List[InputMessagesParam]],
-    input_rows: Optional[List[InputRowsParam]],
+    input_rows: Optional[List[EvaluationRow]],
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]],
     max_dataset_rows: Optional[int],
     combine_datasets: bool,
@@ -341,12 +340,20 @@ async def rollout_processor_with_retry(
                 else:
                     # Non-retryable exception - fail immediately
                     logging.error(f"❌ Rollout failed (non-retryable error encountered): {repr(e)}")
-                    row.rollout_status = Status.rollout_error(str(e))
+                    row.rollout_status = Status.rollout_error(repr(e))
                     return row
+
+        async def execute_row_with_backoff_and_log(task: asyncio.Task, row: EvaluationRow) -> EvaluationRow:
+            """Execute a single row task with backoff retry and logging."""
+            result = await execute_row_with_backoff(task, row)
+            # Log the row after execution completes (success or failure)
+            config.logger.log(result)
+            return result
 
         # Process all tasks concurrently with backoff retry
         retry_tasks = [
-            asyncio.create_task(execute_row_with_backoff(task, fresh_dataset[i])) for i, task in enumerate(base_tasks)
+            asyncio.create_task(execute_row_with_backoff_and_log(task, fresh_dataset[i]))
+            for i, task in enumerate(base_tasks)
         ]
 
         # Yield results as they complete

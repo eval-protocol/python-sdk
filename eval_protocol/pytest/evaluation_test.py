@@ -21,11 +21,13 @@ from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.human_id import generate_id, num_combinations
 from eval_protocol.models import (
     CompletionParams,
+    ErrorInfo,
     EvalMetadata,
     EvaluationRow,
     EvaluationThreshold,
     InputMetadata,
     Message,
+    Status,
 )
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
@@ -36,7 +38,6 @@ from eval_protocol.pytest.types import (
     EvaluationInputParam,
     EvaluationTestMode,
     InputMessagesParam,
-    InputRowsParam,
     ModelParam,
     RolloutProcessorConfig,
     RolloutProcessorInputParam,
@@ -58,6 +59,7 @@ from eval_protocol.pytest.utils import (
 )
 from eval_protocol.pytest.exception_config import ExceptionHandlerConfig
 from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
+from eval_protocol.types.types import TerminationReason
 
 from ..common_utils import load_jsonl
 
@@ -240,7 +242,7 @@ def evaluation_test(  # noqa: C901
     completion_params: List[CompletionParams],
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
-    input_rows: Optional[List[InputRowsParam]] = None,
+    input_rows: Optional[List[EvaluationRow]] = None,
     dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
     rollout_processor: RolloutProcessor = NoOpRolloutProcessor(),
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
@@ -425,7 +427,7 @@ def evaluation_test(  # noqa: C901
         if mode == "groupwise":
             combinations = generate_parameter_combinations(
                 input_dataset,
-                None,
+                completion_params,
                 input_messages,
                 input_rows,
                 evaluation_test_kwargs,
@@ -489,9 +491,7 @@ def evaluation_test(  # noqa: C901
 
                 experiment_id = generate_id()
 
-                def _log_eval_error(
-                    status: Literal["finished", "error"], rows: Optional[List[EvaluationRow]] | None, passed: bool
-                ) -> None:
+                def _log_eval_error(status: Status, rows: Optional[List[EvaluationRow]] | None, passed: bool) -> None:
                     log_eval_status_and_rows(eval_metadata, rows, status, passed, active_logger)
 
                 try:
@@ -562,7 +562,7 @@ def evaluation_test(  # noqa: C901
                     eval_metadata = EvalMetadata(
                         name=test_func.__name__,
                         description=test_func.__doc__,
-                        status="running",
+                        status=Status.eval_running(),
                         num_runs=num_runs,
                         aggregation_method=aggregation_method,
                         passed_threshold=threshold,
@@ -732,7 +732,12 @@ def evaluation_test(  # noqa: C901
 
                         for r in results:
                             if r.eval_metadata is not None:
-                                r.eval_metadata.status = "finished"
+                                if r.rollout_status.is_error():
+                                    r.eval_metadata.status = Status.error(
+                                        r.rollout_status.message, r.rollout_status.details
+                                    )
+                                else:
+                                    r.eval_metadata.status = Status.eval_finished()
                             active_logger.log(r)
 
                     # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them
@@ -770,14 +775,16 @@ def evaluation_test(  # noqa: C901
 
                 except AssertionError:
                     _log_eval_error(
-                        "finished",
+                        Status.eval_finished(),
                         processed_rows_in_run if "processed_rows_in_run" in locals() else None,
                         passed=False,
                     )
                     raise
-                except Exception:
+                except Exception as e:
                     _log_eval_error(
-                        "error", processed_rows_in_run if "processed_rows_in_run" in locals() else None, passed=False
+                        Status.error(str(e)),
+                        processed_rows_in_run if "processed_rows_in_run" in locals() else None,
+                        passed=False,
                     )
                     raise
 
