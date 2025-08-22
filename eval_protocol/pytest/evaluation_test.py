@@ -47,7 +47,6 @@ from eval_protocol.pytest.utils import (
     aggregate,
     create_dynamically_parameterized_wrapper,
     deep_update_dict,
-    execute_function,
     extract_effort_tag,
     generate_parameter_combinations,
     log_eval_status_and_rows,
@@ -333,6 +332,11 @@ def evaluation_test(  # noqa: C901
 
     active_logger: DatasetLogger = logger if logger else default_logger
 
+    # Apply override from pytest flags if present
+    num_runs = parse_ep_num_runs(num_runs)
+    max_concurrent_rollouts = parse_ep_max_concurrent_rollouts(max_concurrent_rollouts)
+    max_dataset_rows = parse_ep_max_rows(max_dataset_rows)
+
     def decorator(
         test_func: TestFunction,
     ):
@@ -481,10 +485,7 @@ def evaluation_test(  # noqa: C901
             async def wrapper_body(**kwargs):
                 eval_metadata = None
 
-                # Apply environment override for num_runs if present
-                effective_num_runs = parse_ep_num_runs(num_runs)
-                effective_max_concurrent_rollouts = parse_ep_max_concurrent_rollouts(max_concurrent_rollouts)
-                all_results: List[List[EvaluationRow]] = [[] for _ in range(effective_num_runs)]
+                all_results: List[List[EvaluationRow]] = [[] for _ in range(num_runs)]
 
                 experiment_id = generate_id()
 
@@ -508,10 +509,9 @@ def evaluation_test(  # noqa: C901
                                 data_jsonl.extend(load_jsonl(p))
                         else:
                             data_jsonl = load_jsonl(ds_arg)
-                        # Apply env override for max rows if present
-                        effective_max_rows = parse_ep_max_rows(max_dataset_rows)
-                        if effective_max_rows is not None:
-                            data_jsonl = data_jsonl[:effective_max_rows]
+                        # Apply override for max rows if present
+                        if max_dataset_rows is not None:
+                            data_jsonl = data_jsonl[:max_dataset_rows]
                         data = dataset_adapter(data_jsonl)
                     elif "input_messages" in kwargs and kwargs["input_messages"] is not None:
                         # Support either a single row (List[Message]) or many rows (List[List[Message]])
@@ -563,7 +563,7 @@ def evaluation_test(  # noqa: C901
                         name=test_func.__name__,
                         description=test_func.__doc__,
                         status="running",
-                        num_runs=effective_num_runs,
+                        num_runs=num_runs,
                         aggregation_method=aggregation_method,
                         passed_threshold=threshold,
                         passed=None,
@@ -589,7 +589,7 @@ def evaluation_test(  # noqa: C901
                     config = RolloutProcessorConfig(
                         completion_params=completion_params,
                         mcp_config_path=mcp_config_path or "",
-                        max_concurrent_rollouts=effective_max_concurrent_rollouts,
+                        max_concurrent_rollouts=max_concurrent_rollouts,
                         server_script_path=server_script_path,
                         steps=steps,
                         logger=active_logger,
@@ -597,7 +597,7 @@ def evaluation_test(  # noqa: C901
                         exception_handler_config=exception_handler_config,
                     )
 
-                    for i in range(effective_num_runs):
+                    for i in range(num_runs):
                         # Regenerate outputs each run by deep-copying the pristine dataset
                         # so model responses are not reused across runs.
                         run_id = generate_id()
@@ -617,7 +617,7 @@ def evaluation_test(  # noqa: C901
                             processed_rows_in_run.append(row)
 
                         # prepare parallel eval helper function
-                        semaphore = asyncio.Semaphore(effective_max_concurrent_rollouts)
+                        semaphore = asyncio.Semaphore(max_concurrent_rollouts)
 
                         async def _execute_eval_with_semaphore(**inner_kwargs):
                             async with semaphore:
@@ -665,7 +665,7 @@ def evaluation_test(  # noqa: C901
                                 config = RolloutProcessorConfig(
                                     completion_params=cp,
                                     mcp_config_path=mcp_config_path or "",
-                                    max_concurrent_rollouts=effective_max_concurrent_rollouts,
+                                    max_concurrent_rollouts=max_concurrent_rollouts,
                                     server_script_path=server_script_path,
                                     steps=steps,
                                     logger=active_logger,
@@ -739,8 +739,7 @@ def evaluation_test(  # noqa: C901
                     # rollout_id is used to differentiate the result from different completion_params
                     if mode == "groupwise":
                         results_by_group = [
-                            [[] for _ in range(effective_num_runs)]
-                            for _ in range(len(original_completion_params_list))
+                            [[] for _ in range(num_runs)] for _ in range(len(original_completion_params_list))
                         ]
                         for i_run, result in enumerate(all_results):
                             for r in result:
@@ -755,7 +754,7 @@ def evaluation_test(  # noqa: C901
                                 mode,
                                 original_completion_params_list[rollout_id],
                                 test_func.__name__,
-                                effective_num_runs,
+                                num_runs,
                             )
                     else:
                         postprocess(
@@ -766,7 +765,7 @@ def evaluation_test(  # noqa: C901
                             mode,
                             completion_params,
                             test_func.__name__,
-                            effective_num_runs,
+                            num_runs,
                         )
 
                 except AssertionError:
@@ -845,7 +844,7 @@ def evaluation_test(  # noqa: C901
             dual_mode_wrapper._origin_func = test_func
             dual_mode_wrapper._metainfo = {
                 "mode": mode,
-                "max_rollout_concurrency": max_concurrent_rollouts,  # TODO: fix this
+                "max_rollout_concurrency": max_concurrent_rollouts,
                 "max_evaluation_concurrency": max_concurrent_evaluations,
             }
 

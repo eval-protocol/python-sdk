@@ -35,11 +35,15 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             # Single-level reasoning effort: expect `reasoning_effort` only
             effort_val = None
 
-            if "reasoning_effort" in config.completion_params:
+            if (
+                "reasoning_effort" in config.completion_params
+                and config.completion_params["reasoning_effort"] is not None
+            ):
                 effort_val = str(config.completion_params["reasoning_effort"])  # flat shape
             elif (
                 isinstance(config.completion_params.get("extra_body"), dict)
                 and "reasoning_effort" in config.completion_params["extra_body"]
+                and config.completion_params["extra_body"]["reasoning_effort"] is not None
             ):
                 # Accept if user passed it directly inside extra_body
                 effort_val = str(config.completion_params["extra_body"]["reasoning_effort"])  # already in extra_body
