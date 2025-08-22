@@ -54,6 +54,7 @@ from eval_protocol.pytest.utils import (
     parse_ep_max_rows,
     parse_ep_max_concurrent_rollouts,
     parse_ep_num_runs,
+    parse_ep_completion_params,
     rollout_processor_with_retry,
     sanitize_filename,
 )
@@ -338,6 +339,7 @@ def evaluation_test(  # noqa: C901
     num_runs = parse_ep_num_runs(num_runs)
     max_concurrent_rollouts = parse_ep_max_concurrent_rollouts(max_concurrent_rollouts)
     max_dataset_rows = parse_ep_max_rows(max_dataset_rows)
+    completion_params = parse_ep_completion_params(completion_params)
 
     def decorator(
         test_func: TestFunction,
@@ -419,9 +421,6 @@ def evaluation_test(  # noqa: C901
                 return await test_func(**kwargs)
             else:
                 return test_func(**kwargs)
-
-        # preserve the original completion_params list for groupwise mode
-        original_completion_params_list = completion_params
 
         # Calculate all possible combinations of parameters
         if mode == "groupwise":
@@ -544,20 +543,6 @@ def evaluation_test(  # noqa: C901
                             "No model provided. Please provide a model in the completion parameters object."
                         )
 
-                    # Optional global overrides via environment for ad-hoc experimentation
-                    # EP_INPUT_PARAMS_JSON can contain a JSON object that will be deep-merged
-                    # into input_params (e.g., '{"temperature":0,"extra_body":{"reasoning":{"effort":"low"}}}').
-                    try:
-                        import json as _json
-
-                        _env_override = os.getenv("EP_INPUT_PARAMS_JSON")
-                        if _env_override:
-                            override_obj = _json.loads(_env_override)
-                            if isinstance(override_obj, dict):
-                                completion_params = deep_update_dict(dict(completion_params), override_obj)
-                    except Exception:
-                        pass
-
                     # Create eval metadata with test function info and current commit hash
                     eval_metadata = EvalMetadata(
                         name=test_func.__name__,
@@ -661,7 +646,7 @@ def evaluation_test(  # noqa: C901
                             row_groups = defaultdict(list)  # key: row_id, value: list of rollout_result
                             tasks: List[asyncio.Task[List[EvaluationRow]]] = []
                             # completion_groups = []
-                            for idx, cp in enumerate(original_completion_params_list):
+                            for idx, cp in enumerate(completion_params):
                                 config = RolloutProcessorConfig(
                                     completion_params=cp,
                                     mcp_config_path=mcp_config_path or "",
@@ -743,9 +728,7 @@ def evaluation_test(  # noqa: C901
                     # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them
                     # rollout_id is used to differentiate the result from different completion_params
                     if mode == "groupwise":
-                        results_by_group = [
-                            [[] for _ in range(num_runs)] for _ in range(len(original_completion_params_list))
-                        ]
+                        results_by_group = [[[] for _ in range(num_runs)] for _ in range(len(completion_params))]
                         for i_run, result in enumerate(all_results):
                             for r in result:
                                 completion_param_idx = int(r.execution_metadata.rollout_id.split("_")[1])
@@ -757,7 +740,7 @@ def evaluation_test(  # noqa: C901
                                 threshold,
                                 active_logger,
                                 mode,
-                                original_completion_params_list[rollout_id],
+                                completion_params[rollout_id],
                                 test_func.__name__,
                                 num_runs,
                             )

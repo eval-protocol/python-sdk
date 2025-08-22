@@ -170,6 +170,25 @@ def parse_ep_max_concurrent_rollouts(default_value: int) -> int:
     return int(raw) if raw is not None else default_value
 
 
+def parse_ep_completion_params(completion_params: List[CompletionParams]) -> List[CompletionParams]:
+    """Apply EP_INPUT_PARAMS_JSON overrides to completion_params.
+
+    Reads the environment variable set by plugin.py and applies deep merge to each completion param.
+    """
+    try:
+        import json as _json
+
+        _env_override = os.getenv("EP_INPUT_PARAMS_JSON")
+        if _env_override:
+            override_obj = _json.loads(_env_override)
+            if isinstance(override_obj, dict):
+                # Apply override to each completion_params item
+                return [deep_update_dict(dict(cp), override_obj) for cp in completion_params]
+    except Exception:
+        pass
+    return completion_params
+
+
 def deep_update_dict(base: dict, override: dict) -> dict:
     """Recursively update nested dictionaries in-place and return base."""
     for key, value in override.items():
