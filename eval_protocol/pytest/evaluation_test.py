@@ -726,7 +726,10 @@ def evaluation_test(  # noqa: C901
 
                         for r in results:
                             if r.eval_metadata is not None:
-                                r.eval_metadata.status = "finished"
+                                if r.rollout_status.is_error():
+                                    r.eval_metadata.status = "error"
+                                else:
+                                    r.eval_metadata.status = "finished"
                             active_logger.log(r)
 
                     # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them
