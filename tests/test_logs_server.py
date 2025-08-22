@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import LOG_EVENT_TYPE
 from eval_protocol.event_bus import event_bus
-from eval_protocol.models import EvalMetadata, EvaluationRow, InputMetadata, Message
+from eval_protocol.models import EvalMetadata, EvaluationRow, InputMetadata, Message, Status
 from eval_protocol.utils.logs_server import (
     EvaluationWatcher,
     LogsServer,
@@ -201,7 +201,9 @@ class TestEvaluationWatcher:
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
             input_metadata=InputMetadata(row_id="test-123"),
-            eval_metadata=EvalMetadata(name="test_eval", num_runs=1, aggregation_method="mean", status="running"),
+            eval_metadata=EvalMetadata(
+                name="test_eval", num_runs=1, aggregation_method="mean", status=Status.rollout_running()
+            ),
             pid=12345,
         )
 
@@ -222,7 +224,9 @@ class TestEvaluationWatcher:
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
             input_metadata=InputMetadata(row_id="test-123"),
-            eval_metadata=EvalMetadata(name="test_eval", num_runs=1, aggregation_method="mean", status="running"),
+            eval_metadata=EvalMetadata(
+                name="test_eval", num_runs=1, aggregation_method="mean", status=Status.rollout_running()
+            ),
             pid=12345,
         )
 
@@ -241,7 +245,9 @@ class TestEvaluationWatcher:
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
             input_metadata=InputMetadata(row_id="test-123"),
-            eval_metadata=EvalMetadata(name="test_eval", num_runs=1, aggregation_method="mean", status="running"),
+            eval_metadata=EvalMetadata(
+                name="test_eval", num_runs=1, aggregation_method="mean", status=Status.rollout_running()
+            ),
             pid=999,
         )
 
@@ -256,7 +262,9 @@ class TestEvaluationWatcher:
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
             input_metadata=InputMetadata(row_id="test-123"),
-            eval_metadata=EvalMetadata(name="test_eval", num_runs=1, aggregation_method="mean", status="finished"),
+            eval_metadata=EvalMetadata(
+                name="test_eval", num_runs=1, aggregation_method="mean", status=Status.rollout_finished()
+            ),
             pid=12345,
         )
 
@@ -271,7 +279,9 @@ class TestEvaluationWatcher:
         test_row = EvaluationRow(
             messages=[Message(role="user", content="test")],
             input_metadata=InputMetadata(row_id="test-123"),
-            eval_metadata=EvalMetadata(name="test_eval", num_runs=1, aggregation_method="mean", status="running"),
+            eval_metadata=EvalMetadata(
+                name="test_eval", num_runs=1, aggregation_method="mean", status=Status.rollout_running()
+            ),
             pid=None,
         )
 
