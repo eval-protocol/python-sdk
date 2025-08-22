@@ -13,6 +13,7 @@ from eval_protocol.pytest.types import (
     DatasetPathParam,
     EvaluationInputParam,
     InputMessagesParam,
+    InputRowsParam,
     RolloutProcessorConfig,
 )
 from eval_protocol.pytest.exception_config import ExceptionHandlerConfig, get_default_exception_handler_config
@@ -173,6 +174,7 @@ def generate_parameter_combinations(
     input_dataset: Optional[List[DatasetPathParam]],
     completion_params: List[CompletionParams],
     input_messages: Optional[List[InputMessagesParam]],
+    input_rows: Optional[List[InputRowsParam]],
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]],
     max_dataset_rows: Optional[int],
     combine_datasets: bool,
@@ -184,6 +186,7 @@ def generate_parameter_combinations(
         input_dataset: Dataset paths to use
         completion_params: Completion parameters to test
         input_messages: Input messages to use
+        input_rows: Pre-constructed EvaluationRow objects to use
         evaluation_test_kwargs: Additional kwargs for evaluation tests
         max_dataset_rows: Maximum number of dataset rows to process
         combine_datasets: Whether to combine multiple datasets into one test
@@ -224,6 +227,18 @@ def generate_parameter_combinations(
     else:
         messages = [None]  # type: ignore
 
+    # Handle input_rows - similar to input_messages, apply max_dataset_rows if specified
+    if input_rows is not None and isinstance(input_rows, list):
+        effective_max_rows = parse_ep_max_rows(max_dataset_rows)
+        if effective_max_rows is not None:
+            sliced_rows = input_rows[:effective_max_rows]  # type: ignore
+        else:
+            sliced_rows = input_rows  # type: ignore
+        # Wrap as a single parameter payload
+        rows = [sliced_rows]  # type: ignore
+    else:
+        rows = [None]  # type: ignore
+
     kwargs: List[Optional[EvaluationInputParam]] = (
         evaluation_test_kwargs if evaluation_test_kwargs is not None else [None]
     )  # type: ignore
@@ -232,13 +247,14 @@ def generate_parameter_combinations(
     for ds in datasets:
         for cp in cps:
             for im in messages:
-                for etk in kwargs:
-                    # if no dataset and no messages, raise an error
-                    if ds is None and im is None:
-                        raise ValueError(
-                            "No dataset or messages provided. Please provide at least one of input_dataset or input_messages."
-                        )
-                    combinations.append((ds, cp, im, etk))
+                for ir in rows:
+                    for etk in kwargs:
+                        # if no dataset, no messages, and no rows, raise an error
+                        if ds is None and im is None and ir is None:
+                            raise ValueError(
+                                "No dataset, messages, or rows provided. Please provide at least one of input_dataset, input_messages, or input_rows."
+                            )
+                        combinations.append((ds, cp, im, ir, etk))
 
     return combinations
 

@@ -11,7 +11,8 @@ import time
 from dataclasses import replace
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 from collections import defaultdict
-
+import hashlib
+import ast
 from mcp.types import Completion
 import pytest
 
@@ -35,6 +36,7 @@ from eval_protocol.pytest.types import (
     EvaluationInputParam,
     EvaluationTestMode,
     InputMessagesParam,
+    InputRowsParam,
     ModelParam,
     RolloutProcessorConfig,
     RolloutProcessorInputParam,
@@ -81,14 +83,16 @@ def postprocess(
     if aggregation_method == "mean":
         try:
             result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
-            _, mu_ci_low, mu_ci_high, standard_error = result_ci
-            if mu_ci_low is not None and mu_ci_high is not None:
+            _, mu_ci_low, mu_ci_high, se = result_ci
+            if mu_ci_low is not None and mu_ci_high is not None and se is not None:
                 ci_low = float(mu_ci_low)
                 ci_high = float(mu_ci_high)
+                standard_error = float(se)
                 # Keep agg_score as-is (mean over scores). For equal repeats per question these match.
         except Exception:
             ci_low = None
             ci_high = None
+            standard_error = None
 
     # Determine if the evaluation passed based on threshold
     passed = None
@@ -127,9 +131,10 @@ def postprocess(
             "num_runs": num_runs,
             "rows": total_rows,
         }
-        if ci_low is not None and ci_high is not None:
+        if ci_low is not None and ci_high is not None and standard_error is not None:
             summary_obj["agg_ci_low"] = ci_low
             summary_obj["agg_ci_high"] = ci_high
+            summary_obj["standard_error"] = standard_error
 
         # Aggregate per-metric mean and 95% CI when available
         metrics_summary: Dict[str, Dict[str, float]] = {}
@@ -164,9 +169,9 @@ def postprocess(
         if metrics_summary:
             summary_obj["metrics_agg"] = metrics_summary
         if should_print:
-            if ci_low is not None and ci_high is not None:
+            if ci_low is not None and ci_high is not None and standard_error is not None:
                 print(
-                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
+                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} se={summary_obj['standard_error']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
                 )
             else:
                 print(
@@ -235,6 +240,7 @@ def evaluation_test(  # noqa: C901
     completion_params: List[CompletionParams],
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
+    input_rows: Optional[List[InputRowsParam]] = None,
     dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
     rollout_processor: RolloutProcessor = NoOpRolloutProcessor(),
     evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
@@ -245,6 +251,7 @@ def evaluation_test(  # noqa: C901
     max_dataset_rows: Optional[int] = None,
     mcp_config_path: Optional[str] = None,
     max_concurrent_rollouts: int = 8,
+    max_concurrent_evaluations: int = 64,
     server_script_path: Optional[str] = None,
     steps: int = 30,
     mode: EvaluationTestMode = "pointwise",
@@ -295,6 +302,9 @@ def evaluation_test(  # noqa: C901
         input_dataset: Paths to JSONL datasets. This is useful if you have a
             dataset already. Provide a dataset_adapter to convert the input dataset
             to a list of EvaluationRows if you have a custom dataset format.
+        input_rows: Pre-constructed EvaluationRow objects to use directly. This is useful
+            when you want to provide EvaluationRow objects with custom metadata, input_messages,
+            or other fields already populated. Will be passed as "input_dataset" to the test function.
         dataset_adapter: Function to convert the input dataset to a list of
             EvaluationRows. This is useful if you have a custom dataset format.
         completion_params: Generation parameters for the rollout.
@@ -309,6 +319,7 @@ def evaluation_test(  # noqa: C901
         max_dataset_rows: Limit dataset to the first N rows.
         mcp_config_path: Path to MCP config file that follows MCPMultiClientConfiguration schema
         max_concurrent_rollouts: Maximum number of concurrent rollouts to run in parallel.
+        max_concurrent_evaluations: Maximum number of concurrent evaluations to run in parallel.
         server_script_path: Path to the MCP server script to run (default: "examples/tau2_mcp/server.py").
         steps: Number of rollout steps to execute (default: 30).
         mode: Evaluation mode. "pointwise" (default) applies test function to each row (rollout result).
@@ -408,26 +419,33 @@ def evaluation_test(  # noqa: C901
         # Calculate all possible combinations of parameters
         if mode == "groupwise":
             combinations = generate_parameter_combinations(
-                input_dataset, None, input_messages, evaluation_test_kwargs, max_dataset_rows, combine_datasets
+                input_dataset,
+                None,
+                input_messages,
+                input_rows,
+                evaluation_test_kwargs,
+                max_dataset_rows,
+                combine_datasets,
             )
         else:
             combinations = generate_parameter_combinations(
                 input_dataset,
                 completion_params,
                 input_messages,
+                input_rows,
                 evaluation_test_kwargs,
                 max_dataset_rows,
                 combine_datasets,
             )
         if len(combinations) == 0:
             raise ValueError(
-                "No combinations of parameters were found. Please provide at least a model and one of input_dataset or input_messages."
+                "No combinations of parameters were found. Please provide at least a model and one of input_dataset, input_messages, or input_rows."
             )
 
         # Create parameter tuples for pytest.mark.parametrize
         param_tuples = []
         for combo in combinations:
-            dataset, cp, messages, etk = combo
+            dataset, cp, messages, rows, etk = combo
             param_tuple = []
             if input_dataset is not None:
                 param_tuple.append(dataset)
@@ -435,6 +453,8 @@ def evaluation_test(  # noqa: C901
                 param_tuple.append(cp)
             if input_messages is not None:
                 param_tuple.append(messages)
+            if input_rows is not None:
+                param_tuple.append(rows)
             if evaluation_test_kwargs is not None:
                 param_tuple.append(etk)
             param_tuples.append(tuple(param_tuple))
@@ -447,6 +467,8 @@ def evaluation_test(  # noqa: C901
             test_param_names.append("completion_params")
         if input_messages is not None:
             test_param_names.append("input_messages")
+        if input_rows is not None:
+            test_param_names.append("input_rows")
         if evaluation_test_kwargs is not None:
             test_param_names.append("evaluation_test_kwargs")
 
@@ -472,6 +494,8 @@ def evaluation_test(  # noqa: C901
                 try:
                     # Handle dataset loading
                     data: List[EvaluationRow] = []
+                    # Track all rows processed in the current run for error logging
+                    processed_rows_in_run: List[EvaluationRow] = []
                     if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
                         ds_arg = kwargs["dataset_path"]
                         # Support either a single path or a list of paths; if a list is provided,
@@ -496,8 +520,11 @@ def evaluation_test(  # noqa: C901
                         else:
                             # Multiple rows: list of List[Message]
                             data = [EvaluationRow(messages=m) for m in im]
+                    elif "input_rows" in kwargs and kwargs["input_rows"] is not None:
+                        # Use pre-constructed EvaluationRow objects directly
+                        data = kwargs["input_rows"]
                     else:
-                        raise ValueError("No input dataset or input messages provided")
+                        raise ValueError("No input dataset, input messages, or input rows provided")
 
                     for row in data:
                         # generate a stable row_id for each row
@@ -585,19 +612,19 @@ def evaluation_test(  # noqa: C901
                         # log the fresh_dataset
                         for row in fresh_dataset:
                             active_logger.log(row)
+                            processed_rows_in_run.append(row)
 
-                        if mode == "pointwise":
-                            # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
-                            semaphore = asyncio.Semaphore(max_concurrent_rollouts)
-                            tasks = []
+                        # prepare parallel eval helper function
+                        semaphore = asyncio.Semaphore(max_concurrent_evaluations)
 
-                            async def _execute_with_semaphore(row):
-                                async with semaphore:
-                                    # NOTE: we will still evaluate errored rows (give users control over this)
-                                    # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
+                        async def _execute_eval_with_semaphore(**inner_kwargs):
+                            async with semaphore:
+                                # NOTE: we will still evaluate errored rows (give users control over this)
+                                # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
+                                if "row" in inner_kwargs:
                                     result = await execute_with_params(
                                         test_func,
-                                        processed_row=row,
+                                        processed_row=inner_kwargs["row"],
                                         evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                                     )
                                     if result is None or not isinstance(result, EvaluationRow):
@@ -605,10 +632,24 @@ def evaluation_test(  # noqa: C901
                                             f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
                                         )
                                     return result
+                                if "rows" in inner_kwargs:
+                                    results = await execute_with_params(
+                                        test_func,
+                                        processed_dataset=inner_kwargs["rows"],
+                                        evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                    )
+                                    if results is None or not isinstance(results, list):
+                                        raise ValueError(
+                                            f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                                        )
+                                    return results
 
+                        if mode == "pointwise":
+                            # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
+                            tasks = []
                             # Use wrapper that handles retry logic internally
                             async for row in rollout_processor_with_retry(rollout_processor, fresh_dataset, config):
-                                tasks.append(asyncio.create_task(_execute_with_semaphore(row)))
+                                tasks.append(asyncio.create_task(_execute_eval_with_semaphore(row=row)))
 
                             results = await asyncio.gather(*tasks)
 
@@ -649,14 +690,13 @@ def evaluation_test(  # noqa: C901
                             for result in rollout_results:
                                 for row in result:
                                     row_groups[row.input_metadata.row_id].append(row)
-                            results = []
+                            tasks = []
                             for row_id, rows in row_groups.items():
-                                result = await execute_with_params(
-                                    test_func,
-                                    processed_dataset=rows,
-                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
-                                )
-                                results.extend(result)
+                                tasks.append(asyncio.create_task(_execute_eval_with_semaphore(rows=rows)))
+                            results = []
+                            for task in tasks:
+                                res = await task
+                                results.extend(res)
                             all_results[i] = results
                         else:
                             # Batch mode: collect all results first, then evaluate (no pipelining)
@@ -728,10 +768,16 @@ def evaluation_test(  # noqa: C901
                         )
 
                 except AssertionError:
-                    _log_eval_error("finished", data if "data" in locals() else None, passed=False)
+                    _log_eval_error(
+                        "finished",
+                        processed_rows_in_run if "processed_rows_in_run" in locals() else None,
+                        passed=False,
+                    )
                     raise
                 except Exception:
-                    _log_eval_error("error", data if "data" in locals() else None, passed=False)
+                    _log_eval_error(
+                        "error", processed_rows_in_run if "processed_rows_in_run" in locals() else None, passed=False
+                    )
                     raise
 
             return create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names)
@@ -793,6 +839,13 @@ def evaluation_test(  # noqa: C901
 
                 # If not a direct call, use the pytest wrapper
                 return await pytest_wrapper(*args, **kwargs)
+
+            dual_mode_wrapper._origin_func = test_func
+            dual_mode_wrapper._metainfo = {
+                "mode": mode,
+                "max_rollout_concurrency": max_concurrent_rollouts,
+                "max_evaluation_concurrency": max_concurrent_evaluations,
+            }
 
             # Copy all attributes from the pytest wrapper to our dual mode wrapper
             import functools
