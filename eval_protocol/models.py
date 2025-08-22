@@ -143,7 +143,12 @@ class Status(BaseModel):
             details.append(ErrorInfo.termination_reason(termination_reason).to_aip193_format())
         if extra_info:
             details.append(ErrorInfo.extra_info(extra_info).to_aip193_format())
-        return cls(code=cls.Code.FINISHED, message="Rollout finished", details=details)
+        return cls.finished("Rollout finished", details)
+
+    @classmethod
+    def finished(cls, message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating the rollout finished."""
+        return cls(code=cls.Code.FINISHED, message=message, details=details or [])
 
     @classmethod
     def rollout_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
@@ -156,7 +161,7 @@ class Status(BaseModel):
     @classmethod
     def error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
         """Create a status indicating the rollout failed with an error."""
-        return cls(code=cls.Code.INTERNAL, message=error_message, details=details)
+        return cls(code=cls.Code.INTERNAL, message=error_message, details=details or [])
 
     def is_running(self) -> bool:
         """Check if the status indicates the rollout is running."""

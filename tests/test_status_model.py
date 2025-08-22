@@ -345,6 +345,16 @@ class TestStatusEdgeCases:
         assert len(status.details) == 1
         assert status.details[0]["metadata"] == large_metadata
 
+    def test_empty_details_error(self):
+        """Test Status with empty details and error message."""
+        status = Status.error("Test error")
+        assert status.is_error()
+
+    def test_empty_details_error_finished(self):
+        """Test Status with empty details and error message."""
+        status = Status.finished("Test error")
+        assert status.is_finished()
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
