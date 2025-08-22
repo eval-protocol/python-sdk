@@ -29,6 +29,18 @@ def pytest_addoption(parser) -> None:
         ),
     )
     group.addoption(
+        "--ep-num-runs",
+        action="store",
+        default=None,
+        help=("Override the number of runs for evaluation_test. Pass an integer (e.g., 1, 5, 10)."),
+    )
+    group.addoption(
+        "--ep-max-concurrent-rollouts",
+        action="store",
+        default=None,
+        help=("Override the maximum number of concurrent rollouts. Pass an integer (e.g., 8, 50, 100)."),
+    )
+    group.addoption(
         "--ep-print-summary",
         action="store_true",
         default=False,
@@ -56,14 +68,13 @@ def pytest_addoption(parser) -> None:
         default=None,
         help=(
             "Set reasoning.effort for providers that support it (e.g., Fireworks) via LiteLLM extra_body. "
-            "Values: low|medium|high"
+            "Values: low|medium|high|none"
         ),
     )
     group.addoption(
         "--ep-max-retry",
         action="store",
-        type=int,
-        default=0,
+        default=None,
         help=("Failed rollouts (with rollout_status.code indicating error) will be retried up to this many times."),
     )
     group.addoption(
@@ -92,6 +103,20 @@ def _normalize_max_rows(val: Optional[str]) -> Optional[str]:
         return None
 
 
+def _normalize_number(val: Optional[str]) -> Optional[str]:
+    if val is None:
+        return None
+    s = val.strip()
+    # Validate int; if invalid, ignore and return None (no override)
+    try:
+        num = int(s)
+        if num <= 0:
+            return None  # num_runs must be positive
+        return str(num)
+    except ValueError:
+        return None
+
+
 def pytest_configure(config) -> None:
     # Quiet LiteLLM INFO spam early in pytest session unless user set a level
     try:
@@ -110,6 +135,16 @@ def pytest_configure(config) -> None:
     if norm is not None:
         os.environ["EP_MAX_DATASET_ROWS"] = norm
 
+    num_runs_val = config.getoption("--ep-num-runs")
+    norm_runs = _normalize_number(num_runs_val)
+    if norm_runs is not None:
+        os.environ["EP_NUM_RUNS"] = norm_runs
+
+    max_concurrent_val = config.getoption("--ep-max-concurrent-rollouts")
+    norm_concurrent = _normalize_number(max_concurrent_val)
+    if norm_concurrent is not None:
+        os.environ["EP_MAX_CONCURRENT_ROLLOUTS"] = norm_concurrent
+
     if config.getoption("--ep-print-summary"):
         os.environ["EP_PRINT_SUMMARY"] = "1"
 
@@ -118,10 +153,13 @@ def pytest_configure(config) -> None:
         os.environ["EP_SUMMARY_JSON"] = summary_json_path
 
     max_retry = config.getoption("--ep-max-retry")
-    os.environ["EP_MAX_RETRY"] = str(max_retry)
+    norm_max_retry = _normalize_number(max_retry)
+    if norm_max_retry is not None:
+        os.environ["EP_MAX_RETRY"] = norm_max_retry
 
     fail_on_max_retry = config.getoption("--ep-fail-on-max-retry")
-    os.environ["EP_FAIL_ON_MAX_RETRY"] = fail_on_max_retry
+    if fail_on_max_retry is not None:
+        os.environ["EP_FAIL_ON_MAX_RETRY"] = fail_on_max_retry
 
     # Allow ad-hoc overrides of input params via CLI flags
     try:
@@ -153,7 +191,8 @@ def pytest_configure(config) -> None:
         if reasoning_effort:
             # Always place under extra_body to avoid LiteLLM rejecting top-level params
             eb = merged.setdefault("extra_body", {})
-            eb["reasoning_effort"] = str(reasoning_effort)
+            # Convert "none" string to None value for API compatibility
+            eb["reasoning_effort"] = None if reasoning_effort.lower() == "none" else str(reasoning_effort)
         if merged:
             os.environ["EP_INPUT_PARAMS_JSON"] = _json.dumps(merged)
     except Exception:

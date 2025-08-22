@@ -47,11 +47,12 @@ from eval_protocol.pytest.utils import (
     aggregate,
     create_dynamically_parameterized_wrapper,
     deep_update_dict,
-    execute_function,
     extract_effort_tag,
     generate_parameter_combinations,
     log_eval_status_and_rows,
     parse_ep_max_rows,
+    parse_ep_max_concurrent_rollouts,
+    parse_ep_num_runs,
     rollout_processor_with_retry,
     sanitize_filename,
 )
@@ -331,6 +332,11 @@ def evaluation_test(  # noqa: C901
 
     active_logger: DatasetLogger = logger if logger else default_logger
 
+    # Apply override from pytest flags if present
+    num_runs = parse_ep_num_runs(num_runs)
+    max_concurrent_rollouts = parse_ep_max_concurrent_rollouts(max_concurrent_rollouts)
+    max_dataset_rows = parse_ep_max_rows(max_dataset_rows)
+
     def decorator(
         test_func: TestFunction,
     ):
@@ -478,6 +484,7 @@ def evaluation_test(  # noqa: C901
 
             async def wrapper_body(**kwargs):
                 eval_metadata = None
+
                 all_results: List[List[EvaluationRow]] = [[] for _ in range(num_runs)]
 
                 experiment_id = generate_id()
@@ -502,10 +509,9 @@ def evaluation_test(  # noqa: C901
                                 data_jsonl.extend(load_jsonl(p))
                         else:
                             data_jsonl = load_jsonl(ds_arg)
-                        # Apply env override for max rows if present
-                        effective_max_rows = parse_ep_max_rows(max_dataset_rows)
-                        if effective_max_rows is not None:
-                            data_jsonl = data_jsonl[:effective_max_rows]
+                        # Apply override for max rows if present
+                        if max_dataset_rows is not None:
+                            data_jsonl = data_jsonl[:max_dataset_rows]
                         data = dataset_adapter(data_jsonl)
                     elif "input_messages" in kwargs and kwargs["input_messages"] is not None:
                         # Support either a single row (List[Message]) or many rows (List[List[Message]])

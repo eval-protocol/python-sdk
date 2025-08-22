@@ -20,19 +20,6 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Generate single turn rollout tasks and return them for external handling."""
-
-        # Quiet LiteLLM logs in test runs unless user overrode
-        try:
-            if os.environ.get("LITELLM_LOG") is None:
-                os.environ["LITELLM_LOG"] = "ERROR"
-            _llog = logging.getLogger("LiteLLM")
-            _llog.setLevel(logging.CRITICAL)
-            _llog.propagate = False
-            for _h in list(_llog.handlers):
-                _llog.removeHandler(_h)
-        except Exception:
-            pass
-
         # Do not modify global LiteLLM cache. Disable caching per-request instead.
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
@@ -48,11 +35,15 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             # Single-level reasoning effort: expect `reasoning_effort` only
             effort_val = None
 
-            if "reasoning_effort" in config.completion_params:
+            if (
+                "reasoning_effort" in config.completion_params
+                and config.completion_params["reasoning_effort"] is not None
+            ):
                 effort_val = str(config.completion_params["reasoning_effort"])  # flat shape
             elif (
                 isinstance(config.completion_params.get("extra_body"), dict)
                 and "reasoning_effort" in config.completion_params["extra_body"]
+                and config.completion_params["extra_body"]["reasoning_effort"] is not None
             ):
                 # Accept if user passed it directly inside extra_body
                 effort_val = str(config.completion_params["extra_body"]["reasoning_effort"])  # already in extra_body

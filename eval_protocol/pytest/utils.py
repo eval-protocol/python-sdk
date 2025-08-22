@@ -18,6 +18,8 @@ from eval_protocol.pytest.types import (
 )
 from eval_protocol.pytest.exception_config import ExceptionHandlerConfig, get_default_exception_handler_config
 
+import logging
+
 
 def execute_function(func: Callable, **kwargs) -> Any:
     """
@@ -140,17 +142,33 @@ def log_eval_status_and_rows(
 
 
 def parse_ep_max_rows(default_value: Optional[int]) -> Optional[int]:
-    """Read EP_MAX_DATASET_ROWS env override as int or None."""
+    """Read EP_MAX_DATASET_ROWS env override as int or None.
+
+    Assumes the environment variable was already validated by plugin.py.
+    """
     raw = os.getenv("EP_MAX_DATASET_ROWS")
     if raw is None:
         return default_value
-    s = raw.strip().lower()
-    if s == "none":
-        return None
-    try:
-        return int(s)
-    except ValueError:
-        return default_value
+    # plugin.py stores "None" as string for the "all" case
+    return None if raw.lower() == "none" else int(raw)
+
+
+def parse_ep_num_runs(default_value: int) -> int:
+    """Read EP_NUM_RUNS env override as int.
+
+    Assumes the environment variable was already validated by plugin.py.
+    """
+    raw = os.getenv("EP_NUM_RUNS")
+    return int(raw) if raw is not None else default_value
+
+
+def parse_ep_max_concurrent_rollouts(default_value: int) -> int:
+    """Read EP_MAX_CONCURRENT_ROLLOUTS env override as int.
+
+    Assumes the environment variable was already validated by plugin.py.
+    """
+    raw = os.getenv("EP_MAX_CONCURRENT_ROLLOUTS")
+    return int(raw) if raw is not None else default_value
 
 
 def deep_update_dict(base: dict, override: dict) -> dict:
@@ -315,10 +333,14 @@ async def rollout_processor_with_retry(
                         return result
                     except Exception as retry_error:
                         # Backoff gave up
+                        logging.error(
+                            f"❌ Rollout failed, (retried {exception_config.backoff_config.max_tries} times): {repr(retry_error)}"
+                        )
                         row.rollout_status = Status.rollout_error(str(retry_error))
                         return row
                 else:
                     # Non-retryable exception - fail immediately
+                    logging.error(f"❌ Rollout failed (non-retryable error encountered): {repr(e)}")
                     row.rollout_status = Status.rollout_error(str(e))
                     return row
 
