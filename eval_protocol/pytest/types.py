@@ -31,7 +31,7 @@ EvaluationTestMode = Literal["pointwise", "groupwise", "all"]
 """
 Test function types
 """
-TestFunction = Callable[..., Dataset]
+TestFunction = Callable
 
 """
 Rollout processor types

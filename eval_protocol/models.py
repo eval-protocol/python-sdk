@@ -541,7 +541,7 @@ class EvaluationRow(BaseModel):
     )
 
     pid: Optional[int] = Field(
-        None,
+        default=None,
         description="The PID of the process that created the row. This is used by the evaluation watcher to detect stopped evaluations.",
     )
 
