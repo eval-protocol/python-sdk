@@ -2,15 +2,13 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/eval-protocol)](https://pypi.org/project/eval-protocol/)
 
-EP is an open specification, Python SDK, pytest wrapper, and suite of tools that
-provides a standardized way to write evaluations for large language model (LLM)
-applications. Start with simple single-turn evals for model selection and prompt
-engineering, then scale up to complex multi-turn reinforcement learning (RL) for
-agents using Model Context Protocol (MCP). EP ensures consistent patterns for
-writing evals, storing traces, and saving results—enabling you to build
-sophisticated agent evaluations that work across real-world scenarios, from
-markdown generation tasks to customer service agents with tool calling
-capabilities.
+**Eval Protocol (EP) is the open-source standard and toolkit for practicing Eval-Driven Development.**
+
+Building with AI is different. Traditional software is deterministic, but AI systems are probabilistic. How do you ship new features without causing silent regressions? How do you prove a new prompt is actually better?
+
+The answer is a new engineering discipline: **Eval-Driven Development (EDD)**. It adapts the rigor of Test-Driven Development for the uncertain world of AI. With EDD, you define your AI's desired behavior as a suite of executable tests, creating a safety net that allows you to innovate with confidence.
+
+EP provides a consistent way to write evals, store traces, and analyze results.
 
 <p align="center">
 	<img src="https://raw.githubusercontent.com/eval-protocol/python-sdk/refs/heads/main/assets/ui.png" alt="UI" />
