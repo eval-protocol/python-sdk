@@ -265,7 +265,7 @@ class TestEvaluationWatcher:
             eval_metadata=EvalMetadata(
                 name="test_eval", num_runs=1, aggregation_method="mean", status=Status.rollout_finished()
             ),
-            rollout_status=RolloutStatus.rollout_finished(),
+            rollout_status=Status.rollout_finished(),
             pid=12345,
         )
 
