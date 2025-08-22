@@ -322,9 +322,17 @@ async def rollout_processor_with_retry(
                     row.rollout_status = Status.rollout_error(str(e))
                     return row
 
+        async def execute_row_with_backoff_and_log(task: asyncio.Task, row: EvaluationRow) -> EvaluationRow:
+            """Execute a single row task with backoff retry and logging."""
+            result = await execute_row_with_backoff(task, row)
+            # Log the row after execution completes (success or failure)
+            config.logger.log(result)
+            return result
+
         # Process all tasks concurrently with backoff retry
         retry_tasks = [
-            asyncio.create_task(execute_row_with_backoff(task, fresh_dataset[i])) for i, task in enumerate(base_tasks)
+            asyncio.create_task(execute_row_with_backoff_and_log(task, fresh_dataset[i]))
+            for i, task in enumerate(base_tasks)
         ]
 
         # Yield results as they complete
