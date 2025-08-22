@@ -20,19 +20,6 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Generate single turn rollout tasks and return them for external handling."""
-
-        # Quiet LiteLLM logs in test runs unless user overrode
-        try:
-            if os.environ.get("LITELLM_LOG") is None:
-                os.environ["LITELLM_LOG"] = "ERROR"
-            _llog = logging.getLogger("LiteLLM")
-            _llog.setLevel(logging.CRITICAL)
-            _llog.propagate = False
-            for _h in list(_llog.handlers):
-                _llog.removeHandler(_h)
-        except Exception:
-            pass
-
         # Do not modify global LiteLLM cache. Disable caching per-request instead.
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:

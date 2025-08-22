@@ -52,6 +52,7 @@ from eval_protocol.pytest.utils import (
     generate_parameter_combinations,
     log_eval_status_and_rows,
     parse_ep_max_rows,
+    parse_ep_max_concurrent_rollouts,
     parse_ep_num_runs,
     rollout_processor_with_retry,
     sanitize_filename,
@@ -482,6 +483,7 @@ def evaluation_test(  # noqa: C901
 
                 # Apply environment override for num_runs if present
                 effective_num_runs = parse_ep_num_runs(num_runs)
+                effective_max_concurrent_rollouts = parse_ep_max_concurrent_rollouts(max_concurrent_rollouts)
                 all_results: List[List[EvaluationRow]] = [[] for _ in range(effective_num_runs)]
 
                 experiment_id = generate_id()
@@ -587,7 +589,7 @@ def evaluation_test(  # noqa: C901
                     config = RolloutProcessorConfig(
                         completion_params=completion_params,
                         mcp_config_path=mcp_config_path or "",
-                        max_concurrent_rollouts=max_concurrent_rollouts,
+                        max_concurrent_rollouts=effective_max_concurrent_rollouts,
                         server_script_path=server_script_path,
                         steps=steps,
                         logger=active_logger,
@@ -615,7 +617,7 @@ def evaluation_test(  # noqa: C901
                             processed_rows_in_run.append(row)
 
                         # prepare parallel eval helper function
-                        semaphore = asyncio.Semaphore(max_concurrent_evaluations)
+                        semaphore = asyncio.Semaphore(effective_max_concurrent_rollouts)
 
                         async def _execute_eval_with_semaphore(**inner_kwargs):
                             async with semaphore:
@@ -663,7 +665,7 @@ def evaluation_test(  # noqa: C901
                                 config = RolloutProcessorConfig(
                                     completion_params=cp,
                                     mcp_config_path=mcp_config_path or "",
-                                    max_concurrent_rollouts=max_concurrent_rollouts,
+                                    max_concurrent_rollouts=effective_max_concurrent_rollouts,
                                     server_script_path=server_script_path,
                                     steps=steps,
                                     logger=active_logger,
@@ -843,7 +845,7 @@ def evaluation_test(  # noqa: C901
             dual_mode_wrapper._origin_func = test_func
             dual_mode_wrapper._metainfo = {
                 "mode": mode,
-                "max_rollout_concurrency": max_concurrent_rollouts,
+                "max_rollout_concurrency": max_concurrent_rollouts,  # TODO: fix this
                 "max_evaluation_concurrency": max_concurrent_evaluations,
             }
 
