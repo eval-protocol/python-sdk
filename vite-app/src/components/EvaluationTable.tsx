@@ -161,7 +161,8 @@ export const EvaluationTable = observer(() => {
               <tr>
                 <TableHeader className="w-8">&nbsp;</TableHeader>
                 <TableHeader>Name</TableHeader>
-                <TableHeader>Status</TableHeader>
+                <TableHeader>Eval Status</TableHeader>
+                <TableHeader>Rollout Status</TableHeader>
                 <TableHeader>Invocation ID</TableHeader>
                 <TableHeader>Rollout ID</TableHeader>
                 <TableHeader>Model</TableHeader>

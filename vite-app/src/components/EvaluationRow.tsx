@@ -355,11 +355,19 @@ export const EvaluationRow = observer(
             <RowName name={row.eval_metadata?.name} />
           </TableCell>
 
-          {/* Status */}
+          {/* Eval Status */}
           <TableCell className="py-3 text-xs">
             <RowStatus
               status={row.eval_metadata?.status}
               showSpinner={row.eval_metadata?.status?.code === 101}
+            />
+          </TableCell>
+
+          {/* Rollout Status */}
+          <TableCell className="py-3 text-xs">
+            <RowStatus
+              status={row.rollout_status}
+              showSpinner={row.rollout_status?.code === 101}
             />
           </TableCell>
 
