@@ -335,11 +335,14 @@ def evaluation_test(  # noqa: C901
 
     active_logger: DatasetLogger = logger if logger else default_logger
 
-    # Apply override from pytest flags if present
+    # Optional global overrides via environment for ad-hoc experimentation
+    # EP_INPUT_PARAMS_JSON can contain a JSON object that will be deep-merged
+    # into input_params (e.g., '{"temperature":0,"extra_body":{"reasoning":{"effort":"low"}}}').
     num_runs = parse_ep_num_runs(num_runs)
     max_concurrent_rollouts = parse_ep_max_concurrent_rollouts(max_concurrent_rollouts)
     max_dataset_rows = parse_ep_max_rows(max_dataset_rows)
     completion_params = parse_ep_completion_params(completion_params)
+    original_completion_params = completion_params
 
     def decorator(
         test_func: TestFunction,
@@ -646,7 +649,7 @@ def evaluation_test(  # noqa: C901
                             row_groups = defaultdict(list)  # key: row_id, value: list of rollout_result
                             tasks: List[asyncio.Task[List[EvaluationRow]]] = []
                             # completion_groups = []
-                            for idx, cp in enumerate(completion_params):
+                            for idx, cp in enumerate(original_completion_params):
                                 config = RolloutProcessorConfig(
                                     completion_params=cp,
                                     mcp_config_path=mcp_config_path or "",
@@ -728,7 +731,9 @@ def evaluation_test(  # noqa: C901
                     # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them
                     # rollout_id is used to differentiate the result from different completion_params
                     if mode == "groupwise":
-                        results_by_group = [[[] for _ in range(num_runs)] for _ in range(len(completion_params))]
+                        results_by_group = [
+                            [[] for _ in range(num_runs)] for _ in range(len(original_completion_params))
+                        ]
                         for i_run, result in enumerate(all_results):
                             for r in result:
                                 completion_param_idx = int(r.execution_metadata.rollout_id.split("_")[1])
@@ -740,7 +745,7 @@ def evaluation_test(  # noqa: C901
                                 threshold,
                                 active_logger,
                                 mode,
-                                completion_params[rollout_id],
+                                original_completion_params[rollout_id],
                                 test_func.__name__,
                                 num_runs,
                             )
