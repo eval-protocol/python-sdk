@@ -227,6 +227,16 @@ const EvalMetadataSection = observer(
   )
 );
 
+const RolloutStatusSection = observer(
+  ({ data }: { data: EvaluationRowType["rollout_status"] }) => (
+    <MetadataSection
+      title="Rollout Status"
+      data={data}
+      defaultExpanded={true}
+    />
+  )
+);
+
 const EvaluationResultSection = observer(
   ({ data }: { data: EvaluationRowType["evaluation_result"] }) => (
     <MetadataSection
@@ -289,6 +299,7 @@ const ExpandedContent = observer(
     usage,
     input_metadata,
     tools,
+    rollout_status,
   }: {
     row: EvaluationRowType;
     messages: EvaluationRowType["messages"];
@@ -298,6 +309,7 @@ const ExpandedContent = observer(
     usage: EvaluationRowType["usage"];
     input_metadata: EvaluationRowType["input_metadata"];
     tools: EvaluationRowType["tools"];
+    rollout_status: EvaluationRowType["rollout_status"];
   }) => (
     <div className="p-4 bg-gray-50">
       <div className="flex gap-3 w-fit">
@@ -310,6 +322,7 @@ const ExpandedContent = observer(
         <div className="w-[500px] flex-shrink-0 space-y-3">
           <EvalMetadataSection data={eval_metadata} />
           <EvaluationResultSection data={evaluation_result} />
+          <RolloutStatusSection data={rollout_status} />
           <IdSection data={row} />
           <GroundTruthSection data={ground_truth} />
           <UsageStatsSection data={usage} />
@@ -391,6 +404,7 @@ export const EvaluationRow = observer(
                 usage={row.usage}
                 input_metadata={row.input_metadata}
                 tools={row.tools}
+                rollout_status={row.rollout_status}
               />
             </td>
           </tr>
