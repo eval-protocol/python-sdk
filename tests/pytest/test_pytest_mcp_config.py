@@ -1,6 +1,5 @@
-from datetime import datetime
-from typing import List
-
+import pytest
+from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
 
@@ -41,3 +40,53 @@ def test_pytest_mcp_config(row: EvaluationRow) -> EvaluationRow:
         reason="At least one tool call was made",
     )
     return row
+
+
+@pytest.mark.asyncio
+async def test_pytest_tools_are_added_to_row():
+    class TrackingLogger(DatasetLogger):
+        """Custom logger that ensures that the final row is in an error state."""
+
+        def __init__(self, rollouts: dict[str, EvaluationRow]):
+            self.rollouts = rollouts
+
+        def log(self, row: EvaluationRow):
+            self.rollouts[row.execution_metadata.rollout_id] = row
+
+        def read(self):
+            return []
+
+    input_messages = [
+        [
+            Message(
+                role="system",
+                content="You are a helpful assistant that can answer questions about Fireworks.",
+            ),
+        ]
+    ]
+    completion_params_list = [
+        {"model": "dummy/local-model"},
+    ]
+
+    rollouts: dict[str, EvaluationRow] = {}
+    logger = TrackingLogger(rollouts)
+
+    @evaluation_test(
+        input_messages=input_messages,
+        completion_params=completion_params_list,
+        rollout_processor=AgentRolloutProcessor(),
+        mode="pointwise",
+        mcp_config_path="tests/pytest/mcp_configurations/mock_discord_mcp_config.json",
+        logger=logger,
+    )
+    def eval_fn(row: EvaluationRow) -> EvaluationRow:
+        return row
+
+    await eval_fn(input_messages=input_messages, completion_params=completion_params_list[0])
+
+    # ensure that the row has tools that were set during AgentRolloutProcessor
+    assert len(rollouts) == 1
+    row = list(rollouts.values())[0]
+    assert sorted([tool["function"].name for tool in row.tools]) == sorted(
+        ["list_servers", "get_channels", "read_messages"]
+    )

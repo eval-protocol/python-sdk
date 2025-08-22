@@ -29,7 +29,6 @@ class Agent:
         self.evaluation_row: EvaluationRow = row
         self._policy = LiteLLMPolicy(model_id=model)
         self.mcp_client = MCPMultiClient(config_path=config_path) if config_path else None
-        self.tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN
         self.logger: DatasetLogger = logger
 
     async def setup(self):
@@ -37,9 +36,9 @@ class Agent:
             await self.mcp_client.connect_to_servers()
 
     async def _get_tools(self) -> Optional[List[ChatCompletionToolParam]]:
-        if self.tools is NOT_GIVEN:
-            self.tools = await self.mcp_client.get_available_tools() if self.mcp_client else None
-        return self.tools
+        if self.evaluation_row.tools is None:
+            self.evaluation_row.tools = await self.mcp_client.get_available_tools() if self.mcp_client else None
+        return self.evaluation_row.tools
 
     @property
     def messages(self) -> list[Message]:
