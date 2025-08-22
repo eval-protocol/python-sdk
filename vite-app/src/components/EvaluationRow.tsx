@@ -1,5 +1,8 @@
 import { observer } from "mobx-react";
-import type { EvaluationRow as EvaluationRowType } from "../types/eval-protocol";
+import type {
+  EvaluationRow as EvaluationRowType,
+  Status,
+} from "../types/eval-protocol";
 import { ChatInterface } from "./ChatInterface";
 import { MetadataSection } from "./MetadataSection";
 import StatusIndicator from "./StatusIndicator";
@@ -146,11 +149,14 @@ const RowStatus = observer(
     status,
     showSpinner,
   }: {
-    status: string | undefined;
+    status: Status | undefined;
     showSpinner: boolean;
   }) => (
     <div className="whitespace-nowrap">
-      <StatusIndicator showSpinner={showSpinner} status={status || "N/A"} />
+      <StatusIndicator
+        showSpinner={showSpinner}
+        status={status || { code: 2, message: "N/A", details: [] }}
+      />
     </div>
   )
 );
@@ -340,7 +346,7 @@ export const EvaluationRow = observer(
           <TableCell className="py-3 text-xs">
             <RowStatus
               status={row.eval_metadata?.status}
-              showSpinner={row.eval_metadata?.status === "running"}
+              showSpinner={row.eval_metadata?.status?.code === 101}
             />
           </TableCell>
 

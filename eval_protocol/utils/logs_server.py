@@ -15,6 +15,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import LOG_EVENT_TYPE
 from eval_protocol.event_bus import event_bus
+from eval_protocol.models import Status
 from eval_protocol.utils.vite_server import ViteServer
 
 if TYPE_CHECKING:
@@ -179,7 +180,9 @@ class EvaluationWatcher:
                 if self._should_update_status(row):
                     logger.info(f"Updating status to 'stopped' for row {row.input_metadata.row_id} (PID {row.pid})")
                     if row.eval_metadata is not None:
-                        row.eval_metadata.status = "stopped"
+                        row.eval_metadata.status = Status.aborted(
+                            f"Evaluation aborted since process {row.pid} stopped"
+                        )
                     updated_rows.append(row)
 
             # Log all updated rows
@@ -194,7 +197,12 @@ class EvaluationWatcher:
     def _should_update_status(self, row: "EvaluationRow") -> bool:
         """Check if a row's status should be updated to 'stopped'."""
         # Check if the row has running status and a PID
-        if row.eval_metadata and row.eval_metadata.status == "running" and row.pid is not None:
+        if (
+            row.eval_metadata
+            and row.eval_metadata.status
+            and row.eval_metadata.status.is_running()
+            and row.pid is not None
+        ):
             # Check if the process is still running
             try:
                 process = psutil.Process(row.pid)

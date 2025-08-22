@@ -113,7 +113,7 @@ def create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param
 def log_eval_status_and_rows(
     eval_metadata: Optional[EvalMetadata],
     rows: Optional[List[EvaluationRow]] | None,
-    status: Literal["finished", "error"],
+    status: Status,
     passed: bool,
     logger: DatasetLogger,
 ) -> None:
