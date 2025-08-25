@@ -2,7 +2,7 @@ import os
 from unittest.mock import Mock, patch
 
 
-async def test_ensure_logging(monkeypatch):
+def test_ensure_logging(monkeypatch):
     """
     Ensure that default SQLITE logger gets called by mocking the storage and checking that the storage is called.
     """
@@ -37,7 +37,7 @@ async def test_ensure_logging(monkeypatch):
         def eval_fn(row: EvaluationRow) -> EvaluationRow:
             return row
 
-        await eval_fn(
+        eval_fn(
             dataset_path=["tests/pytest/data/markdown_dataset.jsonl"],
             completion_params={"temperature": 0.0, "model": "dummy/local-model"},
         )

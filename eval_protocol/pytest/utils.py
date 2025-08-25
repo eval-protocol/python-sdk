@@ -20,6 +20,14 @@ from eval_protocol.pytest.exception_config import ExceptionHandlerConfig, get_de
 import logging
 
 
+def is_in_event_loop():
+    try:
+        asyncio.get_event_loop()
+        return True
+    except RuntimeError:
+        return False
+
+
 def execute_function(func: Callable, **kwargs) -> Any:
     """
     Execute a function with proper async handling.
@@ -101,9 +109,16 @@ def create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param
     """
     from functools import wraps
 
-    @wraps(test_func)
-    async def wrapper(**kwargs):
-        return await wrapper_body(**kwargs)
+    if asyncio.iscoroutinefunction(wrapper_body):
+
+        @wraps(test_func)
+        async def wrapper(**kwargs):
+            return await wrapper_body(**kwargs)
+    else:
+
+        @wraps(test_func)
+        def wrapper(**kwargs):
+            return wrapper_body(**kwargs)
 
     parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names]
     wrapper.__signature__ = inspect.Signature(parameters)
