@@ -7,6 +7,8 @@ import logging
 import os
 from typing import Any, Dict, Iterator, List, Optional
 
+from eval_protocol.auth import get_auth_bearer
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,13 +44,22 @@ def setup_logging(verbose=False, debug=False):
 
 
 def check_environment():
-    """Check if required environment variables are set for general commands."""
-    if not os.environ.get("FIREWORKS_API_KEY"):
-        logger.warning("FIREWORKS_API_KEY environment variable is not set.")
-        logger.warning("This is required for API calls. Set this variable before running the command.")
-        logger.warning("Example: FIREWORKS_API_KEY=$DEV_FIREWORKS_API_KEY reward-kit [command]")
-        return False
-    return True
+    """Check if credentials are available for non-LLM API calls.
+
+    Accepts either FIREWORKS_API_KEY or an OAuth bearer (FIREWORKS_ACCESS_TOKEN or tokens in auth.ini).
+    LLM calls elsewhere still explicitly require FIREWORKS_API_KEY.
+    """
+    if os.environ.get("FIREWORKS_API_KEY"):
+        return True
+    bearer = get_auth_bearer()
+    if bearer:
+        if not os.environ.get("FIREWORKS_API_KEY"):
+            logger.info(
+                "Using OAuth bearer for non-LLM API calls. Note: LLM/model calls still require FIREWORKS_API_KEY."
+            )
+        return True
+    logger.warning("No credentials found. Set FIREWORKS_API_KEY or login via OAuth: eval-protocol login --oauth ...")
+    return False
 
 
 def check_agent_environment(test_mode=False):
