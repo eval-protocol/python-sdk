@@ -1,0 +1,1 @@
+Find all employees and their reporting hierarchy levels using a recursive CTE. Show employee name, level, and the complete hierarchy path from top to bottom.

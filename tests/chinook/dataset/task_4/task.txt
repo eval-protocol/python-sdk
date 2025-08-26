@@ -1,0 +1,1 @@
+Analyze customer purchasing patterns by month and day of week. Show month, day of week, unique customers, total invoices, average order value, total revenue, and day-over-day growth percentage for invoices from 2010 onwards.
