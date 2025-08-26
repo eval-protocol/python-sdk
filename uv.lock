@@ -1249,9 +1249,6 @@ dev = [
     { name = "haikus" },
     { name = "pytest" },
 ]
-pydantic = [
-    { name = "pydantic-ai" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -1341,7 +1338,6 @@ dev = [
     { name = "haikus", specifier = "==0.3.8" },
     { name = "pytest", specifier = ">=8.4.1" },
 ]
-pydantic = [{ name = "pydantic-ai", specifier = ">=0.4.3" }]
 
 [[package]]
 name = "eval-type-backport"
