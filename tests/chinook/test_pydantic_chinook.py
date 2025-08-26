@@ -11,6 +11,12 @@ from pydantic_ai.models.openai import OpenAIModel
 
 from tests.chinook.dataset import collect_dataset
 
+LLM_JUDGE_PROMPT = (
+    "Your job is to compare the response to the expected answer.\n"
+    "If the response contains the same information as the expected answer, return 1.0.\n"
+    "If the response does not contain the same information or is missing information, return 0.0."
+)
+
 
 @pytest.mark.asyncio
 @evaluation_test(
@@ -27,7 +33,6 @@ from tests.chinook.dataset import collect_dataset
     ],
     rollout_processor=PydanticAgentRolloutProcessor(),
     rollout_processor_kwargs={"agent": setup_agent},
-    num_runs=5,
     mode="pointwise",
 )
 async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
@@ -64,10 +69,7 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
             reason: str
 
         comparison_agent = Agent(
-            system_prompt=(
-                "Your job is to compare the response to the expected answer."
-                "If the response is correct, return 1.0. If the response is incorrect, return 0.0."
-            ),
+            system_prompt=LLM_JUDGE_PROMPT,
             output_type=Response,
             model=model,
         )
@@ -131,10 +133,7 @@ async def test_complex_queries(row: EvaluationRow) -> EvaluationRow:
             reason: str
 
         comparison_agent = Agent(
-            system_prompt=(
-                "Your job is to compare the response to the expected answer."
-                "If the response is correct, return 1.0. If the response is incorrect, return 0.0."
-            ),
+            system_prompt=LLM_JUDGE_PROMPT,
             output_type=Response,
             model=model,
         )
