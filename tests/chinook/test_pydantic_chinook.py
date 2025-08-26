@@ -97,7 +97,6 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
     ],
     rollout_processor=PydanticAgentRolloutProcessor(),
     rollout_processor_kwargs={"agent": setup_agent},
-    num_runs=3,
     mode="pointwise",
 )
 async def test_complex_queries(row: EvaluationRow) -> EvaluationRow:
