@@ -15,6 +15,8 @@ Usage:
 import logging
 import os
 from typing import Optional
+import json
+import pathlib
 
 
 def pytest_addoption(parser) -> None:
@@ -87,6 +89,21 @@ def pytest_addoption(parser) -> None:
             "Default: true (fail on permanent failures). Set to 'false' to continue with remaining rollouts."
         ),
     )
+    group.addoption(
+        "--ep-success-threshold",
+        action="store",
+        default=None,
+        help=("Override the success threshold for evaluation_test. Pass a float between 0.0 and 1.0 (e.g., 0.8)."),
+    )
+    group.addoption(
+        "--ep-se-threshold",
+        action="store",
+        default=None,
+        help=(
+            "Override the standard error threshold for evaluation_test. "
+            "Pass a float >= 0.0 (e.g., 0.05). If only this is set, success threshold defaults to 0.0."
+        ),
+    )
 
 
 def _normalize_max_rows(val: Optional[str]) -> Optional[str]:
@@ -115,6 +132,49 @@ def _normalize_number(val: Optional[str]) -> Optional[str]:
         return str(num)
     except ValueError:
         return None
+
+
+def _normalize_success_threshold(val: Optional[str]) -> Optional[float]:
+    """Normalize success threshold value as float between 0.0 and 1.0."""
+    if val is None:
+        return None
+
+    try:
+        threshold_float = float(val.strip())
+        if 0.0 <= threshold_float <= 1.0:
+            return threshold_float
+        else:
+            return None  # threshold must be between 0 and 1
+    except ValueError:
+        return None
+
+
+def _normalize_se_threshold(val: Optional[str]) -> Optional[float]:
+    """Normalize standard error threshold value as float >= 0.0."""
+    if val is None:
+        return None
+
+    try:
+        threshold_float = float(val.strip())
+        if threshold_float >= 0.0:
+            return threshold_float
+        else:
+            return None  # standard error must be >= 0
+    except ValueError:
+        return None
+
+
+def _build_passed_threshold_env(success: Optional[float], se: Optional[float]) -> Optional[str]:
+    """Build the EP_PASSED_THRESHOLD environment variable value from the two separate thresholds."""
+    if success is None and se is None:
+        return None
+
+    if se is None:
+        return str(success)
+    else:
+        success_val = success if success is not None else 0.0
+        threshold_dict = {"success": success_val, "standard_error": se}
+        return json.dumps(threshold_dict)
 
 
 def pytest_configure(config) -> None:
@@ -161,11 +221,16 @@ def pytest_configure(config) -> None:
     if fail_on_max_retry is not None:
         os.environ["EP_FAIL_ON_MAX_RETRY"] = fail_on_max_retry
 
+    success_threshold_val = config.getoption("--ep-success-threshold")
+    se_threshold_val = config.getoption("--ep-se-threshold")
+    norm_success = _normalize_success_threshold(success_threshold_val)
+    norm_se = _normalize_se_threshold(se_threshold_val)
+    threshold_env = _build_passed_threshold_env(norm_success, norm_se)
+    if threshold_env is not None:
+        os.environ["EP_PASSED_THRESHOLD"] = threshold_env
+
     # Allow ad-hoc overrides of input params via CLI flags
     try:
-        import json as _json
-        import pathlib as _pathlib
-
         merged: dict = {}
         input_params_opts = config.getoption("--ep-input-param")
         if input_params_opts:
@@ -174,17 +239,17 @@ def pytest_configure(config) -> None:
                     continue
                 opt = str(opt)
                 if opt.startswith("@"):  # load JSON file
-                    p = _pathlib.Path(opt[1:])
+                    p = pathlib.Path(opt[1:])
                     if p.is_file():
                         with open(p, "r", encoding="utf-8") as f:
-                            obj = _json.load(f)
+                            obj = json.load(f)
                             if isinstance(obj, dict):
                                 merged.update(obj)
                 elif "=" in opt:
                     k, v = opt.split("=", 1)
                     # Try parse JSON values, fallback to string
                     try:
-                        merged[k] = _json.loads(v)
+                        merged[k] = json.loads(v)
                     except Exception:
                         merged[k] = v
         reasoning_effort = config.getoption("--ep-reasoning-effort")
@@ -194,7 +259,7 @@ def pytest_configure(config) -> None:
             # Convert "none" string to None value for API compatibility
             eb["reasoning_effort"] = None if reasoning_effort.lower() == "none" else str(reasoning_effort)
         if merged:
-            os.environ["EP_INPUT_PARAMS_JSON"] = _json.dumps(merged)
+            os.environ["EP_INPUT_PARAMS_JSON"] = json.dumps(merged)
     except Exception:
         # best effort, do not crash pytest session
         pass

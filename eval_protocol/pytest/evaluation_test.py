@@ -56,6 +56,7 @@ from eval_protocol.pytest.utils import (
     parse_ep_max_concurrent_rollouts,
     parse_ep_num_runs,
     parse_ep_completion_params,
+    parse_ep_passed_threshold,
     rollout_processor_with_retry,
     sanitize_filename,
 )
@@ -344,6 +345,7 @@ def evaluation_test(  # noqa: C901
     max_dataset_rows = parse_ep_max_rows(max_dataset_rows)
     completion_params = parse_ep_completion_params(completion_params)
     original_completion_params = completion_params
+    passed_threshold = parse_ep_passed_threshold(passed_threshold)
 
     def decorator(
         test_func: TestFunction,
