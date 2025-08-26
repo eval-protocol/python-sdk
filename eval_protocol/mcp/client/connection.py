@@ -410,7 +410,20 @@ class MCPConnectionManager:
         mcp_session = session._mcp_session
 
         # 1. Execute the tool call via MCP protocol (DATA PLANE)
-        tool_result = await mcp_session.call_tool(tool_name, arguments)
+        retry_count = 3
+        while retry_count > 0:
+            try:
+                logging.info(f"Session {session.session_id} Row {session.dataset_row.id}: Tool {tool_name} call started")
+                tool_result = await mcp_session.call_tool(tool_name, arguments, read_timeout_seconds=30.0)
+                logging.info(f"Session {session.session_id} Row {session.dataset_row.id}: Tool {tool_name} call completed")
+                break
+            except httpx.TimeoutException:
+                logger.warning(f"Session {session.session_id} Row {session.dataset_row.id}: Tool {tool_name} call timed out after 30s")
+                retry_count -= 1
+                if retry_count == 0:
+                    raise
+                await asyncio.sleep(1)
+        
 
         # Extract data plane results (observation only)
         if tool_result.content and len(tool_result.content) > 0:
