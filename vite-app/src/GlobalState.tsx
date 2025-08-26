@@ -22,6 +22,12 @@ const DEFAULT_PAGINATION_CONFIG = {
   pageSize: 25,
 };
 
+// Default sort configuration
+const DEFAULT_SORT_CONFIG = {
+  sortField: "created_at",
+  sortDirection: "desc" as "asc" | "desc",
+};
+
 export class GlobalState {
   isConnected: boolean = false;
   // rollout_id -> EvaluationRow
@@ -37,6 +43,9 @@ export class GlobalState {
   // Pagination configuration
   currentPage: number;
   pageSize: number;
+  // Sort configuration
+  sortField: string;
+  sortDirection: "asc" | "desc";
   // Loading state
   isLoading: boolean = true;
 
@@ -64,6 +73,10 @@ export class GlobalState {
     const paginationConfig = this.loadPaginationConfig();
     this.currentPage = paginationConfig.currentPage;
     this.pageSize = paginationConfig.pageSize;
+    // Load sort config from localStorage or use defaults
+    const sortConfig = this.loadSortConfig();
+    this.sortField = sortConfig.sortField;
+    this.sortDirection = sortConfig.sortDirection;
     makeAutoObservable(this);
   }
 
@@ -114,6 +127,21 @@ export class GlobalState {
     return DEFAULT_PAGINATION_CONFIG;
   }
 
+  // Load sort configuration from localStorage
+  private loadSortConfig() {
+    try {
+      const stored = localStorage.getItem("sortConfig");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Merge with defaults to handle any missing properties
+        return { ...DEFAULT_SORT_CONFIG, ...parsed };
+      }
+    } catch (error) {
+      console.warn("Failed to load sort config from localStorage:", error);
+    }
+    return DEFAULT_SORT_CONFIG;
+  }
+
   // Save pivot configuration to localStorage
   private savePivotConfig() {
     if (this.savePivotConfigTimer) clearTimeout(this.savePivotConfigTimer);
@@ -160,6 +188,24 @@ export class GlobalState {
     }, 200);
   }
 
+  // Save sort configuration to localStorage
+  private saveSortConfig() {
+    if (this.saveFilterConfigTimer) clearTimeout(this.saveFilterConfigTimer);
+    this.saveFilterConfigTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          "sortConfig",
+          JSON.stringify({
+            sortField: this.sortField,
+            sortDirection: this.sortDirection,
+          })
+        );
+      } catch (error) {
+        console.warn("Failed to save sort config to localStorage:", error);
+      }
+    }, 200);
+  }
+
   // Update pivot configuration and save to localStorage
   updatePivotConfig(updates: Partial<PivotConfig>) {
     Object.assign(this.pivotConfig, updates);
@@ -191,6 +237,29 @@ export class GlobalState {
     this.savePaginationConfig();
   }
 
+  // Update sort configuration and save to localStorage
+  updateSortConfig(
+    updates: Partial<{ sortField: string; sortDirection: "asc" | "desc" }>
+  ) {
+    Object.assign(this, updates);
+    // Reset to first page when sorting changes
+    this.currentPage = 1;
+    this.saveSortConfig();
+  }
+
+  // Handle sort field click - toggle direction if same field, set to asc if new field
+  handleSortFieldClick(field: string) {
+    if (this.sortField === field) {
+      // Toggle direction for same field
+      this.sortDirection = this.sortDirection === "asc" ? "desc" : "asc";
+    } else {
+      // New field, set to ascending
+      this.sortField = field;
+      this.sortDirection = "asc";
+    }
+    this.saveSortConfig();
+  }
+
   // Reset pivot configuration to defaults
   resetPivotConfig() {
     this.pivotConfig = { ...DEFAULT_PIVOT_CONFIG };
@@ -209,6 +278,13 @@ export class GlobalState {
     this.currentPage = DEFAULT_PAGINATION_CONFIG.currentPage;
     this.pageSize = DEFAULT_PAGINATION_CONFIG.pageSize;
     this.savePaginationConfig();
+  }
+
+  // Reset sort configuration to defaults
+  resetSortConfig() {
+    this.sortField = DEFAULT_SORT_CONFIG.sortField;
+    this.sortDirection = DEFAULT_SORT_CONFIG.sortDirection;
+    this.saveSortConfig();
   }
 
   // Set current page
@@ -286,9 +362,48 @@ export class GlobalState {
 
   // Computed values following MobX best practices
   get sortedIds() {
-    return Object.keys(this.dataset).sort(
-      (a, b) => (this.createdAtMsById[b] ?? 0) - (this.createdAtMsById[a] ?? 0)
-    );
+    const ids = Object.keys(this.dataset);
+
+    if (this.sortField === "created_at") {
+      // Special case for created_at - use cached timestamp
+      return ids.sort((a, b) => {
+        const aTime = this.createdAtMsById[a] ?? 0;
+        const bTime = this.createdAtMsById[b] ?? 0;
+        return this.sortDirection === "asc" ? aTime - bTime : bTime - aTime;
+      });
+    }
+
+    // For other fields, sort by flattened data
+    return ids.sort((a, b) => {
+      const aFlat = this.flattenedById[a];
+      const bFlat = this.flattenedById[b];
+
+      if (!aFlat || !bFlat) return 0;
+
+      const aValue = aFlat[this.sortField];
+      const bValue = bFlat[this.sortField];
+
+      // Handle undefined values
+      if (aValue === undefined && bValue === undefined) return 0;
+      if (aValue === undefined) return this.sortDirection === "asc" ? -1 : 1;
+      if (bValue === undefined) return this.sortDirection === "asc" ? 1 : -1;
+
+      // Handle different types
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        const comparison = aValue.localeCompare(bValue);
+        return this.sortDirection === "asc" ? comparison : -comparison;
+      }
+
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return this.sortDirection === "asc" ? aValue - bValue : bValue - aValue;
+      }
+
+      // Fallback to string comparison
+      const aStr = String(aValue);
+      const bStr = String(bValue);
+      const comparison = aStr.localeCompare(bStr);
+      return this.sortDirection === "asc" ? comparison : -comparison;
+    });
   }
 
   get sortedDataset() {
