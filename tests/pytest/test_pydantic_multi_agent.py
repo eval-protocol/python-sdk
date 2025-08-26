@@ -47,12 +47,15 @@ def setup_agent(joke_generation_model: Model, joke_selection_model: Model) -> Ag
 
 @pytest.mark.asyncio
 @evaluation_test(
-    input_messages=[Message(role="user", content="Hello, how are you?")],
+    input_messages=[Message(role="user", content="Tell me a joke.")],
     completion_params=[
         {
             "model": {
-                "joke_generation_model": {"model": "accounts/fireworks/models/gpt-oss-120b", "provider": "fireworks"},
-                "joke_selection_model": {"model": "accounts/fireworks/models/gpt-oss-20b", "provider": "fireworks"},
+                "joke_generation_model": {
+                    "model": "accounts/fireworks/models/kimi-k2-instruct",
+                    "provider": "fireworks",
+                },
+                "joke_selection_model": {"model": "accounts/fireworks/models/deepseek-v3p1", "provider": "fireworks"},
             }
         },
     ],
@@ -60,7 +63,7 @@ def setup_agent(joke_generation_model: Model, joke_selection_model: Model) -> Ag
     rollout_processor_kwargs={
         "agent": setup_agent,
         # PydanticAgentRolloutProcessor will pass usage_limits into the "run" call
-        "usage_limits": UsageLimits(request_limit=5, total_tokens_limit=30),
+        "usage_limits": UsageLimits(request_limit=5, total_tokens_limit=1000),
     },
     mode="pointwise",
 )
