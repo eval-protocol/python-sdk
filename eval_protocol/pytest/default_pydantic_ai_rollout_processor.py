@@ -1,6 +1,6 @@
-import os
 import asyncio
 import logging
+import types
 from typing import List
 
 from openai.types.chat.chat_completion_assistant_message_param import ChatCompletionAssistantMessageParam
@@ -23,7 +23,6 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.providers.fireworks import FireworksProvider
 
 logger = logging.getLogger(__name__)
 
@@ -45,20 +44,40 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
         # validate that the "agent" field is present with a valid Pydantic AI Agent instance in the completion_params dict
         if "agent" not in config.kwargs:
             raise ValueError("kwargs must contain an 'agent' field with a valid Pydantic AI Agent instance")
-        if not isinstance(config.kwargs["agent"], Agent):
-            raise ValueError("kwargs['agent'] must be a valid Pydantic AI Agent instance")
+        if not isinstance(config.kwargs["agent"], Agent) and not isinstance(
+            config.kwargs["agent"], types.FunctionType
+        ):
+            raise ValueError(
+                "kwargs['agent'] must be a valid Pydantic AI Agent instance or a function that returns an Agent"
+            )
 
-        agent: Agent = config.kwargs["agent"]
-
-        model = OpenAIModel(
-            config.completion_params["model"],
-            provider=config.completion_params["provider"],
-        )
+        if isinstance(config.kwargs["agent"], types.FunctionType):
+            setup_agent = config.kwargs["agent"]
+            if not isinstance(config.completion_params["model"], dict):
+                raise ValueError(
+                    "completion_params['model'] must be a dict mapping agent argument names to model config dicts (with 'model' and 'provider' keys)"
+                )
+            kwargs = {}
+            for model_name, model_config in config.completion_params["model"].items():
+                kwargs[model_name] = OpenAIModel(
+                    model_config["model"],
+                    provider=model_config["provider"],
+                )
+            agent = setup_agent(**kwargs)
+            model = None
+        else:
+            agent = config.kwargs["agent"]
+            model = OpenAIModel(
+                config.completion_params["model"],
+                provider=config.completion_params["provider"],
+            )
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with agent rollout."""
             model_messages = [self.convert_ep_message_to_pyd_message(m, row) for m in row.messages]
-            response = await agent.run(message_history=model_messages, model=model)
+            response = await agent.run(
+                message_history=model_messages, model=model, usage_limits=config.kwargs.get("usage_limits")
+            )
             row.messages = await self.convert_pyd_message_to_ep_message(response.all_messages())
             return row
 
