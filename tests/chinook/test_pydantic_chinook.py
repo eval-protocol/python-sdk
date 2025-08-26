@@ -146,4 +146,3 @@ async def test_complex_queries(row: EvaluationRow) -> EvaluationRow:
             reason=result.output.reason,
         )
     return row
-    return row
