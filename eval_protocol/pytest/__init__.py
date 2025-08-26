@@ -8,6 +8,15 @@ from .exception_config import ExceptionHandlerConfig, BackoffConfig, get_default
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
 
+# Conditional import for optional dependency
+try:
+    from .default_pydantic_ai_rollout_processor import PydanticAgentRolloutProcessor
+
+    PYDANTIC_AI_AVAILABLE = True
+except ImportError:
+    PYDANTIC_AI_AVAILABLE = False
+    PydanticAgentRolloutProcessor = None
+
 __all__ = [
     "AgentRolloutProcessor",
     "MCPGymRolloutProcessor",
@@ -21,3 +30,7 @@ __all__ = [
     "BackoffConfig",
     "get_default_exception_handler_config",
 ]
+
+# Only add to __all__ if available
+if PYDANTIC_AI_AVAILABLE:
+    __all__.append("PydanticAgentRolloutProcessor")
