@@ -164,6 +164,9 @@ export const EvaluationTable = observer(() => {
                 <TableHeader>Eval Status</TableHeader>
                 <TableHeader>Rollout Status</TableHeader>
                 <TableHeader>Invocation ID</TableHeader>
+                <TableHeader>Experiment ID</TableHeader>
+                <TableHeader>Run ID</TableHeader>
+                <TableHeader>Row ID</TableHeader>
                 <TableHeader>Rollout ID</TableHeader>
                 <TableHeader>Model</TableHeader>
                 <TableHeader>Score</TableHeader>
