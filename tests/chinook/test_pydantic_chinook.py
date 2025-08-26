@@ -13,7 +13,8 @@ from tests.chinook.dataset import collect_dataset
 
 LLM_JUDGE_PROMPT = (
     "Your job is to compare the response to the expected answer.\n"
-    "If the response contains the same information as the expected answer, return 1.0.\n"
+    "The response will be a narrative report of the query results.\n"
+    "If the response contains the same or well summarized information as the expected answer, return 1.0.\n"
     "If the response does not contain the same information or is missing information, return 0.0."
 )
 
