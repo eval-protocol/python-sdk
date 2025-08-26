@@ -11,6 +11,7 @@ import { TableCell, TableRowInteractive } from "./TableContainer";
 import { useState } from "react";
 import type { FilterGroup, FilterConfig } from "../types/filters";
 import { Tooltip } from "./Tooltip";
+import { JSONTooltip } from "./JSONTooltip";
 
 // Add filter button component
 const AddFilterButton = observer(
@@ -190,9 +191,29 @@ const InvocationId = observer(({ invocationId }: { invocationId?: string }) => {
   );
 });
 
-const RowModel = observer(({ model }: { model: string | undefined }) => (
-  <span className="text-gray-900 truncate block">{model || "N/A"}</span>
-));
+const RowModel = observer(
+  ({ model }: { model: string | object | undefined }) => {
+    const displayValue = model
+      ? typeof model === "string"
+        ? model
+        : JSON.stringify(model)
+      : "N/A";
+
+    // For strings, show full value without tooltip
+    if (typeof model === "string" || !model) {
+      return <span className="text-gray-900 block">{displayValue}</span>;
+    }
+
+    // For objects, use JSONTooltip with truncation
+    return (
+      <JSONTooltip data={model}>
+        <span className="text-gray-900 truncate block max-w-[200px] cursor-help">
+          {displayValue}
+        </span>
+      </JSONTooltip>
+    );
+  }
+);
 
 const RowScore = observer(({ score }: { score: number | undefined }) => {
   const scoreClass = score
