@@ -69,7 +69,7 @@ class MCPConnectionManager:
         )
 
         mcp_session = await exit_stack.enter_async_context(
-            ClientSession(read_stream, write_stream, client_info=client_info)
+            ClientSession(read_stream, write_stream, client_info=client_info, read_timeout_seconds=30.0)
         )
 
         await mcp_session.initialize()
