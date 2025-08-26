@@ -572,6 +572,13 @@ class EvaluationRow(BaseModel):
         """Returns only the assistant messages from the conversation."""
         return [msg for msg in self.messages if msg.role == "assistant"]
 
+    def last_assistant_message(self) -> Optional[Message]:
+        """Returns the last assistant message from the conversation. Returns None if none found."""
+        assistant_messages = self.get_assistant_messages()
+        if not assistant_messages:
+            return None
+        return assistant_messages[-1]
+
     def get_user_messages(self) -> List[Message]:
         """Returns only the user messages from the conversation."""
         return [msg for msg in self.messages if msg.role == "user"]

@@ -125,6 +125,12 @@ svgbench = [
 pydantic = [
     "pydantic-ai",
 ]
+supabase = [
+    "supabase>=2.18.1",
+]
+chinook = [
+    "psycopg2-binary>=2.9.10",
+]
 
 [tool.pytest.ini_options]
 addopts = "-q"

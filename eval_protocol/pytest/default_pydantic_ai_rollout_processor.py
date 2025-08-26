@@ -3,6 +3,7 @@ import logging
 import types
 from typing import List
 
+from attr import dataclass
 from openai.types.chat.chat_completion_assistant_message_param import ChatCompletionAssistantMessageParam
 
 from eval_protocol.models import EvaluationRow, Message
@@ -23,6 +24,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.providers.openai import OpenAIProvider
+from typing_extensions import TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +60,10 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
                     "completion_params['model'] must be a dict mapping agent argument names to model config dicts (with 'model' and 'provider' keys)"
                 )
             kwargs = {}
-            for model_name, model_config in config.completion_params["model"].items():
-                kwargs[model_name] = OpenAIModel(
-                    model_config["model"],
-                    provider=model_config["provider"],
+            for k, v in config.completion_params["model"].items():
+                kwargs[k] = OpenAIModel(
+                    v["model"],
+                    provider=v["provider"],
                 )
             agent = setup_agent(**kwargs)
             model = None
