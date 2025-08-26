@@ -22,6 +22,7 @@ from pydantic_ai.messages import (
     ToolReturnPart,
     UserPromptPart,
 )
+from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.providers.fireworks import FireworksProvider
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
 
     def __init__(self):
         # dummy model used for its helper functions for processing messages
-        self.util = OpenAIModel("dummy-model")
+        self.util = OpenAIModel("dummy-model", provider=OpenAIProvider(api_key="dummy"))
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Create agent rollout tasks and return them for external handling."""
@@ -49,17 +50,9 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
 
         agent: Agent = config.kwargs["agent"]
 
-        if config.completion_params["provider"] == "fireworks":
-            api_key = os.getenv("FIREWORKS_API_KEY")
-            if not api_key:
-                raise ValueError("FIREWORKS_API_KEY is not set")
-            provider = FireworksProvider(api_key=api_key)
-        else:
-            provider = config.completion_params["provider"]
-
         model = OpenAIModel(
             config.completion_params["model"],
-            provider=provider,
+            provider=config.completion_params["provider"],
         )
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
