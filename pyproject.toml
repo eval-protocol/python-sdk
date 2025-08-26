@@ -122,6 +122,9 @@ bigquery = [
 svgbench = [
     "selenium>=4.0.0",
 ]
+pydantic = [
+    "pydantic-ai",
+]
 
 [tool.pytest.ini_options]
 addopts = "-q"
@@ -170,7 +173,6 @@ dev = [
     "haikus==0.3.8",
     "pytest>=8.4.1",
 ]
-
 [tool.ruff]
 line-length = 119
 target-version = "py310"
