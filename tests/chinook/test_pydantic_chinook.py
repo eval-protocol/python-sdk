@@ -72,6 +72,6 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
         result = await comparison_agent.run(f"Expected answer: 3503\nResponse: {last_assistant_message.content}")
         row.evaluation_result = EvaluateResult(
             score=result.output.score,
-            reasoning=result.output.reason,
+            reason=result.output.reason,
         )
     return row
