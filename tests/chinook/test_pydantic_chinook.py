@@ -47,7 +47,7 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
         )
     else:
         model = OpenAIModel(
-            "accounts/fireworks/models/llama-v3p1-8b-instruct",
+            "accounts/fireworks/models/kimi-k2-instruct",
             provider="fireworks",
         )
 
@@ -114,7 +114,7 @@ async def test_complex_queries(row: EvaluationRow) -> EvaluationRow:
         )
     else:
         model = OpenAIModel(
-            "accounts/fireworks/models/llama-v3p1-8b-instruct",
+            "accounts/fireworks/models/kimi-k2-instruct",
             provider="fireworks",
         )
 
