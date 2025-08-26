@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 from typing import List
@@ -21,6 +22,7 @@ from pydantic_ai.messages import (
     ToolReturnPart,
     UserPromptPart,
 )
+from pydantic_ai.providers.fireworks import FireworksProvider
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +49,17 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
 
         agent: Agent = config.kwargs["agent"]
 
+        if config.completion_params["provider"] == "fireworks":
+            api_key = os.getenv("FIREWORKS_API_KEY")
+            if not api_key:
+                raise ValueError("FIREWORKS_API_KEY is not set")
+            provider = FireworksProvider(api_key=api_key)
+        else:
+            provider = config.completion_params["provider"]
+
         model = OpenAIModel(
             config.completion_params["model"],
-            provider=config.completion_params["provider"],
+            provider=provider,
         )
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
