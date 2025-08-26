@@ -12,8 +12,10 @@ def setup_agent(orchestrator_agent_model: Model):
     introspection_result_str = "\n".join([",".join(map(str, item)) for item in introspection_result])
 
     SYSTEM_PROMPT = f"""You are a helpful assistant that has access to the
-Chinook database. You have access to a tool to execute SQL queries. Your job
-is to answer questions about the database. Here is the schema of the database:
+Chinook database stored in a Postgres database. You have access to a tool to
+execute SQL queries that you should use to answer questions. Your job is to
+answer questions about the database. If you run into an error, you should try to
+fix the query and try again. Here is the schema of the database:
 
 Schema:
 table_name,column_name,data_type,is_nullable
