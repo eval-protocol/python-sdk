@@ -793,12 +793,20 @@ def evaluation_test(  # noqa: C901
                     )
                     raise
 
-            return create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names)
+            if asyncio.iscoroutinefunction(test_func):
+                return create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names)
+            else:
+
+                def sync_wrapper_body(**kwargs):
+                    return asyncio.run(wrapper_body(**kwargs))
+
+                return create_dynamically_parameterized_wrapper(test_func, sync_wrapper_body, test_param_names)
 
         # Create the pytest wrapper
         pytest_wrapper = create_wrapper_with_signature()
         pytest_wrapper = pytest.mark.parametrize(test_param_names, param_tuples)(pytest_wrapper)
-        pytest_wrapper = pytest.mark.asyncio(pytest_wrapper)
+        if asyncio.iscoroutinefunction(test_func):
+            pytest_wrapper = pytest.mark.asyncio(pytest_wrapper)
 
         def create_dual_mode_wrapper() -> Callable:
             """
@@ -819,39 +827,59 @@ def evaluation_test(  # noqa: C901
             # Check if the test function is async
             is_async = asyncio.iscoroutinefunction(test_func)
 
-            async def call_test_func(**call_kwargs):
-                """Helper to call test_func with proper async/sync handling"""
-                if is_async:
-                    return await test_func(**call_kwargs)
-                else:
-                    return test_func(**call_kwargs)
+            if is_async:
 
-            async def dual_mode_wrapper(*args, **kwargs):
-                # Check if this is a direct call with the expected signature
-                if mode == "pointwise":
-                    # For pointwise mode, check if called with a single row argument
-                    if len(args) == 1 and isinstance(args[0], EvaluationRow) and not kwargs:
-                        return await call_test_func(row=args[0])
-                else:
-                    # For batch mode, check if called with rows argument
-                    if (
-                        len(args) == 1
-                        and isinstance(args[0], list)
-                        and all(isinstance(r, EvaluationRow) for r in args[0])
-                        and not kwargs
-                    ):
-                        return await call_test_func(rows=args[0])
-                    # Also check if called with keyword argument 'rows'
-                    if (
-                        len(args) == 0
-                        and "rows" in kwargs
-                        and isinstance(kwargs["rows"], list)
-                        and all(isinstance(r, EvaluationRow) for r in kwargs["rows"])
-                    ):
-                        return await call_test_func(**kwargs)
+                async def dual_mode_wrapper(*args, **kwargs):
+                    # Check if this is a direct call with the expected signature
+                    if mode == "pointwise":
+                        # For pointwise mode, check if called with a single row argument
+                        if len(args) == 1 and isinstance(args[0], EvaluationRow) and not kwargs:
+                            return await test_func(row=args[0])
+                    else:
+                        # For batch mode, check if called with rows argument
+                        if (
+                            len(args) == 1
+                            and isinstance(args[0], list)
+                            and all(isinstance(r, EvaluationRow) for r in args[0])
+                            and not kwargs
+                        ):
+                            return await test_func(rows=args[0])
+                        # Also check if called with keyword argument 'rows'
+                        if (
+                            len(args) == 0
+                            and "rows" in kwargs
+                            and isinstance(kwargs["rows"], list)
+                            and all(isinstance(r, EvaluationRow) for r in kwargs["rows"])
+                        ):
+                            return await test_func(**kwargs)
 
-                # If not a direct call, use the pytest wrapper
-                return await pytest_wrapper(*args, **kwargs)
+                    # If not a direct call, use the pytest wrapper
+                    return await pytest_wrapper(*args, **kwargs)
+
+                _dual_model_wrapper_fn = dual_mode_wrapper
+            else:
+
+                def dual_mode_wrapper(*args, **kwargs):
+                    if mode == "pointwise":
+                        if len(args) == 1 and isinstance(args[0], EvaluationRow) and not kwargs:
+                            return test_func(row=args[0])
+                    else:
+                        if (
+                            len(args) == 1
+                            and isinstance(args[0], list)
+                            and all(isinstance(r, EvaluationRow) for r in args[0])
+                            and not kwargs
+                        ):
+                            return test_func(rows=args[0])
+                        if (
+                            "rows" in kwargs
+                            and isinstance(kwargs["rows"], list)
+                            and all(isinstance(r, EvaluationRow) for r in kwargs["rows"])
+                        ):
+                            return test_func(**kwargs)
+                    return pytest_wrapper(*args, **kwargs)
+
+                _dual_model_wrapper_fn = dual_mode_wrapper
 
             dual_mode_wrapper._origin_func = test_func
             dual_mode_wrapper._metainfo = {
@@ -863,9 +891,9 @@ def evaluation_test(  # noqa: C901
             # Copy all attributes from the pytest wrapper to our dual mode wrapper
             import functools
 
-            functools.update_wrapper(dual_mode_wrapper, pytest_wrapper)
+            functools.update_wrapper(_dual_model_wrapper_fn, pytest_wrapper)
 
-            return dual_mode_wrapper
+            return _dual_model_wrapper_fn
 
         # Create the dual mode wrapper
         dual_mode_wrapper = create_dual_mode_wrapper()
