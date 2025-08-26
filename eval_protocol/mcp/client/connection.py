@@ -6,6 +6,7 @@ Extracted from mcp_env.py to improve modularity.
 """
 
 import asyncio
+from datetime import timedelta
 import hashlib
 import json
 import logging
@@ -69,7 +70,7 @@ class MCPConnectionManager:
         )
 
         mcp_session = await exit_stack.enter_async_context(
-            ClientSession(read_stream, write_stream, client_info=client_info, read_timeout_seconds=30.0)
+            ClientSession(read_stream, write_stream, client_info=client_info, read_timeout_seconds=timedelta(seconds=30))
         )
 
         await mcp_session.initialize()
@@ -414,7 +415,7 @@ class MCPConnectionManager:
         while retry_count > 0:
             try:
                 logging.info(f"Session {session.session_id} Row {session.dataset_row.id}: Tool {tool_name} call started")
-                tool_result = await mcp_session.call_tool(tool_name, arguments, read_timeout_seconds=30.0)
+                tool_result = await mcp_session.call_tool(tool_name, arguments, read_timeout_seconds=timedelta(seconds=30))
                 logging.info(f"Session {session.session_id} Row {session.dataset_row.id}: Tool {tool_name} call completed")
                 break
             except httpx.TimeoutException:
