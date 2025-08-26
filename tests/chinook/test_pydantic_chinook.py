@@ -36,12 +36,12 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
     if last_assistant_message is None:
         row.evaluation_result = EvaluateResult(
             score=0.0,
-            reasoning="No assistant message found",
+            reason="No assistant message found",
         )
     elif not last_assistant_message.content:
         row.evaluation_result = EvaluateResult(
             score=0.0,
-            reasoning="No assistant message found",
+            reason="No assistant message found",
         )
     else:
         model = OpenAIModel(
