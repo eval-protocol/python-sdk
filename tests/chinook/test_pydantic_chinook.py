@@ -136,6 +136,7 @@ async def test_complex_queries(row: EvaluationRow) -> EvaluationRow:
             system_prompt=LLM_JUDGE_PROMPT,
             output_type=Response,
             model=model,
+            result_retries=3,
         )
         result = await comparison_agent.run(
             f"Expected answer: {row.ground_truth}\nResponse: {last_assistant_message.content}"
