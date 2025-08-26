@@ -29,12 +29,6 @@ from typing_extensions import TypedDict
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class ModelConfig(TypedDict):
-    model: str
-    provider: str
-
-
 class PydanticAgentRolloutProcessor(RolloutProcessor):
     """Rollout processor for Pydantic AI agents. Mainly converts
     EvaluationRow.messages to and from Pydantic AI ModelMessage format."""
