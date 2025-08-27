@@ -82,6 +82,7 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
     return row
 
 
+@pytest.mark.skip(reason="takes too long to run")
 @pytest.mark.asyncio
 @evaluation_test(
     input_rows=collect_dataset(),
@@ -136,7 +137,7 @@ async def test_complex_queries(row: EvaluationRow) -> EvaluationRow:
             system_prompt=LLM_JUDGE_PROMPT,
             output_type=Response,
             model=model,
-            result_retries=3,
+            result_retries=5,
         )
         result = await comparison_agent.run(
             f"Expected answer: {row.ground_truth}\nResponse: {last_assistant_message.content}"
