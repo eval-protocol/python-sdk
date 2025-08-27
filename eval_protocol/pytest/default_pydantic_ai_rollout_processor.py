@@ -1,9 +1,8 @@
 import asyncio
 import logging
 import types
-from typing import List
+from typing import List, Literal
 
-from attr import dataclass
 from openai.types.chat.chat_completion_assistant_message_param import ChatCompletionAssistantMessageParam
 
 from eval_protocol.models import EvaluationRow, Message
@@ -18,6 +17,7 @@ from pydantic import TypeAdapter
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai._utils import generate_tool_call_id
 from pydantic_ai import Agent
+from pydantic_ai.usage import UsageLimits
 from pydantic_ai.messages import (
     ModelRequest,
     SystemPromptPart,
@@ -25,7 +25,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.providers.openai import OpenAIProvider
-from typing_extensions import TypedDict
+from typing_extensions import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +34,33 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
     """Rollout processor for Pydantic AI agents. Mainly converts
     EvaluationRow.messages to and from Pydantic AI ModelMessage format."""
 
-    def __init__(self):
+    def __init__(self, setup_agent: Callable[..., Agent], usage_limits: UsageLimits = None):
         # dummy model used for its helper functions for processing messages
         self.util = OpenAIModel("dummy-model", provider=OpenAIProvider(api_key="dummy"))
+        self.setup_agent = setup_agent
+        self.usage_limits = usage_limits
+
+    def _map_litellm_to_pydantic_ai(
+        self, model_name: str
+    ) -> Literal[
+        "openai",
+        "deepseek",
+        "azure",
+        "openrouter",
+        "grok",
+        "fireworks",
+        "together",
+    ]:
+        mapping = {
+            "fireworks_ai": "fireworks",
+            "together_ai": "together",
+            "xai": "grok",
+            "azure_ai": "azure",
+        }
+        provider = model_name.split("/")[0]
+        if provider in mapping:
+            provider = mapping[provider]
+        return provider  # type: ignore
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Create agent rollout tasks and return them for external handling."""
@@ -60,20 +84,28 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
                 raise ValueError(
                     "completion_params['model'] must be a dict mapping agent argument names to model config dicts (with 'model' and 'provider' keys)"
                 )
-            kwargs = {}
-            for k, v in config.completion_params["model"].items():
-                if v["model"] and v["model"].startswith("anthropic:"):
-                    kwargs[k] = AnthropicModel(
-                        v["model"].removeprefix("anthropic:"),
+            kwargs: dict[str, OpenAIModel | GoogleModel | AnthropicModel] = {}
+            for agent, model_config in config.completion_params["model"].items():
+                if "model" not in model_config:
+                    raise ValueError(f"model_config for agent {agent} must contain a 'model' key")
+                model_name = model_config["model"]
+                if model_name.startswith("anthropic/"):
+                    kwargs[agent] = AnthropicModel(
+                        model_name.removeprefix("anthropic/"),
                     )
-                elif v["model"] and v["model"].startswith("google:"):
-                    kwargs[k] = GoogleModel(
-                        v["model"].removeprefix("google:"),
+                elif model_name.startswith("google/"):
+                    kwargs[agent] = GoogleModel(
+                        model_name.removeprefix("google/"),
+                    )
+                elif model_name.startswith("gemini/"):
+                    kwargs[agent] = GoogleModel(
+                        model_name.removeprefix("gemini/"),
                     )
                 else:
-                    kwargs[k] = OpenAIModel(
-                        v["model"],
-                        provider=v["provider"],
+                    provider = self._map_litellm_to_pydantic_ai(model_name)
+                    kwargs[agent] = OpenAIModel(
+                        model_name.removeprefix(f"{provider}/"),
+                        provider=provider,
                     )
             agent = setup_agent(**kwargs)
             model = None
@@ -144,5 +176,4 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
                     )
                 ]
             )
-        else:
-            raise ValueError(f"Unknown role: {message.role}")
+        raise ValueError(f"Unknown role: {message.role}")

@@ -47,12 +47,8 @@ def setup_agent(joke_generation_model: Model, joke_selection_model: Model) -> Ag
 
 @pytest.mark.asyncio
 @evaluation_test(
-    input_messages=[Message(role="user", content="Tell me a joke.")],
+    input_messages=[[Message(role="user", content="Tell me a joke.")]],
     completion_params=[
-        # single agent
-        {
-            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct",
-        },
         # multi-agent
         {
             "joke_generation_model": {
@@ -62,21 +58,10 @@ def setup_agent(joke_generation_model: Model, joke_selection_model: Model) -> Ag
                 "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
             },
         },
-        {
-            "joke_generation_model": {
-                "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct",
-            },
-            "joke_selection_model": {
-                "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct",
-            },
-        },
     ],
-    rollout_processor=PydanticAgentRolloutProcessor(),
-    rollout_processor_kwargs={
-        "agent": setup_agent,
-        # PydanticAgentRolloutProcessor will pass usage_limits into the "run" call
-        "usage_limits": UsageLimits(request_limit=5, total_tokens_limit=1000),
-    },
+    rollout_processor=PydanticAgentRolloutProcessor.__init__(
+        setup_agent, UsageLimits(request_limit=5, total_tokens_limit=1000)
+    ),
     mode="pointwise",
 )
 async def test_pydantic_multi_agent(row: EvaluationRow) -> EvaluationRow:

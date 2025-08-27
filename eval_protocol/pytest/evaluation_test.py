@@ -544,11 +544,6 @@ def evaluation_test(  # noqa: C901
                             row.input_metadata.row_id = generate_id(seed=0, index=index)
 
                     completion_params = kwargs["completion_params"]
-                    if completion_params and ("model" not in completion_params or not completion_params["model"]):
-                        raise ValueError(
-                            "No model provided. Please provide a model in the completion parameters object."
-                        )
-
                     # Create eval metadata with test function info and current commit hash
                     eval_metadata = EvalMetadata(
                         name=test_func.__name__,
