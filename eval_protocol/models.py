@@ -496,6 +496,8 @@ class EvaluationRow(BaseModel):
     supporting both row-wise batch evaluation and trajectory-based RL evaluation.
     """
 
+    model_config = ConfigDict(extra="allow")
+
     # Core OpenAI ChatCompletion compatible conversation data
     messages: List[Message] = Field(description="List of messages in the conversation. Also known as a trajectory.")
 
