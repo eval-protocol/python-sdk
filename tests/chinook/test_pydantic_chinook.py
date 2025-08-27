@@ -6,7 +6,8 @@ from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
 
 from eval_protocol.pytest.default_pydantic_ai_rollout_processor import PydanticAgentRolloutProcessor
-from agent import setup_agent
+from tests.chinook.agent import setup_agent
+import os
 from pydantic_ai.models.openai import OpenAIModel
 
 from tests.chinook.dataset import collect_dataset
@@ -21,7 +22,7 @@ LLM_JUDGE_PROMPT = (
 
 @pytest.mark.asyncio
 @evaluation_test(
-    input_messages=[Message(role="user", content="What is the total number of tracks in the database?")],
+    input_messages=[[Message(role="user", content="What is the total number of tracks in the database?")]],
     completion_params=[
         {
             "model": {
@@ -82,7 +83,10 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
     return row
 
 
-@pytest.mark.skip(reason="takes too long to run")
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Only run this test locally (skipped in CI)",
+)
 @pytest.mark.asyncio
 @evaluation_test(
     input_rows=collect_dataset(),
