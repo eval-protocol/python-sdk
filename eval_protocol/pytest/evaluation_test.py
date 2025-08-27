@@ -733,16 +733,18 @@ def evaluation_test(  # noqa: C901
                                     r.eval_metadata.status = Status.eval_finished()
                             active_logger.log(r)
 
-                    tasks = []
-                    for i in range(num_runs):
-                        tasks.append(asyncio.create_task(execute_run(i, config)))
-
                     # if rollout_processor is McpGymRolloutProcessor, we execute runs sequentially since McpGym does not support concurrent runs
                     # else, we execute runs in parallel
                     if isinstance(rollout_processor, MCPGymRolloutProcessor):
-                        for task in tasks:
+                        # For MCPGymRolloutProcessor, create and execute tasks one at a time to avoid port conflicts
+                        for i in range(num_runs):
+                            task = asyncio.create_task(execute_run(i, config))
                             await task
                     else:
+                        # For other processors, create all tasks at once and run in parallel
+                        tasks = []
+                        for i in range(num_runs):
+                            tasks.append(asyncio.create_task(execute_run(i, config)))
                         await asyncio.gather(*tasks)
 
                     # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them
