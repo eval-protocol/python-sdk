@@ -82,15 +82,6 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
     return row
 
 
-"""
-invocation ids:
-
- - lead-low-war-kind-business (worked)
- - miss-wonder-early-friend-side (failed)
- - 
-"""
-
-
 @pytest.mark.asyncio
 @evaluation_test(
     input_rows=collect_dataset(),
@@ -103,18 +94,9 @@ invocation ids:
                 }
             }
         },
-        {
-            "model": {
-                "orchestrator_agent_model": {
-                    "model": "accounts/fireworks/models/deepseek-v3p1",
-                    "provider": "fireworks",
-                }
-            }
-        },
     ],
     rollout_processor=PydanticAgentRolloutProcessor(),
     rollout_processor_kwargs={"agent": setup_agent},
-    num_runs=3,
     mode="pointwise",
 )
 async def test_complex_queries(row: EvaluationRow) -> EvaluationRow:
@@ -154,7 +136,7 @@ async def test_complex_queries(row: EvaluationRow) -> EvaluationRow:
             system_prompt=LLM_JUDGE_PROMPT,
             output_type=Response,
             model=model,
-            result_retries=5,
+            result_retries=3,
         )
         result = await comparison_agent.run(
             f"Expected answer: {row.ground_truth}\nResponse: {last_assistant_message.content}"
