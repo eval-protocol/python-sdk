@@ -242,7 +242,7 @@ def postprocess(
 
 def evaluation_test(  # noqa: C901
     *,
-    completion_params: List[CompletionParams],
+    completion_params: List[CompletionParams] = [None],
     input_messages: Optional[List[InputMessagesParam]] = None,
     input_dataset: Optional[List[DatasetPathParam]] = None,
     input_rows: Optional[List[EvaluationRow]] = None,
@@ -359,8 +359,6 @@ def evaluation_test(  # noqa: C901
             threshold = None
 
         sig = inspect.signature(test_func)
-        if not completion_params:
-            raise ValueError("completion_params is required")
 
         # For pointwise/groupwise mode, we expect a different signature
         # we expect single row to be passed in as the original row
