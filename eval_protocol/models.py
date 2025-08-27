@@ -422,10 +422,10 @@ class InputMetadata(BaseModel):
         default_factory=dict, description="Completion endpoint parameters used"
     )
     dataset_info: Optional[Dict[str, Any]] = Field(
-        None, description="Dataset row details: seed, system_prompt, environment_context, etc"
+        default=None, description="Dataset row details: seed, system_prompt, environment_context, etc"
     )
     session_data: Optional[Dict[str, Any]] = Field(
-        None, description="Session metadata like timestamp (input only, no duration/usage)"
+        default=None, description="Session metadata like timestamp (input only, no duration/usage)"
     )
 
 
