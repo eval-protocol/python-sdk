@@ -49,14 +49,26 @@ def setup_agent(joke_generation_model: Model, joke_selection_model: Model) -> Ag
 @evaluation_test(
     input_messages=[Message(role="user", content="Tell me a joke.")],
     completion_params=[
+        # single agent
         {
-            "model": {
-                "joke_generation_model": {
-                    "model": "accounts/fireworks/models/kimi-k2-instruct",
-                    "provider": "fireworks",
-                },
-                "joke_selection_model": {"model": "accounts/fireworks/models/deepseek-v3p1", "provider": "fireworks"},
-            }
+            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct",
+        },
+        # multi-agent
+        {
+            "joke_generation_model": {
+                "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct",
+            },
+            "joke_selection_model": {
+                "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
+            },
+        },
+        {
+            "joke_generation_model": {
+                "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct",
+            },
+            "joke_selection_model": {
+                "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct",
+            },
         },
     ],
     rollout_processor=PydanticAgentRolloutProcessor(),
