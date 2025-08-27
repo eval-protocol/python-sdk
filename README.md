@@ -2,61 +2,53 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/eval-protocol)](https://pypi.org/project/eval-protocol/)
 
-**Eval Protocol (EP) is the open-source standard and toolkit for practicing Eval-Driven Development.**
+**The open-source toolkit for building your internal model leaderboard.**
 
-Building with AI is different. Traditional software is deterministic, but AI systems are probabilistic. How do you ship new features without causing silent regressions? How do you prove a new prompt is actually better?
-
-The answer is a new engineering discipline: **Eval-Driven Development (EDD)**. It adapts the rigor of Test-Driven Development for the uncertain world of AI. With EDD, you define your AI's desired behavior as a suite of executable tests, creating a safety net that allows you to innovate with confidence.
-
-EP provides a consistent way to write evals, store traces, and analyze results.
-
-<p align="center">
-	<img src="https://raw.githubusercontent.com/eval-protocol/python-sdk/refs/heads/main/assets/ui.png" alt="UI" />
-	<br>
-	<sub><b>Log Viewer: Monitor your evaluation rollouts in real time.</b></sub>
-</p>
+When you have multiple AI models to choose from—different versions, providers, or configurations—how do you know which one is best for your use case?
 
 ## Quick Example
 
-Here's a simple test function that checks if a model's response contains **bold** text formatting:
+Compare models on a simple formatting task:
 
 ```python test_bold_format.py
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
-from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
+from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
 
 @evaluation_test(
     input_messages=[
         [
-            Message(role="system", content="You are a helpful assistant. Use bold text to highlight important information."),
-            Message(role="user", content="Explain why **evaluations** matter for building AI agents. Make it dramatic!"),
+            Message(role="system", content="Use bold text to highlight important information."),
+            Message(role="user", content="Explain why evaluations matter for AI agents. Make it dramatic!"),
         ],
     ],
-    completion_params=[{"model": "accounts/fireworks/models/llama-v3p1-8b-instruct"}],
-    rollout_processor=SingleTurnRolloutProcessor(),
+    model=[
+        "fireworks_ai/accounts/fireworks/models/llama-v3p1-8b-instruct",
+        "openai/gpt-4",
+        "anthropic/claude-3-sonnet"
+    ],
+    rollout_processor=default_single_turn_rollout_processor,
     mode="pointwise",
 )
 def test_bold_format(row: EvaluationRow) -> EvaluationRow:
-    """
-    Simple evaluation that checks if the model's response contains bold text.
-    """
-
+    """Check if the model's response contains bold text."""
     assistant_response = row.messages[-1].content
 
-    # Check if response contains **bold** text
-    has_bold = "**" in assistant_response
+    if assistant_response is None:
+        row.evaluation_result = EvaluateResult(score=0.0, reason="No response")
+        return row
 
-    if has_bold:
-        result = EvaluateResult(score=1.0, reason="✅ Response contains bold text")
-    else:
-        result = EvaluateResult(score=0.0, reason="❌ No bold text found")
+    has_bold = "**" in str(assistant_response)
+    score = 1.0 if has_bold else 0.0
+    reason = "Contains bold text" if has_bold else "No bold text found"
 
-    row.evaluation_result = result
+    row.evaluation_result = EvaluateResult(score=score, reason=reason)
     return row
 ```
 
-## Documentation
+## 📚 Resources
 
-See our [documentation](https://evalprotocol.io) for more details.
+- **[Documentation](https://evalprotocol.io)** - Complete guides and API reference
+- **[Discord](https://discord.com/channels/1137072072808472616/1400975572405850155)** - Community discussions
 
 ## Installation
 

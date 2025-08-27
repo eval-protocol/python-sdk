@@ -30,6 +30,25 @@ export interface TableHeaderProps {
   nowrap?: boolean;
 }
 
+export interface SortableTableHeaderProps extends TableHeaderProps {
+  /**
+   * The field name to sort by
+   */
+  sortField: string;
+  /**
+   * Current sort field
+   */
+  currentSortField: string;
+  /**
+   * Current sort direction
+   */
+  currentSortDirection: "asc" | "desc";
+  /**
+   * Click handler for sorting
+   */
+  onSort: (field: string) => void;
+}
+
 export interface TableCellProps {
   /**
    * The cell content
@@ -182,6 +201,88 @@ export function TableHeader({
       } ${nowrap ? "whitespace-nowrap" : ""} ${className}`}
     >
       {children}
+    </th>
+  );
+}
+
+/**
+ * Sortable table header component with click-to-sort functionality
+ */
+export function SortableTableHeader({
+  children,
+  className = "",
+  align = "left",
+  nowrap = false,
+  sortField,
+  currentSortField,
+  currentSortDirection,
+  onSort,
+}: SortableTableHeaderProps) {
+  const alignClasses = {
+    left: "text-left",
+    center: "text-center",
+    right: "text-right",
+  };
+
+  const isActive = currentSortField === sortField;
+  const sortIcon = isActive ? (
+    currentSortDirection === "asc" ? (
+      <svg
+        className="w-3 h-3 ml-1"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M5 15l7-7 7 7"
+        />
+      </svg>
+    ) : (
+      <svg
+        className="w-3 h-3 ml-1"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19 9l-7 7-7-7"
+        />
+      </svg>
+    )
+  ) : (
+    <svg
+      className="w-3 h-3 ml-1 text-gray-400"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+      />
+    </svg>
+  );
+
+  return (
+    <th
+      className={`px-3 py-2 text-xs font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors ${
+        alignClasses[align]
+      } ${nowrap ? "whitespace-nowrap" : ""} ${className}`}
+      onClick={() => onSort(sortField)}
+      style={{ cursor: "pointer" }}
+    >
+      <div className="flex items-center">
+        {children}
+        {sortIcon}
+      </div>
     </th>
   );
 }

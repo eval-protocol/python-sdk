@@ -397,15 +397,11 @@ class EvaluateResult(BaseModel):
 
 CompletionParams = Dict[str, Any]
 """
-Common set of completion parameters that most model providers support in their
-API. Set total=False to allow extra fields since LiteLLM + providers have their
-own set of parameters. The following parameters are common fields that are
-populated.
-
-model: str
-temperature: Optional[float]
-max_tokens: Optional[int]
-top_p: Optional[float]
+The completion parameters for the respective LLM SDK or agent framework.
+Depending on the rollout processor, this might be the parameters passed to
+LiteLLM completion call or parameters for the "run" method of the "Agent" class
+in Pydantic AI.  You can also customize this dictionary to whatever you need if
+you implement your own custom rollout processor.
 """
 
 
@@ -575,6 +571,13 @@ class EvaluationRow(BaseModel):
     def get_assistant_messages(self) -> List[Message]:
         """Returns only the assistant messages from the conversation."""
         return [msg for msg in self.messages if msg.role == "assistant"]
+
+    def last_assistant_message(self) -> Optional[Message]:
+        """Returns the last assistant message from the conversation. Returns None if none found."""
+        assistant_messages = self.get_assistant_messages()
+        if not assistant_messages:
+            return None
+        return assistant_messages[-1]
 
     def get_user_messages(self) -> List[Message]:
         """Returns only the user messages from the conversation."""

@@ -277,7 +277,9 @@ export function computePivot<T extends Record<string, unknown>>({
 
   // Deterministic ordering
   rowKeyTuples.sort((a, b) => toKey(a).localeCompare(toKey(b)));
-  colKeyTuples.sort((a, b) => toKey(a).localeCompare(toKey(b)));
+  
+  // Sort columns by aggregate score (largest to smallest) instead of alphabetically
+  // We'll sort after calculating column totals, so we'll do it later
 
   type CellAgg = { value: number; records: T[] };
   const cells: Record<string, Record<string, CellAgg>> = {};
@@ -356,6 +358,16 @@ export function computePivot<T extends Record<string, unknown>>({
 
     colTotals[cKey] = aggregate(columnValues, columnRecords, aggregator);
   }
+
+  // Sort columns by aggregate score (largest to smallest) based on column totals
+  colKeyTuples.sort((a, b) => {
+    const aKey = toKey(a);
+    const bKey = toKey(b);
+    const aTotal = colTotals[aKey] ?? 0;
+    const bTotal = colTotals[bKey] ?? 0;
+    // Sort from largest to smallest (descending order)
+    return bTotal - aTotal;
+  });
 
   // Grand total should follow the same aggregation semantics over the entire dataset
   // rather than summing per-row/per-column aggregates (which can be incorrect for

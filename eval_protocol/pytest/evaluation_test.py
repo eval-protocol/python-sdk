@@ -61,6 +61,7 @@ from eval_protocol.pytest.utils import (
     parse_ep_max_concurrent_rollouts,
     parse_ep_num_runs,
     parse_ep_completion_params,
+    parse_ep_passed_threshold,
     rollout_processor_with_retry,
     sanitize_filename,
 )
@@ -538,6 +539,7 @@ def evaluation_test(  # noqa: C901
     max_dataset_rows = parse_ep_max_rows(max_dataset_rows)
     completion_params = parse_ep_completion_params(completion_params)
     original_completion_params = completion_params
+    passed_threshold = parse_ep_passed_threshold(passed_threshold)
 
     def decorator(
         test_func: TestFunction,
@@ -925,16 +927,18 @@ def evaluation_test(  # noqa: C901
                                     r.eval_metadata.status = Status.eval_finished()
                             active_logger.log(r)
 
-                    tasks = []
-                    for i in range(num_runs):
-                        tasks.append(asyncio.create_task(execute_run(i, config)))
-
                     # if rollout_processor is McpGymRolloutProcessor, we execute runs sequentially since McpGym does not support concurrent runs
                     # else, we execute runs in parallel
                     if isinstance(rollout_processor, MCPGymRolloutProcessor):
-                        for task in tasks:
+                        # For MCPGymRolloutProcessor, create and execute tasks one at a time to avoid port conflicts
+                        for i in range(num_runs):
+                            task = asyncio.create_task(execute_run(i, config))
                             await task
                     else:
+                        # For other processors, create all tasks at once and run in parallel
+                        tasks = []
+                        for i in range(num_runs):
+                            tasks.append(asyncio.create_task(execute_run(i, config)))
                         await asyncio.gather(*tasks)
 
                     # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them

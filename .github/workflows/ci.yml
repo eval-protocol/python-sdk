@@ -86,6 +86,11 @@ jobs:
           E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           FIREWORKS_ACCOUNT_ID: ${{ secrets.FIREWORKS_ACCOUNT_ID }}
+          SUPABASE_PASSWORD: ${{ secrets.SUPABASE_PASSWORD }}
+          SUPABASE_HOST: ${{ secrets.SUPABASE_HOST }}
+          SUPABASE_PORT: ${{ secrets.SUPABASE_PORT }}
+          SUPABASE_DATABASE: ${{ secrets.SUPABASE_DATABASE }}
+          SUPABASE_USER: ${{ secrets.SUPABASE_USER }}
           PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
         run: |
           # Run most tests in parallel, but explicitly ignore tests that manage their own servers or are slow

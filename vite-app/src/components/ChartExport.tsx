@@ -48,6 +48,10 @@ interface ChartExportProps<T extends Record<string, unknown>> {
    * Whether to show column totals
    */
   showColumnTotals?: boolean;
+  /**
+   * Whether to hide the component content
+   */
+  hidden?: boolean;
 }
 
 type ChartType = "bar" | "line" | "doughnut" | "pie";
@@ -59,6 +63,7 @@ const ChartExport = <T extends Record<string, unknown>>({
   valueField,
   aggregator,
   chartType = "bar",
+  hidden = false,
 }: ChartExportProps<T>) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [selectedChartType, setSelectedChartType] =
@@ -142,32 +147,12 @@ const ChartExport = <T extends Record<string, unknown>>({
 
   const chartData = getChartData();
 
-  // Don't render chart if no data
-  if (!chartData.labels.length || !chartData.datasets.length) {
-    return (
-      <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white">
-        <div className="text-center text-gray-500 py-8">
-          No data available for chart visualization. Please select row and
-          column fields.
-        </div>
-      </div>
-    );
-  }
-
-  // Additional safety check for line charts
-  if (
-    selectedChartType === "line" &&
-    chartData.datasets.some((dataset) => dataset.data.length === 0)
-  ) {
-    return (
-      <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white">
-        <div className="text-center text-gray-500 py-8">
-          Line charts require data in all datasets. Please check your pivot
-          configuration.
-        </div>
-      </div>
-    );
-  }
+  // Check if we have valid data for rendering
+  const hasValidData =
+    chartData.labels.length > 0 && chartData.datasets.length > 0;
+  const hasValidLineChartData =
+    selectedChartType !== "line" ||
+    !chartData.datasets.some((dataset) => dataset.data.length === 0);
 
   const chartOptions = {
     responsive: true,
@@ -256,48 +241,81 @@ const ChartExport = <T extends Record<string, unknown>>({
     { value: "pie", label: "Pie Chart" },
   ];
 
+  // Always render the component, but conditionally show content
   return (
-    <div className="mb-4 bg-white">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-gray-900">Chart Export</h3>
-        <div className="flex items-center space-x-2">
-          <Select
-            value={selectedChartType}
-            onChange={(e) => setSelectedChartType(e.target.value as ChartType)}
-            size="sm"
-            className="min-w-32"
-          >
-            {chartTypes.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </Select>
-          <Button
-            onClick={exportChartAsImage}
-            disabled={isExporting}
-            size="sm"
-            variant="secondary"
-          >
-            {isExporting ? "Exporting..." : "Export as Image"}
-          </Button>
+    <>
+      {hidden && null}
+
+      {!hidden && !hasValidData && (
+        <div className="mb-4 bg-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-900">Chart Export</h3>
+          </div>
+          <div className="text-center text-gray-500 py-8">
+            No data available for chart visualization. Please select row and
+            column fields.
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="text-xs text-gray-600 mb-3">
-        Visualize your pivot table data as a chart and export it as a
-        high-resolution PNG image. You can adjust your browser window size to
-        change the exported image dimensions.
-      </div>
+      {!hidden && hasValidData && !hasValidLineChartData && (
+        <div className="mb-4 bg-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-900">Chart Export</h3>
+          </div>
+          <div className="text-center text-gray-500 py-8">
+            Line charts require data in all datasets. Please check your pivot
+            configuration.
+          </div>
+        </div>
+      )}
 
-      <div ref={chartRef} className="w-full h-96 bg-white p-4">
-        <Chart
-          type={selectedChartType}
-          data={chartData}
-          options={chartOptions}
-        />
-      </div>
-    </div>
+      {!hidden && hasValidData && hasValidLineChartData && (
+        <div className="mb-4 bg-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-900">Chart Export</h3>
+            <div className="flex items-center space-x-2">
+              <Select
+                value={selectedChartType}
+                onChange={(e) =>
+                  setSelectedChartType(e.target.value as ChartType)
+                }
+                size="sm"
+                className="min-w-32"
+              >
+                {chartTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                onClick={exportChartAsImage}
+                disabled={isExporting}
+                size="sm"
+                variant="secondary"
+              >
+                {isExporting ? "Exporting..." : "Export as Image"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="text-xs text-gray-600 mb-3">
+            Visualize your pivot table data as a chart and export it as a
+            high-resolution PNG image. You can adjust your browser window size
+            to change the exported image dimensions.
+          </div>
+
+          <div ref={chartRef} className="w-full h-96 bg-white p-4">
+            <Chart
+              type={selectedChartType}
+              data={chartData}
+              options={chartOptions}
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

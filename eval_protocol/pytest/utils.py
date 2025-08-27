@@ -18,6 +18,7 @@ from eval_protocol.pytest.types import (
 from eval_protocol.pytest.exception_config import ExceptionHandlerConfig, get_default_exception_handler_config
 
 import logging
+import json
 
 
 def execute_function(func: Callable, **kwargs) -> Any:
@@ -176,17 +177,36 @@ def parse_ep_completion_params(completion_params: List[CompletionParams]) -> Lis
     Reads the environment variable set by plugin.py and applies deep merge to each completion param.
     """
     try:
-        import json as _json
-
         _env_override = os.getenv("EP_INPUT_PARAMS_JSON")
         if _env_override:
-            override_obj = _json.loads(_env_override)
+            override_obj = json.loads(_env_override)
             if isinstance(override_obj, dict):
                 # Apply override to each completion_params item
                 return [deep_update_dict(dict(cp), override_obj) for cp in completion_params]
     except Exception:
         pass
     return completion_params
+
+
+def parse_ep_passed_threshold(default_value: Optional[Union[float, dict]]) -> Optional[Union[float, dict]]:
+    """Read EP_PASSED_THRESHOLD env override as float or dict.
+
+    Assumes the environment variable was already validated by plugin.py.
+    Supports both float values (e.g., "0.8") and JSON dict format (e.g., '{"success":0.8}').
+    """
+    raw = os.getenv("EP_PASSED_THRESHOLD")
+    if raw is None:
+        return default_value
+
+    try:
+        return float(raw)
+    except ValueError:
+        pass
+
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        raise ValueError(f"EP_PASSED_THRESHOLD env var exists but can't be parsed: {raw}") from e
 
 
 def deep_update_dict(base: dict, override: dict) -> dict:

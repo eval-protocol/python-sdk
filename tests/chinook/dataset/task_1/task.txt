@@ -1,0 +1,1 @@
+Find the top 5 customers by total spending, including their favorite genre. Show customer name, favorite genre, total invoices, total spent, and spending rank.

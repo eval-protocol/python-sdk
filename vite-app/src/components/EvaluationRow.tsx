@@ -11,6 +11,7 @@ import { TableCell, TableRowInteractive } from "./TableContainer";
 import { useState } from "react";
 import type { FilterGroup, FilterConfig } from "../types/filters";
 import { Tooltip } from "./Tooltip";
+import { JSONTooltip } from "./JSONTooltip";
 
 // Add filter button component
 const AddFilterButton = observer(
@@ -161,6 +162,38 @@ const RowStatus = observer(
   )
 );
 
+const ExperimentId = observer(
+  ({ experimentId: experimentId }: { experimentId?: string }) => {
+    debugger;
+    if (!experimentId) {
+      return null;
+    }
+    return (
+      <span className="font-mono text-gray-900 whitespace-nowrap">
+        {experimentId}
+      </span>
+    );
+  }
+);
+
+const RunId = observer(({ runId: runId }: { runId?: string }) => {
+  if (!runId) {
+    return null;
+  }
+  return (
+    <span className="font-mono text-gray-900 whitespace-nowrap">{runId}</span>
+  );
+});
+
+const RowId = observer(({ rowId: rowId }: { rowId?: string }) => {
+  if (!rowId) {
+    return null;
+  }
+  return (
+    <span className="font-mono text-gray-900 whitespace-nowrap">{rowId}</span>
+  );
+});
+
 const RolloutId = observer(
   ({ rolloutId: rolloutId }: { rolloutId?: string }) => {
     if (!rolloutId) {
@@ -190,9 +223,29 @@ const InvocationId = observer(({ invocationId }: { invocationId?: string }) => {
   );
 });
 
-const RowModel = observer(({ model }: { model: string | undefined }) => (
-  <span className="text-gray-900 truncate block">{model || "N/A"}</span>
-));
+const RowModel = observer(
+  ({ model }: { model: string | object | undefined }) => {
+    const displayValue = model
+      ? typeof model === "string"
+        ? model
+        : JSON.stringify(model)
+      : "N/A";
+
+    // For strings, show full value without tooltip
+    if (typeof model === "string" || !model) {
+      return <span className="text-gray-900 block">{displayValue}</span>;
+    }
+
+    // For objects, use JSONTooltip with truncation
+    return (
+      <JSONTooltip data={model}>
+        <span className="text-gray-900 truncate block max-w-[200px] cursor-help">
+          {displayValue}
+        </span>
+      </JSONTooltip>
+    );
+  }
+);
 
 const RowScore = observer(({ score }: { score: number | undefined }) => {
   const scoreClass = score
@@ -376,6 +429,23 @@ export const EvaluationRow = observer(
             <InvocationId
               invocationId={row.execution_metadata?.invocation_id}
             />
+          </TableCell>
+
+          {/* Experiment ID */}
+          <TableCell className="py-3 text-xs">
+            <ExperimentId
+              experimentId={row.execution_metadata?.experiment_id}
+            />
+          </TableCell>
+
+          {/* Run ID */}
+          <TableCell className="py-3 text-xs">
+            <RunId runId={row.execution_metadata?.run_id} />
+          </TableCell>
+
+          {/* Row ID */}
+          <TableCell className="py-3 text-xs">
+            <RowId rowId={row.input_metadata?.row_id} />
           </TableCell>
 
           {/* Rollout ID */}

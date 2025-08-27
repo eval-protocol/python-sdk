@@ -1,0 +1,1 @@
+Find tracks with complex text patterns in titles. Look for tracks that are either two-word titles starting with capital letters, contain numbers, contain special characters, or are in title case. Show track name, artist, album, duration, and identified pattern type.

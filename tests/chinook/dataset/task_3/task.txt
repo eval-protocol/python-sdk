@@ -1,0 +1,1 @@
+Find artists who have albums in multiple genres and their most popular track. Include genre count, longest track name, and total tracks. Only include artists who have at least one album with 'Greatest' in the title.
