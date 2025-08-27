@@ -662,6 +662,7 @@ def test_stable_hash_across_subprocess():
     assert isinstance(child_hash, int)
     assert parent_hash == child_hash
 
+
 def test_evaluation_row_extra_fields():
     example = {
         "messages": [
