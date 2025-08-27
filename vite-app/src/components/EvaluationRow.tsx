@@ -162,6 +162,38 @@ const RowStatus = observer(
   )
 );
 
+const ExperimentId = observer(
+  ({ experimentId: experimentId }: { experimentId?: string }) => {
+    debugger;
+    if (!experimentId) {
+      return null;
+    }
+    return (
+      <span className="font-mono text-gray-900 whitespace-nowrap">
+        {experimentId}
+      </span>
+    );
+  }
+);
+
+const RunId = observer(({ runId: runId }: { runId?: string }) => {
+  if (!runId) {
+    return null;
+  }
+  return (
+    <span className="font-mono text-gray-900 whitespace-nowrap">{runId}</span>
+  );
+});
+
+const RowId = observer(({ rowId: rowId }: { rowId?: string }) => {
+  if (!rowId) {
+    return null;
+  }
+  return (
+    <span className="font-mono text-gray-900 whitespace-nowrap">{rowId}</span>
+  );
+});
+
 const RolloutId = observer(
   ({ rolloutId: rolloutId }: { rolloutId?: string }) => {
     if (!rolloutId) {
@@ -397,6 +429,23 @@ export const EvaluationRow = observer(
             <InvocationId
               invocationId={row.execution_metadata?.invocation_id}
             />
+          </TableCell>
+
+          {/* Experiment ID */}
+          <TableCell className="py-3 text-xs">
+            <ExperimentId
+              experimentId={row.execution_metadata?.experiment_id}
+            />
+          </TableCell>
+
+          {/* Run ID */}
+          <TableCell className="py-3 text-xs">
+            <RunId runId={row.execution_metadata?.run_id} />
+          </TableCell>
+
+          {/* Row ID */}
+          <TableCell className="py-3 text-xs">
+            <RowId rowId={row.input_metadata?.row_id} />
           </TableCell>
 
           {/* Rollout ID */}

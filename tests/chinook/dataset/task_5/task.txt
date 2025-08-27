@@ -1,0 +1,1 @@
+Create a genre popularity matrix by country. Show genre name, revenue by country (USA, Canada, Germany, France, Brazil), total revenue, unique customers, and revenue percentage of total sales.

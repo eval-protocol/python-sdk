@@ -1,4 +1,5 @@
 import { observer } from "mobx-react";
+import { useMemo, useCallback } from "react";
 import PivotTable from "./PivotTable";
 import ChartExport from "./ChartExport";
 import SearchableSelect from "./SearchableSelect";
@@ -154,17 +155,38 @@ const PivotTab = observer(() => {
     showColumnTotals: true,
   });
 
-  const updateValueField = (value: string) => {
+  // Memoize field handlers to prevent unnecessary re-renders
+  const rowFieldHandlers = useMemo(
+    () =>
+      createFieldHandlerSet(pivotConfig.selectedRowFields, (fields) =>
+        updatePivotConfig({ selectedRowFields: fields })
+      ),
+    [pivotConfig.selectedRowFields]
+  );
+
+  const columnFieldHandlers = useMemo(
+    () =>
+      createFieldHandlerSet(pivotConfig.selectedColumnFields, (fields) =>
+        updatePivotConfig({ selectedColumnFields: fields })
+      ),
+    [pivotConfig.selectedColumnFields]
+  );
+
+  const updateValueField = useCallback((value: string) => {
     updatePivotConfig({ selectedValueField: value });
-  };
+  }, []);
 
-  const updateAggregator = (value: string) => {
+  const updateAggregator = useCallback((value: string) => {
     updatePivotConfig({ selectedAggregator: value });
-  };
+  }, []);
 
-  const updateFilters = (filters: FilterGroup[]) => {
+  const updateFilters = useCallback((filters: FilterGroup[]) => {
     updateFilterConfig(filters);
-  };
+  }, []);
+
+  // Memoize data and filter function to prevent unnecessary re-renders
+  const flattenedDataset = useMemo(() => getFlattenedDataset(), []);
+  const filterFunction = useMemo(() => createFilterFunction(), []);
 
   return (
     <div>
@@ -190,9 +212,7 @@ const PivotTab = observer(() => {
       <FieldSelector
         title="Row Fields"
         fields={pivotConfig.selectedRowFields}
-        {...createFieldHandlerSet(pivotConfig.selectedRowFields, (fields) =>
-          updatePivotConfig({ selectedRowFields: fields })
-        )}
+        {...rowFieldHandlers}
         availableKeys={availableKeys}
         variant="row"
       />
@@ -200,9 +220,7 @@ const PivotTab = observer(() => {
       <FieldSelector
         title="Column Fields"
         fields={pivotConfig.selectedColumnFields}
-        {...createFieldHandlerSet(pivotConfig.selectedColumnFields, (fields) =>
-          updatePivotConfig({ selectedColumnFields: fields })
-        )}
+        {...columnFieldHandlers}
         availableKeys={availableKeys}
         variant="column"
       />
@@ -237,27 +255,26 @@ const PivotTab = observer(() => {
       */}
 
       {/* Chart Export Component */}
-      {pivotData.hasValidConfiguration && (
-        <ChartExport
-          pivotData={pivotData.pivotResult}
-          rowFields={pivotData.rowFields}
-          columnFields={pivotData.columnFields}
-          valueField={pivotData.valueField}
-          aggregator={pivotData.aggregator}
-          showRowTotals
-          showColumnTotals
-        />
-      )}
-
-      <PivotTable
-        data={getFlattenedDataset()}
+      <ChartExport
+        pivotData={pivotData.pivotResult}
         rowFields={pivotData.rowFields}
         columnFields={pivotData.columnFields}
         valueField={pivotData.valueField}
         aggregator={pivotData.aggregator}
         showRowTotals
         showColumnTotals
-        filter={createFilterFunction()}
+        hidden={!pivotData.hasValidConfiguration}
+      />
+
+      <PivotTable
+        data={flattenedDataset}
+        rowFields={pivotData.rowFields}
+        columnFields={pivotData.columnFields}
+        valueField={pivotData.valueField}
+        aggregator={pivotData.aggregator}
+        showRowTotals
+        showColumnTotals
+        filter={filterFunction}
       />
     </div>
   );

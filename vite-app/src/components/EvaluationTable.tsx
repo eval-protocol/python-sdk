@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableHead,
   TableBody as TableBodyBase,
+  SortableTableHeader,
 } from "./TableContainer";
 
 const TableBody = observer(
@@ -49,6 +50,10 @@ export const EvaluationTable = observer(() => {
 
   const handleFiltersChange = (filters: any[]) => {
     state.updateFilterConfig(filters);
+  };
+
+  const handleSort = (field: string) => {
+    state.handleSortFieldClick(field);
   };
 
   return (
@@ -160,14 +165,94 @@ export const EvaluationTable = observer(() => {
             <TableHead>
               <tr>
                 <TableHeader className="w-8">&nbsp;</TableHeader>
-                <TableHeader>Name</TableHeader>
-                <TableHeader>Eval Status</TableHeader>
-                <TableHeader>Rollout Status</TableHeader>
-                <TableHeader>Invocation ID</TableHeader>
-                <TableHeader>Rollout ID</TableHeader>
-                <TableHeader>Model</TableHeader>
-                <TableHeader>Score</TableHeader>
-                <TableHeader>Created</TableHeader>
+                <SortableTableHeader
+                  sortField="$.eval_metadata.name"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Name
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="$.eval_metadata.status.code"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Eval Status
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="$.rollout_status.code"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Rollout Status
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="$.execution_metadata.invocation_id"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Invocation ID
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="$.execution_metadata.experiment_id"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Experiment ID
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="$.execution_metadata.run_id"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Run ID
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="$.input_metadata.row_id"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Row ID
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="$.execution_metadata.rollout_id"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Rollout ID
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="$.input_metadata.completion_params.model"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Model
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="$.evaluation_result.score"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Score
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="created_at"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Created
+                </SortableTableHeader>
               </tr>
             </TableHead>
 

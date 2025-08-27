@@ -11,8 +11,9 @@ from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 from openai.types.chat.chat_completion import Choice as ChatCompletionChoice
-
+from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.google import GoogleModel
 from pydantic import TypeAdapter
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai._utils import generate_tool_call_id
@@ -61,10 +62,19 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
                 )
             kwargs = {}
             for k, v in config.completion_params["model"].items():
-                kwargs[k] = OpenAIModel(
-                    v["model"],
-                    provider=v["provider"],
-                )
+                if v["model"] and v["model"].startswith("anthropic:"):
+                    kwargs[k] = AnthropicModel(
+                        v["model"].removeprefix("anthropic:"),
+                    )
+                elif v["model"] and v["model"].startswith("google:"):
+                    kwargs[k] = GoogleModel(
+                        v["model"].removeprefix("google:"),
+                    )
+                else:
+                    kwargs[k] = OpenAIModel(
+                        v["model"],
+                        provider=v["provider"],
+                    )
             agent = setup_agent(**kwargs)
             model = None
         else:
