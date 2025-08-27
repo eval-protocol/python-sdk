@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Dict
 
 import pytest
@@ -660,3 +661,35 @@ def test_stable_hash_across_subprocess():
 
     assert isinstance(child_hash, int)
     assert parent_hash == child_hash
+
+def test_evaluation_row_extra_fields():
+    example = {
+        "messages": [
+            {"role": "user", "content": "What is the capital of France?"},
+            {"role": "assistant", "content": "The capital of France is Paris."},
+        ],
+        "ground_truth": "Paris",
+        "evaluation_result": {"score": 1.0, "reason": "Correct"},
+        "input_metadata": {"model": "gpt-4"},
+        "eval": {"score": 0.5},
+        "eval_details": {
+            "score": 0.5,
+            "reason": "Correct",
+            "is_score_valid": True,
+            "metrics": {
+                "accuracy": {
+                    "score": 1.0,
+                    "reason": "Correct",
+                    "is_score_valid": True,
+                },
+            },
+        },
+        "extra_fields": {
+            "test": "test",
+        },
+    }
+    row = EvaluationRow(**example)
+    dictionary = json.loads(row.model_dump_json())
+    assert "eval" in dictionary
+    assert "accuracy" in dictionary["eval_details"]["metrics"]
+    assert "test" in dictionary["extra_fields"]
