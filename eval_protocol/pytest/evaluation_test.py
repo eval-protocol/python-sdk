@@ -72,12 +72,13 @@ from eval_protocol.types.types import TerminationReason
 from ..common_utils import load_jsonl
 
 from pytest import StashKey
+from typing_extensions import Literal
 
 
 EXPERIMENT_LINKS_STASH_KEY = StashKey[list]()
 
 
-def _store_experiment_link(experiment_id: str, job_link: str, status: str):
+def _store_experiment_link(experiment_id: str, job_link: str, status: Literal["success", "failure"]):
     """Store experiment link in pytest session stash."""
     try:
         import sys
