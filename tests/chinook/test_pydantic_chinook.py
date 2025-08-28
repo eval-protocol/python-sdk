@@ -32,8 +32,7 @@ LLM_JUDGE_PROMPT = (
             }
         },
     ],
-    rollout_processor=PydanticAgentRolloutProcessor(),
-    rollout_processor_kwargs={"agent": setup_agent},
+    rollout_processor=PydanticAgentRolloutProcessor(setup_agent),
     mode="pointwise",
 )
 async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
@@ -96,8 +95,7 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
             }
         },
     ],
-    rollout_processor=PydanticAgentRolloutProcessor(),
-    rollout_processor_kwargs={"agent": setup_agent},
+    rollout_processor=PydanticAgentRolloutProcessor(setup_agent),
     mode="pointwise",
 )
 async def test_complex_queries(row: EvaluationRow) -> EvaluationRow:

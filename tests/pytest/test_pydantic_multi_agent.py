@@ -59,7 +59,7 @@ def setup_agent(joke_generation_model: Model, joke_selection_model: Model) -> Ag
             },
         },
     ],
-    rollout_processor=PydanticAgentRolloutProcessor.__init__(
+    rollout_processor=PydanticAgentRolloutProcessor(
         setup_agent, UsageLimits(request_limit=5, total_tokens_limit=1000)
     ),
     mode="pointwise",

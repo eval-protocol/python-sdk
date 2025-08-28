@@ -14,10 +14,9 @@ agent = Agent()
 @evaluation_test(
     input_messages=[Message(role="user", content="Hello, how are you?")],
     completion_params=[
-        {"model": "accounts/fireworks/models/gpt-oss-120b", "provider": "fireworks"},
+        {"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"},
     ],
-    rollout_processor=PydanticAgentRolloutProcessor(),
-    rollout_processor_kwargs={"agent": agent},
+    rollout_processor=PydanticAgentRolloutProcessor(agent),
     mode="pointwise",
 )
 async def test_pydantic_agent(row: EvaluationRow) -> EvaluationRow:

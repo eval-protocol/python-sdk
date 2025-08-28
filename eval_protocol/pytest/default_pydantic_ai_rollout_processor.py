@@ -25,7 +25,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.providers.openai import OpenAIProvider
-from typing_extensions import Callable
+from typing import Callable, Union
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
     """Rollout processor for Pydantic AI agents. Mainly converts
     EvaluationRow.messages to and from Pydantic AI ModelMessage format."""
 
-    def __init__(self, setup_agent: Callable[..., Agent], usage_limits: UsageLimits = None):
+    def __init__(self, setup_agent: Union[Callable[..., Agent], Agent], usage_limits: UsageLimits = None):
         # dummy model used for its helper functions for processing messages
         self.util = OpenAIModel("dummy-model", provider=OpenAIProvider(api_key="dummy"))
         self.setup_agent = setup_agent
@@ -58,9 +58,29 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
             "azure_ai": "azure",
         }
         provider = model_name.split("/")[0]
+        model_name = model_name.removeprefix(f"{provider}/")
         if provider in mapping:
             provider = mapping[provider]
-        return provider  # type: ignore
+        return provider, model_name
+
+    def _map_litellm_to_pydantic_ai_model(self, model_name: str) -> Union[OpenAIModel, GoogleModel, AnthropicModel]:
+        if model_name.startswith("anthropic/"):
+            return AnthropicModel(
+                model_name.removeprefix("anthropic/"),
+            )
+        elif model_name.startswith("google/"):
+            return GoogleModel(
+                model_name.removeprefix("google/"),
+            )
+        elif model_name.startswith("gemini/"):
+            return GoogleModel(
+                model_name.removeprefix("gemini/"),
+            )
+        provider, model_name = self._map_litellm_to_pydantic_ai(model_name)
+        return OpenAIModel(
+            model_name,
+            provider=provider,
+        )
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Create agent rollout tasks and return them for external handling."""
@@ -68,53 +88,17 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
         max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        # validate that the "agent" field is present with a valid Pydantic AI Agent instance in the completion_params dict
-        if "agent" not in config.kwargs:
-            raise ValueError("kwargs must contain an 'agent' field with a valid Pydantic AI Agent instance")
-        if not isinstance(config.kwargs["agent"], Agent) and not isinstance(
-            config.kwargs["agent"], types.FunctionType
-        ):
-            raise ValueError(
-                "kwargs['agent'] must be a valid Pydantic AI Agent instance or a function that returns an Agent"
-            )
-
-        if isinstance(config.kwargs["agent"], types.FunctionType):
-            setup_agent = config.kwargs["agent"]
-            if not isinstance(config.completion_params["model"], dict):
-                raise ValueError(
-                    "completion_params['model'] must be a dict mapping agent argument names to model config dicts (with 'model' and 'provider' keys)"
-                )
+        if isinstance(self.setup_agent, types.FunctionType):
             kwargs: dict[str, OpenAIModel | GoogleModel | AnthropicModel] = {}
             for agent, model_config in config.completion_params["model"].items():
                 if "model" not in model_config:
                     raise ValueError(f"model_config for agent {agent} must contain a 'model' key")
-                model_name = model_config["model"]
-                if model_name.startswith("anthropic/"):
-                    kwargs[agent] = AnthropicModel(
-                        model_name.removeprefix("anthropic/"),
-                    )
-                elif model_name.startswith("google/"):
-                    kwargs[agent] = GoogleModel(
-                        model_name.removeprefix("google/"),
-                    )
-                elif model_name.startswith("gemini/"):
-                    kwargs[agent] = GoogleModel(
-                        model_name.removeprefix("gemini/"),
-                    )
-                else:
-                    provider = self._map_litellm_to_pydantic_ai(model_name)
-                    kwargs[agent] = OpenAIModel(
-                        model_name.removeprefix(f"{provider}/"),
-                        provider=provider,
-                    )
-            agent = setup_agent(**kwargs)
+                kwargs[agent] = self._map_litellm_to_pydantic_ai_model(model_config["model"])
+            agent = self.setup_agent(**kwargs)
             model = None
         else:
-            agent = config.kwargs["agent"]
-            model = OpenAIModel(
-                config.completion_params["model"],
-                provider=config.completion_params["provider"],
-            )
+            agent = self.setup_agent
+            model = self._map_litellm_to_pydantic_ai_model(config.completion_params["model"])
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with agent rollout."""
