@@ -331,7 +331,7 @@ def postprocess(
                     fireworks_api_key = get_auth_value("FIREWORKS_API_KEY")
                     fireworks_account_id = get_auth_value("FIREWORKS_ACCOUNT_ID")
 
-                    if not (fireworks_api_key and fireworks_account_id):
+                    if not fireworks_api_key and not fireworks_account_id:
                         _store_experiment_link(
                             experiment_id,
                             "No Fireworks API key AND account ID found",
