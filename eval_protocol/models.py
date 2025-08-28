@@ -223,12 +223,17 @@ class ChatCompletionContentPartTextParam(BaseModel):
     type: Literal["text"] = Field("text", description="The type of the content part.")
 
 
+
+
 class Message(BaseModel):
     """Chat message model with trajectory evaluation support."""
 
     role: str  # assistant, user, system, tool
     content: Optional[Union[str, List[ChatCompletionContentPartTextParam]]] = Field(
         default="", description="The content of the message."
+    )
+    reasoning_content: Optional[str] = Field(
+        default=None, description="Optional hidden chain-of-thought or reasoning content."
     )
     name: Optional[str] = None
     tool_call_id: Optional[str] = None

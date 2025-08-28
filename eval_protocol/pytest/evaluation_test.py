@@ -445,6 +445,22 @@ def evaluation_test(
                                     )
                                 else:
                                     r.eval_metadata.status = Status.eval_finished()
+                            # Optional debug print for assistant/tool sequence
+                            if os.getenv("EP_DEBUG_SERIALIZATION", "0").strip() == "1":
+                                try:
+                                    preview = [
+                                        {
+                                            "role": m.role,
+                                            "len": len(m.content or "") if isinstance(m.content, str) else None,
+                                            "tool_calls": len(m.tool_calls or []) if hasattr(m, "tool_calls") and isinstance(m.tool_calls, list) else 0,
+                                            "tool_call_id": getattr(m, "tool_call_id", None),
+                                            "name": getattr(m, "name", None),
+                                        }
+                                        for m in r.messages
+                                    ]
+                                    print("[EP-Log] Row messages:", preview)
+                                except Exception:
+                                    pass
                             active_logger.log(r)
 
                     # if rollout_processor is McpGymRolloutProcessor, we execute runs sequentially since McpGym does not support concurrent runs
