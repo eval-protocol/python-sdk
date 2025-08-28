@@ -17,6 +17,8 @@ import os
 from typing import Optional
 import json
 import pathlib
+import sys
+from pytest import StashKey
 
 
 def pytest_addoption(parser) -> None:
@@ -102,6 +104,15 @@ def pytest_addoption(parser) -> None:
         help=(
             "Override the standard error threshold for evaluation_test. "
             "Pass a float >= 0.0 (e.g., 0.05). If only this is set, success threshold defaults to 0.0."
+        ),
+    )
+    group.addoption(
+        "--ep-no-upload",
+        action="store_true",
+        default=False,
+        help=(
+            "Disable saving and uploading of detailed experiment JSON files to Fireworks. "
+            "Default: false (experiment JSONs are saved and uploaded by default)."
         ),
     )
 
@@ -229,6 +240,9 @@ def pytest_configure(config) -> None:
     if threshold_env is not None:
         os.environ["EP_PASSED_THRESHOLD"] = threshold_env
 
+    if config.getoption("--ep-no-upload"):
+        os.environ["EP_NO_UPLOAD"] = "1"
+
     # Allow ad-hoc overrides of input params via CLI flags
     try:
         merged: dict = {}
@@ -262,4 +276,32 @@ def pytest_configure(config) -> None:
             os.environ["EP_INPUT_PARAMS_JSON"] = json.dumps(merged)
     except Exception:
         # best effort, do not crash pytest session
+        pass
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Print all collected Fireworks experiment links from pytest stash."""
+    try:
+        from .evaluation_test import EXPERIMENT_LINKS_STASH_KEY
+
+        # Get links from pytest stash using shared key
+        links = []
+
+        if EXPERIMENT_LINKS_STASH_KEY in session.stash:
+            links = session.stash[EXPERIMENT_LINKS_STASH_KEY]
+
+        if links:
+            print("\n" + "=" * 80, file=sys.__stderr__)
+            print("🔥 FIREWORKS EXPERIMENT LINKS", file=sys.__stderr__)
+            print("=" * 80, file=sys.__stderr__)
+
+            for link in links:
+                if link["status"] == "success":
+                    print(f"🔗 Experiment {link['experiment_id']}: {link['job_link']}", file=sys.__stderr__)
+                else:
+                    print(f"❌ Experiment {link['experiment_id']}: {link['job_link']}", file=sys.__stderr__)
+
+            print("=" * 80, file=sys.__stderr__)
+            sys.__stderr__.flush()
+    except Exception as e:
         pass
