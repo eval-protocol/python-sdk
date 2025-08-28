@@ -5,6 +5,6 @@
   "python.testing.autoTestDiscoverOnSaveEnabled": true,
   "python.defaultInterpreterPath": "./.venv/bin/python",
   "python.testing.cwd": "${workspaceFolder}",
-  "editor.defaultFormatter": "ms-python.black-formatter",
-  "cursorpyright.analysis.typeCheckingMode": "recommended"
+  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.diagnosticMode": "workspace"
 }

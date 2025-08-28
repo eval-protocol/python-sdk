@@ -2,30 +2,32 @@ import asyncio
 import logging
 import types
 from typing import List, Literal
+from typing import Callable, Union
 
-from openai.types.chat.chat_completion_assistant_message_param import ChatCompletionAssistantMessageParam
-
-from eval_protocol.models import EvaluationRow, Message
-from eval_protocol.pytest.rollout_processor import RolloutProcessor
-from eval_protocol.pytest.types import RolloutProcessorConfig
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 from openai.types.chat.chat_completion import Choice as ChatCompletionChoice
-from pydantic_ai.models.anthropic import AnthropicModel
-from pydantic_ai.models.openai import OpenAIModel
-from pydantic_ai.models.google import GoogleModel
+from openai.types.chat.chat_completion_assistant_message_param import (
+    ChatCompletionAssistantMessageParam,
+)
 from pydantic import TypeAdapter
-from pydantic_ai.messages import ModelMessage
-from pydantic_ai._utils import generate_tool_call_id
 from pydantic_ai import Agent
-from pydantic_ai.usage import UsageLimits
+from pydantic_ai._utils import generate_tool_call_id
+from pydantic_ai.messages import ModelMessage
 from pydantic_ai.messages import (
     ModelRequest,
     SystemPromptPart,
     ToolReturnPart,
     UserPromptPart,
 )
+from pydantic_ai.models.anthropic import AnthropicModel
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
-from typing import Callable, Union
+from pydantic_ai.usage import UsageLimits
+
+from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
+from eval_protocol.pytest.types import RolloutProcessorConfig
 
 logger = logging.getLogger(__name__)
 
@@ -40,17 +42,7 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
         self.setup_agent = setup_agent
         self.usage_limits = usage_limits
 
-    def _map_litellm_to_pydantic_ai(
-        self, model_name: str
-    ) -> Literal[
-        "openai",
-        "deepseek",
-        "azure",
-        "openrouter",
-        "grok",
-        "fireworks",
-        "together",
-    ]:
+    def _map_litellm_to_pydantic_ai(self, model_name: str) -> str:
         mapping = {
             "fireworks_ai": "fireworks",
             "together_ai": "together",
@@ -61,7 +53,7 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
         model_name = model_name.removeprefix(f"{provider}/")
         if provider in mapping:
             provider = mapping[provider]
-        return provider, model_name
+        return 2
 
     def _map_litellm_to_pydantic_ai_model(self, model_name: str) -> Union[OpenAIModel, GoogleModel, AnthropicModel]:
         if model_name.startswith("anthropic/"):
