@@ -1,19 +1,14 @@
 import asyncio
-import copy
 import inspect
 import json
 import math
 import os
 import pathlib
-import re
 import statistics
 import time
-from dataclasses import replace
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
 from collections import defaultdict
-import hashlib
-import ast
-from mcp.types import Completion
+from typing import Any, Callable
+
 import pytest
 
 from eval_protocol.dataset_logger import default_logger
@@ -21,7 +16,6 @@ from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.human_id import generate_id, num_combinations
 from eval_protocol.models import (
     CompletionParams,
-    ErrorInfo,
     EvalMetadata,
     EvaluationRow,
     EvaluationThreshold,
@@ -32,6 +26,7 @@ from eval_protocol.models import (
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
+from eval_protocol.pytest.exception_config import ExceptionHandlerConfig
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import (
     Dataset,
@@ -39,7 +34,6 @@ from eval_protocol.pytest.types import (
     EvaluationInputParam,
     EvaluationTestMode,
     InputMessagesParam,
-    ModelParam,
     RolloutProcessorConfig,
     RolloutProcessorInputParam,
     TestFunction,
@@ -48,29 +42,26 @@ from eval_protocol.pytest.utils import (
     AggregationMethod,
     aggregate,
     create_dynamically_parameterized_wrapper,
-    deep_update_dict,
     extract_effort_tag,
     generate_parameter_combinations,
     log_eval_status_and_rows,
-    parse_ep_max_rows,
-    parse_ep_max_concurrent_rollouts,
-    parse_ep_num_runs,
     parse_ep_completion_params,
+    parse_ep_max_concurrent_rollouts,
+    parse_ep_max_rows,
+    parse_ep_num_runs,
     parse_ep_passed_threshold,
     rollout_processor_with_retry,
     sanitize_filename,
 )
-from eval_protocol.pytest.exception_config import ExceptionHandlerConfig
 from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
-from eval_protocol.types.types import TerminationReason
 
 from ..common_utils import load_jsonl
 
 
 def postprocess(
-    all_results: List[List[EvaluationRow]],
+    all_results: list[list[EvaluationRow]],
     aggregation_method: AggregationMethod,
-    threshold: Optional[EvaluationThreshold],
+    threshold: EvaluationThreshold | None,
     active_logger: DatasetLogger,
     mode: EvaluationTestMode,
     completion_params: CompletionParams,
@@ -85,6 +76,7 @@ def postprocess(
     # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
     ci_low: float | None = None
     ci_high: float | None = None
+    standard_error: float | None = None
     if aggregation_method == "mean":
         try:
             result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
@@ -127,12 +119,12 @@ def postprocess(
         should_print = os.getenv("EP_PRINT_SUMMARY") == "1"
         summary_path = os.getenv("EP_SUMMARY_JSON")
         suite_name = test_func_name
-        model_used = completion_params["model"]
+        model_used = completion_params["model"]  # pyright: ignore[reportAny]
         total_rows = len([item for sublist in all_results for item in sublist])
         summary_obj = {
             "suite": suite_name,
             "model": model_used,
-            "agg_score": float(agg_score) if agg_score is not None else None,
+            "agg_score": float(agg_score),
             "num_runs": num_runs,
             "rows": total_rows,
         }
@@ -142,13 +134,13 @@ def postprocess(
             summary_obj["standard_error"] = standard_error
 
         # Aggregate per-metric mean and 95% CI when available
-        metrics_summary: Dict[str, Dict[str, float]] = {}
+        metrics_summary: dict[str, dict[str, float]] = {}
 
-        metric_scores: Dict[str, list] = defaultdict(list)
+        metric_scores: dict[str, list[float]] = defaultdict(list)
         for r in [item for sublist in all_results for item in sublist]:
             if r.evaluation_result and r.evaluation_result.metrics:
                 for m_name, m_res in r.evaluation_result.metrics.items():
-                    if m_res is not None and getattr(m_res, "score", None) is not None:
+                    if getattr(m_res, "score", None) is not None:
                         metric_scores[m_name].append(m_res.score)
         for m_name, vals in metric_scores.items():
             if len(vals) == 0:
@@ -166,7 +158,7 @@ def postprocess(
                 except Exception:
                     m_low = None
                     m_high = None
-            entry: Dict[str, float] = {"mean": float(m_mean)}
+            entry: dict[str, float] = {"mean": float(m_mean)}
             if m_low is not None and m_high is not None:
                 entry["ci_low"] = float(m_low)
                 entry["ci_high"] = float(m_high)
@@ -184,6 +176,8 @@ def postprocess(
                 )
             # As per project convention, avoid printing per-metric CI lines to reduce noise
         if summary_path:
+            if not isinstance(model_used, str):
+                raise ValueError(f"Model used is not a string: {model_used}")
             model_slug = sanitize_filename(model_used)
             effort_tag = extract_effort_tag(completion_params) or ""
             effort_suffix = f"__effort-{sanitize_filename(effort_tag)}" if effort_tag else ""
@@ -240,29 +234,29 @@ def postprocess(
             )
 
 
-def evaluation_test(  # noqa: C901
+def evaluation_test(
     *,
-    completion_params: List[CompletionParams] = [None],
-    input_messages: Optional[List[InputMessagesParam]] = None,
-    input_dataset: Optional[List[DatasetPathParam]] = None,
-    input_rows: Optional[List[EvaluationRow]] = None,
-    dataset_adapter: Callable[[List[Dict[str, Any]]], Dataset] = default_dataset_adapter,
-    rollout_processor: RolloutProcessor = NoOpRolloutProcessor(),
-    evaluation_test_kwargs: Optional[List[EvaluationInputParam]] = None,
-    rollout_processor_kwargs: Optional[RolloutProcessorInputParam] = None,
+    completion_params: list[CompletionParams | None] | None = None,
+    input_messages: list[InputMessagesParam] | None = None,
+    input_dataset: list[DatasetPathParam] | None = None,
+    input_rows: list[EvaluationRow] | None = None,
+    dataset_adapter: Callable[[list[dict[str, Any]]], Dataset] = default_dataset_adapter,  # pyright: ignore[reportExplicitAny]
+    rollout_processor: RolloutProcessor | None = None,
+    evaluation_test_kwargs: list[EvaluationInputParam] | None = None,
+    rollout_processor_kwargs: RolloutProcessorInputParam | None = None,
     aggregation_method: AggregationMethod = "mean",
-    passed_threshold: Optional[Union[EvaluationThreshold, float, dict]] = None,
+    passed_threshold: EvaluationThreshold | float | dict[str, Any] | None = None,  # pyright: ignore[reportExplicitAny]
     num_runs: int = 1,
-    max_dataset_rows: Optional[int] = None,
-    mcp_config_path: Optional[str] = None,
+    max_dataset_rows: int | None = None,
+    mcp_config_path: str | None = None,
     max_concurrent_rollouts: int = 8,
     max_concurrent_evaluations: int = 64,
-    server_script_path: Optional[str] = None,
+    server_script_path: str | None = None,
     steps: int = 30,
     mode: EvaluationTestMode = "pointwise",
     combine_datasets: bool = True,
-    logger: Optional[DatasetLogger] = None,
-    exception_handler_config: Optional[ExceptionHandlerConfig] = None,
+    logger: DatasetLogger | None = None,
+    exception_handler_config: ExceptionHandlerConfig | None = None,
 ) -> Callable[
     [TestFunction],
     TestFunction,
@@ -343,6 +337,10 @@ def evaluation_test(  # noqa: C901
     num_runs = parse_ep_num_runs(num_runs)
     max_concurrent_rollouts = parse_ep_max_concurrent_rollouts(max_concurrent_rollouts)
     max_dataset_rows = parse_ep_max_rows(max_dataset_rows)
+    if completion_params is None:
+        completion_params = [None]
+    if rollout_processor is None:
+        rollout_processor = NoOpRolloutProcessor()
     completion_params = parse_ep_completion_params(completion_params)
     original_completion_params = completion_params
     passed_threshold = parse_ep_passed_threshold(passed_threshold)
