@@ -1,0 +1,202 @@
+from collections import defaultdict
+import configparser
+import json
+import os
+from pathlib import Path
+import pathlib
+import re
+from typing import Any
+
+from eval_protocol.models import EvaluationRow
+from eval_protocol.pytest.store_experiment_link import store_experiment_link
+import requests
+
+
+def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: str):
+    try:
+        # Default is to save and upload experiment JSONL files, unless explicitly disabled
+        should_save_and_upload = os.getenv("EP_NO_UPLOAD") != "1"
+
+        if should_save_and_upload:
+            current_run_rows = [item for sublist in all_results for item in sublist]
+            if current_run_rows:
+                experiments: dict[str, list[EvaluationRow]] = defaultdict(list)
+                for row in current_run_rows:
+                    if row.execution_metadata and row.execution_metadata.experiment_id:
+                        experiments[row.execution_metadata.experiment_id].append(row)
+
+                exp_dir = pathlib.Path("experiment_results")
+                exp_dir.mkdir(parents=True, exist_ok=True)
+
+                # Create one JSONL file per experiment_id
+                for experiment_id, exp_rows in experiments.items():
+                    if not experiment_id or not exp_rows:
+                        continue
+
+                    # Generate dataset name (sanitize for Fireworks API compatibility)
+                    # API requires: lowercase a-z, 0-9, and hyphen (-) only
+                    safe_experiment_id = re.sub(r"[^a-zA-Z0-9-]", "-", experiment_id).lower()
+                    safe_test_func_name = re.sub(r"[^a-zA-Z0-9-]", "-", test_func_name).lower()
+                    dataset_name = f"{safe_test_func_name}-{safe_experiment_id}"
+
+                    if len(dataset_name) > 63:
+                        dataset_name = dataset_name[:63]
+
+                    exp_file = exp_dir / f"{experiment_id}.jsonl"
+                    with open(exp_file, "w", encoding="utf-8") as f:
+                        for row in exp_rows:
+                            row_data = row.model_dump(exclude_none=True, mode="json")
+
+                            if row.evaluation_result:
+                                row_data["evals"] = {"score": row.evaluation_result.score}
+
+                                row_data["eval_details"] = {
+                                    "score": row.evaluation_result.score,
+                                    "is_score_valid": row.evaluation_result.is_score_valid,
+                                    "reason": row.evaluation_result.reason or "",
+                                    "metrics": {
+                                        name: metric.model_dump() if metric else {}
+                                        for name, metric in (row.evaluation_result.metrics or {}).items()
+                                    },
+                                }
+                            else:
+                                # Default values if no evaluation result
+                                row_data["evals"] = {"score": 0}
+                                row_data["eval_details"] = {
+                                    "score": 0,
+                                    "is_score_valid": True,
+                                    "reason": "No evaluation result",
+                                    "metrics": {},
+                                }
+
+                            json.dump(row_data, f, ensure_ascii=False)
+                            f.write("\n")
+
+                    def get_auth_value(key: str) -> str | None:
+                        """Get auth value from config file or environment."""
+                        try:
+                            config_path = Path.home() / ".fireworks" / "auth.ini"
+                            if config_path.exists():
+                                config = configparser.ConfigParser()  # noqa: F821
+                                config.read(config_path)
+                                for section in ["DEFAULT", "auth"]:
+                                    if config.has_section(section) and config.has_option(section, key):
+                                        return config.get(section, key)
+                        except Exception:
+                            pass
+                        return os.getenv(key)
+
+                    fireworks_api_key = get_auth_value("FIREWORKS_API_KEY")
+                    fireworks_account_id = get_auth_value("FIREWORKS_ACCOUNT_ID")
+
+                    if not fireworks_api_key and not fireworks_account_id:
+                        store_experiment_link(
+                            experiment_id,
+                            "No Fireworks API key AND account ID found",
+                            "failure",
+                        )
+                        continue
+                    elif not fireworks_api_key:
+                        store_experiment_link(
+                            experiment_id,
+                            "No Fireworks API key found",
+                            "failure",
+                        )
+                        continue
+                    elif not fireworks_account_id:
+                        store_experiment_link(
+                            experiment_id,
+                            "No Fireworks account ID found",
+                            "failure",
+                        )
+                        continue
+
+                    headers = {"Authorization": f"Bearer {fireworks_api_key}", "Content-Type": "application/json"}
+
+                    # Make dataset first
+                    dataset_url = f"https://api.fireworks.ai/v1/accounts/{fireworks_account_id}/datasets"
+
+                    dataset_payload = {  # pyright: ignore[reportUnknownVariableType]
+                        "dataset": {
+                            "displayName": dataset_name,
+                            "evalProtocol": {},
+                            "format": "FORMAT_UNSPECIFIED",
+                            "exampleCount": f"{len(exp_rows)}",
+                        },
+                        "datasetId": dataset_name,
+                    }
+
+                    dataset_response = requests.post(dataset_url, json=dataset_payload, headers=headers)  # pyright: ignore[reportUnknownArgumentType]
+
+                    # Skip if dataset creation failed
+                    if dataset_response.status_code not in [200, 201]:
+                        store_experiment_link(
+                            experiment_id,
+                            f"Dataset creation failed: {dataset_response.status_code} {dataset_response.text}",
+                            "failure",
+                        )
+                        continue
+
+                    dataset_data: dict[str, Any] = dataset_response.json()  # pyright: ignore[reportAny, reportExplicitAny]
+                    dataset_id = dataset_data.get("datasetId", dataset_name)  # pyright: ignore[reportAny]
+
+                    # Upload the JSONL file content
+                    upload_url = (
+                        f"https://api.fireworks.ai/v1/accounts/{fireworks_account_id}/datasets/{dataset_id}:upload"
+                    )
+                    upload_headers = {"Authorization": f"Bearer {fireworks_api_key}"}
+
+                    with open(exp_file, "rb") as f:
+                        files = {"file": f}
+                        upload_response = requests.post(upload_url, files=files, headers=upload_headers)
+
+                    # Skip if upload failed
+                    if upload_response.status_code not in [200, 201]:
+                        store_experiment_link(
+                            experiment_id,
+                            f"File upload failed: {upload_response.status_code} {upload_response.text}",
+                            "failure",
+                        )
+                        continue
+
+                    # Create evaluation job (optional - don't skip experiment if this fails)
+                    eval_job_url = f"https://api.fireworks.ai/v1/accounts/{fireworks_account_id}/evaluationJobs"
+                    # Truncate job ID to fit 63 character limit
+                    job_id_base = f"{dataset_name}-job"
+                    if len(job_id_base) > 63:
+                        # Keep the "-job" suffix and truncate the dataset_name part
+                        max_dataset_name_len = 63 - 4  # 4 = len("-job")
+                        truncated_dataset_name = dataset_name[:max_dataset_name_len]
+                        job_id_base = f"{truncated_dataset_name}-job"
+
+                    eval_job_payload = {
+                        "evaluationJobId": job_id_base,
+                        "evaluationJob": {
+                            "evaluator": f"accounts/{fireworks_account_id}/evaluators/dummy",
+                            "inputDataset": f"accounts/{fireworks_account_id}/datasets/dummy",
+                            "outputDataset": f"accounts/{fireworks_account_id}/datasets/{dataset_id}",
+                        },
+                    }
+
+                    eval_response = requests.post(eval_job_url, json=eval_job_payload, headers=headers)
+
+                    if eval_response.status_code in [200, 201]:
+                        eval_job_data = eval_response.json()  # pyright: ignore[reportAny]
+                        job_id = eval_job_data.get("evaluationJobId", job_id_base)  # pyright: ignore[reportAny]
+
+                        store_experiment_link(
+                            experiment_id,
+                            f"https://app.fireworks.ai/dashboard/evaluation-jobs/{job_id}",
+                            "success",
+                        )
+                    else:
+                        store_experiment_link(
+                            experiment_id,
+                            f"Job creation failed: {eval_response.status_code} {eval_response.text}",
+                            "failure",
+                        )
+
+    except Exception as e:
+        # Do not fail evaluation if experiment JSONL writing fails
+        print(f"Warning: Failed to persist results: {e}")
+        pass

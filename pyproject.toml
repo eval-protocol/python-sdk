@@ -210,3 +210,4 @@ include = ["eval_protocol", "examples", "tests"]
 exclude = ["vite-app", "vendor"]
 # Ignore diagnostics for vendored generator code
 ignore = ["versioneer.py"]
+reportUnusedCallResult = "none"
