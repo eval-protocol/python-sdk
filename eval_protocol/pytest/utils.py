@@ -6,7 +6,7 @@ from dataclasses import replace
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
-from eval_protocol.models import EvalMetadata, EvaluationRow, Status
+from eval_protocol.models import EvalMetadata, EvaluationRow, EvaluationThreshold, EvaluationThresholdDict, Status
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import (
     CompletionParams,
@@ -141,7 +141,7 @@ def log_eval_status_and_rows(
             logger.log(r)
 
 
-def parse_ep_max_rows(default_value: Optional[int]) -> Optional[int]:
+def parse_ep_max_rows(default_value: int | None) -> int | None:
     """Read EP_MAX_DATASET_ROWS env override as int or None.
 
     Assumes the environment variable was already validated by plugin.py.
@@ -171,42 +171,49 @@ def parse_ep_max_concurrent_rollouts(default_value: int) -> int:
     return int(raw) if raw is not None else default_value
 
 
-def parse_ep_completion_params(completion_params: List[CompletionParams]) -> List[CompletionParams]:
+def parse_ep_completion_params(
+    completion_params: list[CompletionParams | None] | None,
+) -> list[CompletionParams | None]:
     """Apply EP_INPUT_PARAMS_JSON overrides to completion_params.
 
     Reads the environment variable set by plugin.py and applies deep merge to each completion param.
     """
+    if completion_params is None:
+        return []
     try:
         _env_override = os.getenv("EP_INPUT_PARAMS_JSON")
         if _env_override:
-            override_obj = json.loads(_env_override)
+            override_obj = json.loads(_env_override)  # pyright: ignore[reportAny]
             if isinstance(override_obj, dict):
                 # Apply override to each completion_params item
-                return [deep_update_dict(dict(cp), override_obj) for cp in completion_params]
+                return [deep_update_dict(dict(cp), override_obj) for cp in completion_params if cp is not None]
     except Exception:
         pass
     return completion_params
 
 
-def parse_ep_passed_threshold(default_value: Optional[Union[float, dict]]) -> Optional[Union[float, dict]]:
+def parse_ep_passed_threshold(
+    default_value: float | EvaluationThresholdDict | EvaluationThreshold | None,
+) -> EvaluationThreshold | None:
     """Read EP_PASSED_THRESHOLD env override as float or dict.
 
     Assumes the environment variable was already validated by plugin.py.
     Supports both float values (e.g., "0.8") and JSON dict format (e.g., '{"success":0.8}').
     """
     raw = os.getenv("EP_PASSED_THRESHOLD")
-    if raw is None:
+    if raw is not None:
+        try:
+            success_value = float(raw)
+            return EvaluationThreshold(success=success_value)
+        except ValueError:
+            raise ValueError(f"EP_PASSED_THRESHOLD env var exists but can't be parsed: {raw}")
+    if isinstance(default_value, float):
+        return EvaluationThreshold(success=default_value)
+    if isinstance(default_value, dict):
+        return EvaluationThreshold(**default_value)
+    if isinstance(default_value, EvaluationThreshold):
         return default_value
-
-    try:
-        return float(raw)
-    except ValueError:
-        pass
-
-    try:
-        return json.loads(raw)
-    except (json.JSONDecodeError, TypeError, ValueError) as e:
-        raise ValueError(f"EP_PASSED_THRESHOLD env var exists but can't be parsed: {raw}") from e
+    return None
 
 
 def deep_update_dict(base: dict, override: dict) -> dict:
@@ -219,15 +226,24 @@ def deep_update_dict(base: dict, override: dict) -> dict:
     return base
 
 
+CombinationTuple = tuple[
+    list[DatasetPathParam] | None,
+    CompletionParams | None,
+    InputMessagesParam | None,
+    list[EvaluationRow] | None,
+    EvaluationInputParam | None,
+]
+
+
 def generate_parameter_combinations(
-    input_dataset: Optional[List[DatasetPathParam]],
-    completion_params: List[CompletionParams],
-    input_messages: Optional[List[InputMessagesParam]],
-    input_rows: Optional[List[EvaluationRow]],
-    evaluation_test_kwargs: Optional[List[EvaluationInputParam]],
-    max_dataset_rows: Optional[int],
+    input_dataset: list[DatasetPathParam] | None,
+    completion_params: list[CompletionParams | None],
+    input_messages: list[InputMessagesParam | None] | None,
+    input_rows: list[EvaluationRow] | None,
+    evaluation_test_kwargs: list[EvaluationInputParam | None] | None,
+    max_dataset_rows: int | None,
     combine_datasets: bool,
-) -> List[tuple]:
+) -> list[CombinationTuple]:
     """
     Generate all combinations of parameters for pytest parameterization.
 
@@ -243,54 +259,51 @@ def generate_parameter_combinations(
     Returns:
         List of parameter tuples for pytest.mark.parametrize
     """
-    combinations = []
-
     # Handle optional parameters with defaults
     # Optionally combine multiple dataset paths into one logical dataset,
     # or parameterize to run one dataset per test invocation.
+    datasets: list[list[DatasetPathParam] | None] = []
     if input_dataset is not None:
         if combine_datasets:
-            datasets: List[Optional[List[DatasetPathParam]]] = [input_dataset]  # type: ignore
+            datasets = [input_dataset]
         else:
             # Fan out: one dataset path per parameterization
-            if isinstance(input_dataset, list):  # type: ignore
-                datasets = [[p] for p in input_dataset]  # type: ignore
+            if input_dataset:
+                datasets = [[p] for p in input_dataset]
             else:
-                datasets = [[input_dataset]]  # type: ignore
-    else:
-        datasets = [None]
+                datasets = [None]
 
-    cps: List[Optional[CompletionParams]] = completion_params if completion_params is not None else [None]  # type: ignore
+    cps: list[CompletionParams | None] = completion_params
 
     # Apply EP_MAX_DATASET_ROWS to input_messages, but do NOT parameterize over
     # each row. Instead, pass the entire sliced list through in a single test run
     # so summaries aggregate all rows together (AIME-style behavior).
-    if input_messages is not None and isinstance(input_messages, list):
+    messages: list[InputMessagesParam | None] = [None]
+    if input_messages is not None:
         effective_max_rows = parse_ep_max_rows(max_dataset_rows)
         if effective_max_rows is not None:
-            sliced_messages = input_messages[:effective_max_rows]  # type: ignore
+            sliced_messages: list[InputMessagesParam | None] = input_messages[:effective_max_rows]
         else:
-            sliced_messages = input_messages  # type: ignore
+            sliced_messages = input_messages
         # Wrap as a single parameter payload
-        messages = [sliced_messages]  # type: ignore
-    else:
-        messages = [None]  # type: ignore
+        messages = sliced_messages
 
+    rows: list[list[EvaluationRow] | None] = [None]
     # Handle input_rows - similar to input_messages, apply max_dataset_rows if specified
-    if input_rows is not None and isinstance(input_rows, list):
+    if input_rows is not None:
         effective_max_rows = parse_ep_max_rows(max_dataset_rows)
         if effective_max_rows is not None:
-            sliced_rows = input_rows[:effective_max_rows]  # type: ignore
+            sliced_rows = input_rows[:effective_max_rows]
         else:
-            sliced_rows = input_rows  # type: ignore
+            sliced_rows = input_rows
         # Wrap as a single parameter payload
-        rows = [sliced_rows]  # type: ignore
-    else:
-        rows = [None]  # type: ignore
+        rows = [sliced_rows]
 
-    kwargs: List[Optional[EvaluationInputParam]] = (
+    kwargs: list[EvaluationInputParam | None] = (
         evaluation_test_kwargs if evaluation_test_kwargs is not None else [None]
-    )  # type: ignore
+    )
+
+    combinations: list[CombinationTuple] = []
 
     # Generate all combinations
     for ds in datasets:

@@ -19,10 +19,13 @@ from eval_protocol.models import (
     EvalMetadata,
     EvaluationRow,
     EvaluationThreshold,
+    EvaluationThresholdDict,
     InputMetadata,
     Message,
     Status,
 )
+from eval_protocol.pytest.parameterize import pytest_parametrize
+from eval_protocol.pytest.validate_signature import validate_signature
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
@@ -38,6 +41,8 @@ from eval_protocol.pytest.types import (
     RolloutProcessorInputParam,
     TestFunction,
 )
+
+
 from eval_protocol.pytest.utils import (
     AggregationMethod,
     aggregate,
@@ -237,15 +242,15 @@ def postprocess(
 def evaluation_test(
     *,
     completion_params: list[CompletionParams | None] | None = None,
-    input_messages: list[InputMessagesParam] | None = None,
+    input_messages: list[InputMessagesParam | None] | None = None,
     input_dataset: list[DatasetPathParam] | None = None,
     input_rows: list[EvaluationRow] | None = None,
     dataset_adapter: Callable[[list[dict[str, Any]]], Dataset] = default_dataset_adapter,  # pyright: ignore[reportExplicitAny]
     rollout_processor: RolloutProcessor | None = None,
-    evaluation_test_kwargs: list[EvaluationInputParam] | None = None,
+    evaluation_test_kwargs: list[EvaluationInputParam | None] | None = None,
     rollout_processor_kwargs: RolloutProcessorInputParam | None = None,
     aggregation_method: AggregationMethod = "mean",
-    passed_threshold: EvaluationThreshold | float | dict[str, Any] | None = None,  # pyright: ignore[reportExplicitAny]
+    passed_threshold: EvaluationThreshold | float | EvaluationThresholdDict | None = None,
     num_runs: int = 1,
     max_dataset_rows: int | None = None,
     mcp_config_path: str | None = None,
@@ -257,10 +262,7 @@ def evaluation_test(
     combine_datasets: bool = True,
     logger: DatasetLogger | None = None,
     exception_handler_config: ExceptionHandlerConfig | None = None,
-) -> Callable[
-    [TestFunction],
-    TestFunction,
-]:
+) -> Callable[[TestFunction], TestFunction]:
     """Decorator to create pytest-based evaluation tests.
 
     Here are some key concepts to understand the terminology in EP:
@@ -328,6 +330,10 @@ def evaluation_test(
         exception_handler_config: Configuration for exception handling and backoff retry logic.
             If not provided, a default configuration will be used with common retryable exceptions.
     """
+    if completion_params is None:
+        completion_params = [None]
+    if rollout_processor is None:
+        rollout_processor = NoOpRolloutProcessor()
 
     active_logger: DatasetLogger = logger if logger else default_logger
 
@@ -337,148 +343,40 @@ def evaluation_test(
     num_runs = parse_ep_num_runs(num_runs)
     max_concurrent_rollouts = parse_ep_max_concurrent_rollouts(max_concurrent_rollouts)
     max_dataset_rows = parse_ep_max_rows(max_dataset_rows)
-    if completion_params is None:
-        completion_params = [None]
-    if rollout_processor is None:
-        rollout_processor = NoOpRolloutProcessor()
     completion_params = parse_ep_completion_params(completion_params)
     original_completion_params = completion_params
     passed_threshold = parse_ep_passed_threshold(passed_threshold)
 
     def decorator(
         test_func: TestFunction,
-    ):
-        if passed_threshold is not None:
-            if isinstance(passed_threshold, float):
-                threshold = EvaluationThreshold(success=passed_threshold)
-            else:
-                threshold = EvaluationThreshold(**passed_threshold)
-        else:
-            threshold = None
-
+    ) -> TestFunction:
         sig = inspect.signature(test_func)
-
-        # For pointwise/groupwise mode, we expect a different signature
-        # we expect single row to be passed in as the original row
-        if mode == "pointwise":
-            # Pointwise mode: function should accept messages and other row-level params
-            if "row" not in sig.parameters:
-                raise ValueError("In pointwise mode, your eval function must have a parameter named 'row'")
-
-            # validate that "Row" is of type EvaluationRow
-            if sig.parameters["row"].annotation is not EvaluationRow:
-                raise ValueError("In pointwise mode, the 'row' parameter must be of type EvaluationRow")
-
-            # validate that the function has a return type of EvaluationRow
-            if sig.return_annotation is not EvaluationRow:
-                raise ValueError("In pointwise mode, your eval function must return an EvaluationRow instance")
-
-            # additional check for groupwise evaluation
-        elif mode == "groupwise":
-            if "rows" not in sig.parameters:
-                raise ValueError("In groupwise mode, your eval function must have a parameter named 'rows'")
-
-            # validate that "Rows" is of type List[EvaluationRow]
-            if sig.parameters["rows"].annotation is not List[EvaluationRow]:
-                raise ValueError("In groupwise mode, the 'rows' parameter must be of type List[EvaluationRow")
-
-            # validate that the function has a return type of List[EvaluationRow]
-            if sig.return_annotation is not List[EvaluationRow]:
-                raise ValueError("In groupwise mode, your eval function must return a list of EvaluationRow instances")
-            if len(completion_params) < 2:
-                raise ValueError("In groupwise mode, you must provide at least 2 completion parameters")
-        else:
-            # all mode: function should accept input_dataset and model
-            if "rows" not in sig.parameters:
-                raise ValueError("In all mode, your eval function must have a parameter named 'rows'")
-
-            # validate that "Rows" is of type List[EvaluationRow]
-            if sig.parameters["rows"].annotation is not List[EvaluationRow]:
-                raise ValueError("In all mode, the 'rows' parameter must be of type List[EvaluationRow")
-
-            # validate that the function has a return type of List[EvaluationRow]
-            if sig.return_annotation is not List[EvaluationRow]:
-                raise ValueError("In all mode, your eval function must return a list of EvaluationRow instances")
-
-        async def execute_with_params(
-            test_func: TestFunction,
-            processed_row: EvaluationRow | None = None,
-            processed_dataset: List[EvaluationRow] | None = None,
-            evaluation_test_kwargs: Optional[EvaluationInputParam] = None,
-        ):
-            kwargs = {}
-            if processed_dataset is not None:
-                kwargs["rows"] = processed_dataset
-            if processed_row is not None:
-                kwargs["row"] = processed_row
-            if evaluation_test_kwargs is not None:
-                if "row" in evaluation_test_kwargs:
-                    raise ValueError("'row' is a reserved parameter for the evaluation function")
-                if "rows" in evaluation_test_kwargs:
-                    raise ValueError("'rows' is a reserved parameter for the evaluation function")
-                kwargs.update(evaluation_test_kwargs)
-
-            # Handle both sync and async test functions
-            if asyncio.iscoroutinefunction(test_func):
-                return await test_func(**kwargs)
-            else:
-                return test_func(**kwargs)
+        validate_signature(sig, mode, completion_params)
 
         # Calculate all possible combinations of parameters
-        if mode == "groupwise":
-            combinations = generate_parameter_combinations(
-                input_dataset,
-                completion_params,
-                input_messages,
-                input_rows,
-                evaluation_test_kwargs,
-                max_dataset_rows,
-                combine_datasets,
-            )
-        else:
-            combinations = generate_parameter_combinations(
-                input_dataset,
-                completion_params,
-                input_messages,
-                input_rows,
-                evaluation_test_kwargs,
-                max_dataset_rows,
-                combine_datasets,
-            )
+        combinations = generate_parameter_combinations(
+            input_dataset,
+            completion_params,
+            input_messages,
+            input_rows,
+            evaluation_test_kwargs,
+            max_dataset_rows,
+            combine_datasets,
+        )
         if len(combinations) == 0:
             raise ValueError(
                 "No combinations of parameters were found. Please provide at least a model and one of input_dataset, input_messages, or input_rows."
             )
 
         # Create parameter tuples for pytest.mark.parametrize
-        param_tuples = []
-        for combo in combinations:
-            dataset, cp, messages, rows, etk = combo
-            param_tuple = []
-            if input_dataset is not None:
-                param_tuple.append(dataset)
-            if completion_params is not None:
-                param_tuple.append(cp)
-            if input_messages is not None:
-                param_tuple.append(messages)
-            if input_rows is not None:
-                param_tuple.append(rows)
-            if evaluation_test_kwargs is not None:
-                param_tuple.append(etk)
-            param_tuples.append(tuple(param_tuple))
-
-        # For all mode, preserve the original parameter names
-        test_param_names = []
-        if input_dataset is not None:
-            test_param_names.append("dataset_path")
-        if completion_params is not None:
-            test_param_names.append("completion_params")
-        if input_messages is not None:
-            test_param_names.append("input_messages")
-        if input_rows is not None:
-            test_param_names.append("input_rows")
-        if evaluation_test_kwargs is not None:
-            test_param_names.append("evaluation_test_kwargs")
+        pytest_parametrize_args = pytest_parametrize(
+            combinations,
+            input_dataset,
+            completion_params,
+            input_messages,
+            input_rows,
+            evaluation_test_kwargs,
+        )
 
         # Create wrapper function with exact signature that pytest expects
         def create_wrapper_with_signature() -> Callable:
@@ -613,7 +511,7 @@ def evaluation_test(
                                 # NOTE: we will still evaluate errored rows (give users control over this)
                                 # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
                                 if "row" in inner_kwargs:
-                                    result = await execute_with_params(
+                                    result = await execute_pytest(
                                         test_func,
                                         processed_row=inner_kwargs["row"],
                                         evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
@@ -624,7 +522,7 @@ def evaluation_test(
                                         )
                                     return result
                                 if "rows" in inner_kwargs:
-                                    results = await execute_with_params(
+                                    results = await execute_pytest(
                                         test_func,
                                         processed_dataset=inner_kwargs["rows"],
                                         evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
@@ -696,7 +594,7 @@ def evaluation_test(
                                 input_dataset.append(row)
                             # NOTE: we will still evaluate errored rows (give users control over this)
                             # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
-                            results = await execute_with_params(
+                            results = await execute_pytest(
                                 test_func,
                                 processed_dataset=input_dataset,
                                 evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
@@ -795,7 +693,7 @@ def evaluation_test(
 
         # Create the pytest wrapper
         pytest_wrapper = create_wrapper_with_signature()
-        pytest_wrapper = pytest.mark.parametrize(test_param_names, param_tuples)(pytest_wrapper)
+        pytest_wrapper = pytest.mark.parametrize(**pytest_parametrize_args)(pytest_wrapper)
         pytest_wrapper = pytest.mark.asyncio(pytest_wrapper)
 
         def create_dual_mode_wrapper() -> Callable:

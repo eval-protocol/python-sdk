@@ -439,9 +439,17 @@ class EvaluationThreshold(BaseModel):
     success: float = Field(
         ..., description="Minimum success rate threshold (fraction of total score, 0.0 to 1.0)", ge=0.0, le=1.0
     )
-    standard_error: Optional[float] = Field(
-        None, description="Maximum standard error threshold (fraction of total score, 0.0 to 1.0)", ge=0.0, le=1.0
+    standard_error: float | None = Field(
+        default=None,
+        description="Maximum standard error threshold (fraction of total score, 0.0 to 1.0)",
+        ge=0.0,
+        le=1.0,
     )
+
+
+class EvaluationThresholdDict(TypedDict):
+    success: float
+    standard_error: float | None
 
 
 class EvalMetadata(BaseModel):

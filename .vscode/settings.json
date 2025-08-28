@@ -6,5 +6,9 @@
   "python.defaultInterpreterPath": "./.venv/bin/python",
   "python.testing.cwd": "${workspaceFolder}",
   "cursorpyright.analysis.diagnosticMode": "openFilesOnly",
-  "editor.defaultFormatter": "charliermarsh.ruff"
+  "editor.defaultFormatter": "charliermarsh.ruff",
+  "editor.formatOnSave": true,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  }
 }
