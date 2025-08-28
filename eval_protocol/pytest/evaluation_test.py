@@ -280,6 +280,9 @@ def postprocess(
                     safe_test_func_name = re.sub(r"[^a-zA-Z0-9-]", "-", test_func_name).lower()
                     dataset_name = f"{safe_test_func_name}-{safe_experiment_id}"
 
+                    if len(dataset_name) > 63:
+                        dataset_name = dataset_name[:63]
+
                     exp_file = exp_dir / f"{experiment_id}.jsonl"
                     with open(exp_file, "w", encoding="utf-8") as f:
                         for row in exp_rows:
@@ -302,7 +305,7 @@ def postprocess(
                                 row_data["evals"] = {"score": 0}
                                 row_data["eval_details"] = {
                                     "score": 0,
-                                    "is_score_valid": False,
+                                    "is_score_valid": True,
                                     "reason": "No evaluation result",
                                     "metrics": {},
                                 }
@@ -338,6 +341,7 @@ def postprocess(
                                 "displayName": dataset_name,
                                 "evalProtocol": {},
                                 "format": "FORMAT_UNSPECIFIED",
+                                "exampleCount": f"{len(exp_rows)}",
                             },
                             "datasetId": dataset_name,
                         }
