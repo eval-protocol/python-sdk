@@ -47,8 +47,8 @@ from eval_protocol.pytest.types import (
 from eval_protocol.pytest.utils import (
     AggregationMethod,
     aggregate,
+    calculate_cost_metrics_for_row,
     create_dynamically_parameterized_wrapper,
-    deep_update_dict,
     extract_effort_tag,
     generate_parameter_combinations,
     log_eval_status_and_rows,
@@ -633,7 +633,11 @@ def evaluation_test(  # noqa: C901
                                         processed_dataset=inner_kwargs["rows"],
                                         evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                                     )
-                                    if results is None or not isinstance(results, list):
+                                    if (
+                                        results is None
+                                        or not isinstance(results, list)
+                                        or not all(isinstance(r, EvaluationRow) for r in results)
+                                    ):
                                         raise ValueError(
                                             f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
                                         )
@@ -724,6 +728,8 @@ def evaluation_test(  # noqa: C901
                             all_results[i] = results
 
                         for r in results:
+                            calculate_cost_metrics_for_row(r)
+                            print(r.execution_metadata.cost_metrics)
                             if r.eval_metadata is not None:
                                 if r.rollout_status.is_error():
                                     r.eval_metadata.status = Status.error(

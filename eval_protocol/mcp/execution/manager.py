@@ -126,7 +126,7 @@ class ExecutionManager:
 
                 evaluation_row.messages = messages
                 evaluation_row.tools = shared_tool_schema
-                evaluation_row.usage = CompletionUsage(**trajectory.usage)
+                evaluation_row.execution_metadata.usage = CompletionUsage(**trajectory.usage)
                 evaluation_row.input_metadata.completion_params = {
                     "model": policy.model_id,
                     "temperature": getattr(policy, "temperature", None),
