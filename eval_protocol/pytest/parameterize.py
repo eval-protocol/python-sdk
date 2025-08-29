@@ -44,7 +44,6 @@ def pytest_parametrize(
         argnames.append("evaluation_test_kwargs")
 
     argvalues: list[ParameterSet | Sequence[object] | object] = []
-    param_tuples: list[tuple[object, ...]] = []
     for combo in combinations:
         dataset, cp, messages, rows, etk = combo
         param_tuple: list[object] = []
@@ -63,7 +62,7 @@ def pytest_parametrize(
             raise ValueError(
                 f"The length of argnames ({len(argnames)}) is not the same as the length of param_tuple ({len(param_tuple)})"
             )
-        param_tuples.append(tuple(param_tuple))
+        argvalues.append(tuple(param_tuple))
 
     return PytestParametrizeArgs(argnames=argnames, argvalues=argvalues)
 
