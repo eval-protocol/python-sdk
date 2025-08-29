@@ -35,7 +35,7 @@ def setup_agent(joke_generation_model: Model, joke_selection_model: Model) -> Ag
     joke_generation_agent = Agent(joke_generation_model, output_type=list[str])
 
     @joke_selection_agent.tool
-    async def joke_factory(ctx: RunContext[None], count: int) -> list[str]:
+    async def joke_factory(ctx: RunContext[None], count: int) -> list[str]:  # pyright: ignore[reportUnusedFunction]
         r = await joke_generation_agent.run(
             f"Please generate {count} jokes.",
             usage=ctx.usage,
@@ -47,7 +47,7 @@ def setup_agent(joke_generation_model: Model, joke_selection_model: Model) -> Ag
 
 @pytest.mark.asyncio
 @evaluation_test(
-    input_messages=[Message(role="user", content="Tell me a joke.")],
+    input_messages=[[Message(role="user", content="Tell me a joke.")]],
     completion_params=[
         {
             "model": {
