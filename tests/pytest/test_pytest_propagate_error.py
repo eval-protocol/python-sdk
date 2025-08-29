@@ -1,19 +1,23 @@
-from typing import Set
+from typing_extensions import override
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.default_agent_rollout_processor import AgentRolloutProcessor
-from eval_protocol.dataset_logger import DatasetLogger
+from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 
 
 class TrackingLogger(DatasetLogger):
     """Custom logger that ensures that the final row is in an error state."""
 
     def __init__(self, rollouts: dict[str, EvaluationRow]):
-        self.rollouts = rollouts
+        self.rollouts: dict[str, EvaluationRow] = rollouts
 
+    @override
     def log(self, row: EvaluationRow):
+        if row.execution_metadata.rollout_id is None:
+            raise ValueError("Rollout ID is None")
         self.rollouts[row.execution_metadata.rollout_id] = row
 
-    def read(self):
+    @override
+    def read(self, row_id: str | None = None) -> list[EvaluationRow]:
         return []
 
 
@@ -56,11 +60,16 @@ async def test_pytest_propagate_error():
 
     # Manually invoke all parameter combinations within a single test
     for params in completion_params_list:
-        await eval_fn(input_messages=input_messages, completion_params=params)
+        await eval_fn(input_messages=input_messages[0], completion_params=params)  # pyright: ignore[reportCallIssue]
 
     # assert that the status of eval_metadata.status is "error"
     assert len(rollouts) == 5
-    assert all(row.eval_metadata.status.is_error() for row in rollouts.values())
+    for row in rollouts.values():
+        if row.eval_metadata is None:
+            raise ValueError("Row has no eval_metadata")
+        if row.eval_metadata.status is None:
+            raise ValueError("Eval metadata has no status")
+        assert row.eval_metadata.status.is_error()
 
     # make sure the error message includes details of the error
     assert all("HTTPStatusError" in row.rollout_status.message for row in rollouts.values())
