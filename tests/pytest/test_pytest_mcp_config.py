@@ -8,15 +8,17 @@ from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
 @evaluation_test(
     input_messages=[
         [
-            Message(
-                role="user",
-                content=(
-                    "Can you give me a summary of every channel. "
-                    "You can list servers and channels using the "
-                    "list_servers and get_channels tools. And you can "
-                    "read messages using the read_messages tool."
-                ),
-            )
+            [
+                Message(
+                    role="user",
+                    content=(
+                        "Can you give me a summary of every channel. "
+                        "You can list servers and channels using the "
+                        "list_servers and get_channels tools. And you can "
+                        "read messages using the read_messages tool."
+                    ),
+                )
+            ]
         ]
     ],
     rollout_processor=AgentRolloutProcessor(),
@@ -77,7 +79,7 @@ async def test_pytest_tools_are_added_to_row():
     logger = TrackingLogger(rollouts)
 
     @evaluation_test(
-        input_messages=input_messages,
+        input_messages=[input_messages],
         completion_params=completion_params_list,
         rollout_processor=AgentRolloutProcessor(),
         mode="pointwise",

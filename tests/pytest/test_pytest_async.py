@@ -7,11 +7,13 @@ from eval_protocol.pytest import evaluation_test
 @evaluation_test(
     input_messages=[
         [
-            Message(role="user", content="What is the capital of France?"),
-        ],
-        [
-            Message(role="user", content="What is the capital of the moon?"),
-        ],
+            [
+                Message(role="user", content="What is the capital of France?"),
+            ],
+            [
+                Message(role="user", content="What is the capital of the moon?"),
+            ],
+        ]
     ],
     completion_params=[{"model": "accounts/fireworks/models/kimi-k2-instruct"}],
     mode="all",

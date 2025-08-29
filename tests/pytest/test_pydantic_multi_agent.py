@@ -47,7 +47,7 @@ def setup_agent(joke_generation_model: Model, joke_selection_model: Model) -> Ag
 
 @pytest.mark.asyncio
 @evaluation_test(
-    input_messages=[[Message(role="user", content="Tell me a joke.")]],
+    input_messages=[[[Message(role="user", content="Tell me a joke.")]]],
     completion_params=[
         {
             "model": {

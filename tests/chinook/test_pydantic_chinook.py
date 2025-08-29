@@ -21,7 +21,7 @@ LLM_JUDGE_PROMPT = (
 
 @pytest.mark.asyncio
 @evaluation_test(
-    input_messages=[[Message(role="user", content="What is the total number of tracks in the database?")]],
+    input_messages=[[[Message(role="user", content="What is the total number of tracks in the database?")]]],
     completion_params=[
         {
             "model": {

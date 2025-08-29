@@ -62,7 +62,7 @@ from ..common_utils import load_jsonl
 def evaluation_test(
     *,
     completion_params: Sequence[CompletionParams | None] | None = None,
-    input_messages: Sequence[InputMessagesParam | None] | None = None,
+    input_messages: Sequence[list[InputMessagesParam] | None] | None = None,
     input_dataset: Sequence[DatasetPathParam] | None = None,
     input_rows: Sequence[list[EvaluationRow]] | None = None,
     dataset_adapter: Callable[[list[dict[str, Any]]], Dataset] = default_dataset_adapter,  # pyright: ignore[reportExplicitAny]
@@ -232,7 +232,7 @@ def evaluation_test(
                     elif "input_messages" in kwargs and kwargs["input_messages"] is not None:
                         # Support either a single row (List[Message]) or many rows (List[List[Message]])
                         im = kwargs["input_messages"]
-                        data = [EvaluationRow(messages=im)]
+                        data = [EvaluationRow(messages=dataset_messages) for dataset_messages in im]
                     elif "input_rows" in kwargs and kwargs["input_rows"] is not None:
                         # Use pre-constructed EvaluationRow objects directly
                         data = kwargs["input_rows"]

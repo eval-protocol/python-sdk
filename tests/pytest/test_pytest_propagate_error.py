@@ -47,7 +47,7 @@ async def test_pytest_propagate_error():
     logger = TrackingLogger(rollouts)
 
     @evaluation_test(
-        input_messages=input_messages,
+        input_messages=[input_messages],
         completion_params=completion_params_list,
         rollout_processor=AgentRolloutProcessor(),
         mode="pointwise",

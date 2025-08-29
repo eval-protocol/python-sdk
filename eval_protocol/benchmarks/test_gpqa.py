@@ -2,7 +2,6 @@ import asyncio
 import csv
 import io
 import re
-from typing import List
 
 import requests
 
@@ -20,12 +19,12 @@ SYSTEM_PROMPT = (
 )
 
 
-def _load_gpqa_messages_from_csv() -> List[List[Message]]:
+def _load_gpqa_messages_from_csv() -> list[list[list[Message]]]:
     url = "https://openaipublic.blob.core.windows.net/simple-evals/gpqa_diamond.csv"
     resp = requests.get(url, timeout=60)
     resp.raise_for_status()
 
-    messages_list: List[List[Message]] = []
+    messages_list: list[list[Message]] = []
     reader = csv.DictReader(io.StringIO(resp.text))
     for ex in reader:
         q = str(ex.get("Question", ""))
@@ -45,7 +44,7 @@ def _load_gpqa_messages_from_csv() -> List[List[Message]]:
         )
     if not messages_list:
         raise RuntimeError("Failed to load GPQA messages: no rows found from source")
-    return messages_list
+    return [messages_list]
 
 
 def _extract_abcd_letter(text: str) -> str | None:
@@ -58,7 +57,7 @@ def _extract_abcd_letter(text: str) -> str | None:
 _GPQA_INPUT_MESSAGES = _load_gpqa_messages_from_csv()
 
 
-def _strip_gt_messages(msgs: List[Message]) -> List[Message]:
+def _strip_gt_messages(msgs: list[Message]) -> list[Message]:
     return [m for m in msgs if not (m.role == "system" and (m.content or "").startswith("__GT__:"))]
 
 
@@ -69,9 +68,9 @@ class GPQAStripGTRolloutProcessor(RolloutProcessor):
         super().__init__()
         self.single_turn_processor = SingleTurnRolloutProcessor()
 
-    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+    def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
         """Preprocess rows and delegate to SingleTurnRolloutProcessor."""
-        processed: List[EvaluationRow] = []
+        processed: list[EvaluationRow] = []
 
         for r in rows:
             gt_tokens = [

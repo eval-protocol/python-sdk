@@ -18,7 +18,7 @@ def pytest_parametrize(
     combinations: list[CombinationTuple],
     input_dataset: Sequence[DatasetPathParam] | None,
     completion_params: Sequence[CompletionParams | None] | None,
-    input_messages: Sequence[InputMessagesParam | None] | None,
+    input_messages: Sequence[list[InputMessagesParam] | None] | None,
     input_rows: Sequence[list[EvaluationRow]] | None,
     evaluation_test_kwargs: Sequence[EvaluationInputParam | None] | None,
 ) -> PytestParametrizeArgs:

@@ -18,7 +18,7 @@ CompletionParamsKwarg = CompletionParams | None
 Either a single completion params object or None.
 """
 
-InputMessagesKwarg = InputMessagesParam | None
+InputMessagesKwarg = list[InputMessagesParam] | None
 InputRowsKwarg = Dataset | None
 EvaluationTestKwargs = EvaluationInputParam | None
 
@@ -47,7 +47,7 @@ class ParameterizedTestKwargs(TypedDict):
 def generate_parameter_combinations(
     input_dataset: Sequence[DatasetPathParam] | None,
     completion_params: Sequence[CompletionParams | None],
-    input_messages: Sequence[InputMessagesParam | None] | None,
+    input_messages: Sequence[list[InputMessagesParam] | None] | None,
     input_rows: Sequence[list[EvaluationRow] | None] | None,
     evaluation_test_kwargs: Sequence[EvaluationInputParam | None] | None,
     max_dataset_rows: int | None,
@@ -83,11 +83,15 @@ def generate_parameter_combinations(
     # Apply EP_MAX_DATASET_ROWS to input_messages, but do NOT parameterize over
     # each row. Instead, pass the entire sliced list through in a single test run
     # so summaries aggregate all rows together (AIME-style behavior).
-    messages: Sequence[InputMessagesParam | None] = [None]
+    messages: Sequence[list[InputMessagesParam] | None] = [None]
     if input_messages is not None:
         effective_max_rows = parse_ep_max_rows(max_dataset_rows)
         if effective_max_rows is not None:
-            sliced_messages: Sequence[InputMessagesParam | None] = input_messages[:effective_max_rows]
+            sliced_messages: Sequence[list[InputMessagesParam] | None] = [
+                dataset_messages[:effective_max_rows]
+                for dataset_messages in input_messages
+                if dataset_messages is not None
+            ]
         else:
             sliced_messages = input_messages
         # Wrap as a single parameter payload
