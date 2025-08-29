@@ -22,8 +22,7 @@ repos:
     -   id: ruff-format
     -   id: ruff
         args: ["--fix"]
-
--   repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.403
+-   repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
+    rev: 1.31.3
     hooks:
-    -   id: pyright
+    -   id: basedpyright
