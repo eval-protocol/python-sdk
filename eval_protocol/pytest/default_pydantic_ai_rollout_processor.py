@@ -1,15 +1,14 @@
+# pyright: reportPrivateUsage=false
+
 import asyncio
 import logging
 import types
-from typing import List
-
-from attr import dataclass
-from openai.types.chat.chat_completion_assistant_message_param import ChatCompletionAssistantMessageParam
-
+from pydantic_ai.models import Model
+from typing_extensions import override
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
-from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
+from openai.types.chat import ChatCompletion, ChatCompletionMessage, ChatCompletionMessageParam
 from openai.types.chat.chat_completion import Choice as ChatCompletionChoice
 from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.openai import OpenAIModel
@@ -25,7 +24,6 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.providers.openai import OpenAIProvider
-from typing_extensions import TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +34,10 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
 
     def __init__(self):
         # dummy model used for its helper functions for processing messages
-        self.util = OpenAIModel("dummy-model", provider=OpenAIProvider(api_key="dummy"))
+        self.util: OpenAIModel = OpenAIModel("dummy-model", provider=OpenAIProvider(api_key="dummy"))
 
-    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+    @override
+    def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
         """Create agent rollout tasks and return them for external handling."""
 
         max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
@@ -60,34 +59,34 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
                 raise ValueError(
                     "completion_params['model'] must be a dict mapping agent argument names to model config dicts (with 'model' and 'provider' keys)"
                 )
-            kwargs = {}
-            for k, v in config.completion_params["model"].items():
-                if v["model"] and v["model"].startswith("anthropic:"):
+            kwargs: dict[str, Model] = {}
+            for k, v in config.completion_params["model"].items():  # pyright: ignore[reportUnknownVariableType]
+                if v["model"] and v["model"].startswith("anthropic:"):  # pyright: ignore[reportUnknownMemberType]
                     kwargs[k] = AnthropicModel(
-                        v["model"].removeprefix("anthropic:"),
+                        v["model"].removeprefix("anthropic:"),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
                     )
-                elif v["model"] and v["model"].startswith("google:"):
+                elif v["model"] and v["model"].startswith("google:"):  # pyright: ignore[reportUnknownMemberType]
                     kwargs[k] = GoogleModel(
-                        v["model"].removeprefix("google:"),
+                        v["model"].removeprefix("google:"),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
                     )
                 else:
                     kwargs[k] = OpenAIModel(
-                        v["model"],
-                        provider=v["provider"],
+                        v["model"],  # pyright: ignore[reportUnknownArgumentType]
+                        provider=v["provider"],  # pyright: ignore[reportUnknownArgumentType]
                     )
-            agent = setup_agent(**kwargs)
+            agent_instance: Agent = setup_agent(**kwargs)  # pyright: ignore[reportAny]
             model = None
         else:
-            agent = config.kwargs["agent"]
+            agent_instance = config.kwargs["agent"]  # pyright: ignore[reportAssignmentType]
             model = OpenAIModel(
-                config.completion_params["model"],
-                provider=config.completion_params["provider"],
+                config.completion_params["model"],  # pyright: ignore[reportAny]
+                provider=config.completion_params["provider"],  # pyright: ignore[reportAny]
             )
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with agent rollout."""
             model_messages = [self.convert_ep_message_to_pyd_message(m, row) for m in row.messages]
-            response = await agent.run(
+            response = await agent_instance.run(
                 message_history=model_messages, model=model, usage_limits=config.kwargs.get("usage_limits")
             )
             row.messages = await self.convert_pyd_message_to_ep_message(response.all_messages())
@@ -104,11 +103,11 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
 
     async def convert_pyd_message_to_ep_message(self, messages: list[ModelMessage]) -> list[Message]:
         oai_messages: list[ChatCompletionMessageParam] = await self.util._map_messages(messages)
-        return [Message(**m) for m in oai_messages]
+        return [Message(**m) for m in oai_messages]  # pyright: ignore[reportArgumentType]
 
     def convert_ep_message_to_pyd_message(self, message: Message, row: EvaluationRow) -> ModelMessage:
         if message.role == "assistant":
-            type_adapter = TypeAdapter(ChatCompletionAssistantMessageParam)
+            type_adapter = TypeAdapter(ChatCompletionMessage)
             oai_message = type_adapter.validate_python(message)
             # Fix: Provide required finish_reason and index, and ensure created is int (timestamp)
             return self.util._process_response(
@@ -117,11 +116,7 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
                     object="chat.completion",
                     model="",
                     id="",
-                    created=(
-                        int(row.created_at.timestamp())
-                        if hasattr(row.created_at, "timestamp")
-                        else int(row.created_at)
-                    ),
+                    created=int(row.created_at.timestamp()),
                 )
             )
         elif message.role == "user":
@@ -129,11 +124,15 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
                 return ModelRequest(parts=[UserPromptPart(content=message.content)])
             elif isinstance(message.content, list):
                 return ModelRequest(parts=[UserPromptPart(content=message.content[0].text)])
+            else:
+                raise ValueError(f"Unsupported content type for user message: {type(message.content)}")
         elif message.role == "system":
             if isinstance(message.content, str):
                 return ModelRequest(parts=[SystemPromptPart(content=message.content)])
             elif isinstance(message.content, list):
                 return ModelRequest(parts=[SystemPromptPart(content=message.content[0].text)])
+            else:
+                raise ValueError(f"Unsupported content type for system message: {type(message.content)}")
         elif message.role == "tool":
             return ModelRequest(
                 parts=[

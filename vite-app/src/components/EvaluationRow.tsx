@@ -402,6 +402,11 @@ export const EvaluationRow = observer(
             <ExpandIcon rolloutId={rolloutId} />
           </TableCell>
 
+          {/* Created */}
+          <TableCell className="py-3 text-xs">
+            <RowCreated created_at={row.created_at} />
+          </TableCell>
+
           {/* Name */}
           <TableCell className="py-3 text-xs">
             <RowName name={row.eval_metadata?.name} />
@@ -460,11 +465,6 @@ export const EvaluationRow = observer(
           {/* Score */}
           <TableCell className="py-3 text-xs">
             <RowScore score={row.evaluation_result?.score} />
-          </TableCell>
-
-          {/* Created */}
-          <TableCell className="py-3 text-xs">
-            <RowCreated created_at={row.created_at} />
           </TableCell>
         </TableRowInteractive>
 
