@@ -164,7 +164,6 @@ const RowStatus = observer(
 
 const ExperimentId = observer(
   ({ experimentId: experimentId }: { experimentId?: string }) => {
-    debugger;
     if (!experimentId) {
       return null;
     }

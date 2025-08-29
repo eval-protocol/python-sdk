@@ -1,3 +1,4 @@
+from typing_extensions import override
 import pytest
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
@@ -7,15 +8,17 @@ from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
 @evaluation_test(
     input_messages=[
         [
-            Message(
-                role="user",
-                content=(
-                    "Can you give me a summary of every channel. "
-                    "You can list servers and channels using the "
-                    "list_servers and get_channels tools. And you can "
-                    "read messages using the read_messages tool."
-                ),
-            )
+            [
+                Message(
+                    role="user",
+                    content=(
+                        "Can you give me a summary of every channel. "
+                        "You can list servers and channels using the "
+                        "list_servers and get_channels tools. And you can "
+                        "read messages using the read_messages tool."
+                    ),
+                )
+            ]
         ]
     ],
     rollout_processor=AgentRolloutProcessor(),
@@ -48,12 +51,16 @@ async def test_pytest_tools_are_added_to_row():
         """Custom logger that ensures that the final row is in an error state."""
 
         def __init__(self, rollouts: dict[str, EvaluationRow]):
-            self.rollouts = rollouts
+            self.rollouts: dict[str, EvaluationRow] = rollouts
 
+        @override
         def log(self, row: EvaluationRow):
+            if row.execution_metadata.rollout_id is None:
+                raise ValueError("Rollout ID is None")
             self.rollouts[row.execution_metadata.rollout_id] = row
 
-        def read(self):
+        @override
+        def read(self, row_id: str | None = None) -> list[EvaluationRow]:
             return []
 
     input_messages = [
@@ -72,7 +79,7 @@ async def test_pytest_tools_are_added_to_row():
     logger = TrackingLogger(rollouts)
 
     @evaluation_test(
-        input_messages=input_messages,
+        input_messages=[input_messages],
         completion_params=completion_params_list,
         rollout_processor=AgentRolloutProcessor(),
         mode="pointwise",
@@ -82,11 +89,13 @@ async def test_pytest_tools_are_added_to_row():
     def eval_fn(row: EvaluationRow) -> EvaluationRow:
         return row
 
-    await eval_fn(input_messages=input_messages, completion_params=completion_params_list[0])
+    await eval_fn(input_messages=input_messages, completion_params=completion_params_list[0])  # pyright: ignore[reportCallIssue]
 
     # ensure that the row has tools that were set during AgentRolloutProcessor
     assert len(rollouts) == 1
     row = list(rollouts.values())[0]
-    assert sorted([tool["function"].name for tool in row.tools]) == sorted(
+    if row.tools is None:
+        raise ValueError("Row has no tools")
+    assert sorted([tool["function"].name for tool in row.tools]) == sorted(  # pyright: ignore[reportAny]
         ["list_servers", "get_channels", "read_messages"]
     )

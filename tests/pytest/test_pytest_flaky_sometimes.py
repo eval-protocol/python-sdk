@@ -11,7 +11,7 @@ from eval_protocol.pytest import NoOpRolloutProcessor, evaluation_test
 # skip in CI since it will intentionally fail. This is useful for local generation of logs
 @pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping flaky test in CI")
 @evaluation_test(
-    input_messages=[[Message(role="user", content="Return HEADS or TAILS at random.")]],
+    input_messages=[[[Message(role="user", content="Return HEADS or TAILS at random.")]]],
     completion_params=[{"model": "dummy/local-model"}],
     rollout_processor=NoOpRolloutProcessor(),
     mode="pointwise",

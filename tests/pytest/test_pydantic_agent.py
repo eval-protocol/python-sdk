@@ -1,4 +1,3 @@
-import os
 import pytest
 
 from eval_protocol.models import EvaluationRow, Message
@@ -12,7 +11,7 @@ agent = Agent()
 
 @pytest.mark.asyncio
 @evaluation_test(
-    input_messages=[Message(role="user", content="Hello, how are you?")],
+    input_messages=[[[Message(role="user", content="Hello, how are you?")]]],
     completion_params=[
         {"model": "accounts/fireworks/models/gpt-oss-120b", "provider": "fireworks"},
     ],
