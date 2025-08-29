@@ -26,8 +26,10 @@ async def test_pytest_async(rows: list[EvaluationRow]) -> list[EvaluationRow]:
 @evaluation_test(
     input_messages=[
         [
-            Message(role="user", content="What is the capital of France?"),
-        ],
+            [
+                Message(role="user", content="What is the capital of France?"),
+            ],
+        ]
     ],
     completion_params=[{"model": "accounts/fireworks/models/kimi-k2-instruct"}],
     mode="pointwise",

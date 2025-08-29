@@ -89,7 +89,7 @@ async def test_pytest_tools_are_added_to_row():
     def eval_fn(row: EvaluationRow) -> EvaluationRow:
         return row
 
-    await eval_fn(input_messages=input_messages[0], completion_params=completion_params_list[0])  # pyright: ignore[reportCallIssue]
+    await eval_fn(input_messages=input_messages, completion_params=completion_params_list[0])  # pyright: ignore[reportCallIssue]
 
     # ensure that the row has tools that were set during AgentRolloutProcessor
     assert len(rollouts) == 1

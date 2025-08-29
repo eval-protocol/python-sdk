@@ -60,7 +60,7 @@ async def test_pytest_propagate_error():
 
     # Manually invoke all parameter combinations within a single test
     for params in completion_params_list:
-        await eval_fn(input_messages=input_messages[0], completion_params=params)  # pyright: ignore[reportCallIssue]
+        await eval_fn(input_messages=input_messages, completion_params=params)  # pyright: ignore[reportCallIssue]
 
     # assert that the status of eval_metadata.status is "error"
     assert len(rollouts) == 5
