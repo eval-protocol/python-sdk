@@ -322,10 +322,11 @@ def evaluation_test(
                             row: EvaluationRow,
                         ) -> EvaluationRow:
                             async with semaphore:
+                                evaluation_test_kwargs = kwargs.get("evaluation_test_kwargs") or {}
                                 result = await execute_pytest(
                                     test_func,
                                     processed_row=row,
-                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                    evaluation_test_kwargs=evaluation_test_kwargs,
                                 )
                                 if not isinstance(result, EvaluationRow):
                                     raise ValueError(
@@ -337,10 +338,11 @@ def evaluation_test(
                             rows: list[EvaluationRow],
                         ) -> list[EvaluationRow]:
                             async with semaphore:
+                                evaluation_test_kwargs = kwargs.get("evaluation_test_kwargs") or {}
                                 results = await execute_pytest(
                                     test_func,
                                     processed_dataset=rows,
-                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                    evaluation_test_kwargs=evaluation_test_kwargs,
                                 )
                                 if not isinstance(results, list):
                                     raise ValueError(
