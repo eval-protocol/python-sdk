@@ -3,10 +3,12 @@ import inspect
 import os
 import re
 from dataclasses import replace
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from typing import Any, Callable, List, Literal, Optional, Union
+
+from litellm import cost_per_token
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
-from eval_protocol.models import EvalMetadata, EvaluationRow, Status
+from eval_protocol.models import CostMetrics, EvalMetadata, EvaluationRow, Status
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import (
     CompletionParams,
@@ -435,3 +437,31 @@ def extract_effort_tag(params: dict) -> Optional[str]:
     except Exception:
         return None
     return None
+
+
+def calculate_cost_metrics_for_row(row: EvaluationRow) -> None:
+    """Calculate and set cost metrics for an EvaluationRow based on its usage data."""
+    if not row.execution_metadata.usage:
+        return
+
+    model_id = (
+        row.input_metadata.completion_params.get("model", "unknown")
+        if row.input_metadata.completion_params
+        else "unknown"
+    )
+    usage = row.execution_metadata.usage
+
+    input_tokens = usage.prompt_tokens or 0
+    output_tokens = usage.completion_tokens or 0
+
+    input_cost, output_cost = cost_per_token(
+        model=model_id, prompt_tokens=input_tokens, completion_tokens=output_tokens
+    )
+    total_cost = input_cost + output_cost
+
+    # Set all cost metrics on the row
+    row.execution_metadata.cost_metrics = CostMetrics(
+        input_cost_usd=input_cost,
+        output_cost_usd=output_cost,
+        total_cost_usd=total_cost,
+    )

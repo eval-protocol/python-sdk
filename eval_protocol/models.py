@@ -462,6 +462,16 @@ class EvalMetadata(BaseModel):
     passed: Optional[bool] = Field(None, description="Whether the evaluation passed based on the threshold")
 
 
+class CostMetrics(BaseModel):
+    """Cost metrics for LLM API calls."""
+
+    input_cost_usd: Optional[float] = Field(None, description="Cost in USD for input tokens.")
+
+    output_cost_usd: Optional[float] = Field(None, description="Cost in USD for output tokens.")
+
+    total_cost_usd: Optional[float] = Field(None, description="Total cost in USD for the API call.")
+
+
 class ExecutionMetadata(BaseModel):
     """Metadata about the execution of the evaluation."""
 
@@ -484,6 +494,12 @@ class ExecutionMetadata(BaseModel):
         None,
         description=("The ID of the run that this row belongs to."),
     )
+
+    usage: Optional[CompletionUsage] = Field(
+        default=None, description="Token usage statistics from LLM calls during execution."
+    )
+
+    cost_metrics: Optional[CostMetrics] = Field(default=None, description="Cost breakdown for LLM API calls.")
 
 
 class EvaluationRow(BaseModel):
@@ -530,11 +546,6 @@ class EvaluationRow(BaseModel):
     execution_metadata: ExecutionMetadata = Field(
         default_factory=ExecutionMetadata,
         description="Metadata about the execution of the evaluation.",
-    )
-
-    # LLM usage statistics
-    usage: Optional[CompletionUsage] = Field(
-        default=None, description="Token usage statistics from LLM calls during execution."
     )
 
     created_at: datetime = Field(default_factory=datetime.now, description="The timestamp when the row was created.")
