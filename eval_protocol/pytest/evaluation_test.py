@@ -1,17 +1,12 @@
 import asyncio
-import functools
 import inspect
-import json
-import math
 import os
-import pathlib
-import statistics
-import time
 from collections import defaultdict
 from typing import Any, Callable
+from typing_extensions import Unpack
+from collections.abc import Sequence
 
 import pytest
-
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
@@ -22,12 +17,16 @@ from eval_protocol.models import (
     EvaluationRow,
     EvaluationThreshold,
     EvaluationThresholdDict,
-    InputMetadata,
-    Message,
     Status,
 )
-from eval_protocol.pytest.handle_persist_flow import handle_persist_flow
-from eval_protocol.pytest.parameterize import pytest_parametrize
+from eval_protocol.pytest.dual_mode_wrapper import create_dual_mode_wrapper
+from eval_protocol.pytest.evaluation_test_postprocess import postprocess
+from eval_protocol.pytest.execution import execute_pytest
+from eval_protocol.pytest.generate_parameter_combinations import (
+    ParameterizedTestKwargs,
+    generate_parameter_combinations,
+)
+from eval_protocol.pytest.parameterize import pytest_parametrize, create_dynamically_parameterized_wrapper
 from eval_protocol.pytest.validate_signature import validate_signature
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
@@ -48,10 +47,6 @@ from eval_protocol.pytest.types import (
 
 from eval_protocol.pytest.utils import (
     AggregationMethod,
-    aggregate,
-    create_dynamically_parameterized_wrapper,
-    extract_effort_tag,
-    generate_parameter_combinations,
     log_eval_status_and_rows,
     parse_ep_completion_params,
     parse_ep_max_concurrent_rollouts,
@@ -59,183 +54,20 @@ from eval_protocol.pytest.utils import (
     parse_ep_num_runs,
     parse_ep_passed_threshold,
     rollout_processor_with_retry,
-    sanitize_filename,
 )
-from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
 
 from ..common_utils import load_jsonl
 
 
-def postprocess(
-    all_results: list[list[EvaluationRow]],
-    aggregation_method: AggregationMethod,
-    threshold: EvaluationThreshold | None,
-    active_logger: DatasetLogger,
-    mode: EvaluationTestMode,
-    completion_params: CompletionParams,
-    test_func_name: str,
-    num_runs: int,
-):
-    scores = [
-        sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result) for result in all_results
-    ]
-    agg_score = aggregate(scores, aggregation_method)
-
-    # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
-    ci_low: float | None = None
-    ci_high: float | None = None
-    standard_error: float | None = None
-    if aggregation_method == "mean":
-        try:
-            result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
-            _, mu_ci_low, mu_ci_high, se = result_ci
-            if mu_ci_low is not None and mu_ci_high is not None and se is not None:
-                ci_low = float(mu_ci_low)
-                ci_high = float(mu_ci_high)
-                standard_error = float(se)
-                # Keep agg_score as-is (mean over scores). For equal repeats per question these match.
-        except Exception:
-            ci_low = None
-            ci_high = None
-            standard_error = None
-
-    # Determine if the evaluation passed based on threshold
-    passed = None
-
-    if threshold is not None:
-        success_passed, standard_error_passed = True, True
-
-        success_passed = agg_score >= threshold.success
-
-        if threshold.standard_error is not None and standard_error is not None:
-            standard_error_passed = standard_error <= threshold.standard_error
-
-        passed = success_passed and standard_error_passed
-
-    # Update eval metadata passed field for all results
-    for result in all_results:
-        for r in result:
-            if r.eval_metadata is not None:
-                r.eval_metadata.passed = passed
-            if r.evaluation_result is not None:
-                r.evaluation_result.agg_score = agg_score
-                r.evaluation_result.standard_error = standard_error
-            active_logger.log(r)
-
-    # Optional: print and/or persist a summary artifact for CI
-    try:
-        should_print = os.getenv("EP_PRINT_SUMMARY") == "1"
-        summary_path = os.getenv("EP_SUMMARY_JSON")
-        suite_name = test_func_name
-        model_used = completion_params["model"]  # pyright: ignore[reportAny]
-        total_rows = len([item for sublist in all_results for item in sublist])
-        summary_obj = {
-            "suite": suite_name,
-            "model": model_used,
-            "agg_score": float(agg_score),
-            "num_runs": num_runs,
-            "rows": total_rows,
-        }
-        if ci_low is not None and ci_high is not None and standard_error is not None:
-            summary_obj["agg_ci_low"] = ci_low
-            summary_obj["agg_ci_high"] = ci_high
-            summary_obj["standard_error"] = standard_error
-
-        # Aggregate per-metric mean and 95% CI when available
-        metrics_summary: dict[str, dict[str, float]] = {}
-
-        metric_scores: dict[str, list[float]] = defaultdict(list)
-        for r in [item for sublist in all_results for item in sublist]:
-            if r.evaluation_result and r.evaluation_result.metrics:
-                for m_name, m_res in r.evaluation_result.metrics.items():
-                    if getattr(m_res, "score", None) is not None:
-                        metric_scores[m_name].append(m_res.score)
-        for m_name, vals in metric_scores.items():
-            if len(vals) == 0:
-                continue
-            m_mean = sum(vals) / len(vals)
-            m_low = None
-            m_high = None
-            if len(vals) >= 2:
-                try:
-                    m_std = statistics.stdev(vals)
-                    m_se = m_std / math.sqrt(len(vals))
-                    m_margin = 1.96 * m_se
-                    m_low = max(0.0, m_mean - m_margin)
-                    m_high = min(1.0, m_mean + m_margin)
-                except Exception:
-                    m_low = None
-                    m_high = None
-            entry: dict[str, float] = {"mean": float(m_mean)}
-            if m_low is not None and m_high is not None:
-                entry["ci_low"] = float(m_low)
-                entry["ci_high"] = float(m_high)
-            metrics_summary[m_name] = entry
-        if metrics_summary:
-            summary_obj["metrics_agg"] = metrics_summary
-        if should_print:
-            if ci_low is not None and ci_high is not None and standard_error is not None:
-                print(
-                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} se={summary_obj['standard_error']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}"
-                )
-            else:
-                print(
-                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}"
-                )
-            # As per project convention, avoid printing per-metric CI lines to reduce noise
-        if summary_path:
-            if not isinstance(model_used, str):
-                raise ValueError(f"Model used is not a string: {model_used}")
-            model_slug = sanitize_filename(model_used)
-            effort_tag = extract_effort_tag(completion_params) or ""
-            effort_suffix = f"__effort-{sanitize_filename(effort_tag)}" if effort_tag else ""
-            base_name = f"{suite_name}__{model_slug}{effort_suffix}__{mode}__runs{num_runs}.json"
-
-            p = pathlib.Path(summary_path)
-            summary_obj["timestamp"] = int(time.time())
-
-            # When a directory is provided (or a path without .json), write per-combination files inside it
-            if p.suffix.lower() != ".json" or summary_path.endswith("/") or p.is_dir():
-                out_dir = p
-                out_dir.mkdir(parents=True, exist_ok=True)
-                out_file = out_dir / base_name
-            else:
-                # A file path was provided
-                # If multiple parameterizations exist, write side-by-side files with suffixes based on base name
-                parent = p.parent
-                parent.mkdir(parents=True, exist_ok=True)
-                # If we detected an effort tag, fan out to separate files; otherwise write to the exact file
-                if effort_tag:
-                    out_file = parent / f"{p.stem}__{sanitize_filename(effort_tag)}{p.suffix}"
-                else:
-                    out_file = p
-
-            with open(out_file, "w", encoding="utf-8") as f:
-                json.dump(summary_obj, f)
-    except Exception:
-        # Do not fail evaluation if summary writing fails
-        pass
-
-    handle_persist_flow(all_results, test_func_name)
-
-    # Check threshold after logging
-    if threshold is not None and not passed:
-        assert agg_score >= threshold.success, f"Aggregated score {agg_score:.3f} below threshold {threshold.success}"
-        if threshold.standard_error is not None and standard_error is not None:
-            assert standard_error <= threshold.standard_error, (
-                f"Standard error {standard_error:.3f} above threshold {threshold.standard_error}"
-            )
-
-
 def evaluation_test(
     *,
-    completion_params: list[CompletionParams | None] | None = None,
-    input_messages: list[InputMessagesParam | None] | None = None,
+    completion_params: Sequence[CompletionParams | None] | None = None,
+    input_messages: Sequence[InputMessagesParam | None] | None = None,
     input_dataset: list[DatasetPathParam] | None = None,
-    input_rows: list[EvaluationRow] | None = None,
+    input_rows: Sequence[list[EvaluationRow]] | None = None,
     dataset_adapter: Callable[[list[dict[str, Any]]], Dataset] = default_dataset_adapter,  # pyright: ignore[reportExplicitAny]
     rollout_processor: RolloutProcessor | None = None,
-    evaluation_test_kwargs: list[EvaluationInputParam | None] | None = None,
+    evaluation_test_kwargs: Sequence[EvaluationInputParam | None] | None = None,
     rollout_processor_kwargs: RolloutProcessorInputParam | None = None,
     aggregation_method: AggregationMethod = "mean",
     passed_threshold: EvaluationThreshold | float | EvaluationThresholdDict | None = None,
@@ -367,35 +199,32 @@ def evaluation_test(
         )
 
         # Create wrapper function with exact signature that pytest expects
-        def create_wrapper_with_signature() -> Callable:
+        def create_wrapper_with_signature() -> Callable[[], None]:
             # Create the function body that will be used
             invocation_id = generate_id()
 
-            async def wrapper_body(**kwargs):
+            async def wrapper_body(**kwargs: Unpack[ParameterizedTestKwargs]) -> None:
                 eval_metadata = None
 
-                all_results: List[List[EvaluationRow]] = [[] for _ in range(num_runs)]
+                all_results: list[list[EvaluationRow]] = [[] for _ in range(num_runs)]
 
                 experiment_id = generate_id()
 
-                def _log_eval_error(status: Status, rows: Optional[List[EvaluationRow]] | None, passed: bool) -> None:
+                def _log_eval_error(status: Status, rows: list[EvaluationRow] | None, passed: bool) -> None:
                     log_eval_status_and_rows(eval_metadata, rows, status, passed, active_logger)
 
                 try:
                     # Handle dataset loading
-                    data: List[EvaluationRow] = []
+                    data: list[EvaluationRow] = []
                     # Track all rows processed in the current run for error logging
-                    processed_rows_in_run: List[EvaluationRow] = []
+                    processed_rows_in_run: list[EvaluationRow] = []
                     if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
-                        ds_arg = kwargs["dataset_path"]
+                        ds_arg: list[str] = kwargs["dataset_path"]
                         # Support either a single path or a list of paths; if a list is provided,
                         # concatenate the rows from each file in order.
-                        if isinstance(ds_arg, list):
-                            data_jsonl = []
-                            for p in ds_arg:
-                                data_jsonl.extend(load_jsonl(p))
-                        else:
-                            data_jsonl = load_jsonl(ds_arg)
+                        data_jsonl: list[dict[str, object]] = []
+                        for p in ds_arg:
+                            data_jsonl.extend(load_jsonl(p))
                         # Apply override for max rows if present
                         if max_dataset_rows is not None:
                             data_jsonl = data_jsonl[:max_dataset_rows]
@@ -403,12 +232,7 @@ def evaluation_test(
                     elif "input_messages" in kwargs and kwargs["input_messages"] is not None:
                         # Support either a single row (List[Message]) or many rows (List[List[Message]])
                         im = kwargs["input_messages"]
-                        if isinstance(im, list) and len(im) > 0 and isinstance(im[0], Message):
-                            # Single row of Message objects
-                            data = [EvaluationRow(messages=im)]
-                        else:
-                            # Multiple rows: list of List[Message]
-                            data = [EvaluationRow(messages=m) for m in im]
+                        data = [EvaluationRow(messages=im)]
                     elif "input_rows" in kwargs and kwargs["input_rows"] is not None:
                         # Use pre-constructed EvaluationRow objects directly
                         data = kwargs["input_rows"]
@@ -438,13 +262,13 @@ def evaluation_test(
                         status=Status.eval_running(),
                         num_runs=num_runs,
                         aggregation_method=aggregation_method,
-                        passed_threshold=threshold,
+                        passed_threshold=passed_threshold,
                         passed=None,
                     )
                     for row in data:
-                        if row.input_metadata is None:
-                            row.input_metadata = InputMetadata()
-                        row.input_metadata.completion_params = completion_params
+                        row.input_metadata.completion_params = (
+                            completion_params if completion_params is not None else {}
+                        )
                         # Add mode to session_data
                         if row.input_metadata.session_data is None:
                             row.input_metadata.session_data = {}
@@ -460,7 +284,7 @@ def evaluation_test(
 
                     # Prepare rollout processor config once; we will generate fresh outputs per run
                     config = RolloutProcessorConfig(
-                        completion_params=completion_params,
+                        completion_params=completion_params if completion_params is not None else {},
                         mcp_config_path=mcp_config_path or "",
                         max_concurrent_rollouts=max_concurrent_rollouts,
                         server_script_path=server_script_path,
@@ -494,51 +318,57 @@ def evaluation_test(
                         # prepare parallel eval helper function
                         semaphore = asyncio.Semaphore(max_concurrent_evaluations)
 
-                        async def _execute_eval_with_semaphore(**inner_kwargs):
+                        async def _execute_pointwise_eval_with_semaphore(
+                            row: EvaluationRow,
+                        ) -> EvaluationRow:
                             async with semaphore:
-                                # NOTE: we will still evaluate errored rows (give users control over this)
-                                # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
-                                if "row" in inner_kwargs:
-                                    result = await execute_pytest(
-                                        test_func,
-                                        processed_row=inner_kwargs["row"],
-                                        evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                result = await execute_pytest(
+                                    test_func,
+                                    processed_row=row,
+                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                )
+                                if not isinstance(result, EvaluationRow):
+                                    raise ValueError(
+                                        f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
                                     )
-                                    if result is None or not isinstance(result, EvaluationRow):
-                                        raise ValueError(
-                                            f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
-                                        )
-                                    return result
-                                if "rows" in inner_kwargs:
-                                    results = await execute_pytest(
-                                        test_func,
-                                        processed_dataset=inner_kwargs["rows"],
-                                        evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                return result
+
+                        async def _execute_groupwise_eval_with_semaphore(
+                            rows: list[EvaluationRow],
+                        ) -> list[EvaluationRow]:
+                            async with semaphore:
+                                results = await execute_pytest(
+                                    test_func,
+                                    processed_dataset=rows,
+                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                )
+                                if not isinstance(results, list):
+                                    raise ValueError(
+                                        f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
                                     )
-                                    if results is None or not isinstance(results, list):
-                                        raise ValueError(
-                                            f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                                        )
-                                    return results
+                                return results
 
                         if mode == "pointwise":
                             # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
-                            tasks = []
+                            pointwise_tasks: list[asyncio.Task[EvaluationRow]] = []
                             # Use wrapper that handles retry logic internally
                             async for row in rollout_processor_with_retry(rollout_processor, fresh_dataset, config):
-                                tasks.append(asyncio.create_task(_execute_eval_with_semaphore(row=row)))
-
-                            results = await asyncio.gather(*tasks)
+                                pointwise_tasks.append(
+                                    asyncio.create_task(_execute_pointwise_eval_with_semaphore(row=row))
+                                )
+                            results = await asyncio.gather(*pointwise_tasks)
 
                             all_results[i] = results
                         elif mode == "groupwise":
                             # rollout all the completion_params for the same row at once, and then send the output to the test_func
-                            row_groups = defaultdict(list)  # key: row_id, value: list of rollout_result
-                            tasks: List[asyncio.Task[List[EvaluationRow]]] = []
+                            row_groups = defaultdict(  # pyright: ignore[reportUnknownVariableType]
+                                list
+                            )  # key: row_id, value: list of rollout_result
+                            tasks: list[asyncio.Task[list[EvaluationRow]]] = []
                             # completion_groups = []
                             for idx, cp in enumerate(original_completion_params):
                                 config = RolloutProcessorConfig(
-                                    completion_params=cp,
+                                    completion_params=cp if cp is not None else {},
                                     mcp_config_path=mcp_config_path or "",
                                     max_concurrent_rollouts=max_concurrent_rollouts,
                                     server_script_path=server_script_path,
@@ -548,11 +378,11 @@ def evaluation_test(
                                 )
                                 lst = []
 
-                                async def _collect_result(config, lst):
+                                async def _collect_result(config, lst):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
                                     result = []
-                                    async for row in rollout_processor_with_retry(rollout_processor, lst, config):
-                                        result.append(row)
-                                    return result
+                                    async for row in rollout_processor_with_retry(rollout_processor, lst, config):  # pyright: ignore[reportUnknownArgumentType]
+                                        result.append(row)  # pyright: ignore[reportUnknownMemberType]
+                                    return result  # pyright: ignore[reportUnknownVariableType]
 
                                 for ori_row in fresh_dataset:
                                     copied_row = ori_row.model_copy(deep=True)
@@ -560,34 +390,34 @@ def evaluation_test(
                                     copied_row.execution_metadata.rollout_id = (
                                         str(ori_row.execution_metadata.rollout_id) + "_" + str(idx)
                                     )
-                                    copied_row.input_metadata.completion_params = cp
-                                    lst.append(copied_row)
-                                tasks.append(asyncio.create_task(_collect_result(config, lst)))
+                                    copied_row.input_metadata.completion_params = cp if cp is not None else {}
+                                    lst.append(copied_row)  # pyright: ignore[reportUnknownMemberType]
+                                tasks.append(asyncio.create_task(_collect_result(config, lst)))  # pyright: ignore[reportUnknownArgumentType]
                             rollout_results = await asyncio.gather(*tasks)
                             for result in rollout_results:
                                 for row in result:
-                                    row_groups[row.input_metadata.row_id].append(row)
+                                    row_groups[row.input_metadata.row_id].append(row)  # pyright: ignore[reportUnknownMemberType]
                             tasks = []
-                            for row_id, rows in row_groups.items():
-                                tasks.append(asyncio.create_task(_execute_eval_with_semaphore(rows=rows)))
+                            for _, rows in row_groups.items():  # pyright: ignore[reportUnknownVariableType]
+                                tasks.append(asyncio.create_task(_execute_groupwise_eval_with_semaphore(rows=rows)))  # pyright: ignore[reportUnknownArgumentType]
                             results = []
                             for task in tasks:
                                 res = await task
-                                results.extend(res)
+                                results.extend(res)  # pyright: ignore[reportUnknownMemberType]
                             all_results[i] = results
                         else:
                             # Batch mode: collect all results first, then evaluate (no pipelining)
                             input_dataset = []
                             async for row in rollout_processor_with_retry(rollout_processor, fresh_dataset, config):
-                                input_dataset.append(row)
+                                input_dataset.append(row)  # pyright: ignore[reportUnknownMemberType]
                             # NOTE: we will still evaluate errored rows (give users control over this)
                             # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
                             results = await execute_pytest(
                                 test_func,
-                                processed_dataset=input_dataset,
+                                processed_dataset=input_dataset,  # pyright: ignore[reportUnknownArgumentType]
                                 evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                             )
-                            if results is None:
+                            if results is None:  # pyright: ignore[reportUnnecessaryComparison]
                                 raise ValueError(
                                     f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
                                 )
@@ -599,7 +429,7 @@ def evaluation_test(
                                 raise ValueError(
                                     f"Test function {test_func.__name__} returned an empty list. You must return a non-empty list of EvaluationRow instances from your test function decorated with @evaluation_test."
                                 )
-                            if not all(isinstance(r, EvaluationRow) for r in results):
+                            if not all(isinstance(r, EvaluationRow) for r in results):  # pyright: ignore[reportUnnecessaryIsInstance]
                                 raise ValueError(
                                     f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
                                 )
@@ -626,27 +456,27 @@ def evaluation_test(
                         # For other processors, create all tasks at once and run in parallel
                         tasks = []
                         for i in range(num_runs):
-                            tasks.append(asyncio.create_task(execute_run(i, config)))
-                        await asyncio.gather(*tasks)
+                            tasks.append(asyncio.create_task(execute_run(i, config)))  # pyright: ignore[reportUnknownMemberType]
+                        await asyncio.gather(*tasks)  # pyright: ignore[reportUnknownArgumentType]
 
                     # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them
                     # rollout_id is used to differentiate the result from different completion_params
                     if mode == "groupwise":
-                        results_by_group = [
+                        results_by_group = [  # pyright: ignore[reportUnknownVariableType]
                             [[] for _ in range(num_runs)] for _ in range(len(original_completion_params))
                         ]
                         for i_run, result in enumerate(all_results):
                             for r in result:
-                                completion_param_idx = int(r.execution_metadata.rollout_id.split("_")[1])
-                                results_by_group[completion_param_idx][i_run].append(r)
-                        for rollout_id, result in enumerate(results_by_group):
+                                completion_param_idx = int(r.execution_metadata.rollout_id.split("_")[1])  # pyright: ignore[reportOptionalMemberAccess]
+                                results_by_group[completion_param_idx][i_run].append(r)  # pyright: ignore[reportUnknownMemberType]
+                        for rollout_id, result in enumerate(results_by_group):  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
                             postprocess(
-                                result,
+                                result,  # pyright: ignore[reportUnknownArgumentType]
                                 aggregation_method,
-                                threshold,
+                                passed_threshold,
                                 active_logger,
                                 mode,
-                                original_completion_params[rollout_id],
+                                original_completion_params[rollout_id],  # pyright: ignore[reportArgumentType]
                                 test_func.__name__,
                                 num_runs,
                             )
@@ -654,10 +484,10 @@ def evaluation_test(
                         postprocess(
                             all_results,
                             aggregation_method,
-                            threshold,
+                            passed_threshold,
                             active_logger,
                             mode,
-                            completion_params,
+                            completion_params,  # pyright: ignore[reportArgumentType]
                             test_func.__name__,
                             num_runs,
                         )
@@ -665,93 +495,34 @@ def evaluation_test(
                 except AssertionError:
                     _log_eval_error(
                         Status.eval_finished(),
-                        processed_rows_in_run if "processed_rows_in_run" in locals() else None,
+                        locals().get("processed_rows_in_run", None),
                         passed=False,
                     )
                     raise
                 except Exception as e:
                     _log_eval_error(
                         Status.error(str(e)),
-                        processed_rows_in_run if "processed_rows_in_run" in locals() else None,
+                        locals().get("processed_rows_in_run", None),
                         passed=False,
                     )
                     raise
 
-            return create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names)
+            return create_dynamically_parameterized_wrapper(
+                test_func,
+                wrapper_body,
+                pytest_parametrize_args["argnames"],
+            )
 
         # Create the pytest wrapper
         pytest_wrapper = create_wrapper_with_signature()
         pytest_wrapper = pytest.mark.parametrize(**pytest_parametrize_args)(pytest_wrapper)
         pytest_wrapper = pytest.mark.asyncio(pytest_wrapper)
 
-        def create_dual_mode_wrapper() -> Callable:
-            """
-            Creates a wrapper that supports both pytest parameterized execution and direct function calls.
-
-            This wrapper enables the decorated evaluation test function to be used in two ways:
-            1. As a pytest test (via pytest.mark.parametrize) with full parameterization
-            2. As a direct function call with EvaluationRow data for programmatic use
-
-            The wrapper automatically detects the calling pattern and routes to the appropriate
-            execution path, ensuring consistent behavior regardless of how the function is invoked.
-
-            Returns:
-                A callable that can handle both pytest test execution and direct function calls
-            """
-
-            # Check if the test function is async
-            is_async = asyncio.iscoroutinefunction(test_func)
-
-            async def call_test_func(**call_kwargs):
-                """Helper to call test_func with proper async/sync handling"""
-                if is_async:
-                    return await test_func(**call_kwargs)
-                else:
-                    return test_func(**call_kwargs)
-
-            async def dual_mode_wrapper(*args, **kwargs):
-                # Check if this is a direct call with the expected signature
-                if mode == "pointwise":
-                    # For pointwise mode, check if called with a single row argument
-                    if len(args) == 1 and isinstance(args[0], EvaluationRow) and not kwargs:
-                        return await call_test_func(row=args[0])
-                else:
-                    # For batch mode, check if called with rows argument
-                    if (
-                        len(args) == 1
-                        and isinstance(args[0], list)
-                        and all(isinstance(r, EvaluationRow) for r in args[0])
-                        and not kwargs
-                    ):
-                        return await call_test_func(rows=args[0])
-                    # Also check if called with keyword argument 'rows'
-                    if (
-                        len(args) == 0
-                        and "rows" in kwargs
-                        and isinstance(kwargs["rows"], list)
-                        and all(isinstance(r, EvaluationRow) for r in kwargs["rows"])
-                    ):
-                        return await call_test_func(**kwargs)
-
-                # If not a direct call, use the pytest wrapper
-                return await pytest_wrapper(*args, **kwargs)
-
-            dual_mode_wrapper._origin_func = test_func
-            dual_mode_wrapper._metainfo = {
-                "mode": mode,
-                "max_rollout_concurrency": max_concurrent_rollouts,
-                "max_evaluation_concurrency": max_concurrent_evaluations,
-            }
-
-            # Copy all attributes from the pytest wrapper to our dual mode wrapper
-
-            functools.update_wrapper(dual_mode_wrapper, pytest_wrapper)
-
-            return dual_mode_wrapper
-
         # Create the dual mode wrapper
-        dual_mode_wrapper = create_dual_mode_wrapper()
+        dual_mode_wrapper = create_dual_mode_wrapper(  # pyright: ignore[reportUnknownVariableType]
+            test_func, mode, max_concurrent_rollouts, max_concurrent_evaluations, pytest_wrapper
+        )
 
-        return dual_mode_wrapper
+        return dual_mode_wrapper  # pyright: ignore[reportReturnType, reportUnknownVariableType]
 
     return decorator

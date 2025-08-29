@@ -1,73 +1,33 @@
 import asyncio
-import inspect
+from collections.abc import Sequence
 import os
 import re
 from dataclasses import replace
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from typing import Any, Literal
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
-from eval_protocol.models import EvalMetadata, EvaluationRow, EvaluationThreshold, EvaluationThresholdDict, Status
+from eval_protocol.models import (
+    EvalMetadata,
+    EvaluationRow,
+    EvaluationThreshold,
+    EvaluationThresholdDict,
+    Status,
+    CompletionParams,
+)
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import (
-    CompletionParams,
-    DatasetPathParam,
-    EvaluationInputParam,
-    InputMessagesParam,
     RolloutProcessorConfig,
 )
-from eval_protocol.pytest.exception_config import ExceptionHandlerConfig, get_default_exception_handler_config
+from eval_protocol.pytest.exception_config import get_default_exception_handler_config
 
 import logging
 import json
 
 
-def execute_function(func: Callable, **kwargs) -> Any:
-    """
-    Execute a function with proper async handling.
-
-    This is a pure function that handles both async and non-async function execution
-    with proper event loop management for async functions.
-
-    Args:
-        func: The function to execute
-        **kwargs: Arguments to pass to the function
-
-    Returns:
-        The result of the function execution
-    """
-    is_async = asyncio.iscoroutinefunction(func)
-    if is_async:
-        # Handle async functions with proper event loop management
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Event loop is already running, create a task and wait for it
-                task = loop.create_task(func(**kwargs))
-                # Use asyncio.wait to avoid run_until_complete on running loop
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, func(**kwargs))
-                    results = future.result()
-            elif not loop.is_closed():
-                # Use existing loop that's not running
-                task = loop.create_task(func(**kwargs))
-                results = loop.run_until_complete(task)
-            else:
-                # Loop is closed, create a new one
-                results = asyncio.run(func(**kwargs))
-        except RuntimeError:
-            # No event loop or other issues, create a new one
-            results = asyncio.run(func(**kwargs))
-    else:
-        results = func(**kwargs)
-    return results
-
-
 AggregationMethod = Literal["mean", "max", "min"]
 
 
-def aggregate(scores: List[float], method: AggregationMethod) -> float:
+def aggregate(scores: list[float], method: AggregationMethod) -> float:
     if not scores:
         return 0.0
     if method == "mean":
@@ -76,45 +36,12 @@ def aggregate(scores: List[float], method: AggregationMethod) -> float:
         return max(scores)
     if method == "min":
         return min(scores)
-    raise ValueError(f"Unknown aggregation method: {method}")
-
-
-def create_dynamically_parameterized_wrapper(test_func, wrapper_body, test_param_names):
-    """
-    Creates a wrapper function with dynamic parameters for pytest parameterization.
-
-    This function takes a test function and creates a wrapper that:
-    1. Preserves the original function's metadata using functools.wraps
-    2. Creates a new function signature with the specified parameter names that maps to pytest.mark.parametrize decorator
-    3. Returns a callable that can be used with pytest.mark.parametrize
-
-    The function signature is dynamically created to match the parameter names expected by
-    pytest.mark.parametrize, ensuring that pytest can properly map the test parameters
-    to the function arguments.
-
-    Args:
-        test_func: The original test function to wrap
-        wrapper_body: The function body that contains the actual test logic
-        test_param_names: List of parameter names for the dynamic signature
-
-    Returns:
-        A wrapper function with the specified parameter signature that calls wrapper_body
-    """
-    from functools import wraps
-
-    @wraps(test_func)
-    async def wrapper(**kwargs):
-        return await wrapper_body(**kwargs)
-
-    parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names]
-    wrapper.__signature__ = inspect.Signature(parameters)
-
-    return wrapper
+    raise ValueError(f"Unknown aggregation method: {method}")  # pyright: ignore[reportUnreachable]
 
 
 def log_eval_status_and_rows(
-    eval_metadata: Optional[EvalMetadata],
-    rows: Optional[List[EvaluationRow]] | None,
+    eval_metadata: EvalMetadata | None,
+    rows: list[EvaluationRow] | None,
     status: Status,
     passed: bool,
     logger: DatasetLogger,
@@ -130,7 +57,7 @@ def log_eval_status_and_rows(
     eval_metadata.status = status
     eval_metadata.passed = passed
 
-    rows_to_log: List[EvaluationRow] = rows or []
+    rows_to_log: list[EvaluationRow] = rows or []
     if not rows_to_log:
         error_row = EvaluationRow(messages=[], eval_metadata=eval_metadata, evaluation_result=None)
         logger.log(error_row)
@@ -172,8 +99,8 @@ def parse_ep_max_concurrent_rollouts(default_value: int) -> int:
 
 
 def parse_ep_completion_params(
-    completion_params: list[CompletionParams | None] | None,
-) -> list[CompletionParams | None]:
+    completion_params: Sequence[CompletionParams | None] | None,
+) -> Sequence[CompletionParams | None]:
     """Apply EP_INPUT_PARAMS_JSON overrides to completion_params.
 
     Reads the environment variable set by plugin.py and applies deep merge to each completion param.
@@ -186,7 +113,7 @@ def parse_ep_completion_params(
             override_obj = json.loads(_env_override)  # pyright: ignore[reportAny]
             if isinstance(override_obj, dict):
                 # Apply override to each completion_params item
-                return [deep_update_dict(dict(cp), override_obj) for cp in completion_params if cp is not None]
+                return [deep_update_dict(dict(cp), override_obj) for cp in completion_params if cp is not None]  # pyright: ignore[reportUnknownArgumentType]
     except Exception:
         pass
     return completion_params
@@ -216,114 +143,19 @@ def parse_ep_passed_threshold(
     return None
 
 
-def deep_update_dict(base: dict, override: dict) -> dict:
+def deep_update_dict(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
     """Recursively update nested dictionaries in-place and return base."""
-    for key, value in override.items():
+    for key, value in override.items():  # pyright: ignore[reportAny]
         if isinstance(value, dict) and isinstance(base.get(key), dict):
-            deep_update_dict(base[key], value)
+            deep_update_dict(base[key], value)  # pyright: ignore[reportAny, reportUnknownArgumentType]
         else:
             base[key] = value
     return base
 
 
-CombinationTuple = tuple[
-    list[DatasetPathParam] | None,
-    CompletionParams | None,
-    InputMessagesParam | None,
-    list[EvaluationRow] | None,
-    EvaluationInputParam | None,
-]
-
-
-def generate_parameter_combinations(
-    input_dataset: list[DatasetPathParam] | None,
-    completion_params: list[CompletionParams | None],
-    input_messages: list[InputMessagesParam | None] | None,
-    input_rows: list[EvaluationRow] | None,
-    evaluation_test_kwargs: list[EvaluationInputParam | None] | None,
-    max_dataset_rows: int | None,
-    combine_datasets: bool,
-) -> list[CombinationTuple]:
-    """
-    Generate all combinations of parameters for pytest parameterization.
-
-    Args:
-        input_dataset: Dataset paths to use
-        completion_params: Completion parameters to test
-        input_messages: Input messages to use
-        input_rows: Pre-constructed EvaluationRow objects to use
-        evaluation_test_kwargs: Additional kwargs for evaluation tests
-        max_dataset_rows: Maximum number of dataset rows to process
-        combine_datasets: Whether to combine multiple datasets into one test
-
-    Returns:
-        List of parameter tuples for pytest.mark.parametrize
-    """
-    # Handle optional parameters with defaults
-    # Optionally combine multiple dataset paths into one logical dataset,
-    # or parameterize to run one dataset per test invocation.
-    datasets: list[list[DatasetPathParam] | None] = []
-    if input_dataset is not None:
-        if combine_datasets:
-            datasets = [input_dataset]
-        else:
-            # Fan out: one dataset path per parameterization
-            if input_dataset:
-                datasets = [[p] for p in input_dataset]
-            else:
-                datasets = [None]
-
-    cps: list[CompletionParams | None] = completion_params
-
-    # Apply EP_MAX_DATASET_ROWS to input_messages, but do NOT parameterize over
-    # each row. Instead, pass the entire sliced list through in a single test run
-    # so summaries aggregate all rows together (AIME-style behavior).
-    messages: list[InputMessagesParam | None] = [None]
-    if input_messages is not None:
-        effective_max_rows = parse_ep_max_rows(max_dataset_rows)
-        if effective_max_rows is not None:
-            sliced_messages: list[InputMessagesParam | None] = input_messages[:effective_max_rows]
-        else:
-            sliced_messages = input_messages
-        # Wrap as a single parameter payload
-        messages = sliced_messages
-
-    rows: list[list[EvaluationRow] | None] = [None]
-    # Handle input_rows - similar to input_messages, apply max_dataset_rows if specified
-    if input_rows is not None:
-        effective_max_rows = parse_ep_max_rows(max_dataset_rows)
-        if effective_max_rows is not None:
-            sliced_rows = input_rows[:effective_max_rows]
-        else:
-            sliced_rows = input_rows
-        # Wrap as a single parameter payload
-        rows = [sliced_rows]
-
-    kwargs: list[EvaluationInputParam | None] = (
-        evaluation_test_kwargs if evaluation_test_kwargs is not None else [None]
-    )
-
-    combinations: list[CombinationTuple] = []
-
-    # Generate all combinations
-    for ds in datasets:
-        for cp in cps:
-            for im in messages:
-                for ir in rows:
-                    for etk in kwargs:
-                        # if no dataset, no messages, and no rows, raise an error
-                        if ds is None and im is None and ir is None:
-                            raise ValueError(
-                                "No dataset, messages, or rows provided. Please provide at least one of input_dataset, input_messages, or input_rows."
-                            )
-                        combinations.append((ds, cp, im, ir, etk))
-
-    return combinations
-
-
 async def rollout_processor_with_retry(
     rollout_processor: RolloutProcessor,
-    fresh_dataset: List[EvaluationRow],
+    fresh_dataset: list[EvaluationRow],
     config: RolloutProcessorConfig,
 ):
     """
@@ -354,21 +186,21 @@ async def rollout_processor_with_retry(
             raise e
 
         # Create a single backoff-decorated retry function that can be reused
-        @exception_config.get_backoff_decorator()
+        @exception_config.get_backoff_decorator()  # pyright: ignore[reportUntypedFunctionDecorator]
         async def execute_row_with_backoff_retry(row: EvaluationRow):
             """Execute rollout for a single row with backoff retry."""
             retry_config = replace(config, kwargs={**(config.kwargs or {}), "start_server": False})
             retry_tasks = rollout_processor([row], retry_config)
             return await retry_tasks[0]
 
-        async def execute_row_with_backoff(task: asyncio.Task, row: EvaluationRow) -> EvaluationRow:
+        async def execute_row_with_backoff(task: asyncio.Task, row: EvaluationRow) -> EvaluationRow:  # pyright: ignore[reportMissingTypeArgument, reportUnknownParameterType]
             """Execute a single row task with backoff retry."""
 
             try:
                 # Try original task first
-                result = await task
+                result = await task  # pyright: ignore[reportUnknownVariableType]
                 result.rollout_status = Status.rollout_finished()
-                return result
+                return result  # pyright: ignore[reportUnknownVariableType]
             except Exception as e:
                 # NOTE: we perform these checks because we don't put the backoff decorator on initial batch call. we don't want to retry whole batch if anything fails.
                 # Check if this exception should be retried
@@ -395,7 +227,7 @@ async def rollout_processor_with_retry(
                     row.rollout_status = Status.rollout_error(repr(e))
                     return row
 
-        async def execute_row_with_backoff_and_log(task: asyncio.Task, row: EvaluationRow) -> EvaluationRow:
+        async def execute_row_with_backoff_and_log(task: asyncio.Task, row: EvaluationRow) -> EvaluationRow:  # pyright: ignore[reportMissingTypeArgument, reportUnknownParameterType]
             """Execute a single row task with backoff retry and logging."""
             result = await execute_row_with_backoff(task, row)
             # Log the row after execution completes (success or failure)
@@ -423,7 +255,7 @@ def sanitize_filename(text: str) -> str:
     return safe[:120]
 
 
-def extract_effort_tag(params: dict) -> Optional[str]:
+def extract_effort_tag(params: dict) -> str | None:  # pyright: ignore[reportMissingTypeArgument, reportUnknownParameterType]
     """
     Extract effort tag from completion parameters for use in file naming.
 
@@ -434,17 +266,17 @@ def extract_effort_tag(params: dict) -> Optional[str]:
         Effort tag string if found, None otherwise
     """
     try:
-        if not isinstance(params, dict):
-            return None
+        if not isinstance(params, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
+            return None  # pyright: ignore[reportUnreachable]
         # Common locations
         if "extra_body" in params and isinstance(params["extra_body"], dict):
-            eb = params["extra_body"]
-            if isinstance(eb.get("reasoning"), dict) and "effort" in eb["reasoning"]:
-                return str(eb["reasoning"]["effort"]).lower()
+            eb = params["extra_body"]  # pyright: ignore[reportUnknownVariableType]
+            if isinstance(eb.get("reasoning"), dict) and "effort" in eb["reasoning"]:  # pyright: ignore[reportUnknownMemberType]
+                return str(eb["reasoning"]["effort"]).lower()  # pyright: ignore[reportUnknownArgumentType]
             if "reasoning_effort" in eb:
-                return str(eb["reasoning_effort"]).lower()
+                return str(eb["reasoning_effort"]).lower()  # pyright: ignore[reportUnknownArgumentType]
         if "reasoning" in params and isinstance(params["reasoning"], dict) and "effort" in params["reasoning"]:
-            return str(params["reasoning"]["effort"]).lower()
+            return str(params["reasoning"]["effort"]).lower()  # pyright: ignore[reportUnknownArgumentType]
     except Exception:
         return None
     return None

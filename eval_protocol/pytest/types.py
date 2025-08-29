@@ -36,10 +36,16 @@ from collections.abc import Awaitable
 # 1. an async/sync function that accepts EvaluationRow and returns EvaluationRow
 # 2. an async/sync function that accepts list[EvaluationRow] and returns list[EvaluationRow]
 TestFunction = (
-    Callable[[EvaluationRow], EvaluationRow]
+    Callable[[], EvaluationRow]
+    | Callable[[], Awaitable[EvaluationRow]]
+    | Callable[[], Dataset]
+    | Callable[[], Awaitable[Dataset]]
+    | Callable[[EvaluationRow], EvaluationRow]
     | Callable[[EvaluationRow], Awaitable[EvaluationRow]]
     | Callable[[list[EvaluationRow]], list[EvaluationRow]]
     | Callable[[list[EvaluationRow]], Awaitable[list[EvaluationRow]]]
+    | Callable[[Dataset], Dataset]
+    | Callable[[Dataset], Awaitable[Dataset]]
 )
 
 

@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from inspect import Signature
 
 from eval_protocol.models import CompletionParams, EvaluationRow
@@ -5,7 +6,7 @@ from eval_protocol.pytest.types import EvaluationTestMode
 
 
 def validate_signature(
-    signature: Signature, mode: EvaluationTestMode, completion_params: list[CompletionParams | None] | None
+    signature: Signature, mode: EvaluationTestMode, completion_params: Sequence[CompletionParams | None] | None
 ) -> None:
     # For pointwise/groupwise mode, we expect a different signature
     # we expect single row to be passed in as the original row
