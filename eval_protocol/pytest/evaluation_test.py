@@ -63,7 +63,7 @@ def evaluation_test(
     *,
     completion_params: Sequence[CompletionParams | None] | None = None,
     input_messages: Sequence[InputMessagesParam | None] | None = None,
-    input_dataset: list[DatasetPathParam] | None = None,
+    input_dataset: Sequence[DatasetPathParam] | None = None,
     input_rows: Sequence[list[EvaluationRow]] | None = None,
     dataset_adapter: Callable[[list[dict[str, Any]]], Dataset] = default_dataset_adapter,  # pyright: ignore[reportExplicitAny]
     rollout_processor: RolloutProcessor | None = None,

@@ -45,7 +45,7 @@ class ParameterizedTestKwargs(TypedDict):
 
 
 def generate_parameter_combinations(
-    input_dataset: list[DatasetPathParam] | None,
+    input_dataset: Sequence[DatasetPathParam] | None,
     completion_params: Sequence[CompletionParams | None],
     input_messages: Sequence[InputMessagesParam | None] | None,
     input_rows: Sequence[list[EvaluationRow] | None] | None,
@@ -73,7 +73,7 @@ def generate_parameter_combinations(
     datasets: Sequence[list[DatasetPathParam] | None] = [None]
     if input_dataset is not None:
         if combine_datasets:
-            datasets = [input_dataset]
+            datasets = [list(input_dataset)]
         else:
             # Fan out: one dataset path per parameterization
             datasets = [[p] for p in input_dataset]
