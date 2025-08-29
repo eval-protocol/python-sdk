@@ -65,7 +65,6 @@ dev = [
     "pytest-httpserver",
     "werkzeug>=2.0.0",
     "ruff>=0.5.0",
-    "pyright>=1.1.365",
     "transformers>=4.0.0",
     "types-setuptools",
     "types-requests",
@@ -174,6 +173,7 @@ tau2 = { git = "https://github.com/sierra-research/tau2-bench.git" }
 
 [dependency-groups]
 dev = [
+    "basedpyright>=1.31.3",
     "fastapi[standard]>=0.116.1",
     "fastmcp>=2.10.6",
     "haikus==0.3.8",
@@ -204,38 +204,10 @@ known-first-party = ["eval_protocol"]
 combine-as-imports = true
 
 [tool.pyright]
-typeCheckingMode = "basic"
+typeCheckingMode = "recommended"
 pythonVersion = "3.10"
-reportMissingImports = "none"
-reportMissingTypeStubs = "none"
-reportMissingModuleSource = "none"
 include = ["eval_protocol", "examples", "tests"]
 exclude = ["vite-app", "vendor"]
 # Ignore diagnostics for vendored generator code
 ignore = ["versioneer.py"]
-# Relax noisy diagnostics commonly triggered in tests and dynamic libs
-reportAttributeAccessIssue = "none"
-reportCallIssue = "none"
-reportUnknownMemberType = "none"
-reportUnknownVariableType = "none"
-reportPossiblyUnboundVariable = "none"
-# Additional suppressions per request
-reportOptionalMemberAccess = "none"
-reportIndexIssue = "none"
-reportReturnType = "none"
-reportOptionalCall = "none"
-reportGeneralTypeIssues = "none"
-reportOperatorIssue = "none"
-reportOptionalSubscript = "none"
-reportUnsupportedDunderAll = "none"
-reportOptionalContextManager = "none"
-reportInvalidTypeForm = "none"
-reportRedeclaration = "none"
-reportUndefinedVariable = "none"
-reportPrivateImportUsage = "none"
-reportOptionalIterable = "none"
-# Make incompatibilities and argument types warnings instead of errors for now
-# and suppress warnings output entirely
-reportIncompatibleVariableOverride = "none"
-reportArgumentType = "none"
-reportAssignmentType = "none"
+reportUnusedCallResult = "none"

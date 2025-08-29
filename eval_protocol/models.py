@@ -422,10 +422,10 @@ class InputMetadata(BaseModel):
         default_factory=dict, description="Completion endpoint parameters used"
     )
     dataset_info: Optional[Dict[str, Any]] = Field(
-        None, description="Dataset row details: seed, system_prompt, environment_context, etc"
+        default=None, description="Dataset row details: seed, system_prompt, environment_context, etc"
     )
     session_data: Optional[Dict[str, Any]] = Field(
-        None, description="Session metadata like timestamp (input only, no duration/usage)"
+        default=None, description="Session metadata like timestamp (input only, no duration/usage)"
     )
 
 
@@ -439,9 +439,17 @@ class EvaluationThreshold(BaseModel):
     success: float = Field(
         ..., description="Minimum success rate threshold (fraction of total score, 0.0 to 1.0)", ge=0.0, le=1.0
     )
-    standard_error: Optional[float] = Field(
-        None, description="Maximum standard error threshold (fraction of total score, 0.0 to 1.0)", ge=0.0, le=1.0
+    standard_error: float | None = Field(
+        default=None,
+        description="Maximum standard error threshold (fraction of total score, 0.0 to 1.0)",
+        ge=0.0,
+        le=1.0,
     )
+
+
+class EvaluationThresholdDict(TypedDict):
+    success: float
+    standard_error: float | None
 
 
 class EvalMetadata(BaseModel):
@@ -495,6 +503,8 @@ class EvaluationRow(BaseModel):
     This model serves as the canonical format for evaluation data across the system,
     supporting both row-wise batch evaluation and trajectory-based RL evaluation.
     """
+
+    model_config = ConfigDict(extra="allow")
 
     # Core OpenAI ChatCompletion compatible conversation data
     messages: List[Message] = Field(description="List of messages in the conversation. Also known as a trajectory.")

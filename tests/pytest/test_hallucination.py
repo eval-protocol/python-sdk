@@ -8,6 +8,7 @@ tau's evaluate_nl_assertions approach.
 
 import json
 from typing import Any, Dict, List
+import pytest
 
 import litellm
 
@@ -29,6 +30,7 @@ def hallucination_dataset_adapter(data: List[Dict[str, Any]]) -> List[Evaluation
     ]
 
 
+@pytest.mark.asyncio
 @evaluation_test(
     input_dataset=["tests/pytest/data/halueval_sample_dataset.jsonl"],
     dataset_adapter=hallucination_dataset_adapter,
@@ -40,7 +42,7 @@ def hallucination_dataset_adapter(data: List[Dict[str, Any]]) -> List[Evaluation
     num_runs=1,
     mode="pointwise",
 )
-def test_hallucination_detection(row: EvaluationRow) -> EvaluationRow:
+async def test_hallucination_detection(row: EvaluationRow) -> EvaluationRow:
     """
     Test for response correctness using LLM-as-judge.
     """
@@ -79,7 +81,7 @@ def test_hallucination_detection(row: EvaluationRow) -> EvaluationRow:
     """
 
     try:
-        response = litellm.completion(
+        response = await litellm.acompletion(
             model=JUDGE_MODEL,
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             temperature=0.1,

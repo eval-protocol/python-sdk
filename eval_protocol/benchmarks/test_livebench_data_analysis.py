@@ -409,7 +409,7 @@ _CTA_ROWS = _load_livebench_da_messages("cta")
 
 @evaluation_test(
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
-    input_messages=[[m for m in r.messages] for r in _CTA_ROWS],
+    input_messages=[[[m for m in r.messages] for r in _CTA_ROWS]],
     rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
@@ -451,7 +451,7 @@ _TABLEJOIN_ROWS = _load_livebench_da_messages("tablejoin")
 
 @evaluation_test(
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
-    input_messages=[[m for m in r.messages] for r in _TABLEJOIN_ROWS],
+    input_messages=[[[m for m in r.messages] for r in _TABLEJOIN_ROWS]],
     rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
     rollout_processor=LiveBenchGroundTruthRolloutProcessor(_TABLEJOIN_ROWS),
     aggregation_method="mean",

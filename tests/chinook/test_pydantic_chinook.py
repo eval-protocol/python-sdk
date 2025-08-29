@@ -22,7 +22,7 @@ LLM_JUDGE_PROMPT = (
 
 @pytest.mark.asyncio
 @evaluation_test(
-    input_messages=[[Message(role="user", content="What is the total number of tracks in the database?")]],
+    input_messages=[[[Message(role="user", content="What is the total number of tracks in the database?")]]],
     completion_params=[
         {
             "model": {
@@ -89,7 +89,7 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
 )
 @pytest.mark.asyncio
 @evaluation_test(
-    input_rows=collect_dataset(),
+    input_rows=[collect_dataset()],
     completion_params=[
         {
             "model": {
@@ -138,10 +138,10 @@ async def test_complex_queries(row: EvaluationRow) -> EvaluationRow:
             reason: str
 
         comparison_agent = Agent(
+            model=model,
             system_prompt=LLM_JUDGE_PROMPT,
             output_type=Response,
-            model=model,
-            result_retries=5,
+            output_retries=5,
         )
         result = await comparison_agent.run(
             f"Expected answer: {row.ground_truth}\nResponse: {last_assistant_message.content}"
