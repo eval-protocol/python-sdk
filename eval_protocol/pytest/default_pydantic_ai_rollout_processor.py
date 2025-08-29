@@ -103,7 +103,7 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
 
     async def convert_pyd_message_to_ep_message(self, messages: list[ModelMessage]) -> list[Message]:
         oai_messages: list[ChatCompletionMessageParam] = await self.util._map_messages(messages)
-        return [Message(role=m["role"], **m) for m in oai_messages]  # pyright: ignore[reportArgumentType]
+        return [Message(**m) for m in oai_messages]  # pyright: ignore[reportArgumentType]
 
     def convert_ep_message_to_pyd_message(self, message: Message, row: EvaluationRow) -> ModelMessage:
         if message.role == "assistant":
