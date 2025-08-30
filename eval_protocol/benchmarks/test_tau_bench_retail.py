@@ -14,6 +14,7 @@ from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, M
 from eval_protocol.pytest import evaluation_test, ExceptionHandlerConfig
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 import litellm
+from litellm.exceptions import RateLimitError, APIConnectionError
 from vendor.tau2.data_model.message import (
     AssistantMessage,
     SystemMessage,
@@ -115,8 +116,8 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
     server_script_path=get_server_script_path(),
     exception_handler_config=ExceptionHandlerConfig(
         retryable_exceptions={
-            litellm.RateLimitError,
-            litellm.APIConnectionError,
+            RateLimitError,
+            APIConnectionError,
         }
     ),
 )
@@ -149,8 +150,10 @@ def test_tau_bench_retail_evaluation(row: EvaluationRow) -> EvaluationRow:
         role = msg.role
         content = msg.content
 
+        # Normalize content to str for tau2 message models
+        text_content = content if isinstance(content, str) or content is None else ""
         if role == "system":
-            trajectory_objects.append(SystemMessage(role=role, content=content))
+            trajectory_objects.append(SystemMessage(role=role, content=text_content))
         elif role == "assistant":
             tau2_tool_calls = []
             if msg.tool_calls:
@@ -163,12 +166,12 @@ def test_tau_bench_retail_evaluation(row: EvaluationRow) -> EvaluationRow:
                     )
                     tau2_tool_calls.append(tau2_tool_call)
 
-            trajectory_objects.append(AssistantMessage(role=role, content=content, tool_calls=tau2_tool_calls))
+            trajectory_objects.append(AssistantMessage(role=role, content=text_content, tool_calls=tau2_tool_calls))
         elif role == "user":
-            trajectory_objects.append(UserMessage(role=role, content=content))
+            trajectory_objects.append(UserMessage(role=role, content=text_content))
         elif role == "tool":
             tool_id = msg.tool_call_id
-            trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=content))
+            trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=text_content))
 
     reward = 1.0
 

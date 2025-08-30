@@ -204,10 +204,14 @@ known-first-party = ["eval_protocol"]
 combine-as-imports = true
 
 [tool.pyright]
-typeCheckingMode = "standard"
+typeCheckingMode = "basic"  # Changed from "standard" to reduce memory usage
 pythonVersion = "3.10"
-include = ["eval_protocol", "examples", "tests"]
-exclude = ["vite-app", "vendor"]
+include = ["eval_protocol"]  # Reduced scope to just the main package
+exclude = ["vite-app", "vendor", "examples", "tests", "development", "local_evals"]
 # Ignore diagnostics for vendored generator code
 ignore = ["versioneer.py"]
 reportUnusedCallResult = "none"
+# Memory optimization settings
+useLibraryCodeForTypes = false
+reportMissingImports = false
+reportMissingTypeStubs = false

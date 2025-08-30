@@ -5,8 +5,10 @@ from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Unio
 
 from openai.types import CompletionUsage
 from openai.types.chat.chat_completion_message import (
-    ChatCompletionMessageToolCall,
     FunctionCall,
+)
+from openai.types.chat.chat_completion_message_tool_call import (
+    ChatCompletionMessageToolCall,
 )
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -519,7 +521,7 @@ class EvaluationRow(BaseModel):
 
     # Input-related metadata (grouped together for cleaner organization)
     input_metadata: InputMetadata = Field(
-        default_factory=InputMetadata,
+        default_factory=lambda: InputMetadata(),
         description="Metadata related to the input (dataset info, model config, session data, etc.).",
     )
 
@@ -539,7 +541,7 @@ class EvaluationRow(BaseModel):
     )
 
     execution_metadata: ExecutionMetadata = Field(
-        default_factory=ExecutionMetadata,
+        default_factory=lambda: ExecutionMetadata(),
         description="Metadata about the execution of the evaluation.",
     )
 

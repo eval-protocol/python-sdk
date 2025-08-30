@@ -13,7 +13,7 @@ import mcp.types as types
 from anyio.abc import ObjectReceiveStream, ObjectSendStream
 
 # ListToolsResult is not in mcp.client.session, likely in mcp.types or mcp.shared.message
-from mcp.client.session import DEFAULT_CLIENT_INFO, ClientSession, SessionMessage
+from mcp.client.session import DEFAULT_CLIENT_INFO, ClientSession
 
 # Assuming ListToolsResult is in mcp.types, which is imported as types
 # If not, this will need further correction. For now, we'll use types.ListToolsResult
