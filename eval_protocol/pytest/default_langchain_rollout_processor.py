@@ -26,6 +26,7 @@ class LangGraphRolloutProcessor(RolloutProcessor):
         async def _process_row(row: EvaluationRow) -> EvaluationRow:
             # Build LC messages from EP row
             from langchain_core.messages import HumanMessage
+
             lm_messages: List[BaseMessage] = []
             if row.messages:
                 last_user = [m for m in row.messages if m.role == "user"]
@@ -42,6 +43,7 @@ class LangGraphRolloutProcessor(RolloutProcessor):
             elif hasattr(target, "ainvoke"):
                 invoke_fn = target.ainvoke
             elif callable(target):
+
                 async def _invoke_wrapper(payload):
                     return await target(payload)
 
@@ -56,6 +58,7 @@ class LangGraphRolloutProcessor(RolloutProcessor):
                 # Prefer SDK-level serializer
                 try:
                     from eval_protocol.adapters.langchain import serialize_lc_message_to_ep as _ser
+
                     return _ser(msg)
                 except Exception:
                     # Minimal fallback: best-effort string content only
@@ -72,5 +75,3 @@ class LangGraphRolloutProcessor(RolloutProcessor):
 
     def cleanup(self) -> None:
         return None
-
-

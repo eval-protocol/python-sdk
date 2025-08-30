@@ -21,10 +21,14 @@ def _dbg_print(*args):
 
 
 def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
-    _dbg_print("[EP-Ser] Input LC msg:", type(msg).__name__, {
-        "has_additional_kwargs": isinstance(getattr(msg, "additional_kwargs", None), dict),
-        "content_type": type(getattr(msg, "content", None)).__name__,
-    })
+    _dbg_print(
+        "[EP-Ser] Input LC msg:",
+        type(msg).__name__,
+        {
+            "has_additional_kwargs": isinstance(getattr(msg, "additional_kwargs", None), dict),
+            "content_type": type(getattr(msg, "content", None)).__name__,
+        },
+    )
 
     if isinstance(msg, HumanMessage):
         ep_msg = Message(role="user", content=str(msg.content))
@@ -65,11 +69,13 @@ def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
                         import json as _json
 
                         fn_args = _json.dumps(fn_args or {}, ensure_ascii=False)
-                    mapped.append({
-                        "id": call_id,
-                        "type": "function",
-                        "function": {"name": fn_name, "arguments": fn_args},
-                    })
+                    mapped.append(
+                        {
+                            "id": call_id,
+                            "type": "function",
+                            "function": {"name": fn_name, "arguments": fn_args},
+                        }
+                    )
                 except Exception:
                     continue
             return mapped
@@ -92,16 +98,23 @@ def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
         # Extract reasoning/thinking parts into reasoning_content
         reasoning_content = None
         if isinstance(msg.content, list):
-            collected = [it.get("thinking", "") for it in msg.content if isinstance(it, dict) and it.get("type") == "thinking"]
+            collected = [
+                it.get("thinking", "") for it in msg.content if isinstance(it, dict) and it.get("type") == "thinking"
+            ]
             if collected:
                 reasoning_content = "\n\n".join([s for s in collected if s]) or None
 
-        ep_msg = Message(role="assistant", content=content, tool_calls=tool_calls_payload, reasoning_content=reasoning_content)
-        _dbg_print("[EP-Ser] -> EP Message:", {
-            "role": ep_msg.role,
-            "content_len": len(ep_msg.content or ""),
-            "tool_calls": len(ep_msg.tool_calls or []) if isinstance(ep_msg.tool_calls, list) else 0,
-        })
+        ep_msg = Message(
+            role="assistant", content=content, tool_calls=tool_calls_payload, reasoning_content=reasoning_content
+        )
+        _dbg_print(
+            "[EP-Ser] -> EP Message:",
+            {
+                "role": ep_msg.role,
+                "content_len": len(ep_msg.content or ""),
+                "tool_calls": len(ep_msg.tool_calls or []) if isinstance(ep_msg.tool_calls, list) else 0,
+            },
+        )
         return ep_msg
 
     if isinstance(msg, ToolMessage):
@@ -113,13 +126,13 @@ def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
             role="tool",
             name=tool_name,
             tool_call_id=tool_call_id,
-            content=f"<{tool_name} status=\"{status}\">\n{content}\n</{tool_name}>",
+            content=f'<{tool_name} status="{status}">\n{content}\n</{tool_name}>',
         )
-        _dbg_print("[EP-Ser] -> EP Message:", {"role": ep_msg.role, "name": ep_msg.name, "has_id": bool(ep_msg.tool_call_id)})
+        _dbg_print(
+            "[EP-Ser] -> EP Message:", {"role": ep_msg.role, "name": ep_msg.name, "has_id": bool(ep_msg.tool_call_id)}
+        )
         return ep_msg
 
     ep_msg = Message(role=getattr(msg, "type", "assistant"), content=str(getattr(msg, "content", "")))
     _dbg_print("[EP-Ser] -> EP Message (fallback):", {"role": ep_msg.role, "len": len(ep_msg.content or "")})
     return ep_msg
-
-

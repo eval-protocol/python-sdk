@@ -74,25 +74,29 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 converted_tool_calls = []
                 for tool_call in tool_calls:
                     try:
-                        converted_tool_calls.append({
-                            "id": tool_call.id,
-                            "type": tool_call.type,
-                            "function": {
-                                "name": tool_call.function.name,
-                                "arguments": tool_call.function.arguments,
-                            },
-                        })
+                        converted_tool_calls.append(
+                            {
+                                "id": tool_call.id,
+                                "type": tool_call.type,
+                                "function": {
+                                    "name": tool_call.function.name,
+                                    "arguments": tool_call.function.arguments,
+                                },
+                            }
+                        )
                     except Exception:
                         # best-effort: fallback to dict form
                         try:
-                            converted_tool_calls.append({
-                                "id": getattr(tool_call, "id", "toolcall_0"),
-                                "type": getattr(tool_call, "type", "function"),
-                                "function": {
-                                    "name": getattr(getattr(tool_call, "function", None), "name", "tool"),
-                                    "arguments": getattr(getattr(tool_call, "function", None), "arguments", "{}"),
-                                },
-                            })
+                            converted_tool_calls.append(
+                                {
+                                    "id": getattr(tool_call, "id", "toolcall_0"),
+                                    "type": getattr(tool_call, "type", "function"),
+                                    "function": {
+                                        "name": getattr(getattr(tool_call, "function", None), "name", "tool"),
+                                        "arguments": getattr(getattr(tool_call, "function", None), "arguments", "{}"),
+                                    },
+                                }
+                            )
                         except Exception:
                             pass
 

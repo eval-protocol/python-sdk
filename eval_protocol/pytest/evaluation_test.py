@@ -452,7 +452,9 @@ def evaluation_test(
                                         {
                                             "role": m.role,
                                             "len": len(m.content or "") if isinstance(m.content, str) else None,
-                                            "tool_calls": len(m.tool_calls or []) if hasattr(m, "tool_calls") and isinstance(m.tool_calls, list) else 0,
+                                            "tool_calls": len(m.tool_calls or [])
+                                            if hasattr(m, "tool_calls") and isinstance(m.tool_calls, list)
+                                            else 0,
                                             "tool_call_id": getattr(m, "tool_call_id", None),
                                             "name": getattr(m, "name", None),
                                         }

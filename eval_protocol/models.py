@@ -223,8 +223,6 @@ class ChatCompletionContentPartTextParam(BaseModel):
     type: Literal["text"] = Field("text", description="The type of the content part.")
 
 
-
-
 class Message(BaseModel):
     """Chat message model with trajectory evaluation support."""
 
