@@ -230,6 +230,9 @@ class Message(BaseModel):
     content: Optional[Union[str, List[ChatCompletionContentPartTextParam]]] = Field(
         default="", description="The content of the message."
     )
+    reasoning_content: Optional[str] = Field(
+        default=None, description="Optional hidden chain-of-thought or reasoning content."
+    )
     name: Optional[str] = None
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionMessageToolCall]] = None

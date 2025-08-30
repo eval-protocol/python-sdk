@@ -5,7 +5,7 @@ import time
 from typing import List
 
 from litellm import acompletion
-from openai.types.chat.chat_completion_message import ChatCompletionMessageToolCall
+from typing import Dict
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
@@ -71,17 +71,34 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
             converted_tool_calls = None
             if tool_calls:
-                converted_tool_calls = [
-                    ChatCompletionMessageToolCall(
-                        id=tool_call.id,
-                        type=tool_call.type,
-                        function={
-                            "name": tool_call.function.name,
-                            "arguments": tool_call.function.arguments,
-                        },
-                    )
-                    for tool_call in tool_calls
-                ]
+                converted_tool_calls = []
+                for tool_call in tool_calls:
+                    try:
+                        converted_tool_calls.append(
+                            {
+                                "id": tool_call.id,
+                                "type": tool_call.type,
+                                "function": {
+                                    "name": tool_call.function.name,
+                                    "arguments": tool_call.function.arguments,
+                                },
+                            }
+                        )
+                    except Exception:
+                        # best-effort: fallback to dict form
+                        try:
+                            converted_tool_calls.append(
+                                {
+                                    "id": getattr(tool_call, "id", "toolcall_0"),
+                                    "type": getattr(tool_call, "type", "function"),
+                                    "function": {
+                                        "name": getattr(getattr(tool_call, "function", None), "name", "tool"),
+                                        "arguments": getattr(getattr(tool_call, "function", None), "arguments", "{}"),
+                                    },
+                                }
+                            )
+                        except Exception:
+                            pass
 
             messages = list(row.messages) + [
                 Message(

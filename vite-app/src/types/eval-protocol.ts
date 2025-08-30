@@ -7,6 +7,7 @@ export const ChatCompletionContentPartTextParamSchema = z.object({
   type: z.literal('text').default('text').describe('The type of the content part.')
 });
 
+
 export const FunctionCallSchema = z.object({
   name: z.string(),
   arguments: z.string()
@@ -21,6 +22,7 @@ export const ChatCompletionMessageToolCallSchema = z.object({
 export const MessageSchema = z.object({
   role: z.string().describe('assistant, user, system, tool'),
   content: z.union([z.string(), z.array(ChatCompletionContentPartTextParamSchema)]).optional().default('').describe('The content of the message.'),
+  reasoning_content: z.string().optional().describe('Optional hidden chain-of-thought or reasoning content.'),
   name: z.string().optional(),
   tool_call_id: z.string().optional(),
   tool_calls: z.array(ChatCompletionMessageToolCallSchema).optional(),

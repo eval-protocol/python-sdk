@@ -13,6 +13,7 @@ export const MessageBubble = ({ message }: { message: Message }) => {
   const hasFunctionCall = message.function_call;
 
   // Get the message content as a string
+  const reasoning = (message as any).reasoning_content as string | undefined;
   const getMessageContent = () => {
     if (typeof message.content === "string") {
       return message.content;
@@ -103,6 +104,17 @@ export const MessageBubble = ({ message }: { message: Message }) => {
           >
             {isExpanded ? "Show less" : "Show more"}
           </button>
+        )}
+        {reasoning && reasoning.trim().length > 0 && (
+          <div className={`mt-2 pt-1 border-t ${isTool ? "border-green-200" : "border-yellow-200"}`}>
+            <div className={`font-semibold text-xs mb-0.5 ${isTool ? "text-green-700" : "text-yellow-700"}`}>
+              Thinking:
+            </div>
+            <details className="mb-1">
+              <summary className={`cursor-pointer text-xs ${isTool ? "text-green-700" : "text-yellow-700"}`}>Show reasoning</summary>
+              <pre className={`mt-1 p-1 border rounded text-xs whitespace-pre-wrap break-words ${isTool ? "bg-green-100 border-green-200 text-green-800" : "bg-yellow-100 border-yellow-200 text-yellow-800"}`}>{reasoning}</pre>
+            </details>
+          </div>
         )}
         {hasToolCalls && message.tool_calls && (
           <div

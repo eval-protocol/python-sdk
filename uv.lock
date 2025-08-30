@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -1317,8 +1317,8 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.6.0" },
     { name = "mcp", specifier = ">=1.9.2" },
     { name = "omegaconf", specifier = ">=2.3.0" },
-    { name = "openai", specifier = "==1.78.1" },
-    { name = "openai", marker = "extra == 'dev'", specifier = "==1.78.1" },
+    { name = "openai", specifier = ">=1.78.1" },
+    { name = "openai", marker = "extra == 'dev'", specifier = ">=1.78.1" },
     { name = "openevals", marker = "extra == 'openevals'", specifier = ">=0.1.0" },
     { name = "pandas", specifier = ">=1.5.0" },
     { name = "peewee", specifier = ">=3.18.2" },
