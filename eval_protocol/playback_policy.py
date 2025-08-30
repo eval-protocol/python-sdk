@@ -12,8 +12,6 @@ import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
-from openai.types import CompletionUsage
-
 from .types import MCPToolCall
 
 logger = logging.getLogger(__name__)
@@ -207,7 +205,7 @@ class PlaybackPolicyBase(ABC):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List["MCPToolCall"], CompletionUsage, str]:
+    ) -> Tuple[List["MCPToolCall"], Optional[Dict[str, int]], Optional[str]]:
         """
         Generate tool calls in live mode. Concrete classes must implement this.
 
@@ -217,7 +215,7 @@ class PlaybackPolicyBase(ABC):
             conversation_history: Current conversation history for this environment
 
         Returns:
-            List of ToolCall objects and LLM interation usage stats
+            Tuple of (tool calls, optional usage dict, optional correlation id)
         """
         pass
 
@@ -341,33 +339,7 @@ class PlaybackPolicyBase(ABC):
 
         return progress
 
-    def log_conversation_state_for_playback(
-        self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]
-    ):
-        """
-        Log the current conversation state in the format required for playback.
-
-        Base implementation that subclasses can override with specific behavior.
-        Expected format: {"env_index": 0, "step": 0, "messages": [{..}, {..}]}
-
-        Args:
-            env_index: Environment index
-            step: Current step number
-            conversation_history: List of conversation messages
-        """
-        # Use EP_PLAYBACK_FILE environment variable for recording
-        playback_file = os.environ.get("EP_PLAYBACK_FILE")
-        if not playback_file:
-            return  # No recording file specified
-
-        playback_entry = {
-            "env_index": env_index,
-            "step": step,
-            "messages": conversation_history.copy(),
-        }
-
-        with open(playback_file, "a") as f:
-            f.write(json.dumps(playback_entry) + "\n")
+    # Duplicate definition removed
 
     def log_conversation_state_for_playback(
         self, env_index: int, step: int, conversation_history: List[Dict[str, Any]]
