@@ -9,6 +9,7 @@ import re
 from typing import Any, Dict, List, Optional, Pattern, Set, Union
 
 from ..models import EvaluateResult, Message, MetricResult
+from ._content_utils import to_text
 from ..typed_interface import reward_function
 
 
@@ -48,7 +49,7 @@ def reasoning_steps_reward(
 
     response = messages[-1]
 
-    if response.role != "assistant" or not response.content:
+    if response.role != "assistant" or not to_text(response.content):
         return EvaluateResult(
             score=0.0,
             reason="No assistant response found or response has no content",
@@ -60,7 +61,7 @@ def reasoning_steps_reward(
                 )
             },
         )
-    text: str = response.content
+    text: str = to_text(response.content)
 
     # Default patterns for detecting reasoning steps
     default_patterns = [
@@ -187,7 +188,7 @@ def sequence_reward(
 
     response = messages[-1]
 
-    if response.role != "assistant" or not response.content:
+    if response.role != "assistant" or not to_text(response.content):
         return EvaluateResult(
             score=0.0,
             reason="No assistant response found or response has no content",
@@ -199,7 +200,7 @@ def sequence_reward(
                 )
             },
         )
-    text: str = response.content
+    text: str = to_text(response.content)
 
     if not sequence_terms:
         sequence_terms = [

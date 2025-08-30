@@ -10,6 +10,7 @@ import re
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 from ..models import EvaluateResult, Message, MetricResult
+from ._content_utils import to_text
 from ..typed_interface import reward_function
 
 
@@ -134,7 +135,7 @@ def multiple_choice_math_reward(
     if messages and len(messages) > 0:
         gen_response_message = messages[-1]
         if gen_response_message.role == "assistant":
-            gen_content = gen_response_message.content or ""
+            gen_content = to_text(gen_response_message.content)
 
     if not gen_content:
         metrics["error_generated_message"] = MetricResult(
@@ -152,7 +153,7 @@ def multiple_choice_math_reward(
     if ground_truth and len(ground_truth) > 0:
         orig_response_message = ground_truth[0]
         if orig_response_message.role == "assistant":
-            orig_content = orig_response_message.content or ""
+            orig_content = to_text(orig_response_message.content)
 
     if not orig_content:
         metrics["error_original_message"] = MetricResult(

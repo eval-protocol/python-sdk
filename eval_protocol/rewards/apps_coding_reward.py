@@ -5,6 +5,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from eval_protocol.models import EvaluateResult, Message, MetricResult
+from ._content_utils import to_text_any
 from eval_protocol.reward_function import reward_function
 
 # Import the new execution utility
@@ -84,7 +85,7 @@ def evaluate_apps_solution(messages: List[Message], ground_truth: Optional[str],
             reason="No messages provided.",
         )
 
-    raw_solution_content = messages[-1].content
+    raw_solution_content = to_text_any(messages[-1].content)
     code_solution = _extract_python_code(raw_solution_content)
 
     if not code_solution or not code_solution.strip():
@@ -118,6 +119,8 @@ def evaluate_apps_solution(messages: List[Message], ground_truth: Optional[str],
     score = 0.0
     reason_msg = "Evaluation did not complete successfully."
     metrics: Dict[str, MetricResult] = {}
+    passed_count = 0
+    num_tests = 0
 
     in_outs: Optional[Dict[str, Any]] = None
     if isinstance(ground_truth, str):

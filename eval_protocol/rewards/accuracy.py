@@ -11,6 +11,7 @@ import re
 from typing import Any, Callable, Dict, List, Optional, Union, cast
 
 from ..models import EvaluateResult, Message, MetricResult
+from ._content_utils import to_text
 from ..typed_interface import reward_function
 
 
@@ -334,7 +335,7 @@ def accuracy_reward(
     model_last_message = messages[-1]
     if isinstance(model_last_message, Message):
         if model_last_message.role == "assistant" and model_last_message.content is not None:
-            model_response_text = model_last_message.content
+            model_response_text = to_text(model_last_message.content)
         else:
             return EvaluateResult(
                 score=0.0,
@@ -386,7 +387,7 @@ def accuracy_reward(
     first_gt_message = ground_truth[0]
     if isinstance(first_gt_message, Message):
         if first_gt_message.content is not None:
-            ground_truth_comparison_text = first_gt_message.content
+            ground_truth_comparison_text = to_text(first_gt_message.content)
         else:
             return EvaluateResult(
                 score=0.0,

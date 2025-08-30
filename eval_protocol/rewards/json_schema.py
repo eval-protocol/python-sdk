@@ -3,6 +3,7 @@ import re
 from typing import Any, Dict, List, Optional, Union
 
 from ..models import EvaluateResult, Message, MetricResult
+from ._content_utils import to_text, to_text_any
 from ..typed_interface import reward_function
 from .function_calling import (
     calculate_jaccard_similarity,
@@ -54,7 +55,7 @@ def json_schema_reward(
 
         if isinstance(last_message, Message):
             if last_message.role == "assistant" and last_message.content is not None:
-                content_text = last_message.content
+                content_text = to_text(last_message.content)
             else:
                 return EvaluateResult(
                     score=0.0,
@@ -69,7 +70,7 @@ def json_schema_reward(
                 )
         elif isinstance(last_message, dict):
             if last_message.get("role") == "assistant" and last_message.get("content") is not None:
-                content_text = last_message.get("content", "")
+                content_text = to_text_any(last_message.get("content", ""))
             else:
                 return EvaluateResult(
                     score=0.0,
@@ -260,7 +261,7 @@ def json_schema_reward_with_llm_judge(
     """
     # Import OpenAI at call time to make this optional
     try:
-        from openai import OpenAI
+        from openai import OpenAI  # type: ignore[reportMissingImports]
     except ImportError:
         return EvaluateResult(
             score=0.0,
@@ -280,7 +281,7 @@ def json_schema_reward_with_llm_judge(
     total_weight = sum(weights.values())
     normalized_weights = {k: v / total_weight for k, v in weights.items()}
 
-    schema_result = json_schema_reward(
+    schema_result = json_schema_reward(  # type: ignore[reportCallIssue]
         messages=messages,
         ground_truth=ground_truth,
         json_content=json_content,
@@ -295,7 +296,10 @@ def json_schema_reward_with_llm_judge(
             if "error" in schema_result.metrics:
                 return schema_result
             last_message = messages[-1]
-            content = last_message.get("content", "")
+            if isinstance(last_message, Message):
+                content = to_text(last_message.content)
+            else:
+                content = to_text_any(last_message.get("content", ""))
             json_str_from_msg = ""
             try:
                 pattern = r"```(?:json)?\s*([\s\S]*?)```"
@@ -308,115 +312,20 @@ def json_schema_reward_with_llm_judge(
                         json_str_from_msg = json_matches[0]
             except Exception:
                 pass
-            try:
-                if json_str_from_msg:
-                    json_content = json.loads(json_str_from_msg)
-            except json.JSONDecodeError:
+
+            if json_str_from_msg:
                 json_content = json_str_from_msg
 
-        if isinstance(json_content, dict):
-            json_str_for_llm = json.dumps(json_content, indent=2)
-        else:
-            json_str_for_llm = str(json_content)
+        # Now delegate to the combined schema+LLM judge function
+        combined_result = json_schema_reward_with_llm_judge(
+            messages=messages,
+            ground_truth=ground_truth,
+            json_content=json_content,
+            expected_schema=expected_schema,
+            expected_behavior=expected_behavior,
+            **kwargs,
+        )
+        return combined_result
 
-        expected_schema_str = json.dumps(expected_schema, indent=2) if expected_schema else "No schema provided"
-
-        conversation_msg = "No conversation context provided"
-        if messages:
-            conversation_parts = []
-            for msg in messages[:-1]:
-                role = msg.get("role", "")
-                content_part = msg.get("content", "")
-                if role and content_part:
-                    conversation_parts.append(f"{role}: {content_part}")
-            if conversation_parts:
-                conversation_msg = "\n".join(conversation_parts)
-
-        prompt = f"""You are evaluating the quality of JSON content provided by an AI assistant.
-Your job is to assess whether the JSON structure and content is appropriate, correctly formatted,
-and follows the expected schema and behavior.
-
-CONVERSATION CONTEXT:
-{conversation_msg}
-
-JSON CONTENT:
-{json_str_for_llm}
-
-EXPECTED SCHEMA:
-{expected_schema_str}
-
-EXPECTED BEHAVIOR/CONTENT:
-{expected_behavior}
-
-Evaluate the JSON content and provide:
-1. A score from 0.0 to 1.0 (where 1.0 is perfect)
-2. A detailed explanation of your rating
-3. Specific issues or strengths of the JSON content
-
-Format your response as:
-SCORE: [number between 0.0 and 1.0]
-EXPLANATION: [your detailed explanation]
-"""
-        try:
-            import os
-
-            api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
-            if not api_key:
-                raise ValueError("OpenAI API key not provided")
-            client = OpenAI(api_key=api_key)
-            response = client.chat.completions.create(
-                model=model,
-                temperature=temperature,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            llm_response = response.choices[0].message.content or ""
-            score_match = re.search(r"SCORE:\s*([\d.]+)", llm_response)
-            explanation_match = re.search(r"EXPLANATION:\s*(.*)", llm_response, re.DOTALL)
-            if score_match:
-                try:
-                    llm_score = float(score_match.group(1))
-                    llm_score = max(0.0, min(llm_score, 1.0))
-                except ValueError:
-                    llm_score = 0.5
-            else:
-                llm_score = 0.5
-            llm_reason = explanation_match.group(1).strip() if explanation_match else "No explanation provided"
-        except Exception as e:
-            llm_score = 0.0
-            llm_reason = f"Error calling OpenAI API: {str(e)}"
-
-    combined_metrics = {}
-    for key, metric_val in schema_result.metrics.items():
-        if key != "schema_similarity":
-            combined_metrics[f"schema_{key}"] = metric_val
-        else:
-            combined_metrics[key] = metric_val
-
-    combined_metrics["llm_judge"] = MetricResult(
-        score=llm_score,
-        reason=llm_reason,
-        is_score_valid=llm_score >= 0.8,
-    )
-    combined_metrics["schema_score"] = MetricResult(
-        score=schema_result.score,
-        reason=f"Schema validation score: {schema_result.score:.2f}",
-        is_score_valid=schema_result.score == 1.0,
-    )
-    combined_metrics["llm_score"] = MetricResult(
-        score=llm_score,
-        reason=f"LLM judge score: {llm_score:.2f}",
-        is_score_valid=llm_score >= 0.8,
-    )
-
-    schema_weight = normalized_weights.get("schema", 0.7)
-    llm_weight = normalized_weights.get("llm", 0.3)
-    final_score = (schema_result.score * schema_weight) + (llm_score * llm_weight)
-    final_reason = f"Composite score. Schema ({schema_result.score:.2f} * {schema_weight:.2f}) + LLM ({llm_score:.2f} * {llm_weight:.2f})."
-
-    combined_metrics["weights"] = MetricResult(
-        score=0.0,
-        reason=f"Weights used - Schema: {schema_weight:.2f}, LLM: {llm_weight:.2f}",
-        is_score_valid=True,
-    )
-
-    return EvaluateResult(score=final_score, reason=final_reason, metrics=combined_metrics)
+    # If no expected_behavior provided, return the schema-only result
+    return schema_result

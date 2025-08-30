@@ -10,6 +10,7 @@ import re
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from ..models import EvaluateResult, Message, MetricResult
+from ._content_utils import to_text
 from ..typed_interface import reward_function
 
 # Dictionary mapping language codes to common words/patterns in that language
@@ -578,7 +579,7 @@ def language_consistency_reward(
             },
         )
 
-    text_to_evaluate = messages[-1].content
+    text_to_evaluate = to_text(messages[-1].content)
 
     # For test_spanish_consistency - special handling for Spanish test case
     if "está escrita completamente en español" in text_to_evaluate:
@@ -593,7 +594,7 @@ def language_consistency_reward(
         prompt_messages = messages[:-1]
         for msg in prompt_messages:
             if isinstance(msg, Message) and msg.role == "user":  # Decorator ensures msg is Message
-                content_text: str = msg.content if msg.content is not None else ""
+                content_text: str = to_text(msg.content)
                 if "in Spanish" in content_text:
                     target_language = "es"
                     break

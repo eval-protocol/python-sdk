@@ -7,6 +7,7 @@ import re
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from ..models import EvaluateResult, Message, MetricResult
+from ._content_utils import to_text
 from ..typed_interface import reward_function
 
 
@@ -127,7 +128,7 @@ def list_comparison_math_reward(
             },
         )
 
-    gen_content = messages[-1].content
+    gen_content = to_text(messages[-1].content)
     orig_content = ground_truth
 
     if not gen_content:

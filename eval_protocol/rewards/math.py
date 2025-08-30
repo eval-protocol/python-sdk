@@ -11,6 +11,7 @@ import re
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from ..models import EvaluateResult, Message, MetricResult
+from ._content_utils import to_text
 from ..typed_interface import reward_function
 
 _ALGEBRAIC_VARS_SET: Set[str] = {
@@ -587,7 +588,7 @@ def math_reward(
                 )
             },
         )
-    model_response_content = messages[-1].content
+    model_response_content = to_text(messages[-1].content)
     if ground_truth is None or ground_truth == "":
         return EvaluateResult(
             score=0.0,
@@ -603,7 +604,8 @@ def math_reward(
 
     gen_answers_extracted_initial = extract_numbers(model_response_content)
     orig_answers_extracted = extract_numbers(ground_truth)
-    gen_answers_extracted = list(gen_answers_extracted_initial)
+    # Keep a precise type to satisfy downstream function signatures
+    gen_answers_extracted: List[Tuple[str, Union[float, str]]] = list(gen_answers_extracted_initial)
     metrics: Dict[str, MetricResult] = {}
 
     def format_extracted(items: List[Tuple[str, Union[float, str]]]) -> str:

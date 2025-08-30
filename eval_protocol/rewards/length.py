@@ -11,6 +11,7 @@ import re
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from ..models import EvaluateResult, Message, MetricResult
+from ._content_utils import to_text, to_text_any
 from ..typed_interface import reward_function
 
 
@@ -81,7 +82,7 @@ def length_reward(
     response = messages[-1]
 
     if isinstance(response, Message):
-        if response.role != "assistant" or not response.content:
+        if response.role != "assistant" or not to_text(response.content):
             return EvaluateResult(
                 score=0.0,
                 reason="No assistant response found",
@@ -93,7 +94,7 @@ def length_reward(
                     )
                 },
             )
-        text = response.content
+        text = to_text(response.content)
     elif isinstance(response, dict):
         if response.get("role") != "assistant" or not response.get("content"):
             return EvaluateResult(
@@ -107,7 +108,7 @@ def length_reward(
                     )
                 },
             )
-        text = response.get("content", "")
+        text = to_text_any(response.get("content", ""))
     else:
         return EvaluateResult(
             score=0.0,
@@ -321,6 +322,9 @@ def cosine_length_reward(
                 )
             },
         )
+
+    # Ensure `text` is plain string
+    text = to_text_any(text)
 
     token_count = count_tokens(text, method=token_method)
 
