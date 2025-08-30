@@ -29,7 +29,7 @@ class IntermediaryMCPClient:
 
     async def connect(self):
         """Establishes connection and MCP session."""
-        if self._mcp_session and not self._mcp_session.is_closed:
+        if self._mcp_session is not None:
             logger.debug("Already connected.")
             return
 

@@ -171,7 +171,11 @@ def local_code_execution_reward(
             },
         )
 
-    response_content = messages[-1].content
+    # Normalize content to string; Message.content may be str or list of content parts
+    last_content = messages[-1].content
+    response_content = (
+        last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])
+    )
     expected_output_str = ground_truth
 
     code_blocks = extract_code_blocks(response_content, language)
@@ -935,7 +939,10 @@ def e2b_code_execution_reward(
             },
         )
 
-    response_content = messages[-1].content
+    last_content = messages[-1].content
+    response_content = (
+        last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])
+    )
     expected_output_str = ground_truth
 
     code_blocks = extract_code_blocks(response_content, language)

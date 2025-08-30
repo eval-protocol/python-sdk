@@ -57,7 +57,8 @@ def lean_prover_reward(
             },
         )
 
-    response = messages[-1].content
+    last_content = messages[-1].content
+    response = last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])
     if not response:
         return EvaluateResult(
             score=0.0,
@@ -230,7 +231,10 @@ def deepseek_prover_v2_reward(
         and messages[-1].role == "assistant"
         and messages[-1].content is not None
     ):
-        response_content = messages[-1].content
+        last_content = messages[-1].content
+        response_content = (
+            last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])
+        )
 
     final_score = base_score
     subgoal_count = 0

@@ -244,6 +244,10 @@ class LocalDockerOrchestrationClient(AbstractOrchestrationClient):
                 logger.info(
                     f"Creating template container for commit: {temp_cont_name} from {backend_config.docker_image}"
                 )
+                if not backend_config.docker_image:
+                    raise ValueError(
+                        f"docker_image is required for template commit for backend {backend_config.backend_name_ref}"
+                    )
                 temp_c = self.docker_client.containers.run(  # type: ignore
                     image=backend_config.docker_image,
                     name=temp_cont_name,
@@ -322,6 +326,11 @@ class LocalDockerOrchestrationClient(AbstractOrchestrationClient):
                 logger.info(
                     f"Provisioning instance {container_name} (transport: {backend_config.mcp_transport}) from image {image_to_run_from}"
                 )
+                # Ensure the image reference is present before using it in Docker APIs
+                if not image_to_run_from:
+                    raise ValueError(
+                        f"docker_image is required to provision instance {container_name} for backend {backend_config.backend_name_ref}"
+                    )
                 if backend_config.mcp_transport == "http":
                     # ... (HTTP provisioning logic, ensure it uses current_container_volumes) ...
                     if not self.docker_client:
@@ -640,7 +649,7 @@ class LocalDockerOrchestrationClient(AbstractOrchestrationClient):
                 )
             target_base_url = instance.mcp_endpoint_url.rstrip("/")
             try:
-                async with streamablehttp_client(base_url=target_base_url) as (
+                async with streamablehttp_client(target_base_url) as (
                     read_s,
                     write_s,
                     _,  # get_session_id_func usually not needed for a single call

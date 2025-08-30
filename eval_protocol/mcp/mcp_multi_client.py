@@ -90,8 +90,8 @@ class MCPMultiClient:
             if env_config:
                 self._validate_environment_variables(server_name, env_config)
 
-            # Use the current system environment (os.environ) - don't override with config
-            server_params = StdioServerParameters(command=command, args=args, env=os.environ)
+            # Use the current system environment (os.environ) - convert to plain dict for typing compatibility
+            server_params = StdioServerParameters(command=command, args=args, env=dict(os.environ))
 
             stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
             stdio, write = stdio_transport

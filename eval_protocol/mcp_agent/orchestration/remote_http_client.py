@@ -263,6 +263,9 @@ class RemoteHttpOrchestrationClient(AbstractOrchestrationClient):
             logger.debug(f"Proxying tool {tool_name} to {target_url} for instance {instance.instance_id}")
         else:
             # Call tool directly on the instance's MCP endpoint
+            # mypy/pyright: instance.mcp_endpoint_url is Optional[str]; validate before assignment
+            if not instance.mcp_endpoint_url:
+                raise ValueError(f"Instance {instance.instance_id} missing mcp_endpoint_url for direct tool call")
             target_url = instance.mcp_endpoint_url
             logger.debug(f"Calling tool {tool_name} directly on {target_url} for instance {instance.instance_id}")
 

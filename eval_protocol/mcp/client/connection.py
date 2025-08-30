@@ -53,16 +53,26 @@ class MCPConnectionManager:
 
         exit_stack = AsyncExitStack()
 
-        client_info = Implementation(name="reward-kit", version="1.0.0", _extra={})
-        client_info._extra["session_id"] = session.session_id
+        # Attach client metadata for the server to consume (session_id, seed, config, etc.).
+        # The server inspects a private `_extra` dict on client_info, so we populate it here.
+        client_info = Implementation(name="reward-kit", version="1.0.0")
+        extra_data: Dict[str, Any] = {"session_id": session.session_id}
         if session.seed is not None:
-            client_info._extra["seed"] = session.seed
+            extra_data["seed"] = session.seed
         if session.dataset_row and session.dataset_row.environment_context:
-            client_info._extra["config"] = session.dataset_row.environment_context
+            extra_data["config"] = session.dataset_row.environment_context
         if session.dataset_row and session.dataset_row.id:
-            client_info._extra["dataset_row_id"] = session.dataset_row.id
+            extra_data["dataset_row_id"] = session.dataset_row.id
         if session.model_id:
-            client_info._extra["model_id"] = session.model_id
+            extra_data["model_id"] = session.model_id
+
+        # Merge with any existing _extra dict instead of overwriting
+        existing_extra = getattr(client_info, "_extra", None)
+        merged_extra: Dict[str, Any] = {}
+        if isinstance(existing_extra, dict):
+            merged_extra.update(existing_extra)
+        merged_extra.update(extra_data)
+        setattr(client_info, "_extra", merged_extra)
 
         read_stream, write_stream, _ = await exit_stack.enter_async_context(
             streamablehttp_client(session.base_url, terminate_on_close=True)
@@ -92,7 +102,10 @@ class MCPConnectionManager:
             # Only fetch tools if not already cached for this base_url
             if cache_key not in self._tools_cache:
                 logger.debug(f"Pre-warming tools cache for {cache_key}")
-                tools_response = await session._mcp_session.list_tools()
+                mcp_session_local = session._mcp_session
+                if mcp_session_local is None:
+                    raise RuntimeError("Session not initialized during prewarm")
+                tools_response = await mcp_session_local.list_tools()
                 tools = tools_response.tools if hasattr(tools_response, "tools") else []
 
                 tool_schemas = []
@@ -213,7 +226,7 @@ class MCPConnectionManager:
                 try:
                     # Use shorter timeout for playback mode, longer timeout for high-concurrency initialization
                     # (50+ concurrent sessions need more time for initial state setup)
-                    timeout = 3.0 if hasattr(session, "_is_playback_mode") and session._is_playback_mode else 15.0
+                    timeout = 3.0 if bool(getattr(session, "_is_playback_mode", False)) else 15.0
                     async with httpx.AsyncClient(timeout=timeout) as client:
                         initial_state_response = await client.get(
                             f"{base_url}/control/initial_state",
