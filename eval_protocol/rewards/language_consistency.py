@@ -9,7 +9,7 @@ are in the expected language.
 import re
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from ..models import EvaluateResult, Message, MetricResult
+from ..models import EvaluateResult, Message, MetricResult, ChatCompletionContentPartTextParam
 from ..typed_interface import reward_function
 
 # Dictionary mapping language codes to common words/patterns in that language
@@ -560,12 +560,7 @@ def language_consistency_reward(
     Returns:
         EvaluateResult with score based on language consistency.
     """
-    if (
-        not messages
-        or not isinstance(messages[-1], Message)
-        or messages[-1].role != "assistant"
-        or messages[-1].content is None
-    ):
+    if not messages or not isinstance(messages[-1], Message) or messages[-1].role != "assistant":
         return EvaluateResult(
             score=0.0,
             reason="Invalid or missing assistant response in messages.",
@@ -578,7 +573,17 @@ def language_consistency_reward(
             },
         )
 
-    text_to_evaluate = messages[-1].content
+    def _to_text(content: Union[str, List[ChatCompletionContentPartTextParam], None]) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, str):
+            return content
+        try:
+            return "\n".join(part.text for part in content)
+        except Exception:
+            return ""
+
+    text_to_evaluate = _to_text(messages[-1].content)
 
     # For test_spanish_consistency - special handling for Spanish test case
     if "está escrita completamente en español" in text_to_evaluate:
@@ -593,7 +598,7 @@ def language_consistency_reward(
         prompt_messages = messages[:-1]
         for msg in prompt_messages:
             if isinstance(msg, Message) and msg.role == "user":  # Decorator ensures msg is Message
-                content_text: str = msg.content if msg.content is not None else ""
+                content_text: str = _to_text(msg.content)
                 if "in Spanish" in content_text:
                     target_language = "es"
                     break
