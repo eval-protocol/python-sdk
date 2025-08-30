@@ -16,11 +16,12 @@ import yaml  # For saving config if save_config helper doesn't exist
 
 # TODO: Consider moving subprocess_manager functions to a more central location if used by core CLI
 try:
+    # Import functions with explicit names to match expected signatures
     from development.utils.subprocess_manager import (
-        start_ngrok_and_get_url,  # Added ngrok function
-        start_process,
-        start_serveo_and_get_url,
-        stop_process,
+        start_ngrok_and_get_url as _start_ngrok_and_get_url,
+        start_process as _start_process,
+        start_serveo_and_get_url as _start_serveo_and_get_url,
+        stop_process as _stop_process,
     )
 except ImportError:
     # Fallback implementations when development module is not available
@@ -56,6 +57,19 @@ except ImportError:
         """Fallback ngrok tunnel - returns None to indicate unavailable."""
         print("ngrok tunneling not available - development module not found")
         return None, None
+else:
+    # Wrap imported helpers to present consistent, simple signatures used below
+    def start_process(command, log_path, env=None):
+        return _start_process(command=command, log_file_path=log_path, env=env)
+
+    def stop_process(pid):
+        return _stop_process(pid)
+
+    def start_serveo_and_get_url(local_port, log_path):
+        return _start_serveo_and_get_url(local_port=local_port, log_path=log_path)
+
+    def start_ngrok_and_get_url(local_port, log_path):
+        return _start_ngrok_and_get_url(local_port=local_port, ngrok_log_file=log_path)
 
 
 from eval_protocol.auth import get_fireworks_account_id

@@ -27,3 +27,7 @@ repos:
     hooks:
     -   id: basedpyright
         args: ["--level", "error"]
+        env:
+            NODE_OPTIONS: "--max-old-space-size=4096"
+        # Only check Python files in the main package to reduce memory usage
+        files: ^eval_protocol/.*\.py$

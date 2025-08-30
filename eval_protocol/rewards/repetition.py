@@ -8,7 +8,20 @@ encouraging more diverse and information-rich outputs.
 import re
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
-from ..models import EvaluateResult, Message, MetricResult
+from ..models import EvaluateResult, Message, MetricResult, ChatCompletionContentPartTextParam
+
+
+def _to_text(content: Optional[Union[str, List[ChatCompletionContentPartTextParam]]]) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    try:
+        return "\n".join(part.text for part in content)
+    except Exception:
+        return ""
+
+
 from ..typed_interface import reward_function
 
 
@@ -94,7 +107,7 @@ def repetition_penalty_reward(
                     )
                 },
             )
-        text = response.content or ""
+        text = _to_text(response.content)
     elif isinstance(response, dict):
         if response.get("role") != "assistant":
             return EvaluateResult(

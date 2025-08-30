@@ -14,7 +14,10 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import litellm
 from litellm import acompletion, completion
-from litellm.caching import Cache, DualCache, InMemoryCache, RedisCache
+from litellm.caching.caching import Cache
+from litellm.caching.dual_cache import DualCache
+from litellm.caching.in_memory_cache import InMemoryCache
+from litellm.caching.redis_cache import RedisCache
 
 from .base_policy import LLMBasePolicy
 
@@ -108,13 +111,13 @@ class LiteLLMPolicy(LLMBasePolicy):
                 logger.info("🗄️ Initialized dual caching (memory + Redis)")
 
             elif cache_type == "disk":
-                from litellm.caching import DiskCache
+                from litellm.caching.disk_cache import DiskCache
 
                 litellm.cache = DiskCache()
                 logger.info("🗄️ Initialized disk caching")
 
             elif cache_type == "s3":
-                from litellm.caching import S3Cache
+                from litellm.caching.s3_cache import S3Cache
 
                 litellm.cache = S3Cache()
                 logger.info("🗄️ Initialized S3 caching")
