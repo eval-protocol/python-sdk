@@ -8,7 +8,7 @@ from .exception_config import ExceptionHandlerConfig, BackoffConfig, get_default
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
 
-# Conditional import for optional dependency
+# Conditional import for optional dependencies
 try:
     from .default_pydantic_ai_rollout_processor import PydanticAgentRolloutProcessor
 

@@ -243,8 +243,19 @@ class Message(BaseModel):
 
     @classmethod
     def model_validate(cls, obj, *args, **kwargs):
-        if isinstance(obj, dict) and "role" not in obj:
-            raise ValueError("Role is required")
+        if isinstance(obj, dict):
+            if "role" not in obj:
+                raise ValueError("Role is required")
+            # Be lenient: if tool_calls entries are missing required 'id', synthesize one
+            tool_calls_obj = obj.get("tool_calls")
+            if isinstance(tool_calls_obj, list):
+                fixed_tool_calls = []
+                for tc in tool_calls_obj:
+                    if isinstance(tc, dict):
+                        if not tc.get("id"):
+                            tc = {**tc, "id": generate_id()}
+                    fixed_tool_calls.append(tc)
+                obj = {**obj, "tool_calls": fixed_tool_calls}
         return super().model_validate(obj, *args, **kwargs)
 
 

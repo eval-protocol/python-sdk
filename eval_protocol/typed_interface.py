@@ -119,7 +119,7 @@ def reward_function(
                     if isinstance(item_data, Message):
                         typed_list.append(item_data)
                     elif isinstance(item_data, dict):
-                        typed_list.append(Message(**item_data))
+                        typed_list.append(Message.model_validate(item_data))
                     else:
                         raise TypeError(f"Unexpected type for item {i} in '{arg_name_for_error}': {type(item_data)}")
                 return typed_list
@@ -134,8 +134,9 @@ def reward_function(
                 ):
                     try:
                         final_func_args["messages"] = _coerce_to_list_message(final_func_args["messages"], "messages")
-                    except Exception as err:
-                        raise ValueError(f"Input 'messages' failed Pydantic validation: {err}") from None
+                    except Exception:
+                        # Be lenient: leave messages as-is if coercion fails (backward compatibility)
+                        pass
 
             elif mode == "batch" and "rollouts_messages" in params and "rollouts_messages" in final_func_args:
                 param_annotation = params["rollouts_messages"].annotation
@@ -157,14 +158,26 @@ def reward_function(
                 gt_ann = params["ground_truth"].annotation
                 if get_origin(gt_ann) in (list, List) and get_args(gt_ann) and get_args(gt_ann)[0] == Message:
                     if final_func_args["ground_truth"] is not None:
-                        try:
-                            final_func_args["ground_truth"] = _coerce_to_list_message(
-                                final_func_args["ground_truth"], "ground_truth"
-                            )
-                        except Exception as err:
-                            raise ValueError(
-                                f"Input 'ground_truth' failed Pydantic validation for List[Message]: {err}"
-                            ) from None
+                        # Accept flexible ground_truth inputs: list, dict, or str
+                        gt_val = final_func_args["ground_truth"]
+                        if isinstance(gt_val, list):
+                            try:
+                                final_func_args["ground_truth"] = _coerce_to_list_message(gt_val, "ground_truth")
+                            except Exception:
+                                # Leave as-is if strict coercion fails
+                                pass
+                        elif isinstance(gt_val, dict):
+                            try:
+                                final_func_args["ground_truth"] = _coerce_to_list_message([gt_val], "ground_truth")
+                            except Exception:
+                                pass
+                        elif isinstance(gt_val, str):
+                            try:
+                                final_func_args["ground_truth"] = _coerce_to_list_message(
+                                    [{"role": "system", "content": gt_val}], "ground_truth"
+                                )
+                            except Exception:
+                                pass
 
             # Inject resource clients into kwargs (resources are already setup)
             if resource_managers:

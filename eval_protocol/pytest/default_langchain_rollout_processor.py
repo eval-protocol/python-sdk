@@ -1,7 +1,13 @@
 import asyncio
 from typing import List
 
-from langchain_core.messages import BaseMessage
+try:
+    from langchain_core.messages import BaseMessage
+except Exception:  # pragma: no cover - optional dependency path
+    # Minimal fallback base type to satisfy typing when langchain is not present
+    class BaseMessage:  # type: ignore
+        pass
+
 
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
@@ -25,7 +31,13 @@ class LangGraphRolloutProcessor(RolloutProcessor):
 
         async def _process_row(row: EvaluationRow) -> EvaluationRow:
             # Build LC messages from EP row
-            from langchain_core.messages import HumanMessage
+            try:
+                from langchain_core.messages import HumanMessage
+            except Exception:
+                # Fallback minimal message if langchain_core is unavailable
+                class HumanMessage:  # type: ignore
+                    def __init__(self, content: str):
+                        self.content = content
 
             lm_messages: List[BaseMessage] = []
             if row.messages:
