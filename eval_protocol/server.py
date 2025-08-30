@@ -2,11 +2,11 @@ import importlib
 import json
 import logging
 import os
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, Tuple, cast
 
-import uvicorn
-from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel, Field
+import uvicorn  # type: ignore[reportMissingImports]
+from fastapi import FastAPI, HTTPException, Request  # type: ignore[reportMissingImports]
+from pydantic import BaseModel, Field  # type: ignore[reportMissingImports]
 
 from .models import EvaluateResult
 
@@ -254,7 +254,7 @@ def create_app(reward_func: Callable[..., EvaluateResult]) -> FastAPI:
                 return result.model_dump()
             elif isinstance(result, tuple) and len(result) == 2:  # Legacy tuple
                 logger.warning("Reward function passed to create_app returned legacy tuple format.")
-                score, components = result
+                score, components = cast(Tuple[float, Dict[str, Any]], result)
                 return {"score": score, "metrics": components}
             else:
                 raise TypeError(f"Invalid return type from reward function after decoration: {type(result)}")
