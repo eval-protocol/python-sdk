@@ -254,7 +254,7 @@ class LogsServer(ViteServer):
         # Initialize WebSocket manager
         self.websocket_manager = WebSocketManager()
 
-        super().__init__(build_dir, host, port, index_file)
+        super().__init__(build_dir, host, port if port is not None else 8000, index_file)
 
         # Initialize evaluation watcher
         self.evaluation_watcher = EvaluationWatcher(self.websocket_manager)
@@ -292,7 +292,9 @@ class LogsServer(ViteServer):
                 "status": "ok",
                 "build_dir": str(self.build_dir),
                 "active_connections": active_connections_count,
-                "watch_paths": self.watch_paths,
+                # LogsServer inherits from ViteServer which doesn't expose watch_paths
+                # Expose an empty list to satisfy consumers and type checker
+                "watch_paths": [],
             }
 
     def _handle_event(self, event_type: str, data: Any) -> None:

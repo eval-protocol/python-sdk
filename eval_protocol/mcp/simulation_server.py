@@ -293,7 +293,7 @@ class SimulationServerBase(ABC):
 
                 # Find the matching resource function by URI pattern
                 for resource_name, resource_func in self._domain_resources.items():
-                    resource_uri_pattern = resource_func._resource_uri
+                    resource_uri_pattern = getattr(resource_func, "_resource_uri", f"/{resource_name}")
                     # Convert URI to string for pattern matching
                     uri_str = str(uri)
                     # Simple pattern matching - could be enhanced for complex patterns
@@ -326,9 +326,11 @@ class SimulationServerBase(ABC):
                     # Extract docstring as description
                     description = resource_func.__doc__ or f"Resource {resource_name}"
 
+                    # Some callables may not have the attribute; guard for type checkers
+                    uri_value = getattr(resource_func, "_resource_uri", f"/{resource_name}")
                     resources.append(
                         Resource(
-                            uri=resource_func._resource_uri,
+                            uri=uri_value,
                             name=resource_name,
                             description=description,
                             mimeType="application/json",

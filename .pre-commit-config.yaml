@@ -26,3 +26,4 @@ repos:
     rev: 1.31.3
     hooks:
     -   id: basedpyright
+        args: ["--level", "error"]

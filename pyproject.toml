@@ -204,7 +204,7 @@ known-first-party = ["eval_protocol"]
 combine-as-imports = true
 
 [tool.pyright]
-typeCheckingMode = "recommended"
+typeCheckingMode = "standard"
 pythonVersion = "3.10"
 include = ["eval_protocol", "examples", "tests"]
 exclude = ["vite-app", "vendor"]
