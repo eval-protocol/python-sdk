@@ -81,6 +81,25 @@ def repetition_penalty_reward(
 
     response = messages[-1]
 
+    def _to_text(content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, list):
+            parts: List[str] = []
+            for part in content:
+                if isinstance(part, dict):
+                    val = part.get("text")
+                    if isinstance(val, str):
+                        parts.append(val)
+                else:
+                    text_attr = getattr(part, "text", None)
+                    if isinstance(text_attr, str):
+                        parts.append(text_attr)
+            return "".join(parts)
+        if isinstance(content, str):
+            return content
+        return str(content)
+
     if isinstance(response, Message):
         if response.role != "assistant":
             return EvaluateResult(
@@ -94,7 +113,7 @@ def repetition_penalty_reward(
                     )
                 },
             )
-        text = response.content or ""
+        text = _to_text(response.content)
     elif isinstance(response, dict):
         if response.get("role") != "assistant":
             return EvaluateResult(
@@ -108,7 +127,7 @@ def repetition_penalty_reward(
                     )
                 },
             )
-        text = response.get("content", "")
+        text = _to_text(response.get("content"))
     else:
         return EvaluateResult(
             score=0.0,
@@ -222,6 +241,25 @@ def diversity_reward(
 
     response = messages[-1]
 
+    def _to_text(content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, list):
+            parts: List[str] = []
+            for part in content:
+                if isinstance(part, dict):
+                    val = part.get("text")
+                    if isinstance(val, str):
+                        parts.append(val)
+                else:
+                    text_attr = getattr(part, "text", None)
+                    if isinstance(text_attr, str):
+                        parts.append(text_attr)
+            return "".join(parts)
+        if isinstance(content, str):
+            return content
+        return str(content)
+
     if isinstance(response, Message):
         if response.role != "assistant":
             return EvaluateResult(
@@ -235,7 +273,7 @@ def diversity_reward(
                     )
                 },
             )
-        text = response.content or ""
+        text = _to_text(response.content)
     elif isinstance(response, dict):
         if response.get("role") != "assistant":
             return EvaluateResult(
@@ -249,7 +287,7 @@ def diversity_reward(
                     )
                 },
             )
-        text = response.get("content", "")
+        text = _to_text(response.get("content"))
     else:
         return EvaluateResult(
             score=0.0,

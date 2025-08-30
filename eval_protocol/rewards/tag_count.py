@@ -14,7 +14,7 @@ from ..typed_interface import reward_function
 
 @reward_function  # type: ignore[arg-type]
 def tag_count_reward(
-    messages: List[Message],
+    messages: Union[List[Message], List[Dict[str, Any]]],
     *,  # Make subsequent parameters keyword-only
     required_tags: List[str],
     score_per_tag: float = 0.25,
@@ -46,7 +46,33 @@ def tag_count_reward(
 
     response = messages[-1]
 
-    if response.role != "assistant" or not response.content:
+    def _to_text(content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, list):
+            parts: List[str] = []
+            for part in content:
+                if isinstance(part, dict):
+                    val = part.get("text")
+                    if isinstance(val, str):
+                        parts.append(val)
+                else:
+                    text_attr = getattr(part, "text", None)
+                    if isinstance(text_attr, str):
+                        parts.append(text_attr)
+            return "".join(parts)
+        if isinstance(content, str):
+            return content
+        return str(content)
+
+    if isinstance(response, Message):
+        role_ok = response.role == "assistant"
+        text: str = _to_text(response.content)
+    else:
+        role_ok = response.get("role") == "assistant"
+        text = str(response.get("content") or "")
+
+    if not role_ok or not text:
         return EvaluateResult(
             score=0.0,
             reason="No assistant response found or response has no content",
@@ -58,7 +84,7 @@ def tag_count_reward(
                 )
             },
         )
-    text: str = response.content
+    # text already populated above
 
     tag_metrics = {}
     found_tags: Set[str] = set()
