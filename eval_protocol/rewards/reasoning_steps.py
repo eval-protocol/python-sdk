@@ -14,7 +14,7 @@ from ..typed_interface import reward_function
 
 @reward_function
 def reasoning_steps_reward(
-    messages: List[Message],
+    messages: Union[List[Message], List[Dict[str, Any]]],
     pattern: Optional[str] = None,
     min_steps: int = 3,
     max_steps: Optional[int] = None,
@@ -48,7 +48,33 @@ def reasoning_steps_reward(
 
     response = messages[-1]
 
-    if response.role != "assistant" or not response.content:
+    def _to_text(content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, list):
+            parts = []
+            for part in content:
+                if isinstance(part, dict):
+                    val = part.get("text")
+                    if isinstance(val, str):
+                        parts.append(val)
+                else:
+                    val = getattr(part, "text", None)
+                    if isinstance(val, str):
+                        parts.append(val)
+            return "".join(parts)
+        if isinstance(content, str):
+            return content
+        return str(content)
+
+    if isinstance(response, Message):
+        role_ok = response.role == "assistant"
+        text: str = _to_text(response.content)
+    else:
+        role_ok = response.get("role") == "assistant"
+        text = str(response.get("content") or "")
+
+    if not role_ok or not text:
         return EvaluateResult(
             score=0.0,
             reason="No assistant response found or response has no content",
@@ -60,7 +86,7 @@ def reasoning_steps_reward(
                 )
             },
         )
-    text: str = response.content
+    # text already set
 
     # Default patterns for detecting reasoning steps
     default_patterns = [
@@ -154,7 +180,7 @@ def reasoning_steps_reward(
 
 @reward_function
 def sequence_reward(
-    messages: List[Message],
+    messages: Union[List[Message], List[Dict[str, Any]]],
     sequence_terms: Optional[List[str]] = None,
     min_matches: int = 3,
     case_sensitive: bool = False,
@@ -187,7 +213,33 @@ def sequence_reward(
 
     response = messages[-1]
 
-    if response.role != "assistant" or not response.content:
+    def _to_text(content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, list):
+            parts = []
+            for part in content:
+                if isinstance(part, dict):
+                    val = part.get("text")
+                    if isinstance(val, str):
+                        parts.append(val)
+                else:
+                    val = getattr(part, "text", None)
+                    if isinstance(val, str):
+                        parts.append(val)
+            return "".join(parts)
+        if isinstance(content, str):
+            return content
+        return str(content)
+
+    if isinstance(response, Message):
+        role_ok = response.role == "assistant"
+        text: str = _to_text(response.content)
+    else:
+        role_ok = response.get("role") == "assistant"
+        text = str(response.get("content") or "")
+
+    if not role_ok or not text:
         return EvaluateResult(
             score=0.0,
             reason="No assistant response found or response has no content",
@@ -199,7 +251,7 @@ def sequence_reward(
                 )
             },
         )
-    text: str = response.content
+    # text already set
 
     if not sequence_terms:
         sequence_terms = [

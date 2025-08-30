@@ -83,8 +83,8 @@ def extract_mcq_option(text: str) -> List[Tuple[str, str]]:
 
 @reward_function  # type: ignore[arg-type]
 def multiple_choice_math_reward(
-    messages: List[Message],
-    ground_truth: List[Message],
+    messages: Union[List[Message], List[Dict[str, Any]]],
+    ground_truth: Union[List[Message], List[Dict[str, Any]]],
     **kwargs: Any,
 ) -> EvaluateResult:
     """
@@ -130,11 +130,34 @@ def multiple_choice_math_reward(
             },
         )
 
+    def _to_text(content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, list):
+            parts: List[str] = []
+            for part in content:
+                if isinstance(part, dict):
+                    val = part.get("text")
+                    if isinstance(val, str):
+                        parts.append(val)
+                else:
+                    text_attr = getattr(part, "text", None)
+                    if isinstance(text_attr, str):
+                        parts.append(text_attr)
+            return "".join(parts)
+        if isinstance(content, str):
+            return content
+        return str(content)
+
     gen_content = ""
     if messages and len(messages) > 0:
-        gen_response_message = messages[-1]
-        if gen_response_message.role == "assistant":
-            gen_content = gen_response_message.content or ""
+        last_msg = messages[-1]
+        if isinstance(last_msg, Message):
+            if last_msg.role == "assistant":
+                gen_content = _to_text(last_msg.content)
+        elif isinstance(last_msg, dict):
+            if last_msg.get("role") == "assistant":
+                gen_content = _to_text(last_msg.get("content"))
 
     if not gen_content:
         metrics["error_generated_message"] = MetricResult(
@@ -150,9 +173,13 @@ def multiple_choice_math_reward(
 
     orig_content = ""
     if ground_truth and len(ground_truth) > 0:
-        orig_response_message = ground_truth[0]
-        if orig_response_message.role == "assistant":
-            orig_content = orig_response_message.content or ""
+        first_gt = ground_truth[0]
+        if isinstance(first_gt, Message):
+            if first_gt.role == "assistant":
+                orig_content = _to_text(first_gt.content)
+        elif isinstance(first_gt, dict):
+            if first_gt.get("role") == "assistant":
+                orig_content = _to_text(first_gt.get("content"))
 
     if not orig_content:
         metrics["error_original_message"] = MetricResult(

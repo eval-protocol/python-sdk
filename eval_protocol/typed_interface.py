@@ -14,6 +14,7 @@ from typing import (
     get_args,
     get_origin,
 )
+from typing import ParamSpec  # noqa: F401
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -32,7 +33,7 @@ _list_res_adapter = TypeAdapter(List[EvaluateResult])
 # Define a type for the mode parameter
 EvaluationMode = Literal["pointwise", "batch"]
 
-# TypeVar for the function being decorated, to preserve its signature as much as possible.
+# Simple TypeVar preserving original callable signature for better type inference
 F = TypeVar("F", bound=Callable[..., Any])
 
 
@@ -125,13 +126,18 @@ def reward_function(
                 return typed_list
 
             # 1. Conditional Pydantic conversion for 'messages' (pointwise) or 'rollouts_messages' (batch)
+            def _ann_allows_list_of_message(ann: Any) -> bool:
+                origin = get_origin(ann)
+                if origin in (list, List):
+                    inner = get_args(ann)
+                    return bool(inner) and inner[0] == Message
+                if origin is Union:
+                    return any(_ann_allows_list_of_message(opt) for opt in get_args(ann))
+                return False
+
             if mode == "pointwise" and "messages" in params and "messages" in final_func_args:
                 messages_param_annotation = params["messages"].annotation
-                if (
-                    get_origin(messages_param_annotation) in (list, List)
-                    and get_args(messages_param_annotation)
-                    and get_args(messages_param_annotation)[0] == Message
-                ):
+                if _ann_allows_list_of_message(messages_param_annotation):
                     try:
                         final_func_args["messages"] = _coerce_to_list_message(final_func_args["messages"], "messages")
                     except Exception as err:
@@ -155,7 +161,7 @@ def reward_function(
             # Ground truth coercion (if needed)
             if "ground_truth" in params and "ground_truth" in final_func_args:
                 gt_ann = params["ground_truth"].annotation
-                if get_origin(gt_ann) in (list, List) and get_args(gt_ann) and get_args(gt_ann)[0] == Message:
+                if _ann_allows_list_of_message(gt_ann):
                     if final_func_args["ground_truth"] is not None:
                         try:
                             final_func_args["ground_truth"] = _coerce_to_list_message(
