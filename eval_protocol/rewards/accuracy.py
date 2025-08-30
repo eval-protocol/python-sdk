@@ -436,20 +436,6 @@ def accuracy_reward(
             metrics={"accuracy": MetricResult(score=0.0, is_score_valid=False, reason="Invalid GT message type.")},
         )
 
-    # If ground truth content is empty after coercion, short-circuit with a clear reason
-    if ground_truth_comparison_text.strip() == "":
-        return EvaluateResult(
-            score=0.0,
-            reason="Ground truth has no content.",
-            metrics={
-                "accuracy": MetricResult(
-                    score=0.0,
-                    is_score_valid=False,
-                    reason="Ground truth has no content.",
-                )
-            },
-        )
-
     extracted_answer = extract_fn(model_response_text) if extract_fn else extract_math_expression(model_response_text)
     if (
         not extracted_answer
