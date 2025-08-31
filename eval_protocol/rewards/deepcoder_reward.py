@@ -73,7 +73,12 @@ def deepcoder_code_reward(
             is_score_valid=False,
         )
 
-    assistant_content = messages[-1].content
+    assistant_content_raw = messages[-1].content
+    assistant_content = (
+        assistant_content_raw
+        if isinstance(assistant_content_raw, str)
+        else "".join([getattr(p, "text", "") for p in (assistant_content_raw or [])])
+    )
     test_cases = ground_truth
 
     code_blocks = extract_code_blocks(assistant_content, language)

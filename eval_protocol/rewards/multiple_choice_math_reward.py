@@ -134,7 +134,12 @@ def multiple_choice_math_reward(
     if messages and len(messages) > 0:
         gen_response_message = messages[-1]
         if gen_response_message.role == "assistant":
-            gen_content = gen_response_message.content or ""
+            raw_gen_content = gen_response_message.content
+            gen_content = (
+                raw_gen_content
+                if isinstance(raw_gen_content, str)
+                else "".join([getattr(p, "text", "") for p in (raw_gen_content or [])])
+            )
 
     if not gen_content:
         metrics["error_generated_message"] = MetricResult(
@@ -152,7 +157,12 @@ def multiple_choice_math_reward(
     if ground_truth and len(ground_truth) > 0:
         orig_response_message = ground_truth[0]
         if orig_response_message.role == "assistant":
-            orig_content = orig_response_message.content or ""
+            raw_orig_content = orig_response_message.content
+            orig_content = (
+                raw_orig_content
+                if isinstance(raw_orig_content, str)
+                else "".join([getattr(p, "text", "") for p in (raw_orig_content or [])])
+            )
 
     if not orig_content:
         metrics["error_original_message"] = MetricResult(

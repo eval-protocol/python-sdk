@@ -81,9 +81,9 @@ def reward_function(
         has_var_keyword = any(param.kind == inspect.Parameter.VAR_KEYWORD for param in params.values())
 
         if not has_var_keyword:
-            # Return a wrapper that preserves the original signature, but adds **kwargs dynamically
-            # instead of raising at decoration time.
-            pass
+            raise ValueError(
+                f"Function '{func.__name__}' must accept **kwargs parameter. Please add '**kwargs' to the function signature."
+            )
 
         # Setup resources once when the decorator is applied
         resource_managers = {}

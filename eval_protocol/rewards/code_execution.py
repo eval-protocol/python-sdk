@@ -1098,7 +1098,15 @@ def fractional_code_reward(
             },
         )
 
-    code_blocks = extract_code_blocks(response_content, language)
+    # Normalize content to string; Message.content may be str or list of content parts
+    _last_content = response_content
+    response_content_str = (
+        _last_content
+        if isinstance(_last_content, str)
+        else "".join([getattr(p, "text", "") for p in (_last_content or [])])
+    )
+
+    code_blocks = extract_code_blocks(response_content_str, language)
 
     if not code_blocks:
         return EvaluateResult(
@@ -1617,7 +1625,7 @@ class Capturing(list):
     def __enter__(self):
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
-        self._stringio.close = lambda x: None
+        self._stringio.close = lambda: None
         return self
 
     def __exit__(self, *args):
