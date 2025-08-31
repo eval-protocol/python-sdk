@@ -248,7 +248,7 @@ def diversity_reward(
                     )
                 },
             )
-        text = response.content or ""
+        text = _to_text(response.content)
     elif isinstance(response, dict):
         if response.get("role") != "assistant":
             return EvaluateResult(
@@ -262,7 +262,8 @@ def diversity_reward(
                     )
                 },
             )
-        text = response.get("content", "")
+        text_val = response.get("content", "")
+        text = text_val if isinstance(text_val, str) else ""
     else:
         return EvaluateResult(
             score=0.0,

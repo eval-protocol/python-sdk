@@ -93,7 +93,7 @@ def length_reward(
                     )
                 },
             )
-        text = response.content
+        text = response.content if isinstance(response.content, str) else ""
     elif isinstance(response, dict):
         if response.get("role") != "assistant" or not response.get("content"):
             return EvaluateResult(
@@ -107,7 +107,8 @@ def length_reward(
                     )
                 },
             )
-        text = response.get("content", "")
+        text_val = response.get("content", "")
+        text = text_val if isinstance(text_val, str) else ""
     else:
         return EvaluateResult(
             score=0.0,
@@ -294,7 +295,7 @@ def cosine_length_reward(
                     )
                 },
             )
-        text = response.content
+        text = response.content if isinstance(response.content, str) else ""
     elif isinstance(response, dict):
         if response.get("role") != "assistant" or not response.get("content"):
             return EvaluateResult(
@@ -308,7 +309,8 @@ def cosine_length_reward(
                     )
                 },
             )
-        text = response.get("content", "")
+        text_val = response.get("content", "")
+        text = text_val if isinstance(text_val, str) else ""
     else:
         return EvaluateResult(
             score=0.0,
