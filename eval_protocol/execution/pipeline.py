@@ -212,6 +212,7 @@ class EvaluationPipeline:
         if system_prompt_content:
             current_messages_for_rollout.append({"role": "system", "content": system_prompt_content})
         current_messages_for_rollout.append({"role": "user", "content": user_query})
+        assert self.model_client is not None, "at this point model client needs to be initialized"
 
         generation_output_std = await self.model_client.generate(
             messages=current_messages_for_rollout,

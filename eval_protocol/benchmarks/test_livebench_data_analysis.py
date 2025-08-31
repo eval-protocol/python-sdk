@@ -258,6 +258,7 @@ def _tablereformat_process_results(input_command: str, ground_truth: str, llm_an
 
     reader = _read_df_v1 if version == "v1" else _read_df_v2
     gt_df = reader(output_fmt, ground_truth)
+    assert gt_df is not None, "GT dataframe is None"
 
     llm_clean = _clean_llm_output(llm_answer)
     llm_clean = _remove_initial_phrase(llm_clean)
