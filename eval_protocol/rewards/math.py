@@ -587,7 +587,7 @@ def math_reward(
                 )
             },
         )
-    model_response_content = messages[-1].content
+    model_response_content = messages[-1].content if isinstance(messages[-1].content, str) else ""
     if ground_truth is None or ground_truth == "":
         return EvaluateResult(
             score=0.0,

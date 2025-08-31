@@ -11,7 +11,7 @@ import json
 import logging
 import time
 from contextlib import AsyncExitStack
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import httpx
 from mcp.client.session import ClientSession
@@ -276,7 +276,10 @@ class MCPConnectionManager:
         try:
             # List available resources - this is where initial state should come from
             logger.debug(f"Session {session.session_id}: Discovering MCP resources for initial state...")
-            resources_response = await mcp_session.list_resources()
+            mcp_session_local = session._mcp_session
+            if mcp_session_local is None:
+                raise RuntimeError("Session not initialized while listing resources")
+            resources_response = await mcp_session_local.list_resources()
             resources = resources_response.resources if hasattr(resources_response, "resources") else []
             logger.debug(f"Session {session.session_id}: Found {len(resources)} MCP resources")
             for resource in resources:
@@ -303,7 +306,10 @@ class MCPConnectionManager:
                     f"Session {session.session_id}: Reading initial state from resource: {initial_state_resource.uri}"
                 )
 
-                resource_content = await mcp_session.read_resource(initial_state_resource.uri)
+                mcp_session_for_read = session._mcp_session
+                if mcp_session_for_read is None:
+                    raise RuntimeError("Session not initialized while reading resource")
+                resource_content = await mcp_session_for_read.read_resource(initial_state_resource.uri)
 
                 # Handle the new ResourceContents format
                 text_value = getattr(resource_content, "text", None)
@@ -348,7 +354,10 @@ class MCPConnectionManager:
                         f"Session {session.session_id}: About to call mcp_session.read_resource with fallback URI: {first_resource.uri}"
                     )
 
-                    resource_content = await mcp_session.read_resource(first_resource.uri)
+                    mcp_session_for_fallback_read = session._mcp_session
+                    if mcp_session_for_fallback_read is None:
+                        raise RuntimeError("Session not initialized while reading fallback resource")
+                    resource_content = await mcp_session_for_fallback_read.read_resource(first_resource.uri)
 
                     logger.debug(
                         f"Session {session.session_id}: fallback read_resource returned type: {type(resource_content)}"

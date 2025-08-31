@@ -608,7 +608,7 @@ def _ioi_cpp_code_reward_impl(
             },
         )
 
-    response_content = messages[-1].content
+    response_content = messages[-1].content if isinstance(messages[-1].content, str) else ""
 
     expected_output_str_from_gt: Optional[str] = None
     test_cases_from_gt: Optional[List[Dict[str, Any]]] = None

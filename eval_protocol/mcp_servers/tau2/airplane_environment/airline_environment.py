@@ -68,6 +68,7 @@ class AirlineEnvironment:
 
     def _execute_airline_action(self, action_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
         """Execute action using airline tools."""
+        assert isinstance(self.airline_tools, AirlineTools), "Airline tools not initialized"
         action_map = {
             "book_reservation": self.airline_tools.book_reservation,
             "cancel_reservation": self.airline_tools.cancel_reservation,

@@ -224,7 +224,7 @@ class PlaybackPolicyBase(ABC):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ):
+    ) -> Tuple[List["MCPToolCall"], Optional[Dict[str, int]], Optional[str]]:
         """
         Main policy call method. Delegates to playback or live mode.
 

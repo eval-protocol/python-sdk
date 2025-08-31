@@ -77,7 +77,8 @@ def json_schema_reward(
                 )
         elif isinstance(last_message, dict):
             if last_message.get("role") == "assistant" and last_message.get("content") is not None:
-                content_text = last_message.get("content", "")
+                raw_content = last_message.get("content", "")
+                content_text = raw_content if isinstance(raw_content, str) else ""
             else:
                 return EvaluateResult(
                     score=0.0,

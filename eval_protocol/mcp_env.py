@@ -136,7 +136,11 @@ def make(
 
     if evaluation_rows:
         for i, row in enumerate(evaluation_rows):
-            dataset_info = row.input_metadata.dataset_info if row.input_metadata else {}
+            dataset_info = (
+                row.input_metadata.dataset_info
+                if (row.input_metadata and row.input_metadata.dataset_info is not None)
+                else {}
+            )
 
             system_message = row.get_system_message()
             system_prompt = system_message.content or ""
