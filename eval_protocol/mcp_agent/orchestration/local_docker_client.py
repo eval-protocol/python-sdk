@@ -649,7 +649,7 @@ class LocalDockerOrchestrationClient(AbstractOrchestrationClient):
                 )
             target_base_url = instance.mcp_endpoint_url.rstrip("/")
             try:
-                async with streamablehttp_client(target_base_url) as (
+                async with streamablehttp_client(base_url=target_base_url) as (
                     read_s,
                     write_s,
                     _,  # get_session_id_func usually not needed for a single call
