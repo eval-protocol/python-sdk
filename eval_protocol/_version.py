@@ -121,7 +121,9 @@ def run_command(
         if verbose:
             print("unable to find command, tried %s" % (commands,))
         return None, None
-    stdout = process.communicate()[0].strip().decode()
+    stdout_bytes = process.communicate()[0]
+    stdout_raw = stdout_bytes.decode() if isinstance(stdout_bytes, (bytes, bytearray)) else stdout_bytes
+    stdout = str(stdout_raw).strip()
     if process.returncode != 0:
         if verbose:
             print("unable to run %s (error)" % dispcmd)

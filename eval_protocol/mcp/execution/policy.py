@@ -117,10 +117,19 @@ class LiteLLMPolicy(LLMBasePolicy):
                 logger.info("🗄️ Initialized disk caching")
 
             elif cache_type == "s3":
-                from litellm.caching.s3_cache import S3Cache
+                try:
+                    from litellm.caching.s3_cache import S3Cache
 
-                litellm.cache = S3Cache()
-                logger.info("🗄️ Initialized S3 caching")
+                    # Some versions require positional or named 's3_bucket_name'
+                    s3_bucket_name = os.getenv("LITELLM_S3_BUCKET")
+                    if not s3_bucket_name:
+                        raise ValueError("Missing LITELLM_S3_BUCKET for S3 cache")
+                    # Use explicit arg name expected by basedpyright
+                    litellm.cache = S3Cache(s3_bucket_name=s3_bucket_name)
+                    logger.info("🗄️ Initialized S3 caching for bucket %s", s3_bucket_name)
+                except Exception as e:
+                    logger.warning(f"Failed to initialize S3 cache ({e}); falling back to in-memory cache")
+                    litellm.cache = Cache()
 
         except Exception as e:
             logger.warning(f"Failed to setup {cache_type} caching: {e}. Falling back to in-memory cache.")
@@ -147,7 +156,7 @@ class LiteLLMPolicy(LLMBasePolicy):
             clean_messages.append(clean_msg)
         return clean_messages
 
-    async def _make_llm_call(self, messages: List[Dict], tools: List[Dict]) -> Dict:
+    async def _make_llm_call(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Make an LLM API call with retry logic and caching.
 
@@ -162,7 +171,7 @@ class LiteLLMPolicy(LLMBasePolicy):
         clean_messages = self._clean_messages_for_api(messages)
 
         # Prepare request parameters
-        request_params = {
+        request_params: Dict[str, Any] = {
             "messages": clean_messages,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
@@ -188,7 +197,8 @@ class LiteLLMPolicy(LLMBasePolicy):
             response = await acompletion(model=self.model_id, **request_params)
 
             # Log cache hit/miss for monitoring
-            cache_hit = getattr(response, "_hidden_params", {}).get("cache_hit", False)
+            hidden = getattr(response, "_hidden_params", {})
+            cache_hit = hidden.get("cache_hit", False) if isinstance(hidden, dict) else False
             if cache_hit:
                 logger.debug(f"🎯 Cache hit for model: {self.model_id}")
             else:
@@ -199,31 +209,34 @@ class LiteLLMPolicy(LLMBasePolicy):
                 "choices": [
                     {
                         "message": {
-                            "role": response.choices[0].message.role,
-                            "content": response.choices[0].message.content,
+                            "role": getattr(getattr(response.choices[0], "message", object()), "role", "assistant"),
+                            "content": getattr(getattr(response.choices[0], "message", object()), "content", None),
                             "tool_calls": (
                                 [
                                     {
-                                        "id": tc.id,
-                                        "type": tc.type,
+                                        "id": getattr(tc, "id", None),
+                                        "type": getattr(tc, "type", "function"),
                                         "function": {
-                                            "name": tc.function.name,
-                                            "arguments": tc.function.arguments,
+                                            "name": getattr(getattr(tc, "function", None), "name", "tool"),
+                                            "arguments": getattr(getattr(tc, "function", None), "arguments", "{}"),
                                         },
                                     }
-                                    for tc in (response.choices[0].message.tool_calls or [])
+                                    for tc in (
+                                        getattr(getattr(response.choices[0], "message", object()), "tool_calls", [])
+                                        or []
+                                    )
                                 ]
-                                if response.choices[0].message.tool_calls
+                                if getattr(getattr(response.choices[0], "message", object()), "tool_calls", None)
                                 else []
                             ),
                         },
-                        "finish_reason": response.choices[0].finish_reason,
+                        "finish_reason": getattr(response.choices[0], "finish_reason", None),
                     }
                 ],
                 "usage": {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens,
+                    "prompt_tokens": getattr(getattr(response, "usage", {}), "prompt_tokens", 0),
+                    "completion_tokens": getattr(getattr(response, "usage", {}), "completion_tokens", 0),
+                    "total_tokens": getattr(getattr(response, "usage", {}), "total_tokens", 0),
                 },
             }
 

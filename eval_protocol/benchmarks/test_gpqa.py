@@ -58,6 +58,8 @@ _GPQA_INPUT_MESSAGES = _load_gpqa_messages_from_csv()
 
 
 def _strip_gt_messages(msgs: list[Message]) -> list[Message]:
+    # assert that all the messages just have a plain .content string field
+    assert all(isinstance(m.content, str) for m in msgs), "Messages must have a plain .content string field"
     return [m for m in msgs if not (m.role == "system" and (m.content or "").startswith("__GT__:"))]
 
 

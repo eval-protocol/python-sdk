@@ -257,22 +257,21 @@ class Evaluator:
                                 for keyword in decorator_node.keywords:
                                     if keyword.arg == "requirements":
                                         if isinstance(keyword.value, ast.List):
-                                            reqs = []
+                                            reqs: List[str] = []
                                             for elt in keyword.value.elts:
-                                                if isinstance(elt, ast.Constant) and isinstance(
-                                                    elt.value, str
-                                                ):  # Python 3.8+
-                                                    reqs.append(elt.value)
+                                                if isinstance(elt, ast.Constant):  # Python 3.8+
+                                                    if isinstance(elt.value, str):
+                                                        reqs.append(cast(str, elt.value))
                                                 elif isinstance(elt, ast.Str):  # Python < 3.8
-                                                    reqs.append(elt.s)
+                                                    reqs.append(cast(str, elt.s))
                                             if reqs:
                                                 metric_requirements_list = cast(List[str], reqs)
                                         elif isinstance(keyword.value, ast.Constant) and isinstance(
                                             keyword.value.value, str
                                         ):  # Python 3.8+ (single req string)
-                                            metric_requirements_list = [keyword.value.value]
+                                            metric_requirements_list = [cast(str, keyword.value.value)]
                                         elif isinstance(keyword.value, ast.Str):  # Python < 3.8 (single req string)
-                                            metric_requirements_list = [keyword.value.s]
+                                            metric_requirements_list = [cast(str, keyword.value.s)]
                                         break
                                 if metric_requirements_list:
                                     break

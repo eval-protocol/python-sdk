@@ -699,9 +699,9 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
 @reward_function
 def tau2_airline_eval(
     messages: List[Message],
-    nl_assertions: List[str] = None,
-    communicate_info: List[str] = None,
-    actions: List[dict] = None,
+    nl_assertions: Optional[List[str]] = None,
+    communicate_info: Optional[List[str]] = None,
+    actions: Optional[List[dict]] = None,
     **kwargs,
 ) -> EvaluateResult:
     """
@@ -726,6 +726,7 @@ def tau2_airline_eval(
     for msg in messages:
         role = msg.role
         content = msg.content
+        assert isinstance(content, str), "Content must be a string"
 
         if role == "system":
             trajectory_objects.append(SystemMessage(role=role, content=content))

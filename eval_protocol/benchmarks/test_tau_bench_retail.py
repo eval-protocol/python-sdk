@@ -188,6 +188,7 @@ def test_tau_bench_retail_evaluation(row: EvaluationRow) -> EvaluationRow:
     task = Task(
         id="Filler", evaluation_criteria=evaluation_criteria, user_scenario=UserScenario(instructions="Filler")
     )  # id and user_scenario are required for the Task type but not used in calculating reward
+    assert task.evaluation_criteria is not None, "Task evaluation criteria is None"
 
     if RewardType.DB in task.evaluation_criteria.reward_basis:
         env_reward_info = EnvironmentEvaluator.calculate_reward(

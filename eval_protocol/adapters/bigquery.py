@@ -7,34 +7,36 @@ to EvaluationRow format for use in evaluation pipelines.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union, cast, TypeAlias
 
 from eval_protocol.models import CompletionParams, EvaluationRow, InputMetadata, Message
 
 logger = logging.getLogger(__name__)
 
 try:
+    # Import at runtime if available
     from google.auth.exceptions import DefaultCredentialsError
-    from google.cloud import bigquery
+    from google.cloud import bigquery as _bigquery_runtime  # type: ignore
     from google.cloud.exceptions import Forbidden, NotFound
     from google.oauth2 import service_account
 
     BIGQUERY_AVAILABLE = True
 except ImportError:
+    # Provide fallbacks for type checking/runtime when package is missing
+    DefaultCredentialsError = Exception  # type: ignore[assignment]
+    Forbidden = Exception  # type: ignore[assignment]
+    NotFound = Exception  # type: ignore[assignment]
+    service_account: Any
+    service_account = None
+    _bigquery_runtime = None  # type: ignore[assignment]
     BIGQUERY_AVAILABLE = False
     # Optional dependency: avoid noisy warnings during import
     logger.debug("Google Cloud BigQuery not installed. Optional feature disabled.")
 
-# Avoid importing BigQuery types at runtime for annotations when not installed
-if TYPE_CHECKING:
-    from google.cloud import bigquery as _bigquery_type
-
-    QueryParameterType = Union[
-        _bigquery_type.ScalarQueryParameter,
-        _bigquery_type.ArrayQueryParameter,
-    ]
-else:
-    QueryParameterType = Any
+# Simple type aliases to avoid importing optional google types under pyright
+QueryParameterType: TypeAlias = Any
+BigQueryClient: TypeAlias = Any
+QueryJobConfig: TypeAlias = Any
 
 # Type alias for transformation function
 TransformFunction = Callable[[Dict[str, Any]], Dict[str, Any]]
@@ -98,7 +100,13 @@ class BigQueryAdapter:
                 client_args["location"] = location
 
             client_args.update(client_kwargs)
-            self.client = bigquery.Client(**client_args)
+            # Use runtime alias to avoid basedpyright import symbol error when lib is missing
+            if _bigquery_runtime is None:
+                raise ImportError(
+                    "google-cloud-bigquery is not installed. Install with: pip install 'eval-protocol[bigquery]'"
+                )
+            # Avoid strict typing on optional dependency
+            self.client = _bigquery_runtime.Client(**client_args)  # type: ignore[no-untyped-call, assignment]
 
         except DefaultCredentialsError as e:
             logger.error("Failed to authenticate with BigQuery: %s", e)
@@ -139,7 +147,9 @@ class BigQueryAdapter:
         """
         try:
             # Configure query job
-            job_config = bigquery.QueryJobConfig()
+            if _bigquery_runtime is None:
+                raise RuntimeError("BigQuery runtime not available")
+            job_config = _bigquery_runtime.QueryJobConfig()  # type: ignore[no-untyped-call]
             if query_params:
                 job_config.query_parameters = query_params
             if self.location:

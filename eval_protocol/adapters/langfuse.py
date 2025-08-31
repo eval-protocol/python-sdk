@@ -6,7 +6,7 @@ to EvaluationRow format for use in evaluation pipelines.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, cast
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
 
@@ -63,7 +63,7 @@ class LangfuseAdapter:
         if not LANGFUSE_AVAILABLE:
             raise ImportError("Langfuse not installed. Install with: pip install 'eval-protocol[langfuse]'")
 
-        self.client = Langfuse(public_key=public_key, secret_key=secret_key, host=host)
+        self.client = cast(Any, Langfuse)(public_key=public_key, secret_key=secret_key, host=host)
         self.project_id = project_id
 
     def get_evaluation_rows(

@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any, AsyncIterator, List, Optional, Union
+from typing import Any, AsyncIterator, List, Optional, Union, Dict
 
 from mcp.types import CallToolResult, TextContent
 from openai import NOT_GIVEN, NotGiven
@@ -35,9 +35,31 @@ class Agent:
         if self.mcp_client:
             await self.mcp_client.connect_to_servers()
 
-    async def _get_tools(self) -> Optional[List[ChatCompletionToolParam]]:
+    async def _get_tools(self) -> Optional[List[dict[str, Any]]]:
         if self.evaluation_row.tools is None:
-            self.evaluation_row.tools = await self.mcp_client.get_available_tools() if self.mcp_client else None
+            if self.mcp_client:
+                raw_tools = await self.mcp_client.get_available_tools()
+                tools_dicts: List[dict[str, Any]] = []
+                for t in raw_tools or []:
+                    if isinstance(t, dict):
+                        # Already a dict-like structure
+                        tools_dicts.append(t)
+                        continue
+                    # Fallback: extract attributes from OpenAI types
+                    tool_type = getattr(t, "type", "function")
+                    func = getattr(t, "function", None)
+                    name = getattr(func, "name", None)
+                    params = getattr(func, "parameters", None)
+                    if hasattr(params, "model_dump"):
+                        params_payload = params.model_dump()
+                    elif isinstance(params, dict):
+                        params_payload = params
+                    else:
+                        params_payload = {}
+                    tools_dicts.append({"type": tool_type, "function": {"name": name, "parameters": params_payload}})
+                self.evaluation_row.tools = tools_dicts
+            else:
+                self.evaluation_row.tools = None
         return self.evaluation_row.tools
 
     @property
@@ -48,7 +70,7 @@ class Agent:
         self.messages.append(message)
         self.logger.log(self.evaluation_row)
 
-    async def call_agent(self) -> str:
+    async def call_agent(self) -> Optional[Union[str, List[ChatCompletionContentPartTextParam]]]:
         """
         Call the assistant with the user query.
         """
@@ -66,7 +88,7 @@ class Agent:
                 tool_args_dict = json.loads(tool_args)
 
                 # Create a task for each tool call
-                task = self._execute_tool_call(tool_call_id, tool_name, tool_args_dict)
+                task = asyncio.create_task(self._execute_tool_call(tool_call_id, tool_name, tool_args_dict))
                 tool_tasks.append(task)
 
             # Execute all tool calls in parallel
@@ -81,14 +103,58 @@ class Agent:
             return await self.call_agent()
         return message.content
 
-    async def _call_model(self, messages: list[Message], tools: Optional[list[ChatCompletionToolParam]]) -> Message:
-        messages = [message.model_dump() if hasattr(message, "model_dump") else message for message in messages]
-        tools = [{"function": tool["function"].model_dump(), "type": "function"} for tool in tools] if tools else []
-        response = await self._policy._make_llm_call(messages=messages, tools=tools)
+    async def _call_model(self, messages: list[Message], tools: Optional[List[dict[str, Any]]]) -> Message:
+        # Convert Message models to plain dicts for LLM call
+        messages_payload: List[Dict[str, Any]] = [
+            message.model_dump() if hasattr(message, "model_dump") else message  # type: ignore[misc]
+            for message in messages
+        ]
+        # Normalize tool definitions into OpenAI-compatible dicts
+        payload_tools: List[Dict[str, Any]] = []
+        for tool in tools or []:
+            if isinstance(tool, dict):
+                fn = tool.get("function")
+                if hasattr(fn, "model_dump"):
+                    fn_payload = fn.model_dump()
+                elif isinstance(fn, dict):
+                    fn_payload = fn
+                else:
+                    # Best effort fallback
+                    name = getattr(fn, "name", None)
+                    params = getattr(fn, "parameters", None)
+                    if hasattr(params, "model_dump"):
+                        params_payload = params.model_dump()
+                    elif isinstance(params, dict):
+                        params_payload = params
+                    else:
+                        params_payload = {}
+                    fn_payload = {"name": name, "parameters": params_payload}
+                payload_tools.append({"type": tool.get("type", "function"), "function": fn_payload})
+            else:
+                # Attribute-based fallback
+                tool_type = getattr(tool, "type", "function")
+                func = getattr(tool, "function", None)
+                name = getattr(func, "name", None)
+                params = getattr(func, "parameters", None)
+                if hasattr(params, "model_dump"):
+                    params_payload = params.model_dump()
+                elif isinstance(params, dict):
+                    params_payload = params
+                else:
+                    params_payload = {}
+                payload_tools.append({"type": tool_type, "function": {"name": name, "parameters": params_payload}})
+
+        response = await self._policy._make_llm_call(messages=messages_payload, tools=payload_tools)
+        # Coerce content to a string to align with our Message model type expectations
+        raw_content = response["choices"][0]["message"].get("content")
+        if isinstance(raw_content, list):
+            content_for_model = "".join([getattr(p, "text", str(p)) for p in raw_content])
+        else:
+            content_for_model = raw_content
         return Message(
             role=response["choices"][0]["message"]["role"],
-            content=response["choices"][0]["message"]["content"],
-            tool_calls=response["choices"][0]["message"]["tool_calls"],
+            content=content_for_model,
+            tool_calls=response["choices"][0]["message"].get("tool_calls"),
         )
 
     async def _execute_tool_call(
@@ -98,16 +164,22 @@ class Agent:
         Execute a single tool call and return the tool_call_id and content.
         This method is designed to be used with asyncio.gather() for parallel execution.
         """
+        assert self.mcp_client is not None, "MCP client is not initialized"
         tool_result = await self.mcp_client.call_tool(tool_name, tool_args_dict)
         content = self._get_content_from_tool_result(tool_result)
         return tool_call_id, content
 
     def _get_content_from_tool_result(self, tool_result: CallToolResult) -> List[TextContent]:
-        if tool_result.structuredContent:
+        if getattr(tool_result, "structuredContent", None):
             return [TextContent(text=json.dumps(tool_result.structuredContent), type="text")]
-        if not all(isinstance(content, TextContent) for content in tool_result.content):
-            raise NotImplementedError("Non-text content is not supported yet")
-        return tool_result.content
+        normalized: List[TextContent] = []
+        for content in getattr(tool_result, "content", []) or []:
+            if isinstance(content, TextContent):
+                normalized.append(content)
+            else:
+                text_val = getattr(content, "text", str(content))
+                normalized.append(TextContent(text=str(text_val), type="text"))
+        return normalized
 
     def _format_tool_message_content(
         self, content: List[TextContent]

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
@@ -49,10 +49,10 @@ def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
                     parts.append(item)
             content = "\n".join(parts)
 
-        tool_calls_payload = None
+        tool_calls_payload: Optional[List[Dict[str, Any]]] = None
 
-        def _normalize_tool_calls(tc_list: list) -> list[dict]:
-            mapped: List[dict] = []
+        def _normalize_tool_calls(tc_list: List[Any]) -> List[Dict[str, Any]]:
+            mapped: List[Dict[str, Any]] = []
             for call in tc_list:
                 if not isinstance(call, dict):
                     continue
@@ -104,8 +104,13 @@ def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
             if collected:
                 reasoning_content = "\n\n".join([s for s in collected if s]) or None
 
+        # Message.tool_calls expects List[ChatCompletionMessageToolCall] | None.
+        # We pass through Dicts at runtime but avoid type error by casting.
         ep_msg = Message(
-            role="assistant", content=content, tool_calls=tool_calls_payload, reasoning_content=reasoning_content
+            role="assistant",
+            content=content,
+            tool_calls=tool_calls_payload,  # type: ignore[arg-type]
+            reasoning_content=reasoning_content,
         )
         _dbg_print(
             "[EP-Ser] -> EP Message:",

@@ -441,9 +441,19 @@ class MCPConnectionManager:
         # Extract data plane results (observation only)
         if tool_result.content and len(tool_result.content) > 0:
             content = tool_result.content[0]
-            if hasattr(content, "text"):
+            # Safely attempt to read a "text" attribute if present across content types
+            text_attr = getattr(content, "text", None)
+            if isinstance(text_attr, str):
+                content_text = text_attr
+            elif isinstance(text_attr, list):
+                # text can also be an array of parts with optional .text fields
+                content_text = "".join([getattr(p, "text", "") for p in text_attr])
+            else:
+                content_text = None
+
+            if isinstance(content_text, str):
                 # Fix: Handle empty or invalid JSON responses gracefully
-                if not content.text or content.text.strip() == "":
+                if content_text.strip() == "":
                     logger.warning(f"Session {session.session_id}: Empty tool response from {tool_name}")
                     observation = {
                         "observation": "empty_response",
@@ -451,14 +461,14 @@ class MCPConnectionManager:
                     }
                 else:
                     try:
-                        observation = json.loads(content.text)
+                        observation = json.loads(content_text)
                     except json.JSONDecodeError as e:
                         logger.warning(
-                            f"Session {session.session_id}: Invalid JSON from {tool_name}: {content.text}. Error: {e}"
+                            f"Session {session.session_id}: Invalid JSON from {tool_name}: {content_text}. Error: {e}"
                         )
                         # Create a structured response from the raw text
                         observation = {
-                            "observation": content.text,
+                            "observation": content_text,
                             "session_id": session.session_id,
                             "error": "invalid_json_response",
                         }

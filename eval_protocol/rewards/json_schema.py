@@ -304,7 +304,15 @@ def json_schema_reward_with_llm_judge(
             if "error" in schema_result.metrics:
                 return schema_result
             last_message = messages[-1]
-            content = last_message.get("content", "")
+            assert last_message is not None, "Last message is None"
+            # Support both dict-shaped messages and pydantic Message objects
+            if isinstance(last_message, dict):
+                content = last_message.get("content", "")
+            else:
+                try:
+                    content = getattr(last_message, "content", "")
+                except Exception:
+                    content = ""
             json_str_from_msg = ""
             try:
                 pattern = r"```(?:json)?\s*([\s\S]*?)```"
