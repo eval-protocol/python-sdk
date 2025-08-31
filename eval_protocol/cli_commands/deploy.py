@@ -29,7 +29,7 @@ except ImportError:
     import socket
     import subprocess
 
-    def start_process(command, log_path, env=None):
+    def _fallback_start_process(command, log_path, env=None):
         """Fallback process starter."""
         try:
             with open(log_path, "w") as log_file:
@@ -39,7 +39,7 @@ except ImportError:
             print(f"Error starting process: {e}")
             return None
 
-    def stop_process(pid):
+    def _fallback_stop_process(pid):
         """Fallback process stopper."""
         try:
             import os
@@ -48,15 +48,21 @@ except ImportError:
         except Exception:
             pass
 
-    def start_serveo_and_get_url(local_port, log_path):
+    def _fallback_start_serveo_and_get_url(local_port, log_path):
         """Fallback serveo tunnel - returns None to indicate unavailable."""
         print("Serveo tunneling not available - development module not found")
         return None, None
 
-    def start_ngrok_and_get_url(local_port, log_path):
+    def _fallback_start_ngrok_and_get_url(local_port, log_path):
         """Fallback ngrok tunnel - returns None to indicate unavailable."""
         print("ngrok tunneling not available - development module not found")
         return None, None
+
+    # Expose unified names using fallbacks
+    start_process = _fallback_start_process
+    stop_process = _fallback_stop_process
+    start_serveo_and_get_url = _fallback_start_serveo_and_get_url
+    start_ngrok_and_get_url = _fallback_start_ngrok_and_get_url
 else:
     # Wrap imported helpers to present consistent, simple signatures used below
     def start_process(command, log_path, env=None):
@@ -66,7 +72,7 @@ else:
         return _stop_process(pid)
 
     def start_serveo_and_get_url(local_port, log_path):
-        return _start_serveo_and_get_url(local_port=local_port, log_path=log_path)
+        return _start_serveo_and_get_url(local_port=local_port, log_file_path=log_path)
 
     def start_ngrok_and_get_url(local_port, log_path):
         return _start_ngrok_and_get_url(local_port=local_port, ngrok_log_file=log_path)

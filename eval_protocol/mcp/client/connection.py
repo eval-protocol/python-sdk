@@ -306,14 +306,15 @@ class MCPConnectionManager:
                 resource_content = await mcp_session.read_resource(initial_state_resource.uri)
 
                 # Handle the new ResourceContents format
-                if hasattr(resource_content, "text"):
+                text_value = getattr(resource_content, "text", None)
+                if text_value is not None:
                     try:
-                        initial_observation = json.loads(resource_content.text)
+                        initial_observation = json.loads(text_value)
                         logger.info(
                             f"Session {session.session_id}: ✅ Successfully parsed JSON initial state with grid_layout: {initial_observation.get('grid_layout', 'N/A')[:20]}..."
                         )
                     except json.JSONDecodeError:
-                        initial_observation = {"observation": resource_content.text}
+                        initial_observation = {"observation": text_value}
                 elif (
                     hasattr(resource_content, "contents")
                     and resource_content.contents
@@ -321,11 +322,12 @@ class MCPConnectionManager:
                 ):
                     # Fallback to old format for backward compatibility
                     content = resource_content.contents[0]
-                    if hasattr(content, "text"):
+                    content_text = getattr(content, "text", None)
+                    if content_text is not None:
                         try:
-                            initial_observation = json.loads(content.text)
+                            initial_observation = json.loads(content_text)
                         except json.JSONDecodeError:
-                            initial_observation = {"observation": content.text}
+                            initial_observation = {"observation": content_text}
                     else:
                         initial_observation = {"observation": str(resource_content)}
                 else:
@@ -359,11 +361,12 @@ class MCPConnectionManager:
                     )
 
                     # Handle the new ResourceContents format
-                    if hasattr(resource_content, "text"):
+                    text_value_2 = getattr(resource_content, "text", None)
+                    if text_value_2 is not None:
                         try:
-                            initial_observation = json.loads(resource_content.text)
+                            initial_observation = json.loads(text_value_2)
                         except json.JSONDecodeError:
-                            initial_observation = {"observation": resource_content.text}
+                            initial_observation = {"observation": text_value_2}
                     elif (
                         hasattr(resource_content, "contents")
                         and resource_content.contents
@@ -371,11 +374,12 @@ class MCPConnectionManager:
                     ):
                         # Fallback to old format for backward compatibility
                         content = resource_content.contents[0]
-                        if hasattr(content, "text"):
+                        content_text_2 = getattr(content, "text", None)
+                        if content_text_2 is not None:
                             try:
-                                initial_observation = json.loads(content.text)
+                                initial_observation = json.loads(content_text_2)
                             except json.JSONDecodeError:
-                                initial_observation = {"observation": content.text}
+                                initial_observation = {"observation": content_text_2}
                         else:
                             initial_observation = {"observation": str(content)}
                     else:

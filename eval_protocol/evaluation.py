@@ -7,7 +7,7 @@ import sys  # Added for path manipulation
 import time
 import types
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 if TYPE_CHECKING:
     # For type checking only
@@ -173,6 +173,8 @@ class Evaluator:
         self.description = ""
         self.display_name = ""
         self.api_base = os.environ.get("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+        # Optional requirements string for multi-metric mode (when loaded differently)
+        self._loaded_multi_metric_requirements_str: Optional[str] = None
 
         if self.ts_mode_config:
             python_code = self.ts_mode_config.get("python_code")
@@ -264,7 +266,7 @@ class Evaluator:
                                                 elif isinstance(elt, ast.Str):  # Python < 3.8
                                                     reqs.append(elt.s)
                                             if reqs:
-                                                metric_requirements_list = reqs
+                                                metric_requirements_list = cast(List[str], reqs)
                                         elif isinstance(keyword.value, ast.Constant) and isinstance(
                                             keyword.value.value, str
                                         ):  # Python 3.8+ (single req string)

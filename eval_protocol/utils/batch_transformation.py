@@ -16,7 +16,7 @@ def transform_n_variant_jsonl_to_batch_format(
     request_id_field: str = "request_id",
     response_id_field: str = "response_id",
     messages_field: str = "full_conversation_history",
-    fallback_messages_fields: List[str] = None,
+    fallback_messages_fields: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Transform N-variant generation JSONL output into batch evaluation format.

@@ -80,7 +80,7 @@ def extract_code_blocks(text: str, language: Optional[str] = None) -> List[Dict[
         List of dictionaries with "code" and "language" keys
     """
     pattern = r"```(\w*)\n([\s\S]*?)\n```"
-    matches = re.findall(pattern, text)
+    matches = re.findall(pattern, text or "")
 
     code_blocks = []
     verbose_patterns_removed = []

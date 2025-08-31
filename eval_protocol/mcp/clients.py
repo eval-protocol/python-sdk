@@ -29,7 +29,8 @@ class IntermediaryMCPClient:
 
     async def connect(self):
         """Establishes connection and MCP session."""
-        if self._mcp_session is not None and not self._mcp_session.is_closed:
+        # ClientSession does not expose a stable public `is_closed`; consider session presence sufficient
+        if self._mcp_session is not None:
             logger.debug("Already connected.")
             return
 
@@ -97,13 +98,14 @@ class IntermediaryMCPClient:
         if mcp_response.isError or not mcp_response.content or not hasattr(mcp_response.content[0], "text"):
             error_message = f"Tool call '{tool_name}' to intermediary failed."
             if mcp_response.isError and mcp_response.content and hasattr(mcp_response.content[0], "text"):
-                error_message += f" Details: {mcp_response.content[0].text}"
+                error_text = getattr(mcp_response.content[0], "text", "")
+                error_message += f" Details: {error_text}"
             elif mcp_response.isError:
                 error_message += " No detailed error message in content."
             logger.error(error_message)
             try:
                 if mcp_response.content and hasattr(mcp_response.content[0], "text"):
-                    parsed_error = json.loads(mcp_response.content[0].text)
+                    parsed_error = json.loads(getattr(mcp_response.content[0], "text", ""))
                     if isinstance(parsed_error, dict) and "error" in parsed_error:
                         raise RuntimeError(f"{error_message} Nested error: {parsed_error['error']}")
             except (json.JSONDecodeError, TypeError):
@@ -111,12 +113,12 @@ class IntermediaryMCPClient:
             raise RuntimeError(error_message)
 
         try:
-            parsed_result = json.loads(mcp_response.content[0].text)
+            parsed_result = json.loads(getattr(mcp_response.content[0], "text", ""))
             logger.debug(f"Parsed JSON result from intermediary for '{tool_name}': {parsed_result}")
             return parsed_result
         except json.JSONDecodeError as e:
             logger.error(
-                f"Failed to parse JSON from intermediary's tool '{tool_name}' response content: {mcp_response.content[0].text}. Error: {e}"
+                f"Failed to parse JSON from intermediary's tool '{tool_name}' response content: {getattr(mcp_response.content[0], 'text', '')}. Error: {e}"
             )
             raise RuntimeError(f"Failed to parse JSON response from intermediary tool '{tool_name}'.")
 
