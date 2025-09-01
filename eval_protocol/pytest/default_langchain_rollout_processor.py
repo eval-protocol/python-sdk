@@ -68,9 +68,12 @@ class LangGraphRolloutProcessor(RolloutProcessor):
 
                 invoke_fn = _invoke_direct
             elif callable(target):
-
+                # If target is a normal callable, call it directly; if it returns an awaitable, await it
                 async def _invoke_wrapper(payload):
-                    return await target(payload)
+                    result = target(payload)
+                    if asyncio.iscoroutine(result):
+                        return await result
+                    return result
 
                 invoke_fn = _invoke_wrapper
             else:

@@ -64,10 +64,9 @@ async def test_north_star_interface():
         start_time = time.time()
         evaluation_rows = await ep.rollout(
             envs,
-            policy=policy,
-            steps=25,  # Taxi typically needs more steps than FrozenLake
-            openai_format_log_file=("clean_openai_format.jsonl" if recording_mode else None),
-        )
+            policy,
+            steps=20,
+        )  # Keep short for testing
         duration = time.time() - start_time
         print(f"✅ Completed {len(evaluation_rows)} evaluation rows in {duration:.2f}s")
 

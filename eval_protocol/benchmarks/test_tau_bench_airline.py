@@ -173,6 +173,7 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
                         id=tool_call.id,
                         name=tool_call.function.name,
                         arguments=arguments,
+                        requestor="assistant",
                     )
                     tau2_tool_calls.append(tau2_tool_call)
 
@@ -181,7 +182,7 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
             trajectory_objects.append(UserMessage(role=role, content=text_content))
         elif role == "tool":
             tool_id = msg.tool_call_id
-            trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=text_content))
+            trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=text_content, requestor="assistant"))
 
     reward = 1.0
 
@@ -189,6 +190,7 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
         nl_assertions=nl_assertions,
         communicate_info=communicate_info,
         actions=actions,
+        env_assertions=None,
         reward_basis=[  # Use this to adjust how to calculate reward. Tau2-bench uses DB and COMMUNICATE by default for airline tasks.
             RewardType.DB,
             RewardType.COMMUNICATE,
@@ -196,7 +198,12 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
     )
 
     task = Task(
-        id="Filler", evaluation_criteria=evaluation_criteria, user_scenario=UserScenario(instructions="Filler")
+        id="Filler",
+        description=None,
+        user_scenario=UserScenario(instructions="Filler", persona=None),
+        ticket=None,
+        initial_state=None,
+        evaluation_criteria=evaluation_criteria,
     )  # id and user_scenario are required for the Task type but not used in calculating reward
     assert task.evaluation_criteria is not None, "Task evaluation criteria is None"
 

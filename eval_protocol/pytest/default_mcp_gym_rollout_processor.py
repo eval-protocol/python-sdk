@@ -250,13 +250,20 @@ class MCPGymRolloutProcessor(RolloutProcessor):
         )
 
         # Get rollout tasks from ep.rollout
-        tasks = ep.rollout(
-            envs,
-            policy=self.policy,
-            evaluation_rows=rows,
-            steps=config.steps,
-            max_concurrent_rollouts=config.max_concurrent_rollouts,
-        )
+        async def _run_rollout_and_wrap(row_index: int) -> EvaluationRow:
+            # ep.rollout now returns concrete results
+            results = await ep.rollout(
+                envs,
+                policy=self.policy,
+                evaluation_rows=rows,
+                steps=config.steps,
+                max_concurrent_rollouts=config.max_concurrent_rollouts,
+            )
+            return results[row_index]
+
+        tasks: List[asyncio.Task[EvaluationRow]] = [
+            asyncio.create_task(_run_rollout_and_wrap(i)) for i in range(len(rows))
+        ]
         return tasks
 
     def cleanup(self) -> None:

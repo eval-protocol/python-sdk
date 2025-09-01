@@ -149,7 +149,7 @@ def frozen_lake_rollout_processor(row: EvaluationRow, model: str, input_params: 
     """
     env_url = env_urls[0] if env_urls else None
     # ep.rollout handles the core interaction loop with the game environment.
-    trajectories = ep.rollout(row, model, input_params, env_url)
+    trajectories = await ep.rollout(row, model, input_params, env_url)
     return [t.to_evaluation_row() for t in trajectories]
 
 @evaluation_test(

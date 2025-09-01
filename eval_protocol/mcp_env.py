@@ -240,7 +240,7 @@ def make(
     return mcp_envs
 
 
-def rollout(
+async def rollout(
     envs: GeneralMCPVectorEnv,
     policy: Union[FireworksPolicy, LLMBasePolicy, Callable],
     *,
@@ -250,7 +250,7 @@ def rollout(
     steps: int = 512,
     openai_format_log_file: Optional[str] = None,
     max_concurrent_rollouts: int = 8,
-) -> List[asyncio.Task[EvaluationRow]]:
+) -> List[EvaluationRow]:
     """
     Execute general rollouts using tool calling interface with automatic record/playback.
 
@@ -282,10 +282,10 @@ def rollout(
 
     Example:
         # Live mode
-        tasks = ep.rollout(envs, policy)
+        results = await ep.rollout(envs, policy)
 
         # Create environments automatically
-        tasks = ep.rollout(
+        results = await ep.rollout(
             "http://localhost:8000/mcp/",
             policy,
             evaluation_rows=my_evaluation_rows,
@@ -294,10 +294,10 @@ def rollout(
 
         # Recording mode
         os.environ["EP_PLAYBACK_FILE"] = "record.jsonl"
-        tasks = ep.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
+        results = await ep.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
 
         # Playback mode (after recording file exists)
-        tasks = ep.rollout(envs, policy)
+        results = await ep.rollout(envs, policy)
     """
     # Automatically create environments if a base URL is provided
     if isinstance(envs, str):
@@ -313,7 +313,10 @@ def rollout(
     tasks = execution_manager.execute_rollouts(
         envs, policy, steps, openai_format_log_file, max_concurrent_rollouts, evaluation_rows
     )
-    return tasks
+
+    # Await all tasks and return concrete EvaluationRows
+    results: List[EvaluationRow] = await asyncio.gather(*tasks)
+    return results
 
 
 async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:

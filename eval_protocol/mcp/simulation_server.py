@@ -328,6 +328,7 @@ class SimulationServerBase(ABC):
                     description = resource_func.__doc__ or f"Resource {resource_name}"
 
                     # Some callables may not have the attribute; guard for type checkers
+                    # MyPy/Pyright: Resource expects AnyUrl; convert string to str, letting pydantic coerce it
                     uri_value = getattr(resource_func, "_resource_uri", f"/{resource_name}")
                     resources.append(
                         Resource(
@@ -346,7 +347,7 @@ class SimulationServerBase(ABC):
         """Register session initialization and cleanup handlers."""
 
         @self.app.set_logging_level()
-        async def set_logging_level(level):
+        async def set_logging_level(level: str):
             """Handle logging level requests."""
             logger.setLevel(getattr(logging, level.upper()))
             return {}
@@ -391,6 +392,17 @@ class SimulationServerBase(ABC):
     def get_default_config(self) -> Dict[str, Any]:
         """Get default environment configuration."""
         pass
+
+    # Optional hook: some environments need seed at creation time
+    def create_environment_with_seed(self, config: Dict[str, Any], *, seed: Optional[int] = None) -> Tuple[Any, Any, Dict[str, Any]]:
+        """Create environment with a seed when required; default falls back to create+reset.
+
+        Subclasses can override when the environment requires the seed at construction time.
+        Returns a tuple of (env, initial_observation, info).
+        """
+        env = self.create_environment(config)
+        obs, info = self.reset_environment(env, seed=seed)
+        return env, obs, info
 
     def run(self, port: int = 8000, host: str = "127.0.0.1", **kwargs):
         """

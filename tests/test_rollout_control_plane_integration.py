@@ -522,16 +522,14 @@ class TestRolloutControlPlaneIntegration:
             manager_instance.execute_rollouts = mock_execute_rollouts
 
             result = []
-            tasks = ep.rollout(
+            tasks = await ep.rollout(
                 "http://localhost:1234/mcp/",
                 policy,
                 dataset=dataset,
                 model_id="test_model",
                 steps=5,
             )
-            for task in tasks:
-                row = await task
-                result.append(row)
+            result.extend(tasks)
 
             mock_make.assert_called_once_with(
                 "http://localhost:1234/mcp/",

@@ -142,7 +142,12 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
     )
 
     task = Task(
-        id="Filler", evaluation_criteria=evaluation_criteria, user_scenario=UserScenario(instructions="Filler")
+        id="Filler",
+        description=None,
+        user_scenario=UserScenario(instructions="Filler", persona=None),
+        ticket=None,
+        initial_state=None,
+        evaluation_criteria=evaluation_criteria,
     )  # id and user_scenario are required for the Task type but not used in calculating reward
 
     if RewardType.DB in task.evaluation_criteria.reward_basis:

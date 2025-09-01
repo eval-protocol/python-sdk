@@ -739,6 +739,7 @@ def tau2_airline_eval(
                         id=tool_call.id,
                         name=tool_call.function.name,
                         arguments=arguments,
+                        requestor="assistant",
                     )
                     tau2_tool_calls.append(tau2_tool_call)
 
@@ -747,7 +748,7 @@ def tau2_airline_eval(
             trajectory_objects.append(UserMessage(role=role, content=content))
         elif role == "tool":
             tool_id = msg.tool_call_id
-            trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=content))
+            trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=content, requestor="assistant"))
 
     reward = 1.0
 
@@ -764,7 +765,12 @@ def tau2_airline_eval(
     )
 
     task = Task(
-        id="Filler", evaluation_criteria=evaluation_criteria, user_scenario=UserScenario(instructions="Filler")
+        id="Filler",
+        description=None,
+        user_scenario=UserScenario(instructions="Filler", persona=None),
+        ticket=None,
+        initial_state=None,
+        evaluation_criteria=evaluation_criteria,
     )  # id and user_scenario are required for the Task type but not used in calculating reward, filler values
 
     env_reward_info = EnvironmentEvaluator.calculate_reward(

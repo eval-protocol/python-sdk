@@ -310,6 +310,8 @@ class EvaluationPipeline:
                     f"Sample {sample_id}: Agent Rollout Turn {turn_num + 1}/{max_rollout_turns}. History size: {len(current_messages_for_rollout)}"
                 )
 
+                # model_client is initialized when generation is enabled; assert for type-checker
+                assert self.model_client is not None
                 generation_output_turn = await self.model_client.generate(
                     messages=current_messages_for_rollout,
                     session=http_session,
@@ -845,7 +847,7 @@ class EvaluationPipeline:
 
             for i_outer in range(0, len(tasks), batch_size_for_logging):
                 batch_tasks = tasks[i_outer : i_outer + batch_size_for_logging]
-                batch_results_values = await asyncio.gather(*batch_tasks, return_exceptions=True)
+                batch_results_values: List[Union[Exception, Dict[str, Any], List[Dict[str, Any]]]] = await asyncio.gather(*batch_tasks, return_exceptions=True)
                 for res_idx, res_or_exc in enumerate(batch_results_values):
                     if isinstance(res_or_exc, Exception):
                         logger.error(
@@ -863,7 +865,8 @@ class EvaluationPipeline:
                         if isinstance(res_or_exc, list):
                             all_results.extend(res_or_exc)
                         else:
-                            all_results.append(res_or_exc)
+                            # res_or_exc is a Dict[str, Any] here
+                            all_results.append(res_or_exc)  # type: ignore[arg-type]
                 logger.info(
                     f"Completed batch up to sample {i_outer + len(batch_tasks)}. Total results/errors: {len(all_results)}"
                 )
