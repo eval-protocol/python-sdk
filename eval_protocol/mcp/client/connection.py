@@ -441,9 +441,10 @@ class MCPConnectionManager:
         # Extract data plane results (observation only)
         if tool_result.content and len(tool_result.content) > 0:
             content = tool_result.content[0]
-            if hasattr(content, "text"):
+            text_value = getattr(content, "text", None)
+            if isinstance(text_value, str):
                 # Fix: Handle empty or invalid JSON responses gracefully
-                if not content.text or content.text.strip() == "":
+                if text_value.strip() == "":
                     logger.warning(f"Session {session.session_id}: Empty tool response from {tool_name}")
                     observation = {
                         "observation": "empty_response",
@@ -451,14 +452,14 @@ class MCPConnectionManager:
                     }
                 else:
                     try:
-                        observation = json.loads(content.text)
+                        observation = json.loads(text_value)
                     except json.JSONDecodeError as e:
                         logger.warning(
-                            f"Session {session.session_id}: Invalid JSON from {tool_name}: {content.text}. Error: {e}"
+                            f"Session {session.session_id}: Invalid JSON from {tool_name}: {text_value}. Error: {e}"
                         )
                         # Create a structured response from the raw text
                         observation = {
-                            "observation": content.text,
+                            "observation": text_value,
                             "session_id": session.session_id,
                             "error": "invalid_json_response",
                         }

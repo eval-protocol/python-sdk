@@ -394,9 +394,11 @@ def exact_tool_match_reward(
         try:
             ground_truth = json.loads(ground_truth)
         except json.JSONDecodeError:
+            # Cast to string before slicing to satisfy type checker if ground_truth is of unknown type
+            gt_preview = str(ground_truth)
             return EvaluateResult(
                 score=0.0,
-                reason=f"Ground truth was a string but failed to parse as JSON: {ground_truth[:100]}...",
+                reason=f"Ground truth was a string but failed to parse as JSON: {gt_preview[:100]}...",
                 metrics={},
             )
 

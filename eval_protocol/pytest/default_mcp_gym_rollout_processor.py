@@ -107,7 +107,7 @@ class MCPServerManager:
 
         while time.time() - start_time < timeout:
             # Check if process is still running
-            if self.process.poll() is not None:
+            if self.process and self.process.poll() is not None:
                 print("Server process exited early")
                 return False
 
@@ -220,7 +220,9 @@ class MCPGymRolloutProcessor(RolloutProcessor):
                 self.server.start()
 
                 self.policy = ep.LiteLLMPolicy(
-                    model_id=config.completion_params.get("model", None),
+                    model_id=str(
+                        (config.completion_params.get("model") if config.completion_params else None) or "gpt-4o-mini"
+                    ),
                     temperature=config.completion_params.get("temperature", 0.0),
                     max_tokens=config.completion_params.get("max_tokens", 4096),
                     **(config.completion_params.get("extra_body", {}) or {}),
