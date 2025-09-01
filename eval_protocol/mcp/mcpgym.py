@@ -205,6 +205,15 @@ class McpGym(ABC):
         """
         session_id = self._get_session_id(ctx)
         print(f"🔍 _get_or_create_session: session_id: {session_id}")
+        if session_id not in self.sessions:
+            env, obs, info = self._new_env(seed=None)
+            with self.session_lock:
+                self.sessions[session_id] = {
+                    "env": env,
+                    "obs": obs,
+                    "session_data": {},
+                    "session_id": session_id,
+                }
         return self.sessions[session_id]
 
     def _register_session_reset_endpoint(self):
@@ -400,6 +409,15 @@ class McpGym(ABC):
         Returns:
             Data plane response (observation only, no rewards)
         """
+        if session_id not in self.sessions:
+            env, obs, info = self._new_env(seed=None)
+            with self.session_lock:
+                self.sessions[session_id] = {
+                    "env": env,
+                    "obs": obs,
+                    "session_data": {},
+                    "session_id": session_id,
+                }
         session_data = self.sessions[session_id]
         env = session_data["env"]
 
