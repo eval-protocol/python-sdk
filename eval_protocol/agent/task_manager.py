@@ -16,7 +16,7 @@ import time
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, cast
 
 import requests
 
@@ -684,6 +684,7 @@ class TaskManager:
 
                     # Add sample metadata to the result
                     if isinstance(result, dict):
+                        result = cast(Dict[str, Any], result)
                         result["sample_data"] = sample_data
                         result["sample_index"] = sample_index
                         result["rollout_index"] = rollout_index
@@ -920,9 +921,10 @@ class TaskManager:
                 if chosen_dir is None:
                     chosen_dir = Path(".")
 
-            output_file = chosen_dir / f"trajectory_{task_id}_{timestamp}.jsonl"
+            output_path = chosen_dir / f"trajectory_{task_id}_{timestamp}.jsonl"
 
-        output_path = Path(output_file)
+        else:
+            output_path = Path(output_file)
 
         try:
             self.logger.info("=== TRAJECTORY SAVE DEBUG START ===")
