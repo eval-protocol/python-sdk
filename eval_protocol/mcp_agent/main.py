@@ -98,8 +98,12 @@ async def main_async(config_path: str, host: str, port: int):
 
     # 2. Instantiate StreamableHTTPSessionManager
     # Pass the internal _mcp_server (the MCPServer instance) from our FastMCP subclass
+    if _mcp_server_instance_ref is None:
+        logger.error("Failed to initialize RewardKitIntermediaryServer")
+        return
+
     session_manager = StreamableHTTPSessionManager(
-        app=_mcp_server_instance_ref._mcp_server,
+        app=_mcp_server_instance_ref._mcp_server,  # type: ignore[attr-defined]
         event_store=None,
         json_response=True,  # Changed to True
     )

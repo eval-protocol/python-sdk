@@ -492,10 +492,10 @@ class TaskManager:
                     # Convert EvaluateResult to dict if needed
                     if hasattr(result, "model_dump"):
                         # Pydantic model - convert to dict
-                        result = result.model_dump()
+                        result = result.model_dump()  # type: ignore[call-arg]
                     elif hasattr(result, "dict"):
                         # Older pydantic models
-                        result = result.dict()
+                        result = result.dict()  # type: ignore[call-arg]
                     # If it's already a dict, leave it as is
 
                     # Add reward function inputs to the result for JSONL trajectory storage
@@ -529,7 +529,14 @@ class TaskManager:
 
         # Execute all rollouts concurrently
         rollout_tasks = [execute_single_rollout(i) for i in range(num_rollouts)]
-        rollout_results = await asyncio.gather(*rollout_tasks)
+        rollout_results_raw = await asyncio.gather(*rollout_tasks)
+        # Normalize to list of dicts for typing purposes where possible
+        rollout_results: List[Dict[str, Any]] = []
+        for item in rollout_results_raw:
+            if isinstance(item, dict):
+                rollout_results.append(item)
+            else:
+                rollout_results.append({"result": item})
 
         # Log failed rollouts but return all results for comprehensive analysis
         successful_results = [r for r in rollout_results if not (isinstance(r, dict) and "error" in r)]
@@ -665,10 +672,10 @@ class TaskManager:
                     # Convert EvaluateResult to dict if needed
                     if hasattr(result, "model_dump"):
                         # Pydantic model - convert to dict
-                        result = result.model_dump()
+                        result = result.model_dump()  # type: ignore[call-arg]
                     elif hasattr(result, "dict"):
                         # Older pydantic models
-                        result = result.dict()
+                        result = result.dict()  # type: ignore[call-arg]
                     # If it's already a dict, leave it as is
 
                     # Add reward function inputs to the result for JSONL trajectory storage

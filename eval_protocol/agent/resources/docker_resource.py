@@ -13,20 +13,17 @@ from ..resource_abc import ForkableResource
 try:
     import docker
 
-    if TYPE_CHECKING:
-        from docker.errors import APIError, DockerException, NotFound
-        from docker.models.containers import Container
-    else:
-        from docker.errors import APIError, DockerException, NotFound
-        from docker.models.containers import Container
+    # Import for runtime; annotate as Any to avoid mismatched type aliasing across modules
+    from docker.errors import APIError as _APIError, DockerException as _DockerException, NotFound as _NotFound
+    from docker.models.containers import Container as _Container
 
     DOCKER_SDK_AVAILABLE = True
     # Ensure these are available for type checking even if the runtime import fails
     # The `else` block for DOCKER_SDK_AVAILABLE = False will define runtime dummies.
-    DockerException = DockerException
-    NotFound = NotFound
-    APIError = APIError
-    Container = Container
+    DockerException = _DockerException  # type: ignore[assignment]
+    NotFound = _NotFound  # type: ignore[assignment]
+    APIError = _APIError  # type: ignore[assignment]
+    Container = _Container  # type: ignore[assignment]
     try:
         _daemon_check_client = docker.from_env()
         _daemon_check_client.ping()
@@ -99,7 +96,7 @@ class DockerResource(ForkableResource):
             raise RuntimeError("Docker daemon not running or not accessible")
         self._client = docker.from_env()
         self._config: Dict[str, Any] = {}
-        self._container: Optional[Container] = None
+        self._container: Optional[Any] = None
         self._image_id_for_fork_or_checkpoint: Optional[str] = (
             None  # Stores the ID of the image used for the current container
         )
@@ -108,14 +105,14 @@ class DockerResource(ForkableResource):
     def _generate_name(self, prefix: str) -> str:
         return f"rk_{prefix}_{uuid.uuid4().hex}"
 
-    def _cleanup_container(self, container: Optional[Container]) -> None:
+    def _cleanup_container(self, container: Optional[Any]) -> None:
         if container:
             try:
                 container.remove(force=True, v=True)  # v=True to remove volumes
             except NotFound:
                 pass  # Already removed
             except APIError as e:
-                print(f"DockerResource: Error removing container {(container.id or '')[:12]}: {e}")
+                print(f"DockerResource: Error removing container {(getattr(container, 'id', '') or '')[:12]}: {e}")
 
     def _cleanup_image(self, image_id: Optional[str]) -> None:
         if image_id:

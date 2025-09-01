@@ -552,7 +552,7 @@ class EvaluationRow(BaseModel):
     )
 
     execution_metadata: ExecutionMetadata = Field(
-        default_factory=lambda: ExecutionMetadata(),
+        default_factory=lambda: ExecutionMetadata(run_id=None),
         description="Metadata about the execution of the evaluation.",
     )
 

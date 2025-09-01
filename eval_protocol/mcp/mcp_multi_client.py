@@ -10,7 +10,6 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.types import CallToolResult
 from openai.types import FunctionDefinition
-from openai.types.chat import ChatCompletionToolParam
 
 from eval_protocol.models import (
     MCPConfigurationServerStdio,
@@ -125,7 +124,7 @@ class MCPMultiClient:
             [tool.name for tool in tools],
         )
 
-    async def get_available_tools(self) -> List[ChatCompletionToolParam]:
+    async def get_available_tools(self) -> List[Dict[str, Any]]:
         """Get all available tools from all connected servers"""
         all_tools = []
         for server_name, session in self.sessions.items():
@@ -133,21 +132,21 @@ class MCPMultiClient:
                 response = await session.list_tools()
                 for tool in response.tools:
                     all_tools.append(
-                        ChatCompletionToolParam(
-                            function=FunctionDefinition(
-                                name=tool.name,  # Prefix with server name
-                                description=tool.description,
-                                parameters=tool.inputSchema,
-                            ),
-                            type="function",
-                        )
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": tool.name,
+                                "description": tool.description,
+                                "parameters": tool.inputSchema,
+                            },
+                        }
                     )
             except Exception as e:
                 print(f"Error listing tools from server '{server_name}': {e}")
 
         return all_tools
 
-    async def call_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> CallToolResult:
+    async def call_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> Union[CallToolResult, str]:
         """Call a specific tool by name with arguments"""
 
         session = self.tools_to_sessions[tool_name]

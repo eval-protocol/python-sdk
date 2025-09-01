@@ -13,7 +13,7 @@ import sys
 import time
 import uuid
 from contextlib import AsyncExitStack
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
@@ -26,7 +26,7 @@ class SimpleServerProcessManager:
     def __init__(
         self,
         script_path: str,
-        python_executable: str = None,
+        python_executable: Optional[str] = None,
         port_range: Tuple[int, int] = (10000, 11000),
     ):
         """

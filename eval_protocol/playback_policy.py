@@ -243,12 +243,16 @@ class PlaybackPolicyBase(ABC):
 
             if messages is None:
                 # No more recorded actions - signal early termination
-                return [
-                    MCPToolCall(
-                        "_playback_terminate",
-                        {"reason": "no_more_recorded_actions"},
-                    )
-                ]
+                return (
+                    [
+                        MCPToolCall(
+                            "_playback_terminate",
+                            {"reason": "no_more_recorded_actions"},
+                        )
+                    ],
+                    None,
+                    None,
+                )
 
             # Return the recorded tool call
             return self._extract_tool_call_from_messages(messages, env_index), None, None

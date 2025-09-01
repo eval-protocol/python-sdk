@@ -6,7 +6,7 @@ from typing import Any, AsyncIterator, List, Optional, Union, Dict
 
 from mcp.types import CallToolResult, TextContent
 from openai import NOT_GIVEN, NotGiven
-from openai.types.chat import ChatCompletionContentPartTextParam, ChatCompletionMessage, ChatCompletionToolParam
+from openai.types.chat import ChatCompletionContentPartTextParam
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
@@ -166,13 +166,16 @@ class Agent:
         """
         assert self.mcp_client is not None, "MCP client is not initialized"
         tool_result = await self.mcp_client.call_tool(tool_name, tool_args_dict)
-        content = self._get_content_from_tool_result(tool_result)
+        # Accept string errors from client and normalize to text content
+        content = self._get_content_from_tool_result(tool_result)  # type: ignore[arg-type]
         return tool_call_id, content
 
-    def _get_content_from_tool_result(self, tool_result: CallToolResult) -> List[TextContent]:
+    def _get_content_from_tool_result(self, tool_result: CallToolResult | str) -> List[TextContent]:
         if getattr(tool_result, "structuredContent", None):
             return [TextContent(text=json.dumps(tool_result.structuredContent), type="text")]
         normalized: List[TextContent] = []
+        if isinstance(tool_result, str):
+            return [TextContent(text=tool_result, type="text")]
         for content in getattr(tool_result, "content", []) or []:
             if isinstance(content, TextContent):
                 normalized.append(content)
