@@ -394,7 +394,9 @@ class SimulationServerBase(ABC):
         pass
 
     # Optional hook: some environments need seed at creation time
-    def create_environment_with_seed(self, config: Dict[str, Any], *, seed: Optional[int] = None) -> Tuple[Any, Any, Dict[str, Any]]:
+    def create_environment_with_seed(
+        self, config: Dict[str, Any], *, seed: Optional[int] = None
+    ) -> Tuple[Any, Any, Dict[str, Any]]:
         """Create environment with a seed when required; default falls back to create+reset.
 
         Subclasses can override when the environment requires the seed at construction time.

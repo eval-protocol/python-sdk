@@ -847,7 +847,9 @@ class EvaluationPipeline:
 
             for i_outer in range(0, len(tasks), batch_size_for_logging):
                 batch_tasks = tasks[i_outer : i_outer + batch_size_for_logging]
-                batch_results_values: List[Union[Exception, Dict[str, Any], List[Dict[str, Any]]]] = await asyncio.gather(*batch_tasks, return_exceptions=True)
+                batch_results_values: List[
+                    Union[Exception, Dict[str, Any], List[Dict[str, Any]]]
+                ] = await asyncio.gather(*batch_tasks, return_exceptions=True)
                 for res_idx, res_or_exc in enumerate(batch_results_values):
                     if isinstance(res_or_exc, Exception):
                         logger.error(
