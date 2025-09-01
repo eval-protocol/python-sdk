@@ -15,7 +15,14 @@ from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
-from types import SimpleNamespace
+from pydantic import BaseModel
+from typing import Optional
+
+
+class FunctionLike(BaseModel):
+    name: Optional[str] = None
+    parameters: Any = None
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +60,10 @@ class Agent:
                             f_params = getattr(f, "parameters", None)
                             if hasattr(f_params, "model_dump"):
                                 f_params = f_params.model_dump()
-                            func_obj = SimpleNamespace(name=f_name, parameters=f_params)
+                            func_obj = FunctionLike(name=f_name, parameters=f_params)
                             t = {"type": t.get("type", "function"), "function": func_obj}
                         elif isinstance(f, dict):
-                            func_obj = SimpleNamespace(name=f.get("name"), parameters=f.get("parameters"))
+                            func_obj = FunctionLike(name=f.get("name"), parameters=f.get("parameters"))
                             t = {"type": t.get("type", "function"), "function": func_obj}
                         tools_dicts.append(t)
                         continue
@@ -69,7 +76,7 @@ class Agent:
                         params_payload = params
                     else:
                         params_payload = {}
-                    func_obj = SimpleNamespace(name=name, parameters=params_payload)
+                    func_obj = FunctionLike(name=name, parameters=params_payload)
                     tools_dicts.append({"type": tool_type or "function", "function": func_obj})
                 self.evaluation_row.tools = tools_dicts
             else:

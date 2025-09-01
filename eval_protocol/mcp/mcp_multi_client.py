@@ -3,7 +3,15 @@ import os
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
-from types import SimpleNamespace
+from pydantic import BaseModel
+from typing import Optional
+
+
+class FunctionLike(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    parameters: Any = None
+
 
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
@@ -135,7 +143,7 @@ class MCPMultiClient:
                     all_tools.append(
                         {
                             "type": "function",
-                            "function": SimpleNamespace(
+                            "function": FunctionLike(
                                 name=tool.name,
                                 description=tool.description,
                                 parameters=tool.inputSchema,
