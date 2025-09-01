@@ -80,6 +80,9 @@ def adapt_metric(metric: Any):
             return case_kwargs
 
         if BaseConversationalMetric is not None and isinstance(metric, BaseConversationalMetric):
+            # Narrow types for optional imports to satisfy the type checker
+            assert LLMTestCase is not None
+            assert ConversationalTestCase is not None
             turns = []
             for i, msg in enumerate(messages):
                 turn_input = messages[i - 1].get("content", "") if i > 0 else ""
@@ -93,6 +96,8 @@ def adapt_metric(metric: Any):
                 output = messages[-1].get("content", "")
             test_case = ConversationalTestCase(turns=turns)
         else:
+            # Narrow types for optional imports to satisfy the type checker
+            assert LLMTestCase is not None
             case_kwargs = _build_case_kwargs()
             test_case = LLMTestCase(**case_kwargs)
 
