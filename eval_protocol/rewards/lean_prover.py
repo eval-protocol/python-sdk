@@ -467,17 +467,16 @@ def deepseek_huggingface_prover_benchmark(
         current_top_level_reason += f" Sub-evaluation: {result_reason}"
 
     if verbose:
+        info_payload = {
+            "id": (dataset_item.get("id", "") if dataset_item else ""),
+            "has_expected_proof": expected_proof is not None,
+            "has_reference_solution": reference_solution is not None,
+            "has_answer": (("answer" in dataset_item) if dataset_item else False),
+        }
         combined_metrics["dataset_info"] = MetricResult(
             score=1.0,
             is_score_valid=True,
-            reason=json.dumps(
-                {
-                    "id": dataset_item.get("id", ""),
-                    "has_expected_proof": expected_proof is not None,
-                    "has_reference_solution": reference_solution is not None,
-                    "has_answer": "answer" in dataset_item if dataset_item else False,
-                }
-            ),
+            reason=json.dumps(info_payload),
         )
 
     return EvaluateResult(score=result_score, reason=current_top_level_reason, metrics=combined_metrics)

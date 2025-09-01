@@ -13,6 +13,7 @@ from typing import (
     cast,
     get_args,
     get_origin,
+    overload,
 )
 
 from pydantic import TypeAdapter, ValidationError
@@ -35,6 +36,31 @@ EvaluationMode = Literal["pointwise", "batch"]
 # TypeVar for the function being decorated, to preserve its signature as much as possible.
 F = TypeVar("F", bound=Callable[..., Any])
 
+
+# Precise overloads help static type checkers preserve the original function signature.
+@overload
+def reward_function(
+    _func: F,
+    *,
+    mode: EvaluationMode = "pointwise",
+    id: Optional[str] = None,
+    requirements: Optional[List[str]] = None,
+    resources: Optional[ResourceDict] = None,
+    concurrency: Optional[int] = None,
+    timeout: Optional[int] = None,
+) -> F: ...
+
+@overload
+def reward_function(
+    _func: None = ...,  # when used as @reward_function(...)
+    *,
+    mode: EvaluationMode = "pointwise",
+    id: Optional[str] = None,
+    requirements: Optional[List[str]] = None,
+    resources: Optional[ResourceDict] = None,
+    concurrency: Optional[int] = None,
+    timeout: Optional[int] = None,
+) -> Callable[[F], F]: ...
 
 def reward_function(
     _func: Optional[F] = None,
