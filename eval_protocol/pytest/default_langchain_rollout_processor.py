@@ -35,9 +35,10 @@ class LangGraphRolloutProcessor(RolloutProcessor):
                 from langchain_core.messages import HumanMessage
             except Exception:
                 # Fallback minimal message if langchain_core is unavailable
-                class HumanMessage:  # type: ignore
+                class HumanMessage(BaseMessage):  # type: ignore
                     def __init__(self, content: str):
                         self.content = content
+                        self.type = "human"
 
             lm_messages: List[BaseMessage] = []
             if row.messages:
@@ -67,8 +68,12 @@ class LangGraphRolloutProcessor(RolloutProcessor):
             else:
                 raise TypeError("Unsupported invoke target for LangGraphRolloutProcessor")
 
-            result = await invoke_fn({"messages": lm_messages})
-            result_messages: List[BaseMessage] = result.get("messages", [])
+            result_obj = await invoke_fn({"messages": lm_messages})
+            # Accept both dicts and objects with .get/.messages
+            if isinstance(result_obj, dict):
+                result_messages: List[BaseMessage] = result_obj.get("messages", [])
+            else:
+                result_messages = getattr(result_obj, "messages", [])
 
             def _serialize_message(msg: BaseMessage) -> Message:
                 # Prefer SDK-level serializer

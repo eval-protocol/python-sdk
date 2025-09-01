@@ -282,12 +282,19 @@ def pytest_configure(config) -> None:
 def pytest_sessionfinish(session, exitstatus):
     """Print all collected Fireworks experiment links from pytest stash."""
     try:
-        from .evaluation_test import EXPERIMENT_LINKS_STASH_KEY
+        # Late import to avoid circulars; if missing key, skip printing
+        EXPERIMENT_LINKS_STASH_KEY: StashKey[list[dict]] | None = None
+        try:
+            from .evaluation_test import EXPERIMENT_LINKS_STASH_KEY as _KEY  # type: ignore
+
+            EXPERIMENT_LINKS_STASH_KEY = _KEY
+        except Exception:
+            EXPERIMENT_LINKS_STASH_KEY = None
 
         # Get links from pytest stash using shared key
         links = []
 
-        if EXPERIMENT_LINKS_STASH_KEY in session.stash:
+        if EXPERIMENT_LINKS_STASH_KEY is not None and EXPERIMENT_LINKS_STASH_KEY in session.stash:
             links = session.stash[EXPERIMENT_LINKS_STASH_KEY]
 
         if links:
@@ -303,5 +310,5 @@ def pytest_sessionfinish(session, exitstatus):
 
             print("=" * 80, file=sys.__stderr__)
             sys.__stderr__.flush()
-    except Exception as e:
+    except Exception:
         pass

@@ -58,7 +58,7 @@ class Agent:
                         if f is not None and not isinstance(f, dict):
                             f_name = getattr(f, "name", None)
                             f_params = getattr(f, "parameters", None)
-                            if hasattr(f_params, "model_dump"):
+                            if f_params is not None and hasattr(f_params, "model_dump"):
                                 f_params = f_params.model_dump()
                             func_obj = FunctionLike(name=f_name, parameters=f_params)
                             t = {"type": t.get("type", "function"), "function": func_obj}
@@ -70,7 +70,7 @@ class Agent:
                     # Construct a dict from object-like tool
                     name = getattr(func, "name", None)
                     params = getattr(func, "parameters", None)
-                    if hasattr(params, "model_dump"):
+                    if params is not None and hasattr(params, "model_dump"):
                         params_payload = params.model_dump()
                     elif isinstance(params, dict):
                         params_payload = params
@@ -135,7 +135,7 @@ class Agent:
         for tool in tools or []:
             if isinstance(tool, dict):
                 fn = tool.get("function")
-                if hasattr(fn, "model_dump"):
+                if fn is not None and hasattr(fn, "model_dump"):
                     fn_payload = fn.model_dump()
                 elif isinstance(fn, dict):
                     fn_payload = fn
@@ -143,7 +143,7 @@ class Agent:
                     # Best effort fallback
                     name = getattr(fn, "name", None)
                     params = getattr(fn, "parameters", None)
-                    if hasattr(params, "model_dump"):
+                    if params is not None and hasattr(params, "model_dump"):
                         params_payload = params.model_dump()
                     elif isinstance(params, dict):
                         params_payload = params
@@ -157,7 +157,7 @@ class Agent:
                 func = getattr(tool, "function", None)
                 name = getattr(func, "name", None)
                 params = getattr(func, "parameters", None)
-                if hasattr(params, "model_dump"):
+                if params is not None and hasattr(params, "model_dump"):
                     params_payload = params.model_dump()
                 elif isinstance(params, dict):
                     params_payload = params
@@ -192,11 +192,11 @@ class Agent:
         return tool_call_id, content
 
     def _get_content_from_tool_result(self, tool_result: CallToolResult | str) -> List[TextContent]:
+        if isinstance(tool_result, str):
+            return [TextContent(text=tool_result, type="text")]
         if getattr(tool_result, "structuredContent", None):
             return [TextContent(text=json.dumps(tool_result.structuredContent), type="text")]
         normalized: List[TextContent] = []
-        if isinstance(tool_result, str):
-            return [TextContent(text=tool_result, type="text")]
         for content in getattr(tool_result, "content", []) or []:
             if isinstance(content, TextContent):
                 normalized.append(content)

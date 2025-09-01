@@ -79,7 +79,7 @@ def adapt_metric(metric: Any):
                 case_kwargs["actual_output"] = output
             return case_kwargs
 
-        if isinstance(metric, BaseConversationalMetric):
+        if BaseConversationalMetric is not None and isinstance(metric, BaseConversationalMetric):
             turns = []
             for i, msg in enumerate(messages):
                 turn_input = messages[i - 1].get("content", "") if i > 0 else ""

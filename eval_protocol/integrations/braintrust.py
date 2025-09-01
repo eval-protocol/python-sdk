@@ -18,7 +18,9 @@ def scorer_to_reward_fn(
     """Wrap a Braintrust scorer as an Eval Protocol reward function."""
 
     @reward_function
-    def reward_fn(messages: List[Message], ground_truth: Optional[List[Message]] = None, **kwargs) -> EvaluateResult:
+    def reward_fn(
+        messages: List[Message], ground_truth: Optional[List[Message]] = None, **kwargs: Any
+    ) -> EvaluateResult:
         input_val = messages_to_input(messages) if messages_to_input else messages[0].content
         output_val = messages[-1].content
         expected_val = None
