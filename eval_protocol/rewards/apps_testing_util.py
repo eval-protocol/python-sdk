@@ -255,7 +255,9 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
             print(f"get method = {datetime.now().time()}")
 
         try:
-            method = getattr(tmp, method_name)
+            # Ensure attribute name is a string for getattr
+            method_name_str = str(method_name)
+            method = getattr(tmp, method_name_str)
         except AttributeError:  # More specific exception
             signal.alarm(0)
             error_traceback = traceback.format_exc()

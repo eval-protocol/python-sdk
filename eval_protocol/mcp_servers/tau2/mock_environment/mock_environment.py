@@ -32,7 +32,9 @@ class MockEnvironment:
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         self.config = config or {}
         # MockDB.load expects a str path
-        self.db = MockDB.load(str(MOCK_DB_PATH))
+        db_loaded = MockDB.load(str(MOCK_DB_PATH))
+        assert isinstance(db_loaded, MockDB)
+        self.db = db_loaded
         self.mock_tools = MockTools(self.db)
 
     def reset(self, seed: Optional[int] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:

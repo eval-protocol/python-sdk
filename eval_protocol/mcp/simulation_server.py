@@ -30,7 +30,7 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Iterable
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Iterable, cast
 from pydantic import AnyUrl
 
 import uvicorn
@@ -327,12 +327,12 @@ class SimulationServerBase(ABC):
                     # Extract docstring as description
                     description = resource_func.__doc__ or f"Resource {resource_name}"
 
-                    # Some callables may not have the attribute; guard for type checkers
-                    # MyPy/Pyright: Resource expects AnyUrl; convert string to str, letting pydantic coerce it
-                    uri_value = getattr(resource_func, "_resource_uri", f"/{resource_name}")
+                    # Some callables may not have the attribute; guard for type checkers.
+                    # Resource expects AnyUrl; pass as str and allow coercion by pydantic.
+                    uri_value: str = str(getattr(resource_func, "_resource_uri", f"/{resource_name}"))
                     resources.append(
                         Resource(
-                            uri=uri_value,
+                            uri=cast(AnyUrl, uri_value),
                             name=resource_name,
                             description=description,
                             mimeType="application/json",
@@ -347,10 +347,15 @@ class SimulationServerBase(ABC):
         """Register session initialization and cleanup handlers."""
 
         @self.app.set_logging_level()
-        async def set_logging_level(level: str):
+        async def set_logging_level(level: str) -> None:
             """Handle logging level requests."""
-            logger.setLevel(getattr(logging, level.upper()))
-            return {}
+            # Validate and set logging level; ignore invalid values gracefully
+            try:
+                numeric_level = getattr(logging, level.upper())
+                if isinstance(numeric_level, int):
+                    logger.setLevel(numeric_level)
+            except Exception:
+                pass
 
         # NOTE: The low-level Server doesn't have built-in session lifecycle hooks
         # We'll need to capture client_info during the first request in each session

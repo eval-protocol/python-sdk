@@ -172,7 +172,9 @@ def test_tau_bench_retail_evaluation(row: EvaluationRow) -> EvaluationRow:
             trajectory_objects.append(UserMessage(role=role, content=text_content))
         elif role == "tool":
             tool_id = msg.tool_call_id
-            trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=text_content, requestor="assistant"))
+            trajectory_objects.append(
+                ToolMessage(id=tool_id or "unknown_tool_call", role=role, content=text_content, requestor="assistant")
+            )
 
     reward = 1.0
 

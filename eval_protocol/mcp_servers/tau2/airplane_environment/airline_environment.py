@@ -39,7 +39,11 @@ class AirlineEnvironment:
         """Reset the environment to initial state"""
         logger.info("🔄 Resetting airline environment - reloading database from disk")
         # FlightDB.load expects a str path
-        self.db = FlightDB.load(str(AIRLINE_DB_PATH))
+        # Ensure type matches expected FlightDB
+        # FlightDB.load returns vendor.tau2.domains.airline.data_model.FlightDB which is compatible
+        db_loaded = FlightDB.load(str(AIRLINE_DB_PATH))
+        assert isinstance(db_loaded, FlightDB)
+        self.db = db_loaded
         self.airline_tools = AirlineTools(self.db)
 
         return {}, {}

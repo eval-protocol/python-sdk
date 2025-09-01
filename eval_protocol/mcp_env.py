@@ -315,7 +315,8 @@ async def rollout(
     )
 
     # Await all tasks and return concrete EvaluationRows
-    results: List[EvaluationRow] = await asyncio.gather(*tasks)
+    # Gather returns list of EvaluationRow; use type ignore to appease Pyright when inferring coroutine types
+    results: List[EvaluationRow] = await asyncio.gather(*tasks)  # type: ignore[reportUnknownArgumentType]
     return results
 
 
@@ -343,7 +344,7 @@ async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:
             policy = FireworksPolicy("test-model")
 
             # Run short rollout
-            evaluation_rows = rollout(envs, policy=policy, steps=10)
+            evaluation_rows = await rollout(envs, policy=policy, steps=10)
 
             if evaluation_rows and len(evaluation_rows[0].messages) > 1:
                 results["successful"] += 1

@@ -451,7 +451,7 @@ def schema_jaccard_reward(
         DeprecationWarning,
         stacklevel=2,
     )
-    return exact_tool_match_reward(messages, ground_truth, **kwargs)
+    return exact_tool_match_reward(messages=messages, ground_truth=ground_truth, **kwargs)
 
 
 @reward_function
@@ -493,7 +493,7 @@ def llm_judge_reward(
         DeprecationWarning,
         stacklevel=2,
     )
-    return exact_tool_match_reward(messages, ground_truth, **kwargs)
+    return exact_tool_match_reward(messages=messages, ground_truth=ground_truth, **kwargs)
 
 
 @reward_function
@@ -537,7 +537,7 @@ def composite_function_call_reward(
         DeprecationWarning,
         stacklevel=2,
     )
-    return exact_tool_match_reward(messages, ground_truth, **kwargs)
+    return exact_tool_match_reward(messages=messages, ground_truth=ground_truth, **kwargs)
 
 
 # JSON schema reward functions have been moved to json_schema.py module

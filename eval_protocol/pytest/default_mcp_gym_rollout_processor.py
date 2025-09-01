@@ -243,6 +243,7 @@ class MCPGymRolloutProcessor(RolloutProcessor):
                 )
 
         # Create MCP environments directly from evaluation_rows
+        assert self.policy is not None, "Policy must be initialized before rollout"
         envs = ep.make(
             "http://localhost:9700/mcp/",
             evaluation_rows=rows,
@@ -252,6 +253,7 @@ class MCPGymRolloutProcessor(RolloutProcessor):
         # Get rollout tasks from ep.rollout
         async def _run_rollout_and_wrap(row_index: int) -> EvaluationRow:
             # ep.rollout now returns concrete results
+            assert self.policy is not None, "Policy must be initialized before rollout"
             results = await ep.rollout(
                 envs,
                 policy=self.policy,

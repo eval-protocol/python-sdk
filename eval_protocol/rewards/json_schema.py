@@ -60,7 +60,7 @@ def json_schema_reward(
                 else:
                     try:
                         parts: List[ChatCompletionContentPartTextParam] = last_message.content  # type: ignore[assignment]
-                        content_text = "\n".join(p.text for p in parts)
+                        content_text = "\n".join(getattr(p, "text", "") for p in parts)
                     except Exception:
                         content_text = ""
             else:
@@ -290,8 +290,8 @@ def json_schema_reward_with_llm_judge(
     normalized_weights = {k: v / total_weight for k, v in weights.items()}
 
     schema_result = json_schema_reward(
-        messages,
-        ground_truth,
+        messages=messages,
+        ground_truth=ground_truth,
         json_content=json_content,
         expected_schema=expected_schema,
         **kwargs,
