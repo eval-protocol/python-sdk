@@ -563,7 +563,7 @@ class McpGym(ABC):
         else:
             return {"observation": serialized_obs}
 
-    def run(self, transport: str = "streamable-http", **kwargs):
+    def run(self, transport: Literal["stdio", "sse", "streamable-http"] = "streamable-http", **kwargs):
         """Run the unified MCP-Gym server with high concurrency settings."""
         if transport == "streamable-http":
             # Run with custom high-concurrency uvicorn config

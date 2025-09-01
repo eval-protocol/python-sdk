@@ -287,6 +287,8 @@ def _tablereformat_process_results(input_command: str, ground_truth: str, llm_an
             return 0
 
     # Compare
+    assert llm_df is not None, "LLM dataframe is None"
+    assert gt_df is not None, "GT dataframe is None"
     try:
         gt_df.columns = [str(s).strip() for s in gt_df.columns]
         if "index" in gt_df.columns:
