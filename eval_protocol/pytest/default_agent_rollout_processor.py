@@ -6,13 +6,13 @@ from typing import Any, AsyncIterator, List, Optional, Union, Dict
 
 from mcp.types import CallToolResult, TextContent
 from openai import NOT_GIVEN, NotGiven
-from openai.types.chat import ChatCompletionContentPartTextParam
+from openai.types.chat import ChatCompletionContentPartTextParam as OpenAIChatContentPart
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, ChatCompletionContentPartTextParam
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
 from pydantic import BaseModel
@@ -215,6 +215,7 @@ class Agent:
         """
         if len(content) == 1 and isinstance(content[0], TextContent):
             return content[0].text
+        # Build our SDK's ChatCompletionContentPartTextParam instances, not OpenAI types
         return [ChatCompletionContentPartTextParam(text=c.text, type="text") for c in content]
 
 

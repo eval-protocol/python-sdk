@@ -1,6 +1,12 @@
 from typing import Any, Dict, List, Optional
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
+from eval_protocol.models import (
+    EvaluateResult,
+    EvaluationRow,
+    Message,
+    MetricResult,
+    ChatCompletionContentPartTextParam,
+)
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
 )
@@ -9,6 +15,14 @@ from eval_protocol.pytest.evaluation_test import evaluation_test
 SYSTEM_PROMPT = (
     "You are a helpful math assistant. Please reason step by step, and put your final answer within \\boxed{...}."
 )
+
+
+def _coerce_content_to_str(
+    content: str | list[ChatCompletionContentPartTextParam] | None,
+) -> str:
+    if isinstance(content, list):
+        return "".join([getattr(p, "text", str(p)) for p in content])
+    return str(content or "")
 
 
 def _extract_boxed_text(text: str) -> str:
@@ -80,9 +94,10 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
 )
 def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
-    content = assistant_msgs[-1].content if assistant_msgs else ""
+    raw_content = assistant_msgs[-1].content if assistant_msgs else ""
+    content_str = _coerce_content_to_str(raw_content)
 
-    extracted_text = _extract_boxed_text(content or "")
+    extracted_text = _extract_boxed_text(content_str)
     extracted_int = _normalize_to_int_or_none(extracted_text)
     gt_int = _normalize_to_int_or_none(row.ground_truth or "")
 

@@ -43,7 +43,11 @@ class LangGraphRolloutProcessor(RolloutProcessor):
             if row.messages:
                 last_user = [m for m in row.messages if m.role == "user"]
                 if last_user:
-                    lm_messages.append(HumanMessage(content=last_user[-1].content or ""))
+                    content = last_user[-1].content or ""
+                    if isinstance(content, list):
+                        # Flatten our SDK content parts into a single string for LangChain
+                        content = "".join([getattr(p, "text", str(p)) for p in content])
+                    lm_messages.append(HumanMessage(content=str(content)))
             if not lm_messages:
                 lm_messages = [HumanMessage(content="")]  # minimal
 

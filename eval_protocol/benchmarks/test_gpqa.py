@@ -5,7 +5,13 @@ import re
 
 import requests
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
+from eval_protocol.models import (
+    EvaluateResult,
+    EvaluationRow,
+    Message,
+    MetricResult,
+    ChatCompletionContentPartTextParam,
+)
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
 )
@@ -47,6 +53,14 @@ def _load_gpqa_messages_from_csv() -> list[list[list[Message]]]:
     return [messages_list]
 
 
+def _coerce_content_to_str(
+    content: str | list[ChatCompletionContentPartTextParam] | None,
+) -> str:
+    if isinstance(content, list):
+        return "".join([getattr(p, "text", str(p)) for p in content])
+    return str(content or "")
+
+
 def _extract_abcd_letter(text: str) -> str | None:
     if not text:
         return None
@@ -58,9 +72,12 @@ _GPQA_INPUT_MESSAGES = _load_gpqa_messages_from_csv()
 
 
 def _strip_gt_messages(msgs: list[Message]) -> list[Message]:
-    # assert that all the messages just have a plain .content string field
-    assert all(isinstance(m.content, str) for m in msgs), "Messages must have a plain .content string field"
-    return [m for m in msgs if not (m.role == "system" and (m.content or "").startswith("__GT__:"))]
+    result: list[Message] = []
+    for m in msgs:
+        content_str = _coerce_content_to_str(m.content)
+        if not (m.role == "system" and content_str.startswith("__GT__:")):
+            result.append(m)
+    return result
 
 
 class GPQAStripGTRolloutProcessor(RolloutProcessor):
@@ -75,15 +92,23 @@ class GPQAStripGTRolloutProcessor(RolloutProcessor):
         processed: list[EvaluationRow] = []
 
         for r in rows:
-            gt_tokens = [
-                m.content for m in r.messages if m.role == "system" and (m.content or "").startswith("__GT__:")
-            ]
+            gt_tokens: list[str] = []
+            for m in r.messages:
+                if m.role == "system":
+                    content_str = _coerce_content_to_str(m.content)
+                    if content_str.startswith("__GT__:"):
+                        gt_tokens.append(content_str)
             if gt_tokens:
                 gt_val = gt_tokens[-1].split(":", 1)[1].strip()
                 r.ground_truth = gt_val
-                r.messages = [
-                    m for m in r.messages if not (m.role == "system" and (m.content or "").startswith("__GT__:"))
-                ]
+                filtered: list[Message] = []
+                for m in r.messages:
+                    if m.role == "system":
+                        content_str = _coerce_content_to_str(m.content)
+                        if content_str.startswith("__GT__:"):
+                            continue
+                    filtered.append(m)
+                r.messages = filtered
             processed.append(r)
 
         # Delegate to SingleTurnRolloutProcessor
@@ -103,9 +128,10 @@ class GPQAStripGTRolloutProcessor(RolloutProcessor):
 )
 def test_gpqa_pointwise(row: EvaluationRow) -> EvaluationRow:
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
-    content = assistant_msgs[-1].content if assistant_msgs else ""
+    raw_content = assistant_msgs[-1].content if assistant_msgs else ""
+    content_str = _coerce_content_to_str(raw_content)
 
-    pred = _extract_abcd_letter(content or "")
+    pred = _extract_abcd_letter(content_str)
     # GPQA diamond CSV constructs options so that the correct answer is always A
     gt = "A"
 

@@ -271,6 +271,7 @@ class MetricResult(BaseModel):
     is_score_valid: bool = True
     score: float = Field(..., ge=0.0, le=1.0)
     reason: str
+    data: Dict[str, Any] = Field(default_factory=dict, description="Optional extra metric data for debugging.")
 
     def __getitem__(self, key: str) -> Any:
         if key in self.__fields__:  # Changed to __fields__ for Pydantic v1 compatibility
