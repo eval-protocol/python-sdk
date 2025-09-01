@@ -15,6 +15,7 @@ from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
+from types import SimpleNamespace
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +42,25 @@ class Agent:
                 raw_tools = await self.mcp_client.get_available_tools()
                 tools_dicts: List[dict[str, Any]] = []
                 for t in raw_tools or []:
+                    # Normalize any tool to dict shape expected by tests
+                    tool_type = getattr(t, "type", None)
+                    func = getattr(t, "function", None)
                     if isinstance(t, dict):
-                        # Already a dict-like structure
+                        # Ensure function is dict-like; if it has .name/.parameters convert
+                        f = t.get("function")
+                        if f is not None and not isinstance(f, dict):
+                            f_name = getattr(f, "name", None)
+                            f_params = getattr(f, "parameters", None)
+                            if hasattr(f_params, "model_dump"):
+                                f_params = f_params.model_dump()
+                            func_obj = SimpleNamespace(name=f_name, parameters=f_params)
+                            t = {"type": t.get("type", "function"), "function": func_obj}
+                        elif isinstance(f, dict):
+                            func_obj = SimpleNamespace(name=f.get("name"), parameters=f.get("parameters"))
+                            t = {"type": t.get("type", "function"), "function": func_obj}
                         tools_dicts.append(t)
                         continue
-                    # Fallback: extract attributes from OpenAI types
-                    tool_type = getattr(t, "type", "function")
-                    func = getattr(t, "function", None)
+                    # Construct a dict from object-like tool
                     name = getattr(func, "name", None)
                     params = getattr(func, "parameters", None)
                     if hasattr(params, "model_dump"):
@@ -56,7 +69,8 @@ class Agent:
                         params_payload = params
                     else:
                         params_payload = {}
-                    tools_dicts.append({"type": tool_type, "function": {"name": name, "parameters": params_payload}})
+                    func_obj = SimpleNamespace(name=name, parameters=params_payload)
+                    tools_dicts.append({"type": tool_type or "function", "function": func_obj})
                 self.evaluation_row.tools = tools_dicts
             else:
                 self.evaluation_row.tools = None

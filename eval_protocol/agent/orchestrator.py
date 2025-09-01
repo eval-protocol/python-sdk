@@ -16,6 +16,29 @@ import importlib.util as _importlib_util
 # Determine OpenAI availability without importing symbols for typing
 OPENAI_AVAILABLE = _importlib_util.find_spec("openai") is not None
 
+# Expose AsyncOpenAI/OpenAI at module level for tests/patching, even if we import lazily elsewhere
+if OPENAI_AVAILABLE:
+    try:
+        from openai import AsyncOpenAI as AsyncOpenAI, OpenAI as OpenAI  # type: ignore[import-not-found]
+    except Exception:
+
+        class AsyncOpenAI:  # type: ignore[no-redef]
+            def __init__(self, **_: Any) -> None:
+                pass
+
+        class OpenAI:  # type: ignore[no-redef]
+            def __init__(self, **_: Any) -> None:
+                pass
+else:
+
+    class AsyncOpenAI:  # type: ignore[no-redef]
+        def __init__(self, **_: Any) -> None:
+            pass
+
+    class OpenAI:  # type: ignore[no-redef]
+        def __init__(self, **_: Any) -> None:
+            pass
+
 
 # Max steps for the inner loop within a single user turn
 MAX_STEPS_PER_USER_TURN = 10
