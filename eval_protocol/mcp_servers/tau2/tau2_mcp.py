@@ -43,6 +43,7 @@ class AirlineDomainMcp(McpGym):
 
         self.adapter = EnvironmentAdapter(env_class=AirlineEnvironment, default_config=default_config)
 
+        # Ensure name is a str and not None
         super().__init__("airline", self.adapter, seed, **kwargs)
 
     def _register_tools(self):

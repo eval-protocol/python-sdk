@@ -8,10 +8,15 @@ comparing them with expected answers.
 
 import math
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union, cast
 
 from ..models import EvaluateResult, Message, MetricResult
 from ..typed_interface import reward_function
+
+# Types used throughout this module to clearly express allowed answer values.
+# Include both float and int since extraction may yield either at analysis time.
+Numeric = Union[int, float]
+AnswerValue = Union[Numeric, str]
 
 _ALGEBRAIC_VARS_SET: Set[str] = {
     "x",
@@ -78,9 +83,9 @@ def _is_coefficient(
     return False
 
 
-def _extract_html_tag_answers(text: str) -> List[Tuple[str, Union[float, str]]]:
+def _extract_html_tag_answers(text: str) -> List[Tuple[str, AnswerValue]]:
     """Extracts answers from <answer> or <ans> HTML-like tags."""
-    html_tag_answers: List[Tuple[str, Union[float, str]]] = []
+    html_tag_answers: List[Tuple[str, AnswerValue]] = []
     tag_re = re.compile(
         r"<(?P<tag>answer|ans)\b[^>]*>(?P<inner>.*?)</(?P=tag)>",
         re.IGNORECASE | re.DOTALL,
@@ -126,12 +131,12 @@ def _extract_html_tag_answers(text: str) -> List[Tuple[str, Union[float, str]]]:
 
 def _extract_boxed_latex_answers(
     text: str,
-) -> Tuple[List[Tuple[str, Union[float, str]]], bool]:
+) -> Tuple[List[Tuple[str, AnswerValue]], bool]:
     """
     Extracts answers from \\boxed{} LaTeX expressions.
     Returns a tuple: (list of answers, boolean indicating if any boxed expr was found).
     """
-    boxed_answers: List[Tuple[str, Union[float, str]]] = []
+    boxed_answers: List[Tuple[str, AnswerValue]] = []
     found_any_boxed_expr = False
     for m_boxed in re.finditer(r"\\boxed\s*\{\s*((?:[^{}]|\{[^{}]*\})*?)\s*\}", text):
         found_any_boxed_expr = True
@@ -192,7 +197,7 @@ def _extract_boxed_latex_answers(
     return boxed_answers, found_any_boxed_expr
 
 
-def extract_numbers(text: str) -> List[Tuple[str, Union[float, str]]]:
+def extract_numbers(text: str) -> List[Tuple[str, AnswerValue]]:
     """
     Extracts mathematical answers from text based on a hierarchical priority:
     1. HTML <answer>/<ans> tags
@@ -228,7 +233,7 @@ def extract_numbers(text: str) -> List[Tuple[str, Union[float, str]]]:
     return []
 
 
-def _extract_gsm8k_answers(text: str) -> List[Tuple[str, Union[float, str]]]:
+def _extract_gsm8k_answers(text: str) -> List[Tuple[str, AnswerValue]]:
     """Extracts answers from GSM8K-style final answer markers (#### ...)."""
     final_marker_answers: List[Tuple[str, Union[float, str]]] = []
     GSM8K_NUM_CONTENT_PATTERN = r"-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?"
@@ -243,7 +248,7 @@ def _extract_gsm8k_answers(text: str) -> List[Tuple[str, Union[float, str]]]:
     return final_marker_answers
 
 
-def _extract_general_numeric_answers(text: str) -> List[Tuple[str, Union[float, str]]]:
+def _extract_general_numeric_answers(text: str) -> List[Tuple[str, AnswerValue]]:
     """Extracts general numeric or LaTeX-formatted numbers as a fallback."""
     potential_general_matches: List[Dict[str, Any]] = []
 
@@ -399,7 +404,7 @@ def _extract_general_numeric_answers(text: str) -> List[Tuple[str, Union[float, 
             pass
 
     potential_general_matches.sort(key=lambda x: (x["span"][0], -(x["span"][1] - x["span"][0]), x["type_priority"]))
-    filtered_general_answers: List[Tuple[str, Union[float, str]]] = []
+    filtered_general_answers: List[Tuple[str, AnswerValue]] = []
     last_covered_end = -1
     for item in potential_general_matches:
         start, end = item["span"]
@@ -461,7 +466,7 @@ def _has_unit_text(full_extracted_text: str, numeric_value: float) -> bool:
 
 def _check_unboxed_or_strictness(
     model_response_content: str,
-    gen_answers_extracted: List[Tuple[str, Union[float, str]]],
+    gen_answers_extracted: Sequence[Tuple[str, AnswerValue]],
     metrics: Dict[str, MetricResult],
 ) -> Optional[EvaluateResult]:
     """Checks for 'unboxed or' strictness violation."""
@@ -487,8 +492,8 @@ def _check_unboxed_or_strictness(
 
 
 def _check_ambiguity_strictness(
-    orig_answers_extracted: List[Tuple[str, Union[float, str]]],
-    gen_answers_extracted: List[Tuple[str, Union[float, str]]],
+    orig_answers_extracted: Sequence[Tuple[str, AnswerValue]],
+    gen_answers_extracted: Sequence[Tuple[str, AnswerValue]],
     metrics: Dict[str, MetricResult],
 ) -> Optional[EvaluateResult]:
     """Checks for ambiguity strictness violation."""
@@ -503,8 +508,8 @@ def _check_ambiguity_strictness(
 
 
 def _check_conflicting_answers_strictness(
-    orig_answers_extracted: List[Tuple[str, Union[float, str]]],
-    gen_answers_extracted: List[Tuple[str, Union[float, str]]],
+    orig_answers_extracted: Sequence[Tuple[str, AnswerValue]],
+    gen_answers_extracted: Sequence[Tuple[str, AnswerValue]],
     best_match_score: float,
     match_found_flag: bool,
     is_single_orig_boxed_truth: bool,
@@ -603,7 +608,7 @@ def math_reward(
 
     gen_answers_extracted_initial = extract_numbers(model_response_content)
     orig_answers_extracted = extract_numbers(ground_truth)
-    gen_answers_extracted = list(gen_answers_extracted_initial)
+    gen_answers_extracted: List[Tuple[str, AnswerValue]] = list(gen_answers_extracted_initial)
     metrics: Dict[str, MetricResult] = {}
 
     def format_extracted(items: List[Tuple[str, Union[float, str]]]) -> str:
@@ -654,7 +659,7 @@ def math_reward(
                     abs_tol=absolute_tolerance,
                 ):
                     has_matching_gen_boxed_answer = True
-                    gen_answers_extracted = [(gen_text, gen_val)]
+                    gen_answers_extracted = [(gen_text, cast(AnswerValue, gen_val))]
                     metrics["demo_leniency_info"] = MetricResult(
                         score=1.0,
                         is_score_valid=True,

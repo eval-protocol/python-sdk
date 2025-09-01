@@ -57,6 +57,7 @@ class LocalDockerOrchestrationClient(AbstractOrchestrationClient):
         except docker.errors.DockerException as e:
             logger.warning(f"docker.from_env() failed: {e}. Trying explicit base_url.")
             try:
+                # docker.from_env is preferred, but as a fallback use DockerClient with url param name 'base_url'
                 self.docker_client = docker.DockerClient(base_url="unix://var/run/docker.sock")
                 if not self.docker_client.ping():  # type: ignore
                     raise ConnectionError("Failed to connect to Docker daemon with explicit base_url.")
@@ -649,7 +650,7 @@ class LocalDockerOrchestrationClient(AbstractOrchestrationClient):
                 )
             target_base_url = instance.mcp_endpoint_url.rstrip("/")
             try:
-                async with streamablehttp_client(base_url=target_base_url) as (
+                async with streamablehttp_client(url=target_base_url) as (
                     read_s,
                     write_s,
                     _,  # get_session_id_func usually not needed for a single call

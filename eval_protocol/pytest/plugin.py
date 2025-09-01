@@ -309,6 +309,11 @@ def pytest_sessionfinish(session, exitstatus):
                     print(f"❌ Experiment {link['experiment_id']}: {link['job_link']}", file=sys.__stderr__)
 
             print("=" * 80, file=sys.__stderr__)
-            sys.__stderr__.flush()
+            err_stream = getattr(sys, "__stderr__", None)
+            if err_stream is not None:
+                try:
+                    err_stream.flush()  # type: ignore[attr-defined]
+                except Exception:
+                    pass
     except Exception:
         pass

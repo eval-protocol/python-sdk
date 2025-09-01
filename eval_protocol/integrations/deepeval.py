@@ -96,7 +96,11 @@ def adapt_metric(metric: Any):
             case_kwargs = _build_case_kwargs()
             test_case = LLMTestCase(**case_kwargs)
 
-        metric.measure(test_case, **kwargs)
+        # Guard against metric.measure being None or non-callable
+        measure_fn = getattr(metric, "measure", None)
+        if not callable(measure_fn):
+            raise TypeError("Provided metric does not have a callable 'measure' method")
+        measure_fn(test_case, **kwargs)
         score = float(metric.score or 0.0)
         reason = getattr(metric, "reason", None)
         name = _metric_name(metric)

@@ -342,8 +342,13 @@ def json_schema_reward_with_llm_judge(
         if messages:
             conversation_parts = []
             for msg in messages[:-1]:
-                role = msg.get("role", "")
-                content_part = msg.get("content", "")
+                if isinstance(msg, dict):
+                    role = msg.get("role", "")
+                    content_part = msg.get("content", "")
+                else:
+                    # Fallback for Message objects
+                    role = getattr(msg, "role", "")
+                    content_part = getattr(msg, "content", "")
                 if role and content_part:
                     conversation_parts.append(f"{role}: {content_part}")
             if conversation_parts:
