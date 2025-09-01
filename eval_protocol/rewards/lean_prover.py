@@ -417,7 +417,7 @@ def deepseek_huggingface_prover_benchmark(
     expected_proof = expected_proof_from_gt
     reference_solution = None
     if dataset_item:
-        if not expected_proof:
+        if not expected_proof and dataset_item is not None:
             expected_proof = dataset_item.get("expected_proof", None)
         reference_solution = dataset_item.get("reference_solution", None)
     proof_reference = expected_proof or reference_solution

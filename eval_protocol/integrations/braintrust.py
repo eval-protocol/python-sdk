@@ -48,7 +48,7 @@ def reward_fn_to_scorer(
         ground_truth = None
         if expected is not None:
             ground_truth = [Message(role="assistant", content=str(expected))]
-        result = reward_fn(messages=messages, ground_truth=ground_truth)
+        result = reward_fn(messages, ground_truth)
         return float(result.score)
 
     return scorer

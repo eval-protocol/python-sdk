@@ -56,9 +56,17 @@ class LangGraphRolloutProcessor(RolloutProcessor):
 
             # Resolve the appropriate async invoke function
             if hasattr(target, "graph") and hasattr(target.graph, "ainvoke"):
-                invoke_fn = target.graph.ainvoke
+
+                async def _invoke_graph(payload):
+                    return await target.graph.ainvoke(payload)  # type: ignore[attr-defined]
+
+                invoke_fn = _invoke_graph
             elif hasattr(target, "ainvoke"):
-                invoke_fn = target.ainvoke
+
+                async def _invoke_direct(payload):
+                    return await target.ainvoke(payload)  # type: ignore[attr-defined]
+
+                invoke_fn = _invoke_direct
             elif callable(target):
 
                 async def _invoke_wrapper(payload):

@@ -87,6 +87,7 @@ class EvaluationPipeline:
 
         try:
             backend_requests = [{"backend_name_ref": mcp_backend_ref, "num_instances": 1}]
+            assert self.mcp_intermediary_client is not None
             init_response = await self.mcp_intermediary_client.initialize_session(backend_requests)
 
             if init_response.get("error"):
@@ -109,6 +110,7 @@ class EvaluationPipeline:
                     current_instance_id = inst_info_dict.get("instance_id")
                     if not current_instance_id:
                         continue
+                    assert self.mcp_intermediary_client is not None
                     list_tools_result = await self.mcp_intermediary_client.list_backend_tools(
                         rk_session_id=rk_session_id,
                         instance_id=current_instance_id,
@@ -130,6 +132,7 @@ class EvaluationPipeline:
             if rk_session_id and self.mcp_intermediary_client:
                 logger.info(f"Sample {sample_id}: Cleaning up tool discovery session '{rk_session_id}'.")
                 try:
+                    assert self.mcp_intermediary_client is not None
                     await self.mcp_intermediary_client.cleanup_session(rk_session_id)
                 except Exception as e_cl:
                     logger.error(
@@ -276,6 +279,7 @@ class EvaluationPipeline:
 
         try:
             backend_requests = [{"backend_name_ref": mcp_backend_ref, "num_instances": 1}]
+            assert self.mcp_intermediary_client is not None
             init_response = await self.mcp_intermediary_client.initialize_session(backend_requests)
             if init_response.get("error"):
                 raise RuntimeError(
@@ -331,6 +335,7 @@ class EvaluationPipeline:
                             if not isinstance(tool_args_dict, dict):
                                 raise ValueError("Args not dict")
 
+                            assert self.mcp_intermediary_client is not None
                             exec_result = await self.mcp_intermediary_client.call_backend_tool(
                                 rk_session_id=rk_session_id,
                                 instance_id=primary_instance_id_for_agent_actions,
@@ -405,6 +410,7 @@ class EvaluationPipeline:
             state_capture_tool = self.cfg.agent.get("state_capture_tool")
             if state_capture_tool:
                 state_capture_args = dict(self.cfg.agent.get("state_capture_args", OmegaConf.create({})))
+                assert self.mcp_intermediary_client is not None
                 final_filesystem_state_from_mcp = await self.mcp_intermediary_client.call_backend_tool(
                     rk_session_id=rk_session_id,
                     instance_id=primary_instance_id_for_agent_actions,
@@ -432,6 +438,7 @@ class EvaluationPipeline:
             }
         finally:
             if rk_session_id and self.mcp_intermediary_client:
+                assert self.mcp_intermediary_client is not None
                 await self.mcp_intermediary_client.cleanup_session(rk_session_id)
 
     async def _process_single_sample(

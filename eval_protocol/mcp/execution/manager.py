@@ -281,8 +281,15 @@ class ExecutionManager:
                         # Generate user response using the simulator
                         # Pass the assistant message content to drive the simulated user's next response
                         last_assistant = user_simulator_messages[-1]
+                        # Convert last assistant message into a valid user input message for simulator
+                        from vendor.tau2.data_model.message import UserMessage as TauUserMessage
+
+                        converted_user_prompt = (
+                            last_assistant.content if getattr(last_assistant, "content", None) else ""
+                        )
+                        converted_message = TauUserMessage(role="user", content=converted_user_prompt)
                         user_message, user_simulator_state = await user_simulator.generate_next_message(
-                            last_assistant,
+                            converted_message,
                             user_simulator_state,
                         )
                         user_content = user_message.content if user_message.content else ""

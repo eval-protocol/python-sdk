@@ -288,7 +288,7 @@ class SimulationServerBase(ABC):
         if discovered_resources:
 
             @self.app.read_resource()
-            async def read_resource(uri: str):
+            async def read_resource(uri: AnyUrl):
                 # Get the current request context
                 ctx = self.app.request_context
 

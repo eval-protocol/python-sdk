@@ -290,8 +290,8 @@ def json_schema_reward_with_llm_judge(
     normalized_weights = {k: v / total_weight for k, v in weights.items()}
 
     schema_result = json_schema_reward(
-        messages=messages,
-        ground_truth=ground_truth,
+        messages,
+        ground_truth,
         json_content=json_content,
         expected_schema=expected_schema,
         **kwargs,

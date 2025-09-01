@@ -147,7 +147,7 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
     messages = row.messages
 
     # Get evaluation criteria and user_simulation from input_metadata.dataset_info
-    dataset_info = row.input_metadata.dataset_info if row.input_metadata else {}
+    dataset_info = (row.input_metadata.dataset_info or {}) if row.input_metadata else {}
     evaluation_criteria = dataset_info.get("evaluation_criteria", {})
 
     nl_assertions = evaluation_criteria.get("nl_assertions", [])
