@@ -752,10 +752,22 @@ def tau2_airline_eval(
 
     reward = 1.0
 
+    # Convert incoming action dicts to typed Action objects for the evaluator
+    action_objs: Optional[List[Action]] = None
+    if actions is not None:
+        action_objs = []
+        for a in actions:
+            if isinstance(a, Action):
+                action_objs.append(a)
+            elif isinstance(a, dict):
+                action_objs.append(Action(**a))
+            else:
+                raise TypeError("actions must be a list of Action or dict items")
+
     evaluation_criteria = EvaluationCriteria(
         nl_assertions=nl_assertions,
         communicate_info=communicate_info,
-        actions=actions,
+        actions=action_objs,
         env_assertions=None,
         reward_basis=[
             RewardType.NL_ASSERTION,
