@@ -50,6 +50,7 @@ def reward_function(
     timeout: Optional[int] = None,
 ) -> F: ...
 
+
 @overload
 def reward_function(
     _func: None = ...,  # when used as @reward_function(...)
@@ -61,6 +62,7 @@ def reward_function(
     concurrency: Optional[int] = None,
     timeout: Optional[int] = None,
 ) -> Callable[[F], F]: ...
+
 
 def reward_function(
     _func: Optional[F] = None,
