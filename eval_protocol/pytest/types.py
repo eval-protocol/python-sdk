@@ -2,6 +2,7 @@
 Parameter types
 """
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Callable, Literal
 
@@ -58,10 +59,10 @@ Rollout processor types
 class RolloutProcessorConfig:
     completion_params: CompletionParams  # input parameters for inference
     mcp_config_path: str
+    semaphore: asyncio.Semaphore  # shared semaphore for unified concurrency control
     server_script_path: str | None = (
         None  # TODO: change from server_script_path to mcp_config_path for agent rollout processor
     )
-    max_concurrent_rollouts: int = 8  # maximum number of concurrent rollouts
     steps: int = 30  # max number of rollout steps
     logger: DatasetLogger = default_logger  # logger to use during rollout for mid-rollout logs
     kwargs: dict[str, Any] = field(  # pyright: ignore[reportExplicitAny]

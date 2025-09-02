@@ -112,9 +112,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             default_logger.log(row)
             return row
 
-        # Process rows with bounded concurrency
-        max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
-        semaphore = asyncio.Semaphore(max_concurrent)
+        semaphore = config.semaphore
 
         async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:
             async with semaphore:

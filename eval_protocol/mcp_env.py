@@ -310,8 +310,15 @@ async def rollout(
     # Use the new ExecutionManager for execution
     execution_manager = ExecutionManager()
 
+    rollout_semaphore = asyncio.Semaphore(max_concurrent_rollouts)
+
     tasks = execution_manager.execute_rollouts(
-        envs, policy, steps, openai_format_log_file, max_concurrent_rollouts, evaluation_rows
+        envs,
+        policy,
+        semaphore=rollout_semaphore,
+        steps=steps,
+        openai_format_log_file=openai_format_log_file,
+        evaluation_rows=evaluation_rows,
     )
 
     # Await all tasks and return concrete EvaluationRows

@@ -39,9 +39,9 @@ class ExecutionManager:
         self,
         envs: "GeneralMCPVectorEnv",
         policy: Union["LLMBasePolicy", Callable],
+        semaphore: asyncio.Semaphore,
         steps: int = 512,
         openai_format_log_file: Optional[str] = None,
-        max_concurrent_rollouts: int = 8,
         evaluation_rows: Optional[List[EvaluationRow]] = None,
     ) -> List[asyncio.Task[EvaluationRow]]:
         """
@@ -57,7 +57,7 @@ class ExecutionManager:
             policy: Policy that takes tool schemas, observations, prompts and returns tool calls
             steps: Maximum steps per rollout
             openai_format_log_file: Optional file to log clean OpenAI format for terminated trajectories only
-            max_concurrent_rollouts: Maximum number of concurrent threads to run
+            semaphore: Semaphore to control concurrent rollout execution
 
         Environment Variable Control:
             EP_PLAYBACK_FILE: Controls record/playback mode
@@ -90,14 +90,12 @@ class ExecutionManager:
                 pass
             openai_logger = lambda data: self._log_openai_entry(openai_format_log_file, data)
 
-        logger.info(f"🧵 Starting {envs.n} rollouts with max {max_concurrent_rollouts} concurrent threads...")
+        logger.info(f"🧵 Starting {envs.n} rollouts with max {semaphore._value} concurrent threads...")
 
         if evaluation_rows is None:
             evaluation_rows = [EvaluationRow(messages=[], input_metadata=InputMetadata()) for _ in range(envs.n)]
 
         shared_tool_schema = envs.tool_schemas
-
-        semaphore = asyncio.Semaphore(max_concurrent_rollouts)
 
         async def _execute_with_semaphore(idx):
             async with semaphore:

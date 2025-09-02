@@ -256,11 +256,10 @@ class MCPGymRolloutProcessor(RolloutProcessor):
         tasks = execution_manager.execute_rollouts(
             envs,
             policy=self.policy,
+            semaphore=config.semaphore,
             steps=config.steps,
-            max_concurrent_rollouts=config.max_concurrent_rollouts,
             evaluation_rows=rows,
         )
-
         return tasks
 
     def cleanup(self) -> None:

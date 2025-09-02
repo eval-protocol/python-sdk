@@ -225,8 +225,7 @@ class AgentRolloutProcessor(RolloutProcessor):
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Create agent rollout tasks and return them for external handling."""
 
-        max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
-        semaphore = asyncio.Semaphore(max_concurrent)
+        semaphore = config.semaphore
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with agent rollout."""

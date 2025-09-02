@@ -282,14 +282,17 @@ def evaluation_test(
                         # used to determine whether this eval has stopped
                         row.pid = os.getpid()
 
+                    # Create shared semaphore for unified concurrency control across all runs and rollouts
+                    shared_semaphore = asyncio.Semaphore(max_concurrent_rollouts)
+
                     # Prepare rollout processor config once; we will generate fresh outputs per run
                     config = RolloutProcessorConfig(
                         completion_params=completion_params if completion_params is not None else {},
                         mcp_config_path=mcp_config_path or "",
-                        max_concurrent_rollouts=max_concurrent_rollouts,
                         server_script_path=server_script_path,
                         steps=steps,
                         logger=active_logger,
+                        semaphore=shared_semaphore,
                         kwargs=rollout_processor_kwargs or {},
                         exception_handler_config=exception_handler_config,
                     )
@@ -372,10 +375,10 @@ def evaluation_test(
                                 config = RolloutProcessorConfig(
                                     completion_params=cp if cp is not None else {},
                                     mcp_config_path=mcp_config_path or "",
-                                    max_concurrent_rollouts=max_concurrent_rollouts,
                                     server_script_path=server_script_path,
                                     steps=steps,
                                     logger=active_logger,
+                                    semaphore=shared_semaphore,
                                     kwargs=rollout_processor_kwargs or {},
                                 )
                                 lst = []
@@ -474,6 +477,7 @@ def evaluation_test(
                             await task
                     else:
                         # For other processors, create all tasks at once and run in parallel
+                        # Concurrency is now controlled by the shared semaphore in each rollout processor
                         tasks = []
                         for i in range(num_runs):
                             tasks.append(asyncio.create_task(execute_run(i, config)))  # pyright: ignore[reportUnknownMemberType]

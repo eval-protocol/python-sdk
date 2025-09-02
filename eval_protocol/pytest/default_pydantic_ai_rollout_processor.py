@@ -40,8 +40,7 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
     def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
         """Create agent rollout tasks and return them for external handling."""
 
-        max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
-        semaphore = asyncio.Semaphore(max_concurrent)
+        semaphore = config.semaphore
 
         # validate that the "agent" field is present with a valid Pydantic AI Agent instance in the completion_params dict
         if "agent" not in config.kwargs:
