@@ -2,8 +2,11 @@ import asyncio
 from collections.abc import Sequence
 import os
 import re
+import sys
 from dataclasses import replace
 from typing import Any, Literal
+
+from tqdm import tqdm
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.models import (
@@ -157,6 +160,7 @@ async def rollout_processor_with_retry(
     rollout_processor: RolloutProcessor,
     fresh_dataset: list[EvaluationRow],
     config: RolloutProcessorConfig,
+    run_idx: int = 0,
 ):
     """
     Wrapper around rollout_processor that handles retry logic using the Python backoff library.
@@ -240,10 +244,24 @@ async def rollout_processor_with_retry(
             for i, task in enumerate(base_tasks)
         ]
 
-        # Yield results as they complete
-        for task in asyncio.as_completed(retry_tasks):
-            result = await task
-            yield result
+        position = run_idx + 1  # Position 0 is reserved for main run bar, so shift up by 1
+        with tqdm(
+            total=len(retry_tasks),
+            desc=f"  Run {position}",
+            unit="rollout",
+            file=sys.__stderr__,
+            leave=False,
+            position=position,
+            dynamic_ncols=True,
+            miniters=1,
+            mininterval=0.1,
+            bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+        ) as rollout_pbar:
+            # Yield results as they complete
+            for task in asyncio.as_completed(retry_tasks):
+                result = await task
+                rollout_pbar.update(1)
+                yield result
 
     finally:
         rollout_processor.cleanup()
