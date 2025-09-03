@@ -91,12 +91,13 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
             )
             row.messages = await self.convert_pyd_message_to_ep_message(response.all_messages())
 
-            usage_info = response.usage()
-            row.execution_metadata.usage = CompletionUsage(
-                prompt_tokens=usage_info.request_tokens or 0,
-                completion_tokens=usage_info.response_tokens or 0,
-                total_tokens=usage_info.total_tokens or 0,
-            )
+            # TODO: pydantic ai accumulates usage info across all models in multi-agent setup, so this simple tracking doesn't work for cost. to discuss with @dphuang2 when he's back.
+            # usage_info = response.usage()
+            # row.execution_metadata.usage = CompletionUsage(
+            #     prompt_tokens=usage_info.request_tokens or 0,
+            #     completion_tokens=usage_info.response_tokens or 0,
+            #     total_tokens=usage_info.total_tokens or 0,
+            # )
 
             return row
 

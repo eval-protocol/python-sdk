@@ -545,7 +545,7 @@ class ExecutionMetadata(BaseModel):
     )
 
     run_id: Optional[str] = Field(
-        None,
+        default=None,
         description=("The ID of the run that this row belongs to."),
     )
 
