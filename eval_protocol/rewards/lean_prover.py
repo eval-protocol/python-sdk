@@ -3,7 +3,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from eval_protocol.models import EvaluateResult, Message, MetricResult
-from eval_protocol.reward_function import reward_function
+from eval_protocol.typed_interface import reward_function
 
 
 @reward_function
