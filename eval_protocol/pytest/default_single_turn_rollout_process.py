@@ -25,6 +25,8 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row asynchronously."""
+            start_time = time.perf_counter()
+
             if len(row.messages) == 0:
                 raise ValueError("Messages is empty. Please provide a non-empty dataset")
 
@@ -116,6 +118,9 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             )
 
             row.messages = messages
+
+            row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+
             default_logger.log(row)
             return row
 

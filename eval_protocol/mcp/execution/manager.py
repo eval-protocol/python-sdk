@@ -100,6 +100,7 @@ class ExecutionManager:
         async def _execute_with_semaphore(idx):
             async with semaphore:
                 evaluation_row: EvaluationRow = evaluation_rows[idx]
+                row_start_time = time.perf_counter()
 
                 trajectory = await self._execute_rollout(
                     envs, policy, idx, steps, openai_logger, recording_mode, playback_mode, start_time, evaluation_row
@@ -151,6 +152,8 @@ class ExecutionManager:
                     )
                 else:
                     evaluation_row.rollout_status = Status.rollout_running()
+
+                evaluation_row.execution_metadata.duration_seconds = time.perf_counter() - row_start_time
 
                 return evaluation_row
 

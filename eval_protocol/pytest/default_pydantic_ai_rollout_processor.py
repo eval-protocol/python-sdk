@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 import types
 from pydantic_ai.models import Model
 from typing_extensions import override
@@ -85,6 +86,8 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with agent rollout."""
+            start_time = time.perf_counter()
+
             model_messages = [self.convert_ep_message_to_pyd_message(m, row) for m in row.messages]
             response = await agent_instance.run(
                 message_history=model_messages, model=model, usage_limits=config.kwargs.get("usage_limits")
@@ -98,6 +101,8 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
             #     completion_tokens=usage_info.response_tokens or 0,
             #     total_tokens=usage_info.total_tokens or 0,
             # )
+
+            row.execution_metadata.duration_seconds = time.perf_counter() - start_time
 
             return row
 

@@ -1,4 +1,5 @@
 import asyncio
+import time
 from typing import List
 
 try:
@@ -31,6 +32,8 @@ class LangGraphRolloutProcessor(RolloutProcessor):
         tasks: List[asyncio.Task] = []
 
         async def _process_row(row: EvaluationRow) -> EvaluationRow:
+            start_time = time.perf_counter()
+
             # Build LC messages from EP row
             try:
                 from langchain_core.messages import HumanMessage
@@ -121,6 +124,9 @@ class LangGraphRolloutProcessor(RolloutProcessor):
                     return Message(role=getattr(msg, "type", "assistant"), content=str(content))
 
             row.messages = [_serialize_message(m) for m in result_messages]
+
+            row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+
             return row
 
         for r in rows:

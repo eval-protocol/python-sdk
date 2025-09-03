@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from typing import Any, AsyncIterator, List, Optional, Union, Dict
 
 from mcp.types import CallToolResult, TextContent
@@ -240,6 +241,8 @@ class AgentRolloutProcessor(RolloutProcessor):
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with agent rollout."""
+            start_time = time.perf_counter()
+
             agent = Agent(
                 model=row.input_metadata.completion_params["model"],
                 row=row,
@@ -255,6 +258,8 @@ class AgentRolloutProcessor(RolloutProcessor):
                     completion_tokens=agent.usage["completion_tokens"],
                     total_tokens=agent.usage["total_tokens"],
                 )
+
+                agent.evaluation_row.execution_metadata.duration_seconds = time.perf_counter() - start_time
 
                 return agent.evaluation_row
             finally:

@@ -555,6 +555,11 @@ class ExecutionMetadata(BaseModel):
 
     cost_metrics: Optional[CostMetrics] = Field(default=None, description="Cost breakdown for LLM API calls.")
 
+    duration_seconds: Optional[float] = Field(
+        default=None,
+        description="Processing duration in seconds for this evaluation row. Note that if it gets retried, this will be the duration of the last attempt.",
+    )
+
 
 class EvaluationRow(BaseModel):
     """
