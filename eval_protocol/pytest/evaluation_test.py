@@ -49,6 +49,7 @@ from eval_protocol.pytest.types import (
 
 from eval_protocol.pytest.utils import (
     AggregationMethod,
+    add_cost_metrics,
     log_eval_status_and_rows,
     parse_ep_completion_params,
     parse_ep_max_concurrent_rollouts,
@@ -430,11 +431,11 @@ def evaluation_test(
                                 processed_dataset=input_dataset,  # pyright: ignore[reportUnknownArgumentType]
                                 evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                             )
-                            if results is None:  # pyright: ignore[reportUnnecessaryComparison]
-                                raise ValueError(
-                                    f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
-                                )
-                            if not isinstance(results, list):
+                            if (
+                                results is None
+                                or not isinstance(results, list)
+                                or not all(isinstance(r, EvaluationRow) for r in results)
+                            ):
                                 raise ValueError(
                                     f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
                                 )
@@ -442,13 +443,10 @@ def evaluation_test(
                                 raise ValueError(
                                     f"Test function {test_func.__name__} returned an empty list. You must return a non-empty list of EvaluationRow instances from your test function decorated with @evaluation_test."
                                 )
-                            if not all(isinstance(r, EvaluationRow) for r in results):  # pyright: ignore[reportUnnecessaryIsInstance]
-                                raise ValueError(
-                                    f"Test function {test_func.__name__} returned a list containing non-EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                                )
                             all_results[run_idx] = results
 
                         for r in results:
+                            add_cost_metrics(r)
                             if r.eval_metadata is not None:
                                 if r.rollout_status.is_error():
                                     r.eval_metadata.status = Status.error(

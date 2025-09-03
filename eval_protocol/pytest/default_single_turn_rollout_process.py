@@ -9,6 +9,7 @@ from typing import Dict
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
+from openai.types import CompletionUsage
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
@@ -107,6 +108,12 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                     tool_calls=converted_tool_calls,
                 )
             ]
+
+            row.execution_metadata.usage = CompletionUsage(
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+            )
 
             row.messages = messages
             default_logger.log(row)

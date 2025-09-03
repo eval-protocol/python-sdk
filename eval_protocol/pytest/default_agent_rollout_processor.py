@@ -13,6 +13,7 @@ from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
 from eval_protocol.models import EvaluationRow, Message, ChatCompletionContentPartTextParam
+from openai.types import CompletionUsage
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
 from pydantic import BaseModel
@@ -38,6 +39,11 @@ class Agent:
         self._policy = LiteLLMPolicy(model_id=model)
         self.mcp_client = MCPMultiClient(config_path=config_path) if config_path else None
         self.logger: DatasetLogger = logger
+        self.usage = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
 
     async def setup(self):
         if self.mcp_client:
@@ -166,6 +172,11 @@ class Agent:
                 payload_tools.append({"type": tool_type, "function": {"name": name, "parameters": params_payload}})
 
         response = await self._policy._make_llm_call(messages=messages_payload, tools=payload_tools)
+
+        self.usage["prompt_tokens"] += response["usage"]["prompt_tokens"]
+        self.usage["completion_tokens"] += response["usage"]["completion_tokens"]
+        self.usage["total_tokens"] += response["usage"]["total_tokens"]
+
         # Coerce content to a string to align with our Message model type expectations
         raw_content = response["choices"][0]["message"].get("content")
         if isinstance(raw_content, list):
@@ -238,6 +249,13 @@ class AgentRolloutProcessor(RolloutProcessor):
             try:
                 await agent.setup()
                 await agent.call_agent()
+
+                agent.evaluation_row.execution_metadata.usage = CompletionUsage(
+                    prompt_tokens=agent.usage["prompt_tokens"],
+                    completion_tokens=agent.usage["completion_tokens"],
+                    total_tokens=agent.usage["total_tokens"],
+                )
+
                 return agent.evaluation_row
             finally:
                 if agent.mcp_client:

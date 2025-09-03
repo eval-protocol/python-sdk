@@ -6,6 +6,7 @@ import types
 from pydantic_ai.models import Model
 from typing_extensions import override
 from eval_protocol.models import EvaluationRow, Message
+from openai.types import CompletionUsage
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 from openai.types.chat import ChatCompletion, ChatCompletionMessage, ChatCompletionMessageParam
@@ -89,6 +90,14 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
                 message_history=model_messages, model=model, usage_limits=config.kwargs.get("usage_limits")
             )
             row.messages = await self.convert_pyd_message_to_ep_message(response.all_messages())
+
+            usage_info = response.usage()
+            row.execution_metadata.usage = CompletionUsage(
+                prompt_tokens=usage_info.request_tokens or 0,
+                completion_tokens=usage_info.response_tokens or 0,
+                total_tokens=usage_info.total_tokens or 0,
+            )
+
             return row
 
         async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:

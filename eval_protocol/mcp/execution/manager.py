@@ -124,14 +124,10 @@ class ExecutionManager:
 
                 evaluation_row.messages = messages
                 evaluation_row.tools = shared_tool_schema
-                # Some OpenAI SDK versions type CompletionUsage as a TypedDict; construct via cast to avoid ctor mismatches
-                evaluation_row.usage = cast(
-                    CompletionUsage,
-                    {
-                        "prompt_tokens": trajectory.usage.get("prompt_tokens", 0),
-                        "completion_tokens": trajectory.usage.get("completion_tokens", 0),
-                        "total_tokens": trajectory.usage.get("total_tokens", 0),
-                    },
+                evaluation_row.execution_metadata.usage = CompletionUsage(
+                    prompt_tokens=trajectory.usage.get("prompt_tokens", 0),
+                    completion_tokens=trajectory.usage.get("completion_tokens", 0),
+                    total_tokens=trajectory.usage.get("total_tokens", 0),
                 )
                 evaluation_row.input_metadata.completion_params = {
                     "model": policy.model_id,

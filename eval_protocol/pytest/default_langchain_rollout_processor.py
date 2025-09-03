@@ -10,6 +10,7 @@ except Exception:  # pragma: no cover - optional dependency path
 
 
 from eval_protocol.models import EvaluationRow, Message
+from openai.types import CompletionUsage
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
@@ -85,6 +86,28 @@ class LangGraphRolloutProcessor(RolloutProcessor):
                 result_messages: List[BaseMessage] = result_obj.get("messages", [])
             else:
                 result_messages = getattr(result_obj, "messages", [])
+
+            # TODO: i didn't see a langgraph example so couldn't fully test this. should uncomment and test when we have example ready.
+            # total_input_tokens = 0
+            # total_output_tokens = 0
+            # total_tokens = 0
+
+            # for msg in result_messages:
+            #     if isinstance(msg, BaseMessage):
+            #         usage = getattr(msg, 'response_metadata', {})
+            #     else:
+            #         usage = msg.get("response_metadata", {})
+
+            #     if usage:
+            #         total_input_tokens += usage.get("prompt_tokens", 0)
+            #         total_output_tokens += usage.get("completion_tokens", 0)
+            #         total_tokens += usage.get("total_tokens", 0)
+
+            # row.execution_metadata.usage = CompletionUsage(
+            #     prompt_tokens=total_input_tokens,
+            #     completion_tokens=total_output_tokens,
+            #     total_tokens=total_tokens,
+            # )
 
             def _serialize_message(msg: BaseMessage) -> Message:
                 # Prefer SDK-level serializer
