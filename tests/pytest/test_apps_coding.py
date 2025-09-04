@@ -47,7 +47,7 @@ def test_apps_code_evaluation(row: EvaluationRow) -> EvaluationRow:
     # Use evaluate_apps_solution directly
     result = evaluate_apps_solution(
         messages=row.messages,
-        ground_truth=row.ground_truth,
+        ground_truth=str(row.ground_truth),
     )
 
     # Set the evaluation result on the row

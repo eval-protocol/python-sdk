@@ -3,6 +3,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Union
 
+JSONType = Union[Dict[str, Any], List[Any], str, int, float, bool, None]
+
 from openai.types import CompletionUsage
 from openai.types.chat.chat_completion_message import (
     FunctionCall,
@@ -598,8 +600,8 @@ class EvaluationRow(BaseModel):
     )
 
     # Ground truth reference (moved from EvaluateResult to top level)
-    ground_truth: Optional[str] = Field(
-        default=None, description="Optional ground truth reference for this evaluation."
+    ground_truth: Optional[JSONType] = Field(
+        default=None, description="JSON-serializable ground truth reference for this evaluation."
     )
 
     # Unified evaluation result

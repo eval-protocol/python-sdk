@@ -42,12 +42,13 @@ def test_markdown_highlighting_evaluation(row: EvaluationRow) -> EvaluationRow:
     """
 
     assistant_response = row.messages[-1].content
+    assistant_response = str(assistant_response or "")
 
     if not assistant_response:
         row.evaluation_result = EvaluateResult(score=0.0, reason="❌ No assistant response found")
         return row
 
-    required_highlights = int(row.ground_truth)
+    required_highlights = int(str(row.ground_truth))
 
     # Check if the response contains the required number of formatted sections
     # e.g. **bold** or *italic*

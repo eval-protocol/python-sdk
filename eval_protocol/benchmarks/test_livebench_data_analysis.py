@@ -407,7 +407,7 @@ def _extract_gt(row: EvaluationRow) -> Dict[str, Any]:
     if row.ground_truth is None:
         return {"ground_truth": None, "release": None}
     try:
-        payload = json.loads(row.ground_truth)
+        payload = json.loads(str(row.ground_truth))
         if isinstance(payload, dict):
             return payload
     except Exception:

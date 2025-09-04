@@ -99,7 +99,7 @@ def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
 
     extracted_text = _extract_boxed_text(content_str)
     extracted_int = _normalize_to_int_or_none(extracted_text)
-    gt_int = _normalize_to_int_or_none(row.ground_truth or "")
+    gt_int = _normalize_to_int_or_none(str(row.ground_truth))
 
     is_valid = extracted_int is not None and gt_int is not None
     score = 1.0 if (is_valid and extracted_int == gt_int) else 0.0
