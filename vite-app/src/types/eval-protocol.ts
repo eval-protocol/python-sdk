@@ -138,11 +138,21 @@ export const EvalMetadataSchema = z.object({
   passed: z.boolean().optional().describe('Whether the evaluation passed based on the threshold')
 });
 
+export const CostMetricsSchema = z.object({
+  input_cost: z.number().nullable().optional().describe('Cost in USD for input tokens.'),
+  output_cost: z.number().nullable().optional().describe('Cost in USD for output tokens.'),
+  total_cost: z.number().nullable().optional().describe('Total cost in USD for the API call.')
+});
+
 export const ExecutionMetadataSchema = z.object({
   invocation_id: z.string().optional().describe('The ID of the invocation that this row belongs to.'),
   experiment_id: z.string().optional().describe('The ID of the experiment that this row belongs to.'),
   rollout_id: z.string().optional().describe('The ID of the rollout that this row belongs to.'),
   run_id: z.string().optional().describe('The ID of the run that this row belongs to.'),
+  usage: CompletionUsageSchema.optional().describe('Token usage statistics from LLM calls during execution.'),
+  cost_metrics: CostMetricsSchema.optional().describe('Cost breakdown for LLM API calls.'),
+  duration_seconds: z.number().nullable().optional().describe('Processing duration in seconds for this evaluation row.'),
+  experiment_duration_seconds: z.number().nullable().optional().describe('Processing duration in seconds for an entire experiment.')
 });
 
 export const EvaluationRowSchema = z.object({
@@ -151,9 +161,8 @@ export const EvaluationRowSchema = z.object({
   input_metadata: InputMetadataSchema.describe('Metadata related to the input (dataset info, model config, session data, etc.).'),
   rollout_status: StatusSchema.describe('The status of the rollout following AIP-193 standards.'),
   execution_metadata: ExecutionMetadataSchema.optional().describe('Metadata about the execution of the evaluation.'),
-  ground_truth: z.string().optional().describe('Optional ground truth reference for this evaluation.'),
+  ground_truth: z.union([z.string(), z.number(), z.boolean(), z.array(z.any()), z.record(z.string(), z.any())]).nullable().optional().describe('JSON-serializable ground truth reference for this evaluation.'),
   evaluation_result: EvaluateResultSchema.optional().describe('The evaluation result for this row/trajectory.'),
-  usage: CompletionUsageSchema.optional().describe('Token usage statistics from LLM calls during execution.'),
   created_at: z.preprocess(
     (val) => typeof val === "string" ? new Date(val) : val,
     z.date()

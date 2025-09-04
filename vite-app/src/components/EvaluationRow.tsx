@@ -305,9 +305,9 @@ const GroundTruthSection = observer(
   )
 );
 
-const UsageStatsSection = observer(
-  ({ data }: { data: EvaluationRowType["usage"] }) => (
-    <MetadataSection title="Usage Stats" data={data} />
+const ExecutionMetadataSection = observer(
+  ({ data }: { data: EvaluationRowType["execution_metadata"] }) => (
+    <MetadataSection title="Execution Metadata" data={data} />
   )
 );
 
@@ -348,7 +348,7 @@ const ExpandedContent = observer(
     eval_metadata,
     evaluation_result,
     ground_truth,
-    usage,
+    execution_metadata,
     input_metadata,
     tools,
     rollout_status,
@@ -358,7 +358,7 @@ const ExpandedContent = observer(
     eval_metadata: EvaluationRowType["eval_metadata"];
     evaluation_result: EvaluationRowType["evaluation_result"];
     ground_truth: EvaluationRowType["ground_truth"];
-    usage: EvaluationRowType["usage"];
+    execution_metadata: EvaluationRowType["execution_metadata"];
     input_metadata: EvaluationRowType["input_metadata"];
     tools: EvaluationRowType["tools"];
     rollout_status: EvaluationRowType["rollout_status"];
@@ -375,9 +375,9 @@ const ExpandedContent = observer(
           <EvalMetadataSection data={eval_metadata} />
           <EvaluationResultSection data={evaluation_result} />
           <RolloutStatusSection data={rollout_status} />
+          <ExecutionMetadataSection data={execution_metadata} />
           <IdSection data={row} />
           <GroundTruthSection data={ground_truth} />
-          <UsageStatsSection data={usage} />
           <InputMetadataSection data={input_metadata} />
           <ToolsSection data={tools} />
         </div>
@@ -478,7 +478,7 @@ export const EvaluationRow = observer(
                 eval_metadata={row.eval_metadata}
                 evaluation_result={row.evaluation_result}
                 ground_truth={row.ground_truth}
-                usage={row.usage}
+                execution_metadata={row.execution_metadata}
                 input_metadata={row.input_metadata}
                 tools={row.tools}
                 rollout_status={row.rollout_status}
