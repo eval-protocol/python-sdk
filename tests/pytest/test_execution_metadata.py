@@ -23,9 +23,9 @@ class TestExecutionMetadata:
         add_cost_metrics(row)
 
         assert row.execution_metadata.cost_metrics is not None
-        assert row.execution_metadata.cost_metrics.input_cost_usd is not None
-        assert row.execution_metadata.cost_metrics.output_cost_usd is not None
-        assert row.execution_metadata.cost_metrics.total_cost_usd is not None
+        assert row.execution_metadata.cost_metrics.input_cost is not None
+        assert row.execution_metadata.cost_metrics.output_cost is not None
+        assert row.execution_metadata.cost_metrics.total_cost is not None
 
     @pytest.mark.skip(reason="Revisit when we figure out how to get cost metrics for multi-agent Pydantic.")
     def test_pydantic_ai_multi_agent_model_dict(self):
@@ -54,9 +54,9 @@ class TestExecutionMetadata:
         add_cost_metrics(row)
 
         assert row.execution_metadata.cost_metrics is not None
-        assert row.execution_metadata.cost_metrics.input_cost_usd is not None
-        assert row.execution_metadata.cost_metrics.output_cost_usd is not None
-        assert row.execution_metadata.cost_metrics.total_cost_usd is not None
+        assert row.execution_metadata.cost_metrics.input_cost is not None
+        assert row.execution_metadata.cost_metrics.output_cost is not None
+        assert row.execution_metadata.cost_metrics.total_cost is not None
 
     def test_no_usage_stats(self):
         """Test case with no usage statistics."""
@@ -69,9 +69,9 @@ class TestExecutionMetadata:
         add_cost_metrics(row)
 
         assert row.execution_metadata.cost_metrics is not None
-        assert row.execution_metadata.cost_metrics.input_cost_usd == 0.0
-        assert row.execution_metadata.cost_metrics.output_cost_usd == 0.0
-        assert row.execution_metadata.cost_metrics.total_cost_usd == 0.0
+        assert row.execution_metadata.cost_metrics.input_cost == 0.0
+        assert row.execution_metadata.cost_metrics.output_cost == 0.0
+        assert row.execution_metadata.cost_metrics.total_cost == 0.0
 
     def test_no_completion_params(self):
         """Test case with empty completion parameters."""
@@ -86,9 +86,9 @@ class TestExecutionMetadata:
         add_cost_metrics(row)
 
         assert row.execution_metadata.cost_metrics is not None
-        assert row.execution_metadata.cost_metrics.input_cost_usd == 0.0
-        assert row.execution_metadata.cost_metrics.output_cost_usd == 0.0
-        assert row.execution_metadata.cost_metrics.total_cost_usd == 0.0
+        assert row.execution_metadata.cost_metrics.input_cost == 0.0
+        assert row.execution_metadata.cost_metrics.output_cost == 0.0
+        assert row.execution_metadata.cost_metrics.total_cost == 0.0
 
     def test_zero_tokens(self):
         """Test case with zero token usage."""
@@ -103,9 +103,9 @@ class TestExecutionMetadata:
         add_cost_metrics(row)
 
         assert row.execution_metadata.cost_metrics is not None
-        assert row.execution_metadata.cost_metrics.input_cost_usd == 0.0
-        assert row.execution_metadata.cost_metrics.output_cost_usd == 0.0
-        assert row.execution_metadata.cost_metrics.total_cost_usd == 0.0
+        assert row.execution_metadata.cost_metrics.input_cost == 0.0
+        assert row.execution_metadata.cost_metrics.output_cost == 0.0
+        assert row.execution_metadata.cost_metrics.total_cost == 0.0
 
     def test_provider_mapping_variations(self):
         """Test different provider mappings."""

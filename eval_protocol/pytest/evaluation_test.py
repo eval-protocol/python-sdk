@@ -2,6 +2,7 @@ import asyncio
 import inspect
 import os
 import sys
+import time
 from collections import defaultdict
 from typing import Any, Callable
 from typing_extensions import Unpack
@@ -212,6 +213,7 @@ def evaluation_test(
                 all_results: list[list[EvaluationRow]] = [[] for _ in range(num_runs)]
 
                 experiment_id = generate_id()
+                experiment_start_time = time.perf_counter()
 
                 def _log_eval_error(status: Status, rows: list[EvaluationRow] | None, passed: bool) -> None:
                     log_eval_status_and_rows(eval_metadata, rows, status, passed, active_logger)
@@ -506,6 +508,8 @@ def evaluation_test(
                                 tasks.append(asyncio.create_task(execute_run_with_progress(run_idx, config)))
                             await asyncio.gather(*tasks)  # pyright: ignore[reportUnknownArgumentType]
 
+                    experiment_duration_seconds = time.perf_counter() - experiment_start_time
+
                     # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them
                     # rollout_id is used to differentiate the result from different completion_params
                     if mode == "groupwise":
@@ -526,6 +530,7 @@ def evaluation_test(
                                 original_completion_params[rollout_id],  # pyright: ignore[reportArgumentType]
                                 test_func.__name__,
                                 num_runs,
+                                experiment_duration_seconds,
                             )
                     else:
                         postprocess(
@@ -537,6 +542,7 @@ def evaluation_test(
                             completion_params,  # pyright: ignore[reportArgumentType]
                             test_func.__name__,
                             num_runs,
+                            experiment_duration_seconds,
                         )
 
                 except AssertionError:

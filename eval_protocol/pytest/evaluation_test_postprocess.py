@@ -23,6 +23,7 @@ def postprocess(
     completion_params: CompletionParams,
     test_func_name: str,
     num_runs: int,
+    experiment_duration_seconds: float,
 ):
     scores = [
         sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result) for result in all_results
@@ -68,6 +69,7 @@ def postprocess(
             if r.evaluation_result is not None:
                 r.evaluation_result.agg_score = agg_score
                 r.evaluation_result.standard_error = standard_error
+                r.execution_metadata.experiment_duration_seconds = experiment_duration_seconds
             active_logger.log(r)
 
     # Optional: print and/or persist a summary artifact for CI

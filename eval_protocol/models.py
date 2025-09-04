@@ -519,11 +519,11 @@ class EvalMetadata(BaseModel):
 class CostMetrics(BaseModel):
     """Cost metrics for LLM API calls."""
 
-    input_cost_usd: Optional[float] = Field(None, description="Cost in USD for input tokens.")
+    input_cost: Optional[float] = Field(None, description="Cost in USD for input tokens.")
 
-    output_cost_usd: Optional[float] = Field(None, description="Cost in USD for output tokens.")
+    output_cost: Optional[float] = Field(None, description="Cost in USD for output tokens.")
 
-    total_cost_usd: Optional[float] = Field(None, description="Total cost in USD for the API call.")
+    total_cost: Optional[float] = Field(None, description="Total cost in USD for the API call.")
 
 
 class ExecutionMetadata(BaseModel):
@@ -558,6 +558,11 @@ class ExecutionMetadata(BaseModel):
     duration_seconds: Optional[float] = Field(
         default=None,
         description="Processing duration in seconds for this evaluation row. Note that if it gets retried, this will be the duration of the last attempt.",
+    )
+
+    experiment_duration_seconds: Optional[float] = Field(
+        default=None,
+        description="Processing duration in seconds for an entire experiment. Note that includes time it took for retries.",
     )
 
 

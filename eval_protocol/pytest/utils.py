@@ -307,9 +307,9 @@ def add_cost_metrics(row: EvaluationRow) -> None:
     # Can't calculate cost without usage stats or model info
     if not row.execution_metadata.usage or not row.input_metadata.completion_params:
         row.execution_metadata.cost_metrics = CostMetrics(
-            input_cost_usd=0.0,
-            output_cost_usd=0.0,
-            total_cost_usd=0.0,
+            input_cost=0.0,
+            output_cost=0.0,
+            total_cost=0.0,
         )
         return
 
@@ -348,7 +348,7 @@ def add_cost_metrics(row: EvaluationRow) -> None:
 
     # Set all cost metrics on the row
     row.execution_metadata.cost_metrics = CostMetrics(
-        input_cost_usd=input_cost,
-        output_cost_usd=output_cost,
-        total_cost_usd=total_cost,
+        input_cost=input_cost,
+        output_cost=output_cost,
+        total_cost=total_cost,
     )
