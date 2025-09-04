@@ -478,7 +478,6 @@ def evaluation_test(
                     # else, we execute runs in parallel
                     if isinstance(rollout_processor, MCPGymRolloutProcessor):
                         # For MCPGymRolloutProcessor, create and execute tasks one at a time to avoid port conflicts
-                        # For now, no tqdm progress bar because logs override it, we can revisit this later
                         for run_idx in range(num_runs):
                             task = asyncio.create_task(execute_run(run_idx, config))
                             await task
