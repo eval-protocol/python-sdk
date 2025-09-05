@@ -63,6 +63,9 @@ async def test_complex_query_0(row: EvaluationRow) -> EvaluationRow:
     """
     Complex queries - PydanticAI automatically creates rich Langfuse traces.
     """
+    if langfuse_client:
+        langfuse_client.update_current_trace(tags=["chinook_sql"])
+
     return row
 
 
@@ -92,6 +95,9 @@ async def test_complex_query_1(row: EvaluationRow) -> EvaluationRow:
     """
     Complex queries - PydanticAI automatically creates rich Langfuse traces.
     """
+    if langfuse_client:
+        langfuse_client.update_current_trace(tags=["chinook_sql"])
+
     return row
 
 
@@ -121,6 +127,9 @@ async def test_complex_query_2(row: EvaluationRow) -> EvaluationRow:
     """
     Complex queries - PydanticAI automatically creates rich Langfuse traces.
     """
+    if langfuse_client:
+        langfuse_client.update_current_trace(tags=["chinook_sql"])
+
     return row
 
 
@@ -150,6 +159,9 @@ async def test_complex_query_3(row: EvaluationRow) -> EvaluationRow:
     """
     Complex queries - PydanticAI automatically creates rich Langfuse traces.
     """
+    if langfuse_client:
+        langfuse_client.update_current_trace(tags=["chinook_sql"])
+
     return row
 
 
@@ -179,6 +191,9 @@ async def test_complex_query_4(row: EvaluationRow) -> EvaluationRow:
     """
     Complex queries - PydanticAI automatically creates rich Langfuse traces.
     """
+    if langfuse_client:
+        langfuse_client.update_current_trace(tags=["chinook_sql"])
+
     return row
 
 
@@ -208,4 +223,7 @@ async def test_complex_query_5(row: EvaluationRow) -> EvaluationRow:
     """
     Complex queries - PydanticAI automatically creates rich Langfuse traces.
     """
+    if langfuse_client:
+        langfuse_client.update_current_trace(tags=["chinook_sql"])
+
     return row

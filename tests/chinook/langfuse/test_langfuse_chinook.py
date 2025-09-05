@@ -45,7 +45,9 @@ class Response(BaseModel):
     reason: str
 
 
-def fetch_langfuse_traces_as_evaluation_rows(hours_back: int = 168) -> List[EvaluationRow]:
+def fetch_langfuse_traces_as_evaluation_rows(
+    hours_back: int = 168, tags: List[str] = ["chinook_sql"]
+) -> List[EvaluationRow]:
     try:
         from eval_protocol.adapters.langfuse import create_langfuse_adapter
 
@@ -59,7 +61,7 @@ def fetch_langfuse_traces_as_evaluation_rows(hours_back: int = 168) -> List[Eval
         from_timestamp = now - timedelta(hours=hours_back)
 
         return adapter.get_evaluation_rows(
-            limit=20, from_timestamp=from_timestamp, to_timestamp=now, include_tool_calls=True
+            limit=20, from_timestamp=from_timestamp, to_timestamp=now, include_tool_calls=True, tags=tags
         )
 
     except Exception as e:
