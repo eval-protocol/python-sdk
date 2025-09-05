@@ -6,7 +6,7 @@ from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
 
 from eval_protocol.pytest.default_pydantic_ai_rollout_processor import PydanticAgentRolloutProcessor
-from tests.chinook.agent import setup_agent
+from tests.chinook.pydantic.agent import setup_agent
 import os
 from pydantic_ai.models.openai import OpenAIModel
 
