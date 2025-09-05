@@ -379,22 +379,32 @@ class LangfuseAdapter:
         Returns:
             InputMetadata object
         """
-        # Extract completion parameters from observations
+        # Extract completion parameters from trace input first, then observations
         completion_params = {}
 
-        # Look for model parameters in observations
-        for obs in observations:
-            if hasattr(obs, "model") and obs.model:
-                completion_params["model"] = obs.model
-            if hasattr(obs, "model_parameters") and obs.model_parameters:
-                params = obs.model_parameters
-                if "temperature" in params:
-                    completion_params["temperature"] = params["temperature"]
-                if "max_tokens" in params:
-                    completion_params["max_tokens"] = params["max_tokens"]
-                if "top_p" in params:
-                    completion_params["top_p"] = params["top_p"]
-                break
+        # First check trace input for evaluation test completion_params
+        if hasattr(trace, "input") and trace.input:
+            if isinstance(trace.input, dict):
+                kwargs = trace.input.get("kwargs", {})
+                if "completion_params" in kwargs:
+                    trace_completion_params = kwargs["completion_params"]
+                    if trace_completion_params and isinstance(trace_completion_params, dict):
+                        completion_params.update(trace_completion_params)
+
+        # Fallback: Look for model parameters in observations if not found in trace input
+        if not completion_params:
+            for obs in observations:
+                if hasattr(obs, "model") and obs.model:
+                    completion_params["model"] = obs.model
+                if hasattr(obs, "model_parameters") and obs.model_parameters:
+                    params = obs.model_parameters
+                    if "temperature" in params:
+                        completion_params["temperature"] = params["temperature"]
+                    if "max_tokens" in params:
+                        completion_params["max_tokens"] = params["max_tokens"]
+                    if "top_p" in params:
+                        completion_params["top_p"] = params["top_p"]
+                    break
 
         # Create dataset info from trace metadata
         dataset_info = {

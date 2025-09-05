@@ -271,9 +271,11 @@ def evaluation_test(
                         passed=None,
                     )
                     for row in data:
-                        row.input_metadata.completion_params = (
-                            completion_params if completion_params is not None else {}
-                        )
+                        # Only set completion_params if they don't already exist
+                        if not row.input_metadata.completion_params:
+                            row.input_metadata.completion_params = (
+                                completion_params if completion_params is not None else {}
+                            )
                         # Add mode to session_data
                         if row.input_metadata.session_data is None:
                             row.input_metadata.session_data = {}
