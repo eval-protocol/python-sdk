@@ -1,32 +1,60 @@
-import pytest
 import os
+import pytest
 
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
-
 from eval_protocol.pytest.default_pydantic_ai_rollout_processor import PydanticAgentRolloutProcessor
-from tests.chinook.pydantic.agent import setup_agent
 
 from tests.chinook.dataset import collect_dataset
+from tests.chinook.pydantic.agent import setup_agent
+
+dataset = collect_dataset()
+current_idx = 0
+
+
+class SpanIDCapturingProcessor:
+    """Custom processor to capture span IDs when they open/close."""
+
+    def on_start(self, span, parent_context=None):
+        """Called when span starts - capture the ID."""
+        global current_idx
+        if span.name == "agent run":
+            span.set_attribute("ground_truth", dataset[current_idx].ground_truth)
+            current_idx += 1
+
+    def on_end(self, span):
+        pass
+
+    def shutdown(self):
+        pass
+
+    def force_flush(self, timeout_millis=30000):
+        pass
+
 
 try:
-    from langfuse import get_client, observe  # pyright: ignore[reportPrivateImportUsage]
+    from braintrust.otel import BraintrustSpanProcessor
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
     from pydantic_ai.agent import Agent
+    from braintrust import init_logger
 
-    LANGFUSE_AVAILABLE = True
-    langfuse_client = get_client()
+    BRAINTRUST_AVAILABLE = True
+
+    provider = TracerProvider()
+    trace.set_tracer_provider(provider)
+    provider.add_span_processor(BraintrustSpanProcessor())  # pyright: ignore[reportArgumentType]
+    provider.add_span_processor(SpanIDCapturingProcessor())  # pyright: ignore[reportArgumentType]
+
+    logger = init_logger(project="default-otel-project")
 
     Agent.instrument_all()
 
 except ImportError:
-    LANGFUSE_AVAILABLE = False
-    langfuse_client = None
+    BRAINTRUST_AVAILABLE = False
 
-    def observe(*args, **kwargs):
-        def decorator(func):
-            return func
-
-        return decorator if args and callable(args[0]) else decorator
+    def setup_braintrust():
+        pass
 
 
 @pytest.mark.skipif(
@@ -34,7 +62,6 @@ except ImportError:
     reason="Only run this test locally (skipped in CI)",
 )
 @pytest.mark.asyncio
-@observe()
 @evaluation_test(
     input_rows=[collect_dataset()[0:1]],
     completion_params=[
@@ -53,11 +80,8 @@ except ImportError:
 )
 async def test_complex_query_0(row: EvaluationRow) -> EvaluationRow:
     """
-    Complex queries - PydanticAI automatically creates rich Langfuse traces.
+    Complex queries - Ground truth set by span processor during span creation.
     """
-    if langfuse_client:
-        langfuse_client.update_current_trace(tags=["chinook_sql"])
-
     return row
 
 
@@ -66,7 +90,6 @@ async def test_complex_query_0(row: EvaluationRow) -> EvaluationRow:
     reason="Only run this test locally (skipped in CI)",
 )
 @pytest.mark.asyncio
-@observe()
 @evaluation_test(
     input_rows=[collect_dataset()[1:2]],
     completion_params=[
@@ -85,11 +108,8 @@ async def test_complex_query_0(row: EvaluationRow) -> EvaluationRow:
 )
 async def test_complex_query_1(row: EvaluationRow) -> EvaluationRow:
     """
-    Complex queries - PydanticAI automatically creates rich Langfuse traces.
+    Complex queries - PydanticAI automatically creates rich Braintrust traces.
     """
-    if langfuse_client:
-        langfuse_client.update_current_trace(tags=["chinook_sql"])
-
     return row
 
 
@@ -98,7 +118,6 @@ async def test_complex_query_1(row: EvaluationRow) -> EvaluationRow:
     reason="Only run this test locally (skipped in CI)",
 )
 @pytest.mark.asyncio
-@observe()
 @evaluation_test(
     input_rows=[collect_dataset()[2:3]],
     completion_params=[
@@ -117,11 +136,8 @@ async def test_complex_query_1(row: EvaluationRow) -> EvaluationRow:
 )
 async def test_complex_query_2(row: EvaluationRow) -> EvaluationRow:
     """
-    Complex queries - PydanticAI automatically creates rich Langfuse traces.
+    Complex queries - PydanticAI automatically creates rich Braintrust traces.
     """
-    if langfuse_client:
-        langfuse_client.update_current_trace(tags=["chinook_sql"])
-
     return row
 
 
@@ -130,7 +146,6 @@ async def test_complex_query_2(row: EvaluationRow) -> EvaluationRow:
     reason="Only run this test locally (skipped in CI)",
 )
 @pytest.mark.asyncio
-@observe()
 @evaluation_test(
     input_rows=[collect_dataset()[3:4]],
     completion_params=[
@@ -149,11 +164,8 @@ async def test_complex_query_2(row: EvaluationRow) -> EvaluationRow:
 )
 async def test_complex_query_3(row: EvaluationRow) -> EvaluationRow:
     """
-    Complex queries - PydanticAI automatically creates rich Langfuse traces.
+    Complex queries - PydanticAI automatically creates rich Braintrust traces.
     """
-    if langfuse_client:
-        langfuse_client.update_current_trace(tags=["chinook_sql"])
-
     return row
 
 
@@ -162,7 +174,6 @@ async def test_complex_query_3(row: EvaluationRow) -> EvaluationRow:
     reason="Only run this test locally (skipped in CI)",
 )
 @pytest.mark.asyncio
-@observe()
 @evaluation_test(
     input_rows=[collect_dataset()[4:5]],
     completion_params=[
@@ -181,11 +192,8 @@ async def test_complex_query_3(row: EvaluationRow) -> EvaluationRow:
 )
 async def test_complex_query_4(row: EvaluationRow) -> EvaluationRow:
     """
-    Complex queries - PydanticAI automatically creates rich Langfuse traces.
+    Complex queries - PydanticAI automatically creates rich Braintrust traces.
     """
-    if langfuse_client:
-        langfuse_client.update_current_trace(tags=["chinook_sql"])
-
     return row
 
 
@@ -194,7 +202,6 @@ async def test_complex_query_4(row: EvaluationRow) -> EvaluationRow:
     reason="Only run this test locally (skipped in CI)",
 )
 @pytest.mark.asyncio
-@observe()
 @evaluation_test(
     input_rows=[collect_dataset()[5:6]],
     completion_params=[
@@ -213,9 +220,6 @@ async def test_complex_query_4(row: EvaluationRow) -> EvaluationRow:
 )
 async def test_complex_query_5(row: EvaluationRow) -> EvaluationRow:
     """
-    Complex queries - PydanticAI automatically creates rich Langfuse traces.
+    Complex queries - PydanticAI automatically creates rich Braintrust traces.
     """
-    if langfuse_client:
-        langfuse_client.update_current_trace(tags=["chinook_sql"])
-
     return row
