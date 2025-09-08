@@ -33,7 +33,7 @@ table_name,column_name,data_type,is_nullable
     )
 
     @agent.tool(retries=5)
-    def execute_sql(ctx: RunContext, query: str) -> dict:
+    def execute_sql(ctx: RunContext, query: str) -> str:
         try:
             cursor.execute(query)
             # Get column headers from cursor description
@@ -69,7 +69,7 @@ table_name,column_name,data_type,is_nullable
 
 async def main():
     model = OpenAIModel(
-        model="accounts/fireworks/models/kimi-k2-instruct",
+        "accounts/fireworks/models/kimi-k2-instruct",
         provider="fireworks",
     )
     agent = setup_agent(model)
