@@ -32,7 +32,9 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
     EvaluationRow.messages to and from Pydantic AI ModelMessage format."""
 
     def __init__(
-        self, agent_factory: Callable[[RolloutProcessorConfig], Agent], usage_limits: UsageLimits | None = None
+        self,
+        agent_factory: Callable[[RolloutProcessorConfig], Agent],
+        usage_limits: UsageLimits | None = None,
     ):
         # dummy model used for its helper functions for processing messages
         self._util: OpenAIModel = OpenAIModel("dummy-model", provider=OpenAIProvider(api_key="dummy"))
