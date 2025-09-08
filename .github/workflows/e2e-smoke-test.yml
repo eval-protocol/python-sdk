@@ -186,3 +186,17 @@ jobs:
             echo "   - Success rate: ${SUCCESS_RATE:-unknown}"
             echo "   - Within acceptable range: 36%-60%"
           fi
+
+      - name: Send failure notification to Slack
+        uses: act10ns/slack@v1
+        if: failure()
+        with:
+          status: failure
+          message: |
+            E2E Smoke Test failed
+            Success Rate: ${{ steps.run_test.outputs.success_rate || 'Unknown' }}
+            Expected: 36%-60% to pass
+            Test Exit Code: ${{ steps.run_test.outputs.test_exit_code || 'Unknown' }}
+            Job: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

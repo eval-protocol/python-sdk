@@ -80,7 +80,7 @@ def extract_code_blocks(text: str, language: Optional[str] = None) -> List[Dict[
         List of dictionaries with "code" and "language" keys
     """
     pattern = r"```(\w*)\n([\s\S]*?)\n```"
-    matches = re.findall(pattern, text)
+    matches = re.findall(pattern, text or "")
 
     code_blocks = []
     verbose_patterns_removed = []
@@ -171,7 +171,11 @@ def local_code_execution_reward(
             },
         )
 
-    response_content = messages[-1].content
+    # Normalize content to string; Message.content may be str or list of content parts
+    last_content = messages[-1].content
+    response_content = (
+        last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])
+    )
     expected_output_str = ground_truth
 
     code_blocks = extract_code_blocks(response_content, language)
@@ -935,7 +939,10 @@ def e2b_code_execution_reward(
             },
         )
 
-    response_content = messages[-1].content
+    last_content = messages[-1].content
+    response_content = (
+        last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])
+    )
     expected_output_str = ground_truth
 
     code_blocks = extract_code_blocks(response_content, language)
@@ -1091,7 +1098,15 @@ def fractional_code_reward(
             },
         )
 
-    code_blocks = extract_code_blocks(response_content, language)
+    # Normalize content to string; Message.content may be str or list of content parts
+    _last_content = response_content
+    response_content_str = (
+        _last_content
+        if isinstance(_last_content, str)
+        else "".join([getattr(p, "text", "") for p in (_last_content or [])])
+    )
+
+    code_blocks = extract_code_blocks(response_content_str, language)
 
     if not code_blocks:
         return EvaluateResult(
@@ -1610,7 +1625,7 @@ class Capturing(list):
     def __enter__(self):
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
-        self._stringio.close = lambda x: None
+        self._stringio.close = lambda: None
         return self
 
     def __exit__(self, *args):

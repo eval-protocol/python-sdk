@@ -11,39 +11,33 @@ import json
 import logging
 import os
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, cast
+import importlib.util as _importlib_util
 
-# Attempt to import OpenAI client
-try:
-    from openai import AsyncOpenAI, OpenAI
-    from openai.types.chat import ChatCompletionMessage, ChatCompletionToolParam
-    from openai.types.chat.chat_completion_message_tool_call import (
-        ChatCompletionMessageToolCall,
-    )
+# Determine OpenAI availability without importing symbols for typing
+OPENAI_AVAILABLE = _importlib_util.find_spec("openai") is not None
 
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OPENAI_AVAILABLE = False
-    # Define dummy types if openai is not installed, to avoid runtime errors on load
-    from typing import Any, Dict, List, Optional, Union
+# Expose AsyncOpenAI/OpenAI at module level for tests/patching, even if we import lazily elsewhere
+if OPENAI_AVAILABLE:
+    try:
+        from openai import AsyncOpenAI as AsyncOpenAI, OpenAI as OpenAI  # type: ignore[import-not-found]
+    except Exception:
 
-    # Use simple class definitions for runtime and type checking
-    class OpenAI:
-        def __init__(self, **kwargs: Any) -> None:
+        class AsyncOpenAI:  # type: ignore[no-redef]
+            def __init__(self, **_: Any) -> None:
+                pass
+
+        class OpenAI:  # type: ignore[no-redef]
+            def __init__(self, **_: Any) -> None:
+                pass
+else:
+
+    class AsyncOpenAI:  # type: ignore[no-redef]
+        def __init__(self, **_: Any) -> None:
             pass
 
-    class AsyncOpenAI:
-        def __init__(self, **kwargs: Any) -> None:
+    class OpenAI:  # type: ignore[no-redef]
+        def __init__(self, **_: Any) -> None:
             pass
-
-    class ChatCompletionMessage:
-        content: str = ""
-        role: str = "assistant"
-
-    class ChatCompletionToolParam:
-        pass
-
-    class ChatCompletionMessageToolCall:
-        pass
 
 
 # Max steps for the inner loop within a single user turn
@@ -71,7 +65,8 @@ class Orchestrator:
         self.logger = logging.getLogger(f"Orchestrator.{self.task_definition.name}")
         self.logger.setLevel(logging.DEBUG)  # Ensure debug logs are processed
         self.logger.info(f"Orchestrator initialized for task: {self.task_definition.name}")
-        self._openai_client: Optional[AsyncOpenAI] = None
+        # Use Any here to avoid pyright stubs mismatches across openai versions
+        self._openai_client: Optional[Any] = None
 
     def _initialize_openai_client(self):
         """Initializes the AsyncOpenAI client if available and not already initialized."""
@@ -79,9 +74,10 @@ class Orchestrator:
             self.logger.warning("OpenAI library not available. Cannot use OpenAI models.")
             return
         if self._openai_client is None:
-            # Consider adding error handling for missing API key
             try:
-                self._openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+                from openai import AsyncOpenAI  # type: ignore[import-not-found]
+
+                self._openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))  # type: ignore[call-arg]
                 self.logger.info("AsyncOpenAI client initialized.")
             except Exception as e:
                 self.logger.error(f"Failed to initialize AsyncOpenAI client: {e}")
@@ -94,7 +90,9 @@ class Orchestrator:
             return
         if self._openai_client is None:
             try:
-                self._openai_client = AsyncOpenAI(
+                from openai import AsyncOpenAI  # type: ignore[import-not-found]
+
+                self._openai_client = AsyncOpenAI(  # type: ignore[call-arg]
                     api_key=os.environ.get("FIREWORKS_API_KEY"),
                     base_url="https://api.fireworks.ai/inference/v1",
                 )
@@ -469,8 +467,9 @@ class Orchestrator:
             # Initialize the episode resource with sample data if provided
             if sample_data:
                 self.logger.info(f"Initializing episode resource with sample data: {sample_data}")
-                if hasattr(episode_resource, "initialize"):
-                    await episode_resource.initialize(**sample_data)
+                initializer = getattr(episode_resource, "initialize", None)
+                if callable(initializer):
+                    await initializer(**sample_data)  # type: ignore[misc]
                 else:
                     self.logger.warning(
                         f"Episode resource {type(episode_resource).__name__} does not have initialize method"
@@ -478,9 +477,10 @@ class Orchestrator:
 
             # Get initial state for injection into first prompt (for HTTP rollout)
             initial_state_description = None
-            if hasattr(episode_resource, "get_initial_state_description"):
+            get_init_state = getattr(episode_resource, "get_initial_state_description", None)
+            if callable(get_init_state):
                 try:
-                    initial_state_description = await episode_resource.get_initial_state_description()
+                    initial_state_description = await get_init_state()  # type: ignore[misc]
                     self.logger.info("Retrieved initial state description for first prompt")
                 except Exception as e:
                     self.logger.warning(f"Failed to get initial state description: {e}")
@@ -577,21 +577,21 @@ class Orchestrator:
                 )  # Get adapters for execution
 
                 # Format tools for OpenAI API (should be done once per user turn, or if tools change)
-                openai_tools: List[ChatCompletionToolParam] = []
+                openai_tools: List[Dict[str, Any]] = []
                 if OPENAI_AVAILABLE:
                     # First add tools from the resource
                     for spec in resource_tool_specs:
                         # Ensure spec has the structure with name and parameters
                         if "name" in spec and "parameters" in spec:
                             openai_tools.append(
-                                ChatCompletionToolParam(
-                                    type="function",
-                                    function={
+                                {
+                                    "type": "function",
+                                    "function": {
                                         "name": spec["name"],
                                         "description": spec.get("description", ""),
-                                        "parameters": spec["parameters"],  # Assuming this matches OpenAI schema
+                                        "parameters": spec["parameters"],  # Assuming OpenAI-compatible schema
                                     },
-                                )
+                                }
                             )
                         else:
                             self.logger.warning(f"Skipping tool spec due to missing name/parameters: {spec}")
@@ -605,14 +605,14 @@ class Orchestrator:
                         registry_tools = self.tools_module.R.get_openai_tools()
                         for tool_spec in registry_tools:
                             openai_tools.append(
-                                ChatCompletionToolParam(
-                                    type="function",
-                                    function={
+                                {
+                                    "type": "function",
+                                    "function": {
                                         "name": tool_spec["name"],
                                         "description": tool_spec.get("description", ""),
                                         "parameters": tool_spec["parameters"],
                                     },
-                                )
+                                }
                             )
                 else:
                     self.logger.warning("OpenAI not available, cannot format tools for API.")
@@ -642,6 +642,7 @@ class Orchestrator:
                         if not self._openai_client:
                             raise Exception("OpenAI client not initialized")
 
+                        # type: ignore[reportUnknownMemberType]
                         response = await self._openai_client.chat.completions.create(
                             model=agent_model_name,
                             messages=conversation_messages,  # type: ignore

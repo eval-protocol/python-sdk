@@ -96,10 +96,13 @@ def format_reward(
 
     pattern = re.compile(format_regex, re.DOTALL)
 
+    # Ensure text is a string for regex functions
+    text_str = text if isinstance(text, str) else str(text)
+
     if require_exact_match:
-        match = pattern.match(text)
+        match = pattern.match(text_str)
     else:
-        match = pattern.search(text)
+        match = pattern.search(text_str)
 
     if match:
         return EvaluateResult(

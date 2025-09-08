@@ -10,7 +10,22 @@ like normalization and LaTeX parsing.
 import re
 from typing import Any, Callable, Dict, List, Optional, Union, cast
 
-from ..models import EvaluateResult, Message, MetricResult
+from ..models import EvaluateResult, Message, MetricResult, ChatCompletionContentPartTextParam
+
+
+def _to_text(content: Optional[Union[str, List[ChatCompletionContentPartTextParam]]]) -> str:
+    """Coerce Message.content into a plain string for regex and comparisons."""
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    # List[ChatCompletionContentPartTextParam]
+    try:
+        return "\n".join(part.text for part in content)
+    except Exception:
+        return ""
+
+
 from ..typed_interface import reward_function
 
 
@@ -334,7 +349,7 @@ def accuracy_reward(
     model_last_message = messages[-1]
     if isinstance(model_last_message, Message):
         if model_last_message.role == "assistant" and model_last_message.content is not None:
-            model_response_text = model_last_message.content
+            model_response_text = _to_text(model_last_message.content)
         else:
             return EvaluateResult(
                 score=0.0,
@@ -386,7 +401,7 @@ def accuracy_reward(
     first_gt_message = ground_truth[0]
     if isinstance(first_gt_message, Message):
         if first_gt_message.content is not None:
-            ground_truth_comparison_text = first_gt_message.content
+            ground_truth_comparison_text = _to_text(first_gt_message.content)
         else:
             return EvaluateResult(
                 score=0.0,

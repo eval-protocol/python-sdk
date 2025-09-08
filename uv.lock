@@ -1248,6 +1248,9 @@ huggingface = [
     { name = "datasets" },
     { name = "transformers" },
 ]
+langchain = [
+    { name = "langchain-core" },
+]
 langfuse = [
     { name = "langfuse" },
 ]
@@ -1311,14 +1314,15 @@ requires-dist = [
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.30.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "jupyter", marker = "extra == 'dev'", specifier = ">=1.1.1" },
+    { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=0.3.0" },
     { name = "langfuse", marker = "extra == 'adapters'", specifier = ">=2.0.0" },
     { name = "langfuse", marker = "extra == 'langfuse'", specifier = ">=2.0.0" },
     { name = "litellm", specifier = ">=1.0.0" },
     { name = "loguru", specifier = ">=0.6.0" },
     { name = "mcp", specifier = ">=1.9.2" },
     { name = "omegaconf", specifier = ">=2.3.0" },
-    { name = "openai", specifier = "==1.78.1" },
-    { name = "openai", marker = "extra == 'dev'", specifier = "==1.78.1" },
+    { name = "openai", specifier = ">=1.78.1" },
+    { name = "openai", marker = "extra == 'dev'", specifier = ">=1.78.1" },
     { name = "openevals", marker = "extra == 'openevals'", specifier = ">=0.1.0" },
     { name = "pandas", specifier = ">=1.5.0" },
     { name = "peewee", specifier = ">=3.18.2" },
@@ -1360,7 +1364,7 @@ requires-dist = [
     { name = "websockets", specifier = ">=15.0.1" },
     { name = "werkzeug", marker = "extra == 'dev'", specifier = ">=2.0.0" },
 ]
-provides-extras = ["dev", "trl", "openevals", "fireworks", "box2d", "langfuse", "huggingface", "adapters", "bigquery", "svgbench", "pydantic", "supabase", "chinook"]
+provides-extras = ["dev", "trl", "openevals", "fireworks", "box2d", "langfuse", "huggingface", "adapters", "bigquery", "svgbench", "pydantic", "supabase", "chinook", "langchain"]
 
 [package.metadata.requires-dev]
 dev = [

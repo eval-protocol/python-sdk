@@ -12,8 +12,9 @@ from pathlib import Path
 def get_server_script_path() -> str:
     """Get the path to the tau2 MCP server script."""
     try:
-        # Try to get from installed package
-        with importlib.resources.as_file(importlib.resources.files(__package__) / "server.py") as server_path:
+        # Try to get from installed package. __package__ can be None during some tooling.
+        package = __package__ if __package__ is not None else __name__
+        with importlib.resources.as_file(importlib.resources.files(package) / "server.py") as server_path:
             return str(server_path)
     except (ImportError, FileNotFoundError):
         # Fallback for development environment

@@ -3,7 +3,13 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
+from eval_protocol.models import (
+    EvaluateResult,
+    EvaluationRow,
+    Message,
+    MetricResult,
+    ChatCompletionContentPartTextParam,
+)
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
 )
@@ -29,6 +35,12 @@ def _extract_last_boxed_segment(text: str) -> Optional[str]:
     if not matches:
         return None
     return matches[-1]
+
+
+def _coerce_content_to_str(content: str | list[ChatCompletionContentPartTextParam] | None) -> str:
+    if isinstance(content, list):
+        return "".join([getattr(p, "text", str(p)) for p in content])
+    return str(content or "")
 
 
 def _cta_process_results(ground_truth: str, llm_answer: str) -> int:
@@ -258,6 +270,7 @@ def _tablereformat_process_results(input_command: str, ground_truth: str, llm_an
 
     reader = _read_df_v1 if version == "v1" else _read_df_v2
     gt_df = reader(output_fmt, ground_truth)
+    assert gt_df is not None, "GT dataframe is None"
 
     llm_clean = _clean_llm_output(llm_answer)
     llm_clean = _remove_initial_phrase(llm_clean)
@@ -274,6 +287,8 @@ def _tablereformat_process_results(input_command: str, ground_truth: str, llm_an
             return 0
 
     # Compare
+    assert llm_df is not None, "LLM dataframe is None"
+    assert gt_df is not None, "GT dataframe is None"
     try:
         gt_df.columns = [str(s).strip() for s in gt_df.columns]
         if "index" in gt_df.columns:
@@ -392,7 +407,7 @@ def _extract_gt(row: EvaluationRow) -> Dict[str, Any]:
     if row.ground_truth is None:
         return {"ground_truth": None, "release": None}
     try:
-        payload = json.loads(row.ground_truth)
+        payload = json.loads(str(row.ground_truth))
         if isinstance(payload, dict):
             return payload
     except Exception:
@@ -409,8 +424,9 @@ _CTA_ROWS = _load_livebench_da_messages("cta")
 
 @evaluation_test(
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
-    input_messages=[[m for m in r.messages] for r in _CTA_ROWS],
-    rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
+    # Wrap dataset messages in an extra list to match Sequence[list[InputMessagesParam]]
+    input_messages=[[[m for m in r.messages] for r in _CTA_ROWS]],
+    rollout_processor_kwargs={"extra_body": {"reasoning_effort": "low"}},
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=None,
@@ -419,7 +435,8 @@ _CTA_ROWS = _load_livebench_da_messages("cta")
 )
 def test_livebench_cta_pointwise(row: EvaluationRow) -> EvaluationRow:
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
-    content = assistant_msgs[-1].content if assistant_msgs else ""
+    raw_content = assistant_msgs[-1].content if assistant_msgs else ""
+    content = _coerce_content_to_str(raw_content)
     payload = _extract_gt(row)
     gt = payload.get("ground_truth")
     gt_str = str(gt) if gt is not None else ""
@@ -451,8 +468,8 @@ _TABLEJOIN_ROWS = _load_livebench_da_messages("tablejoin")
 
 @evaluation_test(
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
-    input_messages=[[m for m in r.messages] for r in _TABLEJOIN_ROWS],
-    rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
+    input_messages=[[[m for m in r.messages] for r in _TABLEJOIN_ROWS]],
+    rollout_processor_kwargs={"extra_body": {"reasoning_effort": "low"}},
     rollout_processor=LiveBenchGroundTruthRolloutProcessor(_TABLEJOIN_ROWS),
     aggregation_method="mean",
     passed_threshold=None,
@@ -461,9 +478,9 @@ _TABLEJOIN_ROWS = _load_livebench_da_messages("tablejoin")
 )
 def test_livebench_tablejoin_pointwise(row: EvaluationRow) -> EvaluationRow:
     user_msgs = [m for m in row.messages if m.role == "user"]
-    question = user_msgs[-1].content if user_msgs else ""
+    question = _coerce_content_to_str(user_msgs[-1].content if user_msgs else "")
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
-    content = assistant_msgs[-1].content if assistant_msgs else ""
+    content = _coerce_content_to_str(assistant_msgs[-1].content if assistant_msgs else "")
     payload = _extract_gt(row)
     gt = payload.get("ground_truth")
 
@@ -494,8 +511,8 @@ _TABLEREFORMAT_ROWS = _load_livebench_da_messages("tablereformat")
 
 @evaluation_test(
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
-    input_messages=[[m for m in r.messages] for r in _TABLEREFORMAT_ROWS],
-    rollout_processor_kwargs=[{"extra_body": {"reasoning_effort": "low"}}],
+    input_messages=[[[m for m in r.messages] for r in _TABLEREFORMAT_ROWS]],
+    rollout_processor_kwargs={"extra_body": {"reasoning_effort": "low"}},
     rollout_processor=LiveBenchGroundTruthRolloutProcessor(_TABLEREFORMAT_ROWS),
     aggregation_method="mean",
     passed_threshold=None,
@@ -504,9 +521,9 @@ _TABLEREFORMAT_ROWS = _load_livebench_da_messages("tablereformat")
 )
 def test_livebench_tablereformat_pointwise(row: EvaluationRow) -> EvaluationRow:
     user_msgs = [m for m in row.messages if m.role == "user"]
-    question = user_msgs[-1].content if user_msgs else ""
+    question = _coerce_content_to_str(user_msgs[-1].content if user_msgs else "")
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
-    content = assistant_msgs[-1].content if assistant_msgs else ""
+    content = _coerce_content_to_str(assistant_msgs[-1].content if assistant_msgs else "")
     payload = _extract_gt(row)
     gt = payload.get("ground_truth")
     release = payload.get("release") or ""

@@ -24,7 +24,7 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple, Literal, cast
 
 import uvicorn
 from mcp.server.fastmcp import Context, FastMCP
@@ -146,22 +146,20 @@ class McpGym(ABC):
         print(f"🔍 _get_session_id: hasattr(ctx, 'session'): {hasattr(ctx, 'session')}")
 
         # Use stable session ID based on client info (following simulation_server.py pattern)
-        if hasattr(ctx, "session") and hasattr(ctx.session, "client_params"):
-            client_params = ctx.session.client_params
+        if hasattr(ctx, "session"):
+            client_params = getattr(ctx.session, "client_params", None)
             print(f"🔍 _get_session_id: client_params type: {type(client_params)}")
-            print(f"🔍 _get_session_id: hasattr(client_params, 'clientInfo'): {hasattr(client_params, 'clientInfo')}")
-
-            if hasattr(client_params, "clientInfo"):
-                client_info = client_params.clientInfo
+            if client_params is not None and hasattr(client_params, "clientInfo"):
+                client_info = getattr(client_params, "clientInfo", None)
                 print(f"🔍 _get_session_id: client_info: {client_info}")
-                print(f"🔍 _get_session_id: hasattr(client_info, '_extra'): {hasattr(client_info, '_extra')}")
 
-                if client_info and hasattr(client_info, "_extra"):
-                    extra_data = client_info._extra
+                if client_info is not None:
+                    # Access private _extra with a cast to satisfy type checker
+                    extra_data = cast(Any, getattr(client_info, "_extra", None))
                     print(f"🔍 _get_session_id: extra_data: {extra_data}")
                     print(f"🔍 _get_session_id: extra_data type: {type(extra_data)}")
 
-                    if extra_data and isinstance(extra_data, dict):
+                    if isinstance(extra_data, dict):
                         # use the client generated session id
                         if "session_id" in extra_data:
                             print(f"🔍 _get_session_id: using client generated session_id: {extra_data['session_id']}")
@@ -181,8 +179,8 @@ class McpGym(ABC):
                             "config": config_value,
                             "dataset_row_id": dataset_row_id_value,
                             "model_id": model_id_value,
-                            "name": client_info.name,
-                            "version": client_info.version,
+                            "name": getattr(client_info, "name", None),
+                            "version": getattr(client_info, "version", None),
                         }
 
                         print(f"🔍 _get_session_id: stable_data: {stable_data}")
@@ -205,6 +203,15 @@ class McpGym(ABC):
         """
         session_id = self._get_session_id(ctx)
         print(f"🔍 _get_or_create_session: session_id: {session_id}")
+        if session_id not in self.sessions:
+            env, obs, info = self._new_env(seed=None)
+            with self.session_lock:
+                self.sessions[session_id] = {
+                    "env": env,
+                    "obs": obs,
+                    "session_data": {},
+                    "session_id": session_id,
+                }
         return self.sessions[session_id]
 
     def _register_session_reset_endpoint(self):
@@ -400,6 +407,15 @@ class McpGym(ABC):
         Returns:
             Data plane response (observation only, no rewards)
         """
+        if session_id not in self.sessions:
+            env, obs, info = self._new_env(seed=None)
+            with self.session_lock:
+                self.sessions[session_id] = {
+                    "env": env,
+                    "obs": obs,
+                    "session_data": {},
+                    "session_id": session_id,
+                }
         session_data = self.sessions[session_id]
         env = session_data["env"]
 
@@ -547,7 +563,7 @@ class McpGym(ABC):
         else:
             return {"observation": serialized_obs}
 
-    def run(self, transport: str = "streamable-http", **kwargs):
+    def run(self, transport: Literal["stdio", "sse", "streamable-http"] = "streamable-http", **kwargs):
         """Run the unified MCP-Gym server with high concurrency settings."""
         if transport == "streamable-http":
             # Run with custom high-concurrency uvicorn config
@@ -558,7 +574,8 @@ class McpGym(ABC):
                 if not kwargs.get("redirect_slashes", True) and hasattr(starlette_app, "router"):
                     starlette_app.router.redirect_slashes = False
 
-                starlette_app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+                # Add middleware with proper type cast to satisfy basedpyright
+                starlette_app.add_middleware(cast(Any, ProxyHeadersMiddleware), trusted_hosts="*")
 
                 config = uvicorn.Config(
                     starlette_app,
@@ -580,7 +597,15 @@ class McpGym(ABC):
             asyncio.run(run_with_high_concurrency())
         else:
             # Use default FastMCP run for other transports
-            self.mcp.run(transport=transport, **kwargs)
+            # Constrain transport to the allowed literal values for type checker
+            allowed_transport: Literal["stdio", "sse", "streamable-http"]
+            if transport in ("stdio", "sse", "streamable-http"):
+                allowed_transport = cast(Literal["stdio", "sse", "streamable-http"], transport)
+            else:
+                # Default to streamable-http if unknown
+                allowed_transport = cast(Literal["stdio", "sse", "streamable-http"], "streamable-http")
+
+            self.mcp.run(transport=allowed_transport, **kwargs)
 
     def _to_json_serializable(self, obj: Any) -> Any:
         """Convert any object to JSON-serializable format.
@@ -607,7 +632,8 @@ class McpGym(ABC):
 
         # Handle dataclasses
         elif dataclasses.is_dataclass(obj):
-            return dataclasses.asdict(obj)
+            # Cast for type checker because protocol uses ClassVar on __dataclass_fields__
+            return dataclasses.asdict(cast(Any, obj))
 
         # Handle dictionaries
         elif isinstance(obj, dict):

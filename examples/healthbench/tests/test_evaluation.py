@@ -1,6 +1,3 @@
-import json
-from typing import Dict, List
-
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
@@ -34,13 +31,15 @@ _HB_SAMPLES = [
     },
 ]
 
-_HB_INPUT_MESSAGES: List[List[Message]] = []
-_HB_RUBRICS_MAP: Dict[str, List[Dict]] = {}
+_HB_INPUT_MESSAGES: list[list[list[Message]]] = []
+_HB_RUBRICS_MAP: dict[str, list[dict]] = {}
 for s in _HB_SAMPLES:
     _HB_INPUT_MESSAGES.append(
         [
-            Message(role="system", content=SYSTEM_PROMPT),
-            Message(role="user", content=s["prompt_text"]),
+            [
+                Message(role="system", content=SYSTEM_PROMPT),
+                Message(role="user", content=s["prompt_text"]),
+            ]
         ]
     )
     _HB_RUBRICS_MAP[s["prompt_text"]] = s["rubrics"]

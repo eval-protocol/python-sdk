@@ -11,7 +11,7 @@ import json
 import logging
 import time
 from contextlib import AsyncExitStack
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import httpx
 from mcp.client.session import ClientSession
@@ -53,16 +53,26 @@ class MCPConnectionManager:
 
         exit_stack = AsyncExitStack()
 
-        client_info = Implementation(name="reward-kit", version="1.0.0", _extra={})
-        client_info._extra["session_id"] = session.session_id
+        # Attach client metadata for the server to consume (session_id, seed, config, etc.).
+        # The server inspects a private `_extra` dict on client_info, so we populate it here.
+        client_info = Implementation(name="reward-kit", version="1.0.0")
+        extra_data: Dict[str, Any] = {"session_id": session.session_id}
         if session.seed is not None:
-            client_info._extra["seed"] = session.seed
+            extra_data["seed"] = session.seed
         if session.dataset_row and session.dataset_row.environment_context:
-            client_info._extra["config"] = session.dataset_row.environment_context
+            extra_data["config"] = session.dataset_row.environment_context
         if session.dataset_row and session.dataset_row.id:
-            client_info._extra["dataset_row_id"] = session.dataset_row.id
+            extra_data["dataset_row_id"] = session.dataset_row.id
         if session.model_id:
-            client_info._extra["model_id"] = session.model_id
+            extra_data["model_id"] = session.model_id
+
+        # Merge with any existing _extra dict instead of overwriting
+        existing_extra = getattr(client_info, "_extra", None)
+        merged_extra: Dict[str, Any] = {}
+        if isinstance(existing_extra, dict):
+            merged_extra.update(existing_extra)
+        merged_extra.update(extra_data)
+        setattr(client_info, "_extra", merged_extra)
 
         read_stream, write_stream, _ = await exit_stack.enter_async_context(
             streamablehttp_client(session.base_url, terminate_on_close=True)
@@ -92,7 +102,10 @@ class MCPConnectionManager:
             # Only fetch tools if not already cached for this base_url
             if cache_key not in self._tools_cache:
                 logger.debug(f"Pre-warming tools cache for {cache_key}")
-                tools_response = await session._mcp_session.list_tools()
+                mcp_session_local = session._mcp_session
+                if mcp_session_local is None:
+                    raise RuntimeError("Session not initialized during prewarm")
+                tools_response = await mcp_session_local.list_tools()
                 tools = tools_response.tools if hasattr(tools_response, "tools") else []
 
                 tool_schemas = []
@@ -213,7 +226,7 @@ class MCPConnectionManager:
                 try:
                     # Use shorter timeout for playback mode, longer timeout for high-concurrency initialization
                     # (50+ concurrent sessions need more time for initial state setup)
-                    timeout = 3.0 if hasattr(session, "_is_playback_mode") and session._is_playback_mode else 15.0
+                    timeout = 3.0 if bool(getattr(session, "_is_playback_mode", False)) else 15.0
                     async with httpx.AsyncClient(timeout=timeout) as client:
                         initial_state_response = await client.get(
                             f"{base_url}/control/initial_state",
@@ -263,7 +276,10 @@ class MCPConnectionManager:
         try:
             # List available resources - this is where initial state should come from
             logger.debug(f"Session {session.session_id}: Discovering MCP resources for initial state...")
-            resources_response = await mcp_session.list_resources()
+            mcp_session_local = session._mcp_session
+            if mcp_session_local is None:
+                raise RuntimeError("Session not initialized while listing resources")
+            resources_response = await mcp_session_local.list_resources()
             resources = resources_response.resources if hasattr(resources_response, "resources") else []
             logger.debug(f"Session {session.session_id}: Found {len(resources)} MCP resources")
             for resource in resources:
@@ -290,17 +306,21 @@ class MCPConnectionManager:
                     f"Session {session.session_id}: Reading initial state from resource: {initial_state_resource.uri}"
                 )
 
-                resource_content = await mcp_session.read_resource(initial_state_resource.uri)
+                mcp_session_for_read = session._mcp_session
+                if mcp_session_for_read is None:
+                    raise RuntimeError("Session not initialized while reading resource")
+                resource_content = await mcp_session_for_read.read_resource(initial_state_resource.uri)
 
                 # Handle the new ResourceContents format
-                if hasattr(resource_content, "text"):
+                text_value = getattr(resource_content, "text", None)
+                if text_value is not None:
                     try:
-                        initial_observation = json.loads(resource_content.text)
+                        initial_observation = json.loads(text_value)
                         logger.info(
                             f"Session {session.session_id}: ✅ Successfully parsed JSON initial state with grid_layout: {initial_observation.get('grid_layout', 'N/A')[:20]}..."
                         )
                     except json.JSONDecodeError:
-                        initial_observation = {"observation": resource_content.text}
+                        initial_observation = {"observation": text_value}
                 elif (
                     hasattr(resource_content, "contents")
                     and resource_content.contents
@@ -308,11 +328,12 @@ class MCPConnectionManager:
                 ):
                     # Fallback to old format for backward compatibility
                     content = resource_content.contents[0]
-                    if hasattr(content, "text"):
+                    content_text = getattr(content, "text", None)
+                    if content_text is not None:
                         try:
-                            initial_observation = json.loads(content.text)
+                            initial_observation = json.loads(content_text)
                         except json.JSONDecodeError:
-                            initial_observation = {"observation": content.text}
+                            initial_observation = {"observation": content_text}
                     else:
                         initial_observation = {"observation": str(resource_content)}
                 else:
@@ -333,7 +354,10 @@ class MCPConnectionManager:
                         f"Session {session.session_id}: About to call mcp_session.read_resource with fallback URI: {first_resource.uri}"
                     )
 
-                    resource_content = await mcp_session.read_resource(first_resource.uri)
+                    mcp_session_for_fallback_read = session._mcp_session
+                    if mcp_session_for_fallback_read is None:
+                        raise RuntimeError("Session not initialized while reading fallback resource")
+                    resource_content = await mcp_session_for_fallback_read.read_resource(first_resource.uri)
 
                     logger.debug(
                         f"Session {session.session_id}: fallback read_resource returned type: {type(resource_content)}"
@@ -346,11 +370,12 @@ class MCPConnectionManager:
                     )
 
                     # Handle the new ResourceContents format
-                    if hasattr(resource_content, "text"):
+                    text_value_2 = getattr(resource_content, "text", None)
+                    if text_value_2 is not None:
                         try:
-                            initial_observation = json.loads(resource_content.text)
+                            initial_observation = json.loads(text_value_2)
                         except json.JSONDecodeError:
-                            initial_observation = {"observation": resource_content.text}
+                            initial_observation = {"observation": text_value_2}
                     elif (
                         hasattr(resource_content, "contents")
                         and resource_content.contents
@@ -358,11 +383,12 @@ class MCPConnectionManager:
                     ):
                         # Fallback to old format for backward compatibility
                         content = resource_content.contents[0]
-                        if hasattr(content, "text"):
+                        content_text_2 = getattr(content, "text", None)
+                        if content_text_2 is not None:
                             try:
-                                initial_observation = json.loads(content.text)
+                                initial_observation = json.loads(content_text_2)
                             except json.JSONDecodeError:
-                                initial_observation = {"observation": content.text}
+                                initial_observation = {"observation": content_text_2}
                         else:
                             initial_observation = {"observation": str(content)}
                     else:
@@ -415,9 +441,10 @@ class MCPConnectionManager:
         # Extract data plane results (observation only)
         if tool_result.content and len(tool_result.content) > 0:
             content = tool_result.content[0]
-            if hasattr(content, "text"):
+            text_value = getattr(content, "text", None)
+            if isinstance(text_value, str):
                 # Fix: Handle empty or invalid JSON responses gracefully
-                if not content.text or content.text.strip() == "":
+                if text_value.strip() == "":
                     logger.warning(f"Session {session.session_id}: Empty tool response from {tool_name}")
                     observation = {
                         "observation": "empty_response",
@@ -425,14 +452,14 @@ class MCPConnectionManager:
                     }
                 else:
                     try:
-                        observation = json.loads(content.text)
+                        observation = json.loads(text_value)
                     except json.JSONDecodeError as e:
                         logger.warning(
-                            f"Session {session.session_id}: Invalid JSON from {tool_name}: {content.text}. Error: {e}"
+                            f"Session {session.session_id}: Invalid JSON from {tool_name}: {text_value}. Error: {e}"
                         )
                         # Create a structured response from the raw text
                         observation = {
-                            "observation": content.text,
+                            "observation": text_value,
                             "session_id": session.session_id,
                             "error": "invalid_json_response",
                         }

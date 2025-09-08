@@ -127,7 +127,12 @@ def list_comparison_math_reward(
             },
         )
 
-    gen_content = messages[-1].content
+    gen_content_raw = messages[-1].content
+    gen_content = (
+        gen_content_raw
+        if isinstance(gen_content_raw, str)
+        else "".join([getattr(p, "text", "") for p in (gen_content_raw or [])])
+    )
     orig_content = ground_truth
 
     if not gen_content:

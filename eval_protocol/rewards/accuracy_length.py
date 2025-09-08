@@ -7,7 +7,7 @@ reward score.
 """
 
 import math
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, cast
 
 from ..models import EvaluateResult, Message, MetricResult
 from ..typed_interface import reward_function
@@ -77,12 +77,25 @@ def cosine_scaled_accuracy_length_reward(
                 )
             },
         )
-    text: str = response.content
+    # Coerce response content to string
+    text: str
+    if isinstance(response.content, str):
+        text = response.content
+    elif isinstance(response.content, list) and response.content:
+        # Join text parts if provided as structured content
+        try:
+            text = " ".join(part.text for part in response.content)  # type: ignore[union-attr]
+        except Exception:
+            text = ""
+    else:
+        text = ""
 
     # Step 1: Evaluate accuracy
-    accuracy_eval_result = accuracy_reward(
-        messages=messages,  # Pass the full messages list
-        ground_truth=ground_truth,  # Pass the ground_truth list
+    # Ensure ground_truth is a list if provided; default to [] for compatibility
+    gt_for_accuracy = ground_truth if ground_truth is not None else []
+    accuracy_eval_result = cast(Any, accuracy_reward)(
+        messages=messages,
+        ground_truth=gt_for_accuracy,
         extract_fn=extract_fn,
         compare_fn=compare_fn,
     )

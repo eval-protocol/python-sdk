@@ -3,6 +3,15 @@ import os
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
+from pydantic import BaseModel
+from typing import Optional
+
+
+class FunctionLike(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    parameters: Any = None
+
 
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
@@ -10,7 +19,6 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.types import CallToolResult
 from openai.types import FunctionDefinition
-from openai.types.chat import ChatCompletionToolParam
 
 from eval_protocol.models import (
     MCPConfigurationServerStdio,
@@ -90,8 +98,8 @@ class MCPMultiClient:
             if env_config:
                 self._validate_environment_variables(server_name, env_config)
 
-            # Use the current system environment (os.environ) - don't override with config
-            server_params = StdioServerParameters(command=command, args=args, env=os.environ)
+            # Use the current system environment (os.environ) - convert to plain dict for typing compatibility
+            server_params = StdioServerParameters(command=command, args=args, env=dict(os.environ))
 
             stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
             stdio, write = stdio_transport
@@ -125,7 +133,7 @@ class MCPMultiClient:
             [tool.name for tool in tools],
         )
 
-    async def get_available_tools(self) -> List[ChatCompletionToolParam]:
+    async def get_available_tools(self) -> List[Dict[str, Any]]:
         """Get all available tools from all connected servers"""
         all_tools = []
         for server_name, session in self.sessions.items():
@@ -133,21 +141,21 @@ class MCPMultiClient:
                 response = await session.list_tools()
                 for tool in response.tools:
                     all_tools.append(
-                        ChatCompletionToolParam(
-                            function=FunctionDefinition(
-                                name=tool.name,  # Prefix with server name
+                        {
+                            "type": "function",
+                            "function": FunctionLike(
+                                name=tool.name,
                                 description=tool.description,
                                 parameters=tool.inputSchema,
                             ),
-                            type="function",
-                        )
+                        }
                     )
             except Exception as e:
                 print(f"Error listing tools from server '{server_name}': {e}")
 
         return all_tools
 
-    async def call_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> CallToolResult:
+    async def call_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> Union[CallToolResult, str]:
         """Call a specific tool by name with arguments"""
 
         session = self.tools_to_sessions[tool_name]

@@ -7,7 +7,7 @@ import sys  # Added for path manipulation
 import time
 import types
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 if TYPE_CHECKING:
     # For type checking only
@@ -173,6 +173,8 @@ class Evaluator:
         self.description = ""
         self.display_name = ""
         self.api_base = os.environ.get("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+        # Optional requirements string for multi-metric mode (when loaded differently)
+        self._loaded_multi_metric_requirements_str: Optional[str] = None
 
         if self.ts_mode_config:
             python_code = self.ts_mode_config.get("python_code")
@@ -255,22 +257,21 @@ class Evaluator:
                                 for keyword in decorator_node.keywords:
                                     if keyword.arg == "requirements":
                                         if isinstance(keyword.value, ast.List):
-                                            reqs = []
+                                            reqs: List[str] = []
                                             for elt in keyword.value.elts:
-                                                if isinstance(elt, ast.Constant) and isinstance(
-                                                    elt.value, str
-                                                ):  # Python 3.8+
-                                                    reqs.append(elt.value)
+                                                if isinstance(elt, ast.Constant):  # Python 3.8+
+                                                    if isinstance(elt.value, str):
+                                                        reqs.append(cast(str, elt.value))
                                                 elif isinstance(elt, ast.Str):  # Python < 3.8
-                                                    reqs.append(elt.s)
+                                                    reqs.append(cast(str, elt.s))
                                             if reqs:
-                                                metric_requirements_list = reqs
+                                                metric_requirements_list = cast(List[str], reqs)
                                         elif isinstance(keyword.value, ast.Constant) and isinstance(
                                             keyword.value.value, str
                                         ):  # Python 3.8+ (single req string)
-                                            metric_requirements_list = [keyword.value.value]
+                                            metric_requirements_list = [cast(str, keyword.value.value)]
                                         elif isinstance(keyword.value, ast.Str):  # Python < 3.8 (single req string)
-                                            metric_requirements_list = [keyword.value.s]
+                                            metric_requirements_list = [cast(str, keyword.value.s)]
                                         break
                                 if metric_requirements_list:
                                     break

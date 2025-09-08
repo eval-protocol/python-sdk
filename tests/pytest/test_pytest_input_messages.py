@@ -7,7 +7,9 @@ from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 @evaluation_test(
     input_messages=[
         [
-            Message(role="user", content="What is the capital of France?"),
+            [
+                Message(role="user", content="What is the capital of France?"),
+            ]
         ]
     ],
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],

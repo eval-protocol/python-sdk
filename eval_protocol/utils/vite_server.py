@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import AsyncGenerator, Callable, Optional
+from typing import AsyncGenerator, Callable, Optional, Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -32,7 +32,7 @@ class ViteServer:
         host: str = "localhost",
         port: int = 8000,
         index_file: str = "index.html",
-        lifespan: Optional[Callable[[FastAPI], AsyncGenerator[None, None]]] = None,
+        lifespan: Optional[Callable[[FastAPI], Any]] = None,
     ):
         self.build_dir = Path(build_dir)
         self.host = host

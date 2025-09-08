@@ -36,7 +36,10 @@ class RetailEnvironment:
 
     def reset(self, seed: Optional[int] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Reset the environment to initial state"""
-        self.db = RetailDB.load(RETAIL_DB_PATH)
+        # RetailDB.load expects a str path
+        db_loaded = RetailDB.load(str(RETAIL_DB_PATH))
+        assert isinstance(db_loaded, RetailDB)
+        self.db = db_loaded
         self.retail_tools = RetailTools(self.db)
 
         return {}, {}

@@ -174,7 +174,10 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
                 if isinstance(last_block, ast.If):
                     condition = last_block.test
                     if ast.unparse(condition).strip() == "__name__ == '__main__'":
-                        test = ast.unparse(astree.body[:-1]) + "\n" + ast.unparse(last_block.body)
+                        # Build modules for unparse to avoid passing lists to ast.unparse
+                        prefix_module = ast.Module(body=astree.body[:-1], type_ignores=[])
+                        body_module = ast.Module(body=last_block.body, type_ignores=[])
+                        test = ast.unparse(prefix_module) + "\n" + ast.unparse(body_module)
             except Exception:
                 pass
 
@@ -252,7 +255,9 @@ def run_test(in_outs, test=None, debug=False, timeout=15):
             print(f"get method = {datetime.now().time()}")
 
         try:
-            method = getattr(tmp, method_name)
+            # Ensure attribute name is a string for getattr
+            method_name_str = str(method_name)
+            method = getattr(tmp, method_name_str)
         except AttributeError:  # More specific exception
             signal.alarm(0)
             error_traceback = traceback.format_exc()

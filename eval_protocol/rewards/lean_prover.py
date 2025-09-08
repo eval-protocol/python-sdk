@@ -57,7 +57,8 @@ def lean_prover_reward(
             },
         )
 
-    response = messages[-1].content
+    last_content = messages[-1].content
+    response = last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])
     if not response:
         return EvaluateResult(
             score=0.0,
@@ -230,7 +231,10 @@ def deepseek_prover_v2_reward(
         and messages[-1].role == "assistant"
         and messages[-1].content is not None
     ):
-        response_content = messages[-1].content
+        last_content = messages[-1].content
+        response_content = (
+            last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])
+        )
 
     final_score = base_score
     subgoal_count = 0
@@ -413,7 +417,7 @@ def deepseek_huggingface_prover_benchmark(
     expected_proof = expected_proof_from_gt
     reference_solution = None
     if dataset_item:
-        if not expected_proof:
+        if not expected_proof and dataset_item is not None:
             expected_proof = dataset_item.get("expected_proof", None)
         reference_solution = dataset_item.get("reference_solution", None)
     proof_reference = expected_proof or reference_solution
@@ -463,17 +467,16 @@ def deepseek_huggingface_prover_benchmark(
         current_top_level_reason += f" Sub-evaluation: {result_reason}"
 
     if verbose:
+        info_payload = {
+            "id": (dataset_item.get("id", "") if dataset_item else ""),
+            "has_expected_proof": expected_proof is not None,
+            "has_reference_solution": reference_solution is not None,
+            "has_answer": (("answer" in dataset_item) if dataset_item else False),
+        }
         combined_metrics["dataset_info"] = MetricResult(
             score=1.0,
             is_score_valid=True,
-            reason=json.dumps(
-                {
-                    "id": dataset_item.get("id", ""),
-                    "has_expected_proof": expected_proof is not None,
-                    "has_reference_solution": reference_solution is not None,
-                    "has_answer": "answer" in dataset_item if dataset_item else False,
-                }
-            ),
+            reason=json.dumps(info_payload),
         )
 
     return EvaluateResult(score=result_score, reason=current_top_level_reason, metrics=combined_metrics)

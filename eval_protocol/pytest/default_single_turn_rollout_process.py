@@ -5,10 +5,11 @@ import time
 from typing import List
 
 from litellm import acompletion
-from openai.types.chat.chat_completion_message import ChatCompletionMessageToolCall
+from typing import Dict
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
+from openai.types import CompletionUsage
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
@@ -24,6 +25,8 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row asynchronously."""
+            start_time = time.perf_counter()
+
             if len(row.messages) == 0:
                 raise ValueError("Messages is empty. Please provide a non-empty dataset")
 
@@ -71,17 +74,34 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
             converted_tool_calls = None
             if tool_calls:
-                converted_tool_calls = [
-                    ChatCompletionMessageToolCall(
-                        id=tool_call.id,
-                        type=tool_call.type,
-                        function={
-                            "name": tool_call.function.name,
-                            "arguments": tool_call.function.arguments,
-                        },
-                    )
-                    for tool_call in tool_calls
-                ]
+                converted_tool_calls = []
+                for tool_call in tool_calls:
+                    try:
+                        converted_tool_calls.append(
+                            {
+                                "id": tool_call.id,
+                                "type": tool_call.type,
+                                "function": {
+                                    "name": tool_call.function.name,
+                                    "arguments": tool_call.function.arguments,
+                                },
+                            }
+                        )
+                    except Exception:
+                        # best-effort: fallback to dict form
+                        try:
+                            converted_tool_calls.append(
+                                {
+                                    "id": getattr(tool_call, "id", "toolcall_0"),
+                                    "type": getattr(tool_call, "type", "function"),
+                                    "function": {
+                                        "name": getattr(getattr(tool_call, "function", None), "name", "tool"),
+                                        "arguments": getattr(getattr(tool_call, "function", None), "arguments", "{}"),
+                                    },
+                                }
+                            )
+                        except Exception:
+                            pass
 
             messages = list(row.messages) + [
                 Message(
@@ -91,13 +111,20 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 )
             ]
 
+            row.execution_metadata.usage = CompletionUsage(
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+            )
+
             row.messages = messages
+
+            row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+
             default_logger.log(row)
             return row
 
-        # Process rows with bounded concurrency
-        max_concurrent = getattr(config, "max_concurrent_rollouts", 8) or 8
-        semaphore = asyncio.Semaphore(max_concurrent)
+        semaphore = config.semaphore
 
         async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:
             async with semaphore:

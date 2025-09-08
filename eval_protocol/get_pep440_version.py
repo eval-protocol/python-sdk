@@ -1,7 +1,15 @@
 # Cache for PEP 440 version string
 import subprocess
 
-_version_cache = {"version": None, "base_version": None}
+from typing import Dict, Optional, TypedDict
+
+
+class _VersionCache(TypedDict):
+    version: Optional[str]
+    base_version: Optional[str]
+
+
+_version_cache: _VersionCache = {"version": None, "base_version": None}
 
 
 def get_pep440_version(base_version=None):

@@ -12,6 +12,7 @@ import eval_protocol as ep
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
+from eval_protocol.mcp.execution.manager import ExecutionManager
 
 
 class MCPServerManager:
@@ -107,7 +108,7 @@ class MCPServerManager:
 
         while time.time() - start_time < timeout:
             # Check if process is still running
-            if self.process.poll() is not None:
+            if self.process and self.process.poll() is not None:
                 print("Server process exited early")
                 return False
 
@@ -220,7 +221,9 @@ class MCPGymRolloutProcessor(RolloutProcessor):
                 self.server.start()
 
                 self.policy = ep.LiteLLMPolicy(
-                    model_id=config.completion_params.get("model", None),
+                    model_id=str(
+                        (config.completion_params.get("model") if config.completion_params else None) or "gpt-4o-mini"
+                    ),
                     temperature=config.completion_params.get("temperature", 0.0),
                     max_tokens=config.completion_params.get("max_tokens", 4096),
                     **(config.completion_params.get("extra_body", {}) or {}),
@@ -241,19 +244,21 @@ class MCPGymRolloutProcessor(RolloutProcessor):
                 )
 
         # Create MCP environments directly from evaluation_rows
+        assert self.policy is not None, "Policy must be initialized before rollout"
         envs = ep.make(
             "http://localhost:9700/mcp/",
             evaluation_rows=rows,
             model_id=self.policy.model_id,
         )
 
-        # Get rollout tasks from ep.rollout
-        tasks = ep.rollout(
+        # TODO: chat with benny/dylan about when they're back. can we just bypass ep.rollout()? i don't really see the point of it anymore. or turn it into a return list of tasks.
+        execution_manager = ExecutionManager()
+        tasks = execution_manager.execute_rollouts(
             envs,
             policy=self.policy,
-            evaluation_rows=rows,
+            semaphore=config.semaphore,
             steps=config.steps,
-            max_concurrent_rollouts=config.max_concurrent_rollouts,
+            evaluation_rows=rows,
         )
         return tasks
 

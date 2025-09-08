@@ -79,7 +79,10 @@ def adapt_metric(metric: Any):
                 case_kwargs["actual_output"] = output
             return case_kwargs
 
-        if isinstance(metric, BaseConversationalMetric):
+        if BaseConversationalMetric is not None and isinstance(metric, BaseConversationalMetric):
+            # Narrow types for optional imports to satisfy the type checker
+            assert LLMTestCase is not None
+            assert ConversationalTestCase is not None
             turns = []
             for i, msg in enumerate(messages):
                 turn_input = messages[i - 1].get("content", "") if i > 0 else ""
@@ -93,10 +96,16 @@ def adapt_metric(metric: Any):
                 output = messages[-1].get("content", "")
             test_case = ConversationalTestCase(turns=turns)
         else:
+            # Narrow types for optional imports to satisfy the type checker
+            assert LLMTestCase is not None
             case_kwargs = _build_case_kwargs()
             test_case = LLMTestCase(**case_kwargs)
 
-        metric.measure(test_case, **kwargs)
+        # Guard against metric.measure being None or non-callable
+        measure_fn = getattr(metric, "measure", None)
+        if not callable(measure_fn):
+            raise TypeError("Provided metric does not have a callable 'measure' method")
+        measure_fn(test_case, **kwargs)
         score = float(metric.score or 0.0)
         reason = getattr(metric, "reason", None)
         name = _metric_name(metric)

@@ -699,9 +699,9 @@ def _validate_trajectory_termination(env_recordings: Dict, dataset: List[Dict]):
 @reward_function
 def tau2_airline_eval(
     messages: List[Message],
-    nl_assertions: List[str] = None,
-    communicate_info: List[str] = None,
-    actions: List[dict] = None,
+    nl_assertions: Optional[List[str]] = None,
+    communicate_info: Optional[List[str]] = None,
+    actions: Optional[List[dict]] = None,
     **kwargs,
 ) -> EvaluateResult:
     """
@@ -726,6 +726,7 @@ def tau2_airline_eval(
     for msg in messages:
         role = msg.role
         content = msg.content
+        assert isinstance(content, str), "Content must be a string"
 
         if role == "system":
             trajectory_objects.append(SystemMessage(role=role, content=content))
@@ -738,6 +739,7 @@ def tau2_airline_eval(
                         id=tool_call.id,
                         name=tool_call.function.name,
                         arguments=arguments,
+                        requestor="assistant",
                     )
                     tau2_tool_calls.append(tau2_tool_call)
 
@@ -745,15 +747,28 @@ def tau2_airline_eval(
         elif role == "user":
             trajectory_objects.append(UserMessage(role=role, content=content))
         elif role == "tool":
-            tool_id = msg.tool_call_id
-            trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=content))
+            tool_id = msg.tool_call_id or ""
+            trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=content, requestor="assistant"))
 
     reward = 1.0
+
+    # Convert incoming action dicts to typed Action objects for the evaluator
+    action_objs: Optional[List[Action]] = None
+    if actions is not None:
+        action_objs = []
+        for a in actions:
+            if isinstance(a, Action):
+                action_objs.append(a)
+            elif isinstance(a, dict):
+                action_objs.append(Action(**a))
+            else:
+                raise TypeError("actions must be a list of Action or dict items")
 
     evaluation_criteria = EvaluationCriteria(
         nl_assertions=nl_assertions,
         communicate_info=communicate_info,
-        actions=actions,
+        actions=action_objs,
+        env_assertions=None,
         reward_basis=[
             RewardType.NL_ASSERTION,
             RewardType.DB,
@@ -763,7 +778,12 @@ def tau2_airline_eval(
     )
 
     task = Task(
-        id="Filler", evaluation_criteria=evaluation_criteria, user_scenario=UserScenario(instructions="Filler")
+        id="Filler",
+        description=None,
+        user_scenario=UserScenario(instructions="Filler", persona=None),
+        ticket=None,
+        initial_state=None,
+        evaluation_criteria=evaluation_criteria,
     )  # id and user_scenario are required for the Task type but not used in calculating reward, filler values
 
     env_reward_info = EnvironmentEvaluator.calculate_reward(
@@ -789,7 +809,8 @@ def tau2_airline_eval(
     action_bases = {RewardType.ACTION}
     nl_bases = {RewardType.NL_ASSERTION}
     comm_bases = {RewardType.COMMUNICATE}
-    task_reward_basis = set(task.evaluation_criteria.reward_basis)
+    # task.evaluation_criteria can be Optional in the type hints; guard for None
+    task_reward_basis = set(task.evaluation_criteria.reward_basis) if task.evaluation_criteria else set()
 
     reward_breakdown = {}
     if task_reward_basis & env_bases:

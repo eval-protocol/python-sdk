@@ -97,7 +97,7 @@ def load_and_process_dataset(
     # preprocessing_steps: Optional[List[str]] = None, # To be implemented
     hf_extra_load_params: Optional[Dict[str, Any]] = None,
     **kwargs: Any,  # Catch-all for other params
-) -> Union[Dataset, DatasetDict, List[Dict[str, Any]]]:
+) -> Union[Dataset, DatasetDict]:
     """
     Loads a dataset from the specified source.
 
@@ -116,7 +116,8 @@ def load_and_process_dataset(
     Returns:
         Loaded dataset, typically as Hugging Face Dataset or DatasetDict.
     """
-    loaded_dataset: Union[Dataset, DatasetDict, List[Dict[str, Any]]]
+    # Hugging Face load_dataset always returns Dataset or DatasetDict in our supported modes
+    loaded_dataset: Union[Dataset, DatasetDict]
 
     # Prepare kwargs for datasets.load_dataset, separating out custom ones
     load_kwargs_for_hf = hf_extra_load_params.copy() if hf_extra_load_params else {}
@@ -238,9 +239,6 @@ def load_and_process_dataset(
             for s_name in loaded_dataset.keys():
                 if len(loaded_dataset[s_name]) > max_samples:
                     loaded_dataset[s_name] = loaded_dataset[s_name].select(range(max_samples))
-        elif isinstance(loaded_dataset, list):  # Should not happen if always converting to HF Dataset
-            if len(loaded_dataset) > max_samples:
-                loaded_dataset = loaded_dataset[:max_samples]
 
     # Apply column mapping if provided
     if column_mapping_from_kwargs and isinstance(loaded_dataset, (Dataset, DatasetDict)):

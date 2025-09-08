@@ -38,7 +38,12 @@ class AirlineEnvironment:
     def reset(self, seed: Optional[int] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Reset the environment to initial state"""
         logger.info("🔄 Resetting airline environment - reloading database from disk")
-        self.db = FlightDB.load(AIRLINE_DB_PATH)
+        # FlightDB.load expects a str path
+        # Ensure type matches expected FlightDB
+        # FlightDB.load returns vendor.tau2.domains.airline.data_model.FlightDB which is compatible
+        db_loaded = FlightDB.load(str(AIRLINE_DB_PATH))
+        assert isinstance(db_loaded, FlightDB)
+        self.db = db_loaded
         self.airline_tools = AirlineTools(self.db)
 
         return {}, {}
@@ -67,6 +72,7 @@ class AirlineEnvironment:
 
     def _execute_airline_action(self, action_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
         """Execute action using airline tools."""
+        assert isinstance(self.airline_tools, AirlineTools), "Airline tools not initialized"
         action_map = {
             "book_reservation": self.airline_tools.book_reservation,
             "cancel_reservation": self.airline_tools.cancel_reservation,

@@ -4,7 +4,7 @@ from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProc
 
 
 @evaluation_test(
-    input_rows=[EvaluationRow(messages=[Message(role="user", content="What is the capital of France?")])],
+    input_rows=[[EvaluationRow(messages=[Message(role="user", content="What is the capital of France?")])]],
     completion_params=[{"model": "no-op"}],
     rollout_processor=NoOpRolloutProcessor(),
     mode="pointwise",

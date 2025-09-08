@@ -60,7 +60,7 @@ def reasoning_steps_reward(
                 )
             },
         )
-    text: str = response.content
+    text: str = response.content if isinstance(response.content, str) else ""
 
     # Default patterns for detecting reasoning steps
     default_patterns = [
@@ -199,7 +199,7 @@ def sequence_reward(
                 )
             },
         )
-    text: str = response.content
+    text: str = response.content if isinstance(response.content, str) else ""
 
     if not sequence_terms:
         sequence_terms = [

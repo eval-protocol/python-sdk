@@ -8,7 +8,20 @@ specified XML/HTML-like tags in correct quantities.
 import re
 from typing import Any, Dict, List, Set, Union
 
-from ..models import EvaluateResult, Message, MetricResult
+from ..models import EvaluateResult, Message, MetricResult, ChatCompletionContentPartTextParam
+
+
+def _to_text(content: Union[str, List[ChatCompletionContentPartTextParam], None]) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    try:
+        return "\n".join(part.text for part in content)
+    except Exception:
+        return ""
+
+
 from ..typed_interface import reward_function
 
 
@@ -46,7 +59,7 @@ def tag_count_reward(
 
     response = messages[-1]
 
-    if response.role != "assistant" or not response.content:
+    if response.role != "assistant" or response.content is None:
         return EvaluateResult(
             score=0.0,
             reason="No assistant response found or response has no content",
@@ -58,7 +71,7 @@ def tag_count_reward(
                 )
             },
         )
-    text: str = response.content
+    text: str = _to_text(response.content)
 
     tag_metrics = {}
     found_tags: Set[str] = set()

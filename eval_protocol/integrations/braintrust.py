@@ -1,6 +1,6 @@
 """Adapters for integrating Eval Protocol with Braintrust scoring functions."""
 
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, cast
 
 from eval_protocol.models import EvaluateResult, Message
 from eval_protocol.typed_interface import reward_function
@@ -17,8 +17,9 @@ def scorer_to_reward_fn(
 ) -> Callable[[List[Message], Optional[List[Message]]], EvaluateResult]:
     """Wrap a Braintrust scorer as an Eval Protocol reward function."""
 
-    @reward_function
-    def reward_fn(messages: List[Message], ground_truth: Optional[List[Message]] = None, **kwargs) -> EvaluateResult:
+    def reward_fn_core(
+        messages: List[Message], ground_truth: Optional[List[Message]] = None, **kwargs: Any
+    ) -> EvaluateResult:
         input_val = messages_to_input(messages) if messages_to_input else messages[0].content
         output_val = messages[-1].content
         expected_val = None
@@ -27,9 +28,11 @@ def scorer_to_reward_fn(
                 ground_truth_to_expected(ground_truth) if ground_truth_to_expected else ground_truth[-1].content
             )
         score = scorer(input_val, output_val, expected_val)
-        return EvaluateResult(score=score)
+        return EvaluateResult(score=float(score))
 
-    return reward_fn
+    # Wrap with reward_function decorator while preserving precise callable type for type checker
+    wrapped = reward_function(reward_fn_core)
+    return cast(Callable[[List[Message], Optional[List[Message]]], EvaluateResult], wrapped)
 
 
 def reward_fn_to_scorer(
@@ -45,7 +48,7 @@ def reward_fn_to_scorer(
         ground_truth = None
         if expected is not None:
             ground_truth = [Message(role="assistant", content=str(expected))]
-        result = reward_fn(messages=messages, ground_truth=ground_truth)
-        return result.score
+        result = reward_fn(messages, ground_truth)
+        return float(result.score)
 
     return scorer

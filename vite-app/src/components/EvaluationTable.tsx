@@ -166,6 +166,14 @@ export const EvaluationTable = observer(() => {
               <tr>
                 <TableHeader className="w-8">&nbsp;</TableHeader>
                 <SortableTableHeader
+                  sortField="created_at"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Created
+                </SortableTableHeader>
+                <SortableTableHeader
                   sortField="$.eval_metadata.name"
                   currentSortField={state.sortField}
                   currentSortDirection={state.sortDirection}
@@ -244,14 +252,6 @@ export const EvaluationTable = observer(() => {
                   onSort={handleSort}
                 >
                   Score
-                </SortableTableHeader>
-                <SortableTableHeader
-                  sortField="created_at"
-                  currentSortField={state.sortField}
-                  currentSortDirection={state.sortDirection}
-                  onSort={handleSort}
-                >
-                  Created
                 </SortableTableHeader>
               </tr>
             </TableHead>

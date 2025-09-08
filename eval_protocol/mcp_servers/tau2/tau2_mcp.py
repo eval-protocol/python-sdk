@@ -43,6 +43,7 @@ class AirlineDomainMcp(McpGym):
 
         self.adapter = EnvironmentAdapter(env_class=AirlineEnvironment, default_config=default_config)
 
+        # Ensure name is a str and not None
         super().__init__("airline", self.adapter, seed, **kwargs)
 
     def _register_tools(self):
@@ -421,7 +422,7 @@ class MockDomainMcp(McpGym):
         """Register mock-specific MCP tools matching τ²-Bench schemas"""
 
         @self.mcp.tool(name="create_task", description="Create a new task for a user.")
-        def create_task(user_id: str, title: str, ctx: Context, description: str = None) -> Dict[str, Any]:
+        def create_task(user_id: str, title: str, ctx: Context, description: Optional[str] = None) -> Dict[str, Any]:
             """Create a new task for a user"""
             session_id = self._get_session_id(ctx)
 

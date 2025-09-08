@@ -3,6 +3,10 @@ import asyncio
 from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.exceptions import ModelRetry
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from db import connect_database
 
 
@@ -25,6 +29,7 @@ table_name,column_name,data_type,is_nullable
     agent = Agent(
         system_prompt=SYSTEM_PROMPT,
         model=orchestrator_agent_model,
+        instrument=True,
     )
 
     @agent.tool(retries=5)

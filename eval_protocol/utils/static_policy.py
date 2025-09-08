@@ -19,7 +19,7 @@ import random
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 # Import the base policy and types for proper recording functionality
-from openai.types import CompletionUsage
+from typing import Optional as _Optional
 
 from ..playback_policy import PlaybackPolicyBase
 from ..types import MCPToolCall
@@ -73,7 +73,7 @@ class StaticPolicy(PlaybackPolicyBase):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List[MCPToolCall], CompletionUsage, str]:
+    ) -> Tuple[List[MCPToolCall], Optional[Dict[str, int]], Optional[str]]:
         """
         Generate tool calls in live mode using the static action sequence.
 
@@ -105,7 +105,7 @@ class StaticPolicy(PlaybackPolicyBase):
 
         logger.debug(f"🎮 Env {env_index} step {step_count}: {action}")
 
-        usage_stats = CompletionUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
+        usage_stats: Optional[Dict[str, int]] = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         return [tool_call], usage_stats, None
 
     def add_tool_response(
@@ -116,7 +116,7 @@ class StaticPolicy(PlaybackPolicyBase):
         conversation_history: List[Dict[str, Any]],
         reward: float = 0.0,
         terminated: bool = False,
-        info: Dict[str, Any] = None,
+        info: Optional[Dict[str, Any]] = None,
     ):
         """Add tool call and response to conversation history for recording."""
 
@@ -220,7 +220,7 @@ class RandomPolicy(PlaybackPolicyBase):
         tool_schemas: List[Dict],
         env_index: int,
         conversation_history: List[Dict[str, Any]],
-    ) -> Tuple[List[MCPToolCall], CompletionUsage, str]:
+    ) -> Tuple[List[MCPToolCall], Optional[Dict[str, int]], Optional[str]]:
         """
         Generate random tool calls in live mode.
 
@@ -240,7 +240,7 @@ class RandomPolicy(PlaybackPolicyBase):
 
         logger.debug(f"🎲 Env {env_index}: {action}")
 
-        usage_stats = CompletionUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
+        usage_stats: Optional[Dict[str, int]] = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         return [tool_call], usage_stats, None
 
     def add_tool_response(
@@ -251,7 +251,7 @@ class RandomPolicy(PlaybackPolicyBase):
         conversation_history: List[Dict[str, Any]],
         reward: float = 0.0,
         terminated: bool = False,
-        info: Dict[str, Any] = None,
+        info: Optional[Dict[str, Any]] = None,
     ):
         """Add tool call and response to conversation history for recording."""
 

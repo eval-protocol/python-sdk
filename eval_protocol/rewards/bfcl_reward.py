@@ -262,7 +262,8 @@ def bfcl_reward(
             assistant_message_found = True
             total_assistant_messages += 1
             # Check for any content or any tool_call
-            if (msg.content and msg.content.strip()) or msg.tool_calls:
+            content_str = msg.content if isinstance(msg.content, str) else ""
+            if (content_str and content_str.strip()) or msg.tool_calls:
                 valid_assistant_messages += 1
 
     if not assistant_message_found:

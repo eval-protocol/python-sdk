@@ -2,11 +2,16 @@ import asyncio
 import csv
 import io
 import re
-from typing import List
 
 import requests
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
+from eval_protocol.models import (
+    EvaluateResult,
+    EvaluationRow,
+    Message,
+    MetricResult,
+    ChatCompletionContentPartTextParam,
+)
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
 )
@@ -20,12 +25,12 @@ SYSTEM_PROMPT = (
 )
 
 
-def _load_gpqa_messages_from_csv() -> List[List[Message]]:
+def _load_gpqa_messages_from_csv() -> list[list[list[Message]]]:
     url = "https://openaipublic.blob.core.windows.net/simple-evals/gpqa_diamond.csv"
     resp = requests.get(url, timeout=60)
     resp.raise_for_status()
 
-    messages_list: List[List[Message]] = []
+    messages_list: list[list[Message]] = []
     reader = csv.DictReader(io.StringIO(resp.text))
     for ex in reader:
         q = str(ex.get("Question", ""))
@@ -45,7 +50,15 @@ def _load_gpqa_messages_from_csv() -> List[List[Message]]:
         )
     if not messages_list:
         raise RuntimeError("Failed to load GPQA messages: no rows found from source")
-    return messages_list
+    return [messages_list]
+
+
+def _coerce_content_to_str(
+    content: str | list[ChatCompletionContentPartTextParam] | None,
+) -> str:
+    if isinstance(content, list):
+        return "".join([getattr(p, "text", str(p)) for p in content])
+    return str(content or "")
 
 
 def _extract_abcd_letter(text: str) -> str | None:
@@ -58,8 +71,13 @@ def _extract_abcd_letter(text: str) -> str | None:
 _GPQA_INPUT_MESSAGES = _load_gpqa_messages_from_csv()
 
 
-def _strip_gt_messages(msgs: List[Message]) -> List[Message]:
-    return [m for m in msgs if not (m.role == "system" and (m.content or "").startswith("__GT__:"))]
+def _strip_gt_messages(msgs: list[Message]) -> list[Message]:
+    result: list[Message] = []
+    for m in msgs:
+        content_str = _coerce_content_to_str(m.content)
+        if not (m.role == "system" and content_str.startswith("__GT__:")):
+            result.append(m)
+    return result
 
 
 class GPQAStripGTRolloutProcessor(RolloutProcessor):
@@ -69,20 +87,28 @@ class GPQAStripGTRolloutProcessor(RolloutProcessor):
         super().__init__()
         self.single_turn_processor = SingleTurnRolloutProcessor()
 
-    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+    def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
         """Preprocess rows and delegate to SingleTurnRolloutProcessor."""
-        processed: List[EvaluationRow] = []
+        processed: list[EvaluationRow] = []
 
         for r in rows:
-            gt_tokens = [
-                m.content for m in r.messages if m.role == "system" and (m.content or "").startswith("__GT__:")
-            ]
+            gt_tokens: list[str] = []
+            for m in r.messages:
+                if m.role == "system":
+                    content_str = _coerce_content_to_str(m.content)
+                    if content_str.startswith("__GT__:"):
+                        gt_tokens.append(content_str)
             if gt_tokens:
                 gt_val = gt_tokens[-1].split(":", 1)[1].strip()
                 r.ground_truth = gt_val
-                r.messages = [
-                    m for m in r.messages if not (m.role == "system" and (m.content or "").startswith("__GT__:"))
-                ]
+                filtered: list[Message] = []
+                for m in r.messages:
+                    if m.role == "system":
+                        content_str = _coerce_content_to_str(m.content)
+                        if content_str.startswith("__GT__:"):
+                            continue
+                    filtered.append(m)
+                r.messages = filtered
             processed.append(r)
 
         # Delegate to SingleTurnRolloutProcessor
@@ -102,9 +128,10 @@ class GPQAStripGTRolloutProcessor(RolloutProcessor):
 )
 def test_gpqa_pointwise(row: EvaluationRow) -> EvaluationRow:
     assistant_msgs = [m for m in row.messages if m.role == "assistant"]
-    content = assistant_msgs[-1].content if assistant_msgs else ""
+    raw_content = assistant_msgs[-1].content if assistant_msgs else ""
+    content_str = _coerce_content_to_str(raw_content)
 
-    pred = _extract_abcd_letter(content or "")
+    pred = _extract_abcd_letter(content_str)
     # GPQA diamond CSV constructs options so that the correct answer is always A
     gt = "A"
 

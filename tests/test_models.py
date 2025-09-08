@@ -175,7 +175,7 @@ def test_metric_result_dict_access():
     assert metric.get("invalid_key", "default_val") == "default_val"
 
     # keys()
-    assert set(metric.keys()) == {"score", "reason", "is_score_valid"}
+    assert set(metric.keys()) == {"score", "reason", "is_score_valid", "data"}
 
     # values() - order might not be guaranteed by model_fields, so check content
     # Pydantic model_fields preserves declaration order.

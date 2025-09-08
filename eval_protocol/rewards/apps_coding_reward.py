@@ -84,7 +84,7 @@ def evaluate_apps_solution(messages: List[Message], ground_truth: Optional[str],
             reason="No messages provided.",
         )
 
-    raw_solution_content = messages[-1].content
+    raw_solution_content = messages[-1].content if isinstance(messages[-1].content, str) else ""
     code_solution = _extract_python_code(raw_solution_content)
 
     if not code_solution or not code_solution.strip():

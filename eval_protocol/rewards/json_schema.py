@@ -2,7 +2,7 @@ import json
 import re
 from typing import Any, Dict, List, Optional, Union
 
-from ..models import EvaluateResult, Message, MetricResult
+from ..models import EvaluateResult, Message, MetricResult, ChatCompletionContentPartTextParam
 from ..typed_interface import reward_function
 from .function_calling import (
     calculate_jaccard_similarity,
@@ -54,7 +54,15 @@ def json_schema_reward(
 
         if isinstance(last_message, Message):
             if last_message.role == "assistant" and last_message.content is not None:
-                content_text = last_message.content
+                # Coerce to string if content is list parts
+                if isinstance(last_message.content, str):
+                    content_text = last_message.content
+                else:
+                    try:
+                        parts: List[ChatCompletionContentPartTextParam] = last_message.content  # type: ignore[assignment]
+                        content_text = "\n".join(getattr(p, "text", "") for p in parts)
+                    except Exception:
+                        content_text = ""
             else:
                 return EvaluateResult(
                     score=0.0,
@@ -69,7 +77,8 @@ def json_schema_reward(
                 )
         elif isinstance(last_message, dict):
             if last_message.get("role") == "assistant" and last_message.get("content") is not None:
-                content_text = last_message.get("content", "")
+                raw_content = last_message.get("content", "")
+                content_text = raw_content if isinstance(raw_content, str) else ""
             else:
                 return EvaluateResult(
                     score=0.0,
@@ -295,7 +304,15 @@ def json_schema_reward_with_llm_judge(
             if "error" in schema_result.metrics:
                 return schema_result
             last_message = messages[-1]
-            content = last_message.get("content", "")
+            assert last_message is not None, "Last message is None"
+            # Support both dict-shaped messages and pydantic Message objects
+            if isinstance(last_message, dict):
+                content = last_message.get("content", "")
+            else:
+                try:
+                    content = getattr(last_message, "content", "")
+                except Exception:
+                    content = ""
             json_str_from_msg = ""
             try:
                 pattern = r"```(?:json)?\s*([\s\S]*?)```"
@@ -325,8 +342,13 @@ def json_schema_reward_with_llm_judge(
         if messages:
             conversation_parts = []
             for msg in messages[:-1]:
-                role = msg.get("role", "")
-                content_part = msg.get("content", "")
+                if isinstance(msg, dict):
+                    role = msg.get("role", "")
+                    content_part = msg.get("content", "")
+                else:
+                    # Fallback for Message objects
+                    role = getattr(msg, "role", "")
+                    content_part = getattr(msg, "content", "")
                 if role and content_part:
                     conversation_parts.append(f"{role}: {content_part}")
             if conversation_parts:

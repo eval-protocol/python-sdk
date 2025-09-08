@@ -2,16 +2,15 @@
 """
 Simple test to verify the retry mechanism works with evaluation_test.
 """
+# pyright: reportAny=false
+# pyright: reportPrivateImportUsage=false
 
 import asyncio
-import os
 from collections import Counter
-from typing import List
+from typing_extensions import override
 from unittest.mock import Mock
 
-import pytest
-
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message, Status
+from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest.evaluation_test import evaluation_test
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
@@ -23,9 +22,10 @@ class MockRolloutProcessorWithRetries(RolloutProcessor):
     """Mock rollout processor that fails second task alphabetically on first attempt, succeeds on retry"""
 
     def __init__(self):
-        self.mock_tracker = Mock()
+        self.mock_tracker: Mock = Mock()
 
-    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+    @override
+    def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
         # Track this batch call
         self.mock_tracker.batch_call(len(rows))
 
@@ -67,7 +67,7 @@ class MockRolloutProcessorWithRetries(RolloutProcessor):
 
         # Create and return tasks (let evaluation_test handle them)
         tasks = [
-            asyncio.create_task(process_single_row(row, row_setup[i]["delay"], row_setup[i]["should_fail"]))
+            asyncio.create_task(process_single_row(row, row_setup[i]["delay"], row_setup[i]["should_fail"]))  # pyright: ignore[reportArgumentType]
             for i, row in enumerate(rows)
         ]
 
@@ -81,11 +81,13 @@ shared_processor = MockRolloutProcessorWithRetries()
 @evaluation_test(
     completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
     input_messages=[
-        [Message(role="user", content="Task A")],
-        [Message(role="user", content="Task B")],
-        [Message(role="user", content="Task C")],
-        [Message(role="user", content="Task D")],
-        [Message(role="user", content="Task E")],
+        [
+            [Message(role="user", content="Task A")],
+            [Message(role="user", content="Task B")],
+            [Message(role="user", content="Task C")],
+            [Message(role="user", content="Task D")],
+            [Message(role="user", content="Task E")],
+        ]
     ],
     rollout_processor=shared_processor,
     num_runs=1,
@@ -163,9 +165,10 @@ class MockRolloutProcessorFailFast(RolloutProcessor):
     """Mock processor that always raises ValueError (fail-fast exception)"""
 
     def __init__(self):
-        self.mock_tracker = Mock()
+        self.mock_tracker: Mock = Mock()
 
-    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+    @override
+    def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
         self.mock_tracker.batch_call(len(rows))
 
         async def process_single_row(row: EvaluationRow) -> EvaluationRow:
@@ -182,7 +185,7 @@ shared_processor_fail_fast = MockRolloutProcessorFailFast()
 
 @evaluation_test(
     completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
-    input_messages=[[Message(role="user", content="Test")]],
+    input_messages=[[[Message(role="user", content="Test")]]],
     rollout_processor=shared_processor_fail_fast,
     num_runs=1,
     mode="pointwise",
@@ -226,9 +229,10 @@ class MockRolloutProcessorCustomGiveup(RolloutProcessor):
     """Mock processor for testing custom giveup functions"""
 
     def __init__(self):
-        self.mock_tracker = Mock()
+        self.mock_tracker: Mock = Mock()
 
-    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+    @override
+    def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
         self.mock_tracker.batch_call(len(rows))
 
         async def process_single_row(row: EvaluationRow) -> EvaluationRow:
@@ -236,7 +240,7 @@ class MockRolloutProcessorCustomGiveup(RolloutProcessor):
 
             # Raise real litellm exceptions based on task content
             task_content = row.messages[0].content if row.messages else ""
-            if "429" in task_content:
+            if task_content is not None and "429" in task_content:
                 raise litellm.RateLimitError(
                     "Rate limit exceeded", llm_provider="test", model="test-model"
                 )  # Should retry
@@ -253,7 +257,7 @@ shared_processor_custom_giveup = MockRolloutProcessorCustomGiveup()
 
 
 # Custom giveup function for litellm exceptions
-def custom_http_giveup(e):
+def custom_http_giveup(e: Exception) -> bool:
     # Don't retry bad requests (400-level errors), but do retry rate limits (429)
     if isinstance(e, litellm.BadRequestError):
         return True  # Give up immediately on bad requests
@@ -266,8 +270,10 @@ def custom_http_giveup(e):
 @evaluation_test(
     completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
     input_messages=[
-        [Message(role="user", content="Test 429")],  # Should retry
-        [Message(role="user", content="Test 400")],  # Should not retry
+        [
+            [Message(role="user", content="Test 429")],  # Should retry
+            [Message(role="user", content="Test 400")],  # Should not retry
+        ]
     ],
     rollout_processor=shared_processor_custom_giveup,
     num_runs=1,
@@ -325,9 +331,10 @@ class MockRolloutProcessorSimpleGiveup(RolloutProcessor):
     """Mock processor that raises BadRequestError"""
 
     def __init__(self):
-        self.mock_tracker = Mock()
+        self.mock_tracker: Mock = Mock()
 
-    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+    @override
+    def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
         self.mock_tracker.batch_call(len(rows))
 
         async def process_single_row(row: EvaluationRow) -> EvaluationRow:
@@ -347,16 +354,16 @@ shared_processor_simple_giveup = MockRolloutProcessorSimpleGiveup()
 
 
 # Simple giveup function for 4xx errors
-def simple_4xx_giveup(e):
-    if hasattr(e, "response") and hasattr(e.response, "status_code"):
-        status = e.response.status_code
-        return 400 <= status < 500  # Give up on all 4xx client errors
+def simple_4xx_giveup(e: Exception) -> bool:
+    if hasattr(e, "response") and hasattr(e.response, "status_code"):  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
+        status = e.response.status_code  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType, reportAttributeAccessIssue]
+        return 400 <= status < 500  # Give up on all 4xx client errors  # pyright: ignore[reportUnknownVariableType]
     return False  # Retry everything else
 
 
 @evaluation_test(
     completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
-    input_messages=[[Message(role="user", content="Test 400 giveup")]],
+    input_messages=[[[Message(role="user", content="Test 400 giveup")]]],
     rollout_processor=shared_processor_simple_giveup,
     num_runs=1,
     mode="pointwise",

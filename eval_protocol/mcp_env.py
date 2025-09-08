@@ -136,7 +136,11 @@ def make(
 
     if evaluation_rows:
         for i, row in enumerate(evaluation_rows):
-            dataset_info = row.input_metadata.dataset_info if row.input_metadata else {}
+            dataset_info = (
+                row.input_metadata.dataset_info
+                if (row.input_metadata and row.input_metadata.dataset_info is not None)
+                else {}
+            )
 
             system_message = row.get_system_message()
             system_prompt = system_message.content or ""
@@ -236,7 +240,7 @@ def make(
     return mcp_envs
 
 
-def rollout(
+async def rollout(
     envs: GeneralMCPVectorEnv,
     policy: Union[FireworksPolicy, LLMBasePolicy, Callable],
     *,
@@ -246,7 +250,7 @@ def rollout(
     steps: int = 512,
     openai_format_log_file: Optional[str] = None,
     max_concurrent_rollouts: int = 8,
-) -> List[asyncio.Task[EvaluationRow]]:
+) -> List[EvaluationRow]:
     """
     Execute general rollouts using tool calling interface with automatic record/playback.
 
@@ -278,10 +282,10 @@ def rollout(
 
     Example:
         # Live mode
-        tasks = ep.rollout(envs, policy)
+        results = await ep.rollout(envs, policy)
 
         # Create environments automatically
-        tasks = ep.rollout(
+        results = await ep.rollout(
             "http://localhost:8000/mcp/",
             policy,
             evaluation_rows=my_evaluation_rows,
@@ -290,10 +294,10 @@ def rollout(
 
         # Recording mode
         os.environ["EP_PLAYBACK_FILE"] = "record.jsonl"
-        tasks = ep.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
+        results = await ep.rollout(envs, policy, openai_format_log_file="sft_data.jsonl")
 
         # Playback mode (after recording file exists)
-        tasks = ep.rollout(envs, policy)
+        results = await ep.rollout(envs, policy)
     """
     # Automatically create environments if a base URL is provided
     if isinstance(envs, str):
@@ -306,10 +310,21 @@ def rollout(
     # Use the new ExecutionManager for execution
     execution_manager = ExecutionManager()
 
+    rollout_semaphore = asyncio.Semaphore(max_concurrent_rollouts)
+
     tasks = execution_manager.execute_rollouts(
-        envs, policy, steps, openai_format_log_file, max_concurrent_rollouts, evaluation_rows
+        envs,
+        policy,
+        semaphore=rollout_semaphore,
+        steps=steps,
+        openai_format_log_file=openai_format_log_file,
+        evaluation_rows=evaluation_rows,
     )
-    return tasks
+
+    # Await all tasks and return concrete EvaluationRows
+    # Gather returns list of EvaluationRow; use type ignore to appease Pyright when inferring coroutine types
+    results: List[EvaluationRow] = await asyncio.gather(*tasks)  # type: ignore[reportUnknownArgumentType]
+    return results
 
 
 async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:
@@ -336,7 +351,7 @@ async def test_mcp(base_url: str, seeds: List[int]) -> Dict[str, Any]:
             policy = FireworksPolicy("test-model")
 
             # Run short rollout
-            evaluation_rows = rollout(envs, policy=policy, steps=10)
+            evaluation_rows = await rollout(envs, policy=policy, steps=10)
 
             if evaluation_rows and len(evaluation_rows[0].messages) > 1:
                 results["successful"] += 1

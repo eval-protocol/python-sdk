@@ -5,6 +5,10 @@
   "python.testing.autoTestDiscoverOnSaveEnabled": true,
   "python.defaultInterpreterPath": "./.venv/bin/python",
   "python.testing.cwd": "${workspaceFolder}",
-  "python.analysis.typeCheckingMode": "strict",
-  "python.analysis.diagnosticMode": "workspace"
+  "cursorpyright.analysis.diagnosticMode": "openFilesOnly",
+  "editor.defaultFormatter": "charliermarsh.ruff",
+  "editor.formatOnSave": true,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  }
 }

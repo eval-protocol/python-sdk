@@ -30,7 +30,8 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Iterable, cast
+from pydantic import AnyUrl
 
 import uvicorn
 from mcp.server.lowlevel import Server
@@ -287,13 +288,13 @@ class SimulationServerBase(ABC):
         if discovered_resources:
 
             @self.app.read_resource()
-            async def read_resource(uri: str):
+            async def read_resource(uri: AnyUrl):
                 # Get the current request context
                 ctx = self.app.request_context
 
                 # Find the matching resource function by URI pattern
                 for resource_name, resource_func in self._domain_resources.items():
-                    resource_uri_pattern = resource_func._resource_uri
+                    resource_uri_pattern = getattr(resource_func, "_resource_uri", f"/{resource_name}")
                     # Convert URI to string for pattern matching
                     uri_str = str(uri)
                     # Simple pattern matching - could be enhanced for complex patterns
@@ -326,9 +327,12 @@ class SimulationServerBase(ABC):
                     # Extract docstring as description
                     description = resource_func.__doc__ or f"Resource {resource_name}"
 
+                    # Some callables may not have the attribute; guard for type checkers.
+                    # Resource expects AnyUrl; pass as str and allow coercion by pydantic.
+                    uri_value: str = str(getattr(resource_func, "_resource_uri", f"/{resource_name}"))
                     resources.append(
                         Resource(
-                            uri=resource_func._resource_uri,
+                            uri=cast(AnyUrl, uri_value),
                             name=resource_name,
                             description=description,
                             mimeType="application/json",
@@ -343,10 +347,15 @@ class SimulationServerBase(ABC):
         """Register session initialization and cleanup handlers."""
 
         @self.app.set_logging_level()
-        async def set_logging_level(level):
+        async def set_logging_level(level: str) -> None:
             """Handle logging level requests."""
-            logger.setLevel(getattr(logging, level.upper()))
-            return {}
+            # Validate and set logging level; ignore invalid values gracefully
+            try:
+                numeric_level = getattr(logging, level.upper())
+                if isinstance(numeric_level, int):
+                    logger.setLevel(numeric_level)
+            except Exception:
+                pass
 
         # NOTE: The low-level Server doesn't have built-in session lifecycle hooks
         # We'll need to capture client_info during the first request in each session
@@ -388,6 +397,19 @@ class SimulationServerBase(ABC):
     def get_default_config(self) -> Dict[str, Any]:
         """Get default environment configuration."""
         pass
+
+    # Optional hook: some environments need seed at creation time
+    def create_environment_with_seed(
+        self, config: Dict[str, Any], *, seed: Optional[int] = None
+    ) -> Tuple[Any, Any, Dict[str, Any]]:
+        """Create environment with a seed when required; default falls back to create+reset.
+
+        Subclasses can override when the environment requires the seed at construction time.
+        Returns a tuple of (env, initial_observation, info).
+        """
+        env = self.create_environment(config)
+        obs, info = self.reset_environment(env, seed=seed)
+        return env, obs, info
 
     def run(self, port: int = 8000, host: str = "127.0.0.1", **kwargs):
         """

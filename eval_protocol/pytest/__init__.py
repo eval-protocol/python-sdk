@@ -8,7 +8,7 @@ from .exception_config import ExceptionHandlerConfig, BackoffConfig, get_default
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
 
-# Conditional import for optional dependency
+# Conditional import for optional dependencies
 try:
     from .default_pydantic_ai_rollout_processor import PydanticAgentRolloutProcessor
 
@@ -16,6 +16,15 @@ try:
 except ImportError:
     PYDANTIC_AI_AVAILABLE = False
     PydanticAgentRolloutProcessor = None
+
+# Conditional import for optional LangChain dependency
+try:
+    from .default_langchain_rollout_processor import LangGraphRolloutProcessor
+
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    LANGCHAIN_AVAILABLE = False
+    LangGraphRolloutProcessor = None
 
 __all__ = [
     "AgentRolloutProcessor",
@@ -34,3 +43,6 @@ __all__ = [
 # Only add to __all__ if available
 if PYDANTIC_AI_AVAILABLE:
     __all__.append("PydanticAgentRolloutProcessor")
+
+if LANGCHAIN_AVAILABLE:
+    __all__.append("LangGraphRolloutProcessor")

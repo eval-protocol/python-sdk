@@ -12,7 +12,7 @@ import os
 import threading
 import time
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
 
 import anyio
 from openai.types import CompletionUsage
@@ -39,9 +39,9 @@ class ExecutionManager:
         self,
         envs: "GeneralMCPVectorEnv",
         policy: Union["LLMBasePolicy", Callable],
+        semaphore: asyncio.Semaphore,
         steps: int = 512,
         openai_format_log_file: Optional[str] = None,
-        max_concurrent_rollouts: int = 8,
         evaluation_rows: Optional[List[EvaluationRow]] = None,
     ) -> List[asyncio.Task[EvaluationRow]]:
         """
@@ -57,7 +57,7 @@ class ExecutionManager:
             policy: Policy that takes tool schemas, observations, prompts and returns tool calls
             steps: Maximum steps per rollout
             openai_format_log_file: Optional file to log clean OpenAI format for terminated trajectories only
-            max_concurrent_rollouts: Maximum number of concurrent threads to run
+            semaphore: Semaphore to control concurrent rollout execution
 
         Environment Variable Control:
             EP_PLAYBACK_FILE: Controls record/playback mode
@@ -90,18 +90,17 @@ class ExecutionManager:
                 pass
             openai_logger = lambda data: self._log_openai_entry(openai_format_log_file, data)
 
-        logger.info(f"🧵 Starting {envs.n} rollouts with max {max_concurrent_rollouts} concurrent threads...")
+        logger.info(f"🧵 Starting {envs.n} rollouts with max {semaphore._value} concurrent threads...")
 
         if evaluation_rows is None:
             evaluation_rows = [EvaluationRow(messages=[], input_metadata=InputMetadata()) for _ in range(envs.n)]
 
         shared_tool_schema = envs.tool_schemas
 
-        semaphore = asyncio.Semaphore(max_concurrent_rollouts)
-
         async def _execute_with_semaphore(idx):
             async with semaphore:
                 evaluation_row: EvaluationRow = evaluation_rows[idx]
+                row_start_time = time.perf_counter()
 
                 trajectory = await self._execute_rollout(
                     envs, policy, idx, steps, openai_logger, recording_mode, playback_mode, start_time, evaluation_row
@@ -126,7 +125,11 @@ class ExecutionManager:
 
                 evaluation_row.messages = messages
                 evaluation_row.tools = shared_tool_schema
-                evaluation_row.usage = CompletionUsage(**trajectory.usage)
+                evaluation_row.execution_metadata.usage = CompletionUsage(
+                    prompt_tokens=trajectory.usage.get("prompt_tokens", 0),
+                    completion_tokens=trajectory.usage.get("completion_tokens", 0),
+                    total_tokens=trajectory.usage.get("total_tokens", 0),
+                )
                 evaluation_row.input_metadata.completion_params = {
                     "model": policy.model_id,
                     "temperature": getattr(policy, "temperature", None),
@@ -138,11 +141,19 @@ class ExecutionManager:
                     extra_info = None
                     if trajectory.control_plane_summary.get("error_message"):
                         extra_info = {"error_message": trajectory.control_plane_summary.get("error_message")}
+                    # Convert string termination reason to TerminationReason enum if needed
+                    term_reason = (
+                        trajectory.termination_reason
+                        if isinstance(trajectory.termination_reason, TerminationReason)
+                        else TerminationReason.from_str(str(trajectory.termination_reason))
+                    )
                     evaluation_row.rollout_status = Status.rollout_finished(
-                        termination_reason=trajectory.termination_reason, extra_info=extra_info
+                        termination_reason=term_reason, extra_info=extra_info
                     )
                 else:
                     evaluation_row.rollout_status = Status.rollout_running()
+
+                evaluation_row.execution_metadata.duration_seconds = time.perf_counter() - row_start_time
 
                 return evaluation_row
 
@@ -231,8 +242,9 @@ class ExecutionManager:
 
                 # Get initial messages in tau2-bench format for user simulator
                 user_simulator_state = user_simulator.get_init_state()
+                # Generate initial user response by prompting the simulator with a user role message
                 user_message, user_simulator_state = await user_simulator.generate_next_message(
-                    AssistantMessage(role="assistant", content="Hi! How can I help you today?"),
+                    UserMessage(role="user", content=""),
                     user_simulator_state,
                 )
                 current_observation = user_message.content if user_message.content else ""
@@ -264,8 +276,18 @@ class ExecutionManager:
                     # Last message was agent, simulated user response
                     if user_simulator_messages and isinstance(user_simulator_messages[-1], AssistantMessage):
                         # Generate user response using the simulator
+                        # Pass the assistant message content to drive the simulated user's next response
+                        last_assistant = user_simulator_messages[-1]
+                        # Convert last assistant message into a valid user input message for simulator
+                        from vendor.tau2.data_model.message import UserMessage as TauUserMessage
+
+                        converted_user_prompt = (
+                            last_assistant.content if getattr(last_assistant, "content", None) else ""
+                        )
+                        converted_message = TauUserMessage(role="user", content=converted_user_prompt)
                         user_message, user_simulator_state = await user_simulator.generate_next_message(
-                            user_simulator_messages[-1], user_simulator_state
+                            converted_message,
+                            user_simulator_state,
                         )
                         user_content = user_message.content if user_message.content else ""
 
@@ -285,11 +307,33 @@ class ExecutionManager:
                     )
                     update_evaluation_row_messages()
 
-                    # calc llm usage stats happened in this turn if there is aany
+                    # Update LLM usage stats if available; support both dict-like and attribute access
                     if usage_stats:
-                        trajectory.usage["prompt_tokens"] += usage_stats.prompt_tokens
-                        trajectory.usage["completion_tokens"] += usage_stats.completion_tokens
-                        trajectory.usage["total_tokens"] += usage_stats.total_tokens
+                        try:
+                            prompt_tokens = (
+                                usage_stats.get("prompt_tokens")
+                                if isinstance(usage_stats, dict)
+                                else usage_stats.prompt_tokens
+                            )
+                            completion_tokens = (
+                                usage_stats.get("completion_tokens")
+                                if isinstance(usage_stats, dict)
+                                else usage_stats.completion_tokens
+                            )
+                            total_tokens = (
+                                usage_stats.get("total_tokens")
+                                if isinstance(usage_stats, dict)
+                                else usage_stats.total_tokens
+                            )
+                            if isinstance(prompt_tokens, int):
+                                trajectory.usage["prompt_tokens"] += prompt_tokens
+                            if isinstance(completion_tokens, int):
+                                trajectory.usage["completion_tokens"] += completion_tokens
+                            if isinstance(total_tokens, int):
+                                trajectory.usage["total_tokens"] += total_tokens
+                        except Exception:
+                            # Best-effort; ignore malformed usage stats
+                            pass
 
                     # If no tool call is generated, turn is finished
                     if len(tool_calls) == 1:
@@ -300,7 +344,8 @@ class ExecutionManager:
                         # If there's no user simulator, then it marks the end of the episode as LLM think there is no tool call needed.
                         elif tool_calls[0].tool_name in ["_playback_terminate", "_no_tool_call"]:
                             trajectory.terminated = True
-                            trajectory.termination_reason = TerminationReason.from_str(finish_reason)
+                            # Ensure finish_reason is a string before converting
+                            trajectory.termination_reason = TerminationReason.from_str(str(finish_reason))
                             break
 
                     # Execute each tool call sequentially
@@ -404,11 +449,32 @@ class ExecutionManager:
                     )
                     update_evaluation_row_messages()
                     if usage_stats:
-                        trajectory.usage["prompt_tokens"] += usage_stats.prompt_tokens
-                        trajectory.usage["completion_tokens"] += usage_stats.completion_tokens
-                        trajectory.usage["total_tokens"] += usage_stats.total_tokens
+                        try:
+                            prompt_tokens = (
+                                usage_stats.get("prompt_tokens")
+                                if isinstance(usage_stats, dict)
+                                else usage_stats.prompt_tokens
+                            )
+                            completion_tokens = (
+                                usage_stats.get("completion_tokens")
+                                if isinstance(usage_stats, dict)
+                                else usage_stats.completion_tokens
+                            )
+                            total_tokens = (
+                                usage_stats.get("total_tokens")
+                                if isinstance(usage_stats, dict)
+                                else usage_stats.total_tokens
+                            )
+                            if isinstance(prompt_tokens, int):
+                                trajectory.usage["prompt_tokens"] += prompt_tokens
+                            if isinstance(completion_tokens, int):
+                                trajectory.usage["completion_tokens"] += completion_tokens
+                            if isinstance(total_tokens, int):
+                                trajectory.usage["total_tokens"] += total_tokens
+                        except Exception:
+                            pass
                     trajectory.terminated = True
-                    trajectory.termination_reason = TerminationReason.from_str(finish_reason)
+                    trajectory.termination_reason = TerminationReason.from_str(str(finish_reason))
                     trajectory.control_plane_summary.update(
                         {
                             "total_reward": trajectory.total_reward,

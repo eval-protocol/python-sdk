@@ -5,17 +5,19 @@ from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
 @evaluation_test(
     input_messages=[
         [
-            Message(
-                role="system",
-                content=(
-                    "You are a helpful assistant that can answer questions about Fireworks.\n"
-                    "ALWAYS provide code or commands to execute to answer the question."
+            [
+                Message(
+                    role="system",
+                    content=(
+                        "You are a helpful assistant that can answer questions about Fireworks.\n"
+                        "ALWAYS provide code or commands to execute to answer the question."
+                    ),
                 ),
-            ),
-            Message(
-                role="user",
-                content=("Can you teach me about how to manage deployments on Fireworks"),
-            ),
+                Message(
+                    role="user",
+                    content=("Can you teach me about how to manage deployments on Fireworks"),
+                ),
+            ]
         ]
     ],
     rollout_processor=AgentRolloutProcessor(),

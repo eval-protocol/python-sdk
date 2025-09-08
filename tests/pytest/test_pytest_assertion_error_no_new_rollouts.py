@@ -1,5 +1,6 @@
-from typing import List, Set
 import asyncio
+from typing import Any
+from typing_extensions import override
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.models import EvaluationRow
@@ -11,14 +12,17 @@ from tests.pytest.test_markdown_highlighting import markdown_dataset_to_evaluati
 class TrackingRolloutProcessor(RolloutProcessor):
     """Custom rollout processor that tracks which rollout IDs are generated during rollout phase."""
 
-    def __init__(self, shared_rollout_ids: Set[str]):
-        self.shared_rollout_ids = shared_rollout_ids
+    def __init__(self, shared_rollout_ids: set[str]):
+        self.shared_rollout_ids: set[str] = shared_rollout_ids
 
-    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+    @override
+    def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
         """Process rows and track rollout IDs generated during rollout phase."""
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             # Track this rollout ID as being generated during rollout phase
+            if row.execution_metadata.rollout_id is None:
+                raise ValueError("Rollout ID is None")
             self.shared_rollout_ids.add(row.execution_metadata.rollout_id)
             return row
 
@@ -30,13 +34,17 @@ class TrackingRolloutProcessor(RolloutProcessor):
 class TrackingLogger(DatasetLogger):
     """Custom logger that tracks all rollout IDs that are logged."""
 
-    def __init__(self, shared_rollout_ids: Set[str]):
-        self.shared_rollout_ids = shared_rollout_ids
+    def __init__(self, shared_rollout_ids: set[str]):
+        self.shared_rollout_ids: set[str] = shared_rollout_ids
 
+    @override
     def log(self, row: EvaluationRow):
+        if row.execution_metadata.rollout_id is None:
+            raise ValueError("Rollout ID is None")
         self.shared_rollout_ids.add(row.execution_metadata.rollout_id)
 
-    def read(self):
+    @override
+    def read(self, row_id: str | None = None) -> list[EvaluationRow]:
         return []
 
 
@@ -48,7 +56,7 @@ async def test_assertion_error_no_new_rollouts():
     from eval_protocol.pytest.evaluation_test import evaluation_test
 
     # Create shared set to track rollout IDs generated during rollout phase
-    shared_rollout_ids: Set[str] = set()
+    shared_rollout_ids: set[str] = set()
 
     # Create custom processor and logger for tracking with shared set
     rollout_processor = TrackingRolloutProcessor(shared_rollout_ids)
@@ -57,7 +65,7 @@ async def test_assertion_error_no_new_rollouts():
     input_dataset: list[str] = [
         "tests/pytest/data/markdown_dataset.jsonl",
     ]
-    completion_params: list[dict] = [{"temperature": 0.0, "model": "dummy/local-model"}]
+    completion_params: list[dict[str, Any]] = [{"temperature": 0.0, "model": "dummy/local-model"}]  # pyright: ignore[reportExplicitAny]
 
     @evaluation_test(
         input_dataset=input_dataset,
@@ -81,7 +89,7 @@ async def test_assertion_error_no_new_rollouts():
         # This should fail due to threshold not being met
         for ds_path in input_dataset:
             for completion_param in completion_params:
-                await eval_fn(dataset_path=ds_path, completion_params=completion_param)
+                await eval_fn(dataset_path=[ds_path], completion_params=completion_param)  # pyright: ignore[reportCallIssue]
     except AssertionError:
         # Expected - the threshold check should fail
         pass

@@ -14,6 +14,7 @@ from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, M
 from eval_protocol.pytest import evaluation_test, ExceptionHandlerConfig
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 import litellm
+from litellm.exceptions import RateLimitError, APIConnectionError
 from vendor.tau2.data_model.message import (
     AssistantMessage,
     SystemMessage,
@@ -125,8 +126,8 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
     server_script_path=_get_server_script_path(),
     exception_handler_config=ExceptionHandlerConfig(
         retryable_exceptions={
-            litellm.RateLimitError,
-            litellm.APIConnectionError,
+            RateLimitError,
+            APIConnectionError,
         }
     ),
 )
@@ -146,7 +147,7 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
     messages = row.messages
 
     # Get evaluation criteria and user_simulation from input_metadata.dataset_info
-    dataset_info = row.input_metadata.dataset_info if row.input_metadata else {}
+    dataset_info = (row.input_metadata.dataset_info or {}) if row.input_metadata else {}
     evaluation_criteria = dataset_info.get("evaluation_criteria", {})
 
     nl_assertions = evaluation_criteria.get("nl_assertions", [])
@@ -159,8 +160,10 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
         role = msg.role
         content = msg.content
 
+        # Normalize content to str for tau2 message models
+        text_content = content if isinstance(content, str) or content is None else ""
         if role == "system":
-            trajectory_objects.append(SystemMessage(role=role, content=content))
+            trajectory_objects.append(SystemMessage(role=role, content=text_content))
         elif role == "assistant":
             tau2_tool_calls = []
             if msg.tool_calls:
@@ -170,15 +173,18 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
                         id=tool_call.id,
                         name=tool_call.function.name,
                         arguments=arguments,
+                        requestor="assistant",
                     )
                     tau2_tool_calls.append(tau2_tool_call)
 
-            trajectory_objects.append(AssistantMessage(role=role, content=content, tool_calls=tau2_tool_calls))
+            trajectory_objects.append(AssistantMessage(role=role, content=text_content, tool_calls=tau2_tool_calls))
         elif role == "user":
-            trajectory_objects.append(UserMessage(role=role, content=content))
+            trajectory_objects.append(UserMessage(role=role, content=text_content))
         elif role == "tool":
             tool_id = msg.tool_call_id
-            trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=content))
+            trajectory_objects.append(
+                ToolMessage(id=tool_id or "unknown_tool_call", role=role, content=text_content, requestor="assistant")
+            )
 
     reward = 1.0
 
@@ -186,6 +192,7 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
         nl_assertions=nl_assertions,
         communicate_info=communicate_info,
         actions=actions,
+        env_assertions=None,
         reward_basis=[  # Use this to adjust how to calculate reward. Tau2-bench uses DB and COMMUNICATE by default for airline tasks.
             RewardType.DB,
             RewardType.COMMUNICATE,
@@ -193,8 +200,14 @@ def test_tau_bench_airline_evaluation(row: EvaluationRow) -> EvaluationRow:
     )
 
     task = Task(
-        id="Filler", evaluation_criteria=evaluation_criteria, user_scenario=UserScenario(instructions="Filler")
+        id="Filler",
+        description=None,
+        user_scenario=UserScenario(instructions="Filler", persona=None),
+        ticket=None,
+        initial_state=None,
+        evaluation_criteria=evaluation_criteria,
     )  # id and user_scenario are required for the Task type but not used in calculating reward
+    assert task.evaluation_criteria is not None, "Task evaluation criteria is None"
 
     if RewardType.DB in task.evaluation_criteria.reward_basis:
         env_reward_info = EnvironmentEvaluator.calculate_reward(
