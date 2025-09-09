@@ -310,7 +310,7 @@ export function TableRowInteractive({
   interactive = true,
 }: TableRowInteractiveProps) {
   const interactiveClasses = interactive
-    ? "hover:bg-gray-50 cursor-pointer"
+    ? "hover:bg-gray-100 cursor-pointer"
     : "";
 
   return (
