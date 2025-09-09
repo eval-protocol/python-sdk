@@ -239,8 +239,8 @@ def evaluation_test(
                         im = kwargs["input_messages"]
                         data = [EvaluationRow(messages=dataset_messages) for dataset_messages in im]
                     elif "input_rows" in kwargs and kwargs["input_rows"] is not None:
-                        # Use pre-constructed EvaluationRow objects directly
-                        data = kwargs["input_rows"]
+                        # Deep copy pre-constructed EvaluationRow objects
+                        data = [row.model_copy(deep=True) for row in kwargs["input_rows"]]
                     else:
                         raise ValueError("No input dataset, input messages, or input rows provided")
 
