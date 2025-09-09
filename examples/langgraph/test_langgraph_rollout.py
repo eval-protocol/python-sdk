@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 from eval_protocol.models import EvaluationRow, EvaluateResult, Message
 from eval_protocol.pytest import evaluation_test
-from eval_protocol.pytest.langgraph_processor import LangGraphRolloutProcessor
+from eval_protocol.pytest.default_langchain_rollout_processor import LangGraphRolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig as _UnusedRolloutProcessorConfig  # noqa: F401
 
 from examples.langgraph.simple_graph import build_simple_graph

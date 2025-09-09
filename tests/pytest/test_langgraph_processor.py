@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 import pytest
 
 from eval_protocol.models import EvaluationRow, Message
-from eval_protocol.pytest.langgraph_processor import LangGraphRolloutProcessor
+from eval_protocol.pytest.default_langchain_rollout_processor import LangGraphRolloutProcessor
 
 
 class DummyLCMessage:

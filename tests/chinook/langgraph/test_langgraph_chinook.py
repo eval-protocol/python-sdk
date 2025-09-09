@@ -3,7 +3,7 @@ import pytest
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
 
-from eval_protocol.pytest.langgraph_processor import LangGraphRolloutProcessor
+from eval_protocol.pytest.default_langchain_rollout_processor import LangGraphRolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig, CompletionParams
 
 from tests.chinook.langgraph.graph import build_graph
