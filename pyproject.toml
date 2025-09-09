@@ -133,6 +133,9 @@ chinook = [
 langchain = [
     "langchain-core>=0.3.0",
 ]
+openai-agents = [
+    "openai-agents>=0.2.11",
+]
 
 [tool.pytest.ini_options]
 addopts = "-q"
