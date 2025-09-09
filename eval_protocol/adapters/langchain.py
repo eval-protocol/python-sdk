@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List, Optional
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
 from eval_protocol.models import Message
 
@@ -49,75 +49,12 @@ def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
                     parts.append(item)
             content = "\n".join(parts)
 
-        tool_calls_payload: Optional[List[Dict[str, Any]]] = None
-
-        def _normalize_tool_calls(tc_list: List[Any]) -> List[Dict[str, Any]]:
-            mapped: List[Dict[str, Any]] = []
-            for call in tc_list:
-                if not isinstance(call, dict):
-                    continue
-                try:
-                    call_id = call.get("id") or "toolcall_0"
-                    if isinstance(call.get("function"), dict):
-                        fn = call["function"]
-                        fn_name = fn.get("name") or call.get("name") or "tool"
-                        fn_args = fn.get("arguments")
-                    else:
-                        fn_name = call.get("name") or "tool"
-                        fn_args = call.get("arguments") if call.get("arguments") is not None else call.get("args")
-                    if not isinstance(fn_args, str):
-                        import json as _json
-
-                        fn_args = _json.dumps(fn_args or {}, ensure_ascii=False)
-                    mapped.append(
-                        {
-                            "id": call_id,
-                            "type": "function",
-                            "function": {"name": fn_name, "arguments": fn_args},
-                        }
-                    )
-                except Exception:
-                    continue
-            return mapped
-
-        ak = getattr(msg, "additional_kwargs", None)
-        if isinstance(ak, dict):
-            tc = ak.get("tool_calls")
-            if isinstance(tc, list) and tc:
-                mapped = _normalize_tool_calls(tc)
-                if mapped:
-                    tool_calls_payload = mapped
-
-        if tool_calls_payload is None:
-            raw_attr_tc = getattr(msg, "tool_calls", None)
-            if isinstance(raw_attr_tc, list) and raw_attr_tc:
-                mapped = _normalize_tool_calls(raw_attr_tc)
-                if mapped:
-                    tool_calls_payload = mapped
-
-        # Extract reasoning/thinking parts into reasoning_content
-        reasoning_content = None
-        if isinstance(msg.content, list):
-            collected = [
-                it.get("thinking", "") for it in msg.content if isinstance(it, dict) and it.get("type") == "thinking"
-            ]
-            if collected:
-                reasoning_content = "\n\n".join([s for s in collected if s]) or None
-
-        # Message.tool_calls expects List[ChatCompletionMessageToolCall] | None.
-        # We pass through Dicts at runtime but avoid type error by casting.
-        ep_msg = Message(
-            role="assistant",
-            content=content,
-            tool_calls=tool_calls_payload,  # type: ignore[arg-type]
-            reasoning_content=reasoning_content,
-        )
+        ep_msg = Message(role="assistant", content=content)
         _dbg_print(
             "[EP-Ser] -> EP Message:",
             {
                 "role": ep_msg.role,
                 "content_len": len(ep_msg.content or ""),
-                "tool_calls": len(ep_msg.tool_calls or []) if isinstance(ep_msg.tool_calls, list) else 0,
             },
         )
         return ep_msg
@@ -141,3 +78,38 @@ def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
     ep_msg = Message(role=getattr(msg, "type", "assistant"), content=str(getattr(msg, "content", "")))
     _dbg_print("[EP-Ser] -> EP Message (fallback):", {"role": ep_msg.role, "len": len(ep_msg.content or "")})
     return ep_msg
+
+
+def serialize_ep_messages_to_lc(messages: List[Message]) -> List[BaseMessage]:
+    """Convert eval_protocol Message objects to LangChain BaseMessage list.
+
+    - Flattens content parts into strings when content is a list
+    - Maps EP roles to LC message classes
+    """
+    lc_messages: List[BaseMessage] = []
+    for m in messages or []:
+        content = m.content
+        if isinstance(content, list):
+            text_parts: List[str] = []
+            for part in content:
+                try:
+                    text_parts.append(getattr(part, "text", ""))
+                except AttributeError:
+                    pass
+            content = "\n".join([t for t in text_parts if t])
+        if content is None:
+            content = ""
+        text = str(content)
+
+        role = (m.role or "").lower()
+        if role == "user":
+            lc_messages.append(HumanMessage(content=text))
+        elif role == "assistant":
+            lc_messages.append(AIMessage(content=text))
+        elif role == "system":
+            from langchain_core.messages import SystemMessage  # local import to avoid unused import
+
+            lc_messages.append(SystemMessage(content=text))
+        else:
+            lc_messages.append(HumanMessage(content=text))
+    return lc_messages
