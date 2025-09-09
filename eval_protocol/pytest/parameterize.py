@@ -1,5 +1,5 @@
 import inspect
-from typing import TypedDict
+from typing import TypedDict, Protocol
 from collections.abc import Callable, Sequence, Iterable, Awaitable
 
 from _pytest.mark import ParameterSet
@@ -12,6 +12,54 @@ from eval_protocol.pytest.types import DatasetPathParam, EvaluationInputParam, I
 class PytestParametrizeArgs(TypedDict):
     argnames: Sequence[str]
     argvalues: Iterable[ParameterSet | Sequence[object] | object]
+    ids: Iterable[str] | None
+
+
+class ParameterIdGenerator(Protocol):
+    """Protocol for generating pytest parameter IDs from parameter combinations."""
+
+    def generate_id(self, combo: CombinationTuple) -> str | None:
+        """Generate an ID for a parameter combination.
+
+        Args:
+            combo: The parameter combination tuple
+
+        Returns:
+            A string ID for the combination, or None to use default pytest ID
+        """
+        ...
+
+
+class DefaultParameterIdGenerator:
+    """Default ID generator that creates meaningful IDs from parameter combinations."""
+
+    def __init__(self, max_length: int = 50):
+        """Initialize the ID generator with configuration options.
+
+        Args:
+            max_length: Maximum length of generated IDs
+        """
+        self.max_length = max_length
+
+    def generate_id(self, combo: CombinationTuple) -> str | None:
+        """Generate an ID for a parameter combination."""
+        dataset, completion_params, messages, rows, evaluation_test_kwargs = combo
+
+        # Add model name if available
+        if completion_params:
+            model = completion_params.get("model")
+            if model:
+                # Extract just the model name, not the full path
+                model_name = model.split("/")[-1] if "/" in model else model
+                id_str = f"model-{model_name}"
+
+                # Truncate if too long
+                if len(id_str) > self.max_length:
+                    id_str = id_str[: self.max_length - 3] + "..."
+
+                return id_str
+
+        return None
 
 
 def pytest_parametrize(
@@ -21,6 +69,7 @@ def pytest_parametrize(
     input_messages: Sequence[list[InputMessagesParam] | None] | None,
     input_rows: Sequence[list[EvaluationRow]] | None,
     evaluation_test_kwargs: Sequence[EvaluationInputParam | None] | None,
+    id_generator: ParameterIdGenerator | None = None,
 ) -> PytestParametrizeArgs:
     """
     This function dynamically generates pytest.mark.parametrize arguments for a given
@@ -43,10 +92,18 @@ def pytest_parametrize(
     if evaluation_test_kwargs is not None:
         argnames.append("evaluation_test_kwargs")
 
+    # Use default ID generator if none provided
+    if id_generator is None:
+        id_generator = DefaultParameterIdGenerator()
+
     argvalues: list[ParameterSet | Sequence[object] | object] = []
+    ids: list[str] = []
+
     for combo in combinations:
         dataset, cp, messages, rows, etk = combo
         param_tuple: list[object] = []
+
+        # Build parameter tuple based on what's provided
         if input_dataset is not None:
             param_tuple.append(dataset)
         if completion_params is not None:
@@ -57,14 +114,22 @@ def pytest_parametrize(
             param_tuple.append(rows)
         if evaluation_test_kwargs is not None:
             param_tuple.append(etk)
-        # do validation that the length of argnames is the same as the length of param_tuple
+
+        # Validate parameter tuple length
         if len(argnames) != len(param_tuple):
             raise ValueError(
                 f"The length of argnames ({len(argnames)}) is not the same as the length of param_tuple ({len(param_tuple)})"
             )
+
         argvalues.append(tuple(param_tuple))
 
-    return PytestParametrizeArgs(argnames=argnames, argvalues=argvalues)
+        # Generate ID for this combination
+        combo_id = id_generator.generate_id(combo)
+        if combo_id is not None:
+            ids.append(combo_id)
+
+    # Return None for ids if no IDs were generated (let pytest use defaults)
+    return PytestParametrizeArgs(argnames=argnames, argvalues=argvalues, ids=ids if ids else None)
 
 
 def create_dynamically_parameterized_wrapper(
