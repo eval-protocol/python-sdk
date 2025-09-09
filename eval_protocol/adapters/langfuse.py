@@ -147,6 +147,7 @@ class LangfuseAdapter:
         Returns:
             EvaluationRow or None if conversion fails
         """
+        # TODO: move this logic into an adapter in llm_judge.py. langfuse.py should just return traces
         try:
             # Get observations (generations, spans) from the trace
             observations_response = self.client.api.observations.get_many(trace_id=trace.id, limit=100)
@@ -183,7 +184,7 @@ class LangfuseAdapter:
             ground_truth = self._extract_ground_truth(trace)
 
             # Extract tools if available
-            tools = self._extract_tools(observations) if include_tool_calls else None
+            tools = self._extract_tools(observations, trace) if include_tool_calls else None
 
             return EvaluationRow(
                 messages=messages,
@@ -471,17 +472,25 @@ class LangfuseAdapter:
 
         return None
 
-    def _extract_tools(self, observations: List[Any]) -> Optional[List[Dict[str, Any]]]:
-        """Extract tool definitions from observations.
+    def _extract_tools(self, observations: List[Any], trace: Any = None) -> Optional[List[Dict[str, Any]]]:
+        """Extract tool definitions from trace metadata or observations.
 
         Args:
             observations: List of observation objects
+            trace: Trace object that may contain metadata with tools
 
         Returns:
             List of tool definitions or None
         """
-        tools = []
+        # First, try to extract tools from trace metadata (preferred)
+        if trace and hasattr(trace, "metadata") and trace.metadata:
+            if isinstance(trace.metadata, dict) and "tools" in trace.metadata:
+                tools_from_metadata = trace.metadata["tools"]
+                if tools_from_metadata:
+                    return tools_from_metadata
 
+        # Fallback: extract from observations
+        tools = []
         for obs in observations:
             if hasattr(obs, "input") and obs.input and isinstance(obs.input, dict):
                 if "tools" in obs.input:

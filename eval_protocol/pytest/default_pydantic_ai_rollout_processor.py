@@ -52,6 +52,21 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
             """Process a single row with agent rollout."""
             start_time = time.perf_counter()
 
+            tools = []
+            for _, tool in agent._function_tools.items():
+                tool_dict = {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "parameters": tool.function_schema.json_schema,
+                    },
+                }
+                if tool.description:
+                    tool_dict["function"]["description"] = tool.description
+
+                tools.append(tool_dict)
+            row.tools = tools
+
             model_messages = [self.convert_ep_message_to_pyd_message(m, row) for m in row.messages]
             response = await agent.run(message_history=model_messages, usage_limits=config.kwargs.get("usage_limits"))
             row.messages = await self.convert_pyd_message_to_ep_message(response.all_messages())
