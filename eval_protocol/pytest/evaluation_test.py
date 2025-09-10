@@ -58,7 +58,6 @@ from eval_protocol.pytest.utils import (
     parse_ep_num_runs,
     parse_ep_passed_threshold,
     rollout_processor_with_retry,
-    split_multi_turn_rows,
 )
 
 from ..common_utils import load_jsonl
@@ -85,7 +84,7 @@ def evaluation_test(
     steps: int = 30,
     mode: EvaluationTestMode = "pointwise",
     combine_datasets: bool = True,
-    split_multi_turn: bool = False,
+    preprocess_fn: Callable[[list[EvaluationRow]], list[EvaluationRow]] | None = None,
     logger: DatasetLogger | None = None,
     exception_handler_config: ExceptionHandlerConfig | None = None,
 ) -> Callable[[TestFunction], TestFunction]:
@@ -152,9 +151,9 @@ def evaluation_test(
         mode: Evaluation mode. "pointwise" (default) applies test function to each row (rollout result).
             "groupwise" applies test function to a group of rollout results from the same original row (for use cases such as dpo/grpo).
             "all" applies test function to the whole dataset.
-        split_multi_turn: If True, splits multi-turn conversations into individual evaluation rows
-            for each assistant response. Each row will contain the conversation context up to that point
-            and the assistant's response as ground truth. Useful for Arena-Hard-Auto style evaluations.
+        preprocess_fn: Optional preprocessing function that takes a list of EvaluationRow objects
+            and returns a modified list. Useful for transformations like splitting multi-turn conversations,
+            filtering data, or other preprocessing steps before rollout execution.
         logger: DatasetLogger to use for logging. If not provided, a default logger will be used.
         exception_handler_config: Configuration for exception handling and backoff retry logic.
             If not provided, a default configuration will be used with common retryable exceptions.
@@ -249,8 +248,8 @@ def evaluation_test(
                     else:
                         raise ValueError("No input dataset, input messages, or input rows provided")
 
-                    if split_multi_turn:
-                        data = split_multi_turn_rows(data)
+                    if preprocess_fn:
+                        data = preprocess_fn(data)
 
                     for row in data:
                         # generate a stable row_id for each row
