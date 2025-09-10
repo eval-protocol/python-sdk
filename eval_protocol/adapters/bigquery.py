@@ -7,7 +7,7 @@ to EvaluationRow format for use in evaluation pipelines.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union, cast, TypeAlias
+from typing import Any, Callable, Dict, Iterator, List, Optional, TypeAlias
 
 from eval_protocol.models import CompletionParams, EvaluationRow, InputMetadata, Message
 
@@ -108,10 +108,7 @@ class BigQueryAdapter:
             # Avoid strict typing on optional dependency
             self.client = _bigquery_runtime.Client(**client_args)  # type: ignore[no-untyped-call, assignment]
 
-        except DefaultCredentialsError as e:
-            logger.error("Failed to authenticate with BigQuery: %s", e)
-            raise
-        except Exception as e:
+        except (DefaultCredentialsError, ImportError, ValueError, TypeError) as e:
             logger.error("Failed to initialize BigQuery client: %s", e)
             raise
 
@@ -191,10 +188,7 @@ class BigQueryAdapter:
 
                 row_count += 1
 
-        except (NotFound, Forbidden) as e:
-            logger.error("BigQuery access error: %s", e)
-            raise
-        except Exception as e:
+        except (NotFound, Forbidden, RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error executing BigQuery query: %s", e)
             raise
 

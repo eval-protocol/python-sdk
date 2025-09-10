@@ -42,6 +42,13 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                     if len(dataset_name) > 63:
                         dataset_name = dataset_name[:63]
 
+                    # Fireworks requires: last character of id must not be '-'
+                    dataset_name = dataset_name.rstrip("-")
+
+                    # Ensure non-empty after stripping; fallback to safe_test_func_name
+                    if not dataset_name:
+                        dataset_name = safe_test_func_name[:63].rstrip("-") or "dataset"
+
                     exp_file = exp_dir / f"{experiment_id}.jsonl"
                     with open(exp_file, "w", encoding="utf-8") as f:
                         for row in exp_rows:
