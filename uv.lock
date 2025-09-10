@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -1329,6 +1329,9 @@ langgraph-tools = [
     { name = "langchain-fireworks" },
     { name = "langgraph" },
 ]
+openai-agents = [
+    { name = "openai-agents" },
+]
 openevals = [
     { name = "openevals" },
 ]
@@ -1445,7 +1448,7 @@ requires-dist = [
     { name = "websockets", specifier = ">=15.0.1" },
     { name = "werkzeug", marker = "extra == 'dev'", specifier = ">=2.0.0" },
 ]
-provides-extras = ["dev", "trl", "openevals", "fireworks", "box2d", "langfuse", "huggingface", "adapters", "bigquery", "svgbench", "pydantic", "supabase", "chinook", "langchain", "langgraph", "langgraph-tools"]
+provides-extras = ["dev", "trl", "openevals", "fireworks", "box2d", "langfuse", "huggingface", "adapters", "bigquery", "svgbench", "pydantic", "supabase", "chinook", "langchain", "openai-agents", "langgraph", "langgraph-tools"]
 
 [package.metadata.requires-dev]
 dev = [
