@@ -12,30 +12,6 @@ from openai import OpenAI
 import os
 
 
-LLM_JUDGE_PROMPT = (
-    "Your job is to compare the response to the expected answer.\n"
-    "The response will be a narrative report of the query results.\n"
-    "If the response contains the same or well summarized information as the expected answer, return 1.0.\n"
-    "If the response does not contain the same information or is missing information, return 0.0."
-)
-
-
-def to_langgraph_input(row: EvaluationRow) -> Dict[str, Any]:
-    # Let the rollout processor handle EP→LC conversion by default; pass through
-    return {"messages": row.messages or []}
-
-
-def apply_langgraph_result(row: EvaluationRow, result: Dict[str, Any]) -> EvaluationRow:
-    # Rely on rollout processor defaults which convert LC→EP when possible
-    maybe_msgs = result.get("messages") or []
-    if isinstance(maybe_msgs, list) and all(isinstance(m, Message) for m in maybe_msgs):
-        row.messages = maybe_msgs
-    else:
-        # Minimal fallback: stringify
-        row.messages = [Message(role="assistant", content=str(m)) for m in maybe_msgs]
-    return row
-
-
 def build_graph_kwargs(cp: CompletionParams) -> Dict[str, Any]:
     # Minimal runnable config mapping; not used by current graph but kept for API parity
     model = cp.get("model")
@@ -54,7 +30,6 @@ def build_graph_kwargs(cp: CompletionParams) -> Dict[str, Any]:
         input_key="messages",
         output_key="messages",
     ),
-    mode="pointwise",
     passed_threshold=1.0,
 )
 async def test_langgraph_simple_query(row: EvaluationRow) -> EvaluationRow:

@@ -9,10 +9,14 @@ try:
     from langgraph.graph import END, StateGraph
     from langchain_core.runnables import RunnableConfig
     from langchain_core.messages import BaseMessage, AIMessage
-except Exception as e:  # pragma: no cover - import-time helpful error
-    raise RuntimeError(
-        "Missing required dependency for LangGraph example. Install langgraph and langchain-core."
-    ) from e
+except ImportError as e:  # pragma: no cover - import-time helpful error
+    # Gracefully skip this module's tests if optional deps are not installed
+    import pytest
+
+    pytest.skip(
+        "Missing optional deps for LangGraph example. Install extras: 'pip install -e .[langgraph]'",
+        allow_module_level=True,
+    )
 
 
 def build_graph() -> Any:

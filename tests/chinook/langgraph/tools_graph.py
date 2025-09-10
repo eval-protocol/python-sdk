@@ -9,14 +9,18 @@ try:
     from langgraph.graph import END, START, StateGraph
     from langgraph.graph.message import add_messages
     from langgraph.prebuilt import ToolNode
-    from langchain_core.messages import BaseMessage, AIMessage
+    from langchain_core.messages import BaseMessage
     from langchain.chat_models import init_chat_model
     from langchain_core.tools import tool
     from typing_extensions import Annotated, TypedDict
-except Exception as e:  # pragma: no cover - import-time helpful error
-    raise RuntimeError(
-        "Missing required dependency for LangGraph tools example. Install langgraph and langchain."
-    ) from e
+except ImportError as e:  # pragma: no cover - import-time helpful error
+    # Gracefully skip this module's tests if optional deps are not installed
+    import pytest
+
+    pytest.skip(
+        "Missing optional deps for LangGraph tools example. Install extras: 'pip install -e .[langgraph_tools]'",
+        allow_module_level=True,
+    )
 
 
 class State(TypedDict):
