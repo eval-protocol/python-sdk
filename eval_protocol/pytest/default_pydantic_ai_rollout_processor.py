@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Callable
 import logging
 import time
+from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai.usage import UsageLimits
 from typing_extensions import override
 from eval_protocol.models import EvaluationRow, Message
@@ -53,18 +54,19 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
             start_time = time.perf_counter()
 
             tools = []
-            # for _, tool in agent._function_tools.items():
-            #     tool_dict = {
-            #         "type": "function",
-            #         "function": {
-            #             "name": tool.name,
-            #             "parameters": tool.function_schema.json_schema,
-            #         },
-            #     }
-            #     if tool.description:
-            #         tool_dict["function"]["description"] = tool.description
-
-            #     tools.append(tool_dict)
+            for toolset in agent.toolsets:
+                if isinstance(toolset, FunctionToolset):
+                    for _, tool in toolset.tools.items():
+                        tool_dict = {
+                            "type": "function",
+                            "function": {
+                                "name": tool.name,
+                                "parameters": tool.function_schema.json_schema,
+                            },
+                        }
+                        if tool.description:
+                            tool_dict["function"]["description"] = tool.description
+                        tools.append(tool_dict)
             row.tools = tools
 
             model_messages = [self.convert_ep_message_to_pyd_message(m, row) for m in row.messages]

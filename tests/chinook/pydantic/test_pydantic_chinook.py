@@ -44,6 +44,23 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
     """
     Super simple query for the Chinook database
     """
+    expected_tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "execute_sql",
+                "parameters": {
+                    "additionalProperties": False,
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"],
+                    "type": "object",
+                },
+            },
+        }
+    ]
+    assert hasattr(row, "tools"), "Row missing 'tools' attribute"
+    assert row.tools == expected_tools, f"Tools validation failed. Expected: {expected_tools}, Got: {row.tools}"
+
     last_assistant_message = row.last_assistant_message()
     if last_assistant_message is None:
         row.evaluation_result = EvaluateResult(
