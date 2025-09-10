@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import List
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from eval_protocol.human_id import generate_id
+import json
 
 from eval_protocol.models import Message
 
@@ -14,10 +16,8 @@ def _dbg_enabled() -> bool:
 
 def _dbg_print(*args):
     if _dbg_enabled():
-        try:
-            print(*args)
-        except Exception:
-            pass
+        # Best-effort debug print without broad exception handling
+        print(*args)
 
 
 def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
@@ -36,88 +36,126 @@ def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
         return ep_msg
 
     if isinstance(msg, AIMessage):
-        content = ""
+        # Extract visible content and hidden reasoning content if present
+        content_text = ""
+        reasoning_texts: List[str] = []
+
         if isinstance(msg.content, str):
-            content = msg.content
+            content_text = msg.content
         elif isinstance(msg.content, list):
-            parts: List[str] = []
+            text_parts: List[str] = []
             for item in msg.content:
                 if isinstance(item, dict):
-                    if item.get("type") == "text":
-                        parts.append(str(item.get("text", "")))
+                    item_type = item.get("type")
+                    if item_type == "text":
+                        text_parts.append(str(item.get("text", "")))
+                    elif item_type in ("reasoning", "thinking", "thought"):
+                        # Some providers return dedicated reasoning parts
+                        maybe_text = item.get("text") or item.get("content")
+                        if isinstance(maybe_text, str):
+                            reasoning_texts.append(maybe_text)
                 elif isinstance(item, str):
-                    parts.append(item)
-            content = "\n".join(parts)
+                    text_parts.append(item)
+            content_text = "\n".join([t for t in text_parts if t])
 
-        tool_calls_payload: Optional[List[Dict[str, Any]]] = None
+        # Additional place providers may attach reasoning
+        additional_kwargs = getattr(msg, "additional_kwargs", None)
+        if isinstance(additional_kwargs, dict):
+            rk = additional_kwargs.get("reasoning_content")
+            if isinstance(rk, str) and rk:
+                reasoning_texts.append(rk)
 
-        def _normalize_tool_calls(tc_list: List[Any]) -> List[Dict[str, Any]]:
-            mapped: List[Dict[str, Any]] = []
-            for call in tc_list:
-                if not isinstance(call, dict):
-                    continue
-                try:
-                    call_id = call.get("id") or "toolcall_0"
-                    if isinstance(call.get("function"), dict):
-                        fn = call["function"]
-                        fn_name = fn.get("name") or call.get("name") or "tool"
-                        fn_args = fn.get("arguments")
-                    else:
-                        fn_name = call.get("name") or "tool"
-                        fn_args = call.get("arguments") if call.get("arguments") is not None else call.get("args")
-                    if not isinstance(fn_args, str):
-                        import json as _json
+            # Fireworks and others sometimes nest under `reasoning` or `metadata`
+            nested_reasoning = additional_kwargs.get("reasoning")
+            if isinstance(nested_reasoning, dict):
+                inner = nested_reasoning.get("content") or nested_reasoning.get("text")
+                if isinstance(inner, str) and inner:
+                    reasoning_texts.append(inner)
 
-                        fn_args = _json.dumps(fn_args or {}, ensure_ascii=False)
-                    mapped.append(
+        # Capture tool calls and function_call if present on AIMessage
+        def _normalize_tool_calls(raw_tcs):
+            normalized = []
+            for tc in raw_tcs or []:
+                if isinstance(tc, dict) and "function" in tc:
+                    # Assume already OpenAI style
+                    fn = tc.get("function", {})
+                    # Ensure arguments is a string
+                    args = fn.get("arguments")
+                    if not isinstance(args, str):
+                        try:
+                            args = json.dumps(args)
+                        except Exception:
+                            args = str(args)
+                    normalized.append(
                         {
-                            "id": call_id,
-                            "type": "function",
-                            "function": {"name": fn_name, "arguments": fn_args},
+                            "id": tc.get("id") or generate_id(),
+                            "type": tc.get("type") or "function",
+                            "function": {"name": fn.get("name", ""), "arguments": args},
                         }
                     )
-                except Exception:
-                    continue
-            return mapped
+                elif isinstance(tc, dict) and ("name" in tc) and ("args" in tc or "arguments" in tc):
+                    # LangChain tool schema → OpenAI function-call schema
+                    name = tc.get("name", "")
+                    args_val = tc.get("args", tc.get("arguments", {}))
+                    if not isinstance(args_val, str):
+                        try:
+                            args_val = json.dumps(args_val)
+                        except Exception:
+                            args_val = str(args_val)
+                    normalized.append(
+                        {
+                            "id": tc.get("id") or generate_id(),
+                            "type": "function",
+                            "function": {"name": name, "arguments": args_val},
+                        }
+                    )
+                else:
+                    # Best-effort: stringify unknown formats
+                    normalized.append(
+                        {
+                            "id": generate_id(),
+                            "type": "function",
+                            "function": {
+                                "name": str(tc.get("name", "tool")) if isinstance(tc, dict) else "tool",
+                                "arguments": json.dumps(tc) if not isinstance(tc, str) else tc,
+                            },
+                        }
+                    )
+            return normalized if normalized else None
 
-        ak = getattr(msg, "additional_kwargs", None)
-        if isinstance(ak, dict):
-            tc = ak.get("tool_calls")
-            if isinstance(tc, list) and tc:
-                mapped = _normalize_tool_calls(tc)
-                if mapped:
-                    tool_calls_payload = mapped
+        extracted_tool_calls = None
+        tc_attr = getattr(msg, "tool_calls", None)
+        if isinstance(tc_attr, list):
+            extracted_tool_calls = _normalize_tool_calls(tc_attr)
 
-        if tool_calls_payload is None:
-            raw_attr_tc = getattr(msg, "tool_calls", None)
-            if isinstance(raw_attr_tc, list) and raw_attr_tc:
-                mapped = _normalize_tool_calls(raw_attr_tc)
-                if mapped:
-                    tool_calls_payload = mapped
+        if extracted_tool_calls is None and isinstance(additional_kwargs, dict):
+            maybe_tc = additional_kwargs.get("tool_calls")
+            if isinstance(maybe_tc, list):
+                extracted_tool_calls = _normalize_tool_calls(maybe_tc)
 
-        # Extract reasoning/thinking parts into reasoning_content
-        reasoning_content = None
-        if isinstance(msg.content, list):
-            collected = [
-                it.get("thinking", "") for it in msg.content if isinstance(it, dict) and it.get("type") == "thinking"
-            ]
-            if collected:
-                reasoning_content = "\n\n".join([s for s in collected if s]) or None
+        extracted_function_call = None
+        fc_attr = getattr(msg, "function_call", None)
+        if fc_attr:
+            extracted_function_call = fc_attr
+        if extracted_function_call is None and isinstance(additional_kwargs, dict):
+            maybe_fc = additional_kwargs.get("function_call")
+            if maybe_fc:
+                extracted_function_call = maybe_fc
 
-        # Message.tool_calls expects List[ChatCompletionMessageToolCall] | None.
-        # We pass through Dicts at runtime but avoid type error by casting.
         ep_msg = Message(
             role="assistant",
-            content=content,
-            tool_calls=tool_calls_payload,  # type: ignore[arg-type]
-            reasoning_content=reasoning_content,
+            content=content_text,
+            reasoning_content=("\n".join(reasoning_texts) if reasoning_texts else None),
+            tool_calls=extracted_tool_calls,  # type: ignore[arg-type]
+            function_call=extracted_function_call,  # type: ignore[arg-type]
         )
         _dbg_print(
             "[EP-Ser] -> EP Message:",
             {
                 "role": ep_msg.role,
                 "content_len": len(ep_msg.content or ""),
-                "tool_calls": len(ep_msg.tool_calls or []) if isinstance(ep_msg.tool_calls, list) else 0,
+                "has_reasoning": bool(ep_msg.reasoning_content),
+                "has_tool_calls": bool(ep_msg.tool_calls),
             },
         )
         return ep_msg
@@ -141,3 +179,36 @@ def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
     ep_msg = Message(role=getattr(msg, "type", "assistant"), content=str(getattr(msg, "content", "")))
     _dbg_print("[EP-Ser] -> EP Message (fallback):", {"role": ep_msg.role, "len": len(ep_msg.content or "")})
     return ep_msg
+
+
+def serialize_ep_messages_to_lc(messages: List[Message]) -> List[BaseMessage]:
+    """Convert eval_protocol Message objects to LangChain BaseMessage list.
+
+    - Flattens content parts into strings when content is a list
+    - Maps EP roles to LC message classes
+    """
+    lc_messages: List[BaseMessage] = []
+    for m in messages or []:
+        content = m.content
+        if isinstance(content, list):
+            text_parts: List[str] = []
+            for part in content:
+                try:
+                    text_parts.append(getattr(part, "text", ""))
+                except AttributeError:
+                    pass
+            content = "\n".join([t for t in text_parts if t])
+        if content is None:
+            content = ""
+        text = str(content)
+
+        role = (m.role or "").lower()
+        if role == "user":
+            lc_messages.append(HumanMessage(content=text))
+        elif role == "assistant":
+            lc_messages.append(AIMessage(content=text))
+        elif role == "system":
+            lc_messages.append(SystemMessage(content=text))
+        else:
+            lc_messages.append(HumanMessage(content=text))
+    return lc_messages
