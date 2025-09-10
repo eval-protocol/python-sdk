@@ -21,12 +21,16 @@ class LangGraphRolloutProcessor(RolloutProcessor):
     def __init__(
         self,
         *,
-        graph_factory: Callable[[Dict[str, Any]], Any],
+        # Prefer factory that accepts RolloutProcessorConfig for parity with Pydantic pattern.
+        # For backward compatibility, factories accepting a Dict[str, Any] (graph kwargs) are still supported.
+        graph_factory: Callable[[Any], Any],
         to_input: Optional[Callable[[EvaluationRow], Dict[str, Any]]] = None,
         apply_result: Optional[Callable[[EvaluationRow, Any], EvaluationRow]] = None,
         build_graph_kwargs: Optional[Callable[[CompletionParams], Dict[str, Any]]] = None,
         input_key: str = "messages",
         output_key: str = "messages",
+        # Optional: build per-invoke RunnableConfig dict from full RolloutProcessorConfig
+        build_invoke_config: Optional[Callable[[RolloutProcessorConfig], Dict[str, Any]]] = None,
     ) -> None:
         # Build the graph per-call using completion_params
         self._graph_factory = graph_factory
@@ -35,6 +39,7 @@ class LangGraphRolloutProcessor(RolloutProcessor):
         self._build_graph_kwargs = build_graph_kwargs
         self._input_key = input_key
         self._output_key = output_key
+        self._build_invoke_config = build_invoke_config
 
     def _default_to_input(self, row: EvaluationRow) -> Dict[str, Any]:
         messages = row.messages or []
@@ -121,14 +126,25 @@ class LangGraphRolloutProcessor(RolloutProcessor):
         if config.completion_params:
             graph_config = build_kwargs(config.completion_params)
 
-        # (Re)build the graph for this call using the graph kwargs
-        graph_target = self._graph_factory(graph_config or {})
+        # (Re)build the graph for this call. Prefer passing full config to factory;
+        # fall back to old dict-based factories if needed.
+        try:
+            graph_target = self._graph_factory(config)  # type: ignore[arg-type]
+        except TypeError:
+            graph_target = self._graph_factory(graph_config or {})
+
+        # Build per-invoke config if provided; otherwise reuse graph_config for backwards compat
+        invoke_config: Optional[Dict[str, Any]] = None
+        if self._build_invoke_config is not None:
+            invoke_config = self._build_invoke_config(config)
+        elif graph_config is not None:
+            invoke_config = graph_config
 
         async def _process_row(row: EvaluationRow) -> EvaluationRow:
             try:
                 payload = to_input(row)
-                if graph_config is not None:
-                    result = await graph_target.ainvoke(payload, config=graph_config)
+                if invoke_config is not None:
+                    result = await graph_target.ainvoke(payload, config=invoke_config)
                 else:
                     result = await graph_target.ainvoke(payload)
                 row = apply_result(row, result)

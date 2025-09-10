@@ -3,8 +3,9 @@ from typing import Any, Dict, List
 from eval_protocol.models import EvaluationRow, EvaluateResult, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_langchain_rollout_processor import LangGraphRolloutProcessor
+from eval_protocol.pytest.types import RolloutProcessorConfig
 
-from examples.langgraph.reasoning_gpt_oss_120b_graph import build_reasoning_graph
+from .reasoning_gpt_oss_120b_graph import build_reasoning_graph
 import os
 import pytest
 
@@ -24,21 +25,11 @@ def adapter(raw_rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     return rows
 
 
-def build_graph_kwargs(cp: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "config": {
-            "model": cp.get("model", "accounts/fireworks/models/gpt-oss-120b"),
-            "temperature": cp.get("temperature", 0.0),
-            "reasoning_effort": cp.get("reasoning_effort"),
-        }
-    }
-
-
-def graph_factory(graph_kwargs: Dict[str, Any]) -> Any:
-    cfg = graph_kwargs.get("config", {}) if isinstance(graph_kwargs, dict) else {}
-    model = cfg.get("model") or "accounts/fireworks/models/gpt-oss-120b"
-    temperature = cfg.get("temperature", 0.0)
-    reasoning_effort = cfg.get("reasoning_effort")
+def graph_factory(config: RolloutProcessorConfig) -> Any:
+    cp = config.completion_params or {}
+    model = cp.get("model") or "accounts/fireworks/models/gpt-oss-120b"
+    temperature = cp.get("temperature", 0.0)
+    reasoning_effort = cp.get("reasoning_effort")
     return build_reasoning_graph(
         model=model,
         model_provider="fireworks",
@@ -47,10 +38,7 @@ def graph_factory(graph_kwargs: Dict[str, Any]) -> Any:
     )
 
 
-processor = LangGraphRolloutProcessor(
-    graph_factory=graph_factory,
-    build_graph_kwargs=build_graph_kwargs,
-)
+processor = LangGraphRolloutProcessor(graph_factory=graph_factory)
 
 
 @pytest.mark.skipif(os.getenv("FIREWORKS_API_KEY") in (None, ""), reason="FIREWORKS_API_KEY not set")
