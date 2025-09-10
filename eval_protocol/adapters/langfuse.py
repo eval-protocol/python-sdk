@@ -155,24 +155,12 @@ class LangfuseAdapter:
                 observations_response.data if hasattr(observations_response, "data") else list(observations_response)
             )
 
-            # Look for conversation history in trace output or observations
             messages = []
-            conversation_found = False
 
-            # Look for complete conversation in observations
-            if not conversation_found:
-                for obs in observations:
-                    # Check each observation's output for complete conversation array
-                    if hasattr(obs, "output") and obs.output:
-                        conversation = self._extract_conversation_from_output(obs.output)
-                        if conversation:
-                            messages = conversation
-                            conversation_found = True
-                            break
-
-            # Fallback: try extracting from observations using old method
-            if not conversation_found:
-                messages = self._extract_messages_from_observations(observations, include_tool_calls)
+            for obs in observations:
+                if obs.name == "agent run":
+                    messages = self._extract_conversation_from_output(obs.output)
+                    break
 
             if not messages:
                 return None
@@ -359,10 +347,16 @@ class LangfuseAdapter:
 
                         # Handle tool responses
                         name = None
+                        tool_call_id = None
                         if role == "tool":
                             name = msg_data.get("name")
+                            tool_call_id = msg_data.get("id")
 
-                        messages.append(Message(role=role, content=content, name=name, tool_calls=tool_calls))
+                        messages.append(
+                            Message(
+                                role=role, content=content, name=name, tool_calls=tool_calls, tool_call_id=tool_call_id
+                            )
+                        )
 
             return messages if messages else None
 

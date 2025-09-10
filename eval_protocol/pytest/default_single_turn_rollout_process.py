@@ -30,7 +30,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             if len(row.messages) == 0:
                 raise ValueError("Messages is empty. Please provide a non-empty dataset")
 
-            messages_payload = [{"role": m.role, "content": m.content} for m in row.messages]
+            messages_payload = [message.model_dump() for message in row.messages]
 
             request_params = {"messages": messages_payload, **config.completion_params}
             # Ensure caching is disabled only for this request (review feedback)

@@ -62,15 +62,17 @@ def postprocess(
         passed = success_passed and standard_error_passed
 
     # Update eval metadata passed field for all results
-    for result in all_results:
-        for r in result:
-            if r.eval_metadata is not None:
-                r.eval_metadata.passed = passed
-            if r.evaluation_result is not None:
-                r.evaluation_result.agg_score = agg_score
-                r.evaluation_result.standard_error = standard_error
-                r.execution_metadata.experiment_duration_seconds = experiment_duration_seconds
-            active_logger.log(r)
+    for results in all_results:
+        for result in results:
+            if result.eval_metadata is not None:
+                result.eval_metadata.passed = passed
+            if result.evaluation_result is not None:
+                if result.evaluation_result.agg_score is None:
+                    result.evaluation_result.agg_score = agg_score
+                if result.evaluation_result.standard_error is None:
+                    result.evaluation_result.standard_error = standard_error
+            result.execution_metadata.experiment_duration_seconds = experiment_duration_seconds
+            active_logger.log(result)
 
     # Optional: print and/or persist a summary artifact for CI
     try:
