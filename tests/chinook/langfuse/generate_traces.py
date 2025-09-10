@@ -13,7 +13,7 @@ from tests.chinook.dataset import collect_dataset
 try:
     from langfuse import get_client, observe  # pyright: ignore[reportPrivateImportUsage]
     from pydantic_ai.agent import Agent
-    from pydantic_ai.models.openai import OpenAIModel
+    from pydantic_ai.models.openai import OpenAIChatModel
 
     LANGFUSE_AVAILABLE = True
     langfuse_client = get_client()
@@ -42,7 +42,7 @@ LLM_JUDGE_PROMPT = (
 def agent_factory(config: RolloutProcessorConfig) -> Agent:
     model_name = config.completion_params["model"]
     provider = config.completion_params["provider"]
-    model = OpenAIModel(model_name, provider=provider)
+    model = OpenAIChatModel(model_name, provider=provider)
     return setup_agent(model)
 
 

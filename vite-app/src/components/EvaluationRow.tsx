@@ -363,7 +363,7 @@ const ExpandedContent = observer(
     tools: EvaluationRowType["tools"];
     rollout_status: EvaluationRowType["rollout_status"];
   }) => (
-    <div className="p-4 bg-gray-50">
+    <div className="p-4">
       <div className="flex gap-3 w-fit">
         {/* Left Column - Chat Interface */}
         <div className="min-w-0">
@@ -470,8 +470,8 @@ export const EvaluationRow = observer(
 
         {/* Expanded Content Row */}
         {isExpanded && (
-          <tr>
-            <td colSpan={9} className="p-0">
+          <tr className="bg-gray-50">
+            <td colSpan={100} className="p-0">
               <ExpandedContent
                 row={row}
                 messages={row.messages}

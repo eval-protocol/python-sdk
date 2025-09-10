@@ -16,7 +16,7 @@ from typing import List
 import pytest
 from pydantic import BaseModel
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, InputMetadata
 from eval_protocol.pytest import evaluation_test, NoOpRolloutProcessor
@@ -99,7 +99,7 @@ async def test_langfuse_evaluation(row: EvaluationRow) -> EvaluationRow:
             reason="No assistant message found",
         )
     else:
-        model = OpenAIModel(
+        model = OpenAIChatModel(
             "accounts/fireworks/models/kimi-k2-instruct",
             provider="fireworks",
         )

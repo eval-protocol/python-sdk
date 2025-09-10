@@ -1,8 +1,8 @@
 from pydantic_ai.agent import Agent
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 import pytest
 
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, Status
 from eval_protocol.pytest import evaluation_test
 
 from eval_protocol.pytest.default_pydantic_ai_rollout_processor import PydanticAgentRolloutProcessor
@@ -10,7 +10,7 @@ from eval_protocol.pytest.types import RolloutProcessorConfig
 
 
 def agent_factory(config: RolloutProcessorConfig) -> Agent:
-    model = OpenAIModel(config.completion_params["model"], provider="fireworks")
+    model = OpenAIChatModel(config.completion_params["model"], provider="fireworks")
     return Agent(model=model)
 
 
@@ -27,4 +27,5 @@ async def test_pydantic_agent(row: EvaluationRow) -> EvaluationRow:
     """
     Super simple hello world test for Pydantic AI.
     """
+    assert row.rollout_status.code == Status.Code.FINISHED
     return row
