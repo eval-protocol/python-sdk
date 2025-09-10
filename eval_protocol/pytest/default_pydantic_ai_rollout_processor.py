@@ -21,7 +21,7 @@ from pydantic_ai.messages import (
     ToolReturnPart,
     UserPromptPart,
 )
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
         usage_limits: UsageLimits | None = None,
     ):
         # dummy model used for its helper functions for processing messages
-        self._util: OpenAIModel = OpenAIModel("dummy-model", provider=OpenAIProvider(api_key="dummy"))
+        self._util: OpenAIChatModel = OpenAIChatModel("dummy-model", provider=OpenAIProvider(api_key="dummy"))
         self._setup_agent = agent_factory
 
     @override
@@ -53,18 +53,18 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
             start_time = time.perf_counter()
 
             tools = []
-            for _, tool in agent._function_tools.items():
-                tool_dict = {
-                    "type": "function",
-                    "function": {
-                        "name": tool.name,
-                        "parameters": tool.function_schema.json_schema,
-                    },
-                }
-                if tool.description:
-                    tool_dict["function"]["description"] = tool.description
+            # for _, tool in agent._function_tools.items():
+            #     tool_dict = {
+            #         "type": "function",
+            #         "function": {
+            #             "name": tool.name,
+            #             "parameters": tool.function_schema.json_schema,
+            #         },
+            #     }
+            #     if tool.description:
+            #         tool_dict["function"]["description"] = tool.description
 
-                tools.append(tool_dict)
+            #     tools.append(tool_dict)
             row.tools = tools
 
             model_messages = [self.convert_ep_message_to_pyd_message(m, row) for m in row.messages]

@@ -9,7 +9,7 @@ from eval_protocol.pytest.default_pydantic_ai_rollout_processor import PydanticA
 from eval_protocol.pytest.types import RolloutProcessorConfig
 from tests.chinook.pydantic.agent import setup_agent
 import os
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 
 from tests.chinook.dataset import collect_dataset
 
@@ -24,7 +24,7 @@ LLM_JUDGE_PROMPT = (
 def agent_factory(config: RolloutProcessorConfig) -> Agent:
     model_name = config.completion_params["model"]
     provider = config.completion_params["provider"]
-    model = OpenAIModel(model_name, provider=provider)
+    model = OpenAIChatModel(model_name, provider=provider)
     return setup_agent(model)
 
 
@@ -56,7 +56,7 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
             reason="No assistant message found",
         )
     else:
-        model = OpenAIModel(
+        model = OpenAIChatModel(
             "accounts/fireworks/models/kimi-k2-instruct",
             provider="fireworks",
         )

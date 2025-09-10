@@ -7,7 +7,7 @@ RolloutProcessorConfig. In completion_params, you can provide mappings of model
 to agent based on key.
 """
 
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 import pytest
 
 from eval_protocol.models import EvaluationRow, Message
@@ -49,10 +49,12 @@ def setup_agent(joke_generation_model: Model, joke_selection_model: Model) -> Ag
 
 
 def agent_factory(config: RolloutProcessorConfig) -> Agent:
-    joke_generation_model = OpenAIModel(
+    joke_generation_model = OpenAIChatModel(
         config.completion_params["model"]["joke_generation_model"], provider="fireworks"
     )
-    joke_selection_model = OpenAIModel(config.completion_params["model"]["joke_selection_model"], provider="fireworks")
+    joke_selection_model = OpenAIChatModel(
+        config.completion_params["model"]["joke_selection_model"], provider="fireworks"
+    )
     return setup_agent(
         joke_generation_model,
         joke_selection_model,
