@@ -5,7 +5,7 @@ to EvaluationRow format for use in evaluation pipelines.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, Iterator, List, Optional, cast
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
@@ -13,7 +13,9 @@ from eval_protocol.models import EvaluationRow, InputMetadata, Message
 logger = logging.getLogger(__name__)
 
 try:
-    from langfuse import Langfuse  # pyright: ignore[reportPrivateImportUsage]
+    from langfuse import get_client  # pyright: ignore[reportPrivateImportUsage]
+    from langfuse.api.resources.trace.types.traces import Traces
+    from langfuse.api.resources.commons.types.trace_with_full_details import TraceWithFullDetails
 
     LANGFUSE_AVAILABLE = True
 except ImportError:
@@ -45,26 +47,12 @@ class LangfuseAdapter:
         ... ))
     """
 
-    def __init__(
-        self,
-        public_key: str,
-        secret_key: str,
-        host: str = "https://cloud.langfuse.com",
-        project_id: Optional[str] = None,
-    ):
-        """Initialize the Langfuse adapter.
-
-        Args:
-            public_key: Langfuse public key
-            secret_key: Langfuse secret key
-            host: Langfuse host URL (default: https://cloud.langfuse.com)
-            project_id: Optional project ID to filter traces
-        """
+    def __init__(self):
+        """Initialize the Langfuse adapter."""
         if not LANGFUSE_AVAILABLE:
             raise ImportError("Langfuse not installed. Install with: pip install 'eval-protocol[langfuse]'")
 
-        self.client = cast(Any, Langfuse)(public_key=public_key, secret_key=secret_key, host=host)
-        self.project_id = project_id
+        self.client = get_client()
 
     def get_evaluation_rows(
         self,
@@ -72,8 +60,7 @@ class LangfuseAdapter:
         tags: Optional[List[str]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
-        from_timestamp: Optional[datetime] = None,
-        to_timestamp: Optional[datetime] = None,
+        hours_back: Optional[int] = None,
         include_tool_calls: bool = True,
     ) -> List[EvaluationRow]:
         """Pull traces from Langfuse and convert to EvaluationRow format.
@@ -83,16 +70,23 @@ class LangfuseAdapter:
             tags: Filter by specific tags
             user_id: Filter by user ID
             session_id: Filter by session ID
-            from_timestamp: Filter traces after this timestamp
-            to_timestamp: Filter traces before this timestamp
+            hours_back: Filter traces from this many hours ago
             include_tool_calls: Whether to include tool calling traces
 
         Yields:
             EvaluationRow: Converted evaluation rows
         """
         # Get traces from Langfuse using new API
+
+        if hours_back:
+            to_timestamp = datetime.now()
+            from_timestamp = to_timestamp - timedelta(hours=hours_back)
+        else:
+            to_timestamp = None
+            from_timestamp = None
+
         eval_rows = []
-        traces = self.client.api.trace.list(
+        traces: Traces = self.client.api.trace.list(
             limit=limit,
             tags=tags,
             user_id=user_id,
@@ -128,7 +122,7 @@ class LangfuseAdapter:
         eval_rows = []
         for trace_id in trace_ids:
             try:
-                trace = self.client.api.trace.get(trace_id)
+                trace: TraceWithFullDetails = self.client.api.trace.get(trace_id)
                 eval_row = self._convert_trace_to_evaluation_row(trace, include_tool_calls)
                 if eval_row:
                     eval_rows.append(eval_row)
@@ -147,10 +141,10 @@ class LangfuseAdapter:
         Returns:
             EvaluationRow or None if conversion fails
         """
-        # TODO: move this logic into an adapter in llm_judge.py. langfuse.py should just return traces
         try:
             # Get observations (generations, spans) from the trace
             observations_response = self.client.api.observations.get_many(trace_id=trace.id, limit=100)
+            # print(observations_response)
             observations = (
                 observations_response.data if hasattr(observations_response, "data") else list(observations_response)
             )
@@ -406,7 +400,6 @@ class LangfuseAdapter:
             "trace_id": trace.id,
             "trace_name": getattr(trace, "name", None),
             "trace_tags": getattr(trace, "tags", []),
-            "langfuse_project_id": self.project_id,
         }
 
         # Add trace metadata if available
@@ -418,9 +411,6 @@ class LangfuseAdapter:
             "session_id": getattr(trace, "session_id", None),
             "user_id": getattr(trace, "user_id", None),
             "timestamp": getattr(trace, "timestamp", None),
-            "langfuse_trace_url": (
-                f"{self.client.host}/project/{self.project_id}/traces/{trace.id}" if self.project_id else None
-            ),
         }
 
         return InputMetadata(
@@ -497,26 +487,7 @@ class LangfuseAdapter:
         return tools if tools else None
 
 
-def create_langfuse_adapter(
-    public_key: str,
-    secret_key: str,
-    host: str = "https://cloud.langfuse.com",
-    project_id: Optional[str] = None,
-) -> LangfuseAdapter:
-    """Factory function to create a Langfuse adapter.
+def create_langfuse_adapter() -> LangfuseAdapter:
+    """Factory function to create a Langfuse adapter."""
 
-    Args:
-        public_key: Langfuse public key
-        secret_key: Langfuse secret key
-        host: Langfuse host URL
-        project_id: Optional project ID
-
-    Returns:
-        LangfuseAdapter instance
-    """
-    return LangfuseAdapter(
-        public_key=public_key,
-        secret_key=secret_key,
-        host=host,
-        project_id=project_id,
-    )
+    return LangfuseAdapter()

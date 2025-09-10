@@ -13,39 +13,48 @@ import pytest
 from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
-from eval_protocol.quickstart.utils import pairwise_judgment
+from eval_protocol.quickstart.utils import pairwise_judgment, split_multi_turn_rows, serialize_message
+from eval_protocol.adapters.langfuse import create_langfuse_adapter
 
-# Langfuse client setup
-try:
-    from langfuse import get_client  # pyright: ignore[reportPrivateImportUsage]
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
 
-    LANGFUSE_AVAILABLE = True
-    langfuse = get_client()
-except ImportError:
-    LANGFUSE_AVAILABLE = False
-    langfuse = None
+JUDGE_CONFIGS = {
+    "gpt-4.1": {
+        "model": "gpt-4.1",
+        "temperature": 0.0,
+        "max_tokens": 16000,
+        "max_concurrency": 64,
+    },
+    "gemini-2.5-pro": {
+        "model": "gemini-2.5-pro",
+        "temperature": 1.0,
+        "max_tokens": 32000,
+        "api_key": os.getenv("GEMINI_API_KEY"),
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "max_concurrency": 32,
+    },
+}
 
 
 def fetch_langfuse_traces_as_evaluation_rows(
-    hours_back: int = 168, tags: Optional[List[str]] = None
+    limit: int = 100,
+    tags: Optional[List[str]] = None,
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    hours_back: Optional[int] = None,
+    include_tool_calls: bool = True,
 ) -> List[EvaluationRow]:
     try:
-        from eval_protocol.adapters.langfuse import create_langfuse_adapter
-
-        if not os.getenv("LANGFUSE_PUBLIC_KEY") or not os.getenv("LANGFUSE_SECRET_KEY"):
-            raise ValueError("LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY must be set")
-
-        adapter = create_langfuse_adapter(
-            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),  # pyright: ignore[reportArgumentType]
-            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),  # pyright: ignore[reportArgumentType]
-            host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
-        )
-
-        now = datetime.now()
-        from_timestamp = now - timedelta(hours=hours_back)
+        adapter = create_langfuse_adapter()
 
         return adapter.get_evaluation_rows(
-            limit=20, from_timestamp=from_timestamp, to_timestamp=now, include_tool_calls=True, tags=tags
+            limit=limit,
+            tags=tags,
+            user_id=user_id,
+            session_id=session_id,
+            hours_back=hours_back,
+            include_tool_calls=include_tool_calls,
         )
 
     except Exception as e:
@@ -56,10 +65,17 @@ def fetch_langfuse_traces_as_evaluation_rows(
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
 @pytest.mark.asyncio
 @evaluation_test(
-    input_rows=[fetch_langfuse_traces_as_evaluation_rows()],
-    completion_params=[{"model": "gpt-4o"}],
+    input_rows=[fetch_langfuse_traces_as_evaluation_rows(limit=1)],
+    completion_params=[
+        {"model": "gpt-5"},
+        {
+            # "max_tokens": 131000,
+            # "extra_body": {"reasoning_effort": "low"},
+            "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
+        },
+    ],
     rollout_processor=SingleTurnRolloutProcessor(),
-    split_multi_turn=True,
+    preprocess_fn=split_multi_turn_rows,
     mode="all",
 )
 async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
@@ -72,6 +88,8 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
     - ground_truth: Model A's answer (original assistant response)
     """
 
+    judge_name = "gemini-2.5-pro"  # Edit to which judge you'd like to use. Configs at top of file.
+
     if not rows:
         print("❌ No evaluation rows provided")
         return rows
@@ -80,19 +98,14 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
 
     model_name = rows[0].input_metadata.completion_params.get("model", "unknown_model")
 
-    # Generate judgments directly from rows
-    import concurrent.futures
-    from concurrent.futures import ThreadPoolExecutor
-
     def run_judgment(row: EvaluationRow) -> Optional[Dict[str, Any]]:
         """Run pairwise judgment for a single evaluation row."""
         if not row.messages:
             return None
 
-        # Extract question and answers
-        question_text = "\n".join([f"{msg.role}: {msg.content}" for msg in row.messages[:-1]])
-        model_a_answer = row.ground_truth  # Original response
-        model_b_answer = row.messages[-1].content  # Comparison model response
+        question_text = "\n".join([serialize_message(msg) for msg in row.messages[:-1]])
+        model_a_answer = row.ground_truth
+        model_b_answer = serialize_message(row.messages[-1])
 
         games = []
 
@@ -101,6 +114,8 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
             question_text=question_text,
             answer_a=model_a_answer,
             answer_b=model_b_answer,
+            tools=row.tools,
+            judge_config=JUDGE_CONFIGS[judge_name],
         )
         games.append(result1)
 
@@ -109,6 +124,8 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
             question_text=question_text,
             answer_a=model_b_answer,
             answer_b=model_a_answer,
+            tools=row.tools,
+            judge_config=JUDGE_CONFIGS[judge_name],
         )
         games.append(result2)
 
@@ -130,9 +147,9 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
         return {"model": model_name, "games": games}
 
     judgments = []
-    max_workers = 64
+    max_concurrency = JUDGE_CONFIGS[judge_name]["max_concurrency"]
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=max_concurrency) as executor:
         futures = [executor.submit(run_judgment, row) for row in rows]
 
         for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Generating judgments"):
@@ -178,9 +195,7 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
     battles = pd.DataFrame({"score": scores_data})
 
     # Bootstrap sampling for calculating relative performance to original model at fixed 50%
-    bootstrap_means = [
-        battles.sample(frac=1.0, replace=True)["score"].mean() for _ in tqdm(range(100), desc="Bootstrap sampling")
-    ]
+    bootstrap_means = [battles.sample(frac=1.0, replace=True)["score"].mean() for _ in range(100)]
 
     # Calculate final scores
     bootstraps = pd.Series(bootstrap_means)
@@ -197,10 +212,10 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
     print("original: 50.0% (CI: 50.0% - 50.0%)")
 
     for row in rows:
-        # This is hacky, but it's the only way to get the score into the evaluation result in our current pattern
         if row.evaluation_result:
             row.evaluation_result.score = mean_score
-            # Standard error approximation from 90% CI: SE ≈ (upper - lower) / (2 × 1.645), but this is not quite right bc it assumes a normal distribution
-            row.evaluation_result.standard_error = (upper_score - lower_score) / (2 * 1.645)
+            row.evaluation_result.standard_error = (upper_score - lower_score) / (
+                2 * 1.645
+            )  # Standard error approximation from 90% CI
 
     return rows
