@@ -71,7 +71,11 @@ class LangGraphRolloutProcessor(RolloutProcessor):
                     elif isinstance(m, dict):
                         role = m.get("role") or "assistant"
                         content = m.get("content")
-                        converted.append(Message(role=role, content=content))
+                        tool_calls = m.get("tool_calls")
+                        function_call = m.get("function_call")
+                        converted.append(
+                            Message(role=role, content=content, tool_calls=tool_calls, function_call=function_call)
+                        )
                     else:
                         # Best-effort for LC-like objects without importing LC types
                         role_like = getattr(m, "type", None)

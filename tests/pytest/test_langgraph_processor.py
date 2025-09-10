@@ -140,3 +140,104 @@ async def test_to_input_converts_ep_messages_to_lc_via_adapter(monkeypatch):
 
     # Assert that adapter was used
     assert called["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_apply_result_copies_tool_calls_from_lc_ai_and_toolmessage():
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    # Arrange: EP user message in, LC assistant with tool_calls + LC tool message out
+    row = EvaluationRow(messages=[Message(role="user", content="count tracks")])
+    tool_call_id = "call_1"
+    # Use LangChain-native tool_call schema (name/args) so AIMessage validates
+    ai_with_tool = AIMessage(
+        content="I'll call the tool.",
+        tool_calls=[
+            {
+                "id": tool_call_id,
+                "name": "count_tracks",
+                "args": {},
+            }
+        ],
+    )
+    tool_msg = ToolMessage(content="3503", name="count_tracks", tool_call_id=tool_call_id, status="success")
+    processor = _make_processor_with_defaults([ai_with_tool, tool_msg])
+
+    # Act
+    tasks = processor(
+        [row],
+        type(
+            "Cfg",
+            (),
+            {
+                "completion_params": {},
+                "semaphore": asyncio.Semaphore(10),
+                "mcp_config_path": "",
+                "logger": None,
+                "server_script_path": None,
+                "steps": 1,
+                "kwargs": {},
+                "exception_handler_config": None,
+            },
+        )(),
+    )
+    out = (await asyncio.gather(*tasks))[0]
+
+    # Assert: assistant message has tool_calls, and tool message is present
+    assistants = [m for m in out.messages if m.role == "assistant"]
+    tools = [m for m in out.messages if m.role == "tool"]
+    assert assistants, "No assistant messages found"
+    assert tools, "No tool messages found"
+    assert assistants[-1].tool_calls is not None and len(assistants[-1].tool_calls) == 1
+    assert assistants[-1].tool_calls[0].id, "tool_call id should be present"
+    assert tools[-1].content and "3503" in (tools[-1].content or "")
+
+
+@pytest.mark.asyncio
+async def test_apply_result_copies_tool_calls_from_additional_kwargs():
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    # Arrange: tool_calls provided via additional_kwargs instead of attribute
+    row = EvaluationRow(messages=[Message(role="user", content="count tracks")])
+    tool_call_id = "call_2"
+    ai_with_tool = AIMessage(
+        content="I'll call the tool.",
+        additional_kwargs={
+            "tool_calls": [
+                {
+                    "id": tool_call_id,
+                    "name": "count_tracks",
+                    "args": {},
+                }
+            ]
+        },
+    )
+    tool_msg = ToolMessage(content="3503", name="count_tracks", tool_call_id=tool_call_id, status="success")
+    processor = _make_processor_with_defaults([ai_with_tool, tool_msg])
+
+    # Act
+    tasks = processor(
+        [row],
+        type(
+            "Cfg",
+            (),
+            {
+                "completion_params": {},
+                "semaphore": asyncio.Semaphore(10),
+                "mcp_config_path": "",
+                "logger": None,
+                "server_script_path": None,
+                "steps": 1,
+                "kwargs": {},
+                "exception_handler_config": None,
+            },
+        )(),
+    )
+    out = (await asyncio.gather(*tasks))[0]
+
+    # Assert
+    assistants = [m for m in out.messages if m.role == "assistant"]
+    tools = [m for m in out.messages if m.role == "tool"]
+    assert assistants and assistants[-1].tool_calls is not None
+    assert any(tc.id for tc in assistants[-1].tool_calls), "Expected tool_call with id"
+    assert tools and "3503" in (tools[-1].content or "")

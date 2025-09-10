@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import List
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from eval_protocol.human_id import generate_id
+import json
 
 from eval_protocol.models import Message
 
@@ -14,10 +16,8 @@ def _dbg_enabled() -> bool:
 
 def _dbg_print(*args):
     if _dbg_enabled():
-        try:
-            print(*args)
-        except Exception:
-            pass
+        # Best-effort debug print without broad exception handling
+        print(*args)
 
 
 def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
@@ -36,25 +36,126 @@ def serialize_lc_message_to_ep(msg: BaseMessage) -> Message:
         return ep_msg
 
     if isinstance(msg, AIMessage):
-        content = ""
+        # Extract visible content and hidden reasoning content if present
+        content_text = ""
+        reasoning_texts: List[str] = []
+
         if isinstance(msg.content, str):
-            content = msg.content
+            content_text = msg.content
         elif isinstance(msg.content, list):
-            parts: List[str] = []
+            text_parts: List[str] = []
             for item in msg.content:
                 if isinstance(item, dict):
-                    if item.get("type") == "text":
-                        parts.append(str(item.get("text", "")))
+                    item_type = item.get("type")
+                    if item_type == "text":
+                        text_parts.append(str(item.get("text", "")))
+                    elif item_type in ("reasoning", "thinking", "thought"):
+                        # Some providers return dedicated reasoning parts
+                        maybe_text = item.get("text") or item.get("content")
+                        if isinstance(maybe_text, str):
+                            reasoning_texts.append(maybe_text)
                 elif isinstance(item, str):
-                    parts.append(item)
-            content = "\n".join(parts)
+                    text_parts.append(item)
+            content_text = "\n".join([t for t in text_parts if t])
 
-        ep_msg = Message(role="assistant", content=content)
+        # Additional place providers may attach reasoning
+        additional_kwargs = getattr(msg, "additional_kwargs", None)
+        if isinstance(additional_kwargs, dict):
+            rk = additional_kwargs.get("reasoning_content")
+            if isinstance(rk, str) and rk:
+                reasoning_texts.append(rk)
+
+            # Fireworks and others sometimes nest under `reasoning` or `metadata`
+            nested_reasoning = additional_kwargs.get("reasoning")
+            if isinstance(nested_reasoning, dict):
+                inner = nested_reasoning.get("content") or nested_reasoning.get("text")
+                if isinstance(inner, str) and inner:
+                    reasoning_texts.append(inner)
+
+        # Capture tool calls and function_call if present on AIMessage
+        def _normalize_tool_calls(raw_tcs):
+            normalized = []
+            for tc in raw_tcs or []:
+                if isinstance(tc, dict) and "function" in tc:
+                    # Assume already OpenAI style
+                    fn = tc.get("function", {})
+                    # Ensure arguments is a string
+                    args = fn.get("arguments")
+                    if not isinstance(args, str):
+                        try:
+                            args = json.dumps(args)
+                        except Exception:
+                            args = str(args)
+                    normalized.append(
+                        {
+                            "id": tc.get("id") or generate_id(),
+                            "type": tc.get("type") or "function",
+                            "function": {"name": fn.get("name", ""), "arguments": args},
+                        }
+                    )
+                elif isinstance(tc, dict) and ("name" in tc) and ("args" in tc or "arguments" in tc):
+                    # LangChain tool schema → OpenAI function-call schema
+                    name = tc.get("name", "")
+                    args_val = tc.get("args", tc.get("arguments", {}))
+                    if not isinstance(args_val, str):
+                        try:
+                            args_val = json.dumps(args_val)
+                        except Exception:
+                            args_val = str(args_val)
+                    normalized.append(
+                        {
+                            "id": tc.get("id") or generate_id(),
+                            "type": "function",
+                            "function": {"name": name, "arguments": args_val},
+                        }
+                    )
+                else:
+                    # Best-effort: stringify unknown formats
+                    normalized.append(
+                        {
+                            "id": generate_id(),
+                            "type": "function",
+                            "function": {
+                                "name": str(tc.get("name", "tool")) if isinstance(tc, dict) else "tool",
+                                "arguments": json.dumps(tc) if not isinstance(tc, str) else tc,
+                            },
+                        }
+                    )
+            return normalized if normalized else None
+
+        extracted_tool_calls = None
+        tc_attr = getattr(msg, "tool_calls", None)
+        if isinstance(tc_attr, list):
+            extracted_tool_calls = _normalize_tool_calls(tc_attr)
+
+        if extracted_tool_calls is None and isinstance(additional_kwargs, dict):
+            maybe_tc = additional_kwargs.get("tool_calls")
+            if isinstance(maybe_tc, list):
+                extracted_tool_calls = _normalize_tool_calls(maybe_tc)
+
+        extracted_function_call = None
+        fc_attr = getattr(msg, "function_call", None)
+        if fc_attr:
+            extracted_function_call = fc_attr
+        if extracted_function_call is None and isinstance(additional_kwargs, dict):
+            maybe_fc = additional_kwargs.get("function_call")
+            if maybe_fc:
+                extracted_function_call = maybe_fc
+
+        ep_msg = Message(
+            role="assistant",
+            content=content_text,
+            reasoning_content=("\n".join(reasoning_texts) if reasoning_texts else None),
+            tool_calls=extracted_tool_calls,  # type: ignore[arg-type]
+            function_call=extracted_function_call,  # type: ignore[arg-type]
+        )
         _dbg_print(
             "[EP-Ser] -> EP Message:",
             {
                 "role": ep_msg.role,
                 "content_len": len(ep_msg.content or ""),
+                "has_reasoning": bool(ep_msg.reasoning_content),
+                "has_tool_calls": bool(ep_msg.tool_calls),
             },
         )
         return ep_msg
@@ -107,8 +208,6 @@ def serialize_ep_messages_to_lc(messages: List[Message]) -> List[BaseMessage]:
         elif role == "assistant":
             lc_messages.append(AIMessage(content=text))
         elif role == "system":
-            from langchain_core.messages import SystemMessage  # local import to avoid unused import
-
             lc_messages.append(SystemMessage(content=text))
         else:
             lc_messages.append(HumanMessage(content=text))

@@ -2,10 +2,6 @@ from typing import Any, Dict, List
 from typing_extensions import TypedDict, Annotated
 
 
-def _noop() -> None:
-    return None
-
-
 def build_simple_graph(
     model: str = "accounts/fireworks/models/kimi-k2-instruct",
     *,
