@@ -61,6 +61,9 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
     assert hasattr(row, "tools"), "Row missing 'tools' attribute"
     assert row.tools == expected_tools, f"Tools validation failed. Expected: {expected_tools}, Got: {row.tools}"
 
+    # assert that there is a system message
+    assert row.messages[0].role == "system"
+
     last_assistant_message = row.last_assistant_message()
     if last_assistant_message is None:
         row.evaluation_result = EvaluateResult(
