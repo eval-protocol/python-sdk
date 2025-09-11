@@ -33,7 +33,7 @@ class ParameterIdGenerator(Protocol):
 class DefaultParameterIdGenerator:
     """Default ID generator that creates meaningful IDs from parameter combinations."""
 
-    def __init__(self, max_length: int = 50):
+    def __init__(self, max_length: int = 200):
         """Initialize the ID generator with configuration options.
 
         Args:
@@ -45,13 +45,16 @@ class DefaultParameterIdGenerator:
         """Generate an ID for a parameter combination."""
         dataset, completion_params, messages, rows, evaluation_test_kwargs = combo
 
-        # Add model name if available
         if completion_params:
-            model = completion_params.get("model")
-            if model:
-                # Extract just the model name, not the full path
-                model_name = model.split("/")[-1] if "/" in model else model
-                id_str = f"model-{model_name}"
+            # Get all string, numeric, and boolean values from completion_params, sorted by key
+            str_values = []
+            for key in sorted(completion_params.keys()):
+                value = completion_params[key]
+                if isinstance(value, (str, int, float, bool)):
+                    str_values.append(str(value))
+
+            if str_values:
+                id_str = ":".join(str_values)
 
                 # Truncate if too long
                 if len(id_str) > self.max_length:
