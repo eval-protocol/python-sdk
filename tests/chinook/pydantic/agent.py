@@ -27,7 +27,7 @@ table_name,column_name,data_type,is_nullable
     """
 
     agent = Agent(
-        system_prompt=SYSTEM_PROMPT,
+        instructions=SYSTEM_PROMPT,
         model=orchestrator_agent_model,
         instrument=True,
     )
