@@ -65,7 +65,7 @@ def fetch_langfuse_traces_as_evaluation_rows(
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
 @pytest.mark.asyncio
 @evaluation_test(
-    input_rows=[fetch_langfuse_traces_as_evaluation_rows(limit=1)],
+    input_rows=[fetch_langfuse_traces_as_evaluation_rows()],
     completion_params=[
         {"model": "gpt-5"},
         {
