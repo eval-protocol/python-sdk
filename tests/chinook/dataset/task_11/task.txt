@@ -1,0 +1,3 @@
+Analyze seasonal purchasing trends by customer country and genre preference.
+Show country, genre, month, average purchase value, customer count, and seasonal
+trend indicator.

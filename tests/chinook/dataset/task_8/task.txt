@@ -1,0 +1,3 @@
+Find me all tracks and their artist that are both the most expensive in their
+genre and have the highest sales volume within that same genre. I need to
+identify which premium-priced tracks are still dominating their market segments.

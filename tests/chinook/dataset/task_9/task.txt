@@ -1,0 +1,3 @@
+Calculate customer lifetime value segments and predict churn risk. Group
+customers into segments based on spending patterns and calculate days since last
+purchase to identify churn risk.

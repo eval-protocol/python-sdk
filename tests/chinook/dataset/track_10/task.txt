@@ -1,0 +1,3 @@
+Find albums with the highest track count variance and their genre distribution.
+Show album title, artist, total tracks, track count variance, genre count, and
+most common genre.

@@ -1,0 +1,3 @@
+Find customers with the most diverse music taste and their spending correlation.
+Calculate genre diversity score, average track price, total spending, and
+diversity-to-spending ratio.
