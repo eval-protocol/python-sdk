@@ -1,0 +1,5 @@
+Find high-value customers who haven't purchased recently and their potential
+re-engagement opportunities. Identify customers who haven't purchased in 3+
+months, have lifetime value >$25, and have >10 related tracks available. Include
+customer status (At Risk/Needs Attention/Active) and segment (High Value
+Diverse/Medium Value/Low Value).

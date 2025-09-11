@@ -1,0 +1,29 @@
+| customer_id | first_name | last_name   | last_purchase       | lifetime_value | distinct_genres | related_tracks_available | customer_status | segment            |
+| ----------- | ---------- | ----------- | ------------------- | -------------- | --------------- | ------------------------ | --------------- | ------------------ |
+| 26          | Richard    | Cunningham  | 2025-04-05 00:00:00 | 474.62         | 7               | 2727                     | Needs Attention | High Value Diverse |
+| 57          | Luis       | Rojas       | 2024-10-14 00:00:00 | 415.62         | 12              | 2962                     | At Risk         | High Value Diverse |
+| 37          | Fynn       | Zimmermann  | 2025-06-03 00:00:00 | 388.62         | 10              | 2911                     | Needs Attention | High Value Diverse |
+| 5           | František  | Wichterlová | 2025-05-06 00:00:00 | 376.62         | 8               | 2879                     | Needs Attention | High Value Diverse |
+| 43          | Isabelle   | Mercier     | 2025-06-06 00:00:00 | 376.62         | 9               | 2057                     | Needs Attention | High Value Diverse |
+| 28          | Julia      | Barnett     | 2025-05-19 00:00:00 | 370.62         | 6               | 2587                     | Needs Attention | High Value Diverse |
+| 17          | Jack       | Smith       | 2024-07-31 00:00:00 | 352.62         | 10              | 2862                     | At Risk         | High Value Diverse |
+| 34          | João       | Fernandes   | 2024-10-01 00:00:00 | 352.62         | 10              | 2830                     | At Risk         | High Value Diverse |
+| 15          | Jennifer   | Peterson    | 2024-12-15 00:00:00 | 343.62         | 8               | 2384                     | At Risk         | High Value Diverse |
+| 51          | Joakim     | Johansson   | 2024-12-02 00:00:00 | 340.62         | 7               | 2795                     | At Risk         | High Value Diverse |
+| 40          | Dominique  | Lefebvre    | 2024-08-13 00:00:00 | 336.62         | 7               | 2753                     | At Risk         | High Value Diverse |
+| 19          | Tim        | Goyer       | 2024-09-13 00:00:00 | 335.62         | 9               | 2924                     | At Risk         | High Value Diverse |
+| 53          | Phil       | Hughes      | 2025-01-15 00:00:00 | 334.62         | 6               | 2735                     | At Risk         | High Value Diverse |
+| 55          | Mark       | Taylor      | 2024-08-31 00:00:00 | 334.62         | 6               | 2379                     | At Risk         | High Value Diverse |
+| 2           | Leonie     | Köhler      | 2024-07-13 00:00:00 | 334.62         | 7               | 2716                     | At Risk         | High Value Diverse |
+| 9           | Kara       | Nielsen     | 2025-02-02 00:00:00 | 334.62         | 5               | 2592                     | At Risk         | High Value Diverse |
+| 11          | Alexandre  | Rocha       | 2025-03-18 00:00:00 | 334.62         | 6               | 2637                     | Needs Attention | High Value Diverse |
+| 13          | Fernanda   | Ramos       | 2024-11-01 00:00:00 | 334.62         | 7               | 2476                     | At Risk         | High Value Diverse |
+| 14          | Mark       | Philips     | 2025-05-11 00:00:00 | 334.62         | 10              | 2889                     | Needs Attention | High Value Diverse |
+| 30          | Edward     | Francis     | 2025-01-02 00:00:00 | 334.62         | 6               | 2188                     | At Risk         | High Value Diverse |
+| 32          | Aaron      | Mitchell    | 2025-02-15 00:00:00 | 334.62         | 7               | 2509                     | At Risk         | High Value Diverse |
+| 36          | Hannah     | Schneider   | 2024-11-14 00:00:00 | 334.62         | 6               | 2653                     | At Risk         | High Value Diverse |
+| 38          | Niklas     | Schröder    | 2024-06-30 00:00:00 | 334.62         | 7               | 2795                     | At Risk         | High Value Diverse |
+| 47          | Lucas      | Mancini     | 2025-03-05 00:00:00 | 334.62         | 6               | 2699                     | At Risk         | High Value Diverse |
+| 49          | Stanisław  | Wójcik      | 2025-04-18 00:00:00 | 334.62         | 5               | 2381                     | Needs Attention | High Value Diverse |
+| 52          | Emma       | Jones       | 2025-06-11 00:00:00 | 334.62         | 5               | 2602                     | Needs Attention | High Value Diverse |
+| 59          | Puja       | Srivastava  | 2024-05-30 00:00:00 | 331.66         | 7               | 2763                     | At Risk         | High Value Diverse |
