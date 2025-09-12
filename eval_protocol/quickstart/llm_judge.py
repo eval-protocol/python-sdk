@@ -39,6 +39,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     return converted
 
 
+@pytest.mark.asyncio
 @evaluation_test(
     input_dataset=[
         "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
@@ -46,15 +47,19 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     ],
     dataset_adapter=aime2025_dataset_adapter,
     completion_params=[
-        {
-            "max_tokens": 131000,
-            "extra_body": {"reasoning_effort": "low"},
-            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
-        },
+        # {
+        #     "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
+        # },
+        {"model": "gpt-4.1"},
         {
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "medium"},
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+        },
+        {
+            "max_tokens": 131000,
+            "extra_body": {"reasoning_effort": "low"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
         },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
@@ -62,7 +67,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     passed_threshold=0.8,
     num_runs=1,
     max_dataset_rows=1,
-    max_concurrent_rollouts=4,
+    max_concurrent_rollouts=64,
     mode="pointwise",
 )
 async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
