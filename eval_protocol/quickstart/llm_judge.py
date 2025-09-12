@@ -28,7 +28,7 @@ from openai import AsyncOpenAI
     input_rows=[
         fetch_langfuse_traces_as_evaluation_rows(
             hours_back=24,
-            limit=1,
+            limit=25,
             page_size=10,
             sleep_between_gets=3.0,
             max_retries=5,
