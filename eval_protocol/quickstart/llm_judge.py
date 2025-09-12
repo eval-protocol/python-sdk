@@ -24,7 +24,6 @@ import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
 @pytest.mark.asyncio
 @evaluation_test(
     input_rows=[
