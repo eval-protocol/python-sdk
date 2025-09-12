@@ -38,7 +38,7 @@ from openai import AsyncOpenAI
         # {
         #     "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
         # },
-        {"model": "gpt-4.1"},
+        # {"model": "gpt-4.1"},
         {
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "medium"},
@@ -48,6 +48,11 @@ from openai import AsyncOpenAI
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "low"},
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
+        },
+        {
+            "max_tokens": 131000,
+            "extra_body": {"reasoning_effort": "low"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),

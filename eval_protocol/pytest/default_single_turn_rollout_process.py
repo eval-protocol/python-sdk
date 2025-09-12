@@ -5,19 +5,7 @@ import time
 from typing import List
 
 from litellm import acompletion
-import litellm
 from typing import Dict
-
-# Fix LiteLLM event loop binding issues by disabling the logging worker
-try:
-    # Disable LiteLLM's async logging worker to prevent event loop binding issues
-    import litellm.litellm_core_utils.logging_worker
-
-    # Monkey patch to disable the worker entirely
-    original_start_worker = litellm.litellm_core_utils.logging_worker.start_worker
-    litellm.litellm_core_utils.logging_worker.start_worker = lambda *args, **kwargs: None
-except Exception:
-    pass  # Best effort
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
@@ -33,7 +21,6 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Generate single turn rollout tasks and return them for external handling."""
-
         # Do not modify global LiteLLM cache. Disable caching per-request instead.
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
