@@ -6,6 +6,7 @@ to EvaluationRow format for use in evaluation pipelines.
 
 from langfuse.api.resources.commons.types.observations_view import ObservationsView
 import logging
+import random
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterator, List, Optional, cast
@@ -94,113 +95,72 @@ class LangfuseAdapter:
             to_timestamp = None
             from_timestamp = None
 
-        # Use pagination to process traces in smaller batches (similar to Langfuse migration script)
-        page = 1
-        total_processed = 0
+        # Temporary: Fetch more traces than needed, then randomly sample
+        fetch_limit = min(limit * 3, 500)  # Fetch 3x more traces than needed (up to 500 max)
 
-        while total_processed < limit:
-            current_page_limit = min(page_size, limit - total_processed)
+        logger.debug("Fetching %d traces to randomly sample %d", fetch_limit, limit)
 
-            logger.debug(
-                "Fetching page %d with limit %d (total processed: %d/%d)",
-                page,
-                current_page_limit,
-                total_processed,
-                limit,
-            )
+        # Single API call to get trace list
+        traces = self.client.api.trace.list(
+            limit=fetch_limit,
+            tags=tags,
+            user_id=user_id,
+            session_id=session_id,
+            from_timestamp=from_timestamp,
+            to_timestamp=to_timestamp,
+            order_by="timestamp.desc",
+        )
 
-            # Fetch trace list with retry logic
-            traces = None
-            list_retries = 0
-            while list_retries < max_retries:
+        if not traces or not traces.data:
+            logger.debug("No traces found")
+            return eval_rows
+
+        # Randomly sample the requested number of traces
+        available_traces = traces.data
+        sample_size = min(limit, len(available_traces))
+        selected_traces = random.sample(available_traces, sample_size)
+
+        logger.debug("Randomly selected %d traces from %d available", len(selected_traces), len(available_traces))
+
+        # Process each selected trace with sleep and retry logic
+        for i, trace_info in enumerate(selected_traces):
+            # Sleep between gets to avoid rate limits
+            if sleep_between_gets > 0 and i > 0:
+                time.sleep(sleep_between_gets)
+
+            # Fetch full trace details with retry logic
+            trace_full = None
+            detail_retries = 0
+            while detail_retries < max_retries:
                 try:
-                    traces = self.client.api.trace.list(
-                        page=page,
-                        limit=current_page_limit,
-                        tags=tags,
-                        user_id=user_id,
-                        session_id=session_id,
-                        from_timestamp=from_timestamp,
-                        to_timestamp=to_timestamp,
-                        order_by="timestamp.desc",  # Get most recent first
-                    )
+                    trace_full = self.client.api.trace.get(trace_info.id)
                     break
                 except Exception as e:
-                    list_retries += 1
-                    if "429" in str(e) and list_retries < max_retries:
-                        sleep_time = 2**list_retries  # Exponential backoff
+                    detail_retries += 1
+                    if "429" in str(e) and detail_retries < max_retries:
+                        sleep_time = 2**detail_retries  # Exponential backoff
                         logger.warning(
-                            "Rate limit hit on trace.list(), retrying in %ds (attempt %d/%d)",
+                            "Rate limit hit on trace.get(%s), retrying in %ds (attempt %d/%d)",
+                            trace_info.id,
                             sleep_time,
-                            list_retries,
+                            detail_retries,
                             max_retries,
                         )
                         time.sleep(sleep_time)
                     else:
-                        logger.error("Failed to fetch trace list after %d retries: %s", max_retries, e)
-                        return eval_rows  # Return what we have so far
+                        logger.warning("Failed to fetch trace %s after %d retries: %s", trace_info.id, max_retries, e)
+                        break  # Skip this trace
 
-            if not traces or not traces.data:
-                logger.debug("No more traces found on page %d", page)
-                break
+            if trace_full:
+                try:
+                    eval_row = self._convert_trace_to_evaluation_row(trace_full, include_tool_calls)
+                    if eval_row:
+                        eval_rows.append(eval_row)
+                except (AttributeError, ValueError, KeyError) as e:
+                    logger.warning("Failed to convert trace %s: %s", trace_info.id, e)
+                    continue
 
-            logger.debug("Processing %d traces from page %d", len(traces.data), page)
-
-            # Process each trace with sleep and retry logic (like migration script)
-            for trace_info in traces.data:
-                if total_processed >= limit:
-                    break
-
-                # Sleep between gets to avoid rate limits
-                if sleep_between_gets > 0:
-                    time.sleep(sleep_between_gets)
-
-                # Fetch full trace details with retry logic
-                trace_full = None
-                detail_retries = 0
-                while detail_retries < max_retries:
-                    try:
-                        trace_full = self.client.api.trace.get(trace_info.id)
-                        break
-                    except Exception as e:
-                        detail_retries += 1
-                        if "429" in str(e) and detail_retries < max_retries:
-                            sleep_time = 2**detail_retries  # Exponential backoff
-                            logger.warning(
-                                "Rate limit hit on trace.get(%s), retrying in %ds (attempt %d/%d)",
-                                trace_info.id,
-                                sleep_time,
-                                detail_retries,
-                                max_retries,
-                            )
-                            time.sleep(sleep_time)
-                        else:
-                            logger.warning(
-                                "Failed to fetch trace %s after %d retries: %s", trace_info.id, max_retries, e
-                            )
-                            break  # Skip this trace
-
-                if trace_full:
-                    try:
-                        eval_row = self._convert_trace_to_evaluation_row(trace_full, include_tool_calls)
-                        if eval_row:
-                            eval_rows.append(eval_row)
-                            total_processed += 1
-                    except (AttributeError, ValueError, KeyError) as e:
-                        logger.warning("Failed to convert trace %s: %s", trace_info.id, e)
-                        continue
-
-            # Check if we have more pages
-            if hasattr(traces.meta, "page") and hasattr(traces.meta, "total_pages"):
-                if traces.meta.page >= traces.meta.total_pages:
-                    break
-            elif len(traces.data) < current_page_limit:
-                # If we got fewer traces than requested, we're probably at the end
-                break
-
-            page += 1
-
-        logger.info("Successfully processed %d traces into %d evaluation rows", total_processed, len(eval_rows))
+        logger.info("Successfully processed %d traces into %d evaluation rows", len(selected_traces), len(eval_rows))
         return eval_rows
 
     def get_evaluation_rows_by_ids(
