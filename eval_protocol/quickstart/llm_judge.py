@@ -21,6 +21,23 @@ from eval_protocol.quickstart.utils import (
 )
 import asyncio
 from openai import AsyncOpenAI
+import litellm
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gpt-4o",
+        # "gpt-4o-mini",
+        # "gpt-3.5-turbo",
+        "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+        "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
+    ],
+)
+async def test_multiple_models(model):
+    response = await litellm.acompletion(model=model, messages=[{"role": "user", "content": "Hello"}])
+    assert response.choices[0].message.content  # pyright: ignore[reportAttributeAccessIssue]
 
 
 @pytest.mark.asyncio
