@@ -51,7 +51,7 @@ from openai import AsyncOpenAI
         },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
-    preprocess_fn=split_multi_turn_rows,
+    # preprocess_fn=split_multi_turn_rows,
     max_concurrent_rollouts=64,
     mode="pointwise",
 )
