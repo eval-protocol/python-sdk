@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 import pytest
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult, Message
+from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
 from eval_protocol.quickstart.utils import (
@@ -23,34 +23,22 @@ import asyncio
 from openai import AsyncOpenAI
 
 
-def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
-    converted: List[EvaluationRow] = []
-    for r in rows:
-        question = r.get("question", "")
-        answer = r.get("answer", None)
-        messages = [
-            Message(
-                role="system",
-                content="You are a helpful math assistant. Please reason step by step, and put your final answer within \\boxed{...}.",
-            ),
-            Message(role="user", content=str(question)),
-        ]
-        converted.append(EvaluationRow(messages=messages, ground_truth=str(answer) if answer is not None else None))
-    return converted
-
-
 @pytest.mark.asyncio
 @evaluation_test(
-    input_dataset=[
-        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
-        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
+    input_rows=[
+        fetch_langfuse_traces_as_evaluation_rows(
+            hours_back=24,
+            limit=1,
+            page_size=10,
+            sleep_between_gets=3.0,
+            max_retries=5,
+        )
     ],
-    dataset_adapter=aime2025_dataset_adapter,
     completion_params=[
         # {
         #     "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
         # },
-        # {"model": "gpt-4.1"},
+        {"model": "gpt-4.1"},
         {
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "medium"},
@@ -63,14 +51,11 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
         },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
-    aggregation_method="mean",
-    passed_threshold=0.8,
-    num_runs=1,
-    max_dataset_rows=1,
+    # preprocess_fn=split_multi_turn_rows,
     max_concurrent_rollouts=64,
-    mode="pointwise",
+    mode="all",
 )
-async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
+async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
     """
     LLM Judge evaluation using Arena-Hard-Auto style pairwise comparisons.
 
@@ -87,69 +72,68 @@ async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
     Returns:
         Same rows with updated evaluation_result containing scores and judgments
     """
-    return row
 
-    # # judge_name = "gemini-2.5-pro"  # Edit to which judge you'd like to use. Configs are in utils.py.
-    # judge_name = "gpt-4.1"
+    # judge_name = "gemini-2.5-pro"  # Edit to which judge you'd like to use. Configs are in utils.py.
+    judge_name = "gpt-4.1"
 
-    # if not rows:
-    #     print("❌ No evaluation rows provided")
-    #     return rows
+    if not rows:
+        print("❌ No evaluation rows provided")
+        return rows
 
-    # print(f"🔄 Processing {len(rows)} evaluation rows for LLM judging...")
+    print(f"🔄 Processing {len(rows)} evaluation rows for LLM judging...")
 
-    # model_name = rows[0].input_metadata.completion_params.get("model", "unknown_model")
+    model_name = rows[0].input_metadata.completion_params.get("model", "unknown_model")
 
-    # judgments = []
-    # max_concurrency = JUDGE_CONFIGS[judge_name]["max_concurrency"]
+    judgments = []
+    max_concurrency = JUDGE_CONFIGS[judge_name]["max_concurrency"]
 
-    # judge_config = JUDGE_CONFIGS[judge_name]
+    judge_config = JUDGE_CONFIGS[judge_name]
 
-    # async with AsyncOpenAI(
-    #     api_key=judge_config.get("api_key"), base_url=judge_config.get("base_url")
-    # ) as shared_client:
-    #     semaphore = asyncio.Semaphore(max_concurrency)
+    async with AsyncOpenAI(
+        api_key=judge_config.get("api_key"), base_url=judge_config.get("base_url")
+    ) as shared_client:
+        semaphore = asyncio.Semaphore(max_concurrency)
 
-    #     async def run_judgment_with_semaphore(row):
-    #         async with semaphore:
-    #             return await run_judgment_async_with_shared_client(row, model_name, judge_name, shared_client)
+        async def run_judgment_with_semaphore(row):
+            async with semaphore:
+                return await run_judgment_async_with_shared_client(row, model_name, judge_name, shared_client)
 
-    #     tasks = [run_judgment_with_semaphore(row) for row in rows]
+        tasks = [run_judgment_with_semaphore(row) for row in rows]
 
-    #     for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Generating judgments"):
-    #         result = await coro
-    #         if result and result["games"][0] and result["games"][1]:
-    #             judgments.append(result)
+        for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Generating judgments"):
+            result = await coro
+            if result and result["games"][0] and result["games"][1]:
+                judgments.append(result)
 
-    # if not judgments:
-    #     print("❌ No valid judgments generated")
-    #     return rows
+    if not judgments:
+        print("❌ No valid judgments generated")
+        return rows
 
-    # print(f"✅ Generated {len(judgments)} valid judgments")
+    print(f"✅ Generated {len(judgments)} valid judgments")
 
-    # # Calculate bootstrap scores
-    # mean_score, lower_score, upper_score = calculate_bootstrap_scores(judgments)
+    # Calculate bootstrap scores
+    mean_score, lower_score, upper_score = calculate_bootstrap_scores(judgments)
 
-    # if mean_score == 0.0:
-    #     print("❌ No valid scores extracted")
-    #     return rows
+    if mean_score == 0.0:
+        print("❌ No valid scores extracted")
+        return rows
 
-    # # Print leaderboard
-    # print("\n##### LLM Judge Results (90th percentile CI) #####")
+    # Print leaderboard
+    print("\n##### LLM Judge Results (90th percentile CI) #####")
 
-    # clean_model_name = model_name.split("/")[-1]  # Clean model name
+    clean_model_name = model_name.split("/")[-1]  # Clean model name
 
-    # print(f"{clean_model_name}: {mean_score:.1%} (CI: {lower_score:.1%} - {upper_score:.1%})")
-    # print("original: 50.0% (CI: 50.0% - 50.0%)")
+    print(f"{clean_model_name}: {mean_score:.1%} (CI: {lower_score:.1%} - {upper_score:.1%})")
+    print("original: 50.0% (CI: 50.0% - 50.0%)")
 
-    # for row in rows:
-    #     if row.evaluation_result:
-    #         row.evaluation_result.score = mean_score
-    #         row.evaluation_result.standard_error = (upper_score - lower_score) / (
-    #             2 * 1.645
-    #         )  # Standard error approximation from 90% CI
+    for row in rows:
+        if row.evaluation_result:
+            row.evaluation_result.score = mean_score
+            row.evaluation_result.standard_error = (upper_score - lower_score) / (
+                2 * 1.645
+            )  # Standard error approximation from 90% CI
 
-    # # Optional, push scores back to Langfuse. Note that one score per model will be pushed back onto same trace.
-    # # push_scores_to_langfuse(rows, model_name, mean_score)
+    # Optional, push scores back to Langfuse. Note that one score per model will be pushed back onto same trace.
+    # push_scores_to_langfuse(rows, model_name, mean_score)
 
-    # return rows
+    return rows

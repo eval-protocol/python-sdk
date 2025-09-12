@@ -5,7 +5,15 @@ import time
 from typing import List
 
 from litellm import acompletion
+import litellm
 from typing import Dict
+
+# Fix LiteLLM event loop binding issues by setting logging to ERROR level
+# This disables the logging worker that causes event loop binding problems
+import os
+
+if os.environ.get("LITELLM_LOG") is None:
+    os.environ["LITELLM_LOG"] = "ERROR"
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
@@ -21,6 +29,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Generate single turn rollout tasks and return them for external handling."""
+
         # Do not modify global LiteLLM cache. Disable caching per-request instead.
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
