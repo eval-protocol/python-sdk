@@ -29,7 +29,10 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
         question = r.get("question", "")
         answer = r.get("answer", None)
         messages = [
-            Message(role="system", content="hi"),
+            Message(
+                role="system",
+                content="You are a helpful math assistant. Please reason step by step, and put your final answer within \\boxed{...}.",
+            ),
             Message(role="user", content=str(question)),
         ]
         converted.append(EvaluationRow(messages=messages, ground_truth=str(answer) if answer is not None else None))
@@ -44,23 +47,24 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     ],
     dataset_adapter=aime2025_dataset_adapter,
     completion_params=[
-        {
-            "max_tokens": 131000,
-            "extra_body": {"reasoning_effort": "low"},
-            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
-        },
+        # {
+        #     "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
+        # },
+        {"model": "gpt-4.1"},
         {
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "medium"},
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         },
+        {
+            "max_tokens": 131000,
+            "extra_body": {"reasoning_effort": "low"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
+        },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
-    aggregation_method="mean",
-    passed_threshold=0.8,
-    num_runs=1,
-    max_dataset_rows=1,
-    max_concurrent_rollouts=4,
+    preprocess_fn=split_multi_turn_rows,
+    max_concurrent_rollouts=64,
     mode="pointwise",
 )
 async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
