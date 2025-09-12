@@ -95,14 +95,9 @@ class LangfuseAdapter:
             to_timestamp = None
             from_timestamp = None
 
-        # Temporary: Fetch more traces than needed, then randomly sample
-        fetch_limit = min(limit * 3, 500)  # Fetch 3x more traces than needed (up to 500 max)
-
-        logger.debug("Fetching %d traces to randomly sample %d", fetch_limit, limit)
-
         # Single API call to get trace list
         traces = self.client.api.trace.list(
-            limit=fetch_limit,
+            limit=limit,
             tags=tags,
             user_id=user_id,
             session_id=session_id,
