@@ -253,7 +253,7 @@ def evaluation_test(
 
                     for row in data:
                         # generate a stable row_id for each row
-                        if row.input_metadata and row.input_metadata.row_id is None:
+                        if row.input_metadata.row_id is None:
                             # Generate a stable, deterministic row_id using the row's hash and num_combinations
                             index = hash(row)
                             max_index = num_combinations() - 1
