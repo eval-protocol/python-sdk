@@ -5,7 +5,6 @@ import time
 from typing import List
 
 from litellm import acompletion
-from typing import Dict
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
@@ -62,15 +61,10 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             if row.tools is not None:
                 request_params["tools"] = row.tools
 
-            # Dynamic import to avoid static dependency/lint errors if LiteLLM isn't installed yet
-            import importlib
-
-            _litellm = importlib.import_module("litellm")
-            acompletion = getattr(_litellm, "acompletion")
             response = await acompletion(**request_params)
 
-            assistant_content = response.choices[0].message.content or ""
-            tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
+            assistant_content = response.choices[0].message.content or ""  # pyright: ignore[reportAttributeAccessIssue]
+            tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None  # pyright: ignore[reportAttributeAccessIssue]
 
             converted_tool_calls = None
             if tool_calls:
@@ -112,9 +106,9 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             ]
 
             row.execution_metadata.usage = CompletionUsage(
-                prompt_tokens=response.usage.prompt_tokens,
-                completion_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens,
+                prompt_tokens=response.usage.prompt_tokens,  # pyright: ignore[reportAttributeAccessIssue]
+                completion_tokens=response.usage.completion_tokens,  # pyright: ignore[reportAttributeAccessIssue]
+                total_tokens=response.usage.total_tokens,  # pyright: ignore[reportAttributeAccessIssue]
             )
 
             row.messages = messages
