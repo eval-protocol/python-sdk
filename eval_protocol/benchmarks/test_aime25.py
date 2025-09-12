@@ -78,7 +78,6 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     ],
     dataset_adapter=aime2025_dataset_adapter,
     completion_params=[
-        {"model": "gpt-4.1"},
         {
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "low"},
@@ -88,6 +87,11 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "medium"},
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+        },
+        {
+            "max_tokens": 131000,
+            "extra_body": {"reasoning_effort": "low"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
         },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
