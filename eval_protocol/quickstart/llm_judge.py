@@ -49,11 +49,11 @@ from openai import AsyncOpenAI
             "extra_body": {"reasoning_effort": "low"},
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
         },
-        {
-            "max_tokens": 131000,
-            "extra_body": {"reasoning_effort": "low"},
-            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
-        },
+        # {
+        #     "max_tokens": 131000,
+        #     "extra_body": {"reasoning_effort": "low"},
+        #     "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+        # },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     # preprocess_fn=split_multi_turn_rows,
