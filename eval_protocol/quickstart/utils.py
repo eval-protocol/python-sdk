@@ -47,7 +47,7 @@ JUDGE_CONFIGS = {
         "max_tokens": 32000,
         "api_key": os.getenv("GEMINI_API_KEY"),
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "max_concurrency": 32,
+        "max_concurrency": 16,
     },
 }
 
