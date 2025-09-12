@@ -17,11 +17,10 @@ from eval_protocol.quickstart.utils import (
     fetch_langfuse_traces_as_evaluation_rows,
     calculate_bootstrap_scores,
     push_scores_to_langfuse,
-    run_judgment,
+    run_judgment_async_with_shared_client,
 )
-
-import concurrent.futures
-from concurrent.futures import ThreadPoolExecutor
+import asyncio
+from openai import AsyncOpenAI
 
 
 @pytest.mark.asyncio
@@ -29,7 +28,7 @@ from concurrent.futures import ThreadPoolExecutor
     input_rows=[
         fetch_langfuse_traces_as_evaluation_rows(
             hours_back=24,
-            limit=20,
+            limit=1,
             page_size=10,
             sleep_between_gets=3.0,
             max_retries=5,
@@ -88,11 +87,21 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
     judgments = []
     max_concurrency = JUDGE_CONFIGS[judge_name]["max_concurrency"]
 
-    with ThreadPoolExecutor(max_workers=max_concurrency) as executor:
-        futures = [executor.submit(run_judgment, row, model_name, judge_name) for row in rows]
+    judge_config = JUDGE_CONFIGS[judge_name]
 
-        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Generating judgments"):
-            result = future.result()
+    async with AsyncOpenAI(
+        api_key=judge_config.get("api_key"), base_url=judge_config.get("base_url")
+    ) as shared_client:
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def run_judgment_with_semaphore(row):
+            async with semaphore:
+                return await run_judgment_async_with_shared_client(row, model_name, judge_name, shared_client)
+
+        tasks = [run_judgment_with_semaphore(row) for row in rows]
+
+        for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Generating judgments"):
+            result = await coro
             if result and result["games"][0] and result["games"][1]:
                 judgments.append(result)
 
