@@ -8,12 +8,16 @@ from litellm import acompletion
 import litellm
 from typing import Dict
 
-# Fix LiteLLM event loop binding issues by setting logging to ERROR level
-# This disables the logging worker that causes event loop binding problems
-import os
+# Fix LiteLLM event loop binding issues by disabling the logging worker
+try:
+    # Disable LiteLLM's async logging worker to prevent event loop binding issues
+    import litellm.litellm_core_utils.logging_worker
 
-if os.environ.get("LITELLM_LOG") is None:
-    os.environ["LITELLM_LOG"] = "ERROR"
+    # Monkey patch to disable the worker entirely
+    original_start_worker = litellm.litellm_core_utils.logging_worker.start_worker
+    litellm.litellm_core_utils.logging_worker.start_worker = lambda *args, **kwargs: None
+except Exception:
+    pass  # Best effort
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
