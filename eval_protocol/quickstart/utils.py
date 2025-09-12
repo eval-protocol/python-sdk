@@ -130,7 +130,7 @@ def split_multi_turn_rows(data: list[EvaluationRow]) -> list[EvaluationRow]:
                 )
             )
 
-    return expanded_rows
+    return expanded_rows[0]
 
 
 async def pairwise_judgment_async(question_text, answer_a, answer_b, tools, judge_config, shared_client):
