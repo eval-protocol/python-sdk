@@ -50,7 +50,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
         # {
         #     "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
         # },
-        {"model": "gpt-4.1"},
+        # {"model": "gpt-4.1"},
         {
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "medium"},
