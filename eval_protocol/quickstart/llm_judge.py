@@ -21,23 +21,6 @@ from eval_protocol.quickstart.utils import (
 )
 import asyncio
 from openai import AsyncOpenAI
-import litellm
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "model",
-    [
-        "gpt-4o",
-        # "gpt-4o-mini",
-        # "gpt-3.5-turbo",
-        "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
-        "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
-    ],
-)
-async def test_multiple_models(model):
-    response = await litellm.acompletion(model=model, messages=[{"role": "user", "content": "Hello"}])
-    assert response.choices[0].message.content  # pyright: ignore[reportAttributeAccessIssue]
 
 
 @pytest.mark.asyncio
@@ -45,7 +28,7 @@ async def test_multiple_models(model):
     input_rows=[
         fetch_langfuse_traces_as_evaluation_rows(
             hours_back=24,
-            limit=1,
+            limit=40,
             page_size=10,
             sleep_between_gets=3.0,
             max_retries=5,
@@ -55,7 +38,7 @@ async def test_multiple_models(model):
         # {
         #     "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
         # },
-        # {"model": "gpt-4.1"},
+        {"model": "gpt-4.1"},
         {
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "medium"},
@@ -66,14 +49,9 @@ async def test_multiple_models(model):
             "extra_body": {"reasoning_effort": "low"},
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
         },
-        {
-            "max_tokens": 131000,
-            "extra_body": {"reasoning_effort": "low"},
-            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
-        },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
-    # preprocess_fn=split_multi_turn_rows,
+    preprocess_fn=split_multi_turn_rows,
     max_concurrent_rollouts=64,
     mode="all",
 )
@@ -95,8 +73,7 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
         Same rows with updated evaluation_result containing scores and judgments
     """
 
-    # judge_name = "gemini-2.5-pro"  # Edit to which judge you'd like to use. Configs are in utils.py.
-    judge_name = "gpt-4.1"
+    judge_name = "kimi-k2-instruct-0905"  # Edit to which judge you'd like to use. Configs are in utils.py.
 
     if not rows:
         print("❌ No evaluation rows provided")

@@ -49,6 +49,14 @@ JUDGE_CONFIGS = {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "max_concurrency": 16,
     },
+    "kimi-k2-instruct-0905": {
+        "model": "kimi-k2-instruct-0905",
+        "temperature": 0.6,  # Kimi recommended temperature
+        "max_tokens": 131000,
+        "api_key": os.getenv("FIREWORKS_API_KEY"),
+        "base_url": "https://api.fireworks.ai/inference/v1",
+        "max_concurrency": 64,
+    },
 }
 
 # Mapping from Arena-Hard-Auto judgment labels to numerical scores
