@@ -27,19 +27,34 @@ from concurrent.futures import ThreadPoolExecutor
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
 @pytest.mark.asyncio
 @evaluation_test(
-    input_rows=[fetch_langfuse_traces_as_evaluation_rows()],
+    input_rows=[
+        fetch_langfuse_traces_as_evaluation_rows(
+            hours_back=24,
+            limit=20,
+            page_size=10,
+            sleep_between_gets=3.0,
+            max_retries=5,
+        )
+    ],
     completion_params=[
+        # {
+        #     "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
+        # },
+        {"model": "gpt-4.1"},
         {
-            "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
+            "max_tokens": 131000,
+            "extra_body": {"reasoning_effort": "medium"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         },
         {
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "low"},
-            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
         },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=split_multi_turn_rows,
+    max_concurrent_rollouts=64,
     mode="all",
 )
 async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
@@ -61,6 +76,7 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
     """
 
     judge_name = "gemini-2.5-pro"  # Edit to which judge you'd like to use. Configs are in utils.py.
+    # judge_name = "gpt-4.1"
 
     if not rows:
         print("❌ No evaluation rows provided")
@@ -110,6 +126,6 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
             )  # Standard error approximation from 90% CI
 
     # Optional, push scores back to Langfuse. Note that one score per model will be pushed back onto same trace.
-    push_scores_to_langfuse(rows, model_name, mean_score)
+    # push_scores_to_langfuse(rows, model_name, mean_score)
 
     return rows

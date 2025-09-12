@@ -201,6 +201,9 @@ def fetch_langfuse_traces_as_evaluation_rows(
     session_id: Optional[str] = None,
     hours_back: Optional[int] = None,
     include_tool_calls: bool = True,
+    page_size: int = 30,
+    sleep_between_gets: float = 0.1,
+    max_retries: int = 3,
 ) -> List[EvaluationRow]:
     """
     Fetch Langfuse traces and convert them to EvaluationRow objects.
@@ -212,6 +215,9 @@ def fetch_langfuse_traces_as_evaluation_rows(
         session_id: Filter traces by session ID
         hours_back: Only fetch traces from the last N hours
         include_tool_calls: Whether to include tool calls in messages
+        page_size: Number of traces to fetch per page (smaller = less rate limit issues)
+        sleep_between_gets: Sleep time between individual trace.get() calls (2.5s for 30 req/min limit)
+        max_retries: Maximum retries for rate limit errors
 
     Returns:
         List of EvaluationRow objects converted from Langfuse traces
@@ -227,6 +233,9 @@ def fetch_langfuse_traces_as_evaluation_rows(
             session_id=session_id,
             hours_back=hours_back,
             include_tool_calls=include_tool_calls,
+            page_size=page_size,
+            sleep_between_gets=sleep_between_gets,
+            max_retries=max_retries,
         )
     except Exception as e:
         print(f"❌ LangfuseAdapter failed: {e}")
