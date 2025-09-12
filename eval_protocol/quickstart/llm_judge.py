@@ -64,6 +64,8 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     # preprocess_fn=split_multi_turn_rows,
+    num_runs=1,
+    max_dataset_rows=1,
     max_concurrent_rollouts=64,
     mode="pointwise",
 )
