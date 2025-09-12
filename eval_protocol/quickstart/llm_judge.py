@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 import pytest
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult
+from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
 from eval_protocol.quickstart.utils import (
@@ -23,36 +23,44 @@ import asyncio
 from openai import AsyncOpenAI
 
 
+def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
+    converted: List[EvaluationRow] = []
+    for r in rows:
+        question = r.get("question", "")
+        answer = r.get("answer", None)
+        messages = [
+            Message(role="system", content="hi"),
+            Message(role="user", content=str(question)),
+        ]
+        converted.append(EvaluationRow(messages=messages, ground_truth=str(answer) if answer is not None else None))
+    return converted
+
+
 @pytest.mark.asyncio
 @evaluation_test(
-    input_rows=[
-        fetch_langfuse_traces_as_evaluation_rows(
-            hours_back=24,
-            limit=1,
-            page_size=10,
-            sleep_between_gets=3.0,
-            max_retries=5,
-        )
+    input_dataset=[
+        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
+        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
     ],
+    dataset_adapter=aime2025_dataset_adapter,
     completion_params=[
-        # {
-        #     "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
-        # },
-        {"model": "gpt-4.1"},
+        {
+            "max_tokens": 131000,
+            "extra_body": {"reasoning_effort": "low"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+        },
         {
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "medium"},
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         },
-        {
-            "max_tokens": 131000,
-            "extra_body": {"reasoning_effort": "low"},
-            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
-        },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
-    # preprocess_fn=split_multi_turn_rows,
-    max_concurrent_rollouts=64,
+    aggregation_method="mean",
+    passed_threshold=0.8,
+    num_runs=1,
+    max_dataset_rows=1,
+    max_concurrent_rollouts=4,
     mode="pointwise",
 )
 async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
