@@ -78,6 +78,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     ],
     dataset_adapter=aime2025_dataset_adapter,
     completion_params=[
+        {"model": "gpt-4.1"},
         {
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "low"},
