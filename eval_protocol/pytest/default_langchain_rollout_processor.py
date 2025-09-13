@@ -21,9 +21,8 @@ class LangGraphRolloutProcessor(RolloutProcessor):
     def __init__(
         self,
         *,
-        # Prefer factory that accepts RolloutProcessorConfig for parity with Pydantic pattern.
-        # For backward compatibility, factories accepting a Dict[str, Any] (graph kwargs) are still supported.
-        graph_factory: Callable[[Any], Any],
+        # Factory must accept RolloutProcessorConfig (parity with Pydantic AI processor)
+        graph_factory: Callable[[RolloutProcessorConfig], Any],
         to_input: Optional[Callable[[EvaluationRow], Dict[str, Any]]] = None,
         apply_result: Optional[Callable[[EvaluationRow, Any], EvaluationRow]] = None,
         build_graph_kwargs: Optional[Callable[[CompletionParams], Dict[str, Any]]] = None,
@@ -126,12 +125,8 @@ class LangGraphRolloutProcessor(RolloutProcessor):
         if config.completion_params:
             graph_config = build_kwargs(config.completion_params)
 
-        # (Re)build the graph for this call. Prefer passing full config to factory;
-        # fall back to old dict-based factories if needed.
-        try:
-            graph_target = self._graph_factory(config)  # type: ignore[arg-type]
-        except TypeError:
-            graph_target = self._graph_factory(graph_config or {})
+        # (Re)build the graph for this call using the full typed config.
+        graph_target = self._graph_factory(config)
 
         # Build per-invoke config if provided; otherwise reuse graph_config for backwards compat
         invoke_config: Optional[Dict[str, Any]] = None
