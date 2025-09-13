@@ -65,6 +65,8 @@ class LangfuseAdapter:
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         hours_back: Optional[int] = None,
+        from_timestamp: Optional[datetime] = None,
+        to_timestamp: Optional[datetime] = None,
         include_tool_calls: bool = True,
         page_size: int = 30,
         sleep_between_gets: float = 0.1,
@@ -78,6 +80,8 @@ class LangfuseAdapter:
             user_id: Filter by user ID
             session_id: Filter by session ID
             hours_back: Filter traces from this many hours ago
+            from_timestamp: Only include traces with timestamp >= this datetime
+            to_timestamp: Only include traces with timestamp <= this datetime
             include_tool_calls: Whether to include tool calling traces
             page_size: Number of traces to fetch per page (smaller = less rate limit issues)
             sleep_between_gets: Sleep time between individual trace.get() calls
@@ -88,12 +92,10 @@ class LangfuseAdapter:
         """
         eval_rows = []
 
-        if hours_back:
+        # Determine time window: explicit from/to takes precedence
+        if from_timestamp is None and to_timestamp is None and hours_back:
             to_timestamp = datetime.now()
             from_timestamp = to_timestamp - timedelta(hours=hours_back)
-        else:
-            to_timestamp = None
-            from_timestamp = None
 
         # Single API call to get trace list
         traces = self.client.api.trace.list(
@@ -155,7 +157,7 @@ class LangfuseAdapter:
                     logger.warning("Failed to convert trace %s: %s", trace_info.id, e)
                     continue
 
-        logger.info("Successfully processed %d traces into %d evaluation rows", len(selected_traces), len(eval_rows))
+        logger.info("Successfully processed %d traces into evaluation rows", len(selected_traces))
         return eval_rows
 
     def get_evaluation_rows_by_ids(

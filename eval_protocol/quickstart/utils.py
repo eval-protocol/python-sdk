@@ -3,6 +3,7 @@ Arena-Hard-Auto utility functions adapted for Eval Protocol.
 """
 
 import os
+from datetime import datetime
 import re
 from typing import List, Dict, Any, Optional
 import pandas as pd
@@ -50,7 +51,7 @@ JUDGE_CONFIGS = {
         "max_concurrency": 16,
     },
     "kimi-k2-instruct-0905": {
-        "model": "kimi-k2-instruct-0905",
+        "model": "accounts/fireworks/models/kimi-k2-instruct-0905",
         "temperature": 0.6,  # Kimi recommended temperature
         "max_tokens": 131000,
         "api_key": os.getenv("FIREWORKS_API_KEY"),
@@ -230,6 +231,8 @@ def fetch_langfuse_traces_as_evaluation_rows(
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
     hours_back: Optional[int] = None,
+    from_timestamp: Optional[datetime] = None,
+    to_timestamp: Optional[datetime] = None,
     include_tool_calls: bool = True,
     page_size: int = 30,
     sleep_between_gets: float = 0.1,
@@ -244,6 +247,8 @@ def fetch_langfuse_traces_as_evaluation_rows(
         user_id: Filter traces by user ID
         session_id: Filter traces by session ID
         hours_back: Only fetch traces from the last N hours
+        from_timestamp: Only include traces with timestamp >= this datetime
+        to_timestamp: Only include traces with timestamp <= this datetime
         include_tool_calls: Whether to include tool calls in messages
         page_size: Number of traces to fetch per page (smaller = less rate limit issues)
         sleep_between_gets: Sleep time between individual trace.get() calls (2.5s for 30 req/min limit)
@@ -262,6 +267,8 @@ def fetch_langfuse_traces_as_evaluation_rows(
             user_id=user_id,
             session_id=session_id,
             hours_back=hours_back,
+            from_timestamp=from_timestamp,
+            to_timestamp=to_timestamp,
             include_tool_calls=include_tool_calls,
             page_size=page_size,
             sleep_between_gets=sleep_between_gets,

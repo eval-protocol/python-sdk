@@ -3,6 +3,7 @@ Default LLM judge for Eval Protocol. Inspired by Arena-Hard-Auto.
 """
 
 import os
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 from tqdm import tqdm
 
@@ -27,7 +28,7 @@ from openai import AsyncOpenAI
 @evaluation_test(
     input_rows=[
         fetch_langfuse_traces_as_evaluation_rows(
-            hours_back=24,
+            to_timestamp=datetime(2025, 9, 12, 0, 11, 18),
             limit=40,
             page_size=10,
             sleep_between_gets=3.0,
