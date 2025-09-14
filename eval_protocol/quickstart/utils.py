@@ -112,6 +112,7 @@ def split_multi_turn_rows(data: list[EvaluationRow]) -> list[EvaluationRow]:
         List of expanded EvaluationRow objects, one for each assistant message
     """
     expanded_rows = []
+    seen_traces: set[str] = set()
 
     for row in data:
         messages = row.messages
@@ -127,6 +128,12 @@ def split_multi_turn_rows(data: list[EvaluationRow]) -> list[EvaluationRow]:
         for pos in assistant_positions:
             messages_before_assistant = messages[:pos]
             assistant_message = messages[pos]
+
+            # In this case, we trace every request, so we need to filter out duplicates
+            curr_trace = "\n".join(serialize_message(m) for m in messages_before_assistant)
+            if curr_trace in seen_traces:
+                continue
+            seen_traces.add(curr_trace)
 
             ground_truth_message = serialize_message(assistant_message)
 

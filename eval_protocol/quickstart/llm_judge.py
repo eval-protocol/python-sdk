@@ -36,9 +36,6 @@ from openai import AsyncOpenAI
         )
     ],
     completion_params=[
-        # {
-        #     "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
-        # },
         {"model": "gpt-4.1"},
         {
             "max_tokens": 131000,

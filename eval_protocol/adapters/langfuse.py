@@ -68,7 +68,7 @@ class LangfuseAdapter:
         from_timestamp: Optional[datetime] = None,
         to_timestamp: Optional[datetime] = None,
         include_tool_calls: bool = True,
-        page_size: int = 30,
+        page_size: int = 30,  # TODO: remove probably
         sleep_between_gets: float = 0.1,
         max_retries: int = 3,
     ) -> List[EvaluationRow]:
