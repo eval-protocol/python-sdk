@@ -6,6 +6,8 @@ to EvaluationRow format for use in evaluation pipelines.
 
 from langfuse.api.resources.commons.types.observations_view import ObservationsView
 import logging
+import random
+import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterator, List, Optional, cast
 
@@ -59,53 +61,154 @@ class LangfuseAdapter:
     def get_evaluation_rows(
         self,
         limit: int = 100,
+        sample_size: int = 50,
         tags: Optional[List[str]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         hours_back: Optional[int] = None,
+        from_timestamp: Optional[datetime] = None,
+        to_timestamp: Optional[datetime] = None,
         include_tool_calls: bool = True,
+        sleep_between_gets: float = 2.5,
+        max_retries: int = 3,
     ) -> List[EvaluationRow]:
         """Pull traces from Langfuse and convert to EvaluationRow format.
 
         Args:
-            limit: Maximum number of rows to return
+            limit: Max number of trace summaries to collect via pagination (pre-sampling)
+            sample_size: Number of traces to fetch full details for (sampled from collected summaries)
             tags: Filter by specific tags
             user_id: Filter by user ID
             session_id: Filter by session ID
             hours_back: Filter traces from this many hours ago
+            from_timestamp: Explicit start time (overrides hours_back)
+            to_timestamp: Explicit end time (overrides hours_back)
             include_tool_calls: Whether to include tool calling traces
+            sleep_between_gets: Sleep time between individual trace.get() calls (2.5s for 30 req/min limit)
+            max_retries: Maximum retries for rate limit errors
 
-        Yields:
-            EvaluationRow: Converted evaluation rows
+        Returns:
+            List[EvaluationRow]: Converted evaluation rows
         """
-        # Get traces from Langfuse using new API
-
-        if hours_back:
-            to_timestamp = datetime.now()
-            from_timestamp = to_timestamp - timedelta(hours=hours_back)
-        else:
-            to_timestamp = None
-            from_timestamp = None
-
         eval_rows = []
 
-        traces: Traces = self.client.api.trace.list(
-            limit=limit,
-            tags=tags,
-            user_id=user_id,
-            session_id=session_id,
-            from_timestamp=from_timestamp,
-            to_timestamp=to_timestamp,
-        )
+        # Determine time window: explicit from/to takes precedence over hours_back
+        if from_timestamp is None and to_timestamp is None and hours_back:
+            to_timestamp = datetime.now()
+            from_timestamp = to_timestamp - timedelta(hours=hours_back)
 
-        for trace in traces.data:
-            try:
-                eval_row = self._convert_trace_to_evaluation_row(trace, include_tool_calls)
-                if eval_row:
-                    eval_rows.append(eval_row)
-            except (AttributeError, ValueError, KeyError) as e:
-                logger.warning("Failed to convert trace %s: %s", trace.id, e)
-                continue
+        # Collect trace summaries via pagination (up to limit)
+        all_traces = []
+        page = 1
+        collected = 0
+
+        while collected < limit:
+            current_page_limit = min(100, limit - collected)  # Langfuse API max is 100
+
+            logger.debug(
+                "Fetching page %d with limit %d (collected: %d/%d)", page, current_page_limit, collected, limit
+            )
+
+            # Fetch trace list with retry logic
+            traces = None
+            list_retries = 0
+            while list_retries < max_retries:
+                try:
+                    traces = self.client.api.trace.list(
+                        page=page,
+                        limit=current_page_limit,
+                        tags=tags,
+                        user_id=user_id,
+                        session_id=session_id,
+                        from_timestamp=from_timestamp,
+                        to_timestamp=to_timestamp,
+                        order_by="timestamp.desc",
+                    )
+                    break
+                except Exception as e:
+                    list_retries += 1
+                    if "429" in str(e) and list_retries < max_retries:
+                        sleep_time = 2**list_retries  # Exponential backoff
+                        logger.warning(
+                            "Rate limit hit on trace.list(), retrying in %ds (attempt %d/%d)",
+                            sleep_time,
+                            list_retries,
+                            max_retries,
+                        )
+                        time.sleep(sleep_time)
+                    else:
+                        logger.error("Failed to fetch trace list after %d retries: %s", max_retries, e)
+                        return eval_rows  # Return what we have so far
+
+            if not traces or not traces.data:
+                logger.debug("No more traces found on page %d", page)
+                break
+
+            logger.debug("Collected %d traces from page %d", len(traces.data), page)
+
+            all_traces.extend(traces.data)
+            collected += len(traces.data)
+
+            # Check if we have more pages
+            if hasattr(traces.meta, "page") and hasattr(traces.meta, "total_pages"):
+                if traces.meta.page >= traces.meta.total_pages:
+                    break
+            elif len(traces.data) < current_page_limit:
+                break
+
+            page += 1
+
+        if not all_traces:
+            logger.debug("No traces found")
+            return eval_rows
+
+        # Randomly sample traces to fetch full details (respect rate limits)
+        actual_sample_size = min(sample_size, len(all_traces))
+        selected_traces = random.sample(all_traces, actual_sample_size)
+
+        logger.debug("Randomly selected %d traces from %d collected", actual_sample_size, len(all_traces))
+
+        # Process each selected trace with sleep and retry logic
+        for trace_info in selected_traces:
+            # Sleep between gets to avoid rate limits
+            if sleep_between_gets > 0:
+                time.sleep(sleep_between_gets)
+
+            # Fetch full trace details with retry logic
+            trace_full = None
+            detail_retries = 0
+            while detail_retries < max_retries:
+                try:
+                    trace_full = self.client.api.trace.get(trace_info.id)
+                    break
+                except Exception as e:
+                    detail_retries += 1
+                    if "429" in str(e) and detail_retries < max_retries:
+                        sleep_time = 2**detail_retries  # Exponential backoff
+                        logger.warning(
+                            "Rate limit hit on trace.get(%s), retrying in %ds (attempt %d/%d)",
+                            trace_info.id,
+                            sleep_time,
+                            detail_retries,
+                            max_retries,
+                        )
+                        time.sleep(sleep_time)
+                    else:
+                        logger.warning("Failed to fetch trace %s after %d retries: %s", trace_info.id, max_retries, e)
+                        break  # Skip this trace
+
+            if trace_full:
+                try:
+                    eval_row = self._convert_trace_to_evaluation_row(trace_full, include_tool_calls)
+                    if eval_row:
+                        eval_rows.append(eval_row)
+                except (AttributeError, ValueError, KeyError) as e:
+                    logger.warning("Failed to convert trace %s: %s", trace_info.id, e)
+                    continue
+
+        logger.info(
+            "Successfully processed %d selected traces into %d evaluation rows", len(selected_traces), len(eval_rows)
+        )
         return eval_rows
 
     def get_evaluation_rows_by_ids(
@@ -135,7 +238,7 @@ class LangfuseAdapter:
         return eval_rows
 
     def _convert_trace_to_evaluation_row(
-        self, trace: Trace, include_tool_calls: bool = True
+        self, trace: TraceWithFullDetails, include_tool_calls: bool = True
     ) -> Optional[EvaluationRow]:
         """Convert a Langfuse trace to EvaluationRow format.
 
@@ -147,8 +250,6 @@ class LangfuseAdapter:
             EvaluationRow or None if conversion fails
         """
         try:
-            trace = self.client.api.trace.get("2d9f3474-83ab-4431-9788-049ca4219023")
-
             # Extract messages from trace input and output
             messages = self._extract_messages_from_trace(trace, include_tool_calls)
 
@@ -163,13 +264,20 @@ class LangfuseAdapter:
             return EvaluationRow(
                 messages=messages,
                 tools=tools,
+                input_metadata=InputMetadata(
+                    session_data={
+                        "langfuse_trace_id": trace.id,  # Store the trace ID here
+                    }
+                ),
             )
 
         except (AttributeError, ValueError, KeyError) as e:
             logger.error("Error converting trace %s: %s", trace.id, e)
             return None
 
-    def _extract_messages_from_trace(self, trace: Any, include_tool_calls: bool = True) -> List[Message]:
+    def _extract_messages_from_trace(
+        self, trace: TraceWithFullDetails, include_tool_calls: bool = True
+    ) -> List[Message]:
         """Extract messages from Langfuse trace input and output.
 
         Args:
@@ -214,6 +322,10 @@ class LangfuseAdapter:
                     else:
                         # Fallback: convert entire output to string
                         messages.append(Message(role="assistant", content=str(trace.output)))
+                elif isinstance(trace.output, list):
+                    # Direct list of message dicts (same as input handling)
+                    for msg in trace.output:
+                        messages.append(self._dict_to_message(msg, include_tool_calls))
                 elif isinstance(trace.output, str):
                     messages.append(Message(role="assistant", content=trace.output))
 

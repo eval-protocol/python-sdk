@@ -3,9 +3,8 @@ Default LLM judge for Eval Protocol. Inspired by Arena-Hard-Auto.
 """
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Dict, Any, Optional
-import pandas as pd
 from tqdm import tqdm
 
 import pytest
@@ -13,82 +12,68 @@ import pytest
 from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
-from eval_protocol.quickstart.utils import pairwise_judgment, split_multi_turn_rows, serialize_message
+from eval_protocol.quickstart.utils import (
+    split_multi_turn_rows,
+    JUDGE_CONFIGS,
+    calculate_bootstrap_scores,
+    push_scores_to_langfuse,
+    run_judgment_async,
+)
+import asyncio
+from openai import AsyncOpenAI
 from eval_protocol.adapters.langfuse import create_langfuse_adapter
 
-import concurrent.futures
-from concurrent.futures import ThreadPoolExecutor
-
-JUDGE_CONFIGS = {
-    "gpt-4.1": {
-        "model": "gpt-4.1",
-        "temperature": 0.0,
-        "max_tokens": 16000,
-        "max_concurrency": 64,
-    },
-    "gemini-2.5-pro": {
-        "model": "gemini-2.5-pro",
-        "temperature": 1.0,
-        "max_tokens": 32000,
-        "api_key": os.getenv("GEMINI_API_KEY"),
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "max_concurrency": 32,
-    },
-}
+adapter = create_langfuse_adapter()
 
 
-def fetch_langfuse_traces_as_evaluation_rows(
-    limit: int = 100,
-    tags: Optional[List[str]] = None,
-    user_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-    hours_back: Optional[int] = None,
-    include_tool_calls: bool = True,
-) -> List[EvaluationRow]:
-    try:
-        adapter = create_langfuse_adapter()
-
-        return adapter.get_evaluation_rows(
-            limit=limit,
-            tags=tags,
-            user_id=user_id,
-            session_id=session_id,
-            hours_back=hours_back,
-            include_tool_calls=include_tool_calls,
-        )
-
-    except Exception as e:
-        print(f"❌ LangfuseAdapter failed: {e}")
-        return []
-
-
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
 @pytest.mark.asyncio
 @evaluation_test(
-    input_rows=[fetch_langfuse_traces_as_evaluation_rows()],
+    input_rows=[
+        adapter.get_evaluation_rows(
+            to_timestamp=datetime(2025, 9, 12, 0, 11, 18),
+            limit=711,
+            sample_size=50,
+            sleep_between_gets=3.0,
+            max_retries=5,
+        )
+    ],
     completion_params=[
-        {"model": "gpt-5"},
+        {"model": "gpt-4.1"},
         {
-            # "max_tokens": 131000,
-            # "extra_body": {"reasoning_effort": "low"},
-            "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
+            "max_tokens": 131000,
+            "extra_body": {"reasoning_effort": "medium"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+        },
+        {
+            "max_tokens": 131000,
+            "extra_body": {"reasoning_effort": "low"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
         },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=split_multi_turn_rows,
+    max_concurrent_rollouts=64,
     mode="all",
 )
 async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
     """
-    Simplified LLM Judge for Arena-Hard-Auto style pairwise comparisons.
+    LLM Judge evaluation using Arena-Hard-Auto style pairwise comparisons.
 
-    Each row contains:
-    - messages[:-1]: Question/prompt (conversation context)
-    - messages[-1]: Model B's answer (comparison model response)
-    - ground_truth: Model A's answer (original assistant response)
+    Compares model responses against ground truth using an LLM judge. For each row:
+    1. Extracts the question from messages[:-1]
+    2. Compares messages[-1] (new model response) vs ground_truth (baseline response)
+    3. Runs two judgment rounds (A vs B, B vs A) to reduce position bias
+    4. Calculates bootstrap scores across all comparisons
+    5. Updates evaluation_result with final scores and confidence intervals
+
+    Args:
+        rows: List of EvaluationRow objects with messages, ground_truth, and tools
+
+    Returns:
+        Same rows with updated evaluation_result containing scores and judgments
     """
 
-    judge_name = "gemini-2.5-pro"  # Edit to which judge you'd like to use. Configs at top of file.
+    judge_name = "gemini-2.5-pro"  # Edit to which judge you'd like to use. Configs are in utils.py.
 
     if not rows:
         print("❌ No evaluation rows provided")
@@ -98,62 +83,24 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
 
     model_name = rows[0].input_metadata.completion_params.get("model", "unknown_model")
 
-    def run_judgment(row: EvaluationRow) -> Optional[Dict[str, Any]]:
-        """Run pairwise judgment for a single evaluation row."""
-        if not row.messages:
-            return None
-
-        question_text = "\n".join([serialize_message(msg) for msg in row.messages[:-1]])
-        model_a_answer = row.ground_truth
-        model_b_answer = serialize_message(row.messages[-1])
-
-        games = []
-
-        # Round 1: A vs B (original vs comparison)
-        result1 = pairwise_judgment(
-            question_text=question_text,
-            answer_a=model_a_answer,
-            answer_b=model_b_answer,
-            tools=row.tools,
-            judge_config=JUDGE_CONFIGS[judge_name],
-        )
-        games.append(result1)
-
-        # Round 2: B vs A (comparison vs original)
-        result2 = pairwise_judgment(
-            question_text=question_text,
-            answer_a=model_b_answer,
-            answer_b=model_a_answer,
-            tools=row.tools,
-            judge_config=JUDGE_CONFIGS[judge_name],
-        )
-        games.append(result2)
-
-        row.evaluation_result = EvaluateResult(
-            score=0.0,
-            reason=f"LLM Judge comparison: Round 1: {result1['score']}, Round 2: {result2['score']}"
-            if result1 and result2
-            else "Failed to get judgement scores",
-            metrics={
-                "round1_judgment": MetricResult(
-                    score=0.0, reason=result1["judgment"] if result1 else "Failed to get judgment reason"
-                ),
-                "round2_judgment": MetricResult(
-                    score=0.0, reason=result2["judgment"] if result2 else "Failed to get judgment reason"
-                ),
-            },
-        )
-
-        return {"model": model_name, "games": games}
-
     judgments = []
     max_concurrency = JUDGE_CONFIGS[judge_name]["max_concurrency"]
 
-    with ThreadPoolExecutor(max_workers=max_concurrency) as executor:
-        futures = [executor.submit(run_judgment, row) for row in rows]
+    judge_config = JUDGE_CONFIGS[judge_name]
 
-        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Generating judgments"):
-            result = future.result()
+    async with AsyncOpenAI(
+        api_key=judge_config.get("api_key"), base_url=judge_config.get("base_url")
+    ) as shared_client:
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def run_judgment(row):
+            async with semaphore:
+                return await run_judgment_async(row, model_name, judge_name, shared_client)
+
+        tasks = [run_judgment(row) for row in rows]
+
+        for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Generating judgments"):
+            result = await coro
             if result and result["games"][0] and result["games"][1]:
                 judgments.append(result)
 
@@ -163,45 +110,13 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
 
     print(f"✅ Generated {len(judgments)} valid judgments")
 
-    # Convert to scores for leaderboard
-    label_to_score = {
-        "A>B": [1],
-        "A>>B": [1] * 3,
-        "A=B": [0.5],
-        "A<<B": [0] * 3,
-        "A<B": [0],
-        "B>A": [0],
-        "B>>A": [0] * 3,
-        "B=A": [0.5],
-        "B<<A": [1] * 3,
-        "B<A": [1],
-    }
-
-    # Extract scores from judgments
-    scores_data = []
-    for judgment in judgments:
-        game1, game2 = judgment["games"]
-        if game1 and game2 and game1.get("score") and game2.get("score"):
-            # Convert judgment scores to numerical scores
-            scores = label_to_score[game2["score"]] + [1 - s for s in label_to_score[game1["score"]]]
-            for score in scores:
-                scores_data.append(score)
-
-    if not scores_data:
+    # Calculate bootstrap scores
+    result = calculate_bootstrap_scores(judgments)
+    if not result:
         print("❌ No valid scores extracted")
         return rows
 
-    # Create DataFrame (single column of scores)
-    battles = pd.DataFrame({"score": scores_data})
-
-    # Bootstrap sampling for calculating relative performance to original model at fixed 50%
-    bootstrap_means = [battles.sample(frac=1.0, replace=True)["score"].mean() for _ in range(100)]
-
-    # Calculate final scores
-    bootstraps = pd.Series(bootstrap_means)
-    mean_score = bootstraps.mean()
-    lower_score = bootstraps.quantile(0.05)
-    upper_score = bootstraps.quantile(0.95)
+    mean_score, lower_score, upper_score = result
 
     # Print leaderboard
     print("\n##### LLM Judge Results (90th percentile CI) #####")
@@ -214,8 +129,8 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
     for row in rows:
         if row.evaluation_result:
             row.evaluation_result.score = mean_score
-            row.evaluation_result.standard_error = (upper_score - lower_score) / (
-                2 * 1.645
-            )  # Standard error approximation from 90% CI
+
+    # Optional, push scores back to Langfuse. Note that one score per model will be pushed back onto same trace.
+    push_scores_to_langfuse(rows, model_name, mean_score)
 
     return rows

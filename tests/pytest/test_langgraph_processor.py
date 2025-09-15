@@ -7,6 +7,7 @@ import pytest
 
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.default_langchain_rollout_processor import LangGraphRolloutProcessor
+from eval_protocol.pytest.types import RolloutProcessorConfig
 
 
 class DummyLCMessage:
@@ -25,7 +26,7 @@ class DummyGraph:
 
 
 def _make_processor_with_defaults(out_messages: List[Any]) -> LangGraphRolloutProcessor:
-    def graph_factory(_: Dict[str, Any]):
+    def graph_factory(_: RolloutProcessorConfig):
         return DummyGraph(out_messages)
 
     return LangGraphRolloutProcessor(graph_factory=graph_factory)
@@ -116,7 +117,7 @@ async def test_to_input_converts_ep_messages_to_lc_via_adapter(monkeypatch):
             # Ensure our adapter-produced messages flow through
             return payload
 
-    processor = LangGraphRolloutProcessor(graph_factory=lambda _: EchoGraph())
+    processor = LangGraphRolloutProcessor(graph_factory=lambda _config: EchoGraph())
 
     # Act
     tasks = processor(

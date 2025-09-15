@@ -3,9 +3,9 @@ from typing import Any, Dict, List
 from eval_protocol.models import EvaluationRow, EvaluateResult, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_langchain_rollout_processor import LangGraphRolloutProcessor
-from eval_protocol.pytest.types import RolloutProcessorConfig as _UnusedRolloutProcessorConfig  # noqa: F401
+from eval_protocol.pytest.types import RolloutProcessorConfig
 
-from examples.langgraph.simple_graph import build_simple_graph
+from .simple_graph import build_simple_graph
 import os
 import pytest
 
@@ -25,27 +25,15 @@ def adapter(raw_rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     return rows
 
 
-def build_graph_kwargs(cp: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "config": {
-            "model": cp.get("model"),
-            "temperature": cp.get("temperature", 0.0),
-        }
-    }
-
-
-def graph_factory(graph_kwargs: Dict[str, Any]) -> Any:
-    cfg = graph_kwargs.get("config", {}) if isinstance(graph_kwargs, dict) else {}
-    model = cfg.get("model") or "accounts/fireworks/models/kimi-k2-instruct"
-    temperature = cfg.get("temperature", 0.0)
-    # Provider is fixed to fireworks for this example; can be extended via cfg if needed
+def graph_factory(config: RolloutProcessorConfig) -> Any:
+    cp = config.completion_params or {}
+    model = cp.get("model") or "accounts/fireworks/models/kimi-k2-instruct"
+    temperature = cp.get("temperature", 0.0)
+    # Provider is fixed to fireworks for this example; can be extended via cp if needed
     return build_simple_graph(model=model, model_provider="fireworks", temperature=temperature)
 
 
-processor = LangGraphRolloutProcessor(
-    graph_factory=graph_factory,
-    build_graph_kwargs=build_graph_kwargs,
-)
+processor = LangGraphRolloutProcessor(graph_factory=graph_factory)
 
 
 @pytest.mark.skipif(os.getenv("FIREWORKS_API_KEY") in (None, ""), reason="FIREWORKS_API_KEY not set")
