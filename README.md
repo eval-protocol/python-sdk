@@ -4,8 +4,6 @@
 
 **The open-source toolkit for building your internal model leaderboard.**
 
-Eval Protocol is an open protocol that standardizes how developers author evaluations (evals) for large language model (LLM) applications. It provides a structured framework to create, share, and reproduce evals, ensuring consistency and reliability across different platforms.
-
 When you have multiple AI models to choose from—different versions, providers, or configurations—how do you know which one is best for your use case?
 
 ## Quick Examples
