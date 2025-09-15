@@ -55,10 +55,11 @@ Evaluate models on existing datasets:
 
 ```python
 from eval_protocol.pytest import evaluation_test
-from eval_protocol.adapters.huggingface import HuggingFaceAdapter
+from eval_protocol.adapters.huggingface import create_gsm8k_adapter
 
 @evaluation_test(
-    input_dataset=["openai/gsm8k"],  # HuggingFace dataset
+    input_dataset=["development/gsm8k_sample.jsonl"],  # Local JSONL file
+    dataset_adapter=create_gsm8k_adapter(),  # Adapter to convert data
     completion_params=[
         {"model": "openai/gpt-4"},
         {"model": "anthropic/claude-3-sonnet"}
