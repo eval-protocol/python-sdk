@@ -19,7 +19,7 @@ from tests.chinook.pydantic.test_pydantic_complex_queries import test_pydantic_c
 
 def agent_factory(config: RolloutProcessorConfig) -> Agent:
     model_name = config.completion_params["model"]
-    reasoning = config.completion_params["reasoning"]
+    reasoning = config.completion_params.get("reasoning")
     settings = OpenAIResponsesModelSettings(
         openai_reasoning_effort=reasoning,
     )
@@ -37,7 +37,6 @@ def agent_factory(config: RolloutProcessorConfig) -> Agent:
     completion_params=[
         {
             "model": "gpt-5",
-            "reasoning": "high",
         },
     ],
     rollout_processor=PydanticAgentRolloutProcessor(agent_factory),

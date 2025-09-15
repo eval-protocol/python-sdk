@@ -1,7 +1,7 @@
 import os
 from pydantic import BaseModel
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
 import pytest
 
 from eval_protocol.models import EvaluateResult, EvaluationRow
@@ -14,15 +14,18 @@ from tests.pytest.test_pydantic_agent import PydanticAgentRolloutProcessor
 LLM_JUDGE_PROMPT = (
     "Your job is to compare the response to the expected answer.\n"
     "The response will be a narrative report of the query results.\n"
-    "If the response contains the same or well summarized information as the expected answer, return 1.0.\n"
-    "If the response does not contain the same information or is missing information, return 0.0."
+    "Return a score between 0.0 and 1.0, where 1.0 means the response contains all or well summarized information as the expected answer, "
+    "0.0 means the response does not contain the same information or is missing all key information, "
+    "and values in between represent partial credit for responses that are partially correct or contain some but not all of the expected information."
 )
 
 
 def agent_factory(config: RolloutProcessorConfig) -> Agent:
     model_name = config.completion_params["model"]
-    provider = config.completion_params["provider"]
-    model = OpenAIChatModel(model_name, provider=provider)
+    provider = config.completion_params.get("provider")
+    reasoning = config.completion_params.get("reasoning")
+    settings = OpenAIChatModelSettings(openai_reasoning_effort=reasoning)
+    model = OpenAIChatModel(model_name, provider=provider or "openai", settings=settings)
     return setup_agent(model)
 
 
@@ -38,8 +41,19 @@ def agent_factory(config: RolloutProcessorConfig) -> Agent:
             "model": "accounts/fireworks/models/kimi-k2-instruct",
             "provider": "fireworks",
         },
+        {
+            "model": "accounts/fireworks/models/deepseek-v3p1",
+            "provider": "fireworks",
+        },
+        {
+            "model": "accounts/fireworks/models/kimi-k2-instruct-0905",
+            "provider": "fireworks",
+        },
+        {"model": "gpt-5"},
+        {"model": "gpt-5", "reasoning": "high"},
     ],
     rollout_processor=PydanticAgentRolloutProcessor(agent_factory),
+    num_runs=2,
 )
 async def test_pydantic_complex_queries(row: EvaluationRow) -> EvaluationRow:
     """
@@ -58,8 +72,7 @@ async def test_pydantic_complex_queries(row: EvaluationRow) -> EvaluationRow:
         )
     else:
         model = OpenAIChatModel(
-            "accounts/fireworks/models/kimi-k2-instruct",
-            provider="fireworks",
+            "gpt-5",
         )
 
         class Response(BaseModel):
