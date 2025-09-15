@@ -50,6 +50,14 @@ JUDGE_CONFIGS = {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "max_concurrency": 16,
     },
+    "gemini-2.5-flash": {
+        "model": "gemini-2.5-flash",
+        "temperature": 1.0,
+        "max_tokens": 32000,
+        "api_key": os.getenv("GEMINI_API_KEY"),
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "max_concurrency": 16,
+    },
     "kimi-k2-instruct-0905": {
         "model": "accounts/fireworks/models/kimi-k2-instruct-0905",
         "temperature": 0.6,  # Kimi recommended temperature
@@ -195,7 +203,7 @@ async def pairwise_judgment_async(question_text, answer_a, answer_b, tools, judg
     return {"score": score, "judgment": judgment_text, "prompt": messages}
 
 
-async def run_judgment_async_with_shared_client(
+async def run_judgment_async(
     row: EvaluationRow, model_name: str, judge_name: str, shared_client
 ) -> Optional[Dict[str, Any]]:
     """Async judgment using shared client to avoid cleanup issues."""
@@ -230,60 +238,6 @@ async def run_judgment_async_with_shared_client(
     )
 
     return {"model": model_name, "games": games}
-
-
-def fetch_langfuse_traces_as_evaluation_rows(
-    limit: int = 100,
-    tags: Optional[List[str]] = None,
-    user_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-    hours_back: Optional[int] = None,
-    from_timestamp: Optional[datetime] = None,
-    to_timestamp: Optional[datetime] = None,
-    include_tool_calls: bool = True,
-    page_size: int = 30,
-    sleep_between_gets: float = 0.1,
-    max_retries: int = 3,
-) -> List[EvaluationRow]:
-    """
-    Fetch Langfuse traces and convert them to EvaluationRow objects.
-
-    Args:
-        limit: Maximum number of traces to fetch
-        tags: Filter traces by tags
-        user_id: Filter traces by user ID
-        session_id: Filter traces by session ID
-        hours_back: Only fetch traces from the last N hours
-        from_timestamp: Only include traces with timestamp >= this datetime
-        to_timestamp: Only include traces with timestamp <= this datetime
-        include_tool_calls: Whether to include tool calls in messages
-        page_size: Number of traces to fetch per page (smaller = less rate limit issues)
-        sleep_between_gets: Sleep time between individual trace.get() calls (2.5s for 30 req/min limit)
-        max_retries: Maximum retries for rate limit errors
-
-    Returns:
-        List of EvaluationRow objects converted from Langfuse traces
-    """
-    try:
-        from eval_protocol.adapters.langfuse import create_langfuse_adapter
-
-        adapter = create_langfuse_adapter()
-        return adapter.get_evaluation_rows(
-            limit=limit,
-            tags=tags,
-            user_id=user_id,
-            session_id=session_id,
-            hours_back=hours_back,
-            from_timestamp=from_timestamp,
-            to_timestamp=to_timestamp,
-            include_tool_calls=include_tool_calls,
-            page_size=page_size,
-            sleep_between_gets=sleep_between_gets,
-            max_retries=max_retries,
-        )
-    except Exception as e:
-        print(f"❌ LangfuseAdapter failed: {e}")
-        return []
 
 
 def calculate_bootstrap_scores(judgments: List[Dict[str, Any]]) -> tuple[float, float, float]:

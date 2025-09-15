@@ -15,22 +15,24 @@ from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnR
 from eval_protocol.quickstart.utils import (
     split_multi_turn_rows,
     JUDGE_CONFIGS,
-    fetch_langfuse_traces_as_evaluation_rows,
     calculate_bootstrap_scores,
     push_scores_to_langfuse,
-    run_judgment_async_with_shared_client,
+    run_judgment_async,
 )
 import asyncio
 from openai import AsyncOpenAI
+from eval_protocol.adapters.langfuse import create_langfuse_adapter
+
+adapter = create_langfuse_adapter()
 
 
 @pytest.mark.asyncio
 @evaluation_test(
     input_rows=[
-        fetch_langfuse_traces_as_evaluation_rows(
+        adapter.get_evaluation_rows(
             to_timestamp=datetime(2025, 9, 12, 0, 11, 18),
-            limit=40,
-            page_size=10,
+            limit=711,
+            sample_size=50,
             sleep_between_gets=3.0,
             max_retries=5,
         )
@@ -71,7 +73,7 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
         Same rows with updated evaluation_result containing scores and judgments
     """
 
-    judge_name = "kimi-k2-instruct-0905"  # Edit to which judge you'd like to use. Configs are in utils.py.
+    judge_name = "gemini-2.5-pro"  # Edit to which judge you'd like to use. Configs are in utils.py.
 
     if not rows:
         print("❌ No evaluation rows provided")
@@ -91,11 +93,11 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
     ) as shared_client:
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def run_judgment_with_semaphore(row):
+        async def run_judgment(row):
             async with semaphore:
-                return await run_judgment_async_with_shared_client(row, model_name, judge_name, shared_client)
+                return await run_judgment_async(row, model_name, judge_name, shared_client)
 
-        tasks = [run_judgment_with_semaphore(row) for row in rows]
+        tasks = [run_judgment(row) for row in rows]
 
         for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Generating judgments"):
             result = await coro
@@ -131,6 +133,6 @@ async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
             )  # Standard error approximation from 90% CI
 
     # Optional, push scores back to Langfuse. Note that one score per model will be pushed back onto same trace.
-    # push_scores_to_langfuse(rows, model_name, mean_score)
+    push_scores_to_langfuse(rows, model_name, mean_score)
 
     return rows
