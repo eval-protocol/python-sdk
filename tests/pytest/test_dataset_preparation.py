@@ -1,8 +1,109 @@
+from __future__ import annotations
+
+import importlib
+import sys
+import types
 from typing import cast
 
 import pytest
+from pydantic import BaseModel, ConfigDict
 
-pytest.importorskip("openai")
+
+def _install_dependency_stubs() -> None:
+    """Register lightweight stubs for optional runtime dependencies."""
+
+    def _ensure_module(name: str, **attrs) -> None:
+        if name in sys.modules:
+            return
+        module = types.ModuleType(name)
+        for key, value in attrs.items():
+            setattr(module, key, value)
+        sys.modules[name] = module
+
+    try:  # pragma: no cover - prefer real dependency when available
+        importlib.import_module("loguru")
+    except ModuleNotFoundError:
+        class _Logger:  # pragma: no cover - inert logging shim
+            def __getattr__(self, _name: str):
+                def _noop(*_args, **_kwargs):
+                    return None
+
+                return _noop
+
+        _ensure_module("loguru", logger=_Logger())
+
+    def _noop_loader(*_args, **_kwargs):  # pragma: no cover - placeholder loader
+        return {}
+
+    optional_stub_attrs = {
+        "toml": {"loads": _noop_loader, "load": _noop_loader},
+        "datasets": {},
+        "addict": {"Dict": dict},
+        "deepdiff": {},
+        "litellm": {},
+        "peewee": {},
+        "backoff": {},
+    }
+
+    for optional_module, attrs in optional_stub_attrs.items():
+        try:
+            importlib.import_module(optional_module)
+        except ModuleNotFoundError:
+            _ensure_module(optional_module, **attrs)
+
+    try:
+        importlib.import_module("openai")
+        return
+    except ModuleNotFoundError:
+        pass
+
+    openai_mod = types.ModuleType("openai")
+    types_mod = types.ModuleType("openai.types")
+    completion_usage_mod = types.ModuleType("openai.types.completion_usage")
+    chat_mod = types.ModuleType("openai.types.chat")
+    chat_message_mod = types.ModuleType("openai.types.chat.chat_completion_message")
+    tool_call_mod = types.ModuleType("openai.types.chat.chat_completion_message_tool_call")
+
+    class CompletionUsage(BaseModel):  # pragma: no cover - simple data container
+        prompt_tokens: int | None = None
+        completion_tokens: int | None = None
+        total_tokens: int | None = None
+
+        model_config = ConfigDict(extra="allow")
+
+    class FunctionCall(BaseModel):  # pragma: no cover - simple data container
+        name: str | None = None
+        arguments: str | None = None
+
+        model_config = ConfigDict(extra="allow")
+
+    class ChatCompletionMessageToolCall(BaseModel):  # pragma: no cover - simple data container
+        id: str | None = None
+        type: str | None = None
+        function: FunctionCall | None = None
+
+        model_config = ConfigDict(extra="allow")
+
+    types_mod.CompletionUsage = CompletionUsage
+    completion_usage_mod.CompletionUsage = CompletionUsage
+    chat_message_mod.FunctionCall = FunctionCall
+    tool_call_mod.ChatCompletionMessageToolCall = ChatCompletionMessageToolCall
+
+    openai_mod.types = types_mod
+    types_mod.completion_usage = completion_usage_mod
+    types_mod.chat = chat_mod
+    chat_mod.chat_completion_message = chat_message_mod
+    chat_mod.chat_completion_message_tool_call = tool_call_mod
+
+    sys.modules["openai"] = openai_mod
+    sys.modules["openai.types"] = types_mod
+    sys.modules["openai.types.completion_usage"] = completion_usage_mod
+    sys.modules["openai.types.chat"] = chat_mod
+    sys.modules["openai.types.chat.chat_completion_message"] = chat_message_mod
+    sys.modules["openai.types.chat.chat_completion_message_tool_call"] = tool_call_mod
+
+
+_install_dependency_stubs()
 
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.dataset_preparation import load_and_prepare_rows
