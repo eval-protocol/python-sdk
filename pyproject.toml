@@ -114,6 +114,9 @@ adapters = [
     "datasets>=3.0.0",
     "transformers>=4.0.0",
 ]
+langsmith = [
+    "langsmith>=0.1.86",
+]
 bigquery = [
     "google-cloud-bigquery>=3.0.0",
     "google-auth>=2.0.0",
