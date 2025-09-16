@@ -9,11 +9,38 @@ import logging
 import random
 import time
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, Iterator, List, Optional, cast
+from typing import Any, Dict, List, Optional, Protocol
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
 
 logger = logging.getLogger(__name__)
+
+
+class TraceConverter(Protocol):
+    """Protocol for custom trace-to-EvaluationRow converter functions.
+
+    A converter function should take a Langfuse trace along with processing
+    options and return an EvaluationRow or None to skip the trace.
+    """
+
+    def __call__(
+        self,
+        trace: "TraceWithFullDetails",
+        include_tool_calls: bool,
+        span_name: Optional[str],
+    ) -> Optional[EvaluationRow]:
+        """Convert a Langfuse trace to an EvaluationRow.
+
+        Args:
+            trace: The Langfuse trace object to convert
+            include_tool_calls: Whether to include tool calling information
+            span_name: Optional span name to extract messages from
+
+        Returns:
+            EvaluationRow or None if the trace should be skipped
+        """
+        ...
+
 
 try:
     from langfuse import get_client  # pyright: ignore[reportPrivateImportUsage]
@@ -35,7 +62,7 @@ def convert_trace_to_evaluation_row(
         trace: Langfuse trace object
         include_tool_calls: Whether to include tool calling information
         span_name: If provided, extract messages from generations within this named span
-        converter: Optional custom function to convert trace to EvaluationRow
+        converter: Optional custom converter implementing TraceConverter protocol
 
     Returns:
         EvaluationRow or None if conversion fails
@@ -290,7 +317,7 @@ class LangfuseAdapter:
         sleep_between_gets: float = 2.5,
         max_retries: int = 3,
         span_name: Optional[str] = None,
-        converter: Optional[Callable[[TraceWithFullDetails, bool, Optional[str]], Optional[EvaluationRow]]] = None,
+        converter: Optional[TraceConverter] = None,
     ) -> List[EvaluationRow]:
         """Pull traces from Langfuse and convert to EvaluationRow format.
 
@@ -312,7 +339,7 @@ class LangfuseAdapter:
             sleep_between_gets: Sleep time between individual trace.get() calls (2.5s for 30 req/min limit)
             max_retries: Maximum retries for rate limit errors
             span_name: If provided, extract messages from generations within this named span
-            converter: Optional custom function to convert trace to EvaluationRow.
+            converter: Optional custom converter implementing TraceConverter protocol.
                 If provided, this will be used instead of the default conversion logic.
 
         Returns:
@@ -455,7 +482,7 @@ class LangfuseAdapter:
         trace_ids: List[str],
         include_tool_calls: bool = True,
         span_name: Optional[str] = None,
-        converter: Optional[Callable[[TraceWithFullDetails, bool, Optional[str]], Optional[EvaluationRow]]] = None,
+        converter: Optional[TraceConverter] = None,
     ) -> List[EvaluationRow]:
         """Get specific traces by their IDs and convert to EvaluationRow format.
 
@@ -463,7 +490,7 @@ class LangfuseAdapter:
             trace_ids: List of trace IDs to fetch
             include_tool_calls: Whether to include tool calling traces
             span_name: If provided, extract messages from generations within this named span
-            converter: Optional custom function to convert trace to EvaluationRow.
+            converter: Optional custom converter implementing TraceConverter protocol.
                 If provided, this will be used instead of the default conversion logic.
 
         Returns:
