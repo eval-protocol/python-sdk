@@ -22,6 +22,7 @@ Run:
 import os
 from typing import Any, Dict, List, Optional
 
+from openai import AsyncOpenAI
 import pytest
 
 from eval_protocol.models import EvaluationRow, Message, EvaluateResult, MetricResult
@@ -31,7 +32,7 @@ from eval_protocol.quickstart.utils import (
     split_multi_turn_rows,
     JUDGE_CONFIGS,
     calculate_bootstrap_scores,
-    run_judgment,
+    run_judgment_async,
 )
 from eval_protocol.adapters.langsmith import LangSmithAdapter
 
@@ -91,10 +92,15 @@ async def test_llm_judge_langsmith(rows: List[EvaluationRow]) -> List[Evaluation
 
     judgments: List[Dict[str, Any]] = []
 
-    for row in rows:
-        result = run_judgment(row, model_name, judge_name)
-        if result and result["games"][0] and result["games"][1]:
-            judgments.append(result)
+    judge_config = JUDGE_CONFIGS[judge_name]
+
+    async with AsyncOpenAI(
+        api_key=judge_config.get("api_key"), base_url=judge_config.get("base_url")
+    ) as shared_client:
+        for row in rows:
+            result = await run_judgment_async(row, model_name, judge_name, shared_client)
+            if result and result["games"][0] and result["games"][1]:
+                judgments.append(result)
 
     if not judgments:
         print("❌ No valid judgments generated")
@@ -102,7 +108,12 @@ async def test_llm_judge_langsmith(rows: List[EvaluationRow]) -> List[Evaluation
 
     print(f"✅ Generated {len(judgments)} valid judgments")
 
-    mean_score, lower_score, upper_score = calculate_bootstrap_scores(judgments)
+    result = calculate_bootstrap_scores(judgments)
+    if not result:
+        print("❌ No valid scores extracted")
+        return rows
+
+    mean_score, lower_score, upper_score = result
     if mean_score == 0.0:
         print("❌ No valid scores extracted")
         return rows
