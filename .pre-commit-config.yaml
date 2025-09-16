@@ -7,9 +7,9 @@ repos:
     rev: v6.0.0
     hooks:
     -   id: trailing-whitespace
-        exclude: "(^vite-app/|\\.snap$)"
+        exclude: "(^vite-app/|\\.snap$|\\.ambr$)"
     -   id: end-of-file-fixer
-        exclude: "(^vite-app/|\\.snap$)"
+        exclude: "(^vite-app/|\\.snap$|\\.ambr$)"
     -   id: check-yaml
     -   id: check-added-large-files
     -   id: check-merge-conflict
