@@ -1275,6 +1275,9 @@ langgraph-tools = [
     { name = "langchain-fireworks" },
     { name = "langgraph" },
 ]
+langsmith = [
+    { name = "langsmith" },
+]
 openevals = [
     { name = "openevals" },
 ]
@@ -1343,6 +1346,7 @@ requires-dist = [
     { name = "langfuse", marker = "extra == 'langfuse'", specifier = ">=2.0.0" },
     { name = "langgraph", marker = "extra == 'langgraph'", specifier = ">=0.6.7" },
     { name = "langgraph", marker = "extra == 'langgraph-tools'", specifier = ">=0.6.7" },
+    { name = "langsmith", marker = "extra == 'langsmith'", specifier = ">=0.1.86" },
     { name = "litellm", specifier = ">=1.0.0" },
     { name = "loguru", specifier = ">=0.6.0" },
     { name = "mcp", specifier = ">=1.9.2" },
@@ -1390,7 +1394,7 @@ requires-dist = [
     { name = "websockets", specifier = ">=15.0.1" },
     { name = "werkzeug", marker = "extra == 'dev'", specifier = ">=2.0.0" },
 ]
-provides-extras = ["dev", "trl", "openevals", "fireworks", "box2d", "langfuse", "huggingface", "adapters", "bigquery", "svgbench", "pydantic", "supabase", "chinook", "langchain", "langgraph", "langgraph-tools"]
+provides-extras = ["dev", "trl", "openevals", "fireworks", "box2d", "langfuse", "huggingface", "adapters", "langsmith", "bigquery", "svgbench", "pydantic", "supabase", "chinook", "langchain", "langgraph", "langgraph-tools"]
 
 [package.metadata.requires-dev]
 dev = [
