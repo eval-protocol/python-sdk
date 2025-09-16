@@ -27,11 +27,11 @@ def agent_factory(config: RolloutProcessorConfig) -> Agent:
     return setup_agent(model)
 
 
-@pytest.mark.skipif(
+@pytest.mark.skipif(  # pyright: ignore[reportAttributeAccessIssue]
     os.environ.get("CI") == "true",
     reason="This was only run locally to generate traces in Responses API",
 )
-@pytest.mark.asyncio
+@pytest.mark.asyncio  # pyright: ignore[reportAttributeAccessIssue]
 @evaluation_test(
     input_rows=[collect_dataset()],
     completion_params=[
