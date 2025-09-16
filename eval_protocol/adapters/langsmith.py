@@ -10,7 +10,7 @@ tool calls and tool messages where present.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
 
@@ -36,7 +36,7 @@ class LangSmithAdapter:
 
     def __init__(self, client: Optional[Client] = None) -> None:
         if not LANGSMITH_AVAILABLE:
-            raise ImportError("LangSmith not installed. Install with: pip install langsmith")
+            raise ImportError("LangSmith not installed. Install with: pip install 'eval-protocol[langsmith]'")
         self.client = client or Client()
 
     def get_evaluation_rows(
@@ -45,6 +45,31 @@ class LangSmithAdapter:
         project_name: str,
         limit: int = 50,
         include_tool_calls: bool = True,
+        # Pass-through filters to list_runs to match LangSmith Client API
+        run_id: Optional[str] = None,
+        ids: Optional[List[str]] = None,
+        run_type: Optional[str] = None,
+        execution_order: Optional[int] = None,
+        parent_run_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        trace_ids: Optional[List[str]] = None,
+        reference_example_id: Optional[str] = None,
+        session_name: Optional[str] = None,
+        error: Optional[bool] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        filter_expr: Optional[str] = None,  # server-side filter DSL
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        feedback_keys: Optional[List[str]] = None,
+        feedback_source: Optional[str] = None,
+        tree_id: Optional[str] = None,
+        # ordering/pagination
+        offset: Optional[int] = None,
+        order_by: Optional[str] = None,
+        # selection
+        select: Optional[List[str]] = None,
+        **list_runs_kwargs: Any,
     ) -> List[EvaluationRow]:
         """Pull runs from LangSmith and convert to EvaluationRow format.
 
@@ -55,17 +80,57 @@ class LangSmithAdapter:
         """
         rows: List[EvaluationRow] = []
 
-        # Prefer root runs; they usually contain messages in inputs/outputs when tracing app-level flows
-        runs = list(
-            self.client.list_runs(
-                project_name=project_name,
-                is_root=True,
-                limit=limit,
-                select=["id", "inputs", "outputs"],
-            )
-        )
+        # Fetch runs with pass-through filters. Prefer root runs by default.
+        params: Dict[str, Any] = {"project_name": project_name, "limit": limit}
+        # Only include non-None params
+        if run_type is None:
+            params["is_root"] = True
+        for key, value in [
+            ("id", run_id),
+            ("ids", ids),
+            ("run_type", run_type),
+            ("execution_order", execution_order),
+            ("parent_run_id", parent_run_id),
+            ("trace_id", trace_id),
+            ("trace_ids", trace_ids),
+            ("reference_example_id", reference_example_id),
+            ("session_name", session_name),
+            ("error", error),
+            ("start_time", start_time),
+            ("end_time", end_time),
+            ("filter", filter_expr),
+            ("tags", tags),
+            ("metadata", metadata),
+            ("feedback_keys", feedback_keys),
+            ("feedback_source", feedback_source),
+            ("tree_id", tree_id),
+            ("offset", offset),
+            ("order_by", order_by),
+        ]:
+            if value is not None:
+                params[key] = value
+        params["select"] = select or ["id", "inputs", "outputs", "trace_id"]
 
+        # Merge any additional kwargs last to allow explicit overrides
+        if list_runs_kwargs:
+            for k, v in list_runs_kwargs.items():
+                if v is not None:
+                    params[k] = v
+
+        runs_iter: Iterable[Any] = self.client.list_runs(**params)
+
+        runs = list(runs_iter)
+        if not runs:
+            logger.warning("No LangSmith runs found for project '%s' with current filters", project_name)
+            return []
+
+        # Group by trace_id and pick the last run in each trace (assume iterator yields chronological)
+        trace_to_last_run: Dict[str, Any] = {}
         for r in runs:
+            t_id = str(getattr(r, "trace_id", "")) or str(getattr(r, "id", ""))
+            trace_to_last_run[t_id] = r
+
+        for r in trace_to_last_run.values():
             try:
                 inp = getattr(r, "inputs", None)
                 out = getattr(r, "outputs", None)
@@ -86,10 +151,9 @@ class LangSmithAdapter:
 
                 # Deduplicate consecutive identical user messages (common echo pattern)
                 def _canon(text: Any) -> str:
-                    try:
-                        return " ".join(str(text or "").strip().lower().split())
-                    except Exception:
-                        return str(text or "")
+                    # Best-effort canonicalization; avoid broad exception handling warnings by handling types
+                    text_str = str(text) if text is not None else ""
+                    return " ".join(text_str.strip().lower().split())
 
                 deduped: List[Message] = []
                 for m in ep_messages:
@@ -102,22 +166,114 @@ class LangSmithAdapter:
                 if not ep_messages:
                     continue
 
+                tools = None
+                if include_tool_calls and isinstance(inp, dict):
+                    # Try to extract tool schema if present in inputs
+                    if "tools" in inp:
+                        tools = inp["tools"]
+
                 rows.append(
                     EvaluationRow(
                         messages=ep_messages,
+                        tools=tools,
                         input_metadata=InputMetadata(
                             session_data={
                                 "langsmith_run_id": str(getattr(r, "id", "")),
+                                "langsmith_trace_id": str(getattr(r, "trace_id", "")),
                                 "langsmith_project": project_name,
                             }
                         ),
                     )
                 )
-            except Exception as e:
+            except (AttributeError, ValueError, KeyError, TypeError) as e:
                 logger.warning("Failed to convert run %s: %s", getattr(r, "id", ""), e)
                 continue
 
         return rows
+
+    def get_evaluation_rows_by_ids(
+        self,
+        *,
+        run_ids: Optional[List[str]] = None,
+        trace_ids: Optional[List[str]] = None,
+        include_tool_calls: bool = True,
+        project_name: Optional[str] = None,
+    ) -> List[EvaluationRow]:
+        """Fetch specific runs or traces and convert to EvaluationRow.
+
+        If both run_ids and trace_ids are provided, both sets are fetched.
+        """
+        results: List[EvaluationRow] = []
+
+        fetched_runs: List[Any] = []
+        try:
+            if run_ids:
+                fetched_runs.extend(list(self.client.list_runs(ids=run_ids, select=["id", "inputs", "outputs", "trace_id"])) )
+            if trace_ids:
+                fetched_runs.extend(list(self.client.list_runs(trace_ids=trace_ids, select=["id", "inputs", "outputs", "trace_id"])) )
+        except (AttributeError, ValueError, KeyError, TypeError) as e:
+            logger.warning("Failed to fetch runs by ids: %s", e)
+            return []
+
+        if not fetched_runs:
+            logger.warning("No LangSmith runs found for provided ids")
+            return []
+
+        # Prefer the last run per trace id
+        trace_to_last_run: Dict[str, Any] = {}
+        for r in fetched_runs:
+            t_id = str(getattr(r, "trace_id", "")) or str(getattr(r, "id", ""))
+            trace_to_last_run[t_id] = r
+
+        for r in trace_to_last_run.values():
+            try:
+                inp = getattr(r, "inputs", None)
+                out = getattr(r, "outputs", None)
+
+                ep_messages: List[Message] = []
+                if isinstance(out, dict) and isinstance(out.get("messages"), list):
+                    ep_messages.extend(self._extract_messages_from_payload({"messages": out["messages"]}, include_tool_calls, is_output=True))
+                else:
+                    ep_messages.extend(self._extract_messages_from_payload(inp, include_tool_calls))
+                    ep_messages.extend(self._extract_messages_from_payload(out, include_tool_calls, is_output=True))
+
+                def _canon(text: Any) -> str:
+                    text_str = str(text) if text is not None else ""
+                    return " ".join(text_str.strip().lower().split())
+
+                deduped: List[Message] = []
+                for m in ep_messages:
+                    if deduped and m.role == "user" and deduped[-1].role == "user":
+                        if _canon(m.content) == _canon(deduped[-1].content):
+                            continue
+                    deduped.append(m)
+                ep_messages = deduped
+
+                if not ep_messages:
+                    continue
+
+                tools = None
+                if include_tool_calls and isinstance(inp, dict) and "tools" in inp:
+                    tools = inp["tools"]
+
+                results.append(
+                    EvaluationRow(
+                        messages=ep_messages,
+                        tools=tools,
+                        input_metadata=InputMetadata(
+                            session_data={
+                                "langsmith_run_id": str(getattr(r, "id", "")),
+                                "langsmith_trace_id": str(getattr(r, "trace_id", "")),
+                                "langsmith_project": project_name or "",
+                            }
+                        ),
+                    )
+                )
+            except (AttributeError, ValueError, KeyError, TypeError) as e:
+                logger.warning("Failed to convert run %s: %s", getattr(r, "id", ""), e)
+                continue
+
+        return results
 
     def _extract_messages_from_payload(
         self, payload: Any, include_tool_calls: bool, *, is_output: bool = False
@@ -161,13 +317,11 @@ class LangSmithAdapter:
                             # Extract id/type/function fields from dicts or provider-native objects
                             if isinstance(tc, dict):
                                 tc_id = tc.get("id", None)
-                                tc_type = tc.get("type", "function") or "function"
                                 fn = tc.get("function", {}) or {}
                                 fn_name = fn.get("name", None)
                                 fn_args = fn.get("arguments", None)
                             else:
                                 tc_id = getattr(tc, "id", None)
-                                tc_type = getattr(tc, "type", None) or "function"
                                 f = getattr(tc, "function", None)
                                 fn_name = getattr(f, "name", None) if f is not None else None
                                 fn_args = getattr(f, "arguments", None) if f is not None else None
@@ -185,7 +339,7 @@ class LangSmithAdapter:
                                 )
                             )
                         tool_calls = typed_calls
-                    except Exception:
+                    except (ImportError, AttributeError, TypeError, ValueError):
                         # If OpenAI types unavailable, leave None to satisfy type checker
                         tool_calls = None
                 if "tool_call_id" in msg_dict:
