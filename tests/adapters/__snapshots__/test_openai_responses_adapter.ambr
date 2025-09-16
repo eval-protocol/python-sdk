@@ -422,21 +422,23 @@
       }),
       'tools': list([
         dict({
-          'description': None,
-          'name': 'execute_sql',
-          'parameters': dict({
-            'additionalProperties': False,
-            'properties': dict({
-              'query': dict({
-                'type': 'string',
+          'function': dict({
+            'description': None,
+            'name': 'execute_sql',
+            'parameters': dict({
+              'additionalProperties': False,
+              'properties': dict({
+                'query': dict({
+                  'type': 'string',
+                }),
               }),
+              'required': list([
+                'query',
+              ]),
+              'type': 'object',
             }),
-            'required': list([
-              'query',
-            ]),
-            'type': 'object',
+            'strict': True,
           }),
-          'strict': True,
           'type': 'function',
         }),
       ]),
@@ -643,21 +645,23 @@
       }),
       'tools': list([
         dict({
-          'description': None,
-          'name': 'execute_sql',
-          'parameters': dict({
-            'additionalProperties': False,
-            'properties': dict({
-              'query': dict({
-                'type': 'string',
+          'function': dict({
+            'description': None,
+            'name': 'execute_sql',
+            'parameters': dict({
+              'additionalProperties': False,
+              'properties': dict({
+                'query': dict({
+                  'type': 'string',
+                }),
               }),
+              'required': list([
+                'query',
+              ]),
+              'type': 'object',
             }),
-            'required': list([
-              'query',
-            ]),
-            'type': 'object',
+            'strict': True,
           }),
-          'strict': True,
           'type': 'function',
         }),
       ]),
