@@ -22,7 +22,7 @@ from pydantic_ai.messages import (
     ToolReturnPart,
     UserPromptPart,
 )
-from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 logger = logging.getLogger(__name__)
@@ -102,6 +102,7 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
 
     def construct_model_settings(self, agent: Agent, row: EvaluationRow) -> ModelSettings:
         model = agent.model
+        settings = None
         if model and not isinstance(model, str) and model.settings:
             # We must copy model settings to avoid concurrency issues by modifying the same object in-place
             settings = model.settings.copy()
@@ -109,13 +110,16 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
             settings = ModelSettings()
         settings["extra_body"] = settings.get("extra_body", {})
         extra_body = settings["extra_body"]
-        if isinstance(extra_body, dict):
+
+        # Only store metadata for ResponsesModel, not for ChatModel
+        if isinstance(extra_body, dict) and isinstance(model, OpenAIResponsesModel):
             extra_body["metadata"] = settings.get("metadata", {})
             extra_body["metadata"]["row_id"] = row.input_metadata.row_id
             extra_body["metadata"]["invocation_id"] = row.execution_metadata.invocation_id
             extra_body["metadata"]["rollout_id"] = row.execution_metadata.rollout_id
             extra_body["metadata"]["run_id"] = row.execution_metadata.run_id
             extra_body["metadata"]["experiment_id"] = row.execution_metadata.experiment_id
+
         return settings
 
     def convert_ep_message_to_pyd_message(self, message: Message, row: EvaluationRow) -> ModelMessage:
