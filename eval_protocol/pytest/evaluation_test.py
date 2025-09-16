@@ -61,6 +61,7 @@ from eval_protocol.pytest.utils import (
     rollout_processor_with_retry,
 )
 
+
 def evaluation_test(
     *,
     completion_params: Sequence[CompletionParams | None] | None = None,

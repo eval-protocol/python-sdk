@@ -9,7 +9,7 @@ import logging
 import random
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Dict, Iterator, List, Optional, Callable, TYPE_CHECKING, cast, Protocol
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
 
@@ -49,8 +49,13 @@ try:
     from langfuse.api.resources.commons.types.trace_with_full_details import TraceWithFullDetails
 
     LANGFUSE_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - optional dependency
     LANGFUSE_AVAILABLE = False
+
+if TYPE_CHECKING:  # pragma: no cover - import is optional at runtime
+    from langfuse.client import Langfuse as _LangfuseClient  # type: ignore[import-not-found]
+else:
+    _LangfuseClient = Any
 
 
 def convert_trace_to_evaluation_row(
@@ -296,7 +301,8 @@ class LangfuseAdapter:
         if not LANGFUSE_AVAILABLE:
             raise ImportError("Langfuse not installed. Install with: pip install 'eval-protocol[langfuse]'")
 
-        self.client = get_client()
+        client_factory = cast(Callable[[], _LangfuseClient], get_client)
+        self.client = client_factory()
 
     def get_evaluation_rows(
         self,

@@ -10,18 +10,23 @@ tool calls and tool messages where present.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Iterable
+from typing import Any, Dict, List, Optional, Iterable, Callable, TYPE_CHECKING, cast
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
 
 logger = logging.getLogger(__name__)
 
 try:
-    from langsmith import Client  # type: ignore
+    from langsmith import Client as _RuntimeClient  # type: ignore[attr-defined]
+except ImportError:  # pragma: no cover - optional dependency
+    _RuntimeClient = None
 
-    LANGSMITH_AVAILABLE = True
-except ImportError:
-    LANGSMITH_AVAILABLE = False
+if TYPE_CHECKING:  # pragma: no cover - import is optional at runtime
+    from langsmith import Client as LangSmithClient  # type: ignore[import-not-found]
+else:
+    LangSmithClient = Any
+
+LANGSMITH_AVAILABLE = _RuntimeClient is not None
 
 
 class LangSmithAdapter:
@@ -34,10 +39,11 @@ class LangSmithAdapter:
     - outputs: { messages: [...] } | { content } | { result } | { answer } | { output } | str | list[dict]
     """
 
-    def __init__(self, client: Optional[Client] = None) -> None:
+    def __init__(self, client: Optional["LangSmithClient"] = None) -> None:
         if not LANGSMITH_AVAILABLE:
             raise ImportError("LangSmith not installed. Install with: pip install 'eval-protocol[langsmith]'")
-        self.client = client or Client()
+        runtime_client = cast(Callable[[], "LangSmithClient"], _RuntimeClient)
+        self.client = client or runtime_client()
 
     def get_evaluation_rows(
         self,

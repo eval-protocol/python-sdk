@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from importlib.machinery import ModuleSpec
 import sys
 import types
 from typing import cast
@@ -23,6 +24,7 @@ def _install_dependency_stubs() -> None:
     try:  # pragma: no cover - prefer real dependency when available
         importlib.import_module("loguru")
     except ModuleNotFoundError:
+
         class _Logger:  # pragma: no cover - inert logging shim
             def __getattr__(self, _name: str):
                 def _noop(*_args, **_kwargs):
@@ -35,14 +37,59 @@ def _install_dependency_stubs() -> None:
     def _noop_loader(*_args, **_kwargs):  # pragma: no cover - placeholder loader
         return {}
 
+    def _field_type(name: str):
+        def __init__(self, *_args, **_kwargs):
+            return None
+
+        return type(name, (), {"__init__": __init__})
+
+    class _SqliteDatabase:
+        def __init__(self, *_args, **_kwargs):
+            self.path = None
+
+        def connect(self):  # pragma: no cover - stub connection
+            return None
+
+        def close(self):  # pragma: no cover
+            return None
+
+        def atomic(self):  # pragma: no cover - context manager shim
+            class _Atomic:
+                def __enter__(self_inner):
+                    return self_inner
+
+                def __exit__(self_inner, *_exc):
+                    return False
+
+            return _Atomic()
+
+        def create_tables(self, *_args, **_kwargs):  # pragma: no cover
+            return None
+
+        def create_table(self, *_args, **_kwargs):  # pragma: no cover
+            return None
+
+        def drop_tables(self, *_args, **_kwargs):  # pragma: no cover
+            return None
+
     optional_stub_attrs = {
         "toml": {"loads": _noop_loader, "load": _noop_loader},
         "datasets": {},
         "addict": {"Dict": dict},
-        "deepdiff": {},
-        "litellm": {},
-        "peewee": {},
+        "deepdiff": {"DeepDiff": type("DeepDiff", (), {})},
+        "peewee": {
+            "Model": type("Model", (), {}),
+            "SqliteDatabase": _SqliteDatabase,
+            "CharField": _field_type("CharField"),
+            "TextField": _field_type("TextField"),
+            "IntegerField": _field_type("IntegerField"),
+            "DateTimeField": _field_type("DateTimeField"),
+            "AutoField": _field_type("AutoField"),
+            "OperationalError": Exception,
+        },
         "backoff": {},
+        "aiohttp": {"ClientSession": type("ClientSession", (), {})},
+        "tqdm": {"tqdm": lambda iterable, *_args, **_kwargs: iterable},
     }
 
     for optional_module, attrs in optional_stub_attrs.items():
@@ -50,6 +97,64 @@ def _install_dependency_stubs() -> None:
             importlib.import_module(optional_module)
         except ModuleNotFoundError:
             _ensure_module(optional_module, **attrs)
+
+    try:
+        importlib.import_module("litellm")
+    except ModuleNotFoundError:
+        litellm_mod = types.ModuleType("litellm")
+
+        def _acompletion(*_args, **_kwargs):  # pragma: no cover - stubbed async function
+            return None
+
+        def _completion_cost(*_args, **_kwargs):  # pragma: no cover - cost shim
+            return 0.0
+
+        litellm_mod.acompletion = _acompletion
+        litellm_mod.completion = _acompletion
+        litellm_mod.completion_cost = _completion_cost
+
+        caching_pkg = types.ModuleType("litellm.caching")
+        caching_submodule = types.ModuleType("litellm.caching.caching")
+        caching_submodule.Cache = type("Cache", (), {})
+        dual_cache_module = types.ModuleType("litellm.caching.dual_cache")
+        dual_cache_module.DualCache = type("DualCache", (), {})
+        in_memory_cache_module = types.ModuleType("litellm.caching.in_memory_cache")
+        in_memory_cache_module.InMemoryCache = type("InMemoryCache", (), {})
+        caching_pkg.caching = caching_submodule
+        caching_pkg.dual_cache = dual_cache_module
+        caching_pkg.in_memory_cache = in_memory_cache_module
+        redis_cache_module = types.ModuleType("litellm.caching.redis_cache")
+        redis_cache_module.RedisCache = type("RedisCache", (), {})
+        caching_pkg.redis_cache = redis_cache_module
+
+        litellm_mod.caching = caching_pkg
+
+        main_module = types.ModuleType("litellm.main")
+        main_module.ModelResponse = type("ModelResponse", (), {})
+        main_module.Usage = type("Usage", (), {})
+
+        cost_calculator_mod = types.ModuleType("litellm.cost_calculator")
+        cost_calculator_mod.cost_per_token = lambda *_args, **_kwargs: 0.0
+
+        sys.modules["litellm"] = litellm_mod
+        sys.modules["litellm.caching"] = caching_pkg
+        sys.modules["litellm.caching.caching"] = caching_submodule
+        sys.modules["litellm.caching.dual_cache"] = dual_cache_module
+        sys.modules["litellm.caching.in_memory_cache"] = in_memory_cache_module
+        sys.modules["litellm.caching.redis_cache"] = redis_cache_module
+        sys.modules["litellm.main"] = main_module
+        sys.modules["litellm.cost_calculator"] = cost_calculator_mod
+
+    try:
+        importlib.import_module("playhouse.sqlite_ext")
+    except ModuleNotFoundError:
+        playhouse_mod = types.ModuleType("playhouse")
+        sqlite_ext_mod = types.ModuleType("playhouse.sqlite_ext")
+        sqlite_ext_mod.JSONField = type("JSONField", (), {})
+        playhouse_mod.sqlite_ext = sqlite_ext_mod
+
+        sys.modules["playhouse"] = playhouse_mod
+        sys.modules["playhouse.sqlite_ext"] = sqlite_ext_mod
 
     try:
         importlib.import_module("openai")
@@ -62,6 +167,7 @@ def _install_dependency_stubs() -> None:
     completion_usage_mod = types.ModuleType("openai.types.completion_usage")
     chat_mod = types.ModuleType("openai.types.chat")
     chat_message_mod = types.ModuleType("openai.types.chat.chat_completion_message")
+    chat_message_param_mod = types.ModuleType("openai.types.chat.chat_completion_message_param")
     tool_call_mod = types.ModuleType("openai.types.chat.chat_completion_message_tool_call")
 
     class CompletionUsage(BaseModel):  # pragma: no cover - simple data container
@@ -77,6 +183,19 @@ def _install_dependency_stubs() -> None:
 
         model_config = ConfigDict(extra="allow")
 
+    class FunctionDefinition(BaseModel):  # pragma: no cover - simple data container
+        name: str | None = None
+        description: str | None = None
+        parameters: dict[str, Any] | None = None
+
+        model_config = ConfigDict(extra="allow")
+
+    class ChatCompletionContentPartTextParam(BaseModel):  # pragma: no cover - simple data container
+        text: str | None = None
+        type: str = "text"
+
+        model_config = ConfigDict(extra="allow")
+
     class ChatCompletionMessageToolCall(BaseModel):  # pragma: no cover - simple data container
         id: str | None = None
         type: str | None = None
@@ -84,16 +203,39 @@ def _install_dependency_stubs() -> None:
 
         model_config = ConfigDict(extra="allow")
 
+    class ChatCompletionMessageParam(BaseModel):  # pragma: no cover - simple data container
+        content: str | None = None
+        role: str | None = None
+
+        model_config = ConfigDict(extra="allow")
+
+    class _NotGiven:  # pragma: no cover - sentinel placeholder
+        pass
+
     types_mod.CompletionUsage = CompletionUsage
     completion_usage_mod.CompletionUsage = CompletionUsage
     chat_message_mod.FunctionCall = FunctionCall
+    chat_message_param_mod.ChatCompletionMessageParam = ChatCompletionMessageParam
     tool_call_mod.ChatCompletionMessageToolCall = ChatCompletionMessageToolCall
+    chat_mod.ChatCompletionContentPartTextParam = ChatCompletionContentPartTextParam
+    types_mod.FunctionDefinition = FunctionDefinition
+
+    openai_mod.__spec__ = ModuleSpec("openai", loader=None)
+    types_mod.__spec__ = ModuleSpec("openai.types", loader=None)
+    completion_usage_mod.__spec__ = ModuleSpec("openai.types.completion_usage", loader=None)
+    chat_mod.__spec__ = ModuleSpec("openai.types.chat", loader=None)
+    chat_message_mod.__spec__ = ModuleSpec("openai.types.chat.chat_completion_message", loader=None)
+    chat_message_param_mod.__spec__ = ModuleSpec("openai.types.chat.chat_completion_message_param", loader=None)
+    tool_call_mod.__spec__ = ModuleSpec("openai.types.chat.chat_completion_message_tool_call", loader=None)
 
     openai_mod.types = types_mod
+    openai_mod.NotGiven = _NotGiven
+    openai_mod.NOT_GIVEN = _NotGiven()
     types_mod.completion_usage = completion_usage_mod
     types_mod.chat = chat_mod
     chat_mod.chat_completion_message = chat_message_mod
     chat_mod.chat_completion_message_tool_call = tool_call_mod
+    chat_mod.chat_completion_message_param = chat_message_param_mod
 
     sys.modules["openai"] = openai_mod
     sys.modules["openai.types"] = types_mod
@@ -101,6 +243,7 @@ def _install_dependency_stubs() -> None:
     sys.modules["openai.types.chat"] = chat_mod
     sys.modules["openai.types.chat.chat_completion_message"] = chat_message_mod
     sys.modules["openai.types.chat.chat_completion_message_tool_call"] = tool_call_mod
+    sys.modules["openai.types.chat.chat_completion_message_param"] = chat_message_param_mod
 
 
 _install_dependency_stubs()

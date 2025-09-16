@@ -19,10 +19,13 @@ Run:
   pytest python-sdk/eval_protocol/quickstart/llm_judge_langsmith.py -q -s
 """
 
+import asyncio
 import os
 from typing import Any, Dict, List, Optional
 
 import pytest
+
+from openai import AsyncOpenAI
 
 from eval_protocol.models import EvaluationRow, Message, EvaluateResult, MetricResult
 from eval_protocol.pytest import evaluation_test
@@ -31,7 +34,7 @@ from eval_protocol.quickstart.utils import (
     split_multi_turn_rows,
     JUDGE_CONFIGS,
     calculate_bootstrap_scores,
-    run_judgment,
+    run_judgment_async,
 )
 from eval_protocol.adapters.langsmith import LangSmithAdapter
 
@@ -91,10 +94,23 @@ async def test_llm_judge_langsmith(rows: List[EvaluationRow]) -> List[Evaluation
 
     judgments: List[Dict[str, Any]] = []
 
-    for row in rows:
-        result = run_judgment(row, model_name, judge_name)
-        if result and result["games"][0] and result["games"][1]:
-            judgments.append(result)
+    judge_config = JUDGE_CONFIGS[judge_name]
+
+    async with AsyncOpenAI(
+        api_key=judge_config.get("api_key"),
+        base_url=judge_config.get("base_url"),
+    ) as shared_client:
+        semaphore = asyncio.Semaphore(judge_config.get("max_concurrency", 8))
+
+        async def _run_judgment(row: EvaluationRow) -> Optional[Dict[str, Any]]:
+            async with semaphore:
+                return await run_judgment_async(row, model_name, judge_name, shared_client)
+
+        tasks = [_run_judgment(row) for row in rows]
+        for coro in asyncio.as_completed(tasks):
+            result = await coro
+            if result and result["games"][0] and result["games"][1]:
+                judgments.append(result)
 
     if not judgments:
         print("❌ No valid judgments generated")
@@ -102,10 +118,12 @@ async def test_llm_judge_langsmith(rows: List[EvaluationRow]) -> List[Evaluation
 
     print(f"✅ Generated {len(judgments)} valid judgments")
 
-    mean_score, lower_score, upper_score = calculate_bootstrap_scores(judgments)
-    if mean_score == 0.0:
+    bootstrap_result = calculate_bootstrap_scores(judgments)
+    if not bootstrap_result:
         print("❌ No valid scores extracted")
         return rows
+
+    mean_score, lower_score, upper_score = bootstrap_result
 
     print("\n##### LLM Judge Results (90th percentile CI) #####")
     clean_model_name = model_name.split("/")[-1]
