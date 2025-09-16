@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 import re
 from typing import List, Dict, Any, Optional
+from openai import AsyncOpenAI
 import pandas as pd
 
 from eval_protocol.models import EvaluationRow, Message, EvaluateResult, MetricResult
@@ -204,7 +205,7 @@ async def pairwise_judgment_async(question_text, answer_a, answer_b, tools, judg
 
 
 async def run_judgment_async(
-    row: EvaluationRow, model_name: str, judge_name: str, shared_client
+    row: EvaluationRow, model_name: str, judge_name: str, shared_client: AsyncOpenAI
 ) -> Optional[Dict[str, Any]]:
     """Async judgment using shared client to avoid cleanup issues."""
     if not row.messages:
