@@ -23,6 +23,7 @@ from eval_protocol.models import (
     Status,
 )
 from eval_protocol.pytest.dual_mode_wrapper import create_dual_mode_wrapper
+from eval_protocol.pytest.dataset_preparation import load_and_prepare_rows
 from eval_protocol.pytest.evaluation_test_postprocess import postprocess
 from eval_protocol.pytest.execution import execute_pytest
 from eval_protocol.pytest.generate_parameter_combinations import (
@@ -59,9 +60,6 @@ from eval_protocol.pytest.utils import (
     parse_ep_passed_threshold,
     rollout_processor_with_retry,
 )
-
-from ..common_utils import load_jsonl
-
 
 def evaluation_test(
     *,
@@ -223,43 +221,14 @@ def evaluation_test(
                     log_eval_status_and_rows(eval_metadata, rows, status, passed, active_logger)
 
                 try:
-                    # Handle dataset loading
-                    data: list[EvaluationRow] = []
                     # Track all rows processed in the current run for error logging
                     processed_rows_in_run: list[EvaluationRow] = []
-                    if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
-                        ds_arg: list[str] = kwargs["dataset_path"]
-                        # Support either a single path or a list of paths; if a list is provided,
-                        # concatenate the rows from each file in order.
-                        data_jsonl: list[dict[str, object]] = []
-                        for p in ds_arg:
-                            data_jsonl.extend(load_jsonl(p))
-                        # Apply override for max rows if present
-                        if max_dataset_rows is not None:
-                            data_jsonl = data_jsonl[:max_dataset_rows]
-                        data = dataset_adapter(data_jsonl)
-                    elif "input_messages" in kwargs and kwargs["input_messages"] is not None:
-                        # Support either a single row (List[Message]) or many rows (List[List[Message]])
-                        im = kwargs["input_messages"]
-                        data = [EvaluationRow(messages=dataset_messages) for dataset_messages in im]
-                    elif "input_rows" in kwargs and kwargs["input_rows"] is not None:
-                        # Deep copy pre-constructed EvaluationRow objects
-                        data = [row.model_copy(deep=True) for row in kwargs["input_rows"]]
-                    else:
-                        raise ValueError("No input dataset, input messages, or input rows provided")
-
-                    if preprocess_fn:
-                        data = preprocess_fn(data)
-
-                    for row in data:
-                        # generate a stable row_id for each row
-                        if row.input_metadata.row_id is None:
-                            # Generate a stable, deterministic row_id using the row's hash and num_combinations
-                            index = hash(row)
-                            max_index = num_combinations() - 1
-                            # Ensure index is a non-negative integer within [0, max_index]
-                            index = abs(index) % (max_index + 1)
-                            row.input_metadata.row_id = generate_id(seed=0, index=index)
+                    data = load_and_prepare_rows(
+                        kwargs,
+                        dataset_adapter=dataset_adapter,
+                        preprocess_fn=preprocess_fn,
+                        max_dataset_rows=max_dataset_rows,
+                    )
 
                     completion_params = kwargs["completion_params"]
                     # Create eval metadata with test function info and current commit hash
