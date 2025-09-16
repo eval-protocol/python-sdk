@@ -208,9 +208,13 @@ class LangSmithAdapter:
         fetched_runs: List[Any] = []
         try:
             if run_ids:
-                fetched_runs.extend(list(self.client.list_runs(ids=run_ids, select=["id", "inputs", "outputs", "trace_id"])) )
+                fetched_runs.extend(
+                    list(self.client.list_runs(ids=run_ids, select=["id", "inputs", "outputs", "trace_id"]))
+                )
             if trace_ids:
-                fetched_runs.extend(list(self.client.list_runs(trace_ids=trace_ids, select=["id", "inputs", "outputs", "trace_id"])) )
+                fetched_runs.extend(
+                    list(self.client.list_runs(trace_ids=trace_ids, select=["id", "inputs", "outputs", "trace_id"]))
+                )
         except (AttributeError, ValueError, KeyError, TypeError) as e:
             logger.warning("Failed to fetch runs by ids: %s", e)
             return []
@@ -232,7 +236,11 @@ class LangSmithAdapter:
 
                 ep_messages: List[Message] = []
                 if isinstance(out, dict) and isinstance(out.get("messages"), list):
-                    ep_messages.extend(self._extract_messages_from_payload({"messages": out["messages"]}, include_tool_calls, is_output=True))
+                    ep_messages.extend(
+                        self._extract_messages_from_payload(
+                            {"messages": out["messages"]}, include_tool_calls, is_output=True
+                        )
+                    )
                 else:
                     ep_messages.extend(self._extract_messages_from_payload(inp, include_tool_calls))
                     ep_messages.extend(self._extract_messages_from_payload(out, include_tool_calls, is_output=True))
