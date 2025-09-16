@@ -1,4 +1,448 @@
 # serializer version: 1
+# name: test_openai_responses_adapter_with_real_response_parallel_tool_calls
+  list([
+    dict({
+      'eval_metadata': None,
+      'evaluation_result': None,
+      'ground_truth': None,
+      'input_metadata': dict({
+        'completion_params': dict({
+          '''
+            
+                                We have to manually extract the reasoning effort and summary
+                                from the response.reasoning object because the openai-python
+                                causes an issue with model_dump() which is used for testing.
+            
+                                https://github.com/openai/openai-python/issues/1306#issuecomment-2966267356
+                                reasoning
+          ''': dict({
+            'effort': 'medium',
+            'summary': None,
+          }),
+          'max_output_tokens': None,
+          'max_tool_calls': None,
+          'model': 'gpt-5-2025-08-07',
+          'parallel_tool_calls': True,
+          'temperature': 1.0,
+          'top_logprobs': 0,
+          'top_p': 1.0,
+          'truncation': 'disabled',
+        }),
+        'dataset_info': None,
+        'row_id': None,
+        'session_data': None,
+      }),
+      'messages': list([
+        dict({
+          'content': '''
+            You are a helpful assistant that has access to the
+            Chinook database stored in a Postgres database. You have access to a tool to
+            execute SQL queries that you should use to answer questions. Your job is to
+            answer questions about the database. If you run into an error, you should try to
+            fix the query and try again. Here is the schema of the database:
+            
+            Schema:
+            table_name,column_name,data_type,is_nullable
+            album,album_id,integer,NO
+            album,title,character varying,NO
+            album,artist_id,integer,NO
+            artist,artist_id,integer,NO
+            artist,name,character varying,YES
+            customer,customer_id,integer,NO
+            customer,first_name,character varying,NO
+            customer,last_name,character varying,NO
+            customer,company,character varying,YES
+            customer,address,character varying,YES
+            customer,city,character varying,YES
+            customer,state,character varying,YES
+            customer,country,character varying,YES
+            customer,postal_code,character varying,YES
+            customer,phone,character varying,YES
+            customer,fax,character varying,YES
+            customer,email,character varying,NO
+            customer,support_rep_id,integer,YES
+            employee,employee_id,integer,NO
+            employee,last_name,character varying,NO
+            employee,first_name,character varying,NO
+            employee,title,character varying,YES
+            employee,reports_to,integer,YES
+            employee,birth_date,timestamp without time zone,YES
+            employee,hire_date,timestamp without time zone,YES
+            employee,address,character varying,YES
+            employee,city,character varying,YES
+            employee,state,character varying,YES
+            employee,country,character varying,YES
+            employee,postal_code,character varying,YES
+            employee,phone,character varying,YES
+            employee,fax,character varying,YES
+            employee,email,character varying,YES
+            genre,genre_id,integer,NO
+            genre,name,character varying,YES
+            invoice,invoice_id,integer,NO
+            invoice,customer_id,integer,NO
+            invoice,invoice_date,timestamp without time zone,NO
+            invoice,billing_address,character varying,YES
+            invoice,billing_city,character varying,YES
+            invoice,billing_state,character varying,YES
+            invoice,billing_country,character varying,YES
+            invoice,billing_postal_code,character varying,YES
+            invoice,total,numeric,NO
+            invoice_line,invoice_line_id,integer,NO
+            invoice_line,invoice_id,integer,NO
+            invoice_line,track_id,integer,NO
+            invoice_line,unit_price,numeric,NO
+            invoice_line,quantity,integer,NO
+            media_type,media_type_id,integer,NO
+            media_type,name,character varying,YES
+            playlist,playlist_id,integer,NO
+            playlist,name,character varying,YES
+            playlist_track,playlist_id,integer,NO
+            playlist_track,track_id,integer,NO
+            track,track_id,integer,NO
+            track,name,character varying,NO
+            track,album_id,integer,YES
+            track,media_type_id,integer,NO
+            track,genre_id,integer,YES
+            track,composer,character varying,YES
+            track,milliseconds,integer,NO
+            track,bytes,integer,YES
+            track,unit_price,numeric,NO
+          ''',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'system',
+          'tool_call_id': None,
+          'tool_calls': None,
+        }),
+        dict({
+          'content': '''
+            Calculate customer lifetime value segments and predict churn risk. Group
+            customers into segments based on spending patterns and calculate days since last
+            purchase to identify churn risk.
+          ''',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'user',
+          'tool_call_id': None,
+          'tool_calls': None,
+        }),
+        dict({
+          'content': '',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'assistant',
+          'tool_call_id': None,
+          'tool_calls': list([
+            dict({
+              'function': dict({
+                'arguments': '{"query":"WITH customer_metrics AS (\\n  SELECT \\n    c.customer_id,\\n    (c.first_name || \' \' || c.last_name) AS customer_name,\\n    c.country,\\n    COALESCE(SUM(i.total), 0) AS lifetime_value,\\n    COUNT(i.invoice_id) AS orders,\\n    COALESCE(AVG(i.total), 0) AS avg_order_value,\\n    MAX(i.invoice_date) AS last_purchase_date\\n  FROM customer c\\n  LEFT JOIN invoice i ON i.customer_id = c.customer_id\\n  GROUP BY c.customer_id, customer_name, c.country\\n),\\nscored AS (\\n  SELECT \\n    *,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN NULL\\n      ELSE (current_date - last_purchase_date::date)\\n    END AS days_since_last_purchase_raw,\\n    PERCENT_RANK() OVER (ORDER BY lifetime_value) AS lv_percent_rank\\n  FROM customer_metrics\\n),\\nsegmented AS (\\n  SELECT \\n    customer_id,\\n    customer_name,\\n    country,\\n    lifetime_value,\\n    orders,\\n    avg_order_value,\\n    last_purchase_date,\\n    CASE \\n      WHEN days_since_last_purchase_raw IS NULL THEN NULL\\n      ELSE GREATEST(0, days_since_last_purchase_raw)\\n    END AS days_since_last_purchase,\\n    CASE \\n      WHEN lifetime_value = 0 THEN \'No Spend\'\\n      WHEN lv_percent_rank >= 0.8 THEN \'High\'\\n      WHEN lv_percent_rank >= 0.5 THEN \'Medium\'\\n      ELSE \'Low\'\\n    END AS lv_segment,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN \'Churn Risk: No purchases\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) > 365 THEN \'High Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 181 AND 365 THEN \'Medium Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 91 AND 180 THEN \'Low Risk\'\\n      ELSE \'Active\'\\n    END AS churn_risk\\n  FROM scored\\n)\\nSELECT \\n  customer_id,\\n  customer_name,\\n  country,\\n  lifetime_value,\\n  orders,\\n  avg_order_value,\\n  last_purchase_date,\\n  days_since_last_purchase,\\n  lv_segment,\\n  churn_risk\\nFROM segmented\\nWHERE churn_risk = \'High Risk\'\\nORDER BY days_since_last_purchase DESC, lifetime_value DESC\\nLIMIT 10;"}',
+                'name': 'execute_sql',
+              }),
+              'id': 'call_QklYCtJeAzMn8iMshl0PaYXg',
+              'type': 'function',
+            }),
+            dict({
+              'function': dict({
+                'arguments': '{"query":"WITH customer_metrics AS (\\n  SELECT \\n    c.customer_id,\\n    (c.first_name || \' \' || c.last_name) AS customer_name,\\n    c.country,\\n    COALESCE(SUM(i.total), 0) AS lifetime_value,\\n    COUNT(i.invoice_id) AS orders,\\n    COALESCE(AVG(i.total), 0) AS avg_order_value,\\n    MAX(i.invoice_date) AS last_purchase_date\\n  FROM customer c\\n  LEFT JOIN invoice i ON i.customer_id = c.customer_id\\n  GROUP BY c.customer_id, customer_name, c.country\\n),\\nscored AS (\\n  SELECT \\n    *,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN NULL\\n      ELSE (current_date - last_purchase_date::date)\\n    END AS days_since_last_purchase_raw,\\n    PERCENT_RANK() OVER (ORDER BY lifetime_value) AS lv_percent_rank\\n  FROM customer_metrics\\n),\\nsegmented AS (\\n  SELECT \\n    customer_id,\\n    customer_name,\\n    country,\\n    lifetime_value,\\n    orders,\\n    avg_order_value,\\n    last_purchase_date,\\n    CASE \\n      WHEN days_since_last_purchase_raw IS NULL THEN NULL\\n      ELSE GREATEST(0, days_since_last_purchase_raw)\\n    END AS days_since_last_purchase,\\n    CASE \\n      WHEN lifetime_value = 0 THEN \'No Spend\'\\n      WHEN lv_percent_rank >= 0.8 THEN \'High\'\\n      WHEN lv_percent_rank >= 0.5 THEN \'Medium\'\\n      ELSE \'Low\'\\n    END AS lv_segment,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN \'Churn Risk: No purchases\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) > 365 THEN \'High Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 181 AND 365 THEN \'Medium Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 91 AND 180 THEN \'Low Risk\'\\n      ELSE \'Active\'\\n    END AS churn_risk\\n  FROM scored\\n)\\nSELECT \\n  lv_segment,\\n  COUNT(*) AS customers,\\n  ROUND(AVG(lifetime_value)::numeric, 2) AS avg_ltv,\\n  ROUND(AVG(COALESCE(days_since_last_purchase, 0))::numeric, 1) AS avg_days_since_last_purchase,\\n  SUM(CASE WHEN churn_risk = \'High Risk\' THEN 1 ELSE 0 END) AS high_risk_customers\\nFROM segmented\\nGROUP BY lv_segment\\nORDER BY \\n  CASE lv_segment WHEN \'High\' THEN 1 WHEN \'Medium\' THEN 2 WHEN \'Low\' THEN 3 WHEN \'No Spend\' THEN 4 ELSE 5 END;"}',
+                'name': 'execute_sql',
+              }),
+              'id': 'call_8yfYxjCJFppcVcjnmKbTBxoj',
+              'type': 'function',
+            }),
+            dict({
+              'function': dict({
+                'arguments': '{"query":"WITH customer_metrics AS (\\n  SELECT \\n    c.customer_id,\\n    (c.first_name || \' \' || c.last_name) AS customer_name,\\n    c.country,\\n    COALESCE(SUM(i.total), 0) AS lifetime_value,\\n    COUNT(i.invoice_id) AS orders,\\n    COALESCE(AVG(i.total), 0) AS avg_order_value,\\n    MAX(i.invoice_date) AS last_purchase_date\\n  FROM customer c\\n  LEFT JOIN invoice i ON i.customer_id = c.customer_id\\n  GROUP BY c.customer_id, customer_name, c.country\\n),\\nscored AS (\\n  SELECT \\n    *,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN NULL\\n      ELSE (current_date - last_purchase_date::date)\\n    END AS days_since_last_purchase_raw,\\n    PERCENT_RANK() OVER (ORDER BY lifetime_value) AS lv_percent_rank\\n  FROM customer_metrics\\n),\\nsegmented AS (\\n  SELECT \\n    customer_id,\\n    customer_name,\\n    country,\\n    lifetime_value,\\n    orders,\\n    avg_order_value,\\n    last_purchase_date,\\n    CASE \\n      WHEN days_since_last_purchase_raw IS NULL THEN NULL\\n      ELSE GREATEST(0, days_since_last_purchase_raw)\\n    END AS days_since_last_purchase,\\n    CASE \\n      WHEN lifetime_value = 0 THEN \'No Spend\'\\n      WHEN lv_percent_rank >= 0.8 THEN \'High\'\\n      WHEN lv_percent_rank >= 0.5 THEN \'Medium\'\\n      ELSE \'Low\'\\n    END AS lv_segment,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN \'Churn Risk: No purchases\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) > 365 THEN \'High Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 181 AND 365 THEN \'Medium Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 91 AND 180 THEN \'Low Risk\'\\n      ELSE \'Active\'\\n    END AS churn_risk\\n  FROM scored\\n)\\nSELECT *\\nFROM segmented\\nORDER BY lifetime_value DESC, customer_id;"}',
+                'name': 'execute_sql',
+              }),
+              'id': 'call_pyQOTPrrGRT0IuljYLkbeb0a',
+              'type': 'function',
+            }),
+            dict({
+              'function': dict({
+                'arguments': '{"query":"WITH customer_metrics AS (\\n  SELECT \\n    c.customer_id,\\n    (c.first_name || \' \' || c.last_name) AS customer_name,\\n    c.country,\\n    COALESCE(SUM(i.total), 0) AS lifetime_value,\\n    COUNT(i.invoice_id) AS orders,\\n    COALESCE(AVG(i.total), 0) AS avg_order_value,\\n    MAX(i.invoice_date) AS last_purchase_date\\n  FROM customer c\\n  LEFT JOIN invoice i ON i.customer_id = c.customer_id\\n  GROUP BY c.customer_id, customer_name, c.country\\n),\\nscored AS (\\n  SELECT \\n    *,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN NULL\\n      ELSE (current_date - last_purchase_date::date)\\n    END AS days_since_last_purchase_raw,\\n    PERCENT_RANK() OVER (ORDER BY lifetime_value) AS lv_percent_rank\\n  FROM customer_metrics\\n),\\nsegmented AS (\\n  SELECT \\n    customer_id,\\n    customer_name,\\n    country,\\n    lifetime_value,\\n    orders,\\n    avg_order_value,\\n    last_purchase_date,\\n    CASE \\n      WHEN days_since_last_purchase_raw IS NULL THEN NULL\\n      ELSE GREATEST(0, days_since_last_purchase_raw)\\n    END AS days_since_last_purchase,\\n    CASE \\n      WHEN lifetime_value = 0 THEN \'No Spend\'\\n      WHEN lv_percent_rank >= 0.8 THEN \'High\'\\n      WHEN lv_percent_rank >= 0.5 THEN \'Medium\'\\n      ELSE \'Low\'\\n    END AS lv_segment,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN \'Churn Risk: No purchases\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) > 365 THEN \'High Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 181 AND 365 THEN \'Medium Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 91 AND 180 THEN \'Low Risk\'\\n      ELSE \'Active\'\\n    END AS churn_risk\\n  FROM scored\\n)\\nSELECT \\n  churn_risk,\\n  COUNT(*) AS customers,\\n  ROUND(AVG(lifetime_value)::numeric, 2) AS avg_ltv,\\n  ROUND(AVG(COALESCE(days_since_last_purchase, 0))::numeric, 1) AS avg_days_since_last_purchase\\nFROM segmented\\nGROUP BY 1\\nORDER BY \\n  CASE churn_risk WHEN \'High Risk\' THEN 1 WHEN \'Medium Risk\' THEN 2 WHEN \'Low Risk\' THEN 3 WHEN \'Active\' THEN 4 WHEN \'Churn Risk: No purchases\' THEN 5 ELSE 6 END;"}',
+                'name': 'execute_sql',
+              }),
+              'id': 'call_ufaloEQ87VReYLpLxeaf2EmV',
+              'type': 'function',
+            }),
+            dict({
+              'function': dict({
+                'arguments': '{"query":"WITH customer_metrics AS (\\n  SELECT \\n    c.customer_id,\\n    (c.first_name || \' \' || c.last_name) AS customer_name,\\n    c.country,\\n    COALESCE(SUM(i.total), 0) AS lifetime_value,\\n    COUNT(i.invoice_id) AS orders,\\n    COALESCE(AVG(i.total), 0) AS avg_order_value,\\n    MAX(i.invoice_date) AS last_purchase_date\\n  FROM customer c\\n  LEFT JOIN invoice i ON i.customer_id = c.customer_id\\n  GROUP BY c.customer_id, customer_name, c.country\\n),\\nscored AS (\\n  SELECT \\n    *,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN NULL\\n      ELSE (current_date - last_purchase_date::date)\\n    END AS days_since_last_purchase_raw,\\n    PERCENT_RANK() OVER (ORDER BY lifetime_value) AS lv_percent_rank\\n  FROM customer_metrics\\n),\\nsegmented AS (\\n  SELECT \\n    customer_id,\\n    customer_name,\\n    country,\\n    lifetime_value,\\n    orders,\\n    avg_order_value,\\n    last_purchase_date,\\n    CASE \\n      WHEN days_since_last_purchase_raw IS NULL THEN NULL\\n      ELSE GREATEST(0, days_since_last_purchase_raw)\\n    END AS days_since_last_purchase,\\n    CASE \\n      WHEN lifetime_value = 0 THEN \'No Spend\'\\n      WHEN lv_percent_rank >= 0.8 THEN \'High\'\\n      WHEN lv_percent_rank >= 0.5 THEN \'Medium\'\\n      ELSE \'Low\'\\n    END AS lv_segment,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN \'Churn Risk: No purchases\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) > 365 THEN \'High Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 181 AND 365 THEN \'Medium Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 91 AND 180 THEN \'Low Risk\'\\n      ELSE \'Active\'\\n    END AS churn_risk\\n  FROM scored\\n)\\nSELECT \\n  customer_id,\\n  customer_name,\\n  country,\\n  lifetime_value,\\n  orders,\\n  avg_order_value,\\n  last_purchase_date,\\n  days_since_last_purchase,\\n  lv_segment,\\n  churn_risk\\nFROM segmented\\nWHERE churn_risk = \'High Risk\'\\nORDER BY lifetime_value DESC, days_since_last_purchase DESC\\nLIMIT 10;"}',
+                'name': 'execute_sql',
+              }),
+              'id': 'call_C3MJguOJ62YJtQ4wN6duDsEV',
+              'type': 'function',
+            }),
+            dict({
+              'function': dict({
+                'arguments': '{"query":"WITH customer_metrics AS (\\n  SELECT \\n    c.customer_id,\\n    (c.first_name || \' \' || c.last_name) AS customer_name,\\n    c.country,\\n    COALESCE(SUM(i.total), 0) AS lifetime_value,\\n    COUNT(i.invoice_id) AS orders,\\n    COALESCE(AVG(i.total), 0) AS avg_order_value,\\n    MAX(i.invoice_date) AS last_purchase_date\\n  FROM customer c\\n  LEFT JOIN invoice i ON i.customer_id = c.customer_id\\n  GROUP BY c.customer_id, customer_name, c.country\\n),\\nscored AS (\\n  SELECT \\n    *,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN NULL\\n      ELSE (current_date - last_purchase_date::date)\\n    END AS days_since_last_purchase_raw,\\n    PERCENT_RANK() OVER (ORDER BY lifetime_value) AS lv_percent_rank\\n  FROM customer_metrics\\n),\\nsegmented AS (\\n  SELECT \\n    customer_id,\\n    customer_name,\\n    country,\\n    lifetime_value,\\n    orders,\\n    avg_order_value,\\n    last_purchase_date,\\n    CASE \\n      WHEN days_since_last_purchase_raw IS NULL THEN NULL\\n      ELSE GREATEST(0, days_since_last_purchase_raw)\\n    END AS days_since_last_purchase,\\n    CASE \\n      WHEN lifetime_value = 0 THEN \'No Spend\'\\n      WHEN lv_percent_rank >= 0.8 THEN \'High\'\\n      WHEN lv_percent_rank >= 0.5 THEN \'Medium\'\\n      ELSE \'Low\'\\n    END AS lv_segment,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN \'Churn Risk: No purchases\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) > 365 THEN \'High Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 181 AND 365 THEN \'Medium Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 91 AND 180 THEN \'Low Risk\'\\n      ELSE \'Active\'\\n    END AS churn_risk\\n  FROM scored\\n)\\nSELECT \\n  lv_segment,\\n  COUNT(*) AS customers,\\n  ROUND(AVG(lifetime_value)::numeric, 2) AS avg_ltv,\\n  ROUND(AVG(COALESCE(days_since_last_purchase, 0))::numeric, 1) AS avg_days_since_last_purchase,\\n  SUM(CASE WHEN churn_risk = \'High Risk\' THEN 1 ELSE 0 END) AS high_risk_customers\\nFROM segmented\\nGROUP BY lv_segment\\nORDER BY \\n  CASE lv_segment WHEN \'High\' THEN 1 WHEN \'Medium\' THEN 2 WHEN \'Low\' THEN 3 WHEN \'No Spend\' THEN 4 ELSE 5 END;"}',
+                'name': 'execute_sql',
+              }),
+              'id': 'call_feR1zKfz6o7B50j6iCcRyLZI',
+              'type': 'function',
+            }),
+            dict({
+              'function': dict({
+                'arguments': '{"query":"WITH customer_metrics AS (\\n  SELECT \\n    c.customer_id,\\n    (c.first_name || \' \' || c.last_name) AS customer_name,\\n    c.country,\\n    COALESCE(SUM(i.total), 0) AS lifetime_value,\\n    COUNT(i.invoice_id) AS orders,\\n    COALESCE(AVG(i.total), 0) AS avg_order_value,\\n    MAX(i.invoice_date) AS last_purchase_date\\n  FROM customer c\\n  LEFT JOIN invoice i ON i.customer_id = c.customer_id\\n  GROUP BY c.customer_id, customer_name, c.country\\n),\\nscored AS (\\n  SELECT \\n    *,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN NULL\\n      ELSE (current_date - last_purchase_date::date)\\n    END AS days_since_last_purchase_raw,\\n    PERCENT_RANK() OVER (ORDER BY lifetime_value) AS lv_percent_rank\\n  FROM customer_metrics\\n),\\nsegmented AS (\\n  SELECT \\n    customer_id,\\n    customer_name,\\n    country,\\n    lifetime_value,\\n    orders,\\n    avg_order_value,\\n    last_purchase_date,\\n    CASE \\n      WHEN days_since_last_purchase_raw IS NULL THEN NULL\\n      ELSE GREATEST(0, days_since_last_purchase_raw)\\n    END AS days_since_last_purchase,\\n    CASE \\n      WHEN lifetime_value = 0 THEN \'No Spend\'\\n      WHEN lv_percent_rank >= 0.8 THEN \'High\'\\n      WHEN lv_percent_rank >= 0.5 THEN \'Medium\'\\n      ELSE \'Low\'\\n    END AS lv_segment,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN \'Churn Risk: No purchases\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) > 365 THEN \'High Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 181 AND 365 THEN \'Medium Risk\'\\n      WHEN (CASE WHEN days_since_last_purchase_raw IS NULL THEN NULL ELSE GREATEST(0, days_since_last_purchase_raw) END) BETWEEN 91 AND 180 THEN \'Low Risk\'\\n      ELSE \'Active\'\\n    END AS churn_risk\\n  FROM scored\\n)\\nSELECT *\\nFROM segmented\\nORDER BY lifetime_value DESC, customer_id;"}',
+                'name': 'execute_sql',
+              }),
+              'id': 'call_PxEO2fausJ3iH9oOiqPKpaku',
+              'type': 'function',
+            }),
+            dict({
+              'function': dict({
+                'arguments': '{"query":"WITH customer_metrics AS (\\n  SELECT \\n    c.customer_id,\\n    (c.first_name || \' \' || c.last_name) AS customer_name,\\n    c.country,\\n    COALESCE(SUM(i.total), 0) AS lifetime_value,\\n    COUNT(i.invoice_id) AS orders,\\n    COALESCE(AVG(i.total), 0) AS avg_order_value,\\n    MAX(i.invoice_date) AS last_purchase_date\\n  FROM customer c\\n  LEFT JOIN invoice i ON i.customer_id = c.customer_id\\n  GROUP BY c.customer_id, customer_name, c.country\\n),\\nscored AS (\\n  SELECT \\n    *,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN NULL\\n      ELSE (current_date - last_purchase_date::date)\\n    END AS days_since_last_purchase,\\n    PERCENT_RANK() OVER (ORDER BY lifetime_value) AS lv_percent_rank\\n  FROM customer_metrics\\n),\\nsegmented AS (\\n  SELECT \\n    customer_id,\\n    customer_name,\\n    country,\\n    lifetime_value,\\n    orders,\\n    avg_order_value,\\n    last_purchase_date,\\n    days_since_last_purchase,\\n    CASE \\n      WHEN lifetime_value = 0 THEN \'No Spend\'\\n      WHEN lv_percent_rank >= 0.8 THEN \'High\'\\n      WHEN lv_percent_rank >= 0.5 THEN \'Medium\'\\n      ELSE \'Low\'\\n    END AS lv_segment,\\n    CASE \\n      WHEN last_purchase_date IS NULL THEN \'Churn Risk: No purchases\'\\n      WHEN days_since_last_purchase > 365 THEN \'High Risk\'\\n      WHEN days_since_last_purchase BETWEEN 181 AND 365 THEN \'Medium Risk\'\\n      WHEN days_since_last_purchase BETWEEN 91 AND 180 THEN \'Low Risk\'\\n      ELSE \'Active\'\\n    END AS churn_risk\\n  FROM scored\\n)\\nSELECT *\\nFROM segmented\\nORDER BY lifetime_value DESC, customer_id;"}',
+                'name': 'execute_sql',
+              }),
+              'id': 'call_XMf9acssGFrA4PQy1QsOyGJS',
+              'type': 'function',
+            }),
+          ]),
+        }),
+        dict({
+          'content': '''
+            | customer_id | customer_name | country | lifetime_value | orders | avg_order_value | last_purchase_date | days_since_last_purchase | lv_segment | churn_risk |
+            | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+            | 6 | Helena Holý | Czech Republic | 49.62 | 7 | 7.0885714285714286 | 2025-11-13 00:00:00 | -58 | High | Active |
+            | 26 | Richard Cunningham | USA | 47.62 | 7 | 6.8028571428571429 | 2025-04-05 00:00:00 | 164 | High | Low Risk |
+            | 57 | Luis Rojas | Chile | 46.62 | 7 | 6.6600000000000000 | 2024-10-14 00:00:00 | 337 | High | Medium Risk |
+            | 45 | Ladislav Kovács | Hungary | 45.62 | 7 | 6.5171428571428571 | 2025-07-20 00:00:00 | 58 | High | Active |
+            | 46 | Hugh O'Reilly | Ireland | 45.62 | 7 | 6.5171428571428571 | 2025-11-04 00:00:00 | -49 | High | Active |
+            | 24 | Frank Ralston | USA | 43.62 | 7 | 6.2314285714285714 | 2025-08-20 00:00:00 | 27 | High | Active |
+            | 28 | Julia Barnett | USA | 43.62 | 7 | 6.2314285714285714 | 2025-05-19 00:00:00 | 120 | High | Low Risk |
+            | 37 | Fynn Zimmermann | Germany | 43.62 | 7 | 6.2314285714285714 | 2025-06-03 00:00:00 | 105 | High | Low Risk |
+            | 7 | Astrid Gruber | Austria | 42.62 | 7 | 6.0885714285714286 | 2025-06-19 00:00:00 | 89 | High | Active |
+            | 25 | Victor Stevens | USA | 42.62 | 7 | 6.0885714285714286 | 2025-12-05 00:00:00 | -80 | High | Active |
+            | 44 | Terhi Hämäläinen | Finland | 41.62 | 7 | 5.9457142857142857 | 2025-12-14 00:00:00 | -89 | High | Active |
+            | 5 | František Wichterlová | Czech Republic | 40.62 | 7 | 5.8028571428571429 | 2025-05-06 00:00:00 | 133 | Medium | Low Risk |
+            | 43 | Isabelle Mercier | France | 40.62 | 7 | 5.8028571428571429 | 2025-06-06 00:00:00 | 102 | Medium | Low Risk |
+            | 48 | Johannes Van der Berg | Netherlands | 40.62 | 7 | 5.8028571428571429 | 2025-09-12 00:00:00 | 4 | Medium | Active |
+            | 1 | Luís Gonçalves | Brazil | 39.62 | 7 | 5.6600000000000000 | 2025-08-07 00:00:00 | 40 | Medium | Active |
+            | 3 | François Tremblay | Canada | 39.62 | 7 | 5.6600000000000000 | 2025-09-20 00:00:00 | -4 | Medium | Active |
+            | 4 | Bjørn Hansen | Norway | 39.62 | 7 | 5.6600000000000000 | 2025-10-03 00:00:00 | -17 | Medium | Active |
+            | 17 | Jack Smith | USA | 39.62 | 7 | 5.6600000000000000 | 2024-07-31 00:00:00 | 412 | Medium | High Risk |
+            | 20 | Dan Miller | USA | 39.62 | 7 | 5.6600000000000000 | 2025-11-21 00:00:00 | -66 | Medium | Active |
+            | 22 | Heather Leacock | USA | 39.62 | 7 | 5.6600000000000000 | 2025-07-07 00:00:00 | 71 | Medium | Active |
+            | 34 | João Fernandes | Portugal | 39.62 | 7 | 5.6600000000000000 | 2024-10-01 00:00:00 | 350 | Medium | Medium Risk |
+            | 42 | Wyatt Girard | France | 39.62 | 7 | 5.6600000000000000 | 2025-11-03 00:00:00 | -48 | Medium | Active |
+            | 15 | Jennifer Peterson | Canada | 38.62 | 7 | 5.5171428571428571 | 2024-12-15 00:00:00 | 275 | Medium | Medium Risk |
+            | 19 | Tim Goyer | USA | 38.62 | 7 | 5.5171428571428571 | 2024-09-13 00:00:00 | 368 | Medium | High Risk |
+            | 39 | Camille Bernard | France | 38.62 | 7 | 5.5171428571428571 | 2025-09-07 00:00:00 | 9 | Medium | Active |
+            | 40 | Dominique Lefebvre | France | 38.62 | 7 | 5.5171428571428571 | 2024-08-13 00:00:00 | 399 | Medium | High Risk |
+            | 51 | Joakim Johansson | Sweden | 38.62 | 7 | 5.5171428571428571 | 2024-12-02 00:00:00 | 288 | Medium | Medium Risk |
+            | 58 | Manoj Pareek | India | 38.62 | 7 | 5.5171428571428571 | 2025-12-22 00:00:00 | -97 | Medium | Active |
+            | 2 | Leonie Köhler | Germany | 37.62 | 7 | 5.3742857142857143 | 2024-07-13 00:00:00 | 430 | Low | High Risk |
+            | 8 | Daan Peeters | Belgium | 37.62 | 7 | 5.3742857142857143 | 2025-10-04 00:00:00 | -18 | Low | Active |
+            | 9 | Kara Nielsen | Denmark | 37.62 | 7 | 5.3742857142857143 | 2025-02-02 00:00:00 | 226 | Low | Medium Risk |
+            | 10 | Eduardo Martins | Brazil | 37.62 | 7 | 5.3742857142857143 | 2025-08-12 00:00:00 | 35 | Low | Active |
+            | 11 | Alexandre Rocha | Brazil | 37.62 | 7 | 5.3742857142857143 | 2025-03-18 00:00:00 | 182 | Low | Medium Risk |
+            | 12 | Roberto Almeida | Brazil | 37.62 | 7 | 5.3742857142857143 | 2025-10-05 00:00:00 | -19 | Low | Active |
+            | 13 | Fernanda Ramos | Brazil | 37.62 | 7 | 5.3742857142857143 | 2024-11-01 00:00:00 | 319 | Low | Medium Risk |
+            | 14 | Mark Philips | Canada | 37.62 | 7 | 5.3742857142857143 | 2025-05-11 00:00:00 | 128 | Low | Low Risk |
+            | 16 | Frank Harris | USA | 37.62 | 7 | 5.3742857142857143 | 2025-07-04 00:00:00 | 74 | Low | Active |
+            | 18 | Michelle Brooks | USA | 37.62 | 7 | 5.3742857142857143 | 2025-10-08 00:00:00 | -22 | Low | Active |
+            | 21 | Kathy Chase | USA | 37.62 | 7 | 5.3742857142857143 | 2025-12-04 00:00:00 | -79 | Low | Active |
+            | 23 | John Gordon | USA | 37.62 | 7 | 5.3742857142857143 | 2025-12-04 00:00:00 | -79 | Low | Active |
+            | 27 | Patrick Gray | USA | 37.62 | 7 | 5.3742857142857143 | 2025-10-13 00:00:00 | -27 | Low | Active |
+            | 29 | Robert Brown | Canada | 37.62 | 7 | 5.3742857142857143 | 2025-12-06 00:00:00 | -81 | Low | Active |
+            | 30 | Edward Francis | Canada | 37.62 | 7 | 5.3742857142857143 | 2025-01-02 00:00:00 | 257 | Low | Medium Risk |
+            | 31 | Martha Silk | Canada | 37.62 | 7 | 5.3742857142857143 | 2025-07-12 00:00:00 | 66 | Low | Active |
+            | 32 | Aaron Mitchell | Canada | 37.62 | 7 | 5.3742857142857143 | 2025-02-15 00:00:00 | 213 | Low | Medium Risk |
+            | 33 | Ellie Sullivan | Canada | 37.62 | 7 | 5.3742857142857143 | 2025-09-04 00:00:00 | 12 | Low | Active |
+            | 35 | Madalena Sampaio | Portugal | 37.62 | 7 | 5.3742857142857143 | 2025-12-09 00:00:00 | -84 | Low | Active |
+            | 36 | Hannah Schneider | Germany | 37.62 | 7 | 5.3742857142857143 | 2024-11-14 00:00:00 | 306 | Low | Medium Risk |
+            | 38 | Niklas Schröder | Germany | 37.62 | 7 | 5.3742857142857143 | 2024-06-30 00:00:00 | 443 | Low | High Risk |
+            | 41 | Marc Dubois | France | 37.62 | 7 | 5.3742857142857143 | 2025-10-21 00:00:00 | -35 | Low | Active |
+            | 47 | Lucas Mancini | Italy | 37.62 | 7 | 5.3742857142857143 | 2025-03-05 00:00:00 | 195 | Low | Medium Risk |
+            | 49 | Stanisław Wójcik | Poland | 37.62 | 7 | 5.3742857142857143 | 2025-04-18 00:00:00 | 151 | Low | Low Risk |
+            | 50 | Enrique Muñoz | Spain | 37.62 | 7 | 5.3742857142857143 | 2025-11-05 00:00:00 | -50 | Low | Active |
+            | 52 | Emma Jones | United Kingdom | 37.62 | 7 | 5.3742857142857143 | 2025-06-11 00:00:00 | 97 | Low | Low Risk |
+            | 53 | Phil Hughes | United Kingdom | 37.62 | 7 | 5.3742857142857143 | 2025-01-15 00:00:00 | 244 | Low | Medium Risk |
+            | 54 | Steve Murray | United Kingdom | 37.62 | 7 | 5.3742857142857143 | 2025-08-04 00:00:00 | 43 | Low | Active |
+            | 55 | Mark Taylor | Australia | 37.62 | 7 | 5.3742857142857143 | 2024-08-31 00:00:00 | 381 | Low | High Risk |
+            | 56 | Diego Gutiérrez | Argentina | 37.62 | 7 | 5.3742857142857143 | 2025-11-08 00:00:00 | -53 | Low | Active |
+            | 59 | Puja Srivastava | India | 36.64 | 6 | 6.1066666666666667 | 2024-05-30 00:00:00 | 474 | Low | High Risk |
+          ''',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'tool',
+          'tool_call_id': 'call_XMf9acssGFrA4PQy1QsOyGJS',
+          'tool_calls': None,
+        }),
+        dict({
+          'content': '''
+            | churn_risk | customers | avg_ltv | avg_days_since_last_purchase |
+            | --- | --- | --- | --- |
+            | High Risk | 7 | 38.05 | 415.3 |
+            | Medium Risk | 12 | 38.70 | 266.0 |
+            | Low Risk | 8 | 41.12 | 125.0 |
+            | Active | 32 | 39.65 | 16.5 |
+          ''',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'tool',
+          'tool_call_id': 'call_PxEO2fausJ3iH9oOiqPKpaku',
+          'tool_calls': None,
+        }),
+        dict({
+          'content': 'No results found.',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'tool',
+          'tool_call_id': 'call_feR1zKfz6o7B50j6iCcRyLZI',
+          'tool_calls': None,
+        }),
+        dict({
+          'content': 'No results found.',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'tool',
+          'tool_call_id': 'call_C3MJguOJ62YJtQ4wN6duDsEV',
+          'tool_calls': None,
+        }),
+        dict({
+          'content': 'No results found.',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'tool',
+          'tool_call_id': 'call_ufaloEQ87VReYLpLxeaf2EmV',
+          'tool_calls': None,
+        }),
+        dict({
+          'content': '''
+            | customer_id | customer_name | country | lifetime_value | orders | avg_order_value | last_purchase_date | days_since_last_purchase | lv_segment | churn_risk |
+            | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+            | 59 | Puja Srivastava | India | 36.64 | 6 | 6.1066666666666667 | 2024-05-30 00:00:00 | 474 | Low | High Risk |
+            | 38 | Niklas Schröder | Germany | 37.62 | 7 | 5.3742857142857143 | 2024-06-30 00:00:00 | 443 | Low | High Risk |
+            | 2 | Leonie Köhler | Germany | 37.62 | 7 | 5.3742857142857143 | 2024-07-13 00:00:00 | 430 | Low | High Risk |
+            | 17 | Jack Smith | USA | 39.62 | 7 | 5.6600000000000000 | 2024-07-31 00:00:00 | 412 | Medium | High Risk |
+            | 40 | Dominique Lefebvre | France | 38.62 | 7 | 5.5171428571428571 | 2024-08-13 00:00:00 | 399 | Medium | High Risk |
+            | 55 | Mark Taylor | Australia | 37.62 | 7 | 5.3742857142857143 | 2024-08-31 00:00:00 | 381 | Low | High Risk |
+            | 19 | Tim Goyer | USA | 38.62 | 7 | 5.5171428571428571 | 2024-09-13 00:00:00 | 368 | Medium | High Risk |
+          ''',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'tool',
+          'tool_call_id': 'call_pyQOTPrrGRT0IuljYLkbeb0a',
+          'tool_calls': None,
+        }),
+        dict({
+          'content': 'No results found.',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'tool',
+          'tool_call_id': 'call_8yfYxjCJFppcVcjnmKbTBxoj',
+          'tool_calls': None,
+        }),
+        dict({
+          'content': 'No results found.',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'tool',
+          'tool_call_id': 'call_QklYCtJeAzMn8iMshl0PaYXg',
+          'tool_calls': None,
+        }),
+        dict({
+          'content': '''
+            Here’s a CLV segmentation and churn-risk view built from invoices in the Chinook database.
+            
+            How it’s calculated
+            - Lifetime value (LTV): sum of all invoice totals per customer.
+            - Orders: count of invoices per customer; AOV: average invoice total.
+            - Days since last purchase: max(0, today − last invoice date). Future-dated invoices are treated as 0 days.
+            - LTV segments (percentile-based): 
+              - High: top ~20% by LTV
+              - Medium: next ~30%
+              - Low: bottom ~50%
+              - No Spend: LTV = 0
+            - Churn risk:
+              - Active: 0–90 days
+              - Low Risk: 91–180 days
+              - Medium Risk: 181–365 days
+              - High Risk: >365 days
+              - Churn Risk: No purchases (never bought)
+            
+            Churn-risk summary (all 59 customers)
+            - High Risk: 7 customers | Avg LTV: 38.05 | Avg days since last purchase: 415.3
+            - Medium Risk: 12 customers | Avg LTV: 38.70 | Avg days since last purchase: 266.0
+            - Low Risk: 8 customers | Avg LTV: 41.12 | Avg days since last purchase: 125.0
+            - Active: 32 customers | Avg LTV: 39.65 | Avg days since last purchase: 16.5
+            
+            Top high-risk customers to prioritize (longest time since last purchase)
+            - Puja Srivastava (India) — LTV 36.64 — 474 days — LV segment: Low — Churn risk: High
+            - Niklas Schröder (Germany) — LTV 37.62 — 443 days — LV segment: Low — Churn risk: High
+            - Leonie Köhler (Germany) — LTV 37.62 — 430 days — LV segment: Low — Churn risk: High
+            - Jack Smith (USA) — LTV 39.62 — 412 days — LV segment: Medium — Churn risk: High
+            - Dominique Lefebvre (France) — LTV 38.62 — 399 days — LV segment: Medium — Churn risk: High
+            - Mark Taylor (Australia) — LTV 37.62 — 381 days — LV segment: Low — Churn risk: High
+            - Tim Goyer (USA) — LTV 38.62 — 368 days — LV segment: Medium — Churn risk: High
+            
+            Notes and next steps
+            - The percent-rank approach keeps LTV segments relative to your customer base. As spending patterns shift, segment thresholds adjust automatically.
+            - If you want fixed-dollar LTV segments (e.g., Low < $30, Medium $30–$45, High > $45) or different churn thresholds, say the word and I’ll rerun the analysis.
+            - I can export the full customer-level table (customer, country, LTV, orders, AOV, last purchase date, days since last purchase, LTV segment, churn risk) as CSV if needed.
+          ''',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'assistant',
+          'tool_call_id': None,
+          'tool_calls': None,
+        }),
+      ]),
+      'pid': None,
+      'rollout_status': dict({
+        'code': <Code.RUNNING: 101>,
+        'details': list([
+        ]),
+        'message': 'Rollout is running',
+      }),
+      'tools': list([
+        dict({
+          'description': None,
+          'name': 'execute_sql',
+          'parameters': dict({
+            'additionalProperties': False,
+            'properties': dict({
+              'query': dict({
+                'type': 'string',
+              }),
+            }),
+            'required': list([
+              'query',
+            ]),
+            'type': 'object',
+          }),
+          'strict': True,
+          'type': 'function',
+        }),
+      ]),
+    }),
+  ])
+# ---
 # name: test_openai_responses_adapter_with_real_response_simple
   list([
     dict({

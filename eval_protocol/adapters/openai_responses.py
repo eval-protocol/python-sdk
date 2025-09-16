@@ -113,10 +113,25 @@ class OpenAIResponsesAdapter:
 
         Converts OpenAI Responses API input items to chat completion message format.
         Handles different types of response items including messages and tool calls.
+        Groups parallel tool calls under a single assistant message.
+        Since we iterate backwards and reverse at the end, tool call outputs should
+        be added before the assistant message with tool calls.
         """
         messages: list[Message] = []
+        current_tool_calls: list[ChatCompletionMessageFunctionToolCall] = []
+        tool_call_outputs: list[Message] = []
+
         for item in input_items:
             if item.type == "message":
+                # If we have accumulated tool calls, create an assistant message with them
+                if current_tool_calls:
+                    # Add tool call outputs first (since we reverse at the end)
+                    messages.extend(tool_call_outputs)
+                    tool_call_outputs = []
+                    # Then add the assistant message with tool calls
+                    messages.append(Message(role="assistant", tool_calls=current_tool_calls))
+                    current_tool_calls = []
+
                 # This is a message item (input or output)
                 content = item.content
                 for content_item in content:
@@ -127,12 +142,21 @@ class OpenAIResponsesAdapter:
                     else:
                         raise NotImplementedError(f"Unsupported content type: {content_item.type}")
             elif item.type == "function_call_output":
-                messages.append(Message(role="tool", content=item.output, tool_call_id=item.call_id))
+                # Collect tool call outputs to add before assistant message
+                tool_call_outputs.append(Message(role="tool", content=item.output, tool_call_id=item.call_id))
             elif item.type == "function_call":
                 tool_call = ChatCompletionMessageFunctionToolCall(
                     id=item.call_id, type="function", function=Function(name=item.name, arguments=item.arguments)
                 )
-                messages.append(Message(role="assistant", tool_calls=[tool_call]))
+                current_tool_calls.append(tool_call)
             else:
                 raise NotImplementedError(f"Unsupported item type: {item.type}")
+
+        # If we have remaining tool calls, create an assistant message with them
+        if current_tool_calls:
+            # Add tool call outputs first (since we reverse at the end)
+            messages.extend(tool_call_outputs)
+            # Then add the assistant message with tool calls
+            messages.append(Message(role="assistant", tool_calls=current_tool_calls))
+
         return reversed(messages)
