@@ -4,11 +4,13 @@ This adapter allows pulling data from Langfuse deployments and converting it
 to EvaluationRow format for use in evaluation pipelines.
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 import logging
 from typing import List
+from typing_extensions import Any
 
 from openai.pagination import SyncCursorPage
+from openai.types.chat.chat_completion_function_tool_param import ChatCompletionFunctionToolParam
 from openai.types.chat.chat_completion_message import FunctionCall
 from openai.types.responses import Response
 from openai.types.responses.response_item import ResponseItem
@@ -16,6 +18,7 @@ from openai.types.chat.chat_completion_message_function_tool_call import (
     ChatCompletionMessageFunctionToolCall,
     Function,
 )
+from openai.types.responses.tool import Tool
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
 
@@ -78,9 +81,11 @@ class OpenAIResponsesAdapter:
         messages.extend(self._create_messages(input_items))
         if response.output_text:
             messages.append(Message(role="assistant", content=response.output_text))
+        tools = self._responses_tools_to_chat_completion_tools(response.tools)
+        tool_dicts = [dict(tool) for tool in tools]
         return EvaluationRow(
             messages=messages,
-            tools=[tool.model_dump() for tool in response.tools],
+            tools=tool_dicts,
             input_metadata=InputMetadata(
                 completion_params={
                     "model": response.model,
@@ -107,6 +112,28 @@ class OpenAIResponsesAdapter:
                 }
             ),
         )
+
+    def _responses_tools_to_chat_completion_tools(
+        self, tools: List[Tool]
+    ) -> Sequence[ChatCompletionFunctionToolParam]:
+        """Convert OpenAI Responses API tools to chat completion message function tool calls."""
+        chat_completion_tools: List[ChatCompletionFunctionToolParam] = []
+        for tool in tools:
+            if tool.type == "function":
+                chat_completion_tools.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "parameters": tool.parameters or {},
+                            "strict": tool.strict,
+                            "description": tool.description or "",
+                        },
+                    }
+                )
+            else:
+                raise NotImplementedError("Only function tools are supported")
+        return chat_completion_tools
 
     def _create_messages(self, input_items: SyncCursorPage[ResponseItem]) -> Iterable[Message]:
         """Create messages from input items.
