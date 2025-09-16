@@ -658,6 +658,13 @@ class EvaluationRow(BaseModel):
             return None
         return assistant_messages[-1]
 
+    def get_first_user_message(self) -> Optional[Message]:
+        """Returns the first user message from the conversation. Returns None if none found."""
+        user_messages = self.get_user_messages()
+        if not user_messages:
+            return None
+        return user_messages[0]
+
     def get_user_messages(self) -> List[Message]:
         """Returns only the user messages from the conversation."""
         return [msg for msg in self.messages if msg.role == "user"]
