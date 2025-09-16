@@ -2,16 +2,13 @@ import asyncio
 from typing import List, Optional
 
 from mcp.types import TextContent
-from openai.types.chat.chat_completion_message import (
-    ChatCompletionMessageToolCall,
-    FunctionCall,
-)
 
+from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.default_agent_rollout_processor import Agent
 
 
-class NoOpLogger:
+class NoOpLogger(DatasetLogger):
     def log(self, row: EvaluationRow) -> None:
         return None
 

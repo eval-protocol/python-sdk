@@ -93,7 +93,7 @@ openevals = [
     "openevals>=0.1.0",
 ]
 fireworks = [
-    "fireworks-ai>=0.19.12",
+    "fireworks-ai>=0.19.19",
 ]
 box2d = [
     "swig",
@@ -122,7 +122,7 @@ svgbench = [
     "selenium>=4.0.0",
 ]
 pydantic = [
-    "pydantic-ai",
+    "pydantic-ai>=1.0.2",
 ]
 supabase = [
     "supabase>=2.18.1",
@@ -135,6 +135,17 @@ langchain = [
 ]
 braintrust = [
     "braintrust[otel]",
+]
+
+# Optional deps for LangGraph example/tests
+langgraph = [
+    "langgraph>=0.6.7",
+    "langchain-core>=0.3.75",
+]
+langgraph_tools = [
+    "langgraph>=0.6.7",
+    "langchain>=0.3.0",
+    "langchain-fireworks>=0.3.0",
 ]
 
 [tool.pytest.ini_options]

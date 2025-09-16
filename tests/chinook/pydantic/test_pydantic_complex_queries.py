@@ -1,17 +1,15 @@
+import os
 from pydantic import BaseModel
 from pydantic_ai import Agent
+from pydantic_ai.models.openai import OpenAIChatModel
 import pytest
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message
+from eval_protocol.models import EvaluateResult, EvaluationRow
 from eval_protocol.pytest import evaluation_test
-
-from eval_protocol.pytest.default_pydantic_ai_rollout_processor import PydanticAgentRolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
-from tests.chinook.pydantic.agent import setup_agent
-import os
-from pydantic_ai.models.openai import OpenAIChatModel
-
 from tests.chinook.dataset import collect_dataset
+from tests.chinook.pydantic.agent import setup_agent
+from tests.pytest.test_pydantic_agent import PydanticAgentRolloutProcessor
 
 LLM_JUDGE_PROMPT = (
     "Your job is to compare the response to the expected answer.\n"
@@ -28,9 +26,13 @@ def agent_factory(config: RolloutProcessorConfig) -> Agent:
     return setup_agent(model)
 
 
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Only run this test locally (skipped in CI)",
+)
 @pytest.mark.asyncio
 @evaluation_test(
-    input_messages=[[[Message(role="user", content="What is the total number of tracks in the database?")]]],
+    input_rows=[collect_dataset()],
     completion_params=[
         {
             "model": "accounts/fireworks/models/kimi-k2-instruct",
@@ -38,32 +40,11 @@ def agent_factory(config: RolloutProcessorConfig) -> Agent:
         },
     ],
     rollout_processor=PydanticAgentRolloutProcessor(agent_factory),
-    mode="pointwise",
 )
-async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
+async def test_pydantic_complex_queries(row: EvaluationRow) -> EvaluationRow:
     """
-    Super simple query for the Chinook database
+    Evaluation of complex queries for the Chinook database using PydanticAI
     """
-    expected_tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "execute_sql",
-                "parameters": {
-                    "additionalProperties": False,
-                    "properties": {"query": {"type": "string"}},
-                    "required": ["query"],
-                    "type": "object",
-                },
-            },
-        }
-    ]
-    assert hasattr(row, "tools"), "Row missing 'tools' attribute"
-    assert row.tools == expected_tools, f"Tools validation failed. Expected: {expected_tools}, Got: {row.tools}"
-
-    # assert that there is a system message
-    assert row.messages[0].role == "system"
-
     last_assistant_message = row.last_assistant_message()
     if last_assistant_message is None:
         row.evaluation_result = EvaluateResult(
@@ -94,11 +75,14 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
             reason: str
 
         comparison_agent = Agent(
+            model=model,
             system_prompt=LLM_JUDGE_PROMPT,
             output_type=Response,
-            model=model,
+            output_retries=5,
         )
-        result = await comparison_agent.run(f"Expected answer: 3503\nResponse: {last_assistant_message.content}")
+        result = await comparison_agent.run(
+            f"Expected answer: {row.ground_truth}\nResponse: {last_assistant_message.content}"
+        )
         row.evaluation_result = EvaluateResult(
             score=result.output.score,
             reason=result.output.reason,

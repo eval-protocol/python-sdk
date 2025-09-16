@@ -1,7 +1,7 @@
 from pydantic_ai import Agent, RunContext
 import asyncio
 from pydantic_ai.models import Model
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.exceptions import ModelRetry
 import sys
 import os
@@ -27,13 +27,13 @@ table_name,column_name,data_type,is_nullable
     """
 
     agent = Agent(
-        system_prompt=SYSTEM_PROMPT,
+        instructions=SYSTEM_PROMPT,
         model=orchestrator_agent_model,
         instrument=True,
     )
 
     @agent.tool(retries=5)
-    def execute_sql(ctx: RunContext, query: str) -> dict:
+    def execute_sql(ctx: RunContext, query: str) -> str:
         try:
             cursor.execute(query)
             # Get column headers from cursor description
@@ -68,8 +68,8 @@ table_name,column_name,data_type,is_nullable
 
 
 async def main():
-    model = OpenAIModel(
-        model="accounts/fireworks/models/kimi-k2-instruct",
+    model = OpenAIChatModel(
+        "accounts/fireworks/models/kimi-k2-instruct",
         provider="fireworks",
     )
     agent = setup_agent(model)

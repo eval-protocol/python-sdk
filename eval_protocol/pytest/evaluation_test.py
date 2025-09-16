@@ -84,6 +84,7 @@ def evaluation_test(
     steps: int = 30,
     mode: EvaluationTestMode = "pointwise",
     combine_datasets: bool = True,
+    preprocess_fn: Callable[[list[EvaluationRow]], list[EvaluationRow]] | None = None,
     logger: DatasetLogger | None = None,
     exception_handler_config: ExceptionHandlerConfig | None = None,
 ) -> Callable[[TestFunction], TestFunction]:
@@ -150,6 +151,9 @@ def evaluation_test(
         mode: Evaluation mode. "pointwise" (default) applies test function to each row (rollout result).
             "groupwise" applies test function to a group of rollout results from the same original row (for use cases such as dpo/grpo).
             "all" applies test function to the whole dataset.
+        preprocess_fn: Optional preprocessing function that takes a list of EvaluationRow objects
+            and returns a modified list. Useful for transformations like splitting multi-turn conversations,
+            filtering data, or other preprocessing steps before rollout execution.
         logger: DatasetLogger to use for logging. If not provided, a default logger will be used.
         exception_handler_config: Configuration for exception handling and backoff retry logic.
             If not provided, a default configuration will be used with common retryable exceptions.
@@ -239,10 +243,13 @@ def evaluation_test(
                         im = kwargs["input_messages"]
                         data = [EvaluationRow(messages=dataset_messages) for dataset_messages in im]
                     elif "input_rows" in kwargs and kwargs["input_rows"] is not None:
-                        # Use pre-constructed EvaluationRow objects directly
-                        data = kwargs["input_rows"]
+                        # Deep copy pre-constructed EvaluationRow objects
+                        data = [row.model_copy(deep=True) for row in kwargs["input_rows"]]
                     else:
                         raise ValueError("No input dataset, input messages, or input rows provided")
+
+                    if preprocess_fn:
+                        data = preprocess_fn(data)
 
                     for row in data:
                         # generate a stable row_id for each row
@@ -255,11 +262,6 @@ def evaluation_test(
                             row.input_metadata.row_id = generate_id(seed=0, index=index)
 
                     completion_params = kwargs["completion_params"]
-                    if completion_params and ("model" not in completion_params or not completion_params["model"]):
-                        raise ValueError(
-                            "No model provided. Please provide a model in the completion parameters object."
-                        )
-
                     # Create eval metadata with test function info and current commit hash
                     eval_metadata = EvalMetadata(
                         name=test_func.__name__,
@@ -271,11 +273,9 @@ def evaluation_test(
                         passed=None,
                     )
                     for row in data:
-                        # Only set completion_params if they don't already exist
-                        if not row.input_metadata.completion_params:
-                            row.input_metadata.completion_params = (
-                                completion_params if completion_params is not None else {}
-                            )
+                        row.input_metadata.completion_params = (
+                            completion_params if completion_params is not None else {}
+                        )
                         # Add mode to session_data
                         if row.input_metadata.session_data is None:
                             row.input_metadata.session_data = {}
