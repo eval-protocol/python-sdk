@@ -6,7 +6,9 @@
 
 When you have multiple AI models to choose from—different versions, providers, or configurations—how do you know which one is best for your use case?
 
-## Quick Example
+## Quick Examples
+
+### Basic Model Comparison
 
 Compare models on a simple formatting task:
 
@@ -21,10 +23,10 @@ from eval_protocol.pytest import default_single_turn_rollout_processor, evaluati
             Message(role="user", content="Explain why evaluations matter for AI agents. Make it dramatic!"),
         ],
     ],
-    model=[
-        "fireworks_ai/accounts/fireworks/models/llama-v3p1-8b-instruct",
-        "openai/gpt-4",
-        "anthropic/claude-3-sonnet"
+    completion_params=[
+        {"model": "fireworks/accounts/fireworks/models/llama-v3p1-8b-instruct"},
+        {"model": "openai/gpt-4"},
+        {"model": "anthropic/claude-3-sonnet"}
     ],
     rollout_processor=default_single_turn_rollout_processor,
     mode="pointwise",
@@ -45,19 +47,84 @@ def test_bold_format(row: EvaluationRow) -> EvaluationRow:
     return row
 ```
 
+### Using Datasets
+
+Evaluate models on existing datasets:
+
+```python
+from eval_protocol.pytest import evaluation_test
+from eval_protocol.adapters.huggingface import create_gsm8k_adapter
+
+@evaluation_test(
+    input_dataset=["development/gsm8k_sample.jsonl"],  # Local JSONL file
+    dataset_adapter=create_gsm8k_adapter(),  # Adapter to convert data
+    completion_params=[
+        {"model": "openai/gpt-4"},
+        {"model": "anthropic/claude-3-sonnet"}
+    ],
+    mode="pointwise"
+)
+def test_math_reasoning(row: EvaluationRow) -> EvaluationRow:
+    # Your evaluation logic here
+    return row
+```
+
+## 🚀 Features
+
+- **Custom Evaluations**: Write evaluations tailored to your specific business needs
+- **Auto-Evaluation**: Stack-rank models using LLMs as judges with just model traces
+- **Model Context Protocol (MCP) Integration**: Build reinforcement learning environments and trigger user simulations for complex scenarios
+- **Consistent Testing**: Test across various models and configurations with a unified framework
+- **Resilient Runtime**: Automatic retries for unstable LLM APIs and concurrent execution for long-running evaluations
+- **Rich Visualizations**: Built-in pivot tables and visualizations for result analysis
+- **Data-Driven Decisions**: Make informed model deployment decisions based on comprehensive evaluation results
+
 ## 📚 Resources
 
 - **[Documentation](https://evalprotocol.io)** - Complete guides and API reference
 - **[Discord](https://discord.com/channels/1137072072808472616/1400975572405850155)** - Community discussions
+- **[GitHub](https://github.com/eval-protocol/python-sdk)** - Source code and examples
 
 ## Installation
 
 **This library requires Python >= 3.10.**
 
+### Basic Installation
+
 Install with pip:
 
-```
+```bash
 pip install eval-protocol
+```
+
+### Recommended Installation with uv
+
+For better dependency management and faster installs, we recommend using [uv](https://docs.astral.sh/uv/):
+
+```bash
+# Install uv if you haven't already
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install eval-protocol
+uv add eval-protocol
+```
+
+### Optional Dependencies
+
+Install with additional features:
+
+```bash
+# For Langfuse integration
+pip install 'eval-protocol[langfuse]'
+
+# For HuggingFace datasets
+pip install 'eval-protocol[huggingface]'
+
+# For all adapters
+pip install 'eval-protocol[adapters]'
+
+# For development
+pip install 'eval-protocol[dev]'
 ```
 
 ## License

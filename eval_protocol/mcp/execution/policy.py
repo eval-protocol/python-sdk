@@ -194,12 +194,7 @@ class LiteLLMPolicy(LLMBasePolicy):
             request_params["tools"] = tools
 
         try:
-            response = await acompletion(
-                model=self.model_id,
-                **request_params,
-                # api_base="https://litellm-cloud-proxy-prod-zfdbl7ykrq-uc.a.run.app/v1",
-                # extra_body={"tags": ["kimi-k2-tau-bench"]},
-            )
+            response = await acompletion(model=self.model_id, **request_params)
 
             # Log cache hit/miss for monitoring
             hidden = getattr(response, "_hidden_params", {})
