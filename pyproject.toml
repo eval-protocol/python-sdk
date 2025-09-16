@@ -81,6 +81,7 @@ dev = [
     "jupyter>=1.1.1",
     "pip>=25.1.1",
     "haikus==0.3.8",
+    "syrupy>=4.0.0",
 ]
 trl = [
     "torch>=1.9",

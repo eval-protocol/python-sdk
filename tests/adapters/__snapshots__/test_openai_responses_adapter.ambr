@@ -1,0 +1,222 @@
+# serializer version: 1
+# name: test_openai_responses_adapter_with_real_response_simple
+  list([
+    dict({
+      'eval_metadata': None,
+      'evaluation_result': None,
+      'ground_truth': None,
+      'input_metadata': dict({
+        'completion_params': dict({
+          '''
+
+                                We have to manually extract the reasoning effort and summary
+                                from the response.reasoning object because the openai-python
+                                causes an issue with model_dump() which is used for testing.
+
+                                https://github.com/openai/openai-python/issues/1306#issuecomment-2966267356
+                                reasoning
+          ''': dict({
+            'effort': 'medium',
+            'summary': None,
+          }),
+          'max_output_tokens': None,
+          'max_tool_calls': None,
+          'model': 'gpt-5-2025-08-07',
+          'parallel_tool_calls': True,
+          'temperature': 1.0,
+          'top_logprobs': 0,
+          'top_p': 1.0,
+          'truncation': 'disabled',
+        }),
+        'dataset_info': None,
+        'row_id': None,
+        'session_data': None,
+      }),
+      'messages': list([
+        dict({
+          'content': '''
+            You are a helpful assistant that has access to the
+            Chinook database stored in a Postgres database. You have access to a tool to
+            execute SQL queries that you should use to answer questions. Your job is to
+            answer questions about the database. If you run into an error, you should try to
+            fix the query and try again. Here is the schema of the database:
+
+            Schema:
+            table_name,column_name,data_type,is_nullable
+            album,album_id,integer,NO
+            album,title,character varying,NO
+            album,artist_id,integer,NO
+            artist,artist_id,integer,NO
+            artist,name,character varying,YES
+            customer,customer_id,integer,NO
+            customer,first_name,character varying,NO
+            customer,last_name,character varying,NO
+            customer,company,character varying,YES
+            customer,address,character varying,YES
+            customer,city,character varying,YES
+            customer,state,character varying,YES
+            customer,country,character varying,YES
+            customer,postal_code,character varying,YES
+            customer,phone,character varying,YES
+            customer,fax,character varying,YES
+            customer,email,character varying,NO
+            customer,support_rep_id,integer,YES
+            employee,employee_id,integer,NO
+            employee,last_name,character varying,NO
+            employee,first_name,character varying,NO
+            employee,title,character varying,YES
+            employee,reports_to,integer,YES
+            employee,birth_date,timestamp without time zone,YES
+            employee,hire_date,timestamp without time zone,YES
+            employee,address,character varying,YES
+            employee,city,character varying,YES
+            employee,state,character varying,YES
+            employee,country,character varying,YES
+            employee,postal_code,character varying,YES
+            employee,phone,character varying,YES
+            employee,fax,character varying,YES
+            employee,email,character varying,YES
+            genre,genre_id,integer,NO
+            genre,name,character varying,YES
+            invoice,invoice_id,integer,NO
+            invoice,customer_id,integer,NO
+            invoice,invoice_date,timestamp without time zone,NO
+            invoice,billing_address,character varying,YES
+            invoice,billing_city,character varying,YES
+            invoice,billing_state,character varying,YES
+            invoice,billing_country,character varying,YES
+            invoice,billing_postal_code,character varying,YES
+            invoice,total,numeric,NO
+            invoice_line,invoice_line_id,integer,NO
+            invoice_line,invoice_id,integer,NO
+            invoice_line,track_id,integer,NO
+            invoice_line,unit_price,numeric,NO
+            invoice_line,quantity,integer,NO
+            media_type,media_type_id,integer,NO
+            media_type,name,character varying,YES
+            playlist,playlist_id,integer,NO
+            playlist,name,character varying,YES
+            playlist_track,playlist_id,integer,NO
+            playlist_track,track_id,integer,NO
+            track,track_id,integer,NO
+            track,name,character varying,NO
+            track,album_id,integer,YES
+            track,media_type_id,integer,NO
+            track,genre_id,integer,YES
+            track,composer,character varying,YES
+            track,milliseconds,integer,NO
+            track,bytes,integer,YES
+            track,unit_price,numeric,NO
+          ''',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'system',
+          'tool_call_id': None,
+          'tool_calls': None,
+        }),
+        dict({
+          'content': 'Find all employees and their reporting hierarchy levels using a recursive CTE. Show employee name, level, and the complete hierarchy path from top to bottom.',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'user',
+          'tool_call_id': None,
+          'tool_calls': None,
+        }),
+        dict({
+          'content': '',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'assistant',
+          'tool_call_id': None,
+          'tool_calls': list([
+            dict({
+              'function': dict({
+                'arguments': '{"query":"WITH RECURSIVE emp_tree AS (\\n  SELECT \\n    e.employee_id,\\n    (e.first_name || \' \' || e.last_name) AS name,\\n    e.reports_to,\\n    1 AS level,\\n    (e.first_name || \' \' || e.last_name) AS path\\n  FROM employee e\\n  WHERE e.reports_to IS NULL\\n  UNION ALL\\n  SELECT \\n    c.employee_id,\\n    (c.first_name || \' \' || c.last_name) AS name,\\n    c.reports_to,\\n    et.level + 1 AS level,\\n    (et.path || \' > \' || c.first_name || \' \' || c.last_name) AS path\\n  FROM employee c\\n  JOIN emp_tree et ON c.reports_to = et.employee_id\\n)\\nSELECT name, level, path\\nFROM emp_tree\\nORDER BY path;"}',
+                'name': 'execute_sql',
+              }),
+              'id': 'call_jWVUHFHBmrK1FpHIP7FqZmaO',
+              'type': 'function',
+            }),
+          ]),
+        }),
+        dict({
+          'content': '''
+            | name | level | path |
+            | --- | --- | --- |
+            | Andrew Adams | 1 | Andrew Adams |
+            | Michael Mitchell | 2 | Andrew Adams > Michael Mitchell |
+            | Laura Callahan | 3 | Andrew Adams > Michael Mitchell > Laura Callahan |
+            | Robert King | 3 | Andrew Adams > Michael Mitchell > Robert King |
+            | Nancy Edwards | 2 | Andrew Adams > Nancy Edwards |
+            | Jane Peacock | 3 | Andrew Adams > Nancy Edwards > Jane Peacock |
+            | Margaret Park | 3 | Andrew Adams > Nancy Edwards > Margaret Park |
+            | Steve Johnson | 3 | Andrew Adams > Nancy Edwards > Steve Johnson |
+          ''',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'tool',
+          'tool_call_id': 'call_jWVUHFHBmrK1FpHIP7FqZmaO',
+          'tool_calls': None,
+        }),
+        dict({
+          'content': '''
+            Here are all employees with their hierarchy level and full path from the top:
+
+            - Andrew Adams — Level 1 — Path: Andrew Adams
+            - Michael Mitchell — Level 2 — Path: Andrew Adams > Michael Mitchell
+            - Laura Callahan — Level 3 — Path: Andrew Adams > Michael Mitchell > Laura Callahan
+            - Robert King — Level 3 — Path: Andrew Adams > Michael Mitchell > Robert King
+            - Nancy Edwards — Level 2 — Path: Andrew Adams > Nancy Edwards
+            - Jane Peacock — Level 3 — Path: Andrew Adams > Nancy Edwards > Jane Peacock
+            - Margaret Park — Level 3 — Path: Andrew Adams > Nancy Edwards > Margaret Park
+            - Steve Johnson — Level 3 — Path: Andrew Adams > Nancy Edwards > Steve Johnson
+
+            If you want this ordered differently (e.g., by level, name, or reporting manager), let me know and I can adjust the query.
+          ''',
+          'control_plane_step': None,
+          'function_call': None,
+          'name': None,
+          'reasoning_content': None,
+          'role': 'assistant',
+          'tool_call_id': None,
+          'tool_calls': None,
+        }),
+      ]),
+      'pid': None,
+      'rollout_status': dict({
+        'code': <Code.RUNNING: 101>,
+        'details': list([
+        ]),
+        'message': 'Rollout is running',
+      }),
+      'tools': list([
+        dict({
+          'description': None,
+          'name': 'execute_sql',
+          'parameters': dict({
+            'additionalProperties': False,
+            'properties': dict({
+              'query': dict({
+                'type': 'string',
+              }),
+            }),
+            'required': list([
+              'query',
+            ]),
+            'type': 'object',
+          }),
+          'strict': True,
+          'type': 'function',
+        }),
+      ]),
+    }),
+  ])
+# ---
