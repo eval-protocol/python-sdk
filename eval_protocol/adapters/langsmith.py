@@ -10,7 +10,7 @@ tool calls and tool messages where present.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Iterable
+from typing import Any, Dict, List, Optional, Iterable, cast
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
 from .base import BaseAdapter
@@ -23,6 +23,7 @@ try:
     LANGSMITH_AVAILABLE = True
 except ImportError:
     LANGSMITH_AVAILABLE = False
+    Client = None  # type: ignore[misc]
 
 
 class LangSmithAdapter(BaseAdapter):
@@ -38,9 +39,11 @@ class LangSmithAdapter(BaseAdapter):
     def __init__(self, client: Optional[Any] = None) -> None:
         if not LANGSMITH_AVAILABLE:
             raise ImportError("LangSmith not installed. Install with: pip install 'eval-protocol[langsmith]'")
-        # Client is provided by langsmith package; typing is relaxed to Any to avoid
-        # static analysis issues when stubs aren't available.
-        self.client = client or Client()  # type: ignore[reportCallIssue]
+        if client is not None:
+            self.client = client
+        else:
+            assert Client is not None
+            self.client = cast(Any, Client)()
 
     def get_evaluation_rows(
         self,
