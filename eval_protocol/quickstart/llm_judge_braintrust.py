@@ -1,12 +1,10 @@
 """
-Default LLM judge for Eval Protocol. Inspired by Arena-Hard-Auto.
+Default LLM judge for Eval Protocol using Braintrust. Inspired by Arena-Hard-Auto.
 """
 
-from collections.abc import Awaitable, Callable
 import os
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from typing_extensions import cast
 from tqdm import tqdm
 
 import pytest
@@ -22,20 +20,21 @@ from eval_protocol.quickstart.utils import (
 )
 import asyncio
 from openai import AsyncOpenAI
-from eval_protocol.adapters.langfuse import create_langfuse_adapter
+from eval_protocol.adapters.braintrust import create_braintrust_adapter
 
-adapter = create_langfuse_adapter()
+adapter = create_braintrust_adapter()
 
 
 @pytest.mark.asyncio
 @evaluation_test(
     input_rows=[
         adapter.get_evaluation_rows(
-            to_timestamp=datetime(2025, 9, 12, 0, 11, 18),
-            limit=711,
-            sample_size=50,
-            sleep_between_gets=3.0,
-            max_retries=5,
+            btql_query=f"""
+select: *
+from: project_logs('{os.getenv("BRAINTRUST_PROJECT_ID")}') traces
+filter: is_root = true
+limit: 5
+"""
         )
     ],
     completion_params=[
@@ -57,10 +56,6 @@ adapter = create_langfuse_adapter()
     mode="all",
 )
 async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
-    return await aha_judge(rows)
-
-
-async def aha_judge(rows: list[EvaluationRow], judge_name: str = "gemini-2.5-pro") -> list[EvaluationRow]:
     """
     LLM Judge evaluation using Arena-Hard-Auto style pairwise comparisons.
 
@@ -77,6 +72,8 @@ async def aha_judge(rows: list[EvaluationRow], judge_name: str = "gemini-2.5-pro
     Returns:
         Same rows with updated evaluation_result containing scores and judgments
     """
+
+    judge_name = "gemini-2.5-pro"  # Edit to which judge you'd like to use. Configs are in utils.py.
 
     if not rows:
         print("❌ No evaluation rows provided")
@@ -132,8 +129,5 @@ async def aha_judge(rows: list[EvaluationRow], judge_name: str = "gemini-2.5-pro
     for row in rows:
         if row.evaluation_result:
             row.evaluation_result.score = mean_score
-
-    # Optional, push scores back to Langfuse. Note that one score per model will be pushed back onto same trace.
-    adapter.push_scores(rows, model_name, mean_score)
 
     return rows

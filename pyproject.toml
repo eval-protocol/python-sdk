@@ -137,6 +137,9 @@ chinook = [
 langchain = [
     "langchain-core>=0.3.0",
 ]
+braintrust = [
+    "braintrust[otel]",
+]
 
 # Optional deps for LangGraph example/tests
 langgraph = [
