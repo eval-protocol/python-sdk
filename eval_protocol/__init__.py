@@ -39,7 +39,34 @@ from .reward_function import RewardFunction
 from .typed_interface import reward_function
 from .quickstart import aha_judge, split_multi_turn_rows
 from .pytest import evaluation_test, SingleTurnRolloutProcessor
-from .adapters import OpenAIResponsesAdapter, LangfuseAdapter, BraintrustAdapter, LangSmithAdapter
+
+try:
+    from .adapters import OpenAIResponsesAdapter
+
+    _OPENAI_RESPONSES_AVAILABLE = True
+except ImportError:
+    _OPENAI_RESPONSES_AVAILABLE = False
+
+try:
+    from .adapters import LangfuseAdapter
+
+    _LANGFUSE_AVAILABLE = True
+except ImportError:
+    _LANGFUSE_AVAILABLE = False
+
+try:
+    from .adapters import BraintrustAdapter
+
+    _BRAINTRUST_AVAILABLE = True
+except ImportError:
+    _BRAINTRUST_AVAILABLE = False
+
+try:
+    from .adapters import LangSmithAdapter
+
+    _LANGSMITH_AVAILABLE = True
+except ImportError:
+    _LANGSMITH_AVAILABLE = False
 
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
@@ -48,10 +75,6 @@ __all__ = [
     "split_multi_turn_rows",
     "evaluation_test",
     "SingleTurnRolloutProcessor",
-    "OpenAIResponsesAdapter",
-    "LangfuseAdapter",
-    "BraintrustAdapter",
-    "LangSmithAdapter",
     # Core interfaces
     "Message",
     "MetricResult",
@@ -83,6 +106,18 @@ __all__ = [
     "rewards",
     "mcp",
 ]
+
+if _OPENAI_RESPONSES_AVAILABLE:
+    __all__.append("OpenAIResponsesAdapter")
+
+if _LANGFUSE_AVAILABLE:
+    __all__.append("LangfuseAdapter")
+
+if _BRAINTRUST_AVAILABLE:
+    __all__.append("BraintrustAdapter")
+
+if _LANGSMITH_AVAILABLE:
+    __all__.append("LangSmithAdapter")
 
 from . import _version
 
