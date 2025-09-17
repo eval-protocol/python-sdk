@@ -93,7 +93,7 @@ async def aha_judge(
         if row.evaluation_result:
             row.evaluation_result.score = mean_score
 
-    # Push scores back to adapter if provided. Note that one score per model will be pushed back onto same trace.
+    # Push scores back to adapter if provided
     if adapter:
         adapter.upload_scores(rows, model_name, mean_score)
 
