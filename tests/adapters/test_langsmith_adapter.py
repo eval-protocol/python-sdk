@@ -37,7 +37,7 @@ def test_outputs_messages_preferred_and_dedup_user():
             },
         )
     ]
-    adapter = LangSmithAdapter(client=FakeClient(runs))
+    adapter = LangSmithAdapter(client=FakeClient(runs))  # pyright: ignore[reportArgumentType]
     rows = adapter.get_evaluation_rows(project_name="p", limit=10)
     assert len(rows) == 1
     msgs = rows[0].messages
@@ -53,7 +53,7 @@ def test_inputs_variants_prompt_user_input_input():
         SimpleNamespace(id="p3", inputs={"input": "C"}, outputs={"answer": "OC"}),
         SimpleNamespace(id="p4", inputs="D", outputs="OD"),
     ]
-    adapter = LangSmithAdapter(client=FakeClient(runs))
+    adapter = LangSmithAdapter(client=FakeClient(runs))  # pyright: ignore[reportArgumentType]
     rows = adapter.get_evaluation_rows(project_name="p", limit=10)
     texts = [[(m.role, m.content) for m in r.messages] for r in rows]
     assert ("user", "A") in texts[0]
@@ -71,7 +71,7 @@ def test_outputs_variants_and_list_payloads():
         SimpleNamespace(id="o1", inputs=[], outputs={"output": "X"}),
         SimpleNamespace(id="o2", inputs=[_msg("user", "U")], outputs=[_msg("assistant", "V")]),
     ]
-    adapter = LangSmithAdapter(client=FakeClient(runs))
+    adapter = LangSmithAdapter(client=FakeClient(runs))  # pyright: ignore[reportArgumentType]
     rows = adapter.get_evaluation_rows(project_name="p", limit=10)
     msgs1 = rows[0].messages
     assert any(m.role == "assistant" and m.content == "X" for m in msgs1)
@@ -108,14 +108,15 @@ def test_tool_calls_and_tool_role_preserved():
             },
         )
     ]
-    adapter = LangSmithAdapter(client=FakeClient(runs))
+    adapter = LangSmithAdapter(client=FakeClient(runs))  # pyright: ignore[reportArgumentType]
     rows = adapter.get_evaluation_rows(project_name="p", limit=10)
     msgs = rows[0].messages
     # Ensure tool role present
-    assert any(m.role == "tool" and (m.content or "").strip() == "5" for m in msgs)
+    assert any(m.role == "tool" and str(m.content or "").strip() == "5" for m in msgs)
     # Ensure assistant with tool_calls preserved
     assistants = [m for m in msgs if m.role == "assistant" and m.tool_calls]
     assert len(assistants) >= 1
+    assert assistants[0].tool_calls is not None
     tc = assistants[0].tool_calls[0]
     # tool_calls may be provider-native objects; normalize via getattr first
     fname = None
@@ -141,7 +142,7 @@ def test_system_prompt_first_and_multiple_user_allowed():
             outputs={"content": "hello there"},
         )
     ]
-    adapter = LangSmithAdapter(client=FakeClient(runs))
+    adapter = LangSmithAdapter(client=FakeClient(runs))  # pyright: ignore[reportArgumentType]
     rows = adapter.get_evaluation_rows(project_name="p", limit=10)
     msgs = rows[0].messages
     roles = [m.role for m in msgs]
@@ -170,14 +171,12 @@ def test_parallel_tool_calls_normalized():
             outputs={"messages": [assistant_with_tools]},
         ),
     ]
-    adapter = LangSmithAdapter(client=FakeClient(runs))
+    adapter = LangSmithAdapter(client=FakeClient(runs))  # pyright: ignore[reportArgumentType]
     rows = adapter.get_evaluation_rows(project_name="p", limit=10)
     msgs = rows[0].messages
     assistants = [m for m in msgs if m.role == "assistant" and m.tool_calls]
     assert len(assistants) == 1
     tcs = assistants[0].tool_calls
     assert isinstance(tcs, list) and len(tcs) == 2
-    names = [
-        (getattr(tc, "function").name if hasattr(tc, "function") else tc.get("function", {}).get("name")) for tc in tcs
-    ]
+    names = [getattr(tc.function, "name", None) if hasattr(tc, "function") else None for tc in tcs]
     assert names == ["calculator_add", "calculator_add"]
