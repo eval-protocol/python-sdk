@@ -61,9 +61,9 @@ except ImportError:
 
 # Legacy adapters (always available)
 try:
-    from .braintrust import BraintrustAdapter, create_braintrust_adapter, reward_fn_to_scorer, scorer_to_reward_fn
+    from .braintrust import BraintrustAdapter, create_braintrust_adapter
 
-    __all__.extend(["BraintrustAdapter", "create_braintrust_adapter", "scorer_to_reward_fn", "reward_fn_to_scorer"])
+    __all__.extend(["BraintrustAdapter", "create_braintrust_adapter"])
 except ImportError:
     pass
 

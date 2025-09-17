@@ -261,14 +261,6 @@ class TestRewardProtocolFunctionality:
         assert msg.role == "user"
         assert msg.content == "Test message"
 
-    def test_adapter_functions(self):
-        """Test that adapter functions work through eval_protocol."""
-        from eval_protocol import reward_fn_to_scorer, scorer_to_reward_fn
-
-        # These should be callable
-        assert callable(reward_fn_to_scorer)
-        assert callable(scorer_to_reward_fn)
-
     def test_utility_functions(self):
         """Test that utility functions work through eval_protocol."""
         from eval_protocol import create_llm_resource, load_jsonl

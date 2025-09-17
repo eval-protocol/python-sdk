@@ -17,9 +17,6 @@ from eval_protocol.models import EvaluationRow, InputMetadata, Message
 from .base import BaseAdapter
 from .utils import extract_messages_from_data
 
-# Keep backward compatibility
-from ..integrations.braintrust import reward_fn_to_scorer, scorer_to_reward_fn
-
 
 logger = logging.getLogger(__name__)
 
@@ -281,4 +278,4 @@ def create_braintrust_adapter(
     )
 
 
-__all__ = ["scorer_to_reward_fn", "reward_fn_to_scorer", "BraintrustAdapter", "create_braintrust_adapter"]
+__all__ = ["BraintrustAdapter", "create_braintrust_adapter"]
