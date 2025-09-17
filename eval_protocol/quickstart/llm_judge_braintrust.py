@@ -16,7 +16,8 @@ from eval_protocol.quickstart import aha_judge
 adapter = create_braintrust_adapter()
 
 
-@pytest.mark.asyncio
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")  # pyright: ignore[reportAttributeAccessIssue]
+@pytest.mark.asyncio  # pyright: ignore[reportAttributeAccessIssue]
 @evaluation_test(
     input_rows=[
         adapter.get_evaluation_rows(

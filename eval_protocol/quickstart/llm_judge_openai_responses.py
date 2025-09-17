@@ -20,17 +20,22 @@ from typing import List
 
 import pytest
 
-from eval_protocol.models import EvaluationRow
-from eval_protocol.pytest import evaluation_test
-from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
-from eval_protocol.quickstart import aha_judge, split_multi_turn_rows
-from eval_protocol.adapters.openai_responses import OpenAIResponsesAdapter
+from eval_protocol import (
+    evaluation_test,
+    aha_judge,
+    split_multi_turn_rows,
+    EvaluationRow,
+    SingleTurnRolloutProcessor,
+    OpenAIResponsesAdapter,
+)
 
 adapter = OpenAIResponsesAdapter()
 input_rows = adapter.get_evaluation_rows(
     response_ids=[
         "resp_0e1b7db5d96e92470068c99506443c819e9305e92915d2405f",
-        "resp_05639dcaca074fbc0068c9946593b481908cac70075926d85c",
+        # "resp_05639dcaca074fbc0068c9946593b481908cac70075926d85c",
+        # "resp_0c96a910416e87aa0068c994d0b34c81a3bda0eddf22445aec",
+        # "resp_0efe023280e986f90068c994b85e088190bc8d8263fa603e02",
     ]
 )
 

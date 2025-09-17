@@ -32,15 +32,26 @@ except (ImportError, AttributeError):
     _FIREWORKS_AVAILABLE = False
 # Import submodules to make them available via eval_protocol.rewards, etc.
 from . import mcp, rewards
-from .models import EvaluateResult, Message, MetricResult
+from .models import EvaluateResult, Message, MetricResult, EvaluationRow
 from .playback_policy import PlaybackPolicyBase
 from .resources import create_llm_resource
 from .reward_function import RewardFunction
 from .typed_interface import reward_function
+from .quickstart import aha_judge, split_multi_turn_rows
+from .pytest import evaluation_test, SingleTurnRolloutProcessor
+from .adapters import OpenAIResponsesAdapter, LangfuseAdapter, BraintrustAdapter, LangSmithAdapter
 
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 __all__ = [
+    "aha_judge",
+    "split_multi_turn_rows",
+    "evaluation_test",
+    "SingleTurnRolloutProcessor",
+    "OpenAIResponsesAdapter",
+    "LangfuseAdapter",
+    "BraintrustAdapter",
+    "LangSmithAdapter",
     # Core interfaces
     "Message",
     "MetricResult",

@@ -56,8 +56,8 @@ def fetch_langsmith_traces_as_evaluation_rows(
         return []
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
-@pytest.mark.asyncio
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")  # pyright: ignore[reportAttributeAccessIssue]
+@pytest.mark.asyncio  # pyright: ignore[reportAttributeAccessIssue]
 @evaluation_test(
     input_rows=[fetch_langsmith_traces_as_evaluation_rows()],
     completion_params=[

@@ -73,3 +73,17 @@ try:
     __all__.extend(["create_trl_adapter"])
 except ImportError:
     pass
+
+try:
+    from .openai_responses import OpenAIResponsesAdapter
+
+    __all__.extend(["OpenAIResponsesAdapter"])
+except ImportError:
+    pass
+
+try:
+    from .langsmith import LangSmithAdapter
+
+    __all__.extend(["LangSmithAdapter"])
+except ImportError:
+    pass
