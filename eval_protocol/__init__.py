@@ -39,7 +39,24 @@ from .reward_function import RewardFunction
 from .typed_interface import reward_function
 from .quickstart import aha_judge, split_multi_turn_rows
 from .pytest import evaluation_test, SingleTurnRolloutProcessor
-from .adapters import OpenAIResponsesAdapter, LangfuseAdapter, BraintrustAdapter, LangSmithAdapter
+
+from .adapters import OpenAIResponsesAdapter
+
+try:
+    from .adapters import LangfuseAdapter
+except ImportError:
+    LangfuseAdapter = None
+
+try:
+    from .adapters import BraintrustAdapter
+except ImportError:
+    BraintrustAdapter = None
+
+try:
+    from .adapters import LangSmithAdapter
+except ImportError:
+    LangSmithAdapter = None
+
 
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
