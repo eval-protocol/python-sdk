@@ -4,6 +4,7 @@ This package provides adapters for integrating with various data sources
 and converting them to EvaluationRow format for use in evaluation pipelines.
 
 Available adapters:
+- BaseAdapter: Abstract base class for all adapters
 - LangfuseAdapter: Pull data from Langfuse deployments
 - HuggingFaceAdapter: Load datasets from HuggingFace Hub
 - BigQueryAdapter: Query data from Google BigQuery
@@ -11,13 +12,18 @@ Available adapters:
 - TRL integration (legacy)
 """
 
+# Always available
+from .base import BaseAdapter
+
+__all__ = ["BaseAdapter"]
+
 # Conditional imports based on available dependencies
 try:
     from .langfuse import LangfuseAdapter, create_langfuse_adapter
 
-    __all__ = ["LangfuseAdapter", "create_langfuse_adapter"]
+    __all__.extend(["LangfuseAdapter", "create_langfuse_adapter"])
 except ImportError:
-    __all__ = []
+    pass
 
 try:
     from .huggingface import (
@@ -55,9 +61,9 @@ except ImportError:
 
 # Legacy adapters (always available)
 try:
-    from .braintrust import reward_fn_to_scorer, scorer_to_reward_fn
+    from .braintrust import BraintrustAdapter, create_braintrust_adapter, reward_fn_to_scorer, scorer_to_reward_fn
 
-    __all__.extend(["scorer_to_reward_fn", "reward_fn_to_scorer"])
+    __all__.extend(["BraintrustAdapter", "create_braintrust_adapter", "scorer_to_reward_fn", "reward_fn_to_scorer"])
 except ImportError:
     pass
 

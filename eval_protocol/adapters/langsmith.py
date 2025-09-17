@@ -13,6 +13,7 @@ import logging
 from typing import Any, Dict, List, Optional, Iterable
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
+from .base import BaseAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ except ImportError:
     LANGSMITH_AVAILABLE = False
 
 
-class LangSmithAdapter:
+class LangSmithAdapter(BaseAdapter):
     """Adapter to pull data from LangSmith and convert to EvaluationRow format.
 
     By default, fetches root runs from a project and maps inputs/outputs into

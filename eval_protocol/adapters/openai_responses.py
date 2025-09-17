@@ -21,6 +21,7 @@ from openai.types.chat.chat_completion_message_function_tool_call import (
 from openai.types.responses.tool import Tool
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
+from .base import BaseAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 from openai import OpenAI
 
 
-class OpenAIResponsesAdapter:
+class OpenAIResponsesAdapter(BaseAdapter):
     """Adapter to pull data from OpenAI Responses API and convert to EvaluationRow format.
 
     This adapter can pull both chat conversations and tool calling traces from

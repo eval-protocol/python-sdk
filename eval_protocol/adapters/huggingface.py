@@ -8,6 +8,7 @@ import logging
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
 from eval_protocol.models import CompletionParams, EvaluationRow, InputMetadata, Message
+from .base import BaseAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ except ImportError:
 TransformFunction = Callable[[Dict[str, Any]], Dict[str, Any]]
 
 
-class HuggingFaceAdapter:
+class HuggingFaceAdapter(BaseAdapter):
     """Generic adapter to load HuggingFace datasets with custom transformations.
 
     This adapter loads datasets from HuggingFace Hub and applies a user-provided

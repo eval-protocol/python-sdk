@@ -1,8 +1,8 @@
 """
-Example for using Braintrust with the aha judge.
+Example for using Langfuse with the aha judge.
 """
 
-import os
+from datetime import datetime
 
 import pytest
 
@@ -10,22 +10,22 @@ from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
 from eval_protocol.quickstart.utils import split_multi_turn_rows
-from eval_protocol.adapters.braintrust import create_braintrust_adapter
+
+from eval_protocol.adapters.langfuse import create_langfuse_adapter
 from eval_protocol.quickstart import aha_judge
 
-adapter = create_braintrust_adapter()
+adapter = create_langfuse_adapter()
 
 
 @pytest.mark.asyncio
 @evaluation_test(
     input_rows=[
         adapter.get_evaluation_rows(
-            btql_query=f"""
-select: *
-from: project_logs('{os.getenv("BRAINTRUST_PROJECT_ID")}') traces
-filter: is_root = true
-limit: 10
-"""
+            to_timestamp=datetime(2025, 9, 12, 0, 11, 18),
+            limit=711,
+            sample_size=50,
+            sleep_between_gets=3.0,
+            max_retries=5,
         )
     ],
     completion_params=[

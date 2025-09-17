@@ -2,65 +2,23 @@
 Default LLM judge for Eval Protocol. Inspired by Arena-Hard-Auto.
 """
 
-from collections.abc import Awaitable, Callable
-import os
-from datetime import datetime
-from typing import List, Dict, Any, Optional
-from typing_extensions import cast
 from tqdm import tqdm
+from typing import Optional
 
-import pytest
-
-from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult
-from eval_protocol.pytest import evaluation_test
-from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
+from eval_protocol.models import EvaluationRow
+from eval_protocol.adapters.base import BaseAdapter
 from eval_protocol.quickstart.utils import (
-    split_multi_turn_rows,
     JUDGE_CONFIGS,
     calculate_bootstrap_scores,
     run_judgment_async,
 )
 import asyncio
 from openai import AsyncOpenAI
-from eval_protocol.adapters.langfuse import create_langfuse_adapter
-
-adapter = create_langfuse_adapter()
 
 
-@pytest.mark.asyncio
-@evaluation_test(
-    input_rows=[
-        adapter.get_evaluation_rows(
-            to_timestamp=datetime(2025, 9, 12, 0, 11, 18),
-            limit=711,
-            sample_size=50,
-            sleep_between_gets=3.0,
-            max_retries=5,
-        )
-    ],
-    completion_params=[
-        {"model": "gpt-4.1"},
-        {
-            "max_tokens": 131000,
-            "extra_body": {"reasoning_effort": "medium"},
-            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
-        },
-        {
-            "max_tokens": 131000,
-            "extra_body": {"reasoning_effort": "low"},
-            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
-        },
-    ],
-    rollout_processor=SingleTurnRolloutProcessor(),
-    preprocess_fn=split_multi_turn_rows,
-    max_concurrent_rollouts=64,
-    mode="all",
-)
-async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
-    return await aha_judge(rows)
-
-
-async def aha_judge(rows: list[EvaluationRow], judge_name: str = "gemini-2.5-pro") -> list[EvaluationRow]:
+async def aha_judge(
+    rows: list[EvaluationRow], judge_name: str = "gemini-2.5-pro", adapter: Optional[BaseAdapter] = None
+) -> list[EvaluationRow]:
     """
     LLM Judge evaluation using Arena-Hard-Auto style pairwise comparisons.
 
@@ -73,6 +31,8 @@ async def aha_judge(rows: list[EvaluationRow], judge_name: str = "gemini-2.5-pro
 
     Args:
         rows: List of EvaluationRow objects with messages, ground_truth, and tools
+        judge_name: Name of the judge configuration to use
+        adapter: Optional adapter to push scores back to (if provided)
 
     Returns:
         Same rows with updated evaluation_result containing scores and judgments
@@ -133,7 +93,8 @@ async def aha_judge(rows: list[EvaluationRow], judge_name: str = "gemini-2.5-pro
         if row.evaluation_result:
             row.evaluation_result.score = mean_score
 
-    # Optional, push scores back to Langfuse. Note that one score per model will be pushed back onto same trace.
-    adapter.push_scores(rows, model_name, mean_score)
+    # Push scores back to adapter if provided. Note that one score per model will be pushed back onto same trace.
+    if adapter:
+        adapter.push_scores(rows, model_name, mean_score)
 
     return rows

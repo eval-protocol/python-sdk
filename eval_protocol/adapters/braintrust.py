@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Protocol
 import requests
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
+from .base import BaseAdapter
 from .utils import extract_messages_from_data
 
 # Keep backward compatibility
@@ -128,7 +129,7 @@ def extract_messages_from_trace(trace: Dict[str, Any], include_tool_calls: bool 
     return messages
 
 
-class BraintrustAdapter:
+class BraintrustAdapter(BaseAdapter):
     """Adapter to pull data from Braintrust and convert to EvaluationRow format.
 
     This adapter can pull both chat conversations and tool calling traces from
@@ -222,6 +223,49 @@ class BraintrustAdapter:
 
         logger.info("Successfully processed %d BTQL results into %d evaluation rows", len(all_traces), len(eval_rows))
         return eval_rows
+
+    def push_scores(self, rows: List[EvaluationRow], model_name: str, mean_score: float) -> None:
+        """Push evaluation scores back to Braintrust traces for tracking and analysis.
+
+        Creates score entries in Braintrust for each unique trace_id found in the evaluation
+        rows' session data. This allows you to see evaluation results directly in the
+        Braintrust UI alongside the original traces.
+
+        Args:
+            rows: List of EvaluationRow objects with session_data containing trace IDs
+            model_name: Name of the model (used as the score name in Braintrust)
+            mean_score: The calculated mean score to push to Braintrust
+
+        Note:
+            Silently handles errors if rows lack session data
+        """
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            }
+
+            feedback_items = []
+            for trace_id in set(
+                row.input_metadata.session_data["braintrust_trace_id"]
+                for row in rows
+                if row.evaluation_result and row.input_metadata and row.input_metadata.session_data
+            ):
+                if trace_id:
+                    feedback_items.append({"id": trace_id, "scores": {model_name: mean_score}})
+
+            if feedback_items:
+                payload = {"feedback": feedback_items}
+
+                response = requests.post(
+                    f"{self.api_url}/v1/project_logs/{self.project_id}/feedback",
+                    headers=headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+
+        except Exception as e:
+            logger.warning("Failed to push scores to Braintrust: %s", e)
 
 
 def create_braintrust_adapter(

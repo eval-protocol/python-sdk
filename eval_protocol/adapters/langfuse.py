@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Protocol
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
+from .base import BaseAdapter
 from .utils import extract_messages_from_data
 
 logger = logging.getLogger(__name__)
@@ -188,7 +189,7 @@ def get_final_generation_in_span(trace: TraceWithFullDetails, span_name: str) ->
     return generations[-1]
 
 
-class LangfuseAdapter:
+class LangfuseAdapter(BaseAdapter):
     """Adapter to pull data from Langfuse and convert to EvaluationRow format.
 
     This adapter can pull both chat conversations and tool calling traces from

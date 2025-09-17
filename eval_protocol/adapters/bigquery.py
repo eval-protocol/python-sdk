@@ -10,6 +10,7 @@ import logging
 from typing import Any, Callable, Dict, Iterator, List, Optional, TypeAlias
 
 from eval_protocol.models import CompletionParams, EvaluationRow, InputMetadata, Message
+from .base import BaseAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ QueryJobConfig: TypeAlias = Any
 TransformFunction = Callable[[Dict[str, Any]], Dict[str, Any]]
 
 
-class BigQueryAdapter:
+class BigQueryAdapter(BaseAdapter):
     """Adapter to query data from Google BigQuery and convert to EvaluationRow format.
 
     This adapter connects to Google BigQuery, executes SQL queries, and applies
