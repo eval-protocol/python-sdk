@@ -280,39 +280,3 @@ def calculate_bootstrap_scores(judgments: List[Dict[str, Any]]) -> Optional[tupl
     upper_score = bootstraps.quantile(0.95)
 
     return mean_score, lower_score, upper_score
-
-
-def push_scores_to_langfuse(rows: List[EvaluationRow], model_name: str, mean_score: float) -> None:
-    """
-    Push evaluation scores back to Langfuse traces for tracking and analysis.
-
-    Creates a score entry in Langfuse for each unique trace_id found in the evaluation
-    rows' session data. This allows you to see evaluation results directly in the
-    Langfuse UI alongside the original traces.
-
-    Args:
-        rows: List of EvaluationRow objects with session_data containing trace IDs
-        model_name: Name of the model (used as the score name in Langfuse)
-        mean_score: The calculated mean score to push to Langfuse
-
-    Note:
-        Silently handles errors if Langfuse is unavailable or if rows lack session data
-    """
-    try:
-        from eval_protocol.adapters.langfuse import create_langfuse_adapter
-
-        langfuse = create_langfuse_adapter().client
-
-        for trace_id in set(
-            row.input_metadata.session_data["langfuse_trace_id"]
-            for row in rows
-            if row.evaluation_result and row.input_metadata and row.input_metadata.session_data
-        ):
-            if trace_id:
-                langfuse.create_score(
-                    trace_id=trace_id,
-                    name=model_name,
-                    value=mean_score,
-                )
-    except Exception as e:
-        print(f"⚠️ Failed to push scores to Langfuse: {e}")
