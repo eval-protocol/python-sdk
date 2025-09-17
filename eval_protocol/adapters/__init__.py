@@ -8,7 +8,6 @@ Available adapters:
 - LangfuseAdapter: Pull data from Langfuse deployments
 - HuggingFaceAdapter: Load datasets from HuggingFace Hub
 - BigQueryAdapter: Query data from Google BigQuery
-- Braintrust integration (legacy)
 - TRL integration (legacy)
 """
 
@@ -59,13 +58,14 @@ try:
 except ImportError:
     pass
 
-# Legacy adapters (always available)
 try:
     from .braintrust import BraintrustAdapter, create_braintrust_adapter
 
     __all__.extend(["BraintrustAdapter", "create_braintrust_adapter"])
 except ImportError:
     pass
+
+# Legacy adapters (always available)
 
 try:
     from .trl import create_trl_adapter
