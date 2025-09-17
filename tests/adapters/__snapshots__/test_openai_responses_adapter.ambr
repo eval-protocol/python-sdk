@@ -423,7 +423,7 @@
       'tools': list([
         dict({
           'function': dict({
-            'description': None,
+            'description': '',
             'name': 'execute_sql',
             'parameters': dict({
               'additionalProperties': False,
@@ -646,7 +646,7 @@
       'tools': list([
         dict({
           'function': dict({
-            'description': None,
+            'description': '',
             'name': 'execute_sql',
             'parameters': dict({
               'additionalProperties': False,
