@@ -1,4 +1,3 @@
-import json
 import os
 from types import SimpleNamespace
 from typing import Any, Dict, List
@@ -18,7 +17,7 @@ class MockResponse:
         self.json_data = json_data
         self.status_code = status_code
 
-    def json(self) -> Dict[str, Any]:  # noqa: F811
+    def json(self) -> Dict[str, Any]:
         return self.json_data
 
     def raise_for_status(self) -> None:
@@ -30,7 +29,7 @@ class MockResponse:
 def mock_requests_post(monkeypatch):
     """Mock requests.post to return sample data"""
 
-    def fake_post(url: str, headers=None, json_data=None):
+    def fake_post(url: str, headers=None, json=None):
         # Return a simplified response for basic tests
         return MockResponse(
             {
@@ -66,7 +65,7 @@ def test_basic_btql_query_returns_evaluation_rows(mock_requests_post):
 def test_trace_with_tool_calls_preserved(monkeypatch):
     """Test that tool calls are properly preserved in converted messages"""
 
-    def mock_post(url: str, headers=None, json_data=None):
+    def mock_post(url: str, headers=None, json=None):
         return MockResponse(
             {
                 "data": [
@@ -118,7 +117,7 @@ def test_trace_with_tool_calls_preserved(monkeypatch):
 def test_trace_with_tool_response_messages(monkeypatch):
     """Test that tool response messages are properly handled"""
 
-    def mock_post(url: str, headers=None, json_data=None):
+    def mock_post(url: str, headers=None, json=None):
         return MockResponse(
             {
                 "data": [
@@ -179,7 +178,7 @@ def test_trace_with_tool_response_messages(monkeypatch):
 def test_tools_extracted_from_metadata_variants(monkeypatch):
     """Test that tools are extracted from different metadata locations"""
 
-    def mock_post_with_tools_in_metadata(url: str, headers=None, json_data=None):
+    def mock_post_with_tools_in_metadata(url: str, headers=None, json=None):
         return MockResponse(
             {
                 "data": [
@@ -214,7 +213,7 @@ def test_tools_extracted_from_metadata_variants(monkeypatch):
 def test_tools_extracted_from_hidden_params(monkeypatch):
     """Test that tools are extracted from nested hidden_params location"""
 
-    def mock_post_with_hidden_tools(url: str, headers=None, json_data=None):
+    def mock_post_with_hidden_tools(url: str, headers=None, json=None):
         return MockResponse(
             {
                 "data": [
@@ -256,7 +255,7 @@ def test_tools_extracted_from_hidden_params(monkeypatch):
 def test_empty_btql_response_returns_empty_list(monkeypatch):
     """Test that empty BTQL response returns empty list"""
 
-    def mock_empty_post(url: str, headers=None, json_data=None):
+    def mock_empty_post(url: str, headers=None, json=None):
         return MockResponse({"data": []})
 
     monkeypatch.setattr("requests.post", mock_empty_post)
@@ -270,7 +269,7 @@ def test_empty_btql_response_returns_empty_list(monkeypatch):
 def test_trace_without_meaningful_conversation_skipped(monkeypatch):
     """Test that traces without input or output are skipped"""
 
-    def mock_post_incomplete_trace(url: str, headers=None, json_data=None):
+    def mock_post_incomplete_trace(url: str, headers=None, json=None):
         return MockResponse(
             {
                 "data": [
@@ -299,7 +298,7 @@ def test_trace_without_meaningful_conversation_skipped(monkeypatch):
 def test_custom_converter_used_when_provided(monkeypatch):
     """Test that custom converter is used when provided"""
 
-    def mock_post(url: str, headers=None, json_data=None):
+    def mock_post(url: str, headers=None, json=None):
         return MockResponse(
             {
                 "data": [
@@ -337,7 +336,7 @@ def test_custom_converter_used_when_provided(monkeypatch):
 def test_api_authentication_error_handling(monkeypatch):
     """Test that API authentication errors are handled properly"""
 
-    def mock_auth_error(url: str, headers=None, json_data=None):
+    def mock_auth_error(url: str, headers=None, json=None):
         return MockResponse({}, status_code=401)
 
     monkeypatch.setattr("requests.post", mock_auth_error)
