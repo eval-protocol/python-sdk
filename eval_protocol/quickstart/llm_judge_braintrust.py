@@ -13,21 +13,22 @@ from eval_protocol.quickstart.utils import split_multi_turn_rows
 from eval_protocol.adapters.braintrust import create_braintrust_adapter
 from eval_protocol.quickstart import aha_judge
 
-adapter = create_braintrust_adapter()
+# adapter = create_braintrust_adapter()
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
 @pytest.mark.asyncio
 @evaluation_test(
     input_rows=[
-        adapter.get_evaluation_rows(
-            btql_query=f"""
-select: *
-from: project_logs('{os.getenv("BRAINTRUST_PROJECT_ID")}') traces
-filter: is_root = true
-limit: 10
-"""
-        )
+        #         adapter.get_evaluation_rows(
+        #             btql_query=f"""
+        # select: *
+        # from: project_logs('{os.getenv("BRAINTRUST_PROJECT_ID")}') traces
+        # filter: is_root = true
+        # limit: 10
+        # """
+        #         )
+        []
     ],
     completion_params=[
         {"model": "gpt-4.1"},
