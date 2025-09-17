@@ -56,7 +56,7 @@ except ImportError:
 
 
 def convert_trace_to_evaluation_row(
-    trace: TraceWithFullDetails, include_tool_calls: bool = True, span_name: Optional[str] = None
+    trace: "TraceWithFullDetails", include_tool_calls: bool = True, span_name: Optional[str] = None
 ) -> Optional[EvaluationRow]:
     """Convert a Langfuse trace to EvaluationRow format.
 

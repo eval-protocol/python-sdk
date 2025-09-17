@@ -40,8 +40,8 @@ input_rows = adapter.get_evaluation_rows(
 )
 
 
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")  # pyright: ignore[reportAttributeAccessIssue]
-@pytest.mark.asyncio  # pyright: ignore[reportAttributeAccessIssue]
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
+@pytest.mark.asyncio
 @evaluation_test(
     input_rows=[input_rows],
     completion_params=[
