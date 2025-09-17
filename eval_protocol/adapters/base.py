@@ -16,6 +16,6 @@ class BaseAdapter(ABC):
         """Get evaluation rows from the data source."""
         pass
 
-    def push_scores(self, rows: List[EvaluationRow], model_name: str, mean_score: float) -> None:
-        """Push evaluation scores back to the data source for tracking and analysis."""
+    def upload_scores(self, rows: List[EvaluationRow], model_name: str, mean_score: float) -> None:
+        """Upload evaluation scores back to the data source for tracking and analysis."""
         pass

@@ -434,8 +434,8 @@ class LangfuseAdapter(BaseAdapter):
                 continue
         return eval_rows
 
-    def push_scores(self, rows: List[EvaluationRow], model_name: str, mean_score: float) -> None:
-        """Push evaluation scores back to Langfuse traces for tracking and analysis.
+    def upload_scores(self, rows: List[EvaluationRow], model_name: str, mean_score: float) -> None:
+        """Upload evaluation scores back to Langfuse traces for tracking and analysis.
 
         Creates a score entry in Langfuse for each unique trace_id found in the evaluation
         rows' session data. This allows you to see evaluation results directly in the
