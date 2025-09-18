@@ -27,6 +27,7 @@ from eval_protocol import (
     EvaluationRow,
     SingleTurnRolloutProcessor,
     OpenAIResponsesAdapter,
+    DefaultParameterIdGenerator,
 )
 
 adapter = OpenAIResponsesAdapter()
@@ -41,10 +42,9 @@ input_rows = adapter.get_evaluation_rows(
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
-@pytest.mark.asyncio
-@evaluation_test(
-    input_rows=[input_rows],
-    completion_params=[
+@pytest.mark.parametrize(
+    "completion_params",
+    [
         {
             "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
         },
@@ -52,6 +52,10 @@ input_rows = adapter.get_evaluation_rows(
             "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905",
         },
     ],
+    ids=DefaultParameterIdGenerator.generate_id_from_dict,
+)
+@evaluation_test(
+    input_rows=[input_rows],
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=split_multi_turn_rows,
     mode="all",

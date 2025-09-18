@@ -39,6 +39,7 @@ from .reward_function import RewardFunction
 from .typed_interface import reward_function
 from .quickstart import aha_judge, split_multi_turn_rows
 from .pytest import evaluation_test, SingleTurnRolloutProcessor
+from .pytest.parameterize import DefaultParameterIdGenerator
 
 from .adapters import OpenAIResponsesAdapter
 
@@ -61,6 +62,7 @@ except ImportError:
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 __all__ = [
+    "DefaultParameterIdGenerator",
     "aha_judge",
     "split_multi_turn_rows",
     "evaluation_test",

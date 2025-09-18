@@ -9,10 +9,26 @@ from eval_protocol.pytest.generate_parameter_combinations import CombinationTupl
 from eval_protocol.pytest.types import DatasetPathParam, EvaluationInputParam, InputMessagesParam, TestFunction
 
 
-class PytestParametrizeArgs(TypedDict):
+class PytestMarkParametrizeKwargs(TypedDict):
     argnames: Sequence[str]
     argvalues: Iterable[ParameterSet | Sequence[object] | object]
     ids: Iterable[str] | None
+
+
+class ParametrizeArgs(TypedDict):
+    """
+    This contains all the necessary information to properly hijack the test
+    function's signature and dynamically inject usage of
+    pytest.mark.parametrize. The two will differ when a user manually provides
+    the pytest.mark.parametrize decorator instead of passing completion_params
+    on their own.
+    """
+
+    # for create_dynamically_parameterized_wrapper
+    sig_parameters: Sequence[str]
+
+    # for pytest.mark.parametrize
+    pytest_parametrize_kwargs: PytestMarkParametrizeKwargs
 
 
 class ParameterIdGenerator(Protocol):
@@ -30,7 +46,7 @@ class ParameterIdGenerator(Protocol):
         ...
 
 
-class DefaultParameterIdGenerator:
+class DefaultParameterIdGenerator(ParameterIdGenerator):
     """Default ID generator that creates meaningful IDs from parameter combinations."""
 
     def __init__(self, max_length: int = 200):
@@ -46,22 +62,35 @@ class DefaultParameterIdGenerator:
         dataset, completion_params, messages, rows, evaluation_test_kwargs = combo
 
         if completion_params:
-            # Get all string, numeric, and boolean values from completion_params, sorted by key
-            str_values = []
-            for key in sorted(completion_params.keys()):
-                value = completion_params[key]
-                if isinstance(value, (str, int, float, bool)):
-                    str_values.append(str(value))
+            id = self.generate_id_from_dict(completion_params, self.max_length)
+            if id:
+                return id
+        else:
+            if rows:
+                return f"rows(len={len(rows)})"
+            elif messages:
+                return f"messages(len={len(messages)})"
+            elif dataset:
+                return f"dataset(len={len(dataset)})"
+        return None
 
-            if str_values:
-                id_str = ":".join(str_values)
+    @staticmethod
+    def generate_id_from_dict(d: dict[str, object], max_length: int = 200) -> str | None:
+        # Get all string, numeric, and boolean values from completion_params, sorted by key
+        str_values = []
+        for key in sorted(d.keys()):
+            value = d[key]
+            if isinstance(value, (str, int, float, bool)):
+                str_values.append(str(value))
 
-                # Truncate if too long
-                if len(id_str) > self.max_length:
-                    id_str = id_str[: self.max_length - 3] + "..."
+        if str_values:
+            id_str = ":".join(str_values)
 
-                return id_str
+            # Truncate if too long
+            if len(id_str) > max_length:
+                id_str = id_str[: max_length - 3] + "..."
 
+            return id_str
         return None
 
 
@@ -69,11 +98,12 @@ def pytest_parametrize(
     combinations: list[CombinationTuple],
     input_dataset: Sequence[DatasetPathParam] | None,
     completion_params: Sequence[CompletionParams | None] | None,
+    completion_params_provided: bool,
     input_messages: Sequence[list[InputMessagesParam] | None] | None,
     input_rows: Sequence[list[EvaluationRow]] | None,
     evaluation_test_kwargs: Sequence[EvaluationInputParam | None] | None,
     id_generator: ParameterIdGenerator | None = None,
-) -> PytestParametrizeArgs:
+) -> ParametrizeArgs:
     """
     This function dynamically generates pytest.mark.parametrize arguments for a given
     set of combinations. This is the magic that allows developers to pass in their
@@ -84,16 +114,23 @@ def pytest_parametrize(
 
     # Create parameter tuples for pytest.mark.parametrize
     argnames: list[str] = []
+    sig_parameters: list[str] = []
     if input_dataset is not None:
         argnames.append("dataset_path")
+        sig_parameters.append("dataset_path")
     if completion_params is not None:
-        argnames.append("completion_params")
+        if completion_params_provided:
+            argnames.append("completion_params")
+        sig_parameters.append("completion_params")
     if input_messages is not None:
         argnames.append("input_messages")
+        sig_parameters.append("input_messages")
     if input_rows is not None:
         argnames.append("input_rows")
+        sig_parameters.append("input_rows")
     if evaluation_test_kwargs is not None:
         argnames.append("evaluation_test_kwargs")
+        sig_parameters.append("evaluation_test_kwargs")
 
     # Use default ID generator if none provided
     if id_generator is None:
@@ -109,7 +146,7 @@ def pytest_parametrize(
         # Build parameter tuple based on what's provided
         if input_dataset is not None:
             param_tuple.append(dataset)
-        if completion_params is not None:
+        if completion_params_provided:
             param_tuple.append(cp)
         if input_messages is not None:
             param_tuple.append(messages)
@@ -132,7 +169,12 @@ def pytest_parametrize(
             ids.append(combo_id)
 
     # Return None for ids if no IDs were generated (let pytest use defaults)
-    return PytestParametrizeArgs(argnames=argnames, argvalues=argvalues, ids=ids if ids else None)
+    return ParametrizeArgs(
+        pytest_parametrize_kwargs=PytestMarkParametrizeKwargs(
+            argnames=argnames, argvalues=argvalues, ids=ids if ids else None
+        ),
+        sig_parameters=sig_parameters,
+    )
 
 
 def create_dynamically_parameterized_wrapper(

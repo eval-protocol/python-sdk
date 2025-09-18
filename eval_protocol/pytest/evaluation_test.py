@@ -158,8 +158,14 @@ def evaluation_test(
         exception_handler_config: Configuration for exception handling and backoff retry logic.
             If not provided, a default configuration will be used with common retryable exceptions.
     """
+    # Default to [None] when completion_params is not provided
+    # This allows evaluation-only tests (e.g., using NoOpRolloutProcessor)
+    # to work without requiring model generation parameters
     if completion_params is None:
+        completion_params_provided = False
         completion_params = [None]
+    else:
+        completion_params_provided = True
     if rollout_processor is None:
         rollout_processor = NoOpRolloutProcessor()
 
@@ -201,6 +207,7 @@ def evaluation_test(
             combinations,
             input_dataset,
             completion_params,
+            completion_params_provided,
             input_messages,
             input_rows,
             evaluation_test_kwargs,
@@ -565,12 +572,14 @@ def evaluation_test(
             return create_dynamically_parameterized_wrapper(
                 test_func,
                 wrapper_body,
-                pytest_parametrize_args["argnames"],
+                pytest_parametrize_args["sig_parameters"],
             )
 
         # Create the pytest wrapper
         pytest_wrapper = create_wrapper_with_signature()
-        pytest_wrapper = pytest.mark.parametrize(**pytest_parametrize_args)(pytest_wrapper)
+        pytest_wrapper = pytest.mark.parametrize(**pytest_parametrize_args["pytest_parametrize_kwargs"])(
+            pytest_wrapper
+        )
         pytest_wrapper = pytest.mark.asyncio(pytest_wrapper)
 
         # Create the dual mode wrapper
