@@ -7,6 +7,12 @@ from .evaluation_test import evaluation_test
 from .exception_config import ExceptionHandlerConfig, BackoffConfig, get_default_exception_handler_config
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
+from .data_loaders import (
+    EvaluationDataLoader,
+    InlineDataLoader,
+    LangfuseAdapterLoader,
+    LangfuseLoaderConfig,
+)
 
 # Conditional import for optional dependencies
 try:
@@ -38,6 +44,10 @@ __all__ = [
     "ExceptionHandlerConfig",
     "BackoffConfig",
     "get_default_exception_handler_config",
+    "EvaluationDataLoader",
+    "InlineDataLoader",
+    "LangfuseAdapterLoader",
+    "LangfuseLoaderConfig",
 ]
 
 # Only add to __all__ if available

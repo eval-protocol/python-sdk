@@ -1,5 +1,6 @@
 from typing import TypedDict
 from eval_protocol.models import CompletionParams, EvaluationRow
+from eval_protocol.pytest.data_loaders import DataLoaderVariant
 from eval_protocol.pytest.types import Dataset, DatasetPathParam, EvaluationInputParam, InputMessagesParam
 from eval_protocol.pytest.utils import parse_ep_max_rows
 from collections.abc import Sequence
@@ -31,7 +32,7 @@ CombinationTuple = tuple[
 ]
 
 
-class ParameterizedTestKwargs(TypedDict):
+class ParameterizedTestKwargs(TypedDict, total=False):
     """
     These are the type of parameters that can be passed to the generated pytest
     function. Every experiment is a unique combination of these parameters.
@@ -42,6 +43,7 @@ class ParameterizedTestKwargs(TypedDict):
     input_messages: InputMessagesKwarg
     input_rows: InputRowsKwarg
     evaluation_test_kwargs: EvaluationTestKwargs
+    data_loader_variant: DataLoaderVariant
 
 
 def generate_parameter_combinations(
