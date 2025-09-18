@@ -26,10 +26,22 @@ from eval_protocol.pytest.dual_mode_wrapper import create_dual_mode_wrapper
 from eval_protocol.pytest.evaluation_test_postprocess import postprocess
 from eval_protocol.pytest.execution import execute_pytest
 from eval_protocol.pytest.generate_parameter_combinations import (
+    CombinationTuple,
     ParameterizedTestKwargs,
     generate_parameter_combinations,
 )
-from eval_protocol.pytest.parameterize import pytest_parametrize, create_dynamically_parameterized_wrapper
+from eval_protocol.pytest.data_loaders import (
+    DataLoaderContext,
+    DataLoaderResult,
+    DataLoaderVariant,
+    EvaluationDataLoader,
+)
+from eval_protocol.pytest.parameterize import (
+    DefaultParameterIdGenerator,
+    PytestParametrizeArgs,
+    create_dynamically_parameterized_wrapper,
+    pytest_parametrize,
+)
 from eval_protocol.pytest.validate_signature import validate_signature
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
@@ -69,6 +81,7 @@ def evaluation_test(
     input_messages: Sequence[list[InputMessagesParam] | None] | None = None,
     input_dataset: Sequence[DatasetPathParam] | None = None,
     input_rows: Sequence[list[EvaluationRow]] | None = None,
+    data_loaders: Sequence[EvaluationDataLoader] | EvaluationDataLoader | None = None,
     dataset_adapter: Callable[[list[dict[str, Any]]], Dataset] = default_dataset_adapter,  # pyright: ignore[reportExplicitAny]
     rollout_processor: RolloutProcessor | None = None,
     evaluation_test_kwargs: Sequence[EvaluationInputParam | None] | None = None,
@@ -131,6 +144,9 @@ def evaluation_test(
         input_rows: Pre-constructed EvaluationRow objects to use directly. This is useful
             when you want to provide EvaluationRow objects with custom metadata, input_messages,
             or other fields already populated. Will be passed as "input_dataset" to the test function.
+        data_loaders: Data loader(s) that produce datasets or message bundles. When provided,
+            ``input_dataset``, ``input_messages``, and ``input_rows`` must be omitted. Each loader
+            can expose one or more parameterizable variants, similar to ``torch.utils.data.DataLoader``.
         dataset_adapter: Function to convert the input dataset to a list of
             EvaluationRows. This is useful if you have a custom dataset format.
         completion_params: Generation parameters for the rollout.
@@ -165,6 +181,11 @@ def evaluation_test(
 
     active_logger: DatasetLogger = logger if logger else default_logger
 
+    if data_loaders is not None and (
+        input_dataset is not None or input_messages is not None or input_rows is not None
+    ):
+        raise ValueError("data_loaders cannot be combined with input_dataset, input_messages, or input_rows.")
+
     # Optional global overrides via environment for ad-hoc experimentation
     # EP_INPUT_PARAMS_JSON can contain a JSON object that will be deep-merged
     # into input_params (e.g., '{"temperature":0,"extra_body":{"reasoning":{"effort":"low"}}}').
@@ -175,36 +196,112 @@ def evaluation_test(
     original_completion_params = completion_params
     passed_threshold = parse_ep_passed_threshold(passed_threshold)
 
+    def _normalize_data_loaders(
+        loaders: Sequence[EvaluationDataLoader] | EvaluationDataLoader | None,
+    ) -> list[EvaluationDataLoader]:
+        if loaders is None:
+            return []
+        if isinstance(loaders, Sequence):
+            return list(loaders)
+        return [loaders]
+
+    def _build_data_loader_parametrize_args(
+        loader_variants: Sequence[DataLoaderVariant],
+        completion_params_seq: Sequence[CompletionParams | None] | None,
+        evaluation_test_kwargs_seq: Sequence[EvaluationInputParam | None] | None,
+    ) -> PytestParametrizeArgs:
+        if not loader_variants:
+            raise ValueError("No data loader variants were produced by the provided data_loaders.")
+
+        argnames: list[str] = ["data_loader_variant"]
+        if completion_params_seq is not None:
+            argnames.append("completion_params")
+        if evaluation_test_kwargs_seq is not None:
+            argnames.append("evaluation_test_kwargs")
+
+        completion_values: Sequence[CompletionParams | None]
+        if completion_params_seq is None:
+            completion_values = [None]
+        else:
+            completion_values = completion_params_seq
+
+        etk_values: Sequence[EvaluationInputParam | None]
+        if evaluation_test_kwargs_seq is None:
+            etk_values = [None]
+        else:
+            etk_values = evaluation_test_kwargs_seq
+
+        argvalues: list[tuple[object, ...]] = []
+        ids: list[str] = []
+        id_generator = DefaultParameterIdGenerator()
+
+        for variant in loader_variants:
+            for cp in completion_values:
+                for etk in etk_values:
+                    param_tuple: list[object] = [variant]
+                    if completion_params_seq is not None:
+                        param_tuple.append(cp)
+                    if evaluation_test_kwargs_seq is not None:
+                        param_tuple.append(etk)
+                    argvalues.append(tuple(param_tuple))
+
+                    cp_id = id_generator.generate_id((None, cp, None, None, etk))
+                    if cp_id:
+                        ids.append(f"{variant.id}-{cp_id}")
+                    else:
+                        ids.append(variant.id)
+
+        return PytestParametrizeArgs(
+            argnames=argnames,
+            argvalues=argvalues,
+            ids=ids if any(ids) else None,
+        )
+
     def decorator(
         test_func: TestFunction,
     ) -> TestFunction:
         sig = inspect.signature(test_func)
         validate_signature(sig, mode, completion_params)
 
-        # Calculate all possible combinations of parameters
-        combinations = generate_parameter_combinations(
-            input_dataset,
-            completion_params,
-            input_messages,
-            input_rows,
-            evaluation_test_kwargs,
-            max_dataset_rows,
-            combine_datasets,
-        )
-        if len(combinations) == 0:
-            raise ValueError(
-                "No combinations of parameters were found. Please provide at least a model and one of input_dataset, input_messages, or input_rows."
-            )
+        normalized_loaders = _normalize_data_loaders(data_loaders)
+        loader_variants: list[DataLoaderVariant] = []
+        for loader in normalized_loaders:
+            loader_variants.extend(loader.variants())
 
-        # Create parameter tuples for pytest.mark.parametrize
-        pytest_parametrize_args = pytest_parametrize(
-            combinations,
-            input_dataset,
-            completion_params,
-            input_messages,
-            input_rows,
-            evaluation_test_kwargs,
-        )
+        has_data_loader_variants = len(loader_variants) > 0
+
+        combinations: list[CombinationTuple] = []
+        if has_data_loader_variants:
+            pytest_parametrize_args = _build_data_loader_parametrize_args(
+                loader_variants,
+                completion_params,
+                evaluation_test_kwargs,
+            )
+        else:
+            # Calculate all possible combinations of parameters
+            combinations = generate_parameter_combinations(
+                input_dataset,
+                completion_params,
+                input_messages,
+                input_rows,
+                evaluation_test_kwargs,
+                max_dataset_rows,
+                combine_datasets,
+            )
+            if len(combinations) == 0:
+                raise ValueError(
+                    "No combinations of parameters were found. Please provide at least a model and one of input_dataset, input_messages, input_rows, or data_loaders."
+                )
+
+            # Create parameter tuples for pytest.mark.parametrize
+            pytest_parametrize_args = pytest_parametrize(
+                combinations,
+                input_dataset,
+                completion_params,
+                input_messages,
+                input_rows,
+                evaluation_test_kwargs,
+            )
 
         # Create wrapper function with exact signature that pytest expects
         def create_wrapper_with_signature() -> Callable[[], None]:
@@ -225,9 +322,24 @@ def evaluation_test(
                 try:
                     # Handle dataset loading
                     data: list[EvaluationRow] = []
+                    batch: DataLoaderResult | None = None
                     # Track all rows processed in the current run for error logging
                     processed_rows_in_run: list[EvaluationRow] = []
-                    if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
+                    data_loader_variant = kwargs.get("data_loader_variant")
+                    if data_loader_variant is not None:
+                        loader_context = DataLoaderContext(
+                            max_rows=max_dataset_rows,
+                            preprocess_fn=preprocess_fn,
+                            logger=active_logger,
+                            invocation_id=invocation_id,
+                            experiment_id=experiment_id,
+                            mode=mode,
+                        )
+                        batch = data_loader_variant.load(loader_context)
+                        data = batch.rows
+                        if max_dataset_rows is not None and len(data) > max_dataset_rows:
+                            data = data[:max_dataset_rows]
+                    elif "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
                         ds_arg: list[str] = kwargs["dataset_path"]
                         # Support either a single path or a list of paths; if a list is provided,
                         # concatenate the rows from each file in order.
@@ -246,10 +358,21 @@ def evaluation_test(
                         # Deep copy pre-constructed EvaluationRow objects
                         data = [row.model_copy(deep=True) for row in kwargs["input_rows"]]
                     else:
-                        raise ValueError("No input dataset, input messages, or input rows provided")
+                        raise ValueError("No input dataset, input messages, input rows, or data loader provided")
 
-                    if preprocess_fn:
+                    if preprocess_fn and not (batch is not None and batch.preprocessed):
                         data = preprocess_fn(data)
+
+                    if data_loader_variant is not None and batch is not None:
+                        for row in data:
+                            dataset_info = dict(row.input_metadata.dataset_info or {})
+                            dataset_info.setdefault("data_loader_variant_id", data_loader_variant.id)
+                            dataset_info.setdefault("data_loader_variant_description", data_loader_variant.description)
+                            dataset_info.setdefault("data_loader_source_id", batch.source_id)
+                            if batch.source_metadata:
+                                for key, value in batch.source_metadata.items():
+                                    dataset_info.setdefault(key, value)
+                            row.input_metadata.dataset_info = dataset_info
 
                     for row in data:
                         # generate a stable row_id for each row
@@ -261,7 +384,7 @@ def evaluation_test(
                             index = abs(index) % (max_index + 1)
                             row.input_metadata.row_id = generate_id(seed=0, index=index)
 
-                    completion_params = kwargs["completion_params"]
+                    completion_params = kwargs.get("completion_params")
                     # Create eval metadata with test function info and current commit hash
                     eval_metadata = EvalMetadata(
                         name=test_func.__name__,
