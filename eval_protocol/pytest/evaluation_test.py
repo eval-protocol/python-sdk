@@ -205,6 +205,7 @@ def evaluation_test(
         # Create parameter tuples for pytest.mark.parametrize
         pytest_parametrize_args = pytest_parametrize(
             combinations,
+            test_func,
             input_dataset,
             completion_params,
             completion_params_provided,
@@ -268,7 +269,7 @@ def evaluation_test(
                             index = abs(index) % (max_index + 1)
                             row.input_metadata.row_id = generate_id(seed=0, index=index)
 
-                    completion_params = kwargs["completion_params"]
+                    completion_params = kwargs["completion_params"] if "completion_params" in kwargs else None
                     # Create eval metadata with test function info and current commit hash
                     eval_metadata = EvalMetadata(
                         name=test_func.__name__,

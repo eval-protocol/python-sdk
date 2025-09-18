@@ -149,6 +149,7 @@ def test_pytest_parametrize_with_custom_id_generator():
     # Test with default generator
     result = pytest_parametrize(
         combinations=combinations,
+        test_func=None,
         input_dataset=None,
         completion_params=[{"model": "gpt-4"}, {"model": "claude-3"}, {"temperature": 0.5}],
         completion_params_provided=True,

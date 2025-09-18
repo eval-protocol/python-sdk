@@ -1,3 +1,4 @@
+import ast
 import inspect
 from typing import TypedDict, Protocol
 from collections.abc import Callable, Sequence, Iterable, Awaitable
@@ -7,6 +8,111 @@ from _pytest.mark import ParameterSet
 from eval_protocol.models import CompletionParams, EvaluationRow
 from eval_protocol.pytest.generate_parameter_combinations import CombinationTuple
 from eval_protocol.pytest.types import DatasetPathParam, EvaluationInputParam, InputMessagesParam, TestFunction
+
+
+def _has_pytest_parametrize_with_completion_params(test_func: TestFunction) -> bool:
+    """
+    Check if a test function has a pytest.mark.parametrize decorator with argnames="completion_params".
+
+    This function uses inspect.getsource and ast to parse the function's source code and look for
+    pytest.mark.parametrize decorators that include "completion_params" in their argnames.
+
+    Args:
+        test_func: The test function to analyze
+
+    Returns:
+        True if the function has a pytest.mark.parametrize decorator with "completion_params" in argnames,
+        False otherwise
+
+    Raises:
+        OSError: If the source code cannot be retrieved (e.g., function is defined in interactive mode)
+        SyntaxError: If the source code cannot be parsed as valid Python
+    """
+    try:
+        source = inspect.getsource(test_func)
+    except OSError:
+        # Function source cannot be retrieved (e.g., defined in interactive mode)
+        return False
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        # Source code cannot be parsed
+        return False
+
+    # Walk through the AST to find pytest.mark.parametrize decorators
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
+            # Check decorators on this function
+            for decorator in node.decorator_list:
+                if _is_pytest_parametrize_with_completion_params(decorator):
+                    return True
+
+    return False
+
+
+def _is_pytest_parametrize_with_completion_params(decorator: ast.expr) -> bool:
+    """
+    Check if a decorator is pytest.mark.parametrize with "completion_params" in argnames.
+
+    Args:
+        decorator: AST node representing a decorator
+
+    Returns:
+        True if this is a pytest.mark.parametrize decorator with "completion_params" in argnames
+    """
+    # Look for pytest.mark.parametrize pattern
+    if isinstance(decorator, ast.Call):
+        # Check if it's pytest.mark.parametrize
+        if isinstance(decorator.func, ast.Attribute):
+            if (
+                isinstance(decorator.func.value, ast.Attribute)
+                and isinstance(decorator.func.value.value, ast.Name)
+                and decorator.func.value.value.id == "pytest"
+                and decorator.func.value.attr == "mark"
+                and decorator.func.attr == "parametrize"
+            ):
+                # Check positional arguments first (argnames is typically the first positional arg)
+                if len(decorator.args) > 0:
+                    argnames_arg = decorator.args[0]
+                    if _check_argnames_for_completion_params(argnames_arg):
+                        return True
+
+                # Check keyword arguments for argnames
+                for keyword in decorator.keywords:
+                    if keyword.arg == "argnames":
+                        if _check_argnames_for_completion_params(keyword.value):
+                            return True
+
+    return False
+
+
+def _check_argnames_for_completion_params(argnames_node: ast.expr) -> bool:
+    """
+    Check if an argnames AST node contains "completion_params".
+
+    Args:
+        argnames_node: AST node representing the argnames value
+
+    Returns:
+        True if argnames contains "completion_params"
+    """
+    if isinstance(argnames_node, ast.Constant):
+        # Single string case: argnames="completion_params"
+        if argnames_node.value == "completion_params":
+            return True
+    elif isinstance(argnames_node, ast.List):
+        # List case: argnames=["completion_params", ...]
+        for elt in argnames_node.elts:
+            if isinstance(elt, ast.Constant) and elt.value == "completion_params":
+                return True
+    elif isinstance(argnames_node, ast.Tuple):
+        # Tuple case: argnames=("completion_params", ...)
+        for elt in argnames_node.elts:
+            if isinstance(elt, ast.Constant) and elt.value == "completion_params":
+                return True
+
+    return False
 
 
 class PytestMarkParametrizeKwargs(TypedDict):
@@ -96,6 +202,7 @@ class DefaultParameterIdGenerator(ParameterIdGenerator):
 
 def pytest_parametrize(
     combinations: list[CombinationTuple],
+    test_func: TestFunction | None,
     input_dataset: Sequence[DatasetPathParam] | None,
     completion_params: Sequence[CompletionParams | None] | None,
     completion_params_provided: bool,
@@ -112,6 +219,11 @@ def pytest_parametrize(
     API.
     """
 
+    if test_func is not None:
+        has_pytest_parametrize = _has_pytest_parametrize_with_completion_params(test_func)
+    else:
+        has_pytest_parametrize = False
+
     # Create parameter tuples for pytest.mark.parametrize
     argnames: list[str] = []
     sig_parameters: list[str] = []
@@ -119,9 +231,10 @@ def pytest_parametrize(
         argnames.append("dataset_path")
         sig_parameters.append("dataset_path")
     if completion_params is not None:
-        if completion_params_provided:
+        if completion_params_provided and not has_pytest_parametrize:
             argnames.append("completion_params")
-        sig_parameters.append("completion_params")
+        if has_pytest_parametrize or completion_params_provided:
+            sig_parameters.append("completion_params")
     if input_messages is not None:
         argnames.append("input_messages")
         sig_parameters.append("input_messages")

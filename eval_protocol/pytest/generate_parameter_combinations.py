@@ -31,7 +31,7 @@ CombinationTuple = tuple[
 ]
 
 
-class ParameterizedTestKwargs(TypedDict):
+class ParameterizedTestKwargs(TypedDict, total=False):
     """
     These are the type of parameters that can be passed to the generated pytest
     function. Every experiment is a unique combination of these parameters.
