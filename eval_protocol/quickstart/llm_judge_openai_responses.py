@@ -52,6 +52,7 @@ input_rows = adapter.get_evaluation_rows(
             "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905",
         },
     ],
+    ids=DefaultParameterIdGenerator.generate_id_from_dict,
 )
 @evaluation_test(
     input_rows=[input_rows],
