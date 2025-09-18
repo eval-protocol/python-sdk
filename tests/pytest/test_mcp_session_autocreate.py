@@ -31,17 +31,23 @@ async def test_tool_call_returns_json_without_prior_initial_state():
     try:
         base_url = "http://127.0.0.1:9780/mcp"
         client = httpx.Client(timeout=1.0)
-        deadline = time.time() + 20
+        start_time = time.time()
+        deadline = start_time + 20
+        ready_time = None
         while time.time() < deadline:
             try:
                 r = client.get(base_url)
                 if r.status_code in (200, 307, 406):
+                    ready_time = time.time()
                     break
             except Exception:
                 pass
             time.sleep(0.2)
         else:
             pytest.fail("Server did not start on port 9780 in time")
+
+        assert ready_time is not None, "Server did not return a successful status before exiting loop"
+        assert ready_time - start_time < 20, f"Server took too long to respond: {ready_time - start_time:.2f}s"
 
         session = MCPSession(base_url=base_url, session_id="test-autocreate", seed=None, model_id="test-model")
 

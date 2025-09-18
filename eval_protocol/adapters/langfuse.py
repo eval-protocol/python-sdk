@@ -9,7 +9,7 @@ import logging
 import random
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Callable, Dict, List, Optional, Protocol, cast
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
 from .base import BaseAdapter
@@ -44,14 +44,19 @@ class TraceConverter(Protocol):
         ...
 
 
+LangfuseClient = Any
+
+_get_langfuse_client: Callable[[], Any] | None
+
 try:
-    from langfuse import get_client  # pyright: ignore[reportPrivateImportUsage]
+    from langfuse import get_client as _get_langfuse_client  # type: ignore[attr-defined, reportPrivateImportUsage]
     from langfuse.api.resources.trace.types.traces import Traces
     from langfuse.api.resources.commons.types.trace import Trace
     from langfuse.api.resources.commons.types.trace_with_full_details import TraceWithFullDetails
 
     LANGFUSE_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - optional dependency
+    _get_langfuse_client = None
     LANGFUSE_AVAILABLE = False
 
 
@@ -219,7 +224,11 @@ class LangfuseAdapter(BaseAdapter):
         if not LANGFUSE_AVAILABLE:
             raise ImportError("Langfuse not installed. Install with: pip install 'eval-protocol[langfuse]'")
 
-        self.client = get_client()
+        if _get_langfuse_client is None:
+            raise ImportError("Langfuse not installed. Install with: pip install 'eval-protocol[langfuse]'")
+
+        client_factory = cast(Callable[[], LangfuseClient], _get_langfuse_client)
+        self.client: LangfuseClient = client_factory()
 
     def get_evaluation_rows(
         self,

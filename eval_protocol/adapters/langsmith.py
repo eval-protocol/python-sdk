@@ -10,18 +10,23 @@ tool calls and tool messages where present.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Iterable
+from typing import Any, Callable, Dict, Iterable, List, Optional, cast
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
 from .base import BaseAdapter
 
 logger = logging.getLogger(__name__)
 
+LangSmithClient = Any
+
+_LANGSMITH_CLIENT_CTOR: Callable[..., LangSmithClient] | None
+
 try:
-    from langsmith import Client  # type: ignore
+    from langsmith import Client as _LANGSMITH_CLIENT_CTOR  # type: ignore[attr-defined]
 
     LANGSMITH_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - optional dependency
+    _LANGSMITH_CLIENT_CTOR = None
     LANGSMITH_AVAILABLE = False
 
 
@@ -35,10 +40,17 @@ class LangSmithAdapter(BaseAdapter):
     - outputs: { messages: [...] } | { content } | { result } | { answer } | { output } | str | list[dict]
     """
 
-    def __init__(self, client: Optional[Client] = None) -> None:
+    def __init__(self, client: Optional[LangSmithClient] = None) -> None:
         if not LANGSMITH_AVAILABLE:
             raise ImportError("LangSmith not installed. Install with: pip install 'eval-protocol[langsmith]'")
-        self.client = client or Client()
+        if client is not None:
+            self.client = client
+            return
+
+        if _LANGSMITH_CLIENT_CTOR is None:
+            raise ImportError("LangSmith client constructor unavailable despite successful import check")
+
+        self.client: LangSmithClient = cast(LangSmithClient, _LANGSMITH_CLIENT_CTOR())
 
     def get_evaluation_rows(
         self,
