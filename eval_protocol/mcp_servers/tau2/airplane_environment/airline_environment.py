@@ -10,7 +10,6 @@ import json
 import logging
 import os
 import time
-from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -22,6 +21,9 @@ from vendor.tau2.domains.airline.tools import AirlineTools
 logger = logging.getLogger(__name__)
 
 from vendor.tau2.domains.airline.utils import AIRLINE_DB_PATH
+
+
+_CACHED_FLIGHT_DB: Optional[FlightDB] = None
 
 
 class AirlineEnvironment:
@@ -37,13 +39,18 @@ class AirlineEnvironment:
 
     def reset(self, seed: Optional[int] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Reset the environment to initial state"""
-        logger.info("🔄 Resetting airline environment - reloading database from disk")
-        # FlightDB.load expects a str path
-        # Ensure type matches expected FlightDB
-        # FlightDB.load returns vendor.tau2.domains.airline.data_model.FlightDB which is compatible
-        db_loaded = FlightDB.load(str(AIRLINE_DB_PATH))
-        assert isinstance(db_loaded, FlightDB)
-        self.db = db_loaded
+        global _CACHED_FLIGHT_DB
+
+        if _CACHED_FLIGHT_DB is None:
+            logger.info("🔄 Resetting airline environment - loading flight database from disk")
+            db_loaded = FlightDB.load(str(AIRLINE_DB_PATH))
+            assert isinstance(db_loaded, FlightDB)
+            _CACHED_FLIGHT_DB = db_loaded
+        else:
+            logger.info("🔄 Resetting airline environment - using cached flight database")
+
+        assert isinstance(_CACHED_FLIGHT_DB, FlightDB)
+        self.db = _CACHED_FLIGHT_DB.model_copy(deep=True)
         self.airline_tools = AirlineTools(self.db)
 
         return {}, {}
