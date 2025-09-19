@@ -15,9 +15,14 @@ from eval_protocol.types import MCPSession
 
 def _run_airline_server():
     import os
+    import sys
 
-    python_version = os.environ.get("PYTHON_VERSION", "3.10").replace(".", "")
-    port = str(9780 + int(python_version[-1:]))
+    # Get Python version directly from sys.version_info
+    minor_version = sys.version_info.minor  # 10, 11, 12
+
+    # Map Python versions to port offsets: 3.10->0, 3.11->1, 3.12->2
+    port_offset = minor_version - 10
+    port = str(9780 + port_offset)
     os.environ["PORT"] = port
     from eval_protocol.mcp_servers.tau2.tau2_mcp import AirlineDomainMcp
 
@@ -27,14 +32,18 @@ def _run_airline_server():
 
 @pytest.mark.asyncio
 async def test_tool_call_returns_json_without_prior_initial_state():
-    import os
+    import sys
 
     proc = Process(target=_run_airline_server, daemon=True)
     proc.start()
 
     try:
-        python_version = os.environ.get("PYTHON_VERSION", "3.10").replace(".", "")
-        port = str(9780 + int(python_version[-1:]))
+        # Get Python version directly from sys.version_info
+        minor_version = sys.version_info.minor  # 10, 11, 12
+
+        # Map Python versions to port offsets: 3.10->0, 3.11->1, 3.12->2
+        port_offset = minor_version - 10
+        port = str(9780 + port_offset)
 
         base_url = f"http://127.0.0.1:{port}/mcp"
         client = httpx.Client(timeout=1.0)
