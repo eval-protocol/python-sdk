@@ -17,34 +17,19 @@ from eval_protocol.types import MCPSession
 
 @pytest.mark.asyncio
 async def test_tool_call_returns_json_without_prior_initial_state():
-    # Get Python version directly from sys.version_info
-    minor_version = sys.version_info.minor  # 10, 11, 12
-
-    # Map Python versions to port offsets: 3.10->0, 3.11->1, 3.12->2
-    port_offset = minor_version - 10
-    port = str(9780 + port_offset)
-    print(f"[TEST DEBUG] Python 3.{minor_version} -> Looking for server on port {port}")
+    port = "9780"
 
     # Create server script to run as subprocess instead of multiprocessing
     server_script = """
 import sys
 import os
 
-# Get Python version directly from sys.version_info
-minor_version = sys.version_info.minor  # 10, 11, 12
-
-# Map Python versions to port offsets: 3.10->0, 3.11->1, 3.12->2
-port_offset = minor_version - 10
-port = str(9780 + port_offset)
-print(f"[SERVER DEBUG] Python 3.{minor_version} -> Setting PORT={port}")
+port = "9780"
 os.environ["PORT"] = port
 
 from eval_protocol.mcp_servers.tau2.tau2_mcp import AirlineDomainMcp
 
-print(f"[SERVER DEBUG] About to create AirlineDomainMcp with PORT={os.environ.get('PORT')}")
 server = AirlineDomainMcp(seed=None)
-print(f"[SERVER DEBUG] Server created, FastMCP port={server.mcp.settings.port}")
-print(f"[SERVER DEBUG] About to run on port {port}")
 server.run(transport="streamable-http")
 """
 
@@ -56,7 +41,6 @@ server.run(transport="streamable-http")
 
     try:
         base_url = f"http://127.0.0.1:{port}/mcp"
-        print(f"[TEST DEBUG] base_url = {base_url}")
         client = httpx.Client(timeout=1.0)
         start_time = time.time()
         deadline = start_time + 20
