@@ -11,6 +11,7 @@ from collections.abc import Sequence
 import pytest
 from tqdm import tqdm
 
+from eval_protocol.data_loader.models import EvaluationDataLoader
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.human_id import generate_id, num_combinations
@@ -69,6 +70,7 @@ def evaluation_test(
     input_messages: Sequence[list[InputMessagesParam] | None] | None = None,
     input_dataset: Sequence[DatasetPathParam] | None = None,
     input_rows: Sequence[list[EvaluationRow]] | None = None,
+    input_data_loaders: Sequence[EvaluationDataLoader] | EvaluationDataLoader | None = None,
     dataset_adapter: Callable[[list[dict[str, Any]]], Dataset] = default_dataset_adapter,  # pyright: ignore[reportExplicitAny]
     rollout_processor: RolloutProcessor | None = None,
     evaluation_test_kwargs: Sequence[EvaluationInputParam | None] | None = None,
@@ -131,6 +133,7 @@ def evaluation_test(
         input_rows: Pre-constructed EvaluationRow objects to use directly. This is useful
             when you want to provide EvaluationRow objects with custom metadata, input_messages,
             or other fields already populated. Will be passed as "input_dataset" to the test function.
+        input_loaders: Data loaders to use to load the input dataset.
         dataset_adapter: Function to convert the input dataset to a list of
             EvaluationRows. This is useful if you have a custom dataset format.
         completion_params: Generation parameters for the rollout.
@@ -170,6 +173,11 @@ def evaluation_test(
         rollout_processor = NoOpRolloutProcessor()
 
     active_logger: DatasetLogger = logger if logger else default_logger
+
+    if input_data_loaders is not None and (
+        input_dataset is not None or input_messages is not None or input_rows is not None
+    ):
+        raise ValueError("data_loaders cannot be combined with input_dataset, input_messages, or input_rows.")
 
     # Optional global overrides via environment for ad-hoc experimentation
     # EP_INPUT_PARAMS_JSON can contain a JSON object that will be deep-merged
