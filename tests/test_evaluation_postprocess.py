@@ -29,7 +29,7 @@ class TestPostprocess:
             ),
         )
 
-    @patch.dict("os.environ", {"EP_SUMMARY_JSON": ""})  # Disable uploads
+    @patch.dict("os.environ", {"EP_NO_UPLOAD": "1"})  # Disable uploads
     def test_bootstrap_aggregation_with_valid_scores(self):
         """Test bootstrap aggregation with all valid scores and verify exact scores list."""
         # Create test data: 2 runs with 2 rows each
@@ -62,7 +62,7 @@ class TestPostprocess:
         # Should call logger.log for each row
         assert mock_logger.log.call_count == 4
 
-    @patch.dict("os.environ", {"EP_SUMMARY_JSON": ""})  # Disable uploads
+    @patch.dict("os.environ", {"EP_NO_UPLOAD": "1"})  # Disable uploads
     def test_bootstrap_aggregation_filters_invalid_scores(self):
         """Test that bootstrap aggregation excludes invalid scores and generates correct scores list."""
         # Create test data with some invalid scores
@@ -101,7 +101,7 @@ class TestPostprocess:
         # Should still call logger.log for all rows (including invalid ones)
         assert mock_logger.log.call_count == 4
 
-    @patch.dict("os.environ", {"EP_SUMMARY_JSON": ""})  # Disable uploads
+    @patch.dict("os.environ", {"EP_NO_UPLOAD": "1"})  # Disable uploads
     def test_mean_aggregation_with_valid_scores(self):
         """Test mean aggregation with all valid scores."""
         all_results = [
@@ -126,7 +126,7 @@ class TestPostprocess:
         # Should call logger.log for each row
         assert mock_logger.log.call_count == 4
 
-    @patch.dict("os.environ", {"EP_SUMMARY_JSON": ""})  # Disable uploads
+    @patch.dict("os.environ", {"EP_NO_UPLOAD": "1"})  # Disable uploads
     def test_mean_aggregation_filters_invalid_scores(self):
         """Test that mean aggregation excludes invalid scores from run averages."""
         all_results = [
@@ -157,7 +157,7 @@ class TestPostprocess:
         # Should call logger.log for all rows
         assert mock_logger.log.call_count == 4
 
-    @patch.dict("os.environ", {"EP_SUMMARY_JSON": ""})  # Disable uploads
+    @patch.dict("os.environ", {"EP_NO_UPLOAD": "1"})  # Disable uploads
     def test_empty_runs_are_skipped(self):
         """Test that runs with no valid scores are skipped."""
         all_results = [
@@ -182,7 +182,7 @@ class TestPostprocess:
         # Should still call logger.log for all rows
         assert mock_logger.log.call_count == 2
 
-    @patch.dict("os.environ", {"EP_SUMMARY_JSON": ""})  # Disable uploads
+    @patch.dict("os.environ", {"EP_NO_UPLOAD": "1"})  # Disable uploads
     def test_all_invalid_scores(self):
         """Test behavior when all scores are invalid."""
         all_results = [
