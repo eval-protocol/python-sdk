@@ -1,4 +1,13 @@
-export type Operator = "==" | "!=" | ">" | "<" | ">=" | "<=" | "contains" | "!contains" | "between";
+export type Operator =
+  | "=="
+  | "!="
+  | ">"
+  | "<"
+  | ">="
+  | "<="
+  | "contains"
+  | "!contains"
+  | "between";
 
 // Filter configuration interface
 export interface FilterConfig {
@@ -14,9 +23,11 @@ export type FilterOperator = {
   label: string;
 };
 
+export type FilterLogic = "AND" | "OR";
+
 // Filter group interface for AND/OR logic
 export interface FilterGroup {
-  logic: "AND" | "OR";
+  logic: FilterLogic;
   filters: FilterConfig[];
 }
 
@@ -36,4 +47,11 @@ export interface PaginationConfig {
 export interface SortConfig {
   sortField: string;
   sortDirection: "asc" | "desc";
+}
+
+export interface GlobalConfig {
+  pivotConfig: PivotConfig;
+  filterConfig: FilterGroup[];
+  paginationConfig: PaginationConfig;
+  sortConfig: SortConfig;
 }

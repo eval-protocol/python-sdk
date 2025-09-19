@@ -1,4 +1,5 @@
 import React from "react";
+import type { SortDirection } from "../types/configs";
 
 export interface TableContainerProps {
   /**
@@ -42,7 +43,7 @@ export interface SortableTableHeaderProps extends TableHeaderProps {
   /**
    * Current sort direction
    */
-  currentSortDirection: "asc" | "desc";
+  currentSortDirection: SortDirection;
   /**
    * Click handler for sorting
    */

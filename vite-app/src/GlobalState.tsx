@@ -5,6 +5,8 @@ import type {
   FilterGroup,
   PaginationConfig,
   SortConfig,
+  GlobalConfig,
+  SortDirection,
 } from "./types/configs";
 import flattenJson from "./util/flatten-json";
 import type { FlatJson } from "./util/flatten-json";
@@ -30,7 +32,14 @@ const DEFAULT_PAGINATION_CONFIG: PaginationConfig = {
 // Default sort configuration
 const DEFAULT_SORT_CONFIG: SortConfig = {
   sortField: "created_at",
-  sortDirection: "desc" as "asc" | "desc",
+  sortDirection: "desc",
+};
+
+const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
+  pivotConfig: DEFAULT_PIVOT_CONFIG,
+  filterConfig: DEFAULT_FILTER_CONFIG,
+  paginationConfig: DEFAULT_PAGINATION_CONFIG,
+  sortConfig: DEFAULT_SORT_CONFIG,
 };
 
 export class GlobalState {
@@ -43,14 +52,12 @@ export class GlobalState {
   pivotConfig: PivotConfig;
   // Unified filter configuration for both pivot and table views
   filterConfig: FilterGroup[];
+  // Pagination configuration
+  paginationConfig: PaginationConfig;
+  // Sort configuration
+  sortConfig: SortConfig;
   // Debounced, actually applied filter configuration (for performance while typing)
   appliedFilterConfig: FilterGroup[];
-  // Pagination configuration
-  currentPage: number;
-  pageSize: number;
-  // Sort configuration
-  sortField: string;
-  sortDirection: "asc" | "desc";
   // Loading state
   isLoading: boolean = true;
 
@@ -75,14 +82,28 @@ export class GlobalState {
     // Initialize applied filter config with current value
     this.appliedFilterConfig = this.filterConfig.slice();
     // Load pagination config from localStorage or use defaults
-    const paginationConfig = this.loadPaginationConfig();
-    this.currentPage = paginationConfig.currentPage;
-    this.pageSize = paginationConfig.pageSize;
+    this.paginationConfig = this.loadPaginationConfig();
     // Load sort config from localStorage or use defaults
-    const sortConfig = this.loadSortConfig();
-    this.sortField = sortConfig.sortField;
-    this.sortDirection = sortConfig.sortDirection;
+    this.sortConfig = this.loadSortConfig();
     makeAutoObservable(this);
+  }
+
+  // Computed getters for individual pagination properties
+  get currentPage(): number {
+    return this.paginationConfig.currentPage;
+  }
+
+  get pageSize(): number {
+    return this.paginationConfig.pageSize;
+  }
+
+  // Computed getters for individual sort properties
+  get sortField(): string {
+    return this.sortConfig.sortField;
+  }
+
+  get sortDirection(): SortDirection {
+    return this.sortConfig.sortDirection;
   }
 
   // Load pivot configuration from localStorage
@@ -179,10 +200,7 @@ export class GlobalState {
       try {
         localStorage.setItem(
           "paginationConfig",
-          JSON.stringify({
-            currentPage: this.currentPage,
-            pageSize: this.pageSize,
-          })
+          JSON.stringify(this.paginationConfig)
         );
       } catch (error) {
         console.warn(
@@ -198,13 +216,7 @@ export class GlobalState {
     if (this.saveFilterConfigTimer) clearTimeout(this.saveFilterConfigTimer);
     this.saveFilterConfigTimer = setTimeout(() => {
       try {
-        localStorage.setItem(
-          "sortConfig",
-          JSON.stringify({
-            sortField: this.sortField,
-            sortDirection: this.sortDirection,
-          })
-        );
+        localStorage.setItem("sortConfig", JSON.stringify(this.sortConfig));
       } catch (error) {
         console.warn("Failed to save sort config to localStorage:", error);
       }
@@ -230,37 +242,29 @@ export class GlobalState {
   }
 
   // Update pagination configuration and save to localStorage
-  updatePaginationConfig(
-    updates: Partial<{ currentPage: number; pageSize: number }>
-  ) {
-    if (updates.currentPage !== undefined) {
-      this.currentPage = updates.currentPage;
-    }
-    if (updates.pageSize !== undefined) {
-      this.pageSize = updates.pageSize;
-    }
+  updatePaginationConfig(updates: Partial<PaginationConfig>) {
+    Object.assign(this.paginationConfig, updates);
     this.savePaginationConfig();
   }
 
   // Update sort configuration and save to localStorage
-  updateSortConfig(
-    updates: Partial<{ sortField: string; sortDirection: "asc" | "desc" }>
-  ) {
-    Object.assign(this, updates);
+  updateSortConfig(updates: Partial<SortConfig>) {
+    Object.assign(this.sortConfig, updates);
     // Reset to first page when sorting changes
-    this.currentPage = 1;
+    this.paginationConfig.currentPage = 1;
     this.saveSortConfig();
   }
 
   // Handle sort field click - toggle direction if same field, set to asc if new field
   handleSortFieldClick(field: string) {
-    if (this.sortField === field) {
+    if (this.sortConfig.sortField === field) {
       // Toggle direction for same field
-      this.sortDirection = this.sortDirection === "asc" ? "desc" : "asc";
+      this.sortConfig.sortDirection =
+        this.sortConfig.sortDirection === "asc" ? "desc" : "asc";
     } else {
       // New field, set to ascending
-      this.sortField = field;
-      this.sortDirection = "asc";
+      this.sortConfig.sortField = field;
+      this.sortConfig.sortDirection = "asc";
     }
     this.saveSortConfig();
   }
@@ -280,28 +284,26 @@ export class GlobalState {
 
   // Reset pagination configuration to defaults
   resetPaginationConfig() {
-    this.currentPage = DEFAULT_PAGINATION_CONFIG.currentPage;
-    this.pageSize = DEFAULT_PAGINATION_CONFIG.pageSize;
+    this.paginationConfig = { ...DEFAULT_PAGINATION_CONFIG };
     this.savePaginationConfig();
   }
 
   // Reset sort configuration to defaults
   resetSortConfig() {
-    this.sortField = DEFAULT_SORT_CONFIG.sortField;
-    this.sortDirection = DEFAULT_SORT_CONFIG.sortDirection;
+    this.sortConfig = { ...DEFAULT_SORT_CONFIG };
     this.saveSortConfig();
   }
 
   // Set current page
   setCurrentPage(page: number) {
-    this.currentPage = page;
+    this.paginationConfig.currentPage = page;
     this.savePaginationConfig();
   }
 
   // Set page size
   setPageSize(size: number) {
-    this.pageSize = size;
-    this.currentPage = 1; // Reset to first page when changing page size
+    this.paginationConfig.pageSize = size;
+    this.paginationConfig.currentPage = 1; // Reset to first page when changing page size
     this.savePaginationConfig();
   }
 
@@ -335,7 +337,7 @@ export class GlobalState {
 
     runInAction(() => {
       // Reset to first page when dataset changes
-      this.currentPage = 1;
+      this.paginationConfig.currentPage = 1;
       this.isLoading = false;
     });
     this.savePaginationConfig();
@@ -365,16 +367,27 @@ export class GlobalState {
     });
   }
 
+  get globalConfig(): GlobalConfig {
+    return {
+      pivotConfig: this.pivotConfig,
+      filterConfig: this.filterConfig,
+      paginationConfig: this.paginationConfig,
+      sortConfig: this.sortConfig,
+    };
+  }
+
   // Computed values following MobX best practices
   get sortedIds() {
     const ids = Object.keys(this.dataset);
 
-    if (this.sortField === "created_at") {
+    if (this.sortConfig.sortField === "created_at") {
       // Special case for created_at - use cached timestamp
       return ids.sort((a, b) => {
         const aTime = this.createdAtMsById[a] ?? 0;
         const bTime = this.createdAtMsById[b] ?? 0;
-        return this.sortDirection === "asc" ? aTime - bTime : bTime - aTime;
+        return this.sortConfig.sortDirection === "asc"
+          ? aTime - bTime
+          : bTime - aTime;
       });
     }
 
@@ -385,29 +398,35 @@ export class GlobalState {
 
       if (!aFlat || !bFlat) return 0;
 
-      const aValue = aFlat[this.sortField];
-      const bValue = bFlat[this.sortField];
+      const aValue = aFlat[this.sortConfig.sortField];
+      const bValue = bFlat[this.sortConfig.sortField];
 
       // Handle undefined values
       if (aValue === undefined && bValue === undefined) return 0;
-      if (aValue === undefined) return this.sortDirection === "asc" ? -1 : 1;
-      if (bValue === undefined) return this.sortDirection === "asc" ? 1 : -1;
+      if (aValue === undefined)
+        return this.sortConfig.sortDirection === "asc" ? -1 : 1;
+      if (bValue === undefined)
+        return this.sortConfig.sortDirection === "asc" ? 1 : -1;
 
       // Handle different types
       if (typeof aValue === "string" && typeof bValue === "string") {
         const comparison = aValue.localeCompare(bValue);
-        return this.sortDirection === "asc" ? comparison : -comparison;
+        return this.sortConfig.sortDirection === "asc"
+          ? comparison
+          : -comparison;
       }
 
       if (typeof aValue === "number" && typeof bValue === "number") {
-        return this.sortDirection === "asc" ? aValue - bValue : bValue - aValue;
+        return this.sortConfig.sortDirection === "asc"
+          ? aValue - bValue
+          : bValue - aValue;
       }
 
       // Fallback to string comparison
       const aStr = String(aValue);
       const bStr = String(bValue);
       const comparison = aStr.localeCompare(bStr);
-      return this.sortDirection === "asc" ? comparison : -comparison;
+      return this.sortConfig.sortDirection === "asc" ? comparison : -comparison;
     });
   }
 
@@ -456,14 +475,20 @@ export class GlobalState {
   }
 
   get totalPages() {
-    return Math.ceil(this.totalCount / this.pageSize);
+    return Math.ceil(this.totalCount / this.paginationConfig.pageSize);
   }
 
   get startRow() {
-    return (this.currentPage - 1) * this.pageSize + 1;
+    return (
+      (this.paginationConfig.currentPage - 1) * this.paginationConfig.pageSize +
+      1
+    );
   }
 
   get endRow() {
-    return Math.min(this.currentPage * this.pageSize, this.totalCount);
+    return Math.min(
+      this.paginationConfig.currentPage * this.paginationConfig.pageSize,
+      this.totalCount
+    );
   }
 }
