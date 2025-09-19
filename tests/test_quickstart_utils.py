@@ -3,7 +3,11 @@
 import pytest
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
-from eval_protocol.quickstart.utils import split_multi_turn_rows, serialize_message
+from eval_protocol.quickstart.utils import (
+    multi_turn_assistant_to_ground_truth,
+    serialize_message,
+    assistant_to_ground_truth,
+)
 
 
 class TestSerializeMessage:
@@ -75,8 +79,8 @@ class TestSerializeMessage:
         assert result == "assistant: None"
 
 
-class TestSplitMultiTurnRows:
-    """Tests for split_multi_turn_rows function."""
+class TestMultiTurnAssistantToGroundTruth:
+    """Tests for multi_turn_assistant_to_ground_truth function."""
 
     def test_single_turn_conversation(self):
         """Test that single-turn conversations are handled correctly."""
@@ -86,7 +90,7 @@ class TestSplitMultiTurnRows:
         ]
         row = EvaluationRow(messages=messages)
 
-        result = split_multi_turn_rows([row])
+        result = multi_turn_assistant_to_ground_truth([row])
 
         assert len(result) == 1
         assert len(result[0].messages) == 1  # Only user message before assistant
@@ -104,7 +108,7 @@ class TestSplitMultiTurnRows:
         ]
         row = EvaluationRow(messages=messages)
 
-        result = split_multi_turn_rows([row])
+        result = multi_turn_assistant_to_ground_truth([row])
 
         assert len(result) == 2
 
@@ -131,7 +135,7 @@ class TestSplitMultiTurnRows:
         ]
         row = EvaluationRow(messages=messages)
 
-        result = split_multi_turn_rows([row])
+        result = multi_turn_assistant_to_ground_truth([row])
 
         assert len(result) == 2
 
@@ -161,7 +165,7 @@ class TestSplitMultiTurnRows:
         ]
         row = EvaluationRow(messages=messages)
 
-        result = split_multi_turn_rows([row])
+        result = multi_turn_assistant_to_ground_truth([row])
 
         assert len(result) == 1
         expected_ground_truth = 'assistant: I\'ll check that for you.\n[Tool Call: get_weather({"location": "NYC"})]'
@@ -176,7 +180,7 @@ class TestSplitMultiTurnRows:
             messages=[Message(role="user", content="Goodbye"), Message(role="assistant", content="Bye!")]
         )
 
-        result = split_multi_turn_rows([row1, row2])
+        result = multi_turn_assistant_to_ground_truth([row1, row2])
 
         assert len(result) == 2
         assert result[0].messages[0].content == "Hello"
@@ -189,7 +193,7 @@ class TestSplitMultiTurnRows:
         messages = [Message(role="user", content="Hello"), Message(role="user", content="Anyone there?")]
         row = EvaluationRow(messages=messages)
 
-        result = split_multi_turn_rows([row])
+        result = multi_turn_assistant_to_ground_truth([row])
 
         assert len(result) == 0
 
@@ -198,7 +202,7 @@ class TestSplitMultiTurnRows:
         messages = [Message(role="assistant", content="Hello!"), Message(role="assistant", content="How can I help?")]
         row = EvaluationRow(messages=messages)
 
-        result = split_multi_turn_rows([row])
+        result = multi_turn_assistant_to_ground_truth([row])
 
         assert len(result) == 2
         # First assistant message (no context)
@@ -228,7 +232,7 @@ class TestSplitMultiTurnRows:
         row1 = EvaluationRow(messages=messages1)
         row2 = EvaluationRow(messages=messages2)
 
-        result = split_multi_turn_rows([row1, row2])
+        result = multi_turn_assistant_to_ground_truth([row1, row2])
 
         # Should only get 2 unique splits (not 4), because the context leading
         # to the second assistant message is the same in both rows
@@ -248,7 +252,7 @@ class TestSplitMultiTurnRows:
         messages = [Message(role="user", content="Hello"), Message(role="assistant", content="Hi!")]
         row = EvaluationRow(messages=messages, tools=tools, input_metadata=input_metadata)
 
-        result = split_multi_turn_rows([row])
+        result = multi_turn_assistant_to_ground_truth([row])
 
         assert len(result) == 1
         assert result[0].tools == tools
@@ -256,7 +260,7 @@ class TestSplitMultiTurnRows:
 
     def test_empty_input_list(self):
         """Test that empty input list returns empty result."""
-        result = split_multi_turn_rows([])
+        result = multi_turn_assistant_to_ground_truth([])
         assert len(result) == 0
 
     def test_complex_multi_turn_with_tool_responses(self):
@@ -281,7 +285,7 @@ class TestSplitMultiTurnRows:
         ]
         row = EvaluationRow(messages=messages)
 
-        result = split_multi_turn_rows([row])
+        result = multi_turn_assistant_to_ground_truth([row])
 
         assert len(result) == 3  # Three assistant messages
 
@@ -296,3 +300,89 @@ class TestSplitMultiTurnRows:
         # Third assistant message
         assert len(result[2].messages) == 5  # All previous messages + "Thanks!"
         assert result[2].ground_truth == "assistant: You're welcome!"
+
+
+class TestAssistantToGroundTruth:
+    """Tests for assistant_to_ground_truth function."""
+
+    def test_removes_last_assistant_message(self):
+        """Test that the last assistant message is removed and set as ground truth."""
+        messages = [
+            Message(role="user", content="What's the weather like?"),
+            Message(role="assistant", content="It's sunny today!"),
+        ]
+        row = EvaluationRow(messages=messages)
+
+        result = assistant_to_ground_truth([row])
+
+        assert len(result) == 1
+        assert len(result[0].messages) == 1  # Only user message remains
+        assert result[0].messages[0].role == "user"
+        assert result[0].messages[0].content == "What's the weather like?"
+        assert result[0].ground_truth == "assistant: It's sunny today!"
+
+    def test_multi_turn_with_last_assistant(self):
+        """Test multi-turn conversation where last message is assistant."""
+        messages = [
+            Message(role="user", content="Hello"),
+            Message(role="assistant", content="Hi there!"),
+            Message(role="user", content="How are you?"),
+            Message(role="assistant", content="I'm doing well!"),
+        ]
+        row = EvaluationRow(messages=messages)
+
+        result = assistant_to_ground_truth([row])
+
+        assert len(result) == 1
+        assert len(result[0].messages) == 3  # All except last assistant
+        assert result[0].messages[-1].content == "How are you?"
+        assert result[0].ground_truth == "assistant: I'm doing well!"
+
+    def test_fails_when_last_message_not_assistant(self):
+        """Test that function raises error when last message is not from assistant."""
+        messages = [
+            Message(role="user", content="Hello"),
+            Message(role="assistant", content="Hi!"),
+            Message(role="user", content="Goodbye"),
+        ]
+        row = EvaluationRow(messages=messages)
+
+        with pytest.raises(ValueError, match="Last message is not from assistant"):
+            assistant_to_ground_truth([row])
+
+    def test_preserves_metadata_and_tools(self):
+        """Test that tools and metadata are preserved."""
+        messages = [
+            Message(role="user", content="Hello"),
+            Message(role="assistant", content="Hi there!"),
+        ]
+        tools = [{"type": "function", "function": {"name": "test"}}]
+        input_metadata = InputMetadata(row_id="test_123", completion_params={})
+        row = EvaluationRow(messages=messages, tools=tools, input_metadata=input_metadata)
+
+        result = assistant_to_ground_truth([row])
+
+        assert len(result) == 1
+        assert result[0].tools == tools
+        assert result[0].input_metadata == input_metadata
+        assert result[0].ground_truth == "assistant: Hi there!"
+
+    def test_multiple_rows(self):
+        """Test processing multiple rows."""
+        row1 = EvaluationRow(
+            messages=[Message(role="user", content="Hello"), Message(role="assistant", content="Hi!")]
+        )
+        row2 = EvaluationRow(
+            messages=[Message(role="user", content="Bye"), Message(role="assistant", content="Goodbye!")]
+        )
+
+        result = assistant_to_ground_truth([row1, row2])
+
+        assert len(result) == 2
+        assert result[0].ground_truth == "assistant: Hi!"
+        assert result[1].ground_truth == "assistant: Goodbye!"
+
+    def test_empty_input_list(self):
+        """Test that empty input list returns empty result."""
+        result = assistant_to_ground_truth([])
+        assert len(result) == 0

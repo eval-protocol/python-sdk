@@ -168,8 +168,9 @@ def assistant_to_ground_truth(data: list[EvaluationRow]) -> list[EvaluationRow]:
         messages = row.messages.copy()  # Don't modify original
 
         if messages[-1].role == "assistant":
+            assistant_message = messages[-1]
             messages = messages[:-1]
-            ground_truth_message = serialize_message(messages[-1])
+            ground_truth_message = serialize_message(assistant_message)
         else:
             raise ValueError("Last message is not from assistant")
 

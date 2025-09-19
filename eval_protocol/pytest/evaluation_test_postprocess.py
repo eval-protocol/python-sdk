@@ -25,17 +25,17 @@ def postprocess(
     num_runs: int,
     experiment_duration_seconds: float,
 ):
+    valid_results = [
+        [r for r in result if r.evaluation_result and r.evaluation_result.is_score_valid] for result in all_results
+    ]
+
     if aggregation_method == "bootstrap":
-        scores = [
-            r.evaluation_result.score
-            for result in all_results
-            for r in result
-            if r.evaluation_result and r.evaluation_result.is_score_valid
-        ]
+        scores = [r.evaluation_result.score for result in valid_results for r in result if r.evaluation_result]
     else:
         scores = [
-            sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result)
-            for result in all_results
+            sum(r.evaluation_result.score for r in result if r.evaluation_result) / len(result)
+            for result in valid_results
+            if result
         ]
     agg_score = aggregate(scores, aggregation_method)
 
