@@ -3,8 +3,9 @@ Regression test: ensure MCP-Gym auto-creates a session on first tool call
 without requiring a prior initial state fetch, and returns JSON.
 """
 
+import socket
 import time
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 
 import httpx
 import pytest
@@ -13,10 +14,16 @@ from eval_protocol.mcp.client.connection import MCPConnectionManager
 from eval_protocol.types import MCPSession
 
 
-def _run_airline_server():
+def _run_airline_server(port_queue):
     import os
 
-    os.environ["PORT"] = "9700"
+    # Use dynamic port allocation to avoid conflicts in parallel CI runs
+    with socket.socket() as s:
+        s.bind(("", 0))
+        port = s.getsockname()[1]
+
+    port_queue.put(port)  # Send the port back to the test
+    os.environ["PORT"] = str(port)
     from eval_protocol.mcp_servers.tau2.tau2_mcp import AirlineDomainMcp
 
     server = AirlineDomainMcp(seed=None)
@@ -25,11 +32,14 @@ def _run_airline_server():
 
 @pytest.mark.asyncio
 async def test_tool_call_returns_json_without_prior_initial_state():
-    proc = Process(target=_run_airline_server, daemon=True)
+    port_queue = Queue()
+    proc = Process(target=_run_airline_server, args=(port_queue,), daemon=True)
     proc.start()
 
     try:
-        base_url = "http://127.0.0.1:9700/mcp"
+        # Get the dynamically assigned port
+        port = port_queue.get(timeout=10)
+        base_url = f"http://127.0.0.1:{port}/mcp"
         client = httpx.Client(timeout=1.0)
         deadline = time.time() + 20
         while time.time() < deadline:
@@ -41,7 +51,7 @@ async def test_tool_call_returns_json_without_prior_initial_state():
                 pass
             time.sleep(0.2)
         else:
-            pytest.fail("Server did not start on port 9700 in time")
+            pytest.fail(f"Server did not start on port {port} in time")
 
         session = MCPSession(base_url=base_url, session_id="test-autocreate", seed=None, model_id="test-model")
 
