@@ -16,7 +16,7 @@ from eval_protocol.types import MCPSession
 def _run_airline_server():
     import os
 
-    os.environ["PORT"] = "9780"
+    os.environ["PORT"] = "9700"
     from eval_protocol.mcp_servers.tau2.tau2_mcp import AirlineDomainMcp
 
     server = AirlineDomainMcp(seed=None)
@@ -29,7 +29,7 @@ async def test_tool_call_returns_json_without_prior_initial_state():
     proc.start()
 
     try:
-        base_url = "http://127.0.0.1:9780/mcp"
+        base_url = "http://127.0.0.1:9700/mcp"
         client = httpx.Client(timeout=1.0)
         deadline = time.time() + 20
         while time.time() < deadline:
@@ -41,7 +41,7 @@ async def test_tool_call_returns_json_without_prior_initial_state():
                 pass
             time.sleep(0.2)
         else:
-            pytest.fail("Server did not start on port 9780 in time")
+            pytest.fail("Server did not start on port 9700 in time")
 
         session = MCPSession(base_url=base_url, session_id="test-autocreate", seed=None, model_id="test-model")
 
