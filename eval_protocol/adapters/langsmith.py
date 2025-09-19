@@ -35,10 +35,12 @@ class LangSmithAdapter(BaseAdapter):
     - outputs: { messages: [...] } | { content } | { result } | { answer } | { output } | str | list[dict]
     """
 
-    def __init__(self, client: Optional[Client] = None) -> None:
+    def __init__(self, client: Optional[Any] = None) -> None:
         if not LANGSMITH_AVAILABLE:
             raise ImportError("LangSmith not installed. Install with: pip install 'eval-protocol[langsmith]'")
-        self.client = client or Client()
+        # Client is provided by langsmith package; typing is relaxed to Any to avoid
+        # static analysis issues when stubs aren't available.
+        self.client = client or Client()  # type: ignore[reportCallIssue]
 
     def get_evaluation_rows(
         self,
