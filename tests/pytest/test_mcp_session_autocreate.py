@@ -3,8 +3,9 @@ Regression test: ensure MCP-Gym auto-creates a session on first tool call
 without requiring a prior initial state fetch, and returns JSON.
 """
 
+import socket
 import time
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 
 import httpx
 import pytest
@@ -13,10 +14,16 @@ from eval_protocol.mcp.client.connection import MCPConnectionManager
 from eval_protocol.types import MCPSession
 
 
-def _run_airline_server():
+def _run_airline_server(port_queue):
     import os
 
-    os.environ["PORT"] = "9780"
+    # Use dynamic port allocation to avoid conflicts in parallel CI runs
+    with socket.socket() as s:
+        s.bind(("", 0))
+        port = s.getsockname()[1]
+
+    port_queue.put(port)  # Send the port back to the test
+    os.environ["PORT"] = str(port)
     from eval_protocol.mcp_servers.tau2.tau2_mcp import AirlineDomainMcp
 
     server = AirlineDomainMcp(seed=None)
@@ -25,29 +32,26 @@ def _run_airline_server():
 
 @pytest.mark.asyncio
 async def test_tool_call_returns_json_without_prior_initial_state():
-    proc = Process(target=_run_airline_server, daemon=True)
+    port_queue = Queue()
+    proc = Process(target=_run_airline_server, args=(port_queue,), daemon=True)
     proc.start()
 
     try:
-        base_url = "http://127.0.0.1:9780/mcp"
+        # Get the dynamically assigned port
+        port = port_queue.get(timeout=10)
+        base_url = f"http://127.0.0.1:{port}/mcp"
         client = httpx.Client(timeout=1.0)
-        start_time = time.time()
-        deadline = start_time + 20
-        ready_time = None
+        deadline = time.time() + 20
         while time.time() < deadline:
             try:
                 r = client.get(base_url)
                 if r.status_code in (200, 307, 406):
-                    ready_time = time.time()
                     break
             except Exception:
                 pass
             time.sleep(0.2)
         else:
-            pytest.fail("Server did not start on port 9780 in time")
-
-        assert ready_time is not None, "Server did not return a successful status before exiting loop"
-        assert ready_time - start_time < 20, f"Server took too long to respond: {ready_time - start_time:.2f}s"
+            pytest.fail(f"Server did not start on port {port} in time")
 
         session = MCPSession(base_url=base_url, session_id="test-autocreate", seed=None, model_id="test-model")
 
