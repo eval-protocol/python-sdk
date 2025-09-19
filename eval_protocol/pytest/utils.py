@@ -27,9 +27,36 @@ from eval_protocol.pytest.exception_config import get_default_exception_handler_
 
 import logging
 import json
+import pandas as pd
 
 
-AggregationMethod = Literal["mean", "max", "min"]
+AggregationMethod = Literal["mean", "max", "min", "bootstrap"]
+
+
+def calculate_bootstrap_scores(all_scores: list[float]) -> float:
+    """
+    Calculate bootstrap confidence intervals for individual scores.
+
+    Args:
+        all_scores: List of individual scores from all rows
+
+    Returns:
+        Mean bootstrap score
+    """
+    if not all_scores:
+        return 0.0
+
+    # Create DataFrame (single column of scores)
+    battles = pd.DataFrame({"score": all_scores})
+
+    # Bootstrap sampling for calculating relative performance
+    bootstrap_means = [battles.sample(frac=1.0, replace=True)["score"].mean() for _ in range(100)]
+
+    # Calculate final scores
+    bootstraps = pd.Series(bootstrap_means)
+    mean_score = bootstraps.mean()
+
+    return float(mean_score)
 
 
 def aggregate(scores: list[float], method: AggregationMethod) -> float:
@@ -41,7 +68,8 @@ def aggregate(scores: list[float], method: AggregationMethod) -> float:
         return max(scores)
     if method == "min":
         return min(scores)
-    raise ValueError(f"Unknown aggregation method: {method}")  # pyright: ignore[reportUnreachable]
+    if method == "bootstrap":
+        return calculate_bootstrap_scores(scores)
 
 
 def log_eval_status_and_rows(

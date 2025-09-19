@@ -37,18 +37,18 @@ from .playback_policy import PlaybackPolicyBase
 from .resources import create_llm_resource
 from .reward_function import RewardFunction
 from .typed_interface import reward_function
-from .quickstart import aha_judge, split_multi_turn_rows
+from .quickstart import aha_judge, multi_turn_assistant_to_ground_truth, assistant_to_ground_truth
 from .pytest import evaluation_test, SingleTurnRolloutProcessor
 
 from .adapters import OpenAIResponsesAdapter
 
 try:
-    from .adapters import LangfuseAdapter
+    from .adapters import LangfuseAdapter, create_langfuse_adapter
 except ImportError:
     LangfuseAdapter = None
 
 try:
-    from .adapters import BraintrustAdapter
+    from .adapters import BraintrustAdapter, create_braintrust_adapter
 except ImportError:
     BraintrustAdapter = None
 
@@ -62,12 +62,15 @@ warnings.filterwarnings("default", category=DeprecationWarning, module="eval_pro
 
 __all__ = [
     "aha_judge",
-    "split_multi_turn_rows",
+    "multi_turn_assistant_to_ground_truth",
+    "assistant_to_ground_truth",
     "evaluation_test",
     "SingleTurnRolloutProcessor",
     "OpenAIResponsesAdapter",
     "LangfuseAdapter",
+    "create_langfuse_adapter",
     "BraintrustAdapter",
+    "create_braintrust_adapter",
     "LangSmithAdapter",
     # Core interfaces
     "Message",

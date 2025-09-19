@@ -6,13 +6,14 @@ import os
 
 import pytest
 
-from eval_protocol.models import EvaluationRow
-from eval_protocol.pytest import evaluation_test
-from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
-from eval_protocol.quickstart.utils import split_multi_turn_rows
-from eval_protocol.adapters.braintrust import create_braintrust_adapter
-from eval_protocol.quickstart import aha_judge
-
+from eval_protocol import (
+    evaluation_test,
+    aha_judge,
+    multi_turn_assistant_to_ground_truth,
+    EvaluationRow,
+    SingleTurnRolloutProcessor,
+    create_braintrust_adapter,
+)
 # adapter = create_braintrust_adapter()
 
 
@@ -44,9 +45,9 @@ from eval_protocol.quickstart import aha_judge
         },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
-    preprocess_fn=split_multi_turn_rows,
+    preprocess_fn=multi_turn_assistant_to_ground_truth,
     max_concurrent_rollouts=64,
-    mode="all",
+    aggregation_method="bootstrap",
 )
-async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
-    return await aha_judge(rows)
+async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
+    return await aha_judge(row)

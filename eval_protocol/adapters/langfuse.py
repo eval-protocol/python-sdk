@@ -445,9 +445,6 @@ class LangfuseAdapter(BaseAdapter):
             rows: List of EvaluationRow objects with session_data containing trace IDs
             model_name: Name of the model (used as the score name in Langfuse)
             mean_score: The calculated mean score to push to Langfuse
-
-        Note:
-            Silently handles errors if rows lack session data
         """
         try:
             for trace_id in set(
@@ -463,6 +460,31 @@ class LangfuseAdapter(BaseAdapter):
                     )
         except Exception as e:
             logger.warning("Failed to push scores to Langfuse: %s", e)
+
+    def upload_score(self, row: EvaluationRow, model_name: str) -> None:
+        """Upload evaluation score for a single row back to Langfuse.
+
+        Args:
+            row: Single EvaluationRow with evaluation_result and session_data containing trace ID
+            model_name: Name of the model (used as the score name in Langfuse)
+        """
+        try:
+            if (
+                row.evaluation_result
+                and row.evaluation_result.is_score_valid
+                and row.input_metadata
+                and row.input_metadata.session_data
+                and "langfuse_trace_id" in row.input_metadata.session_data
+            ):
+                trace_id = row.input_metadata.session_data["langfuse_trace_id"]
+                if trace_id:
+                    self.client.create_score(
+                        trace_id=trace_id,
+                        name=model_name,
+                        value=row.evaluation_result.score,
+                    )
+        except Exception as e:
+            logger.warning("Failed to push score to Langfuse: %s", e)
 
 
 def create_langfuse_adapter() -> LangfuseAdapter:
