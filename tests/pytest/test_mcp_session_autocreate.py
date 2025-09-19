@@ -3,7 +3,6 @@ Regression test: ensure MCP-Gym auto-creates a session on first tool call
 without requiring a prior initial state fetch, and returns JSON.
 """
 
-import socket
 import time
 from multiprocessing import Process, Queue
 
@@ -17,13 +16,12 @@ from eval_protocol.types import MCPSession
 def _run_airline_server(port_queue):
     import os
 
-    # Use dynamic port allocation to avoid conflicts in parallel CI runs
-    with socket.socket() as s:
-        s.bind(("", 0))
-        port = s.getsockname()[1]
+    # Use different ports based on Python version to avoid conflicts in parallel CI runs
+    python_version = os.environ.get("PYTHON_VERSION", "3.10").replace(".", "")
+    port = str(9780 + int(python_version[-2:]))  # 9780, 9781, 9782
+    os.environ["PORT"] = port
 
-    port_queue.put(port)  # Send the port back to the test
-    os.environ["PORT"] = str(port)
+    port_queue.put(int(port))  # Send the port back to the test
     from eval_protocol.mcp_servers.tau2.tau2_mcp import AirlineDomainMcp
 
     server = AirlineDomainMcp(seed=None)
