@@ -22,7 +22,7 @@ def _run_airline_server():
 
     # Map Python versions to port offsets: 3.10->0, 3.11->1, 3.12->2
     port_offset = minor_version - 10
-    port = str(9780 + port_offset)
+    port = str(9780)
     print(f"[SERVER DEBUG] Python 3.{minor_version} -> Setting PORT={port}")
     os.environ["PORT"] = port
     from eval_protocol.mcp_servers.tau2.tau2_mcp import AirlineDomainMcp
@@ -47,7 +47,7 @@ async def test_tool_call_returns_json_without_prior_initial_state():
 
         # Map Python versions to port offsets: 3.10->0, 3.11->1, 3.12->2
         port_offset = minor_version - 10
-        port = str(9780 + port_offset)
+        port = str(9780)
         print(f"[TEST DEBUG] Python 3.{minor_version} -> Looking for server on port {port}")
 
         base_url = f"http://127.0.0.1:{port}/mcp"
