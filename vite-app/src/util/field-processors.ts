@@ -1,6 +1,6 @@
 import { state } from '../App';
 import { createFilterFunction as createFilterFunctionUtil } from '../util/filter-utils';
-import { type FilterGroup } from '../types/filters';
+import { type FilterGroup } from '../types/configs';
 
 /**
  * Utility functions for processing field configurations and creating handlers

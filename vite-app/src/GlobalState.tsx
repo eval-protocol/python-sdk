@@ -1,6 +1,11 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import type { EvaluationRow } from "./types/eval-protocol";
-import type { PivotConfig, FilterGroup } from "./types/filters";
+import type {
+  PivotConfig,
+  FilterGroup,
+  PaginationConfig,
+  SortConfig,
+} from "./types/configs";
 import flattenJson from "./util/flatten-json";
 import type { FlatJson } from "./util/flatten-json";
 import { createFilterFunction } from "./util/filter-utils";
@@ -17,13 +22,13 @@ const DEFAULT_PIVOT_CONFIG: PivotConfig = {
 const DEFAULT_FILTER_CONFIG: FilterGroup[] = [];
 
 // Default pagination configuration
-const DEFAULT_PAGINATION_CONFIG = {
+const DEFAULT_PAGINATION_CONFIG: PaginationConfig = {
   currentPage: 1,
   pageSize: 25,
 };
 
 // Default sort configuration
-const DEFAULT_SORT_CONFIG = {
+const DEFAULT_SORT_CONFIG: SortConfig = {
   sortField: "created_at",
   sortDirection: "desc" as "asc" | "desc",
 };
@@ -110,7 +115,7 @@ export class GlobalState {
   }
 
   // Load pagination configuration from localStorage
-  private loadPaginationConfig() {
+  private loadPaginationConfig(): PaginationConfig {
     try {
       const stored = localStorage.getItem("paginationConfig");
       if (stored) {
@@ -128,7 +133,7 @@ export class GlobalState {
   }
 
   // Load sort configuration from localStorage
-  private loadSortConfig() {
+  private loadSortConfig(): SortConfig {
     try {
       const stored = localStorage.getItem("sortConfig");
       if (stored) {

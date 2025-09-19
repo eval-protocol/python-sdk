@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from "react";
-import type { FilterConfig, FilterGroup } from "../types/filters";
+import type { FilterConfig, FilterGroup } from "../types/configs";
 import SearchableSelect from "./SearchableSelect";
 import FilterInput from "./FilterInput";
 import Button from "./Button";

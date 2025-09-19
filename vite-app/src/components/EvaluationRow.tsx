@@ -9,7 +9,7 @@ import StatusIndicator from "./StatusIndicator";
 import { state } from "../App";
 import { TableCell, TableRowInteractive } from "./TableContainer";
 import { useState } from "react";
-import type { FilterGroup, FilterConfig } from "../types/filters";
+import type { FilterGroup, FilterConfig } from "../types/configs";
 import { Tooltip } from "./Tooltip";
 import { JSONTooltip } from "./JSONTooltip";
 

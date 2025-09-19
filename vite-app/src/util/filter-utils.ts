@@ -1,4 +1,4 @@
-import type { FilterConfig, FilterGroup, FilterOperator } from "../types/filters";
+import type { FilterConfig, FilterGroup, FilterOperator } from "../types/configs";
 
 // Filter utilities
 export const isDateField = (field: string): boolean => {

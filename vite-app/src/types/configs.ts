@@ -27,3 +27,13 @@ export interface PivotConfig {
   selectedValueField: string;
   selectedAggregator: string;
 }
+
+export interface PaginationConfig {
+  currentPage: number;
+  pageSize: number;
+}
+
+export interface SortConfig {
+  sortField: string;
+  sortDirection: "asc" | "desc";
+}

@@ -5,7 +5,7 @@ import ChartExport from "./ChartExport";
 import SearchableSelect from "./SearchableSelect";
 import Button from "./Button";
 import FilterSelector from "./FilterSelector";
-import { type FilterGroup } from "../types/filters";
+import { type FilterGroup } from "../types/configs";
 import { usePivotData } from "../hooks/usePivotData";
 import {
   createFieldHandlerSet,
