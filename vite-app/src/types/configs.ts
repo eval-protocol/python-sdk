@@ -9,13 +9,15 @@ export type Operator =
   | "!contains"
   | "between";
 
+export type FilterType = "text" | "date" | "date-range";
+
 // Filter configuration interface
 export interface FilterConfig {
   field: string;
   operator: Operator;
   value: string;
   value2?: string; // For filtering between dates
-  type?: "text" | "date" | "date-range";
+  type?: FilterType;
 }
 
 export type FilterOperator = {
@@ -44,9 +46,11 @@ export interface PaginationConfig {
   pageSize: number;
 }
 
+export type SortDirection = "asc" | "desc";
+
 export interface SortConfig {
   sortField: string;
-  sortDirection: "asc" | "desc";
+  sortDirection: SortDirection;
 }
 
 export interface GlobalConfig {
