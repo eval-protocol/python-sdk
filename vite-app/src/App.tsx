@@ -167,8 +167,8 @@ const App = observer(() => {
 
       <main className="max-w-full mx-auto px-1 py-1">
         <div className="flex gap-1">
-          {/* Left side - Main content (2/3 width) */}
-          <div className="flex-1 min-w-0">
+          {/* Left side - Main content (2/3 width) - Hidden on small screens */}
+          <div className="flex-1 min-w-0 hidden sm:block">
             <Routes>
               <Route path="/" element={<Navigate to="/table" replace />} />
               <Route
@@ -182,8 +182,8 @@ const App = observer(() => {
             </Routes>
           </div>
 
-          {/* Right side - Chat window (1/3 width) - Sticky */}
-          <div className="w-1/3 min-w-[300px]">
+          {/* Right side - Chat window (1/3 width on small+ screens, full width on extra small screens) - Sticky */}
+          <div className="w-full sm:w-1/3 sm:min-w-[300px]">
             <div className="sticky top-2">
               <ChatWindow className="w-full" />
             </div>
