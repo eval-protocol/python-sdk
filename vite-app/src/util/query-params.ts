@@ -3,15 +3,75 @@
  */
 
 import { autorun } from "mobx";
-import { state } from "../App";
+import { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { GlobalConfig } from "../types/configs";
-import { DEFAULT_GLOBAL_CONFIG } from "../GlobalState";
+import { DEFAULT_GLOBAL_CONFIG, GlobalState } from "../GlobalState";
 
-export function initWatcher() {
-  autorun(() => {
-    const globalConfig = state.globalConfig;
-    console.log(JSON.stringify(globalConfig));
-  });
+export class QueryParamsWatcher {
+  queryParams: Record<string, string>;
+  private updateUrlCallback:
+    | ((queryParams: Record<string, string>) => void)
+    | null = null;
+  private state: GlobalState;
+
+  constructor(state: GlobalState) {
+    this.state = state;
+    this.queryParams = nonDefaultValues(this.state.globalConfig);
+    this.init();
+  }
+
+  init() {
+    autorun(() => {
+      const globalConfig = this.state.globalConfig;
+      const diff = nonDefaultValues(globalConfig);
+      const previousUrlEncodedQueryParams =
+        this.generateUrlEncodedQueryParams();
+      this.queryParams = diff;
+      const newUrlEncodedQueryParams = this.generateUrlEncodedQueryParams();
+      if (previousUrlEncodedQueryParams !== newUrlEncodedQueryParams) {
+        console.log(
+          `Query params changed from ${previousUrlEncodedQueryParams} to ${newUrlEncodedQueryParams}`
+        );
+        this.updateUrl();
+      }
+    });
+  }
+
+  setUpdateUrlCallback(
+    callback: (queryParams: Record<string, string>) => void
+  ) {
+    this.updateUrlCallback = callback;
+  }
+
+  stableQueryParams(): [string, string][] {
+    /**
+     * Returns a stable query params object that is idempotent based on this.queryParams. First sorts by key and then by value.
+     */
+    return Object.entries(this.queryParams).sort((a, b) => {
+      const keyCompare = a[0].localeCompare(b[0]);
+      if (keyCompare !== 0) return keyCompare;
+      return a[1].localeCompare(b[1]);
+    });
+  }
+
+  generateUrlEncodedQueryParams(): string {
+    return this.stableQueryParams()
+      .map(
+        ([key, value]) =>
+          `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+      )
+      .join("&");
+  }
+
+  private updateUrl() {
+    /**
+     * Update the browser URL with current query params using React Router callback
+     */
+    if (this.updateUrlCallback) {
+      this.updateUrlCallback(this.queryParams);
+    }
+  }
 }
 
 export function nonDefaultValues(
@@ -99,4 +159,35 @@ function calculateDifferentValues(
 
   compareObjects(globalConfig, defaultConfig);
   return differences;
+}
+
+/**
+ * Custom hook that integrates QueryParamsWatcher with React Router's useSearchParams
+ * This hook should be used in components that need to sync global state with URL query params
+ */
+export function useQueryParamsSync(queryParamsWatcher: QueryParamsWatcher) {
+  const [, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    // Set up the callback for the QueryParamsWatcher to update URL
+    const updateUrl = (queryParams: Record<string, string>) => {
+      const newSearchParams = new URLSearchParams();
+
+      // Add all query params to URLSearchParams
+      Object.entries(queryParams).forEach(([key, value]) => {
+        newSearchParams.set(key, value);
+      });
+
+      // Update the URL using React Router
+      setSearchParams(newSearchParams, { replace: true });
+    };
+
+    // Set the callback on the global queryParamsWatcher
+    queryParamsWatcher.setUpdateUrlCallback(updateUrl);
+
+    // Cleanup: remove callback when component unmounts
+    return () => {
+      queryParamsWatcher.setUpdateUrlCallback(() => {});
+    };
+  }, [setSearchParams]);
 }

@@ -11,6 +11,7 @@ import type {
 import flattenJson from "./util/flatten-json";
 import type { FlatJson } from "./util/flatten-json";
 import { createFilterFunction } from "./util/filter-utils";
+import { QueryParamsWatcher } from "./util/query-params";
 
 // Default pivot configuration
 const DEFAULT_PIVOT_CONFIG: PivotConfig = {
@@ -35,7 +36,7 @@ const DEFAULT_SORT_CONFIG: SortConfig = {
   sortDirection: "desc",
 };
 
-const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
+export const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
   pivotConfig: DEFAULT_PIVOT_CONFIG,
   filterConfig: DEFAULT_FILTER_CONFIG,
   paginationConfig: DEFAULT_PAGINATION_CONFIG,
@@ -60,6 +61,8 @@ export class GlobalState {
   appliedFilterConfig: FilterGroup[];
   // Loading state
   isLoading: boolean = true;
+
+  queryParamsWatcher: QueryParamsWatcher;
 
   // Cached, denormalized data for performance
   // rollout_id -> flattened row
@@ -86,6 +89,7 @@ export class GlobalState {
     // Load sort config from localStorage or use defaults
     this.sortConfig = this.loadSortConfig();
     makeAutoObservable(this);
+    this.queryParamsWatcher = new QueryParamsWatcher(this);
   }
 
   // Computed getters for individual pagination properties
