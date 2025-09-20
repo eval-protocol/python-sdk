@@ -49,14 +49,8 @@ export class GlobalState {
   dataset: Record<string, EvaluationRow> = {};
   // rollout_id -> expanded
   expandedRows: Record<string, boolean> = {};
-  // Pivot configuration
-  pivotConfig: PivotConfig;
-  // Unified filter configuration for both pivot and table views
-  filterConfig: FilterGroup[];
-  // Pagination configuration
-  paginationConfig: PaginationConfig;
-  // Sort configuration
-  sortConfig: SortConfig;
+  // Unified global configuration
+  globalConfig: GlobalConfig;
   // Debounced, actually applied filter configuration (for performance while typing)
   appliedFilterConfig: FilterGroup[];
   // Loading state
@@ -71,25 +65,33 @@ export class GlobalState {
   private createdAtMsById: Record<string, number> = {};
 
   // Debounce timers for localStorage saves and filter application
-  private savePivotConfigTimer: ReturnType<typeof setTimeout> | null = null;
-  private saveFilterConfigTimer: ReturnType<typeof setTimeout> | null = null;
-  private savePaginationConfigTimer: ReturnType<typeof setTimeout> | null =
-    null;
+  private saveGlobalConfigTimer: ReturnType<typeof setTimeout> | null = null;
   private applyFilterTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    // Load pivot config from localStorage or use defaults
-    this.pivotConfig = this.loadPivotConfig();
-    // Load filter config from localStorage or use defaults
-    this.filterConfig = this.loadFilterConfig();
+    // Load global config from localStorage or use defaults
+    this.globalConfig = this.loadGlobalConfig();
     // Initialize applied filter config with current value
     this.appliedFilterConfig = this.filterConfig.slice();
-    // Load pagination config from localStorage or use defaults
-    this.paginationConfig = this.loadPaginationConfig();
-    // Load sort config from localStorage or use defaults
-    this.sortConfig = this.loadSortConfig();
     makeAutoObservable(this);
     this.queryParamsWatcher = new QueryParamsWatcher(this);
+  }
+
+  // Computed getters for individual configs
+  get pivotConfig(): PivotConfig {
+    return this.globalConfig.pivotConfig;
+  }
+
+  get filterConfig(): FilterGroup[] {
+    return this.globalConfig.filterConfig;
+  }
+
+  get paginationConfig(): PaginationConfig {
+    return this.globalConfig.paginationConfig;
+  }
+
+  get sortConfig(): SortConfig {
+    return this.globalConfig.sortConfig;
   }
 
   // Computed getters for individual pagination properties
@@ -110,133 +112,53 @@ export class GlobalState {
     return this.sortConfig.sortDirection;
   }
 
-  // Load pivot configuration from localStorage
-  private loadPivotConfig(): PivotConfig {
+  // Load global configuration from localStorage
+  private loadGlobalConfig(): GlobalConfig {
     try {
-      const stored = localStorage.getItem("pivotConfig");
+      const stored = localStorage.getItem("globalConfig");
       if (stored) {
         const parsed = JSON.parse(stored);
         // Merge with defaults to handle any missing properties
-        return { ...DEFAULT_PIVOT_CONFIG, ...parsed };
+        return {
+          pivotConfig: { ...DEFAULT_PIVOT_CONFIG, ...parsed.pivotConfig },
+          filterConfig: Array.isArray(parsed.filterConfig)
+            ? parsed.filterConfig
+            : DEFAULT_FILTER_CONFIG,
+          paginationConfig: {
+            ...DEFAULT_PAGINATION_CONFIG,
+            ...parsed.paginationConfig,
+          },
+          sortConfig: { ...DEFAULT_SORT_CONFIG, ...parsed.sortConfig },
+        };
       }
     } catch (error) {
-      console.warn("Failed to load pivot config from localStorage:", error);
+      console.warn("Failed to load global config from localStorage:", error);
     }
-    return { ...DEFAULT_PIVOT_CONFIG };
+    return { ...DEFAULT_GLOBAL_CONFIG };
   }
 
-  // Load filter configuration from localStorage
-  private loadFilterConfig(): FilterGroup[] {
-    try {
-      const stored = localStorage.getItem("filterConfig");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return Array.isArray(parsed) ? parsed : DEFAULT_FILTER_CONFIG;
-      }
-    } catch (error) {
-      console.warn("Failed to load filter config from localStorage:", error);
-    }
-    return DEFAULT_FILTER_CONFIG;
-  }
-
-  // Load pagination configuration from localStorage
-  private loadPaginationConfig(): PaginationConfig {
-    try {
-      const stored = localStorage.getItem("paginationConfig");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // Merge with defaults to handle any missing properties
-        return { ...DEFAULT_PAGINATION_CONFIG, ...parsed };
-      }
-    } catch (error) {
-      console.warn(
-        "Failed to load pagination config from localStorage:",
-        error
-      );
-    }
-    return DEFAULT_PAGINATION_CONFIG;
-  }
-
-  // Load sort configuration from localStorage
-  private loadSortConfig(): SortConfig {
-    try {
-      const stored = localStorage.getItem("sortConfig");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // Merge with defaults to handle any missing properties
-        return { ...DEFAULT_SORT_CONFIG, ...parsed };
-      }
-    } catch (error) {
-      console.warn("Failed to load sort config from localStorage:", error);
-    }
-    return DEFAULT_SORT_CONFIG;
-  }
-
-  // Save pivot configuration to localStorage
-  private savePivotConfig() {
-    if (this.savePivotConfigTimer) clearTimeout(this.savePivotConfigTimer);
-    this.savePivotConfigTimer = setTimeout(() => {
+  // Save global configuration to localStorage
+  private saveGlobalConfig() {
+    if (this.saveGlobalConfigTimer) clearTimeout(this.saveGlobalConfigTimer);
+    this.saveGlobalConfigTimer = setTimeout(() => {
       try {
-        localStorage.setItem("pivotConfig", JSON.stringify(this.pivotConfig));
+        localStorage.setItem("globalConfig", JSON.stringify(this.globalConfig));
       } catch (error) {
-        console.warn("Failed to save pivot config to localStorage:", error);
-      }
-    }, 200);
-  }
-
-  // Save filter configuration to localStorage
-  private saveFilterConfig() {
-    if (this.saveFilterConfigTimer) clearTimeout(this.saveFilterConfigTimer);
-    this.saveFilterConfigTimer = setTimeout(() => {
-      try {
-        localStorage.setItem("filterConfig", JSON.stringify(this.filterConfig));
-      } catch (error) {
-        console.warn("Failed to save filter config to localStorage:", error);
-      }
-    }, 200);
-  }
-
-  // Save pagination configuration to localStorage
-  private savePaginationConfig() {
-    if (this.savePaginationConfigTimer)
-      clearTimeout(this.savePaginationConfigTimer);
-    this.savePaginationConfigTimer = setTimeout(() => {
-      try {
-        localStorage.setItem(
-          "paginationConfig",
-          JSON.stringify(this.paginationConfig)
-        );
-      } catch (error) {
-        console.warn(
-          "Failed to save pagination config to localStorage:",
-          error
-        );
-      }
-    }, 200);
-  }
-
-  // Save sort configuration to localStorage
-  private saveSortConfig() {
-    if (this.saveFilterConfigTimer) clearTimeout(this.saveFilterConfigTimer);
-    this.saveFilterConfigTimer = setTimeout(() => {
-      try {
-        localStorage.setItem("sortConfig", JSON.stringify(this.sortConfig));
-      } catch (error) {
-        console.warn("Failed to save sort config to localStorage:", error);
+        console.warn("Failed to save global config to localStorage:", error);
       }
     }, 200);
   }
 
   // Update pivot configuration and save to localStorage
   updatePivotConfig(updates: Partial<PivotConfig>) {
-    Object.assign(this.pivotConfig, updates);
-    this.savePivotConfig();
+    Object.assign(this.globalConfig.pivotConfig, updates);
+    this.saveGlobalConfig();
   }
 
   // Update filter configuration and save to localStorage
   updateFilterConfig(filters: FilterGroup[]) {
-    this.filterConfig = filters;
-    this.saveFilterConfig();
+    this.globalConfig.filterConfig = filters;
+    this.saveGlobalConfig();
 
     // Debounce application of filters to avoid re-filtering on every keystroke
     if (this.applyFilterTimer) clearTimeout(this.applyFilterTimer);
@@ -247,68 +169,68 @@ export class GlobalState {
 
   // Update pagination configuration and save to localStorage
   updatePaginationConfig(updates: Partial<PaginationConfig>) {
-    Object.assign(this.paginationConfig, updates);
-    this.savePaginationConfig();
+    Object.assign(this.globalConfig.paginationConfig, updates);
+    this.saveGlobalConfig();
   }
 
   // Update sort configuration and save to localStorage
   updateSortConfig(updates: Partial<SortConfig>) {
-    Object.assign(this.sortConfig, updates);
+    Object.assign(this.globalConfig.sortConfig, updates);
     // Reset to first page when sorting changes
-    this.paginationConfig.currentPage = 1;
-    this.saveSortConfig();
+    this.globalConfig.paginationConfig.currentPage = 1;
+    this.saveGlobalConfig();
   }
 
   // Handle sort field click - toggle direction if same field, set to asc if new field
   handleSortFieldClick(field: string) {
     if (this.sortConfig.sortField === field) {
       // Toggle direction for same field
-      this.sortConfig.sortDirection =
+      this.globalConfig.sortConfig.sortDirection =
         this.sortConfig.sortDirection === "asc" ? "desc" : "asc";
     } else {
       // New field, set to ascending
-      this.sortConfig.sortField = field;
-      this.sortConfig.sortDirection = "asc";
+      this.globalConfig.sortConfig.sortField = field;
+      this.globalConfig.sortConfig.sortDirection = "asc";
     }
-    this.saveSortConfig();
+    this.saveGlobalConfig();
   }
 
   // Reset pivot configuration to defaults
   resetPivotConfig() {
-    this.pivotConfig = { ...DEFAULT_PIVOT_CONFIG };
-    this.savePivotConfig();
+    this.globalConfig.pivotConfig = { ...DEFAULT_PIVOT_CONFIG };
+    this.saveGlobalConfig();
   }
 
   // Reset filter configuration to defaults
   resetFilterConfig() {
-    this.filterConfig = [...DEFAULT_FILTER_CONFIG];
+    this.globalConfig.filterConfig = [...DEFAULT_FILTER_CONFIG];
     this.appliedFilterConfig = [...DEFAULT_FILTER_CONFIG];
-    this.saveFilterConfig();
+    this.saveGlobalConfig();
   }
 
   // Reset pagination configuration to defaults
   resetPaginationConfig() {
-    this.paginationConfig = { ...DEFAULT_PAGINATION_CONFIG };
-    this.savePaginationConfig();
+    this.globalConfig.paginationConfig = { ...DEFAULT_PAGINATION_CONFIG };
+    this.saveGlobalConfig();
   }
 
   // Reset sort configuration to defaults
   resetSortConfig() {
-    this.sortConfig = { ...DEFAULT_SORT_CONFIG };
-    this.saveSortConfig();
+    this.globalConfig.sortConfig = { ...DEFAULT_SORT_CONFIG };
+    this.saveGlobalConfig();
   }
 
   // Set current page
   setCurrentPage(page: number) {
-    this.paginationConfig.currentPage = page;
-    this.savePaginationConfig();
+    this.globalConfig.paginationConfig.currentPage = page;
+    this.saveGlobalConfig();
   }
 
   // Set page size
   setPageSize(size: number) {
-    this.paginationConfig.pageSize = size;
-    this.paginationConfig.currentPage = 1; // Reset to first page when changing page size
-    this.savePaginationConfig();
+    this.globalConfig.paginationConfig.pageSize = size;
+    this.globalConfig.paginationConfig.currentPage = 1; // Reset to first page when changing page size
+    this.saveGlobalConfig();
   }
 
   // Set loading state
@@ -341,10 +263,10 @@ export class GlobalState {
 
     runInAction(() => {
       // Reset to first page when dataset changes
-      this.paginationConfig.currentPage = 1;
+      this.globalConfig.paginationConfig.currentPage = 1;
       this.isLoading = false;
     });
-    this.savePaginationConfig();
+    this.saveGlobalConfig();
   }
 
   toggleRowExpansion(rolloutId?: string) {
@@ -369,15 +291,6 @@ export class GlobalState {
     Object.keys(this.dataset).forEach((rolloutId) => {
       this.expandedRows[rolloutId] = expanded;
     });
-  }
-
-  get globalConfig(): GlobalConfig {
-    return {
-      pivotConfig: this.pivotConfig,
-      filterConfig: this.filterConfig,
-      paginationConfig: this.paginationConfig,
-      sortConfig: this.sortConfig,
-    };
   }
 
   // Computed values following MobX best practices
