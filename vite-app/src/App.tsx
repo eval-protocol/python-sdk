@@ -4,6 +4,7 @@ import { observer } from "mobx-react";
 import Dashboard from "./components/Dashboard";
 import Button from "./components/Button";
 import StatusIndicator from "./components/StatusIndicator";
+import { ChatWindow } from "./components/ChatWindow";
 import { EvaluationRowSchema, type EvaluationRow } from "./types/eval-protocol";
 import { WebSocketServerMessageSchema } from "./types/websocket";
 import { GlobalState } from "./GlobalState";
@@ -137,7 +138,7 @@ const App = observer(() => {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-3">
+        <div className="max-w-full mx-auto px-1">
           <div className="flex justify-between items-center h-10">
             <div className="flex items-center space-x-2">
               <a href="https://evalprotocol.io" target="_blank">
@@ -164,18 +165,30 @@ const App = observer(() => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-3 py-4">
-        <Routes>
-          <Route path="/" element={<Navigate to="/table" replace />} />
-          <Route
-            path="/table"
-            element={<Dashboard onRefresh={handleManualRefresh} />}
-          />
-          <Route
-            path="/pivot"
-            element={<Dashboard onRefresh={handleManualRefresh} />}
-          />
-        </Routes>
+      <main className="max-w-full mx-auto px-1 py-1">
+        <div className="flex gap-1">
+          {/* Left side - Main content (2/3 width) */}
+          <div className="flex-1 min-w-0">
+            <Routes>
+              <Route path="/" element={<Navigate to="/table" replace />} />
+              <Route
+                path="/table"
+                element={<Dashboard onRefresh={handleManualRefresh} />}
+              />
+              <Route
+                path="/pivot"
+                element={<Dashboard onRefresh={handleManualRefresh} />}
+              />
+            </Routes>
+          </div>
+
+          {/* Right side - Chat window (1/3 width) - Sticky */}
+          <div className="w-1/3 min-w-[300px]">
+            <div className="sticky top-2">
+              <ChatWindow className="w-full" />
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );
