@@ -11,7 +11,10 @@ import type {
 import flattenJson from "./util/flatten-json";
 import type { FlatJson } from "./util/flatten-json";
 import { createFilterFunction } from "./util/filter-utils";
-import { QueryParamsWatcher } from "./util/query-params";
+import {
+  QueryParamsWatcher,
+  queryParamsToPartialConfig,
+} from "./util/query-params";
 
 // Default pivot configuration
 const DEFAULT_PIVOT_CONFIG: PivotConfig = {
@@ -75,6 +78,9 @@ export class GlobalState {
     this.appliedFilterConfig = this.filterConfig.slice();
     makeAutoObservable(this);
     this.queryParamsWatcher = new QueryParamsWatcher(this);
+
+    // Apply query params from URL if they exist
+    this.applyQueryParamsFromUrl();
   }
 
   // Computed getters for individual configs
@@ -241,6 +247,49 @@ export class GlobalState {
   // Set connection state
   setConnected(connected: boolean) {
     this.isConnected = connected;
+  }
+
+  // Apply query params to global configuration
+  applyQueryParams(queryParams: Record<string, string>) {
+    debugger;
+    const partialConfig = queryParamsToPartialConfig(queryParams);
+
+    // Apply each section of the partial config
+    if (partialConfig.pivotConfig) {
+      this.updatePivotConfig(partialConfig.pivotConfig);
+    }
+
+    if (partialConfig.filterConfig) {
+      this.updateFilterConfig(partialConfig.filterConfig);
+    }
+
+    if (partialConfig.paginationConfig) {
+      this.updatePaginationConfig(partialConfig.paginationConfig);
+    }
+
+    if (partialConfig.sortConfig) {
+      this.updateSortConfig(partialConfig.sortConfig);
+    }
+  }
+
+  // Extract query params from URL and apply them to global configuration
+  private applyQueryParamsFromUrl() {
+    if (typeof window === "undefined") {
+      return; // Skip on server-side rendering
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryParams: Record<string, string> = {};
+
+    // Convert URLSearchParams to Record<string, string>
+    for (const [key, value] of urlParams.entries()) {
+      queryParams[key] = value;
+    }
+
+    // Only apply if there are query params
+    if (Object.keys(queryParams).length > 0) {
+      this.applyQueryParams(queryParams);
+    }
   }
 
   upsertRows(dataset: EvaluationRow[]) {

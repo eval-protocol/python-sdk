@@ -162,6 +162,57 @@ function calculateDifferentValues(
 }
 
 /**
+ * Converts serialized query params back into a partial GlobalConfig
+ * This is the inverse operation of nonDefaultValues()
+ *
+ * @param queryParams - Record where keys are JSON paths and values are JSON-serialized values
+ * @returns Partial<GlobalConfig> that can be applied to update GlobalConfig
+ */
+export function queryParamsToPartialConfig(
+  queryParams: Record<string, string>
+): Partial<GlobalConfig> {
+  const result: any = {};
+
+  for (const [path, serializedValue] of Object.entries(queryParams)) {
+    try {
+      const value = JSON.parse(serializedValue);
+      setNestedValue(result, path, value);
+    } catch (error) {
+      console.warn(
+        `Failed to parse query param value for path "${path}":`,
+        error
+      );
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Helper function to set a nested value in an object using dot notation path
+ * @param obj - The object to modify
+ * @param path - Dot notation path (e.g., "pivotConfig.selectedRowFields")
+ * @param value - The value to set
+ */
+function setNestedValue(obj: any, path: string, value: any): void {
+  const keys = path.split(".");
+  let current = obj;
+
+  // Navigate to the parent of the target key
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    if (!(key in current)) {
+      current[key] = {};
+    }
+    current = current[key];
+  }
+
+  // Set the final value
+  const finalKey = keys[keys.length - 1];
+  current[finalKey] = value;
+}
+
+/**
  * Custom hook that integrates QueryParamsWatcher with React Router's useSearchParams
  * This hook should be used in components that need to sync global state with URL query params
  */
