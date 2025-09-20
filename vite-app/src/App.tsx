@@ -165,7 +165,7 @@ const App = observer(() => {
         </div>
       </nav>
 
-      <main className="max-w-full mx-auto px-1 py-1">
+      <main className="max-w-full mx-auto px-3 py-1">
         <div className="flex gap-1">
           {/* Left side - Main content (2/3 width) - Hidden on small screens */}
           <div className="flex-1 min-w-0 hidden sm:block">
