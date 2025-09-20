@@ -6,6 +6,7 @@ from typing import List
 import atexit
 
 import pytest
+import requests
 
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
@@ -23,17 +24,36 @@ def _start_remote_server():
 
 
 def _ensure_server_running():
+    host = os.getenv("REMOTE_SERVER_HOST", "127.0.0.1")
+    port = int(os.getenv("REMOTE_SERVER_PORT", "7077"))
+    base_url = f"http://{host}:{port}"
+
+    def _is_up() -> bool:
+        try:
+            r = requests.get(f"{base_url}/status", params={"rollout_id": "ping"}, timeout=1.0)
+            return r.status_code in (200, 404)
+        except Exception:
+            return False
+
+    if _is_up():
+        return None
+
     # Launch in a background process
     proc = multiprocessing.Process(target=_start_remote_server, daemon=True)
     proc.start()
-    # Give it a moment to boot
-    time.sleep(1.5)
+
+    # Poll for readiness up to 10s
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        if _is_up():
+            break
+        time.sleep(0.5)
     return proc
 
 
 # Ensure server is running BEFORE rollouts start (evaluation_test triggers rollouts before test body)
 _SERVER_PROC = _ensure_server_running()
-atexit.register(lambda: (_SERVER_PROC.terminate() if _SERVER_PROC.is_alive() else None))
+atexit.register(lambda: (_SERVER_PROC and _SERVER_PROC.is_alive() and _SERVER_PROC.terminate()))
 
 
 def _make_input_rows() -> List[EvaluationRow]:
@@ -47,12 +67,11 @@ def _make_input_rows() -> List[EvaluationRow]:
 @evaluation_test(
     input_rows=[_make_input_rows()],
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}],
-    rollout_processor=RemoteRolloutProcessor(),
-    rollout_processor_kwargs={
-        "remote_base_url": "http://127.0.0.1:7077",
-        "num_turns": 2,
-        "timeout_seconds": 30,
-    },
+    rollout_processor=RemoteRolloutProcessor(
+        remote_base_url="http://127.0.0.1:7077",
+        num_turns=2,
+        timeout_seconds=30,
+    ),
     mode="pointwise",
 )
 async def test_remote_rollout_and_fetch_langfuse(row: EvaluationRow) -> EvaluationRow:

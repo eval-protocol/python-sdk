@@ -35,19 +35,34 @@ class RemoteRolloutProcessor(RolloutProcessor):
       Returns: {"terminated": bool, "info": {...}?}
     """
 
-    def __init__(self):
-        pass
+    def __init__(
+        self,
+        *,
+        remote_base_url: Optional[str] = None,
+        num_turns: int = 2,
+        poll_interval: float = 1.0,
+        timeout_seconds: float = 120.0,
+    ):
+        # Prefer constructor-provided configuration. These can be overridden via
+        # config.kwargs at call time for backward compatibility.
+        self._remote_base_url = remote_base_url
+        self._num_turns = num_turns
+        self._poll_interval = poll_interval
+        self._timeout_seconds = timeout_seconds
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         tasks: List[asyncio.Task[EvaluationRow]] = []
 
-        remote_base_url: Optional[str] = None
-        num_turns: int = 2
-        poll_interval: float = 1.0
-        timeout_seconds: float = 120.0
+        # Start with constructor values
+        remote_base_url: Optional[str] = self._remote_base_url
+        num_turns: int = self._num_turns
+        poll_interval: float = self._poll_interval
+        timeout_seconds: float = self._timeout_seconds
 
+        # Backward compatibility: allow overrides via config.kwargs
         if config.kwargs:
-            remote_base_url = config.kwargs.get("remote_base_url")
+            if remote_base_url is None:
+                remote_base_url = config.kwargs.get("remote_base_url", remote_base_url)
             num_turns = int(config.kwargs.get("num_turns", num_turns))
             poll_interval = float(config.kwargs.get("poll_interval", poll_interval))
             timeout_seconds = float(config.kwargs.get("timeout_seconds", timeout_seconds))

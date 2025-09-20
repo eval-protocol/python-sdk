@@ -45,37 +45,6 @@ def init(req: InitRequest):
     # Kick off worker thread that runs multi-turn chat via LiteLLM proxy
     def _worker():
         try:
-            # Try to set up Langfuse trace to guarantee observability, independent of proxy wiring
-            langfuse = None
-            trace = None
-            try:
-                from langfuse import get_client  # pyright: ignore[reportPrivateImportUsage]
-
-                langfuse = get_client()
-                id_tags = []
-                try:
-                    id_tags = [
-                        f"inv:{req.metadata.get('invocation_id')}",
-                        f"exp:{req.metadata.get('experiment_id')}",
-                        f"rollout:{req.metadata.get('rollout_id')}",
-                    ]
-                except Exception:
-                    id_tags = []
-                trace = langfuse.api.trace.create(
-                    name="remote_chinook_rollout",
-                    metadata=req.metadata,
-                    requester_metadata=req.metadata,
-                    tags=["chinook_remote", "chinook_sql", *[t for t in id_tags if t]],
-                    input={
-                        "messages": _clean_messages_for_api(req.messages),
-                        "tools": req.tools,
-                        "metadata": req.metadata,
-                    },
-                )
-            except Exception:
-                langfuse = None
-                trace = None
-
             base_url = os.getenv(
                 "LITELLM_BASE_URL",
                 "https://litellm-cloud-proxy-prod-644257448872.us-central1.run.app",
@@ -110,48 +79,13 @@ def init(req: InitRequest):
                 r.raise_for_status()
                 data = r.json()
                 assistant = data.get("choices", [{}])[0].get("message", {})
-                # Optionally record a generation on Langfuse
-                try:
-                    if langfuse and trace and getattr(langfuse.api, "generation", None):
-                        langfuse.api.generation.create(
-                            trace_id=trace.id,
-                            name="assistant",
-                            input={"messages": _clean_messages_for_api(messages)},
-                            output=assistant,
-                        )
-                except Exception:
-                    pass
                 # Append assistant for next turn
                 messages = messages + [assistant]
-
-            # Update final trace output for easier adapter extraction
-            try:
-                if langfuse and trace:
-                    langfuse.api.trace.update(
-                        id=trace.id,
-                        output={
-                            "messages": _clean_messages_for_api(messages),
-                            "metadata": req.metadata,
-                        },
-                    )
-            except Exception:
-                pass
 
         except Exception:
             # Best-effort; mark as done even on error to unblock polling
             pass
         finally:
-            try:
-                if "langfuse" in locals() and langfuse is not None:
-                    # Ensure buffered telemetry is sent
-                    flush = getattr(langfuse, "flush", None)
-                    if callable(flush):
-                        flush()
-                    shutdown = getattr(langfuse, "shutdown", None)
-                    if callable(shutdown):
-                        shutdown()
-            except Exception:
-                pass
             _STATE[req.rollout_id]["terminated"] = True
 
     t = threading.Thread(target=_worker, daemon=True)
