@@ -59,6 +59,7 @@ from eval_protocol.pytest.utils import (
     parse_ep_passed_threshold,
     rollout_processor_with_retry,
 )
+from eval_protocol.utils.show_results_url import show_results_url
 
 from ..common_utils import load_jsonl
 
@@ -554,6 +555,9 @@ def evaluation_test(
                             num_runs,
                             experiment_duration_seconds,
                         )
+
+                    # Show URL for viewing results (after all postprocessing is complete)
+                    show_results_url(invocation_id)
 
                 except AssertionError:
                     _log_eval_error(
