@@ -9,6 +9,5 @@
 
 # Export ViteServer for easier access
 from .logs_server import LogsServer
-from .show_results_url import show_results_url, is_server_running, generate_invocation_filter_url
 
-__all__ = ["LogsServer", "show_results_url", "is_server_running", "generate_invocation_filter_url"]
+__all__ = ["LogsServer"]

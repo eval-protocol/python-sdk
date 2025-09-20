@@ -4,7 +4,6 @@ Utility functions for showing evaluation results URLs and checking server status
 
 import socket
 import urllib.parse
-from typing import List, Dict, Any
 
 
 def is_server_running(host: str = "localhost", port: int = 8000) -> bool:
