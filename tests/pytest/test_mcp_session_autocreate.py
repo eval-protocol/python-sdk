@@ -3,8 +3,10 @@ Regression test: ensure MCP-Gym auto-creates a session on first tool call
 without requiring a prior initial state fetch, and returns JSON.
 """
 
+import asyncio
+import subprocess
+import sys
 import time
-from multiprocessing import Process
 
 import httpx
 import pytest
@@ -13,29 +15,31 @@ from eval_protocol.mcp.client.connection import MCPConnectionManager
 from eval_protocol.types import MCPSession
 
 
-def _run_airline_server():
-    import os
-
-    python_version = os.environ.get("PYTHON_VERSION", "3.10").replace(".", "")
-    port = str(9780 + int(python_version[-1:]))
-    os.environ["PORT"] = port
-    from eval_protocol.mcp_servers.tau2.tau2_mcp import AirlineDomainMcp
-
-    server = AirlineDomainMcp(seed=None)
-    server.run(transport="streamable-http")
-
-
 @pytest.mark.asyncio
 async def test_tool_call_returns_json_without_prior_initial_state():
-    import os
+    port = "9780"
 
-    proc = Process(target=_run_airline_server, daemon=True)
-    proc.start()
+    # Create server script to run as subprocess instead of multiprocessing
+    server_script = """
+import sys
+import os
+
+port = "9780"
+os.environ["PORT"] = port
+
+from eval_protocol.mcp_servers.tau2.tau2_mcp import AirlineDomainMcp
+
+server = AirlineDomainMcp(seed=None)
+server.run(transport="streamable-http")
+"""
+
+    # Start server as subprocess instead of multiprocessing.Process
+    proc = subprocess.Popen([sys.executable, "-c", server_script])
+
+    # Give server time to start
+    await asyncio.sleep(3)
 
     try:
-        python_version = os.environ.get("PYTHON_VERSION", "3.10").replace(".", "")
-        port = str(9780 + int(python_version[-1:]))
-
         base_url = f"http://127.0.0.1:{port}/mcp"
         client = httpx.Client(timeout=1.0)
         start_time = time.time()
@@ -51,7 +55,7 @@ async def test_tool_call_returns_json_without_prior_initial_state():
                 pass
             time.sleep(0.2)
         else:
-            pytest.fail("Server did not start on port 9780 in time")
+            pytest.fail(f"Server did not start on port {port} in time")
 
         assert ready_time is not None, "Server did not return a successful status before exiting loop"
         assert ready_time - start_time < 20, f"Server took too long to respond: {ready_time - start_time:.2f}s"
@@ -71,4 +75,4 @@ async def test_tool_call_returns_json_without_prior_initial_state():
         await mgr.close_session(session)
     finally:
         proc.terminate()
-        proc.join(timeout=5)
+        proc.wait(timeout=5)

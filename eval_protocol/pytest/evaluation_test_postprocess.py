@@ -10,7 +10,7 @@ from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.models import CompletionParams, EvaluationRow, EvaluationThreshold
 from eval_protocol.pytest.handle_persist_flow import handle_persist_flow
 from eval_protocol.pytest.types import EvaluationTestMode
-from eval_protocol.pytest.utils import AggregationMethod, aggregate, extract_effort_tag, sanitize_filename  # pyright: ignore[reportUnknownVariableType]
+from eval_protocol.pytest.utils import AggregationMethod, aggregate, extract_effort_tag, sanitize_filename
 from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
 
 
@@ -25,9 +25,18 @@ def postprocess(
     num_runs: int,
     experiment_duration_seconds: float,
 ):
-    scores = [
-        sum([r.evaluation_result.score for r in result if r.evaluation_result]) / len(result) for result in all_results
+    valid_results = [
+        [r for r in result if r.evaluation_result and r.evaluation_result.is_score_valid] for result in all_results
     ]
+
+    if aggregation_method == "bootstrap":
+        scores = [r.evaluation_result.score for result in valid_results for r in result if r.evaluation_result]
+    else:
+        scores = [
+            sum(r.evaluation_result.score for r in result if r.evaluation_result) / len(result)
+            for result in valid_results
+            if result
+        ]
     agg_score = aggregate(scores, aggregation_method)
 
     # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)

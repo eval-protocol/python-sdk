@@ -7,19 +7,21 @@ import os
 
 import pytest
 
-from eval_protocol.models import EvaluationRow
-from eval_protocol.pytest import evaluation_test
-from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
-from eval_protocol.quickstart.utils import split_multi_turn_rows
+from eval_protocol import (
+    evaluation_test,
+    aha_judge,
+    multi_turn_assistant_to_ground_truth,
+    EvaluationRow,
+    SingleTurnRolloutProcessor,
+    create_langfuse_adapter,
+)
 
-from eval_protocol.adapters.langfuse import create_langfuse_adapter
 from eval_protocol.quickstart import aha_judge
 
 adapter = create_langfuse_adapter()
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
-@pytest.mark.asyncio
 @evaluation_test(
     input_rows=[
         adapter.get_evaluation_rows(
@@ -44,9 +46,9 @@ adapter = create_langfuse_adapter()
         },
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
-    preprocess_fn=split_multi_turn_rows,
-    max_concurrent_rollouts=64,
-    mode="all",
+    preprocess_fn=multi_turn_assistant_to_ground_truth,
+    max_concurrent_rollouts=2,
+    aggregation_method="bootstrap",
 )
-async def test_llm_judge(rows: list[EvaluationRow]) -> list[EvaluationRow]:
-    return await aha_judge(rows)
+async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
+    return await aha_judge(row)

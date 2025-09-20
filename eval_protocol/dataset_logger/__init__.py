@@ -22,11 +22,19 @@ def _get_default_logger():
 
 # Lazy property that creates the logger only when accessed
 class _LazyLogger(DatasetLogger):
+    def __init__(self):
+        self._logger: DatasetLogger | None = None
+
+    def _get_logger(self):
+        if self._logger is None:
+            self._logger = _get_default_logger()
+        return self._logger
+
     def log(self, row):
-        return _get_default_logger().log(row)
+        return self._get_logger().log(row)
 
     def read(self, rollout_id=None):
-        return _get_default_logger().read(rollout_id)
+        return self._get_logger().read(rollout_id)
 
 
 default_logger: DatasetLogger = _LazyLogger()

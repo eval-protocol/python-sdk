@@ -19,3 +19,7 @@ class BaseAdapter(ABC):
     def upload_scores(self, rows: List[EvaluationRow], model_name: str, mean_score: float) -> None:
         """Upload evaluation scores back to the data source for tracking and analysis."""
         pass
+
+    def upload_score(self, row: EvaluationRow, model_name: str) -> None:
+        """Upload evaluation score for a single row back to the data source."""
+        pass

@@ -17,7 +17,7 @@ class SqliteEvaluationRowStore:
     def __init__(self, db_path: str):
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self._db_path = db_path
-        self._db = SqliteDatabase(self._db_path)
+        self._db = SqliteDatabase(self._db_path, pragmas={"journal_mode": "wal"})
 
         class BaseModel(Model):
             class Meta:
@@ -41,10 +41,12 @@ class SqliteEvaluationRowStore:
         rollout_id = data["execution_metadata"]["rollout_id"]
         if rollout_id is None:
             raise ValueError("execution_metadata.rollout_id is required to upsert a row")
-        if self._EvaluationRow.select().where(self._EvaluationRow.rollout_id == rollout_id).exists():
-            self._EvaluationRow.update(data=data).where(self._EvaluationRow.rollout_id == rollout_id).execute()
-        else:
-            self._EvaluationRow.create(rollout_id=rollout_id, data=data)
+
+        with self._db.atomic("EXCLUSIVE"):
+            if self._EvaluationRow.select().where(self._EvaluationRow.rollout_id == rollout_id).exists():
+                self._EvaluationRow.update(data=data).where(self._EvaluationRow.rollout_id == rollout_id).execute()
+            else:
+                self._EvaluationRow.create(rollout_id=rollout_id, data=data)
 
     def read_rows(self, rollout_id: Optional[str] = None) -> List[dict]:
         if rollout_id is None:

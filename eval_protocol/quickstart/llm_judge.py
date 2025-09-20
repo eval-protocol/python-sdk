@@ -2,99 +2,86 @@
 Default LLM judge for Eval Protocol. Inspired by Arena-Hard-Auto.
 """
 
-from tqdm import tqdm
 from typing import Optional
 
-from eval_protocol.models import EvaluationRow
+from eval_protocol.models import EvaluationRow, EvaluateResult, MetricResult
 from eval_protocol.adapters.base import BaseAdapter
 from eval_protocol.quickstart.utils import (
     JUDGE_CONFIGS,
-    calculate_bootstrap_scores,
-    run_judgment_async,
+    LABEL_TO_SCORE,
+    serialize_message,
+    run_single_judgment,
 )
-import asyncio
+
 from openai import AsyncOpenAI
 
 
 async def aha_judge(
-    rows: list[EvaluationRow], judge_name: str = "gemini-2.5-pro", adapter: Optional[BaseAdapter] = None
-) -> list[EvaluationRow]:
+    row: EvaluationRow, judge_name: str = "kimi-k2-instruct-0905", adapter: Optional[BaseAdapter] = None
+) -> EvaluationRow:
     """
-    LLM Judge evaluation using Arena-Hard-Auto style pairwise comparisons.
+    LLM Judge evaluation using Arena-Hard-Auto style pairwise comparisons for a single row.
 
-    Compares model responses against ground truth using an LLM judge. For each row:
+    Compares model response against ground truth using an LLM judge:
     1. Extracts the question from messages[:-1]
     2. Compares messages[-1] (new model response) vs ground_truth (baseline response)
     3. Runs two judgment rounds (A vs B, B vs A) to reduce position bias
-    4. Calculates bootstrap scores across all comparisons
-    5. Updates evaluation_result with final scores and confidence intervals
+    4. Returns individual scores for bootstrap aggregation
 
     Args:
-        rows: List of EvaluationRow objects with messages, ground_truth, and tools
+        row: Single EvaluationRow object with messages, ground_truth, and tools
         judge_name: Name of the judge configuration to use
         adapter: Optional adapter to push scores back to (if provided)
 
     Returns:
-        Same rows with updated evaluation_result containing scores and judgments
+        Same row with updated evaluation_result containing individual judgment scores
     """
 
-    if not rows:
-        print("❌ No evaluation rows provided")
-        return rows
-
-    print(f"🔄 Processing {len(rows)} evaluation rows for LLM judging...")
-
-    model_name = rows[0].input_metadata.completion_params.get("model", "unknown_model")
-
-    judgments = []
-    max_concurrency = JUDGE_CONFIGS[judge_name]["max_concurrency"]
+    if not row.messages:
+        return row
 
     judge_config = JUDGE_CONFIGS[judge_name]
 
-    async with AsyncOpenAI(
-        api_key=judge_config.get("api_key"), base_url=judge_config.get("base_url")
-    ) as shared_client:
-        semaphore = asyncio.Semaphore(max_concurrency)
+    # Extract question and answers
+    question_text = "\n".join([serialize_message(msg) for msg in row.messages[:-1]])
+    model_a_answer = str(row.ground_truth)
+    model_b_answer = serialize_message(row.messages[-1])
 
-        async def run_judgment(row):
-            async with semaphore:
-                return await run_judgment_async(row, model_name, judge_name, shared_client)
+    client = AsyncOpenAI(api_key=judge_config.get("api_key"), base_url=judge_config.get("base_url"))
 
-        tasks = [run_judgment(row) for row in rows]
+    # Run two judgment rounds in sequence (A vs B, then B vs A)
+    result1 = await run_single_judgment(question_text, model_a_answer, model_b_answer, row.tools, judge_config, client)
+    result2 = await run_single_judgment(question_text, model_b_answer, model_a_answer, row.tools, judge_config, client)
 
-        for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Generating judgments"):
-            result = await coro
-            if result and result["games"][0] and result["games"][1]:
-                judgments.append(result)
+    if not result1 or not result2 or not result1.get("score") or not result2.get("score"):
+        # If either judgment failed, mark as invalid (don't include in distribution)
+        final_score = 0.0
+        reason = "Failed to get judgment scores"
+        metrics = {}
+        is_score_valid = False
+    else:
+        # Convert judgment scores to numerical scores
+        game1_score = 1 - LABEL_TO_SCORE[result1["score"]]
+        game2_score = LABEL_TO_SCORE[result2["score"]]
+        final_score = (game1_score + game2_score) / 2
 
-    if not judgments:
-        print("❌ No valid judgments generated")
-        return rows
+        reason = f"LLM Judge comparison: Round 1: {result1['score']}, Round 2: {result2['score']}"
+        metrics = {
+            "round1_judgment": MetricResult(score=game1_score, reason=result1["judgment"]),
+            "round2_judgment": MetricResult(score=game2_score, reason=result2["judgment"]),
+        }
+        is_score_valid = True
 
-    print(f"✅ Generated {len(judgments)} valid judgments")
+    row.evaluation_result = EvaluateResult(
+        score=final_score,
+        reason=reason,
+        metrics=metrics,
+        is_score_valid=is_score_valid,
+    )
 
-    # Calculate bootstrap scores
-    result = calculate_bootstrap_scores(judgments)
-    if not result:
-        print("❌ No valid scores extracted")
-        return rows
+    # Upload score to adapter if provided
+    if adapter and row.evaluation_result and row.evaluation_result.is_score_valid:
+        model_name = row.input_metadata.completion_params.get("model", "unknown_model")
+        adapter.upload_score(row, model_name)
 
-    mean_score, lower_score, upper_score = result
-
-    # Print leaderboard
-    print("\n##### LLM Judge Results (90th percentile CI) #####")
-
-    clean_model_name = model_name.split("/")[-1]  # Clean model name
-
-    print(f"{clean_model_name}: {mean_score:.1%} (CI: {lower_score:.1%} - {upper_score:.1%})")
-    print("original: 50.0% (CI: 50.0% - 50.0%)")
-
-    for row in rows:
-        if row.evaluation_result:
-            row.evaluation_result.score = mean_score
-
-    # Push scores back to adapter if provided
-    if adapter:
-        adapter.upload_scores(rows, model_name, mean_score)
-
-    return rows
+    return row
