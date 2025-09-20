@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChatMessages } from "./ChatMessages";
 import Textarea from "./Textarea";
+import Button from "./Button";
 import type { Message } from "../types/eval-protocol";
 
 interface ChatWindowProps {
@@ -39,12 +40,26 @@ export const ChatWindow = ({ className = "" }: ChatWindowProps) => {
     }
   };
 
+  const handleClearChat = () => {
+    setChatMessages([]);
+  };
+
   return (
     <div className={`flex flex-col ${className}`}>
       <div className="bg-white border border-gray-200 flex flex-col h-[calc(100vh-5rem)]">
         {/* Chat header - following Dashboard pattern */}
         <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
-          <h3 className="text-sm font-medium text-gray-900">AI Assistant</h3>
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-medium text-gray-900">AI Assistant</h3>
+            <Button
+              onClick={handleClearChat}
+              size="sm"
+              variant="secondary"
+              disabled={chatMessages.length === 0}
+            >
+              Clear
+            </Button>
+          </div>
         </div>
 
         {/* Chat messages */}
