@@ -9,6 +9,7 @@ async def test_ensure_logging(monkeypatch):
     # Ensure default sqlite logger is enabled in CI environments and reset lazy cache
     monkeypatch.setenv("DISABLE_EP_SQLITE_LOG", "0")
     from eval_protocol.dataset_logger import default_logger as _dl
+
     # Reset the cached underlying logger so it re-initializes with the current env
     try:
         monkeypatch.setattr(_dl, "_logger", None, raising=False)
