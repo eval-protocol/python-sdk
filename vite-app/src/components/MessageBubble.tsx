@@ -1,7 +1,6 @@
 import type { Message } from "../types/eval-protocol";
 import { useState } from "react";
-import Button from "./Button";
-import { Tooltip } from "./Tooltip";
+import { BubbleContainer } from "./BubbleContainer";
 
 export const MessageBubble = ({ message }: { message: Message }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -9,6 +8,8 @@ export const MessageBubble = ({ message }: { message: Message }) => {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const isTool = message.role === "tool";
+
+  // Check for tool calls and results
   const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
   const hasFunctionCall = message.function_call;
 
@@ -19,7 +20,7 @@ export const MessageBubble = ({ message }: { message: Message }) => {
       return message.content;
     } else if (Array.isArray(message.content)) {
       return message.content
-        .map((part, i) =>
+        .map((part) =>
           part.type === "text" ? part.text : JSON.stringify(part)
         )
         .join("");
@@ -46,154 +47,98 @@ export const MessageBubble = ({ message }: { message: Message }) => {
   };
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-1`}>
-      <div
-        className={`max-w-sm lg:max-w-md xl:max-w-lg px-2 py-1 border text-xs relative ${
-          isUser
-            ? "bg-blue-50 border-blue-200 text-blue-900"
-            : isSystem
-            ? "bg-gray-50 border-gray-200 text-gray-800"
-            : isTool
-            ? "bg-green-50 border-green-200 text-green-900"
-            : "bg-yellow-50 border-yellow-200 text-yellow-900"
-        }`}
-      >
-        {/* Copy button positioned in top-right corner */}
-        <div className="absolute top-1 right-1">
-          <Tooltip
-            content={copySuccess ? "Copied!" : "Copy message to clipboard"}
-            position="top"
-          >
-            <Button
-              onClick={handleCopy}
-              size="sm"
-              variant="secondary"
-              className={`p-0.5 h-5 text-[10px] opacity-60 hover:opacity-100 transition-opacity cursor-pointer ${
-                isUser
-                  ? "text-blue-600 hover:bg-blue-100"
-                  : isSystem
-                  ? "text-gray-600 hover:bg-gray-100"
-                  : isTool
-                  ? "text-green-600 hover:bg-green-100"
-                  : "text-yellow-600 hover:bg-yellow-100"
-              }`}
-            >
-              Copy
-            </Button>
-          </Tooltip>
-        </div>
-
-        <div className="font-semibold text-xs mb-0.5 capitalize pr-8">
-          {message.role}
-        </div>
-        <div className="whitespace-pre-wrap break-words overflow-hidden text-xs">
-          {displayContent}
-        </div>
-        {isLongMessage && (
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className={`mt-1 text-xs underline hover:no-underline ${
-              isUser
-                ? "text-blue-700"
-                : isSystem
-                ? "text-gray-600"
-                : isTool
-                ? "text-green-700"
-                : "text-yellow-700"
-            }`}
-          >
-            {isExpanded ? "Show less" : "Show more"}
-          </button>
-        )}
-        {reasoning && reasoning.trim().length > 0 && (
-          <div className={`mt-2 pt-1 border-t ${isTool ? "border-green-200" : "border-yellow-200"}`}>
-            <div className={`font-semibold text-xs mb-0.5 ${isTool ? "text-green-700" : "text-yellow-700"}`}>
-              Thinking:
-            </div>
-            <details className="mb-1">
-              <summary className={`cursor-pointer text-xs ${isTool ? "text-green-700" : "text-yellow-700"}`}>Show reasoning</summary>
-              <pre className={`mt-1 p-1 border rounded text-xs whitespace-pre-wrap break-words ${isTool ? "bg-green-100 border-green-200 text-green-800" : "bg-yellow-100 border-yellow-200 text-yellow-800"}`}>{reasoning}</pre>
-            </details>
-          </div>
-        )}
-        {hasToolCalls && message.tool_calls && (
-          <div
-            className={`mt-2 pt-1 border-t ${
-              isTool ? "border-green-200" : "border-yellow-200"
-            }`}
-          >
-            <div
-              className={`font-semibold text-xs mb-0.5 ${
-                isTool ? "text-green-700" : "text-yellow-700"
-              }`}
-            >
-              Tool Calls:
-            </div>
-            {message.tool_calls.map((call, i) => (
-              <div
-                key={i}
-                className={`mb-1 p-1 border rounded text-xs ${
-                  isTool
-                    ? "bg-green-100 border-green-200"
-                    : "bg-yellow-100 border-yellow-200"
-                }`}
-              >
-                <div
-                  className={`font-semibold mb-0.5 text-xs ${
-                    isTool ? "text-green-800" : "text-yellow-800"
-                  }`}
-                >
-                  {call.function.name}
-                </div>
-                <div
-                  className={`font-mono text-xs break-all overflow-hidden ${
-                    isTool ? "text-green-700" : "text-yellow-700"
-                  }`}
-                >
-                  {call.function.arguments}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {hasFunctionCall && message.function_call && (
-          <div
-            className={`mt-2 pt-1 border-t ${
-              isTool ? "border-green-200" : "border-yellow-200"
-            }`}
-          >
-            <div
-              className={`font-semibold text-xs mb-0.5 ${
-                isTool ? "text-green-700" : "text-yellow-700"
-              }`}
-            >
-              Function Call:
-            </div>
-            <div
-              className={`p-1 border rounded text-xs ${
-                isTool
-                  ? "bg-green-100 border-green-200"
-                  : "bg-yellow-100 border-yellow-200"
-              }`}
-            >
-              <div
-                className={`font-semibold mb-0.5 text-xs ${
-                  isTool ? "text-green-800" : "text-yellow-800"
-                }`}
-              >
-                {message.function_call.name}
-              </div>
-              <div
-                className={`font-mono text-xs break-all overflow-hidden ${
-                  isTool ? "text-green-700" : "text-yellow-700"
-                }`}
-              >
-                {message.function_call.arguments}
-              </div>
-            </div>
-          </div>
-        )}
+    <BubbleContainer
+      role={message.role as "user" | "assistant" | "system" | "tool"}
+      onCopy={handleCopy}
+      copySuccess={copySuccess}
+    >
+      <div className="whitespace-pre-wrap break-words overflow-hidden text-xs">
+        {displayContent}
       </div>
-    </div>
+      {isLongMessage && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`mt-1 text-xs underline hover:no-underline ${
+            isUser
+              ? "text-blue-700"
+              : isSystem
+              ? "text-gray-600"
+              : isTool
+              ? "text-green-700"
+              : "text-yellow-700"
+          }`}
+        >
+          {isExpanded ? "Show less" : "Show more"}
+        </button>
+      )}
+      {reasoning && reasoning.trim().length > 0 && (
+        <div
+          className={`mt-2 pt-1 border-t ${
+            isTool ? "border-green-200" : "border-yellow-200"
+          }`}
+        >
+          <div
+            className={`font-semibold text-xs mb-0.5 ${
+              isTool ? "text-green-700" : "text-yellow-700"
+            }`}
+          >
+            Thinking:
+          </div>
+          <details className="mb-1">
+            <summary
+              className={`cursor-pointer text-xs ${
+                isTool ? "text-green-700" : "text-yellow-700"
+              }`}
+            >
+              Show reasoning
+            </summary>
+            <pre
+              className={`mt-1 p-1 border rounded text-xs whitespace-pre-wrap break-words ${
+                isTool
+                  ? "bg-green-100 border-green-200 text-green-800"
+                  : "bg-yellow-100 border-yellow-200 text-yellow-800"
+              }`}
+            >
+              {reasoning}
+            </pre>
+          </details>
+        </div>
+      )}
+      {hasToolCalls && (
+        <div className="mt-2 pt-1 border-t border-gray-200">
+          <div className="font-semibold text-xs mb-0.5 text-gray-700">
+            Tool Calls:
+          </div>
+          {message.tool_calls!.map((call: any, i: number) => (
+            <div
+              key={i}
+              className="mb-1 p-1 border rounded text-xs bg-gray-100 border-gray-200"
+            >
+              <div className="font-semibold mb-0.5 text-xs text-gray-800">
+                🔧 {call.function.name}
+              </div>
+              <div className="font-mono text-xs break-words overflow-hidden text-gray-700">
+                {call.function.arguments}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {hasFunctionCall && (
+        <div className="mt-2 pt-1 border-t border-gray-200">
+          <div className="font-semibold text-xs mb-0.5 text-gray-700">
+            Function Call:
+          </div>
+          <div className="p-1 border rounded text-xs bg-gray-100 border-gray-200">
+            <div className="font-semibold mb-0.5 text-xs text-gray-800">
+              🔧 {message.function_call!.name}
+            </div>
+            <div className="font-mono text-xs break-words overflow-hidden text-gray-700">
+              {message.function_call!.arguments}
+            </div>
+          </div>
+        </div>
+      )}
+    </BubbleContainer>
   );
 };

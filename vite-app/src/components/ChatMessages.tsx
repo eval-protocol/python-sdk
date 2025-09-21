@@ -1,12 +1,17 @@
 import { useRef, useEffect } from "react";
 import type { Message } from "../types/eval-protocol";
 import { MessageBubble } from "./MessageBubble";
+import { ThinkingBubble } from "./ThinkingBubble";
 
 interface ChatMessagesProps {
   messages: Message[];
+  isLoading?: boolean;
 }
 
-export const ChatMessages = ({ messages }: ChatMessagesProps) => {
+export const ChatMessages = ({
+  messages,
+  isLoading = false,
+}: ChatMessagesProps) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
 
@@ -40,9 +45,25 @@ export const ChatMessages = ({ messages }: ChatMessagesProps) => {
       ref={scrollContainerRef}
       className="flex-1 overflow-y-auto p-3 space-y-2"
     >
-      {messages.map((message, msgIndex) => (
-        <MessageBubble key={msgIndex} message={message} />
-      ))}
+      {messages.length === 0 ? (
+        <div className="flex items-center justify-center h-full text-gray-500">
+          <div className="text-center">
+            <div className="text-lg mb-2">🤖</div>
+            <div className="text-sm">
+              Start a conversation with the AI assistant
+            </div>
+            <div className="text-xs mt-1">
+              Ask about your evaluation data, trends, or insights
+            </div>
+          </div>
+        </div>
+      ) : (
+        messages.map((message, index) => (
+          <MessageBubble key={index} message={message} />
+        ))
+      )}
+
+      {isLoading && <ThinkingBubble />}
     </div>
   );
 };

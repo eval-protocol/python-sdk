@@ -7,6 +7,7 @@ import Button from "./Button";
 import { EvaluationTable } from "./EvaluationTable";
 import PivotTab from "./PivotTab";
 import TabButton from "./TabButton";
+import { Spinner } from "./Spinner";
 
 interface DashboardProps {
   onRefresh: () => void;
@@ -55,7 +56,7 @@ const LoadingState = () => {
     <div className="bg-white border border-gray-200 p-8 text-center">
       <div className="max-w-sm mx-auto">
         <div className="text-gray-400 mb-4">
-          <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-600 mx-auto"></div>
+          <Spinner className="mx-auto" />
         </div>
         <h3 className="text-sm font-medium text-gray-900 mb-2">
           Loading evaluation data...
