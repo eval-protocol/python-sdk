@@ -51,7 +51,7 @@ input_rows = [
     input_rows=input_rows,
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=multi_turn_assistant_to_ground_truth,
-    max_concurrent_rollouts=64,
+    max_concurrent_evaluations=2,
 )
 async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
     return await aha_judge(row)

@@ -76,6 +76,7 @@ input_rows = fetch_langsmith_traces_as_evaluation_rows()
     input_rows=[input_rows],
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=multi_turn_assistant_to_ground_truth,
+    max_concurrent_evaluations=2,
 )
 async def test_llm_judge_langsmith(row: EvaluationRow) -> EvaluationRow:
     """LLM Judge evaluation over LangSmith-sourced rows, persisted locally by Eval Protocol.
