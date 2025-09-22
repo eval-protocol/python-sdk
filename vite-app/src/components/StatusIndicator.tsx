@@ -58,6 +58,12 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
           textColor: "text-yellow-700",
           text: "stopped",
         };
+      case "SCORE_INVALID":
+        return {
+          dotColor: "bg-red-500",
+          textColor: "text-red-700",
+          text: "score invalid",
+        };
       default:
         return {
           dotColor: "bg-gray-500",

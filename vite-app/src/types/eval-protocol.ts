@@ -157,6 +157,7 @@ export const StatusCodeSchema = z
     "UNAUTHENTICATED",
     "FINISHED",
     "RUNNING",
+    "SCORE_INVALID",
   ])
   .describe("Common gRPC status codes as defined in google.rpc.Code");
 
@@ -181,6 +182,7 @@ export const STATUS_CODE_MAP: Record<number, StatusCode> = {
   16: "UNAUTHENTICATED",
   100: "FINISHED",
   101: "RUNNING",
+  102: "SCORE_INVALID",
 } as const;
 
 // Helper function to get status code name from integer

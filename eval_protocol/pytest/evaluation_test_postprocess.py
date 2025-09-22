@@ -7,7 +7,7 @@ import statistics
 import sys
 import time
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
-from eval_protocol.models import CompletionParams, EvaluationRow, EvaluationThreshold
+from eval_protocol.models import CompletionParams, EvaluationRow, EvaluationThreshold, Status
 from eval_protocol.pytest.handle_persist_flow import handle_persist_flow
 from eval_protocol.pytest.types import EvaluationTestMode
 from eval_protocol.pytest.utils import AggregationMethod, aggregate, extract_effort_tag, sanitize_filename
@@ -80,6 +80,9 @@ def postprocess(
                     result.evaluation_result.agg_score = agg_score
                 if result.evaluation_result.standard_error is None:
                     result.evaluation_result.standard_error = standard_error
+                if result.evaluation_result.is_score_valid is False:
+                    if result.eval_metadata is not None:
+                        result.eval_metadata.status = Status.score_invalid()
             result.execution_metadata.experiment_duration_seconds = experiment_duration_seconds
             active_logger.log(result)
 

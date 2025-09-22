@@ -114,6 +114,7 @@ class Status(BaseModel):
         # Custom codes for EP (using higher numbers to avoid conflicts)
         FINISHED = 100
         RUNNING = 101
+        SCORE_INVALID = 102
 
     @classmethod
     def rollout_running(cls) -> "Status":
@@ -167,6 +168,13 @@ class Status(BaseModel):
         """Create a status indicating the rollout failed with an error."""
         return cls(code=cls.Code.INTERNAL, message=error_message, details=details or [])
 
+    @classmethod
+    def score_invalid(
+        cls, message: str = "Score is invalid", details: Optional[List[Dict[str, Any]]] = None
+    ) -> "Status":
+        """Create a status indicating the score is invalid."""
+        return cls(code=cls.Code.SCORE_INVALID, message=message, details=details or [])
+
     def is_running(self) -> bool:
         """Check if the status indicates the rollout is running."""
         return self.code == self.Code.RUNNING
@@ -182,6 +190,10 @@ class Status(BaseModel):
     def is_stopped(self) -> bool:
         """Check if the status indicates the rollout was stopped."""
         return self.code == self.Code.CANCELLED
+
+    def is_score_invalid(self) -> bool:
+        """Check if the status indicates the score is invalid."""
+        return self.code == self.Code.SCORE_INVALID
 
     def get_termination_reason(self) -> Optional[TerminationReason]:
         """Extract termination reason from details if present."""
