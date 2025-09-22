@@ -694,3 +694,28 @@ def test_evaluation_row_extra_fields():
     assert "eval" in dictionary
     assert "accuracy" in dictionary["eval_details"]["metrics"]
     assert "test" in dictionary["extra_fields"]
+
+def test_message_with_weight_dump():
+    example = {
+        "role": "user",
+        "content": "Hello, how are you?",
+        "weight": 0,
+    }
+
+    message = Message(**example)
+    dictionary = message.model_dump()
+    assert "weight" in dictionary
+    assert dictionary["weight"] == 0
+
+def test_message_dump_for_chat_completion_request():
+    example = {
+        "role": "user",
+        "content": "Hello, how are you?",
+        "weight": 0,
+        "reasoning_content": "I am thinking about the user's question",
+    }
+    message = Message(**example)
+    dictionary = message.dump_mdoel_for_chat_completion_request()
+    assert "weight" not in dictionary
+    assert "reasoning_content" not in dictionary
+    assert dictionary["content"] == "Hello, how are you?"
