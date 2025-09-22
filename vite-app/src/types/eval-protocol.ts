@@ -290,7 +290,7 @@ export const CostMetricsSchema = z.object({
     .nullable()
     .optional()
     .describe("Cost in USD for output tokens."),
-  total_cost_dollars: z
+  total_cost_dollar: z
     .number()
     .nullable()
     .optional()

@@ -221,7 +221,7 @@ const PivotTab = observer(() => {
             variant="secondary"
             size="sm"
           >
-            Cost (total_cost_dollars)
+            Cost (total_cost_dollar)
           </Button>
           <Button
             onClick={() => resetPivotConfig(DEFAULT_SPEED_PIVOT_CONFIG)}

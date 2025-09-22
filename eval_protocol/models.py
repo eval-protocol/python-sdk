@@ -525,7 +525,7 @@ class CostMetrics(BaseModel):
 
     output_cost: Optional[float] = Field(None, description="Cost in USD for output tokens.")
 
-    total_cost_dollars: Optional[float] = Field(None, description="Total cost in USD for the API call.")
+    total_cost_dollar: Optional[float] = Field(None, description="Total cost in USD for the API call.")
 
 
 class ExecutionMetadata(BaseModel):

@@ -27,7 +27,7 @@ export const DEFAULT_QUALITY_PIVOT_CONFIG: PivotConfig = {
 export const DEFAULT_COST_PIVOT_CONFIG: PivotConfig = {
   selectedRowFields: ["$.eval_metadata.name"],
   selectedColumnFields: ["$.input_metadata.completion_params.model"],
-  selectedValueField: "$.execution_metadata.cost_metrics.total_cost_dollars",
+  selectedValueField: "$.execution_metadata.cost_metrics.total_cost_dollar",
   selectedAggregator: "sum",
 };
 
