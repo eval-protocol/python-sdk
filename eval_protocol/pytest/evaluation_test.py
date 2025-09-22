@@ -9,7 +9,6 @@ from typing_extensions import Unpack
 from collections.abc import Sequence
 
 import pytest
-from tqdm import tqdm
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
@@ -58,6 +57,8 @@ from eval_protocol.pytest.utils import (
     parse_ep_num_runs,
     parse_ep_passed_threshold,
     rollout_processor_with_retry,
+    run_tasks_with_eval_progress,
+    run_tasks_with_run_progress,
 )
 from eval_protocol.utils.show_results_url import show_results_url
 
@@ -380,37 +381,8 @@ def evaluation_test(
                                     asyncio.create_task(_execute_pointwise_eval_with_semaphore(row=row))
                                 )
 
-                            # Add tqdm progress bar for evaluations with proper cleanup
-                            eval_position = run_idx + 2  # Position after rollout progress bar
-                            with tqdm(
-                                total=len(pointwise_tasks),
-                                desc=f"  Eval {run_idx + 1}",
-                                unit="eval",
-                                file=sys.__stderr__,
-                                leave=False,
-                                position=eval_position,
-                                dynamic_ncols=True,
-                                miniters=1,
-                                mininterval=0.1,
-                                bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
-                            ) as eval_pbar:
-
-                                async def task_with_progress(task):
-                                    try:
-                                        result = await task
-                                        return result
-                                    finally:
-                                        eval_pbar.update(1)
-
-                                wrapped_tasks = [task_with_progress(task) for task in pointwise_tasks]
-                                try:
-                                    results = await asyncio.gather(*wrapped_tasks)
-                                except Exception:
-                                    # Propagate cancellation to the real tasks and await them to quiesce
-                                    for task in pointwise_tasks:
-                                        task.cancel()
-                                    await asyncio.gather(*pointwise_tasks, return_exceptions=True)
-                                    raise
+                            # Run evaluation tasks with progress bar
+                            results = await run_tasks_with_eval_progress(pointwise_tasks, run_idx)
 
                             all_results[run_idx] = results
                         elif mode == "groupwise":
@@ -528,36 +500,7 @@ def evaluation_test(
                     else:
                         # For other processors, create all tasks at once and run in parallel
                         # Concurrency is now controlled by the shared semaphore in each rollout processor
-                        with tqdm(
-                            total=num_runs,
-                            desc="Runs (Parallel)",
-                            unit="run",
-                            file=sys.__stderr__,
-                            position=0,
-                            leave=True,
-                            dynamic_ncols=True,
-                            miniters=1,
-                            bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
-                        ) as run_pbar:
-
-                            async def execute_run_with_progress(run_idx: int, config):
-                                try:
-                                    result = await execute_run(run_idx, config)
-                                    return result
-                                finally:
-                                    run_pbar.update(1)
-
-                            tasks = []
-                            for run_idx in range(num_runs):
-                                tasks.append(asyncio.create_task(execute_run_with_progress(run_idx, config)))
-                            try:
-                                await asyncio.gather(*tasks)
-                            except Exception:
-                                # Propagate cancellation to tasks and await them to quiesce
-                                for task in tasks:
-                                    task.cancel()
-                                await asyncio.gather(*tasks, return_exceptions=True)
-                                raise
+                        await run_tasks_with_run_progress(execute_run, num_runs, config)
 
                     experiment_duration_seconds = time.perf_counter() - experiment_start_time
 

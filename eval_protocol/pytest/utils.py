@@ -33,6 +33,89 @@ import pandas as pd
 AggregationMethod = Literal["mean", "max", "min", "bootstrap"]
 
 
+async def run_tasks_with_eval_progress(pointwise_tasks: list, run_idx: int):
+    """
+    Run evaluation tasks with a progress bar and proper cancellation handling.
+
+    Args:
+        pointwise_tasks: List of asyncio tasks to execute
+        run_idx: Run index for progress bar positioning and naming
+
+    Returns:
+        Results from all tasks
+    """
+    eval_position = run_idx + 2  # Position after rollout progress bar
+    with tqdm(
+        total=len(pointwise_tasks),
+        desc=f"  Eval {run_idx + 1}",
+        unit="eval",
+        file=sys.__stderr__,
+        leave=False,
+        position=eval_position,
+        dynamic_ncols=True,
+        miniters=1,
+        mininterval=0.1,
+        bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+    ) as eval_pbar:
+
+        async def task_with_progress(task):
+            try:
+                result = await task
+                return result
+            finally:
+                eval_pbar.update(1)
+
+        wrapped_tasks = [task_with_progress(task) for task in pointwise_tasks]
+        try:
+            results = await asyncio.gather(*wrapped_tasks)
+            return results
+        except Exception:
+            # Propagate cancellation to the real tasks and await them to quiesce
+            for task in pointwise_tasks:
+                task.cancel()
+            await asyncio.gather(*pointwise_tasks, return_exceptions=True)
+            raise
+
+
+async def run_tasks_with_run_progress(execute_run_func, num_runs, config):
+    """
+    Run tasks with a parallel runs progress bar, preserving original logic.
+
+    Args:
+        execute_run_func: The execute_run function to call
+        num_runs: Number of runs to execute
+        config: Configuration to pass to execute_run_func
+    """
+    with tqdm(
+        total=num_runs,
+        desc="Runs (Parallel)",
+        unit="run",
+        file=sys.__stderr__,
+        position=0,
+        leave=True,
+        dynamic_ncols=True,
+        miniters=1,
+        bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+    ) as run_pbar:
+
+        async def execute_run_with_progress(run_idx: int, config):
+            result = await execute_run_func(run_idx, config)
+            run_pbar.update(1)
+            return result
+
+        tasks = []
+        for run_idx in range(num_runs):
+            tasks.append(asyncio.create_task(execute_run_with_progress(run_idx, config)))
+        try:
+            await asyncio.gather(*tasks)
+        except Exception:
+            # Propagate cancellation to tasks and await them to quiesce
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
+
+
 def calculate_bootstrap_scores(all_scores: list[float]) -> float:
     """
     Calculate bootstrap confidence intervals for individual scores.
