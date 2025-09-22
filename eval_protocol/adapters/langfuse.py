@@ -5,13 +5,13 @@ to EvaluationRow format for use in evaluation pipelines.
 """
 
 from __future__ import annotations
-
 import logging
 import random
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Protocol, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Protocol, TYPE_CHECKING, cast
 
+from langfuse.api.resources.commons.types.observations_view import ObservationsView
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
 from .base import BaseAdapter
 from .utils import extract_messages_from_data
@@ -232,12 +232,12 @@ class LangfuseAdapter(BaseAdapter):
         ... ))
     """
 
-    def __init__(self):
+    def __init__(self, client: Optional[Any] = None):
         """Initialize the Langfuse adapter."""
         if not LANGFUSE_AVAILABLE:
             raise ImportError("Langfuse not installed. Install with: pip install 'eval-protocol[langfuse]'")
 
-        self.client = get_client()
+        self.client = client or cast(Any, get_client)()
 
     def get_evaluation_rows(
         self,
