@@ -256,6 +256,7 @@ class ChatCompletionContentPartTextParam(BaseModel):
 
 class Message(BaseModel):
     """Chat message model with trajectory evaluation support."""
+
     role: str  # assistant, user, system, tool
     content: Optional[Union[str, List[ChatCompletionContentPartTextParam]]] = Field(
         default="", description="The content of the message."
@@ -273,7 +274,7 @@ class Message(BaseModel):
     def dump_mdoel_for_chat_completion_request(self):
         """Only keep chat completion accepted fields"""
         return self.model_dump(exclude_none=True, exclude={"control_plane_step", "weight", "reasoning_content"})
-        
+
     @classmethod
     def model_validate(cls, obj, *args, **kwargs):
         if isinstance(obj, dict):
