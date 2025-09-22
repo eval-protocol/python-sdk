@@ -16,16 +16,16 @@ from eval_protocol import (
     DefaultParameterIdGenerator,
 )
 
-# adapter = create_braintrust_adapter()
+adapter = create_braintrust_adapter()
 input_rows = [
-    #         adapter.get_evaluation_rows(
-    #             btql_query=f"""
-    # select: *
-    # from: project_logs('{os.getenv("BRAINTRUST_PROJECT_ID")}') traces
-    # filter: is_root = true
-    # limit: 10
-    # """
-    #         )
+    adapter.get_evaluation_rows(
+        btql_query=f"""
+    select: *
+    from: project_logs('{os.getenv("BRAINTRUST_PROJECT_ID")}') traces
+    filter: is_root = true
+    limit: 10
+    """
+    )
 ]
 
 
