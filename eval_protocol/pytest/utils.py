@@ -420,7 +420,7 @@ def add_cost_metrics(row: EvaluationRow) -> None:
         row.execution_metadata.cost_metrics = CostMetrics(
             input_cost=0.0,
             output_cost=0.0,
-            total_cost=0.0,
+            total_cost_dollars=0.0,
         )
         return
 
@@ -461,5 +461,5 @@ def add_cost_metrics(row: EvaluationRow) -> None:
     row.execution_metadata.cost_metrics = CostMetrics(
         input_cost=input_cost,
         output_cost=output_cost,
-        total_cost=total_cost,
+        total_cost_dollars=total_cost,
     )
