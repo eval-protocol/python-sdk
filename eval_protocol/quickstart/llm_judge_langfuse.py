@@ -22,8 +22,8 @@ from eval_protocol.quickstart import aha_judge
 adapter = create_langfuse_adapter()
 input_rows = adapter.get_evaluation_rows(
     to_timestamp=datetime(2025, 9, 12, 0, 11, 18),
-    limit=1,
-    sample_size=1,
+    limit=711,
+    sample_size=50,
     sleep_between_gets=3.0,
     max_retries=5,
 )
@@ -52,7 +52,7 @@ input_rows = adapter.get_evaluation_rows(
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=multi_turn_assistant_to_ground_truth,
     max_concurrent_rollouts=64,
-    max_concurrent_evaluations=2,
+    max_concurrent_evaluations=16,
 )
 async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
     return await aha_judge(row)

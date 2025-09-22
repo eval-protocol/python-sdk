@@ -47,11 +47,14 @@ async def aha_judge(
     model_a_answer = str(row.ground_truth)
     model_b_answer = serialize_message(row.messages[-1])
 
-    client = AsyncOpenAI(api_key=judge_config.get("api_key"), base_url=judge_config.get("base_url"))
-
-    # Run two judgment rounds in sequence (A vs B, then B vs A)
-    result1 = await run_single_judgment(question_text, model_a_answer, model_b_answer, row.tools, judge_config, client)
-    result2 = await run_single_judgment(question_text, model_b_answer, model_a_answer, row.tools, judge_config, client)
+    async with AsyncOpenAI(api_key=judge_config.get("api_key"), base_url=judge_config.get("base_url")) as client:
+        # Run two judgment rounds in sequence (A vs B, then B vs A)
+        result1 = await run_single_judgment(
+            question_text, model_a_answer, model_b_answer, row.tools, judge_config, client
+        )
+        result2 = await run_single_judgment(
+            question_text, model_b_answer, model_a_answer, row.tools, judge_config, client
+        )
 
     if not result1 or not result2 or not result1.get("score") or not result2.get("score"):
         # If either judgment failed, mark as invalid (don't include in distribution)
