@@ -264,6 +264,40 @@ class BraintrustAdapter(BaseAdapter):
         except Exception as e:
             logger.warning("Failed to push scores to Braintrust: %s", e)
 
+    def upload_score(self, row: EvaluationRow, model_name: str) -> None:
+        """Upload evaluation score for a single row back to Braintrust.
+
+        Args:
+            row: Single EvaluationRow with evaluation_result and session_data containing trace ID
+            model_name: Name of the model (used as the score name in Braintrust)
+        """
+        try:
+            if (
+                row.evaluation_result
+                and row.evaluation_result.is_score_valid
+                and row.input_metadata
+                and row.input_metadata.session_data
+                and "braintrust_trace_id" in row.input_metadata.session_data
+            ):
+                headers = {
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                }
+
+                trace_id = row.input_metadata.session_data["braintrust_trace_id"]
+                if trace_id:
+                    feedback_items = [{"id": trace_id, "scores": {model_name: row.evaluation_result.score}}]
+
+                    response = requests.post(
+                        f"{self.api_url}/v1/feedback",
+                        headers=headers,
+                        json={"feedback": feedback_items},
+                        timeout=30,
+                    )
+                    response.raise_for_status()
+        except Exception as e:
+            logger.warning("Failed to upload single score to Braintrust: %s", e)
+
 
 def create_braintrust_adapter(
     api_key: Optional[str] = None,

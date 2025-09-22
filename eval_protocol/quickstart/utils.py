@@ -11,7 +11,7 @@ import pandas as pd
 
 from eval_protocol.models import EvaluationRow, Message, EvaluateResult, MetricResult
 import asyncio
-
+from openai import OpenAI
 
 OG_ARENA_HARD_PROMPT = """Please act as an impartial judge and evaluate the quality of the responses provided by two AI assistants to the user prompt displayed below. You will be given assistant A's answer and assistant B's answer. Your job is to evaluate which assistant's answer is better.
 
@@ -41,7 +41,6 @@ JUDGE_CONFIGS = {
         "model": "gpt-4.1",
         "temperature": 0.0,
         "max_tokens": 16000,
-        "max_concurrency": 64,
     },
     "gemini-2.5-pro": {
         "model": "gemini-2.5-pro",
@@ -49,7 +48,6 @@ JUDGE_CONFIGS = {
         "max_tokens": 32000,
         "api_key": os.getenv("GEMINI_API_KEY"),
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "max_concurrency": 16,
     },
     "gemini-2.5-flash": {
         "model": "gemini-2.5-flash",
@@ -57,7 +55,6 @@ JUDGE_CONFIGS = {
         "max_tokens": 32000,
         "api_key": os.getenv("GEMINI_API_KEY"),
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "max_concurrency": 16,
     },
     "kimi-k2-instruct-0905": {
         "model": "accounts/fireworks/models/kimi-k2-instruct-0905",
@@ -65,23 +62,20 @@ JUDGE_CONFIGS = {
         "max_tokens": 131000,
         "api_key": os.getenv("FIREWORKS_API_KEY"),
         "base_url": "https://api.fireworks.ai/inference/v1",
-        "max_concurrency": 64,
     },
 }
 
-# Mapping from Arena-Hard-Auto judgment labels to numerical scores
-# Stronger preferences (>> or <<) get weighted more heavily (3x) than slight preferences
 LABEL_TO_SCORE = {
-    "A>B": [1],
-    "A>>B": [1] * 3,
-    "A=B": [0.5],
-    "A<<B": [0] * 3,
-    "A<B": [0],
-    "B>A": [0],
-    "B>>A": [0] * 3,
-    "B=A": [0.5],
-    "B<<A": [1] * 3,
-    "B<A": [1],
+    "A>>B": 1.0,
+    "B<<A": 1.0,
+    "A>B": 6 / 7,
+    "B<A": 6 / 7,
+    "A=B": 0.5,
+    "B=A": 0.5,
+    "A<B": 1 / 7,
+    "B>A": 1 / 7,
+    "A<<B": 0.0,
+    "B>>A": 0.0,
 }
 
 
@@ -110,9 +104,9 @@ def serialize_message(msg: Message) -> str:
     return "\n".join(parts)
 
 
-def split_multi_turn_rows(data: list[EvaluationRow]) -> list[EvaluationRow]:
+def multi_turn_assistant_to_ground_truth(data: list[EvaluationRow]) -> list[EvaluationRow]:
     """
-    Split multi-turn conversation rows into individual evaluation rows for each assistant message.
+    Split multi-turn conversations into rows, with each assistant message as ground truth.
 
     Args:
         data: List of EvaluationRow objects
@@ -158,8 +152,44 @@ def split_multi_turn_rows(data: list[EvaluationRow]) -> list[EvaluationRow]:
     return expanded_rows
 
 
-async def pairwise_judgment_async(question_text, answer_a, answer_b, tools, judge_config, shared_client):
-    """Async pairwise judgment using a shared client."""
+def assistant_to_ground_truth(data: list[EvaluationRow]) -> list[EvaluationRow]:
+    """
+    Extract the last assistant message as ground truth and remove it from the conversation.
+
+    Args:
+        data: List of EvaluationRow objects
+
+    Returns:
+        List of EvaluationRow objects with last assistant message moved to ground_truth
+    """
+    processed_rows = []
+
+    for row in data:
+        messages = row.messages.copy()  # Don't modify original
+
+        if messages[-1].role == "assistant":
+            assistant_message = messages[-1]
+            messages = messages[:-1]
+            ground_truth_message = serialize_message(assistant_message)
+        else:
+            raise ValueError("Last message is not from assistant")
+
+        processed_rows.append(
+            EvaluationRow(
+                messages=messages,
+                tools=row.tools,
+                input_metadata=row.input_metadata,
+                ground_truth=ground_truth_message,
+            )
+        )
+
+    return processed_rows
+
+
+async def run_single_judgment(
+    question_text: str, answer_a: str, answer_b: str, tools, judge_config, client
+) -> Optional[Dict[str, Any]]:
+    """Run a single pairwise judgment between two answers."""
     user_prompt = f"""<|User Prompt|>
 {question_text}
 
@@ -191,7 +221,7 @@ async def pairwise_judgment_async(question_text, answer_a, answer_b, tools, judg
             api_params["tools"] = tools
             api_params["tool_choice"] = "none"
 
-        response = await shared_client.chat.completions.create(**api_params)
+        response = await client.chat.completions.create(**api_params)
         judgment_text = response.choices[0].message.content
         if not judgment_text:
             return None
@@ -202,82 +232,3 @@ async def pairwise_judgment_async(question_text, answer_a, answer_b, tools, judg
 
     score = get_score(judgment_text, [r"\[\[([AB<>=]+)\]\]", r"\[([AB<>=]+)\]"])
     return {"score": score, "judgment": judgment_text, "prompt": messages}
-
-
-async def run_judgment_async(
-    row: EvaluationRow, model_name: str, judge_name: str, shared_client: AsyncOpenAI
-) -> Optional[Dict[str, Any]]:
-    """Async judgment using shared client to avoid cleanup issues."""
-    if not row.messages:
-        return None
-
-    question_text = "\n".join([serialize_message(msg) for msg in row.messages[:-1]])
-    model_a_answer = row.ground_truth
-    model_b_answer = serialize_message(row.messages[-1])
-
-    # Run both rounds concurrently with shared client
-    result1, result2 = await asyncio.gather(
-        pairwise_judgment_async(
-            question_text, model_a_answer, model_b_answer, row.tools, JUDGE_CONFIGS[judge_name], shared_client
-        ),
-        pairwise_judgment_async(
-            question_text, model_b_answer, model_a_answer, row.tools, JUDGE_CONFIGS[judge_name], shared_client
-        ),
-    )
-
-    games = [result1, result2]
-
-    row.evaluation_result = EvaluateResult(
-        score=0.0,
-        reason=f"LLM Judge comparison: Round 1: {result1['score']}, Round 2: {result2['score']}"
-        if result1 and result2
-        else "Failed to get judgement scores",
-        metrics={
-            "round1_judgment": MetricResult(score=0.0, reason=result1["judgment"] if result1 else "Failed"),
-            "round2_judgment": MetricResult(score=0.0, reason=result2["judgment"] if result2 else "Failed"),
-        },
-    )
-
-    return {"model": model_name, "games": games}
-
-
-def calculate_bootstrap_scores(judgments: List[Dict[str, Any]]) -> Optional[tuple[float, float, float]]:
-    """
-    Calculate bootstrap confidence intervals for Arena-Hard-Auto style judgments.
-
-    Converts judgment labels (A>B, A>>B, etc.) to numerical scores, performs bootstrap
-    sampling to estimate score distribution, and returns mean with 90% confidence interval.
-
-    Args:
-        judgments: List of judgment dicts, each containing "games" with two rounds of scores
-
-    Returns:
-        Optional[tuple]: (mean_score, lower_5th_percentile, upper_95th_percentile)
-                        Returns None if no valid scores found
-    """
-    # Extract scores from judgments
-    scores_data = []
-    for judgment in judgments:
-        game1, game2 = judgment["games"]
-        if game1 and game2 and game1.get("score") and game2.get("score"):
-            # Convert judgment scores to numerical scores
-            scores = LABEL_TO_SCORE[game2["score"]] + [1 - s for s in LABEL_TO_SCORE[game1["score"]]]
-            for score in scores:
-                scores_data.append(score)
-
-    if not scores_data:
-        return None
-
-    # Create DataFrame (single column of scores)
-    battles = pd.DataFrame({"score": scores_data})
-
-    # Bootstrap sampling for calculating relative performance to original model at fixed 50%
-    bootstrap_means = [battles.sample(frac=1.0, replace=True)["score"].mean() for _ in range(100)]
-
-    # Calculate final scores
-    bootstraps = pd.Series(bootstrap_means)
-    mean_score = bootstraps.mean()
-    lower_score = bootstraps.quantile(0.05)
-    upper_score = bootstraps.quantile(0.95)
-
-    return mean_score, lower_score, upper_score

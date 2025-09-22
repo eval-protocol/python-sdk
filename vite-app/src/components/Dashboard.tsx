@@ -2,6 +2,7 @@ import { observer } from "mobx-react";
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { state } from "../App";
+import { useQueryParamsSync } from "../util/query-params";
 import Button from "./Button";
 import { EvaluationTable } from "./EvaluationTable";
 import PivotTab from "./PivotTab";
@@ -74,6 +75,9 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Use the query params sync hook
+  useQueryParamsSync(state.queryParamsWatcher);
+
   const deriveTabFromPath = (path: string): "table" | "pivot" =>
     path.endsWith("/pivot") ? "pivot" : "table";
 
@@ -103,7 +107,13 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
                   isActive={activeTab === "table"}
                   onClick={() => {
                     setActiveTab("table");
-                    navigate("/table");
+                    navigate(
+                      {
+                        pathname: "/table",
+                        search: location.search,
+                      },
+                      { replace: true }
+                    );
                   }}
                   title="View table"
                 />
@@ -112,7 +122,13 @@ const Dashboard = observer(({ onRefresh }: DashboardProps) => {
                   isActive={activeTab === "pivot"}
                   onClick={() => {
                     setActiveTab("pivot");
-                    navigate("/pivot");
+                    navigate(
+                      {
+                        pathname: "/pivot",
+                        search: location.search,
+                      },
+                      { replace: true }
+                    );
                   }}
                   title="View pivot"
                 />

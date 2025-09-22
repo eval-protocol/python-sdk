@@ -9,7 +9,6 @@ from typing_extensions import Unpack
 from collections.abc import Sequence
 
 import pytest
-from tqdm import tqdm
 
 from eval_protocol.data_loader.models import EvaluationDataLoader
 from eval_protocol.dataset_logger import default_logger
@@ -59,7 +58,10 @@ from eval_protocol.pytest.utils import (
     parse_ep_num_runs,
     parse_ep_passed_threshold,
     rollout_processor_with_retry,
+    run_tasks_with_eval_progress,
+    run_tasks_with_run_progress,
 )
+from eval_protocol.utils.show_results_url import store_local_ui_results_url
 
 from ..common_utils import load_jsonl
 
@@ -227,6 +229,9 @@ def evaluation_test(
             # Create the function body that will be used
             invocation_id = generate_id()
 
+            # Store URL for viewing results (after all postprocessing is complete)
+            store_local_ui_results_url(invocation_id)
+
             async def wrapper_body(**kwargs: Unpack[ParameterizedTestKwargs]) -> None:
                 eval_metadata = None
 
@@ -386,7 +391,9 @@ def evaluation_test(
                                 pointwise_tasks.append(
                                     asyncio.create_task(_execute_pointwise_eval_with_semaphore(row=row))
                                 )
-                            results = await asyncio.gather(*pointwise_tasks)
+
+                            # Run evaluation tasks with progress bar
+                            results = await run_tasks_with_eval_progress(pointwise_tasks, run_idx)
 
                             all_results[run_idx] = results
                         elif mode == "groupwise":
@@ -504,27 +511,7 @@ def evaluation_test(
                     else:
                         # For other processors, create all tasks at once and run in parallel
                         # Concurrency is now controlled by the shared semaphore in each rollout processor
-                        with tqdm(
-                            total=num_runs,
-                            desc="Runs (Parallel)",
-                            unit="run",
-                            file=sys.__stderr__,
-                            position=0,
-                            leave=True,
-                            dynamic_ncols=True,
-                            miniters=1,
-                            bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
-                        ) as run_pbar:
-
-                            async def execute_run_with_progress(run_idx: int, config):
-                                result = await execute_run(run_idx, config)
-                                run_pbar.update(1)
-                                return result
-
-                            tasks = []
-                            for run_idx in range(num_runs):
-                                tasks.append(asyncio.create_task(execute_run_with_progress(run_idx, config)))
-                            await asyncio.gather(*tasks)  # pyright: ignore[reportUnknownArgumentType]
+                        await run_tasks_with_run_progress(execute_run, num_runs, config)
 
                     experiment_duration_seconds = time.perf_counter() - experiment_start_time
 

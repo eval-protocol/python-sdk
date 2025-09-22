@@ -23,20 +23,25 @@ LLM_JUDGE_PROMPT = (
 
 def agent_factory(config: RolloutProcessorConfig) -> Agent:
     model_name = config.completion_params["model"]
-    provider = config.completion_params["provider"]
+    provider = config.completion_params["provider"] if "provider" in config.completion_params else "openai"
     model = OpenAIChatModel(model_name, provider=provider)
     return setup_agent(model)
 
 
-@pytest.mark.asyncio
-@evaluation_test(
-    input_messages=[[[Message(role="user", content="What is the total number of tracks in the database?")]]],
-    completion_params=[
+@pytest.mark.parametrize(
+    "completion_params",
+    [
         {
             "model": "accounts/fireworks/models/kimi-k2-instruct",
             "provider": "fireworks",
         },
+        {
+            "model": "gpt-5",
+        },
     ],
+)
+@evaluation_test(
+    input_messages=[[[Message(role="user", content="What is the total number of tracks in the database?")]]],
     rollout_processor=PydanticAgentRolloutProcessor(agent_factory),
     mode="pointwise",
 )

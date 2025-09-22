@@ -1,4 +1,9 @@
-import type { FilterConfig, FilterGroup, FilterOperator } from "../types/filters";
+import type {
+  FilterConfig,
+  FilterGroup,
+  FilterOperator,
+  FilterType,
+} from "../types/configs";
 
 // Filter utilities
 export const isDateField = (field: string): boolean => {
@@ -10,11 +15,14 @@ export const isDateField = (field: string): boolean => {
   );
 };
 
-export const getFieldType = (field: string): "text" | "date" | "date-range" => {
+export const getFieldType = (field: string): FilterType => {
   return isDateField(field) ? "date" : "text";
 };
 
-export const getOperatorsForField = (field: string, type?: string): FilterOperator[] => {
+export const getOperatorsForField = (
+  field: string,
+  type?: string
+): FilterOperator[] => {
   if (type === "date" || type === "date-range" || isDateField(field)) {
     return [
       { value: ">=", label: "on or after" },

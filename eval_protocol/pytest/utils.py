@@ -27,9 +27,119 @@ from eval_protocol.pytest.exception_config import get_default_exception_handler_
 
 import logging
 import json
+import pandas as pd
 
 
-AggregationMethod = Literal["mean", "max", "min"]
+AggregationMethod = Literal["mean", "max", "min", "bootstrap"]
+
+
+async def run_tasks_with_eval_progress(pointwise_tasks: list, run_idx: int):
+    """
+    Run evaluation tasks with a progress bar and proper cancellation handling.
+
+    Args:
+        pointwise_tasks: List of asyncio tasks to execute
+        run_idx: Run index for progress bar positioning and naming
+
+    Returns:
+        Results from all tasks
+    """
+    eval_position = run_idx + 2  # Position after rollout progress bar
+    with tqdm(
+        total=len(pointwise_tasks),
+        desc=f"  Eval {run_idx + 1}",
+        unit="eval",
+        file=sys.__stderr__,
+        leave=False,
+        position=eval_position,
+        dynamic_ncols=True,
+        miniters=1,
+        mininterval=0.1,
+        bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+    ) as eval_pbar:
+
+        async def task_with_progress(task):
+            try:
+                result = await task
+                return result
+            finally:
+                eval_pbar.update(1)
+
+        wrapped_tasks = [task_with_progress(task) for task in pointwise_tasks]
+        try:
+            results = await asyncio.gather(*wrapped_tasks)
+            return results
+        except Exception:
+            # Propagate cancellation to the real tasks and await them to quiesce
+            for task in pointwise_tasks:
+                task.cancel()
+            await asyncio.gather(*pointwise_tasks, return_exceptions=True)
+            raise
+
+
+async def run_tasks_with_run_progress(execute_run_func, num_runs, config):
+    """
+    Run tasks with a parallel runs progress bar, preserving original logic.
+
+    Args:
+        execute_run_func: The execute_run function to call
+        num_runs: Number of runs to execute
+        config: Configuration to pass to execute_run_func
+    """
+    with tqdm(
+        total=num_runs,
+        desc="Runs (Parallel)",
+        unit="run",
+        file=sys.__stderr__,
+        position=0,
+        leave=True,
+        dynamic_ncols=True,
+        miniters=1,
+        bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+    ) as run_pbar:
+
+        async def execute_run_with_progress(run_idx: int, config):
+            result = await execute_run_func(run_idx, config)
+            run_pbar.update(1)
+            return result
+
+        tasks = []
+        for run_idx in range(num_runs):
+            tasks.append(asyncio.create_task(execute_run_with_progress(run_idx, config)))
+        try:
+            await asyncio.gather(*tasks)
+        except Exception:
+            # Propagate cancellation to tasks and await them to quiesce
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
+
+
+def calculate_bootstrap_scores(all_scores: list[float]) -> float:
+    """
+    Calculate bootstrap confidence intervals for individual scores.
+
+    Args:
+        all_scores: List of individual scores from all rows
+
+    Returns:
+        Mean bootstrap score
+    """
+    if not all_scores:
+        return 0.0
+
+    # Create DataFrame (single column of scores)
+    battles = pd.DataFrame({"score": all_scores})
+
+    # Bootstrap sampling for calculating relative performance
+    bootstrap_means = [battles.sample(frac=1.0, replace=True)["score"].mean() for _ in range(100)]
+
+    # Calculate final scores
+    bootstraps = pd.Series(bootstrap_means)
+    mean_score = bootstraps.mean()
+
+    return float(mean_score)
 
 
 def aggregate(scores: list[float], method: AggregationMethod) -> float:
@@ -41,7 +151,8 @@ def aggregate(scores: list[float], method: AggregationMethod) -> float:
         return max(scores)
     if method == "min":
         return min(scores)
-    raise ValueError(f"Unknown aggregation method: {method}")  # pyright: ignore[reportUnreachable]
+    if method == "bootstrap":
+        return calculate_bootstrap_scores(scores)
 
 
 def log_eval_status_and_rows(
@@ -249,7 +360,7 @@ async def rollout_processor_with_retry(
         position = run_idx + 1  # Position 0 is reserved for main run bar, so shift up by 1
         with tqdm(
             total=len(retry_tasks),
-            desc=f"  Run {position}",
+            desc=f"  Run {run_idx + 1}",
             unit="rollout",
             file=sys.__stderr__,
             leave=False,
@@ -309,7 +420,7 @@ def add_cost_metrics(row: EvaluationRow) -> None:
         row.execution_metadata.cost_metrics = CostMetrics(
             input_cost=0.0,
             output_cost=0.0,
-            total_cost=0.0,
+            total_cost_dollar=0.0,
         )
         return
 
@@ -350,5 +461,5 @@ def add_cost_metrics(row: EvaluationRow) -> None:
     row.execution_metadata.cost_metrics = CostMetrics(
         input_cost=input_cost,
         output_cost=output_cost,
-        total_cost=total_cost,
+        total_cost_dollar=total_cost,
     )

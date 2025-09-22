@@ -3,6 +3,7 @@ from .default_dataset_adapter import default_dataset_adapter
 from .default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 from .default_no_op_rollout_processor import NoOpRolloutProcessor
 from .default_single_turn_rollout_process import SingleTurnRolloutProcessor
+from .remote_rollout_processor import RemoteRolloutProcessor
 from .evaluation_test import evaluation_test
 from .exception_config import ExceptionHandlerConfig, BackoffConfig, get_default_exception_handler_config
 from .rollout_processor import RolloutProcessor
@@ -31,6 +32,7 @@ __all__ = [
     "MCPGymRolloutProcessor",
     "RolloutProcessor",
     "SingleTurnRolloutProcessor",
+    "RemoteRolloutProcessor",
     "NoOpRolloutProcessor",
     "default_dataset_adapter",
     "RolloutProcessorConfig",

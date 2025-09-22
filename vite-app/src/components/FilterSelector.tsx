@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from "react";
-import type { FilterConfig, FilterGroup } from "../types/filters";
+import type { FilterConfig, FilterGroup, FilterLogic } from "../types/configs";
 import SearchableSelect from "./SearchableSelect";
 import FilterInput from "./FilterInput";
 import Button from "./Button";
@@ -30,7 +30,7 @@ const FilterSelectorComponent = ({
   );
 
   const updateFilterGroupLogic = useCallback(
-    (index: number, logic: "AND" | "OR") => {
+    (index: number, logic: FilterLogic) => {
       const newFilters = [...filters];
       newFilters[index] = { ...newFilters[index], logic };
       onFiltersChange(newFilters);
@@ -110,7 +110,7 @@ const FilterSelectorComponent = ({
                 <SearchableSelect
                   value={group.logic}
                   onChange={(value) =>
-                    updateFilterGroupLogic(groupIndex, value as "AND" | "OR")
+                    updateFilterGroupLogic(groupIndex, value as FilterLogic)
                   }
                   options={[
                     { value: "AND", label: "AND (all filters must match)" },

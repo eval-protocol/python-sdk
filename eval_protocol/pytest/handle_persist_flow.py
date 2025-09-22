@@ -71,7 +71,7 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                                 row_data["evals"] = {"score": 0}
                                 row_data["eval_details"] = {
                                     "score": 0,
-                                    "is_score_valid": True,
+                                    "is_score_valid": False,
                                     "reason": "No evaluation result",
                                     "metrics": {},
                                 }

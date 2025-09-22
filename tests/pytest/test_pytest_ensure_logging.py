@@ -6,6 +6,15 @@ async def test_ensure_logging(monkeypatch):
     """
     Ensure that default SQLITE logger gets called by mocking the storage and checking that the storage is called.
     """
+    # Ensure default sqlite logger is enabled in CI environments and reset lazy cache
+    monkeypatch.setenv("DISABLE_EP_SQLITE_LOG", "0")
+    from eval_protocol.dataset_logger import default_logger as _dl
+
+    # Reset the cached underlying logger so it re-initializes with the current env
+    try:
+        monkeypatch.setattr(_dl, "_logger", None, raising=False)
+    except Exception:
+        pass
     # Mock the SqliteEvaluationRowStore to track calls
     mock_store = Mock()
     mock_store.upsert_row = Mock()

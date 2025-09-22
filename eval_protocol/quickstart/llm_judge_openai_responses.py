@@ -16,14 +16,13 @@ Run:
 """
 
 import os
-from typing import List
 
 import pytest
 
 from eval_protocol import (
     evaluation_test,
     aha_judge,
-    split_multi_turn_rows,
+    multi_turn_assistant_to_ground_truth,
     EvaluationRow,
     SingleTurnRolloutProcessor,
     OpenAIResponsesAdapter,
@@ -52,13 +51,12 @@ input_rows = adapter.get_evaluation_rows(
             "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905",
         },
     ],
-    ids=DefaultParameterIdGenerator.generate_id_from_dict,
 )
 @evaluation_test(
     input_rows=[input_rows],
     rollout_processor=SingleTurnRolloutProcessor(),
-    preprocess_fn=split_multi_turn_rows,
-    mode="all",
+    preprocess_fn=multi_turn_assistant_to_ground_truth,
+    max_concurrent_evaluations=2,
 )
-async def test_llm_judge_openai_responses(rows: List[EvaluationRow]) -> List[EvaluationRow]:
-    return await aha_judge(rows)
+async def test_llm_judge_openai_responses(row: EvaluationRow) -> EvaluationRow:
+    return await aha_judge(row)

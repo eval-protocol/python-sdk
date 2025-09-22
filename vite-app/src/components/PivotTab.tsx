@@ -5,7 +5,7 @@ import ChartExport from "./ChartExport";
 import SearchableSelect from "./SearchableSelect";
 import Button from "./Button";
 import FilterSelector from "./FilterSelector";
-import { type FilterGroup } from "../types/filters";
+import { type FilterGroup } from "../types/configs";
 import { usePivotData } from "../hooks/usePivotData";
 import {
   createFieldHandlerSet,
@@ -18,6 +18,11 @@ import {
   createFilterFunction,
   getFilterConfig,
 } from "../util/field-processors";
+import {
+  DEFAULT_COST_PIVOT_CONFIG,
+  DEFAULT_QUALITY_PIVOT_CONFIG,
+  DEFAULT_SPEED_PIVOT_CONFIG,
+} from "../GlobalState";
 
 interface FieldSelectorProps {
   title: string;
@@ -199,14 +204,33 @@ const PivotTab = observer(() => {
       </div>
 
       {/* Controls Section with Reset Button */}
-      <div className="mb-4 flex justify-between items-center">
-        <Button
-          onClick={() => resetPivotConfig()}
-          variant="secondary"
-          size="sm"
-        >
-          Reset to Defaults
-        </Button>
+      <div className="mb-4">
+        <span className="text-xs text-gray-500 block mb-1">
+          Common configurations to help you get started:
+        </span>
+        <div className="flex flex-row gap-1">
+          <Button
+            onClick={() => resetPivotConfig(DEFAULT_QUALITY_PIVOT_CONFIG)}
+            variant="secondary"
+            size="sm"
+          >
+            Quality (agg_score)
+          </Button>
+          <Button
+            onClick={() => resetPivotConfig(DEFAULT_COST_PIVOT_CONFIG)}
+            variant="secondary"
+            size="sm"
+          >
+            Cost (total_cost_dollar)
+          </Button>
+          <Button
+            onClick={() => resetPivotConfig(DEFAULT_SPEED_PIVOT_CONFIG)}
+            variant="secondary"
+            size="sm"
+          >
+            Speed (duration_seconds)
+          </Button>
+        </div>
       </div>
 
       <FieldSelector

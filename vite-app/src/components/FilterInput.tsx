@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { FilterConfig } from "../types/filters";
+import type { FilterConfig } from "../types/configs";
 import { commonStyles } from "../styles/common";
 
 interface FilterInputProps {
