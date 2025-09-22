@@ -70,7 +70,6 @@ input_rows = fetch_langsmith_traces_as_evaluation_rows()
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         },
     ],
-    ids=DefaultParameterIdGenerator.generate_id_from_dict,
 )
 @evaluation_test(
     input_rows=[input_rows],
