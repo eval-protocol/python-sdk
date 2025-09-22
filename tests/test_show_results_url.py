@@ -9,7 +9,7 @@ import pytest
 from eval_protocol.utils.show_results_url import (
     is_server_running,
     generate_invocation_filter_url,
-    store_evaluation_results_url,
+    store_local_ui_results_url,
 )
 
 
@@ -123,17 +123,17 @@ class TestGenerateInvocationFilterUrl:
         assert pivot_url.split("?")[1] == table_url.split("?")[1]
 
 
-class TestStoreEvaluationResultsUrl:
-    """Test the store_evaluation_results_url function."""
+class TestStoreLocalUiResultsUrl:
+    """Test the store_local_ui_results_url function."""
 
-    @patch("eval_protocol.utils.show_results_url.store_results_url")
+    @patch("eval_protocol.utils.show_results_url.store_local_ui_url")
     def test_stores_urls_correctly(self, mock_store):
         """Test that URLs are stored correctly."""
         invocation_id = "test-invocation"
 
-        store_evaluation_results_url(invocation_id)
+        store_local_ui_results_url(invocation_id)
 
-        # Should call store_results_url once with correct parameters
+        # Should call store_local_ui_url once with correct parameters
         mock_store.assert_called_once()
         call_args = mock_store.call_args[0]
 
@@ -141,12 +141,12 @@ class TestStoreEvaluationResultsUrl:
         assert "pivot" in call_args[1]  # pivot_url
         assert "table" in call_args[2]  # table_url
 
-    @patch("eval_protocol.utils.show_results_url.store_results_url")
+    @patch("eval_protocol.utils.show_results_url.store_local_ui_url")
     def test_invocation_id_in_urls(self, mock_store):
         """Test that invocation_id appears in both URLs."""
         invocation_id = "unique-test-id-123"
 
-        store_evaluation_results_url(invocation_id)
+        store_local_ui_results_url(invocation_id)
 
         call_args = mock_store.call_args[0]
         pivot_url = call_args[1]
@@ -155,16 +155,16 @@ class TestStoreEvaluationResultsUrl:
         assert invocation_id in pivot_url
         assert invocation_id in table_url
 
-    @patch("eval_protocol.utils.show_results_url.store_results_url")
+    @patch("eval_protocol.utils.show_results_url.store_local_ui_url")
     def test_different_invocation_ids(self, mock_store):
         """Test that different invocation IDs produce different URLs."""
         # Test with first invocation ID
-        store_evaluation_results_url("id-1")
+        store_local_ui_results_url("id-1")
         call_1 = mock_store.call_args[0]
         mock_store.reset_mock()
 
         # Test with second invocation ID
-        store_evaluation_results_url("id-2")
+        store_local_ui_results_url("id-2")
         call_2 = mock_store.call_args[0]
 
         # URLs should be different
@@ -177,14 +177,14 @@ class TestStoreEvaluationResultsUrl:
 class TestIntegration:
     """Integration tests for the module."""
 
-    @patch("eval_protocol.utils.show_results_url.store_results_url")
+    @patch("eval_protocol.utils.show_results_url.store_local_ui_url")
     def test_full_workflow_stores_urls(self, mock_store):
         """Test the full workflow stores URLs correctly."""
         invocation_id = "integration-test"
 
-        store_evaluation_results_url(invocation_id)
+        store_local_ui_results_url(invocation_id)
 
-        # Verify store_results_url was called
+        # Verify store_local_ui_url was called
         mock_store.assert_called_once()
         call_args = mock_store.call_args[0]
 
