@@ -237,7 +237,7 @@ class LangfuseAdapter(BaseAdapter):
         if not LANGFUSE_AVAILABLE:
             raise ImportError("Langfuse not installed. Install with: pip install 'eval-protocol[langfuse]'")
 
-        self.client = get_client()
+        self.client = get_client()  # pyright: ignore[reportCallIssue]
 
     def get_evaluation_rows(
         self,

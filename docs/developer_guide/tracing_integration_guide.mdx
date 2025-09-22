@@ -1,0 +1,94 @@
+# Tracing Integration Contribution Guide
+
+This guide defines the quality bar for tracing provider integrations in the Eval Protocol Python SDK. Each adapter should provide the same end-to-end value as the Langfuse integration by reliably ingesting traces, preserving observability metadata, supporting advanced agent behaviors, and—when possible—pushing evaluation results back into the provider.
+
+## Scope
+
+A "tracing integration" covers any adapter that reads execution traces from an observability platform (for example Langfuse, LangSmith, or Braintrust) and converts those traces into `EvaluationRow` objects. Adapters may also push evaluation results to the provider when the API supports it. The requirements below apply to every provider-specific adapter in `eval_protocol/adapters/` that fulfils this role.
+
+## Quality Expectations for Every Provider
+
+### 1. Trace ingestion fidelity
+
+* **Conversation reconstruction** – Convert provider-specific trace payloads into the Eval Protocol message schema while keeping system, user, assistant, and tool messages intact. Langfuse, LangSmith, and Braintrust adapters follow this pattern by transforming trace inputs and outputs into `EvaluationRow` instances with preserved session metadata.【F:eval_protocol/adapters/langfuse.py†L60-L161】【F:eval_protocol/adapters/langsmith.py†L28-L188】【F:eval_protocol/adapters/braintrust.py†L48-L127】【F:eval_protocol/adapters/utils.py†L16-L98】
+* **Metadata for observability** – Populate `input_metadata.session_data` with provider identifiers so downstream tooling can join evaluation scores back to the original traces.【F:eval_protocol/adapters/langfuse.py†L85-L93】【F:eval_protocol/adapters/langsmith.py†L172-L189】【F:eval_protocol/adapters/braintrust.py†L75-L83】
+* **Robust payload handling** – Support common variants that providers emit (arrays of messages, prompt strings, nested structures, or span-based fallbacks) so adapters stay resilient to API changes.【F:eval_protocol/adapters/langfuse.py†L115-L159】【F:eval_protocol/adapters/langsmith.py†L130-L205】【F:eval_protocol/adapters/langsmith.py†L289-L406】【F:eval_protocol/adapters/braintrust.py†L102-L127】
+
+### 2. Outbound evaluation reporting
+
+Adapters should expose helper methods to push aggregate scores or individual evaluation results back to the provider when the API allows it. Langfuse and Braintrust implement `upload_scores` / `upload_score` methods that iterate over `EvaluationRow` objects and call provider feedback APIs.【F:eval_protocol/adapters/langfuse.py†L569-L625】【F:eval_protocol/adapters/braintrust.py†L224-L299】 Future integrations should follow this pattern and document why score pushback is unavailable if the provider lacks the capability.
+
+### 3. Tool calling, parallel calls, and tool responses
+
+* **Assistant tool calls** – Preserve structured tool call payloads (function names, arguments, IDs) when converting traces. Shared utilities keep OpenAI-style `tool_calls` fields intact, and provider-specific adapters normalize the data so downstream evaluators can reason about tool usage.【F:eval_protocol/adapters/utils.py†L60-L98】【F:eval_protocol/adapters/langsmith.py†L315-L352】
+* **Tool output messages** – Keep tool role messages (and `tool_call_id` references) aligned with the triggering assistant call. Braintrust and LangSmith tests assert that tool responses remain in the reconstructed transcript.【F:tests/adapters/test_braintrust_adapter.py†L117-L176】【F:tests/adapters/test_langsmith_adapter.py†L83-L129】
+* **Parallel tool calls** – Validate multiple tool calls in one assistant turn. LangSmith unit tests cover this scenario, and other providers should add equivalent fixtures before claiming support.【F:tests/adapters/test_langsmith_adapter.py†L155-L181】
+
+### 4. Multi-modal and structured content
+
+Ensure adapters can surface non-text content (images, reasoning traces, audio) by flattening provider-specific structures into `Message.content` and optional metadata fields. The LangChain serializer demonstrates how to aggregate list-based content blocks and reasoning annotations, which tracing adapters can reuse or emulate.【F:eval_protocol/adapters/langchain.py†L18-L104】 Each provider adapter should include tests for the content shapes it claims to support.
+
+### 5. Testing requirements
+
+* **Unit tests** – Provide deterministic fixtures that cover message reconstruction, tool calling (including tool responses), metadata extraction, and error handling. LangSmith and Braintrust adapters rely on comprehensive unit suites that mock provider APIs to exercise these behaviors.【F:tests/adapters/test_langsmith_adapter.py†L25-L181】【F:tests/adapters/test_braintrust_adapter.py†L50-L333】
+* **End-to-end smoke tests** – When feasible, add opt-in E2E tests that connect to a real deployment behind environment-variable gates. The Langfuse adapter demonstrates this pattern with credential-gated tests that fetch live traces and validate message integrity.【F:tests/test_adapters_e2e.py†L17-L193】
+* **Regression coverage for advanced flows** – Add scenarios for multi-turn conversations, streaming or span-based payloads, and multi-modal messages as soon as a provider surfaces them.
+
+### 6. Developer experience
+
+Document required environment variables, authentication expectations, and typical usage in examples or docstrings. Ensure that missing configuration raises actionable errors and that adapters expose factory helpers (e.g., `create_provider_adapter`) when extra initialization is needed.【F:eval_protocol/adapters/langfuse.py†L48-L631】【F:eval_protocol/adapters/braintrust.py†L129-L312】【F:eval_protocol/adapters/langsmith.py†L28-L410】
+
+## Validation Playbook for New or Updated Integrations
+
+1. **Plan the ingestion scope** – Inventory the provider's trace shapes (chat completions, tool spans, multi-modal payloads, latency metadata). Decide which variants the initial adapter will support and document any intentional gaps.
+2. **Implement ingestion with fallbacks** – Parse inputs/outputs into messages, capture provider IDs in `session_data`, and keep tool schemas intact using the shared utilities where possible.【F:eval_protocol/adapters/utils.py†L16-L98】
+3. **Add outbound scoring hooks** – If the provider exposes feedback APIs, implement `upload_scores`/`upload_score` helpers modeled after Langfuse or Braintrust.【F:eval_protocol/adapters/langfuse.py†L569-L625】【F:eval_protocol/adapters/braintrust.py†L224-L299】
+4. **Write unit tests** – Cover edge cases for tool calling, metadata extraction, empty traces, authentication errors, and any custom behaviors your adapter adds.【F:tests/adapters/test_braintrust_adapter.py†L50-L333】【F:tests/adapters/test_langsmith_adapter.py†L25-L181】
+5. **Add (or update) E2E smoke tests** – Provide a credential-gated pytest module that exercises a happy-path ingestion run. Follow the Langfuse pattern so CI skips the test when credentials are absent.【F:tests/test_adapters_e2e.py†L17-L193】
+6. **Document usage** – Update examples, READMEs, or docs to explain configuration, limitations, and validation steps.
+7. **Run SDK-wide checks** – Execute `pre-commit` and targeted pytest suites to ensure your changes meet repo quality requirements.
+
+## Provider-Specific Checklists
+
+### Langfuse
+
+* **Ingestion** – Maintain the span-aware extraction logic that can fall back to the last `GENERATION` observation when trace inputs/outputs are missing.【F:eval_protocol/adapters/langfuse.py†L115-L159】
+* **Tooling support** – Ensure tool definitions and tool call metadata remain intact via the shared extraction utilities.【F:eval_protocol/adapters/langfuse.py†L60-L93】【F:eval_protocol/adapters/utils.py†L16-L98】
+* **Outbound scores** – Keep the score upload helpers current with Langfuse's APIs so evaluation results appear alongside traces.【F:eval_protocol/adapters/langfuse.py†L569-L625】
+* **Testing** – Extend the existing live integration tests with new scenarios (parallel tool calls, multi-modal payloads) whenever the SDK gains that functionality.【F:tests/test_adapters_e2e.py†L17-L193】
+
+### LangSmith
+
+* **Payload coverage** – Continue supporting the broad set of input/output variants, including message lists, prompt strings, and LangChain-specific message shapes.【F:eval_protocol/adapters/langsmith.py†L130-L205】【F:eval_protocol/adapters/langsmith.py†L289-L406】
+* **Tool calling** – Retain normalization for assistant tool calls, tool responses, and parallel tool invocations, and extend tests when LangSmith introduces new schemas.【F:eval_protocol/adapters/langsmith.py†L315-L352】【F:tests/adapters/test_langsmith_adapter.py†L83-L181】
+* **Score pushback (to implement)** – Add an upload helper analogous to Langfuse's once the LangSmith API for feedback ingestion is finalized.【F:eval_protocol/adapters/langfuse.py†L569-L625】
+* **Validation gaps** – Add credential-gated E2E tests once a stable LangSmith workspace is available to close the loop on live ingestion.
+
+### Braintrust
+
+* **BTQL ingestion** – Preserve support for BTQL queries, metadata-derived tool schemas, and custom converters while keeping trace IDs in session metadata.【F:eval_protocol/adapters/braintrust.py†L129-L312】
+* **Tool calling and tool responses** – Keep unit tests that verify assistant tool calls, tool role messages, and metadata-based tool definitions.【F:tests/adapters/test_braintrust_adapter.py†L65-L253】
+* **Outbound feedback** – Maintain score upload helpers so evaluations can annotate project logs directly in Braintrust.【F:eval_protocol/adapters/braintrust.py†L224-L299】
+* **Remote validation** – Update the Chinook smoke tests (or similar) when Braintrust introduces new trace shapes, ensuring multi-turn and tool-heavy workflows remain covered.【F:tests/chinook/braintrust/test_braintrust_chinook.py†L37-L86】
+
+### Template for New Providers
+
+1. Mirror the structure of existing adapters—constructor with dependency checks, `get_evaluation_rows`, optional `upload_scores`, and a factory helper.
+2. Implement feature-complete ingestion for the provider's highest-value trace shapes before expanding to niche cases.
+3. Add unit tests that cover ingestion, metadata, and tool usage. Use the Braintrust and LangSmith tests as templates for asserting conversation fidelity.【F:tests/adapters/test_braintrust_adapter.py†L50-L333】【F:tests/adapters/test_langsmith_adapter.py†L25-L181】
+4. Provide at least one opt-in smoke test (skipped when credentials are missing) to catch regressions against the live API.【F:tests/test_adapters_e2e.py†L17-L193】
+5. Document setup steps and limitations in `docs/` so contributors understand how to run validations locally.
+
+## Compatibility and Validation Matrix
+
+The table below tracks the current validation status for each tracing provider. Use it to identify gaps before shipping updates.
+
+| Provider | Trace ingestion & metadata | Evaluation result pushback | Tool calling & tool responses | Parallel tool calls | Multi-modal / structured content | Automated testing |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Langfuse** | ✅ Span-aware extraction populates `EvaluationRow` metadata for downstream joins.【F:eval_protocol/adapters/langfuse.py†L60-L161】 | ✅ `upload_scores` / `upload_score` sync evaluation results to Langfuse.【F:eval_protocol/adapters/langfuse.py†L569-L625】 | ✅ Utilizes shared utilities to keep tool schemas and tool messages intact.【F:eval_protocol/adapters/langfuse.py†L60-L93】【F:eval_protocol/adapters/utils.py†L16-L98】 | 🟡 Supported by message parsing but add dedicated regression tests for multi-call traces.【F:eval_protocol/adapters/utils.py†L16-L98】 | 🟡 Handles standard text payloads; add fixtures for multi-modal spans as they become available.【F:eval_protocol/adapters/langfuse.py†L115-L159】 | ✅ Credential-gated E2E tests fetch live traces and validate message integrity.【F:tests/test_adapters_e2e.py†L17-L193】 |
+| **LangSmith** | ✅ Converts diverse payload shapes and stores run/trace IDs in session metadata.【F:eval_protocol/adapters/langsmith.py†L130-L205】【F:eval_protocol/adapters/langsmith.py†L172-L189】 | ❌ Implement score upload once LangSmith exposes a feedback API comparable to Langfuse.【F:eval_protocol/adapters/langfuse.py†L569-L625】 | ✅ Normalizes assistant tool calls and preserves tool role messages in reconstructed conversations.【F:eval_protocol/adapters/langsmith.py†L315-L352】【F:tests/adapters/test_langsmith_adapter.py†L83-L129】 | ✅ Unit tests cover multiple tool calls in a single assistant turn.【F:tests/adapters/test_langsmith_adapter.py†L155-L181】 | 🟡 `_extract_messages_from_payload` flattens list-based content; add coverage for richer multi-modal payloads.【F:eval_protocol/adapters/langsmith.py†L289-L406】 | ✅ Comprehensive unit tests mock `list_runs` responses across scenarios.【F:tests/adapters/test_langsmith_adapter.py†L25-L181】 |
+| **Braintrust** | ✅ BTQL ingestion captures conversation messages and embeds trace IDs for later score pushback.【F:eval_protocol/adapters/braintrust.py†L129-L221】【F:eval_protocol/adapters/braintrust.py†L75-L83】 | ✅ Score upload helpers annotate project logs through Braintrust's feedback API.【F:eval_protocol/adapters/braintrust.py†L224-L299】 | ✅ Tests ensure assistant tool calls, tool responses, and metadata-provided tool schemas are preserved.【F:tests/adapters/test_braintrust_adapter.py†L65-L253】 | 🟡 Shared utilities support multiple tool calls; add explicit Braintrust fixtures when providers emit them.【F:eval_protocol/adapters/utils.py†L16-L98】 | 🟡 Current conversion focuses on text; extend tests if Braintrust exposes structured multi-modal payloads.【F:eval_protocol/adapters/braintrust.py†L102-L127】 | ✅ Unit tests mock BTQL responses and error paths; Chinook scenario validates real-world usage.【F:tests/adapters/test_braintrust_adapter.py†L50-L333】【F:tests/chinook/braintrust/test_braintrust_chinook.py†L37-L86】 |
+
+Legend: ✅ — validated; 🟡 — supported in code but needs additional coverage; ❌ — not yet implemented.
+
+Keep this matrix up to date whenever you add capabilities or tests to a provider integration.
