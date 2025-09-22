@@ -279,7 +279,7 @@ def pytest_configure(config) -> None:
         pass
 
 
-def pytest_sessionfinish(session, exitstatus):
+def _print_experiment_links(session):
     """Print all collected Fireworks experiment links from pytest stash."""
     try:
         # Late import to avoid circulars; if missing key, skip printing
@@ -291,9 +291,8 @@ def pytest_sessionfinish(session, exitstatus):
         except Exception:
             EXPERIMENT_LINKS_STASH_KEY = None
 
-        # Get links from pytest stash using shared key
+        # Get links from pytest stash
         links = []
-
         if EXPERIMENT_LINKS_STASH_KEY is not None and EXPERIMENT_LINKS_STASH_KEY in session.stash:
             links = session.stash[EXPERIMENT_LINKS_STASH_KEY]
 
@@ -309,6 +308,55 @@ def pytest_sessionfinish(session, exitstatus):
                     print(f"❌ Experiment {link['experiment_id']}: {link['job_link']}", file=sys.__stderr__)
 
             print("=" * 80, file=sys.__stderr__)
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def _print_local_ui_results_urls(session):
+    """Print all collected evaluation results URLs from pytest stash."""
+    try:
+        # Late import to avoid circulars; if missing key, skip printing
+        RESULTS_URLS_STASH_KEY = None
+        try:
+            from .store_results_url import RESULTS_URLS_STASH_KEY as _URL_KEY  # type: ignore
+
+            RESULTS_URLS_STASH_KEY = _URL_KEY
+        except Exception:
+            RESULTS_URLS_STASH_KEY = None
+
+        # Get URLs from pytest stash
+        urls = []
+        if RESULTS_URLS_STASH_KEY is not None and RESULTS_URLS_STASH_KEY in session.stash:
+            urls = session.stash[RESULTS_URLS_STASH_KEY]
+
+        if urls:
+            print("\n" + "=" * 80, file=sys.__stderr__)
+            print("📊 LOCAL UI EVALUATION RESULTS", file=sys.__stderr__)
+            print("=" * 80, file=sys.__stderr__)
+
+            for url_data in urls:
+                print(f"📊 Invocation {url_data['invocation_id']}:", file=sys.__stderr__)
+                print(f"  📊 Aggregate scores: {url_data['pivot_url']}", file=sys.__stderr__)
+                print(f"  📋 Trajectories: {url_data['table_url']}", file=sys.__stderr__)
+
+            print("=" * 80, file=sys.__stderr__)
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Print all collected Fireworks experiment links and evaluation results URLs from pytest stash."""
+    try:
+        # Print experiment links and results URLs separately
+        links_printed = _print_experiment_links(session)
+        urls_printed = _print_local_ui_results_urls(session)
+
+        # Flush stderr if anything was printed
+        if links_printed or urls_printed:
             err_stream = getattr(sys, "__stderr__", None)
             if err_stream is not None:
                 try:

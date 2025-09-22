@@ -9,7 +9,7 @@ import pytest
 from eval_protocol.utils.show_results_url import (
     is_server_running,
     generate_invocation_filter_url,
-    show_results_url,
+    store_evaluation_results_url,
 )
 
 
@@ -123,124 +123,73 @@ class TestGenerateInvocationFilterUrl:
         assert pivot_url.split("?")[1] == table_url.split("?")[1]
 
 
-class TestShowResultsUrl:
-    """Test the show_results_url function."""
+class TestStoreEvaluationResultsUrl:
+    """Test the store_evaluation_results_url function."""
 
-    @patch("eval_protocol.utils.show_results_url.is_server_running")
-    @patch("builtins.print")
-    def test_server_running_pivot_and_table(self, mock_print, mock_is_running):
-        """Test output when server is running."""
-        mock_is_running.return_value = True
+    @patch("eval_protocol.utils.show_results_url.store_results_url")
+    def test_stores_urls_correctly(self, mock_store):
+        """Test that URLs are stored correctly."""
+        invocation_id = "test-invocation"
 
-        show_results_url("test-invocation")
+        store_evaluation_results_url(invocation_id)
 
-        # Should print both pivot and table URLs
-        assert mock_print.call_count == 3  # Header + 2 URLs
-        calls = [call[0][0] for call in mock_print.call_args_list]
+        # Should call store_results_url once with correct parameters
+        mock_store.assert_called_once()
+        call_args = mock_store.call_args[0]
 
-        assert "View your evaluation results:" in calls[0]
-        assert "📊 Aggregate scores:" in calls[1]
-        assert "📋 Trajectories:" in calls[2]
-        assert "pivot" in calls[1]
-        assert "table" in calls[2]
+        assert call_args[0] == invocation_id  # invocation_id
+        assert "pivot" in call_args[1]  # pivot_url
+        assert "table" in call_args[2]  # table_url
 
-    @patch("eval_protocol.utils.show_results_url.is_server_running")
-    @patch("builtins.print")
-    def test_server_not_running_instructions(self, mock_print, mock_is_running):
-        """Test output when server is not running."""
-        mock_is_running.return_value = False
-
-        show_results_url("test-invocation")
-
-        # Should print instructions and both URLs
-        assert mock_print.call_count == 3  # Instructions + 2 URLs
-        calls = [call[0][0] for call in mock_print.call_args_list]
-
-        assert "Start the local UI with 'ep logs'" in calls[0]
-        assert "📊 Aggregate scores:" in calls[1]
-        assert "📋 Trajectories:" in calls[2]
-        assert "pivot" in calls[1]
-        assert "table" in calls[2]
-
-    @patch("eval_protocol.utils.show_results_url.is_server_running")
-    @patch("builtins.print")
-    def test_invocation_id_in_urls(self, mock_print, mock_is_running):
+    @patch("eval_protocol.utils.show_results_url.store_results_url")
+    def test_invocation_id_in_urls(self, mock_store):
         """Test that invocation_id appears in both URLs."""
-        mock_is_running.return_value = True
         invocation_id = "unique-test-id-123"
 
-        show_results_url(invocation_id)
+        store_evaluation_results_url(invocation_id)
 
-        calls = [call[0][0] for call in mock_print.call_args_list]
-        pivot_url = calls[1]
-        table_url = calls[2]
+        call_args = mock_store.call_args[0]
+        pivot_url = call_args[1]
+        table_url = call_args[2]
 
         assert invocation_id in pivot_url
         assert invocation_id in table_url
 
-    @patch("eval_protocol.utils.show_results_url.is_server_running")
-    @patch("builtins.print")
-    def test_different_invocation_ids(self, mock_print, mock_is_running):
+    @patch("eval_protocol.utils.show_results_url.store_results_url")
+    def test_different_invocation_ids(self, mock_store):
         """Test that different invocation IDs produce different URLs."""
-        mock_is_running.return_value = True
-
         # Test with first invocation ID
-        show_results_url("id-1")
-        calls_1 = [call[0][0] for call in mock_print.call_args_list]
-        mock_print.reset_mock()
+        store_evaluation_results_url("id-1")
+        call_1 = mock_store.call_args[0]
+        mock_store.reset_mock()
 
         # Test with second invocation ID
-        show_results_url("id-2")
-        calls_2 = [call[0][0] for call in mock_print.call_args_list]
+        store_evaluation_results_url("id-2")
+        call_2 = mock_store.call_args[0]
 
         # URLs should be different
-        assert calls_1[1] != calls_2[1]  # Pivot URLs different
-        assert calls_1[2] != calls_2[2]  # Table URLs different
-        assert "id-1" in calls_1[1]
-        assert "id-2" in calls_2[1]
+        assert call_1[1] != call_2[1]  # Pivot URLs different
+        assert call_1[2] != call_2[2]  # Table URLs different
+        assert "id-1" in call_1[1]
+        assert "id-2" in call_2[1]
 
 
 class TestIntegration:
     """Integration tests for the module."""
 
-    @patch("socket.socket")
-    @patch("builtins.print")
-    def test_full_workflow_server_running(self, mock_print, mock_socket):
-        """Test the full workflow when server is running."""
-        # Mock server running
-        mock_socket_instance = MagicMock()
-        mock_socket_instance.connect_ex.return_value = 0
-        mock_socket.return_value.__enter__.return_value = mock_socket_instance
+    @patch("eval_protocol.utils.show_results_url.store_results_url")
+    def test_full_workflow_stores_urls(self, mock_store):
+        """Test the full workflow stores URLs correctly."""
+        invocation_id = "integration-test"
 
-        show_results_url("integration-test")
+        store_evaluation_results_url(invocation_id)
 
-        # Verify socket was checked
-        mock_socket_instance.connect_ex.assert_called_once_with(("localhost", 8000))
+        # Verify store_results_url was called
+        mock_store.assert_called_once()
+        call_args = mock_store.call_args[0]
 
-        # Verify output
-        assert mock_print.call_count == 3
-        calls = [call[0][0] for call in mock_print.call_args_list]
-        assert "View your evaluation results:" in calls[0]
-        assert "integration-test" in calls[1]
-        assert "integration-test" in calls[2]
-
-    @patch("socket.socket")
-    @patch("builtins.print")
-    def test_full_workflow_server_not_running(self, mock_print, mock_socket):
-        """Test the full workflow when server is not running."""
-        # Mock server not running
-        mock_socket_instance = MagicMock()
-        mock_socket_instance.connect_ex.return_value = 1
-        mock_socket.return_value.__enter__.return_value = mock_socket_instance
-
-        show_results_url("integration-test")
-
-        # Verify socket was checked
-        mock_socket_instance.connect_ex.assert_called_once_with(("localhost", 8000))
-
-        # Verify output
-        assert mock_print.call_count == 3
-        calls = [call[0][0] for call in mock_print.call_args_list]
-        assert "Start the local UI with 'ep logs'" in calls[0]
-        assert "integration-test" in calls[1]
-        assert "integration-test" in calls[2]
+        assert call_args[0] == invocation_id
+        assert "pivot" in call_args[1]
+        assert "table" in call_args[2]
+        assert "integration-test" in call_args[1]
+        assert "integration-test" in call_args[2]

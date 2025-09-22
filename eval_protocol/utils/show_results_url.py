@@ -5,6 +5,8 @@ Utility functions for showing evaluation results URLs and checking server status
 import socket
 import urllib.parse
 
+from eval_protocol.pytest.store_results_url import store_local_ui_url
+
 
 def is_server_running(host: str = "localhost", port: int = 8000) -> bool:
     """
@@ -58,25 +60,15 @@ def generate_invocation_filter_url(invocation_id: str, base_url: str = "http://l
     return f"{base_url}?filterConfig={encoded_filter}"
 
 
-def show_results_url(invocation_id: str) -> None:
+def store_local_ui_results_url(invocation_id: str) -> None:
     """
-    Show URLs for viewing evaluation results filtered by invocation_id.
-
-    If the server is not running, prints a message to run "ep logs" to start the local UI.
-    If the server is running, prints URLs to view results filtered by invocation_id.
+    Store URLs for viewing evaluation results filtered by invocation_id in pytest stash.
 
     Args:
-            invocation_id: The invocation ID to filter results by
+                    invocation_id: The invocation ID to filter results by
     """
-    if is_server_running():
-        pivot_url = generate_invocation_filter_url(invocation_id, "http://localhost:8000/pivot")
-        table_url = generate_invocation_filter_url(invocation_id, "http://localhost:8000/table")
-        print("View your evaluation results:")
-        print(f"  📊 Aggregate scores: {pivot_url}")
-        print(f"  📋 Trajectories: {table_url}")
-    else:
-        pivot_url = generate_invocation_filter_url(invocation_id, "http://localhost:8000/pivot")
-        table_url = generate_invocation_filter_url(invocation_id, "http://localhost:8000/table")
-        print("Start the local UI with 'ep logs', then visit:")
-        print(f"  📊 Aggregate scores: {pivot_url}")
-        print(f"  📋 Trajectories: {table_url}")
+    pivot_url = generate_invocation_filter_url(invocation_id, "http://localhost:8000/pivot")
+    table_url = generate_invocation_filter_url(invocation_id, "http://localhost:8000/table")
+
+    # Store URLs in pytest stash for later printing in pytest_sessionfinish
+    store_local_ui_url(invocation_id, pivot_url, table_url)
