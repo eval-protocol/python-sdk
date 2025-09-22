@@ -70,12 +70,6 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history for all tags and branches
 
-      - name: Check CI environment variable
-        run: |
-          echo "CI=$CI"
-          echo "CI (from env)=$(env | grep '^CI=')"
-          python -c "import os; print('CI (python):', repr(os.getenv('CI')))"
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
