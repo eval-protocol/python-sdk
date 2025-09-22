@@ -22,7 +22,7 @@ def test_openai_responses_adapter_with_real_response_simple(snapshot: SnapshotAs
     assert len(eval_rows) == 1
 
     # Convert to dict for snapshot testing
-    eval_rows_dict = [row.model_dump(exclude={"created_at", "execution_metadata"}) for row in eval_rows]
+    eval_rows_dict = [row.model_dump(exclude={"created_at": True, "execution_metadata": True, "messages": {"__all__": {"weight"}}}) for row in eval_rows]
 
     # Assert against snapshot
     assert eval_rows_dict == snapshot
@@ -42,7 +42,7 @@ def test_openai_responses_adapter_with_real_response_parallel_tool_calls(snapsho
     assert len(eval_rows) == 1
 
     # Convert to dict for snapshot testing
-    eval_rows_dict = [row.model_dump(exclude={"created_at", "execution_metadata"}) for row in eval_rows]
+    eval_rows_dict = [row.model_dump(exclude={"created_at": True, "execution_metadata": True, "messages": {"__all__": {"weight"}}}) for row in eval_rows]
 
     # Assert against snapshot
     assert eval_rows_dict == snapshot
