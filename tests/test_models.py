@@ -695,6 +695,7 @@ def test_evaluation_row_extra_fields():
     assert "accuracy" in dictionary["eval_details"]["metrics"]
     assert "test" in dictionary["extra_fields"]
 
+
 def test_message_with_weight_dump():
     example = {
         "role": "user",
@@ -706,6 +707,7 @@ def test_message_with_weight_dump():
     dictionary = message.model_dump()
     assert "weight" in dictionary
     assert dictionary["weight"] == 0
+
 
 def test_message_dump_for_chat_completion_request():
     example = {
