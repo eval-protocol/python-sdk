@@ -70,3 +70,19 @@ The typical lifecycle of working with or developing an example involves these ke
 2.  Model your structure and documentation after `examples/math_example/`.
 3.  Ensure your example has its own clear `README.md` and necessary `conf/` files.
 4.  Test thoroughly.
+
+## Tracing provider IO references
+
+Provider-specific IO references (input logging + output pulling) live under:
+
+- `examples/tracing/<provider>/`
+
+Current providers:
+
+- `examples/tracing/weave/`: Input/Output reference for Weave (W&B) tracing
+
+Each provider folder includes:
+
+- `produce_input_trace.py`: Minimal script to log a chat completion
+- `pull_output_traces.py`: Script to fetch traces and convert to `EvaluationRow`
+- `converter.py`: Provider-to-EP message+metadata mapping

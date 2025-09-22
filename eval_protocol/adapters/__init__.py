@@ -87,3 +87,10 @@ try:
     __all__.extend(["LangSmithAdapter"])
 except ImportError:
     pass
+
+try:
+    from .weave import WeaveAdapter
+
+    __all__.extend(["WeaveAdapter"])
+except ImportError:
+    pass

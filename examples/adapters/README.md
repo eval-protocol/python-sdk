@@ -43,6 +43,16 @@ Loads datasets from HuggingFace Hub and converts them to EvaluationRow format.
 pip install 'eval-protocol[huggingface]'
 ```
 
+## Tracing provider IO references
+
+Provider-specific IO references (input logging + output pulling) have moved under:
+
+- `examples/tracing/<provider>/`
+
+For Weave, see `examples/tracing/weave/` which contains a focused `converter.py` illustrating how to map provider payloads to EP messages and metadata.
+
+These examples are designed to be self-contained and usable as references for building or validating provider adapters.
+
 ## Running the Examples
 
 ### Basic Usage

@@ -62,6 +62,12 @@ try:
 except ImportError:
     LangSmithAdapter = None
 
+
+try:
+    from .adapters import WeaveAdapter
+except ImportError:
+    WeaveAdapter = None
+
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 __all__ = [
