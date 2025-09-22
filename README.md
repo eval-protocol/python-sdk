@@ -4,7 +4,18 @@
 
 **The open-source toolkit for building your internal model leaderboard.**
 
-When you have multiple AI models to choose from—different versions, providers, or configurations—how do you know which one is best for your use case?
+When you have multiple AI models to choose from—different versions, providers,
+or configurations—how do you know which one is best for your use case?
+
+## 🚀 Features
+
+- **Custom Evaluations**: Write evaluations tailored to your specific business needs
+- **Auto-Evaluation**: Stack-rank models using LLMs as judges with just model traces using out-of-the-box evaluators
+- **RL Environments via MCP**: Build reinforcement learning environments using the Model Control Protocol (MCP) to simulate user interactions and advanced evaluation scenarios
+- **Consistent Testing**: Test across various models and configurations with a unified framework
+- **Resilient Runtime**: Automatic retries for unstable LLM APIs and concurrent execution for long-running evaluations
+- **Rich Visualizations**: Built-in pivot tables and visualizations for result analysis
+- **Data-Driven Decisions**: Make informed model deployment decisions based on comprehensive evaluation results
 
 ## Quick Examples
 
@@ -69,15 +80,6 @@ def test_math_reasoning(row: EvaluationRow) -> EvaluationRow:
     return row
 ```
 
-## 🚀 Features
-
-- **Custom Evaluations**: Write evaluations tailored to your specific business needs
-- **Auto-Evaluation**: Stack-rank models using LLMs as judges with just model traces
-- **Model Context Protocol (MCP) Integration**: Build reinforcement learning environments and trigger user simulations for complex scenarios
-- **Consistent Testing**: Test across various models and configurations with a unified framework
-- **Resilient Runtime**: Automatic retries for unstable LLM APIs and concurrent execution for long-running evaluations
-- **Rich Visualizations**: Built-in pivot tables and visualizations for result analysis
-- **Data-Driven Decisions**: Make informed model deployment decisions based on comprehensive evaluation results
 
 ## 📚 Resources
 
