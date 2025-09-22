@@ -379,7 +379,38 @@ def evaluation_test(
                                 pointwise_tasks.append(
                                     asyncio.create_task(_execute_pointwise_eval_with_semaphore(row=row))
                                 )
-                            results = await asyncio.gather(*pointwise_tasks)
+
+                            # Add tqdm progress bar for evaluations with proper cleanup
+                            eval_position = run_idx + 2  # Position after rollout progress bar
+                            with tqdm(
+                                total=len(pointwise_tasks),
+                                desc=f"  Eval {run_idx + 1}",
+                                unit="eval",
+                                file=sys.__stderr__,
+                                leave=False,
+                                position=eval_position,
+                                dynamic_ncols=True,
+                                miniters=1,
+                                mininterval=0.1,
+                                bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+                            ) as eval_pbar:
+
+                                async def task_with_progress(task):
+                                    try:
+                                        result = await task
+                                        return result
+                                    finally:
+                                        eval_pbar.update(1)
+
+                                wrapped_tasks = [task_with_progress(task) for task in pointwise_tasks]
+                                try:
+                                    results = await asyncio.gather(*wrapped_tasks)
+                                except Exception:
+                                    # Propagate cancellation to the real tasks and await them to quiesce
+                                    for task in pointwise_tasks:
+                                        task.cancel()
+                                    await asyncio.gather(*pointwise_tasks, return_exceptions=True)
+                                    raise
 
                             all_results[run_idx] = results
                         elif mode == "groupwise":
@@ -510,14 +541,23 @@ def evaluation_test(
                         ) as run_pbar:
 
                             async def execute_run_with_progress(run_idx: int, config):
-                                result = await execute_run(run_idx, config)
-                                run_pbar.update(1)
-                                return result
+                                try:
+                                    result = await execute_run(run_idx, config)
+                                    return result
+                                finally:
+                                    run_pbar.update(1)
 
                             tasks = []
                             for run_idx in range(num_runs):
                                 tasks.append(asyncio.create_task(execute_run_with_progress(run_idx, config)))
-                            await asyncio.gather(*tasks)  # pyright: ignore[reportUnknownArgumentType]
+                            try:
+                                await asyncio.gather(*tasks)
+                            except Exception:
+                                # Propagate cancellation to tasks and await them to quiesce
+                                for task in tasks:
+                                    task.cancel()
+                                await asyncio.gather(*tasks, return_exceptions=True)
+                                raise
 
                     experiment_duration_seconds = time.perf_counter() - experiment_start_time
 

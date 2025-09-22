@@ -13,25 +13,26 @@ from eval_protocol import (
     EvaluationRow,
     SingleTurnRolloutProcessor,
     create_braintrust_adapter,
+    DefaultParameterIdGenerator,
 )
+
 # adapter = create_braintrust_adapter()
+input_rows = [
+    #         adapter.get_evaluation_rows(
+    #             btql_query=f"""
+    # select: *
+    # from: project_logs('{os.getenv("BRAINTRUST_PROJECT_ID")}') traces
+    # filter: is_root = true
+    # limit: 10
+    # """
+    #         )
+]
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
-@pytest.mark.asyncio
-@evaluation_test(
-    input_rows=[
-        #         adapter.get_evaluation_rows(
-        #             btql_query=f"""
-        # select: *
-        # from: project_logs('{os.getenv("BRAINTRUST_PROJECT_ID")}') traces
-        # filter: is_root = true
-        # limit: 10
-        # """
-        #         )
-        []
-    ],
-    completion_params=[
+@pytest.mark.parametrize(
+    "completion_params",
+    [
         {"model": "gpt-4.1"},
         {
             "max_tokens": 131000,
@@ -44,10 +45,13 @@ from eval_protocol import (
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-20b",
         },
     ],
+    ids=DefaultParameterIdGenerator.generate_id_from_dict,
+)
+@evaluation_test(
+    input_rows=input_rows,
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=multi_turn_assistant_to_ground_truth,
     max_concurrent_rollouts=64,
-    aggregation_method="bootstrap",
 )
 async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
     return await aha_judge(row)

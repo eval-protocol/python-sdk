@@ -31,6 +31,7 @@ from eval_protocol import (
     EvaluationRow,
     SingleTurnRolloutProcessor,
     LangSmithAdapter,
+    DefaultParameterIdGenerator,
 )
 
 
@@ -53,11 +54,13 @@ def fetch_langsmith_traces_as_evaluation_rows(
         return []
 
 
+input_rows = fetch_langsmith_traces_as_evaluation_rows()
+
+
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
-@pytest.mark.asyncio
-@evaluation_test(
-    input_rows=[fetch_langsmith_traces_as_evaluation_rows()],
-    completion_params=[
+@pytest.mark.parametrize(
+    "completion_params",
+    [
         {
             "model": "fireworks_ai/accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
         },
@@ -67,9 +70,12 @@ def fetch_langsmith_traces_as_evaluation_rows(
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         },
     ],
+    ids=DefaultParameterIdGenerator.generate_id_from_dict,
+)
+@evaluation_test(
+    input_rows=[input_rows],
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=multi_turn_assistant_to_ground_truth,
-    aggregation_method="bootstrap",
 )
 async def test_llm_judge_langsmith(row: EvaluationRow) -> EvaluationRow:
     """LLM Judge evaluation over LangSmith-sourced rows, persisted locally by Eval Protocol.

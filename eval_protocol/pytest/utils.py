@@ -277,7 +277,7 @@ async def rollout_processor_with_retry(
         position = run_idx + 1  # Position 0 is reserved for main run bar, so shift up by 1
         with tqdm(
             total=len(retry_tasks),
-            desc=f"  Run {position}",
+            desc=f"  Run {run_idx + 1}",
             unit="rollout",
             file=sys.__stderr__,
             leave=False,
