@@ -41,7 +41,10 @@ from .quickstart import aha_judge, multi_turn_assistant_to_ground_truth, assista
 from .pytest import evaluation_test, SingleTurnRolloutProcessor
 from .pytest.parameterize import DefaultParameterIdGenerator
 
-from .adapters import OpenAIResponsesAdapter
+try:
+    from .adapters import OpenAIResponsesAdapter
+except ImportError:
+    OpenAIResponsesAdapter = None
 
 try:
     from .adapters import LangfuseAdapter, create_langfuse_adapter

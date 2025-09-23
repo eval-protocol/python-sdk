@@ -10,12 +10,12 @@ from typing import List
 from typing_extensions import Any
 
 from openai.pagination import SyncCursorPage
-from openai.types.chat.chat_completion_function_tool_param import ChatCompletionFunctionToolParam
+from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
 from openai.types.chat.chat_completion_message import FunctionCall
 from openai.types.responses import Response
 from openai.types.responses.response_item import ResponseItem
-from openai.types.chat.chat_completion_message_function_tool_call import (
-    ChatCompletionMessageFunctionToolCall,
+from openai.types.chat.chat_completion_message_tool_call import (
+    ChatCompletionMessageToolCall,
     Function,
 )
 from openai.types.responses.tool import Tool
@@ -116,9 +116,9 @@ class OpenAIResponsesAdapter(BaseAdapter):
 
     def _responses_tools_to_chat_completion_tools(
         self, tools: List[Tool]
-    ) -> Sequence[ChatCompletionFunctionToolParam]:
+    ) -> Sequence[ChatCompletionToolParam]:
         """Convert OpenAI Responses API tools to chat completion message function tool calls."""
-        chat_completion_tools: List[ChatCompletionFunctionToolParam] = []
+        chat_completion_tools: List[ChatCompletionToolParam] = []
         for tool in tools:
             if tool.type == "function":
                 chat_completion_tools.append(
@@ -146,7 +146,7 @@ class OpenAIResponsesAdapter(BaseAdapter):
         be added before the assistant message with tool calls.
         """
         messages: list[Message] = []
-        current_tool_calls: list[ChatCompletionMessageFunctionToolCall] = []
+        current_tool_calls: list[ChatCompletionMessageToolCall] = []
         tool_call_outputs: list[Message] = []
 
         for item in input_items:
@@ -173,7 +173,7 @@ class OpenAIResponsesAdapter(BaseAdapter):
                 # Collect tool call outputs to add before assistant message
                 tool_call_outputs.append(Message(role="tool", content=item.output, tool_call_id=item.call_id))
             elif item.type == "function_call":
-                tool_call = ChatCompletionMessageFunctionToolCall(
+                tool_call = ChatCompletionMessageToolCall(
                     id=item.call_id, type="function", function=Function(name=item.name, arguments=item.arguments)
                 )
                 current_tool_calls.append(tool_call)
