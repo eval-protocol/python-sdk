@@ -72,7 +72,7 @@ def evaluation_test(
     input_messages: Sequence[list[InputMessagesParam] | None] | None = None,
     input_dataset: Sequence[DatasetPathParam] | None = None,
     input_rows: Sequence[list[EvaluationRow]] | None = None,
-    input_data_loaders: Sequence[EvaluationDataLoader] | EvaluationDataLoader | None = None,
+    data_loaders: Sequence[EvaluationDataLoader] | EvaluationDataLoader | None = None,
     dataset_adapter: Callable[[list[dict[str, Any]]], Dataset] = default_dataset_adapter,  # pyright: ignore[reportExplicitAny]
     rollout_processor: RolloutProcessor | None = None,
     evaluation_test_kwargs: Sequence[EvaluationInputParam | None] | None = None,
@@ -176,7 +176,7 @@ def evaluation_test(
 
     active_logger: DatasetLogger = logger if logger else default_logger
 
-    if input_data_loaders is not None and (
+    if data_loaders is not None and (
         input_dataset is not None or input_messages is not None or input_rows is not None
     ):
         raise ValueError("data_loaders cannot be combined with input_dataset, input_messages, or input_rows.")
