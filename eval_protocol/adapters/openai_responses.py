@@ -114,9 +114,7 @@ class OpenAIResponsesAdapter(BaseAdapter):
             ),
         )
 
-    def _responses_tools_to_chat_completion_tools(
-        self, tools: List[Tool]
-    ) -> Sequence[ChatCompletionToolParam]:
+    def _responses_tools_to_chat_completion_tools(self, tools: List[Tool]) -> Sequence[ChatCompletionToolParam]:
         """Convert OpenAI Responses API tools to chat completion message function tool calls."""
         chat_completion_tools: List[ChatCompletionToolParam] = []
         for tool in tools:
