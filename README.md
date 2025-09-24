@@ -3,132 +3,112 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/eval-protocol)](https://pypi.org/project/eval-protocol/)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/eval-protocol/python-sdk)
 
-**The open-source toolkit for building your internal model leaderboard.**
+**Stop guessing which AI model to use. Build a data-driven model leaderboard.**
 
-When you have multiple AI models to choose from—different versions, providers,
-or configurations—how do you know which one is best for your use case?
+With hundreds of models and configs, you need objective data to choose the right one for your use case. EP helps you evaluate real traces, compare models, and visualize results locally.
 
 ## 🚀 Features
 
-- **Custom Evaluations**: Write evaluations tailored to your specific business needs
-- **Auto-Evaluation**: Stack-rank models using LLMs as judges with just model traces using out-of-the-box evaluators
-- **RL Environments via MCP**: Build reinforcement learning environments using the Model Control Protocol (MCP) to simulate user interactions and advanced evaluation scenarios
-- **Consistent Testing**: Test across various models and configurations with a unified framework
-- **Resilient Runtime**: Automatic retries for unstable LLM APIs and concurrent execution for long-running evaluations
-- **Rich Visualizations**: Built-in pivot tables and visualizations for result analysis
-- **Data-Driven Decisions**: Make informed model deployment decisions based on comprehensive evaluation results
+- **Pytest authoring**: `@evaluation_test` decorator to configure evaluations
+- **Robust rollouts**: Handles flaky LLM APIs and parallel execution
+- **Integrations**: Works with Langfuse, LangSmith, Braintrust, Responses API
+- **Agent support**: LangGraph and Pydantic AI
+- **MCP RL envs**: Build reinforcement learning environments with MCP
+- **Built-in benchmarks**: AIME, tau-bench
+- **LLM judge**: Stack-rank models using pairwise Arena-Hard-Auto
+- **Local UI**: Pivot/table views for real-time analysis
 
-## Quick Examples
+## ⚡ Quickstart (no labels needed)
 
-### Basic Model Comparison
+Install with your tracing platform extras and set API keys:
 
-Compare models on a simple formatting task:
+```bash
+pip install 'eval-protocol[langfuse]'
 
-```python test_bold_format.py
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message
-from eval_protocol.pytest import default_single_turn_rollout_processor, evaluation_test
+# Model API keys (set what you need)
+export OPENAI_API_KEY=...
+export FIREWORKS_API_KEY=...
+export GEMINI_API_KEY=...
 
-@evaluation_test(
-    input_messages=[
-        [
-            Message(role="system", content="Use bold text to highlight important information."),
-            Message(role="user", content="Explain why evaluations matter for AI agents. Make it dramatic!"),
-        ],
-    ],
-    completion_params=[
-        {"model": "fireworks/accounts/fireworks/models/llama-v3p1-8b-instruct"},
-        {"model": "openai/gpt-4"},
-        {"model": "anthropic/claude-3-sonnet"}
-    ],
-    rollout_processor=default_single_turn_rollout_processor,
-    mode="pointwise",
-)
-def test_bold_format(row: EvaluationRow) -> EvaluationRow:
-    """Check if the model's response contains bold text."""
-    assistant_response = row.messages[-1].content
-
-    if assistant_response is None:
-        row.evaluation_result = EvaluateResult(score=0.0, reason="No response")
-        return row
-
-    has_bold = "**" in str(assistant_response)
-    score = 1.0 if has_bold else 0.0
-    reason = "Contains bold text" if has_bold else "No bold text found"
-
-    row.evaluation_result = EvaluateResult(score=score, reason=reason)
-    return row
+# Platform keys
+export LANGFUSE_PUBLIC_KEY=...
+export LANGFUSE_SECRET_KEY=...
+export LANGFUSE_HOST=https://your-deployment.com  # optional
 ```
 
-### Using Datasets
-
-Evaluate models on existing datasets:
+Minimal evaluation using the built-in AHA judge:
 
 ```python
-from eval_protocol.pytest import evaluation_test
-from eval_protocol.adapters.huggingface import create_gsm8k_adapter
+from datetime import datetime
+import pytest
 
-@evaluation_test(
-    input_dataset=["development/gsm8k_sample.jsonl"],  # Local JSONL file
-    dataset_adapter=create_gsm8k_adapter(),  # Adapter to convert data
-    completion_params=[
-        {"model": "openai/gpt-4"},
-        {"model": "anthropic/claude-3-sonnet"}
-    ],
-    mode="pointwise"
+from eval_protocol import (
+    evaluation_test,
+    aha_judge,
+    EvaluationRow,
+    SingleTurnRolloutProcessor,
+    DynamicDataLoader,
+    create_langfuse_adapter,
 )
-def test_math_reasoning(row: EvaluationRow) -> EvaluationRow:
-    # Your evaluation logic here
-    return row
+
+
+def langfuse_data_generator() -> list[EvaluationRow]:
+    adapter = create_langfuse_adapter()
+    return adapter.get_evaluation_rows(
+        to_timestamp=datetime.utcnow(),
+        limit=20,
+        sample_size=5,
+    )
+
+
+@pytest.mark.parametrize(
+    "completion_params",
+    [
+        {"model": "openai/gpt-4.1"},
+        {"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"},
+    ],
+)
+@evaluation_test(
+    data_loaders=DynamicDataLoader(generators=[langfuse_data_generator]),
+    rollout_processor=SingleTurnRolloutProcessor(),
+)
+async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
+    return await aha_judge(row)
 ```
 
+Run it:
 
-## 📚 Resources
+```bash
+pytest -q -s
+```
 
-- **[Documentation](https://evalprotocol.io)** - Complete guides and API reference
-- **[Discord](https://discord.com/channels/1137072072808472616/1400975572405850155)** - Community discussions
-- **[GitHub](https://github.com/eval-protocol/python-sdk)** - Source code and examples
+The pytest output includes local links for a leaderboard and row-level traces (pivot/table) at `http://localhost:8000`.
 
 ## Installation
 
-**This library requires Python >= 3.10.**
+This library requires Python >= 3.10.
 
-### Basic Installation
-
-Install with pip:
+### pip
 
 ```bash
 pip install eval-protocol
 ```
 
-### Recommended Installation with uv
-
-For better dependency management and faster installs, we recommend using [uv](https://docs.astral.sh/uv/):
+### uv (recommended)
 
 ```bash
-# Install uv if you haven't already
+# Install uv (if needed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install eval-protocol
+# Add to your project
 uv add eval-protocol
 ```
 
-### Optional Dependencies
+## 📚 Resources
 
-Install with additional features:
-
-```bash
-# For Langfuse integration
-pip install 'eval-protocol[langfuse]'
-
-# For HuggingFace datasets
-pip install 'eval-protocol[huggingface]'
-
-# For all adapters
-pip install 'eval-protocol[adapters]'
-
-# For development
-pip install 'eval-protocol[dev]'
-```
+- **[Documentation](https://evalprotocol.io)** – Guides and API reference
+- **[Discord](https://discord.com/channels/1137072072808472616/1400975572405850155)** – Community
+- **[GitHub](https://github.com/eval-protocol/python-sdk)** – Source and examples
 
 ## License
 
