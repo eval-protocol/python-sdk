@@ -327,16 +327,16 @@ def _print_local_ui_results_urls(session):
             RESULTS_URLS_STASH_KEY = None
 
         # Get URLs from pytest stash
-        urls = []
+        urls_dict = {}
         if RESULTS_URLS_STASH_KEY is not None and RESULTS_URLS_STASH_KEY in session.stash:
-            urls = session.stash[RESULTS_URLS_STASH_KEY]
+            urls_dict = session.stash[RESULTS_URLS_STASH_KEY]
 
-        if urls:
+        if urls_dict:
             print("\n" + "=" * 80, file=sys.__stderr__)
             print("📊 LOCAL UI EVALUATION RESULTS", file=sys.__stderr__)
             print("=" * 80, file=sys.__stderr__)
 
-            for url_data in urls:
+            for url_data in urls_dict.values():
                 print(f"📊 Invocation {url_data['invocation_id']}:", file=sys.__stderr__)
                 print(f"  📊 Aggregate scores: {url_data['pivot_url']}", file=sys.__stderr__)
                 print(f"  📋 Trajectories: {url_data['table_url']}", file=sys.__stderr__)

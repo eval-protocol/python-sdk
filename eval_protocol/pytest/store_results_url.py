@@ -8,7 +8,7 @@ class ResultsUrl(TypedDict):
     table_url: str
 
 
-RESULTS_URLS_STASH_KEY = StashKey[list[ResultsUrl]]()
+RESULTS_URLS_STASH_KEY = StashKey[dict[str, ResultsUrl]]()
 
 
 def _store_local_ui_url_in_stash(invocation_id: str, pivot_url: str, table_url: str):
@@ -29,11 +29,14 @@ def _store_local_ui_url_in_stash(invocation_id: str, pivot_url: str, table_url: 
             global RESULTS_URLS_STASH_KEY
 
             if RESULTS_URLS_STASH_KEY not in session.stash:  # pyright: ignore[reportAny]
-                session.stash[RESULTS_URLS_STASH_KEY] = []  # pyright: ignore[reportAny]
+                session.stash[RESULTS_URLS_STASH_KEY] = {}  # pyright: ignore[reportAny]
 
-            session.stash[RESULTS_URLS_STASH_KEY].append(  # pyright: ignore[reportAny]
-                {"invocation_id": invocation_id, "pivot_url": pivot_url, "table_url": table_url}
-            )
+            # Store by invocation_id as key - automatically handles deduplication
+            session.stash[RESULTS_URLS_STASH_KEY][invocation_id] = {  # pyright: ignore[reportAny]
+                "invocation_id": invocation_id,
+                "pivot_url": pivot_url,
+                "table_url": table_url,
+            }
         else:
             pass
 
