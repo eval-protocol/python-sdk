@@ -1,6 +1,7 @@
 # Eval Protocol (EP)
 
 [![PyPI - Version](https://img.shields.io/pypi/v/eval-protocol)](https://pypi.org/project/eval-protocol/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/eval-protocol/python-sdk)
 
 **The open-source toolkit for building your internal model leaderboard.**
 
