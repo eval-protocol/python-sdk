@@ -39,13 +39,17 @@ def postprocess(
         ]
     agg_score = aggregate(scores, aggregation_method)
 
+    # Calculate raw score (total score / total rows, including invalid scores)
+    all_scores = [r.evaluation_result.score for sublist in all_results for r in sublist if r.evaluation_result]
+    raw_score = sum(all_scores) / len(all_scores) if all_scores else 0.0
+
     # Compute 95% confidence interval for the fixed-set mean μ (by-question, using repeats)
     ci_low: float | None = None
     ci_high: float | None = None
     standard_error: float | None = None
     if aggregation_method == "mean":
         try:
-            result_ci = compute_fixed_set_mu_ci([item for sublist in all_results for item in sublist])
+            result_ci = compute_fixed_set_mu_ci([item for sublist in valid_results for item in sublist])
             _, mu_ci_low, mu_ci_high, se = result_ci
             if mu_ci_low is not None and mu_ci_high is not None and se is not None:
                 ci_low = float(mu_ci_low)
@@ -140,12 +144,17 @@ def postprocess(
         if should_print:
             if ci_low is not None and ci_high is not None and standard_error is not None:
                 print(
-                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} se={summary_obj['standard_error']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}] runs={num_runs} rows={total_rows}",
+                    f"EP Summary | suite={suite_name} model={model_used} runs={num_runs} rows={total_rows}\n"
+                    f"  agg_score={summary_obj['agg_score']:.3f} (valid scores only)\n"
+                    f"  raw_score={raw_score:.3f} (includes invalid scores)\n"
+                    f"  se={summary_obj['standard_error']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}]",
                     file=sys.__stderr__,
                 )
             else:
                 print(
-                    f"EP Summary | suite={suite_name} model={model_used} agg={summary_obj['agg_score']:.3f} runs={num_runs} rows={total_rows}",
+                    f"EP Summary | suite={suite_name} model={model_used} runs={num_runs} rows={total_rows}\n"
+                    f"  agg_score={summary_obj['agg_score']:.3f} (valid scores only)\n"
+                    f"  raw_score={raw_score:.3f} (includes invalid scores)",
                     file=sys.__stderr__,
                 )
             # As per project convention, avoid printing per-metric CI lines to reduce noise
