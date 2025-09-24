@@ -1,4 +1,5 @@
 from typing import TypedDict
+from eval_protocol.data_loader.models import EvaluationDataLoader
 from eval_protocol.models import CompletionParams, EvaluationRow
 from eval_protocol.pytest.types import Dataset, DatasetPathParam, EvaluationInputParam, InputMessagesParam
 from eval_protocol.pytest.utils import parse_ep_max_rows
@@ -21,6 +22,7 @@ Either a single completion params object or None.
 InputMessagesKwarg = list[InputMessagesParam] | None
 InputRowsKwarg = Dataset | None
 EvaluationTestKwargs = EvaluationInputParam | None
+DataLoadersKwarg = Sequence[EvaluationDataLoader] | EvaluationDataLoader | None
 
 CombinationTuple = tuple[
     InputDatasetKwarg,
@@ -28,6 +30,7 @@ CombinationTuple = tuple[
     InputMessagesKwarg,
     InputRowsKwarg,
     EvaluationTestKwargs,
+    DataLoadersKwarg,
 ]
 
 
@@ -42,6 +45,7 @@ class ParameterizedTestKwargs(TypedDict, total=False):
     input_messages: InputMessagesKwarg
     input_rows: InputRowsKwarg
     evaluation_test_kwargs: EvaluationTestKwargs
+    data_loaders: DataLoadersKwarg
 
 
 def generate_parameter_combinations(
@@ -52,6 +56,7 @@ def generate_parameter_combinations(
     evaluation_test_kwargs: Sequence[EvaluationInputParam | None] | None,
     max_dataset_rows: int | None,
     combine_datasets: bool,
+    data_loaders: Sequence[EvaluationDataLoader] | EvaluationDataLoader | None,
 ) -> list[CombinationTuple]:
     """
     Generate all combinations of parameters for pytest parameterization.
@@ -108,6 +113,12 @@ def generate_parameter_combinations(
     if evaluation_test_kwargs is None:
         evaluation_test_kwargs = [None]
 
+    data_loaders_list: Sequence[DataLoadersKwarg] = []
+    if data_loaders is not None:
+        data_loaders_list = [data_loaders] if isinstance(data_loaders, EvaluationDataLoader) else data_loaders
+    else:
+        data_loaders_list = [None]
+
     combinations: list[CombinationTuple] = []
 
     # Generate all combinations
@@ -116,11 +127,19 @@ def generate_parameter_combinations(
             for im in messages:
                 for ir in input_rows:
                     for etk in evaluation_test_kwargs:
-                        # if no dataset, no messages, and no rows, raise an error
-                        if ds is None and im is None and ir is None:
-                            raise ValueError(
-                                "No dataset, messages, or rows provided. Please provide at least one of input_dataset, input_messages, or input_rows."
-                            )
-                        combinations.append((ds, cp, im, ir, etk))
+                        for dl in data_loaders_list:
+                            # if no dataset, no messages, and no rows, raise an error
+                            if ds is None and im is None and ir is None and dl is None:
+                                raise ValueError(
+                                    "No dataset, messages, rows, or data loaders provided. Please provide at least one of input_dataset, input_messages, input_rows, or data_loaders."
+                                )
+
+                            # if more than one of dataset, messages, rows, or data loaders is provided, raise an error
+                            non_none_count = sum(1 for x in [ds, im, ir, dl] if x is not None)
+                            if non_none_count > 1:
+                                raise ValueError(
+                                    "More than one of dataset, messages, rows, or data loaders provided. Please provide only one of input_dataset, input_messages, input_rows, or data_loaders."
+                                )
+                            combinations.append((ds, cp, im, ir, etk, dl))
 
     return combinations

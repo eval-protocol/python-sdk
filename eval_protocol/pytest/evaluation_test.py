@@ -10,7 +10,7 @@ from collections.abc import Sequence
 
 import pytest
 
-from eval_protocol.data_loader.models import EvaluationDataLoader
+from eval_protocol.data_loader.models import DataLoaderResult, EvaluationDataLoader
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.human_id import generate_id, num_combinations
@@ -206,6 +206,7 @@ def evaluation_test(
             evaluation_test_kwargs,
             max_dataset_rows,
             combine_datasets,
+            data_loaders,
         )
         if len(combinations) == 0:
             raise ValueError(
@@ -221,6 +222,7 @@ def evaluation_test(
             completion_params_provided,
             input_messages,
             input_rows,
+            data_loaders,
             evaluation_test_kwargs,
         )
 
@@ -248,7 +250,16 @@ def evaluation_test(
                     data: list[EvaluationRow] = []
                     # Track all rows processed in the current run for error logging
                     processed_rows_in_run: list[EvaluationRow] = []
-                    if "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
+                    if "data_loaders" in kwargs and kwargs["data_loaders"] is not None:
+                        data_loaders = kwargs["data_loaders"]
+                        data_loaders_list = (
+                            [data_loaders] if isinstance(data_loaders, EvaluationDataLoader) else data_loaders
+                        )
+                        for data_loader in data_loaders_list:
+                            results = data_loader.load()
+                            for result in results:
+                                data.extend(result.rows)
+                    elif "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
                         ds_arg: list[str] = kwargs["dataset_path"]
                         # Support either a single path or a list of paths; if a list is provided,
                         # concatenate the rows from each file in order.
@@ -269,7 +280,12 @@ def evaluation_test(
                     else:
                         raise ValueError("No input dataset, input messages, or input rows provided")
 
-                    if preprocess_fn:
+                    """
+                    data_loaders handles preprocess_fn internally so we want
+                    to specially handle data_loaders here so we don't double
+                    apply preprocess_fn.
+                    """
+                    if preprocess_fn and not data_loaders:
                         data = preprocess_fn(data)
 
                     for row in data:

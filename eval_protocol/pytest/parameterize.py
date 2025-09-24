@@ -5,6 +5,7 @@ from collections.abc import Callable, Sequence, Iterable, Awaitable
 
 from _pytest.mark import ParameterSet
 
+from eval_protocol.data_loader.models import EvaluationDataLoader
 from eval_protocol.models import CompletionParams, EvaluationRow
 from eval_protocol.pytest.generate_parameter_combinations import CombinationTuple
 from eval_protocol.pytest.types import DatasetPathParam, EvaluationInputParam, InputMessagesParam, TestFunction
@@ -165,7 +166,7 @@ class DefaultParameterIdGenerator(ParameterIdGenerator):
 
     def generate_id(self, combo: CombinationTuple) -> str | None:
         """Generate an ID for a parameter combination."""
-        dataset, completion_params, messages, rows, evaluation_test_kwargs = combo
+        dataset, completion_params, messages, rows, evaluation_test_kwargs, data_loaders = combo
 
         if completion_params:
             id = self.generate_id_from_dict(completion_params, self.max_length)
@@ -208,6 +209,7 @@ def pytest_parametrize(
     completion_params_provided: bool,
     input_messages: Sequence[list[InputMessagesParam] | None] | None,
     input_rows: Sequence[list[EvaluationRow]] | None,
+    data_loaders: Sequence[EvaluationDataLoader] | EvaluationDataLoader | None,
     evaluation_test_kwargs: Sequence[EvaluationInputParam | None] | None,
     id_generator: ParameterIdGenerator | None = None,
 ) -> ParametrizeArgs:
@@ -231,6 +233,11 @@ def pytest_parametrize(
         argnames.append("dataset_path")
         sig_parameters.append("dataset_path")
     if completion_params is not None:
+        """
+        manually adding completion_params as a pytest.mark.parametrize decorator
+        automatically adds it to the function signature so we only need to add
+        it if we provided completion_params using the evaluation_test decorator.
+        """
         if completion_params_provided and not has_pytest_parametrize:
             argnames.append("completion_params")
         if has_pytest_parametrize or completion_params_provided:
@@ -244,6 +251,9 @@ def pytest_parametrize(
     if evaluation_test_kwargs is not None:
         argnames.append("evaluation_test_kwargs")
         sig_parameters.append("evaluation_test_kwargs")
+    if data_loaders is not None:
+        argnames.append("data_loaders")
+        sig_parameters.append("data_loaders")
 
     # Use default ID generator if none provided
     if id_generator is None:
@@ -253,7 +263,7 @@ def pytest_parametrize(
     ids: list[str] = []
 
     for combo in combinations:
-        dataset, cp, messages, rows, etk = combo
+        dataset, cp, messages, rows, etk, dl = combo
         param_tuple: list[object] = []
 
         # Build parameter tuple based on what's provided
@@ -267,6 +277,8 @@ def pytest_parametrize(
             param_tuple.append(rows)
         if evaluation_test_kwargs is not None:
             param_tuple.append(etk)
+        if data_loaders is not None:
+            param_tuple.append(dl)
 
         # Validate parameter tuple length
         if len(argnames) != len(param_tuple):

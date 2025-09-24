@@ -1,7 +1,7 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from eval_protocol.data_loader.models import (
-    DataLoaderContext,
     DataLoaderResult,
     DataLoaderVariant,
     EvaluationDataLoader,
@@ -13,6 +13,7 @@ from eval_protocol.pytest.types import InputMessagesParam
 DEFAULT_VARIANT_ID: str = "inline"
 
 
+@dataclass(kw_only=True)
 class InlineDataLoader(EvaluationDataLoader):
     """Data loader for inline ``EvaluationRow`` or message payloads."""
 
@@ -22,13 +23,13 @@ class InlineDataLoader(EvaluationDataLoader):
     This is the preferred option when working with tool-calling scenarios or when you need
     to provide additional metadata like row_id, dataset information, or custom fields."""
 
-    messages: InputMessagesParam | None = None
+    messages: Sequence[InputMessagesParam] | None = None
     """Raw chat completion message history. Use this when you only have simple
     conversation history without tools or additional metadata. The messages will be
     automatically converted to EvaluationRow objects. InputMessagesParam is a list of
     Message objects representing the conversation flow (user, assistant, system messages)."""
 
-    variant_id: str = DEFAULT_VARIANT_ID
+    id: str = DEFAULT_VARIANT_ID
     """Unique identifier for this data loader variant. Used to label and distinguish
     different input data sources, versions, or configurations. This helps with tracking
     and organizing evaluation results from different data sources."""
@@ -43,7 +44,7 @@ class InlineDataLoader(EvaluationDataLoader):
             raise ValueError("InlineDataLoader requires rows or messages to be provided")
 
     def variants(self) -> Sequence[DataLoaderVariant]:
-        def _load(ctx: DataLoaderContext) -> DataLoaderResult:
+        def _load() -> DataLoaderResult:
             resolved_rows: list[EvaluationRow] = []
             if self.rows is not None:
                 resolved_rows = [row.model_copy(deep=True) for row in self.rows]
@@ -59,16 +60,9 @@ class InlineDataLoader(EvaluationDataLoader):
 
             return DataLoaderResult(
                 rows=resolved_rows,
-                num_rows=len(resolved_rows),
-                variant_id=ctx.variant_id,
+                variant_id=self.id,
+                variant_description=self.description,
                 type=self.__class__.__name__,
             )
 
-        description = self.description or self.variant_id
-        return [
-            DataLoaderVariant(
-                id=self.variant_id,
-                description=description,
-                loader=_load,
-            )
-        ]
+        return [_load]
