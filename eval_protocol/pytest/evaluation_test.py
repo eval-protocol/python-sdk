@@ -1,7 +1,6 @@
 import asyncio
 import inspect
 import os
-import sys
 import time
 from collections import defaultdict
 from typing import Any, Callable
@@ -10,7 +9,7 @@ from collections.abc import Sequence
 
 import pytest
 
-from eval_protocol.data_loader.models import DataLoaderResult, EvaluationDataLoader
+from eval_protocol.data_loader.models import EvaluationDataLoader
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.human_id import generate_id, num_combinations
