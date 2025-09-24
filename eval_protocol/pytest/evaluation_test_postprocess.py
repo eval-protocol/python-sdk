@@ -146,7 +146,7 @@ def postprocess(
                 print(
                     f"EP Summary | suite={suite_name} model={model_used} runs={num_runs} rows={total_rows}\n"
                     f"  agg_score={summary_obj['agg_score']:.3f} (valid scores only)\n"
-                    f"  raw_score={raw_score:.3f} (includes invalid scores)\n"
+                    f"  raw_score={raw_score:.3f} (invalid scores as 0)\n"
                     f"  se={summary_obj['standard_error']:.3f} ci95=[{ci_low:.3f},{ci_high:.3f}]",
                     file=sys.__stderr__,
                 )
@@ -154,7 +154,7 @@ def postprocess(
                 print(
                     f"EP Summary | suite={suite_name} model={model_used} runs={num_runs} rows={total_rows}\n"
                     f"  agg_score={summary_obj['agg_score']:.3f} (valid scores only)\n"
-                    f"  raw_score={raw_score:.3f} (includes invalid scores)",
+                    f"  raw_score={raw_score:.3f} (invalid scores as 0)",
                     file=sys.__stderr__,
                 )
             # As per project convention, avoid printing per-metric CI lines to reduce noise
