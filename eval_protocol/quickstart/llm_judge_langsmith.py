@@ -68,6 +68,7 @@ def langsmith_data_generator() -> List[EvaluationRow]:
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[langsmith_data_generator],
+        preprocess_fn=multi_turn_assistant_to_ground_truth,
     ),
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=multi_turn_assistant_to_ground_truth,

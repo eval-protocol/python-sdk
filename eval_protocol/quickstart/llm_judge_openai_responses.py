@@ -57,9 +57,9 @@ def openai_responses_data_generator():
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[openai_responses_data_generator],
+        preprocess_fn=multi_turn_assistant_to_ground_truth,
     ),
     rollout_processor=SingleTurnRolloutProcessor(),
-    preprocess_fn=multi_turn_assistant_to_ground_truth,
     max_concurrent_evaluations=2,
 )
 async def test_llm_judge_openai_responses(row: EvaluationRow) -> EvaluationRow:
