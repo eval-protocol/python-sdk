@@ -22,6 +22,7 @@ from .mcp_env import (
     rollout,
     test_mcp,
 )
+from .data_loader import DynamicDataLoader, InlineDataLoader
 
 # Try to import FireworksPolicy if available
 try:
@@ -63,6 +64,8 @@ warnings.filterwarnings("default", category=DeprecationWarning, module="eval_pro
 
 __all__ = [
     "DefaultParameterIdGenerator",
+    "DynamicDataLoader",
+    "InlineDataLoader",
     "aha_judge",
     "multi_turn_assistant_to_ground_truth",
     "assistant_to_ground_truth",

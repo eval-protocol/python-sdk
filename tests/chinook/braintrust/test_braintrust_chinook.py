@@ -1,12 +1,13 @@
 import os
 from datetime import datetime, timedelta
-from typing import List, Any, Dict
+from typing import List
 
 import pytest
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIModel
 
+from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, InputMetadata
 from eval_protocol.pytest import evaluation_test, NoOpRolloutProcessor
 
@@ -32,7 +33,7 @@ LLM_JUDGE_PROMPT = (
 )
 
 
-def fetch_braintrust_traces_as_evaluation_rows(hours_back: int = 24) -> List[EvaluationRow]:
+def braintrust_data_generator(hours_back: int = 24) -> List[EvaluationRow]:
     """
     Dataset adapter: Use BraintrustAdapter to fetch traces from project logs.
     """
@@ -53,8 +54,12 @@ def fetch_braintrust_traces_as_evaluation_rows(hours_back: int = 24) -> List[Eva
 
         evaluation_rows = list(
             adapter.get_evaluation_rows(
-                from_timestamp=from_timestamp,
-                to_timestamp=now,
+                btql_query=f"""
+                select: *
+                from: project_logs('{os.getenv("BRAINTRUST_PROJECT_ID")}') traces
+                filter: is_root = true
+                limit: 10
+                """,
             )
         )
 
@@ -72,7 +77,9 @@ def fetch_braintrust_traces_as_evaluation_rows(hours_back: int = 24) -> List[Eva
 )
 @pytest.mark.asyncio
 @evaluation_test(
-    input_rows=[fetch_braintrust_traces_as_evaluation_rows(hours_back=168)],  # 1 week back
+    data_loaders=DynamicDataLoader(
+        generators=[braintrust_data_generator],
+    ),
     rollout_processor=NoOpRolloutProcessor(),  # No-op since traces already exist
     mode="pointwise",
 )

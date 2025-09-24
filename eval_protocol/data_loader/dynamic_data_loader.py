@@ -13,7 +13,7 @@ from eval_protocol.models import EvaluationRow
 class DynamicDataLoader(EvaluationDataLoader):
     """Data loader for dynamic data generation."""
 
-    factory: Sequence[Callable[[], list[EvaluationRow]]]
+    generators: Sequence[Callable[[], list[EvaluationRow]]]
     """Dynamic data generation functions. These callables are invoked each time data
     needs to be loaded, allowing for dynamic data generation, lazy loading, or data that
     changes between evaluation runs. Each function should return a list of EvaluationRow
@@ -22,15 +22,15 @@ class DynamicDataLoader(EvaluationDataLoader):
 
     def variants(self) -> Sequence[DataLoaderVariant]:
         variants: Sequence[DataLoaderVariant] = []
-        for factory in self.factory:
+        for generator in self.generators:
 
             def _load() -> DataLoaderResult:
-                resolved_rows = factory()
+                resolved_rows = generator()
                 return DataLoaderResult(
                     rows=resolved_rows,
                     type=self.__class__.__name__,
-                    variant_id=factory.__name__,
-                    variant_description=factory.__doc__,
+                    variant_id=generator.__name__,
+                    variant_description=generator.__doc__,
                 )
 
             variants.append(_load)

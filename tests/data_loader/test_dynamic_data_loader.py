@@ -10,7 +10,7 @@ def my_factory() -> list[EvaluationRow]:
 
 @evaluation_test(
     data_loaders=DynamicDataLoader(
-        factory=[my_factory],
+        generators=[my_factory],
     ),
 )
 def test_dynamic_data_loader(row: EvaluationRow) -> EvaluationRow:
@@ -32,7 +32,7 @@ def test_dynamic_data_loader(row: EvaluationRow) -> EvaluationRow:
 
 @evaluation_test(
     data_loaders=DynamicDataLoader(
-        factory=[lambda: [EvaluationRow(messages=[Message(role="user", content="What is 3 * 3?")])]],
+        generators=[lambda: [EvaluationRow(messages=[Message(role="user", content="What is 3 * 3?")])]],
     ),
 )
 def test_dynamic_data_loader_lambda(row: EvaluationRow) -> EvaluationRow:

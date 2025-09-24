@@ -8,6 +8,7 @@ import atexit
 import pytest
 import requests
 
+from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
@@ -51,12 +52,11 @@ def _ensure_server_running():
     return proc
 
 
-# Ensure server is running BEFORE rollouts start (evaluation_test triggers rollouts before test body)
-_SERVER_PROC = _ensure_server_running()
-atexit.register(lambda: (_SERVER_PROC and _SERVER_PROC.is_alive() and _SERVER_PROC.terminate()))
+def remote_langfuse_data_generator() -> List[EvaluationRow]:
+    # Ensure server is running BEFORE rollouts start (evaluation_test triggers rollouts before test body)
+    _SERVER_PROC = _ensure_server_running()
+    atexit.register(lambda: (_SERVER_PROC and _SERVER_PROC.is_alive() and _SERVER_PROC.terminate()))
 
-
-def _make_input_rows() -> List[EvaluationRow]:
     # Minimal single-user-turn message to trigger a response
     row = EvaluationRow(messages=[Message(role="user", content="Hello there! Please say hi back.")])
     return [row]
@@ -65,7 +65,9 @@ def _make_input_rows() -> List[EvaluationRow]:
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
 @pytest.mark.asyncio
 @evaluation_test(
-    input_rows=[_make_input_rows()],
+    data_loaders=DynamicDataLoader(
+        generators=[remote_langfuse_data_generator],
+    ),
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}],
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url="http://127.0.0.1:7077",

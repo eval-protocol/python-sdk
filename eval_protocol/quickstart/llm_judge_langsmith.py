@@ -31,30 +31,24 @@ from eval_protocol import (
     EvaluationRow,
     SingleTurnRolloutProcessor,
     LangSmithAdapter,
-    DefaultParameterIdGenerator,
+    DynamicDataLoader,
 )
 
 
-def fetch_langsmith_traces_as_evaluation_rows(
-    project_name: Optional[str] = None,
-    limit: int = 20,
-) -> List[EvaluationRow]:
+def langsmith_data_generator() -> List[EvaluationRow]:
     """Fetch LangSmith root runs and convert to EvaluationRow, mirroring Langfuse adapter shape.
 
     - Extract messages from run.inputs and run.outputs
     - Append assistant message from outputs so we can derive ground_truth
     - Store run_id in input_metadata.session_data
     """
-    project = project_name or os.getenv("LS_PROJECT", "ep-langgraph-examples")
+    project = os.getenv("LS_PROJECT", "ep-langgraph-examples")
     try:
         adapter = LangSmithAdapter()
-        return adapter.get_evaluation_rows(project_name=project, limit=limit, include_tool_calls=True)
+        return adapter.get_evaluation_rows(project_name=project, limit=20, include_tool_calls=True)
     except Exception as e:
         print(f"❌ LangSmithAdapter failed: {e}")
         return []
-
-
-input_rows = fetch_langsmith_traces_as_evaluation_rows()
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
@@ -72,7 +66,9 @@ input_rows = fetch_langsmith_traces_as_evaluation_rows()
     ],
 )
 @evaluation_test(
-    input_rows=[input_rows],
+    data_loaders=DynamicDataLoader(
+        generators=[langsmith_data_generator],
+    ),
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=multi_turn_assistant_to_ground_truth,
     max_concurrent_evaluations=2,

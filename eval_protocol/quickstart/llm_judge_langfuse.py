@@ -14,19 +14,21 @@ from eval_protocol import (
     EvaluationRow,
     SingleTurnRolloutProcessor,
     create_langfuse_adapter,
-    DefaultParameterIdGenerator,
+    DynamicDataLoader,
 )
 
 from eval_protocol.quickstart import aha_judge
 
-adapter = create_langfuse_adapter()
-input_rows = adapter.get_evaluation_rows(
-    to_timestamp=datetime(2025, 9, 12, 0, 11, 18),
-    limit=711,
-    sample_size=50,
-    sleep_between_gets=3.0,
-    max_retries=5,
-)
+
+def langfuse_data_generator():
+    adapter = create_langfuse_adapter()
+    return adapter.get_evaluation_rows(
+        to_timestamp=datetime(2025, 9, 12, 0, 11, 18),
+        limit=711,
+        sample_size=50,
+        sleep_between_gets=3.0,
+        max_retries=5,
+    )
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
@@ -47,7 +49,9 @@ input_rows = adapter.get_evaluation_rows(
     ],
 )
 @evaluation_test(
-    input_rows=[input_rows],
+    data_loaders=DynamicDataLoader(
+        generators=[langfuse_data_generator],
+    ),
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=multi_turn_assistant_to_ground_truth,
     max_concurrent_evaluations=2,

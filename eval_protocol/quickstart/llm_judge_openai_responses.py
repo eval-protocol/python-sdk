@@ -26,18 +26,20 @@ from eval_protocol import (
     EvaluationRow,
     SingleTurnRolloutProcessor,
     OpenAIResponsesAdapter,
-    DefaultParameterIdGenerator,
+    DynamicDataLoader,
 )
 
-adapter = OpenAIResponsesAdapter()
-input_rows = adapter.get_evaluation_rows(
-    response_ids=[
-        "resp_0e1b7db5d96e92470068c99506443c819e9305e92915d2405f",
-        # "resp_05639dcaca074fbc0068c9946593b481908cac70075926d85c",
-        # "resp_0c96a910416e87aa0068c994d0b34c81a3bda0eddf22445aec",
-        # "resp_0efe023280e986f90068c994b85e088190bc8d8263fa603e02",
-    ]
-)
+
+def openai_responses_data_generator():
+    adapter = OpenAIResponsesAdapter()
+    return adapter.get_evaluation_rows(
+        response_ids=[
+            "resp_0e1b7db5d96e92470068c99506443c819e9305e92915d2405f",
+            # "resp_05639dcaca074fbc0068c9946593b481908cac70075926d85c",
+            # "resp_0c96a910416e87aa0068c994d0b34c81a3bda0eddf22445aec",
+            # "resp_0efe023280e986f90068c994b85e088190bc8d8263fa603e02",
+        ]
+    )
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
@@ -53,7 +55,9 @@ input_rows = adapter.get_evaluation_rows(
     ],
 )
 @evaluation_test(
-    input_rows=[input_rows],
+    data_loaders=DynamicDataLoader(
+        generators=[openai_responses_data_generator],
+    ),
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=multi_turn_assistant_to_ground_truth,
     max_concurrent_evaluations=2,

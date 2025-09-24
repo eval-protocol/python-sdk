@@ -10,6 +10,7 @@ from pydantic_ai.models.openai import OpenAIChatModel
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata
 from eval_protocol.pytest import NoOpRolloutProcessor, evaluation_test
+from eval_protocol.data_loader import DynamicDataLoader
 
 from tests.chinook.dataset import collect_dataset
 
@@ -21,17 +22,6 @@ except ImportError:  # pragma: no cover - adapter extras not installed
     ADAPTER_AVAILABLE = False
     create_langsmith_adapter = None  # type: ignore
 
-try:
-    from langsmith import Client  # type: ignore
-
-    LANGSMITH_CLIENT: Optional[Client]
-    try:
-        LANGSMITH_CLIENT = Client()
-    except Exception as exc:  # pragma: no cover - surfaced to the caller
-        print(f"⚠️ LangSmith client unavailable: {exc}")
-        LANGSMITH_CLIENT = None
-except ImportError:  # pragma: no cover - optional dependency
-    LANGSMITH_CLIENT = None
 
 PROJECT_NAME = os.getenv("LANGCHAIN_PROJECT") or os.getenv("LS_PROJECT") or "ep-chinook-langsmith"
 TRACE_TAGS = ["chinook_sql"]
@@ -124,7 +114,9 @@ def fetch_langsmith_traces(limit: int = 20) -> List[EvaluationRow]:
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip LangSmith adapter test in CI")
 @pytest.mark.asyncio
 @evaluation_test(
-    input_rows=[fetch_langsmith_traces()],
+    data_loaders=DynamicDataLoader(
+        generators=[fetch_langsmith_traces],
+    ),
     rollout_processor=NoOpRolloutProcessor(),
     mode="pointwise",
 )
@@ -161,6 +153,18 @@ async def test_langsmith_chinook(row: EvaluationRow) -> EvaluationRow:
         score=result.output.score,
         reason=result.output.reason,
     )
+
+    try:
+        from langsmith import Client  # type: ignore
+
+        LANGSMITH_CLIENT: Optional[Client]
+        try:
+            LANGSMITH_CLIENT = Client()
+        except Exception as exc:  # pragma: no cover - surfaced to the caller
+            print(f"⚠️ LangSmith client unavailable: {exc}")
+            LANGSMITH_CLIENT = None
+    except ImportError:  # pragma: no cover - optional dependency
+        LANGSMITH_CLIENT = None
 
     if LANGSMITH_CLIENT and row.input_metadata and row.input_metadata.session_data:
         run_id = row.input_metadata.session_data.get("langsmith_run_id")

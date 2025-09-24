@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 
+from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, InputMetadata
 from eval_protocol.pytest import evaluation_test, NoOpRolloutProcessor
 
@@ -45,17 +46,11 @@ class Response(BaseModel):
     reason: str
 
 
-def fetch_langfuse_traces_as_evaluation_rows(
-    hours_back: int = 168, tags: List[str] = ["chinook_sql"]
-) -> List[EvaluationRow]:
+def langfuse_data_generator(hours_back: int = 168, tags: List[str] = ["chinook_sql"]) -> List[EvaluationRow]:
     try:
         from eval_protocol.adapters.langfuse import create_langfuse_adapter
 
-        adapter = create_langfuse_adapter(
-            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),  # pyright: ignore[reportArgumentType]
-            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),  # pyright: ignore[reportArgumentType]
-            host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
-        )
+        adapter = create_langfuse_adapter()
 
         now = datetime.now()
         from_timestamp = now - timedelta(hours=hours_back)
@@ -72,7 +67,9 @@ def fetch_langfuse_traces_as_evaluation_rows(
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
 @pytest.mark.asyncio
 @evaluation_test(
-    input_rows=[fetch_langfuse_traces_as_evaluation_rows()],
+    data_loaders=DynamicDataLoader(
+        generators=[langfuse_data_generator],
+    ),
     rollout_processor=NoOpRolloutProcessor(),
     mode="pointwise",
 )

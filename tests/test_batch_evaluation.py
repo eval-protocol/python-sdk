@@ -33,7 +33,6 @@ class MockArgs:
         self.filter = kwargs.get("filter", None)
 
 
-@pytest.mark.integration
 class TestBatchEvaluation:
     """Integration tests for batch evaluation functionality."""
 
@@ -1121,7 +1120,6 @@ class TestBatchEvaluation:
             assert len(task_manager.server_ports) == 0
 
 
-@pytest.mark.integration
 class TestBatchEvaluationErrorHandling:
     """Test error handling in batch evaluation scenarios."""
 

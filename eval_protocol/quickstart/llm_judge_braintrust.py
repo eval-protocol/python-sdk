@@ -16,23 +16,22 @@ from eval_protocol import (
     multi_turn_assistant_to_ground_truth,
     EvaluationRow,
     SingleTurnRolloutProcessor,
+    DynamicDataLoader,
     create_braintrust_adapter,
-    DefaultParameterIdGenerator,
 )
 
-# adapter = create_braintrust_adapter()
-# input_rows = [
-#     adapter.get_evaluation_rows(
-#         btql_query=f"""
-#     select: *
-#     from: project_logs('{os.getenv("BRAINTRUST_PROJECT_ID")}') traces
-#     filter: is_root = true
-#     limit: 10
-#     """
-#     )
-# ]
-input_rows = []
+
 # uncomment when dataloader is fixed
+def braintrust_data_generator():
+    adapter = create_braintrust_adapter()
+    return adapter.get_evaluation_rows(
+        btql_query=f"""
+        select: *
+        from: project_logs('{os.getenv("BRAINTRUST_PROJECT_ID")}') traces
+        filter: is_root = true
+        limit: 10
+        """
+    )
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Skip in CI")
@@ -53,7 +52,9 @@ input_rows = []
     ],
 )
 @evaluation_test(
-    input_rows=[input_rows],
+    data_loaders=DynamicDataLoader(
+        generators=[braintrust_data_generator],
+    ),
     rollout_processor=SingleTurnRolloutProcessor(),
     preprocess_fn=multi_turn_assistant_to_ground_truth,
     max_concurrent_evaluations=2,
