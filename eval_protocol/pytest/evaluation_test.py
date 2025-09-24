@@ -231,10 +231,10 @@ def evaluation_test(
             # Create the function body that will be used
             invocation_id = generate_id()
 
-            # Store URL for viewing results (after all postprocessing is complete)
-            store_local_ui_results_url(invocation_id)
-
             async def wrapper_body(**kwargs: Unpack[ParameterizedTestKwargs]) -> None:
+                # Store URL for viewing results (after all postprocessing is complete)
+                store_local_ui_results_url(invocation_id)
+
                 eval_metadata = None
 
                 all_results: list[list[EvaluationRow]] = [[] for _ in range(num_runs)]
