@@ -1,9 +1,11 @@
 from typing import List
 
+import pytest
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 
 
+@pytest.mark.parametrize("completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}])
 @evaluation_test(
     input_messages=[
         [
@@ -12,7 +14,6 @@ from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
             ]
         ]
     ],
-    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     rollout_processor=SingleTurnRolloutProcessor(),
     mode="all",
 )
