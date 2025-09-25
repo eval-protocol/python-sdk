@@ -44,7 +44,7 @@ def langfuse_output_data_loader(rollout_id: str) -> DynamicDataLoader:
     )
 
 
-def remote_langfuse_data_generator() -> List[EvaluationRow]:
+def rows() -> List[EvaluationRow]:
     row = EvaluationRow(messages=[Message(role="user", content="What is the capital of France?")])
     return [row, row, row]
 
@@ -53,7 +53,7 @@ def remote_langfuse_data_generator() -> List[EvaluationRow]:
 @pytest.mark.parametrize("completion_params", [{"model": "gpt-4o"}])
 @evaluation_test(
     data_loaders=DynamicDataLoader(
-        generators=[remote_langfuse_data_generator],
+        generators=[rows],
     ),
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url="http://127.0.0.1:7077",

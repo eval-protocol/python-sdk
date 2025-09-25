@@ -62,7 +62,6 @@ def init(req: InitRequest):
 
     t = threading.Thread(target=_worker, daemon=True)
     t.start()
-    return {"ok": True}
 
 
 @app.get("/status", response_model=StatusResponse)
