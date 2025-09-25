@@ -36,8 +36,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
       Returns: {"terminated": bool, "info": {...}?}
     """
 
-    supports_pipelining: bool = False  # Remote rollout processor cannot pipeline - must wait for all rollouts to complete before fetching results.
-
     def __init__(
         self,
         *,
@@ -156,27 +154,30 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
             # Update duration, regardless of termination
             row.execution_metadata.duration_seconds = time.perf_counter() - start_time
-            return row
+
+            if row.execution_metadata.rollout_id is None:
+                raise ValueError("Rollout ID is required in RemoteRolloutProcessor")
+
+            data_loader = self._output_data_loader(row.execution_metadata.rollout_id)
+
+            def _load_data():
+                return data_loader.load()
+
+            results = await asyncio.to_thread(_load_data)
+
+            output_rows: List[EvaluationRow] = [row for result in results for row in result.rows]
+
+            assert len(output_rows) == 1, "Dataloader used for RemoteRolloutProcessor should have exactly one row"
+
+            langfuse_row = output_rows[0]
+            langfuse_row.input_metadata.completion_params = row.input_metadata.completion_params
+
+            return langfuse_row
 
         for r in rows:
             tasks.append(asyncio.create_task(_process_row(r)))
 
         return tasks
-
-    def postprocess(self, finished_rollout_rows: List[EvaluationRow]) -> List[EvaluationRow]:
-        """Fetch actual evaluation rows from Langfuse using the output_data_loader."""
-        invocation_id = finished_rollout_rows[0].execution_metadata.invocation_id
-        if not invocation_id:
-            raise ValueError("Invocation ID is required in RemoteRolloutProcessor")
-
-        data_loader = self._output_data_loader(invocation_id)
-
-        results = data_loader.load()
-        output_rows: List[EvaluationRow] = []
-        for result in results:
-            output_rows.extend(result.rows)
-
-        return output_rows
 
     def cleanup(self) -> None:
         return None

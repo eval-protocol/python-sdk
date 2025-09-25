@@ -402,33 +402,15 @@ def evaluation_test(
                                 return results
 
                         if mode == "pointwise":
+                            # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
                             pointwise_tasks: list[asyncio.Task[EvaluationRow]] = []
-
-                            if rollout_processor.supports_pipelining:
-                                # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
-                                # Use wrapper that handles retry logic internally
-                                async for row in rollout_processor_with_retry(
-                                    rollout_processor, fresh_dataset, config, run_idx
-                                ):
-                                    pointwise_tasks.append(
-                                        asyncio.create_task(_execute_pointwise_eval_with_semaphore(row=row))
-                                    )
-                            else:
-                                # Non-pipelined mode: collect all rollout results first, then postprocess, then evaluate
-                                collected_rollout_rows: list[EvaluationRow] = []
-                                async for row in rollout_processor_with_retry(
-                                    rollout_processor, fresh_dataset, config, run_idx
-                                ):
-                                    collected_rollout_rows.append(row)
-
-                                # Post-process rollout results to get evaluation inputs
-                                eval_input_rows = rollout_processor.postprocess(collected_rollout_rows)
-
-                                # Now evaluate all the post-processed rows
-                                for row in eval_input_rows:
-                                    pointwise_tasks.append(
-                                        asyncio.create_task(_execute_pointwise_eval_with_semaphore(row=row))
-                                    )
+                            # Use wrapper that handles retry logic internally
+                            async for row in rollout_processor_with_retry(
+                                rollout_processor, fresh_dataset, config, run_idx
+                            ):
+                                pointwise_tasks.append(
+                                    asyncio.create_task(_execute_pointwise_eval_with_semaphore(row=row))
+                                )
 
                             # Run evaluation tasks with progress bar
                             results = await run_tasks_with_eval_progress(pointwise_tasks, run_idx)
@@ -471,13 +453,9 @@ def evaluation_test(
                                     lst.append(copied_row)  # pyright: ignore[reportUnknownMemberType]
                                 tasks.append(asyncio.create_task(_collect_result(config, lst)))  # pyright: ignore[reportUnknownArgumentType]
                             rollout_results = await asyncio.gather(*tasks)
-
-                            # Flatten and postprocess all rollout results
-                            all_rollout_rows = [row for result in rollout_results for row in result]
-                            processed_rows = rollout_processor.postprocess(all_rollout_rows)
-
-                            for row in processed_rows:
-                                row_groups[row.input_metadata.row_id].append(row)
+                            for result in rollout_results:
+                                for row in result:
+                                    row_groups[row.input_metadata.row_id].append(row)  # pyright: ignore[reportUnknownMemberType]
                             tasks = []
                             for _, rows in row_groups.items():  # pyright: ignore[reportUnknownVariableType]
                                 tasks.append(asyncio.create_task(_execute_groupwise_eval_with_semaphore(rows=rows)))  # pyright: ignore[reportUnknownArgumentType]
@@ -493,8 +471,6 @@ def evaluation_test(
                                 rollout_processor, fresh_dataset, config, run_idx
                             ):
                                 input_dataset.append(row)  # pyright: ignore[reportUnknownMemberType]
-
-                            input_dataset = rollout_processor.postprocess(input_dataset)
 
                             # NOTE: we will still evaluate errored rows (give users control over this)
                             # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func

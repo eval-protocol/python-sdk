@@ -13,33 +13,37 @@ from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 from eval_protocol.adapters.langfuse import create_langfuse_adapter
+from eval_protocol.quickstart.utils import filter_longest_conversation
 
-INVOCATION_ID = ""
-ASSERTION_EXECUTED = False
+ROLLOUT_IDS = set()
 
 
 @pytest.fixture(autouse=True)
-def check_assertion_executed():
-    """Ensure the test actually executed the Langfuse validation"""
-    global ASSERTION_EXECUTED
-    ASSERTION_EXECUTED = False  # Reset before test
+def check_rollout_coverage():
+    """Ensure we processed all expected rollout_ids"""
+    global ROLLOUT_IDS
+    ROLLOUT_IDS.clear()
     yield
-    # After test completes, verify the assertion was executed
-    assert ASSERTION_EXECUTED, (
-        "Test passed but never validated Langfuse data - check if output_data_loader returned empty results"
+
+    # Verify we've seen the expected number of rollout_ids after test is done
+    expected_rollout_count = 3
+    assert len(ROLLOUT_IDS) == expected_rollout_count, (
+        f"Expected to see {expected_rollout_count} rollout_ids, but only saw {len(ROLLOUT_IDS)}: {ROLLOUT_IDS}"
     )
 
 
-def fetch_trajectories(invocation_id: str) -> List[EvaluationRow]:
-    global INVOCATION_ID  # This is just to verify the invocation_id is set correctly in the test
-    INVOCATION_ID = invocation_id
+def fetch_langfuse_traces(rollout_id: str) -> List[EvaluationRow]:
+    global ROLLOUT_IDS  # Track all rollout_ids we've seen
+    ROLLOUT_IDS.add(rollout_id)
 
     adapter = create_langfuse_adapter()
-    return adapter.get_evaluation_rows(tags=[f"invocation_id:{invocation_id}"])
+    return adapter.get_evaluation_rows(tags=[f"rollout_id:{rollout_id}"])
 
 
-def create_output_data_loader(invocation_id: str) -> DynamicDataLoader:
-    return DynamicDataLoader(generators=[lambda: fetch_trajectories(invocation_id)])
+def langfuse_output_data_loader(rollout_id: str) -> DynamicDataLoader:
+    return DynamicDataLoader(
+        generators=[lambda: fetch_langfuse_traces(rollout_id)], preprocess_fn=filter_longest_conversation
+    )
 
 
 def _start_remote_server():
@@ -87,7 +91,7 @@ def remote_langfuse_data_generator() -> List[EvaluationRow]:
 
     # Minimal single-user-turn message to trigger a response
     row = EvaluationRow(messages=[Message(role="user", content="Hello there! Please say hi back.")])
-    return [row]
+    return [row, row, row]
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
@@ -100,7 +104,7 @@ def remote_langfuse_data_generator() -> List[EvaluationRow]:
         remote_base_url="http://127.0.0.1:7077",
         num_turns=2,
         timeout_seconds=30,
-        output_data_loader=create_output_data_loader,
+        output_data_loader=langfuse_output_data_loader,
     ),
 )
 async def test_remote_rollout_and_fetch_langfuse(row: EvaluationRow) -> EvaluationRow:
@@ -110,13 +114,9 @@ async def test_remote_rollout_and_fetch_langfuse(row: EvaluationRow) -> Evaluati
     - trigger remote rollout via RemoteRolloutProcessor (calls init/status)
     - fetch traces from Langfuse filtered by metadata via output_data_loader; FAIL if none found
     """
-    global ASSERTION_EXECUTED
-
-    # Sanity check: row should have an invocation_id since it came from Langfuse via output_data_loader
     assert row.messages[0].content == "Hello there! Please say hi back.", "Row should have correct message content"
-    assert row.execution_metadata.invocation_id == INVOCATION_ID, "Row should have correct invocation_id set"
-
-    ASSERTION_EXECUTED = True
-    print(f"✅ Successfully received row from Langfuse with invocation_id: {row.execution_metadata.invocation_id}")
+    assert row.execution_metadata.rollout_id in ROLLOUT_IDS, (
+        f"Row rollout_id {row.execution_metadata.rollout_id} should be in tracked rollout_ids: {ROLLOUT_IDS}"
+    )
 
     return row

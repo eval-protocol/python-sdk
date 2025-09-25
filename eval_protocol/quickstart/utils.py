@@ -186,6 +186,28 @@ def assistant_to_ground_truth(data: list[EvaluationRow]) -> list[EvaluationRow]:
     return processed_rows
 
 
+def filter_longest_conversation(data: list[EvaluationRow]) -> list[EvaluationRow]:
+    """
+    Filter out the longest conversation from a list of evaluation rows that share the same rollout_id.
+
+    Args:
+        data: List of EvaluationRow objects that share the same rollout_id
+
+    Returns:
+        List containing only the EvaluationRow with the most messages (longest conversation)
+    """
+    if not data:
+        return data
+
+    if len(data) == 1:
+        return data
+
+    # Find the row with the most messages (longest conversation)
+    longest_row = max(data, key=lambda row: len(row.messages))
+
+    return [longest_row]
+
+
 async def run_single_judgment(
     question_text: str, answer_a: str, answer_b: str, tools, judge_config, client
 ) -> Optional[Dict[str, Any]]:
