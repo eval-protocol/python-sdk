@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Callable
 
 import requests
 
-from eval_protocol.models import EvaluationRow
+from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
@@ -167,12 +167,15 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
             output_rows: List[EvaluationRow] = [row for result in results for row in result.rows]
 
-            assert len(output_rows) == 1, "Dataloader used for RemoteRolloutProcessor should have exactly one row"
-
-            langfuse_row = output_rows[0]
-            langfuse_row.input_metadata.completion_params = row.input_metadata.completion_params
-
-            return langfuse_row
+            if len(output_rows) == 0:  # Fallback to original row if no Langfuse data found
+                row.rollout_status = Status(code=Status.Code.NOT_FOUND, message="No Langfuse data found for rollout")
+                return row
+            elif len(output_rows) == 1:  # Return the Langfuse row
+                langfuse_row = output_rows[0]
+                langfuse_row.input_metadata.completion_params = row.input_metadata.completion_params
+                return langfuse_row
+            else:
+                raise ValueError("RemoteRolloutProcessor's output_data_loader should return exactly one row.")
 
         for r in rows:
             tasks.append(asyncio.create_task(_process_row(r)))
