@@ -85,29 +85,17 @@ def convert_trace_to_evaluation_row(
         execution_metadata = ExecutionMetadata()
         row_id = None
 
-        if trace.observations:
-            for obs in trace.observations:
-                if obs.metadata and "requester_metadata" in obs.metadata:
-                    req_meta = obs.metadata["requester_metadata"]
-                    if isinstance(req_meta, dict):
-                        execution_metadata.invocation_id = req_meta.get("invocation_id")
-                        execution_metadata.experiment_id = req_meta.get("experiment_id")
-                        execution_metadata.rollout_id = req_meta.get("rollout_id")
-                        execution_metadata.run_id = req_meta.get("run_id")
-                        row_id = req_meta.get("row_id")
-                    break  # Only need to get first observation
-
         if trace.tags:
             for tag in trace.tags:
-                if tag.startswith("invocation_id:") and not execution_metadata.invocation_id:
+                if tag.startswith("invocation_id:"):
                     execution_metadata.invocation_id = tag.split(":", 1)[1]
-                elif tag.startswith("experiment_id:") and not execution_metadata.experiment_id:
+                elif tag.startswith("experiment_id:"):
                     execution_metadata.experiment_id = tag.split(":", 1)[1]
-                elif tag.startswith("rollout_id:") and not execution_metadata.rollout_id:
+                elif tag.startswith("rollout_id:"):
                     execution_metadata.rollout_id = tag.split(":", 1)[1]
-                elif tag.startswith("run_id:") and not execution_metadata.run_id:
+                elif tag.startswith("run_id:"):
                     execution_metadata.run_id = tag.split(":", 1)[1]
-                elif tag.startswith("row_id:") and not row_id:
+                elif tag.startswith("row_id:"):
                     row_id = tag.split(":", 1)[1]
 
                 if (
@@ -298,9 +286,6 @@ class LangfuseAdapter(BaseAdapter):
         max_retries: int = 3,
         span_name: Optional[str] = None,
         converter: Optional[TraceConverter] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        requester_metadata: Optional[Dict[str, Any]] = None,
-        requester_metadata_contains: Optional[str] = None,
     ) -> List[EvaluationRow]:
         """Pull traces from Langfuse and convert to EvaluationRow format.
 
@@ -334,10 +319,6 @@ class LangfuseAdapter(BaseAdapter):
         if from_timestamp is None and to_timestamp is None and hours_back:
             to_timestamp = datetime.now()
             from_timestamp = to_timestamp - timedelta(hours=hours_back)
-
-        # If filtering by metadata/requester_metadata, prefer fetching metadata fields
-        if (metadata is not None or requester_metadata is not None or requester_metadata_contains) and not fields:
-            fields = "core,metadata,observations"
 
         # Collect trace summaries via pagination (up to limit)
         all_traces = []
@@ -420,74 +401,6 @@ class LangfuseAdapter(BaseAdapter):
             selected_traces = all_traces
             logger.debug("Processing all %d collected traces (no sampling)", len(all_traces))
 
-        # Helper to check if a trace matches provided metadata filters. We look in multiple places
-        # to account for Langfuse moving fields (e.g., metadata vs requester_metadata) and SDK shape.
-        def _trace_matches_metadata_filters(trace_obj: Any) -> bool:
-            if metadata is None and requester_metadata is None:
-                return True
-
-            def _as_dict(val: Any) -> Dict[str, Any]:
-                if val is None:
-                    return {}
-                if isinstance(val, dict):
-                    return val
-                # Some SDK objects expose .model_dump() or behave like pydantic models
-                dump = getattr(val, "model_dump", None)
-                if callable(dump):
-                    try:
-                        return dump()  # type: ignore[no-any-return]
-                    except Exception:
-                        return {}
-                return {}
-
-            # Try common locations for metadata on full trace
-            trace_meta = _as_dict(getattr(trace_obj, "metadata", None))
-            trace_req_meta = _as_dict(getattr(trace_obj, "requester_metadata", None))
-            # Some Langfuse deployments nest requester_metadata inside metadata
-            nested_req_meta = {}
-            try:
-                if isinstance(trace_meta, dict) and isinstance(trace_meta.get("requester_metadata"), dict):
-                    nested_req_meta = _as_dict(trace_meta.get("requester_metadata"))
-            except Exception:
-                nested_req_meta = {}
-
-            # Fallbacks: sometimes metadata is embedded in input
-            input_meta = {}
-            try:
-                inp = getattr(trace_obj, "input", None)
-                if isinstance(inp, dict):
-                    input_meta = _as_dict(inp.get("metadata"))
-            except Exception:
-                input_meta = {}
-
-            # Combine for matching convenience (later keys override earlier for equality check only)
-            combined_meta = {**trace_meta, **input_meta}
-            combined_req_meta = {**trace_req_meta}
-
-            # Also merge nested requester metadata when present
-            if nested_req_meta:
-                combined_req_meta = {**combined_req_meta, **nested_req_meta}
-
-            def _is_subset(needle: Dict[str, Any], haystack: Dict[str, Any]) -> bool:
-                for k, v in needle.items():
-                    if haystack.get(k) != v:
-                        return False
-                return True
-
-            ok_meta = True
-            ok_req_meta = True
-
-            if metadata is not None:
-                # Accept match if found either in metadata or requester_metadata buckets
-                ok_meta = _is_subset(metadata, combined_meta) or _is_subset(metadata, combined_req_meta)
-
-            if requester_metadata is not None:
-                ok_req_meta = _is_subset(requester_metadata, combined_req_meta) or _is_subset(
-                    requester_metadata, combined_meta
-                )
-
-            return ok_meta and ok_req_meta
-
         # Process each selected trace with sleep and retry logic
         for trace_info in selected_traces:
             # Sleep between gets to avoid rate limits
@@ -524,39 +437,6 @@ class LangfuseAdapter(BaseAdapter):
                         break  # Skip this trace
 
             if trace_full:
-                # If metadata filters are provided, skip non-matching traces early
-                try:
-                    if not _trace_matches_metadata_filters(trace_full):
-                        continue
-                except Exception:
-                    # Be permissive on filter errors; treat as non-match
-                    continue
-
-                # If observations carry requester_metadata, allow substring filtering
-                if requester_metadata_contains:
-                    contains_val = requester_metadata_contains
-                    found_match = False
-                    try:
-                        for obs in getattr(trace_full, "observations", []) or []:
-                            obs_rmd = getattr(obs, "requester_metadata", None)
-                            if isinstance(obs_rmd, dict) and any(
-                                (isinstance(v, str) and contains_val in v) for v in obs_rmd.values()
-                            ):
-                                found_match = True
-                                break
-                            obs_md = getattr(obs, "metadata", None)
-                            if isinstance(obs_md, dict):
-                                nested = obs_md.get("requester_metadata")
-                                if isinstance(nested, dict) and any(
-                                    (isinstance(v, str) and contains_val in v) for v in nested.values()
-                                ):
-                                    found_match = True
-                                    break
-                    except Exception:
-                        found_match = False
-                    if not found_match:
-                        continue
-
                 try:
                     if converter:
                         eval_row = converter(trace_full, include_tool_calls, span_name)

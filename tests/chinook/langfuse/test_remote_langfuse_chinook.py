@@ -15,6 +15,19 @@ from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 from eval_protocol.adapters.langfuse import create_langfuse_adapter
 
 INVOCATION_ID = ""
+ASSERTION_EXECUTED = False
+
+
+@pytest.fixture(autouse=True)
+def check_assertion_executed():
+    """Ensure the test actually executed the Langfuse validation"""
+    global ASSERTION_EXECUTED
+    ASSERTION_EXECUTED = False  # Reset before test
+    yield
+    # After test completes, verify the assertion was executed
+    assert ASSERTION_EXECUTED, (
+        "Test passed but never validated Langfuse data - check if output_data_loader returned empty results"
+    )
 
 
 def fetch_trajectories(invocation_id: str) -> List[EvaluationRow]:
@@ -97,10 +110,13 @@ async def test_remote_rollout_and_fetch_langfuse(row: EvaluationRow) -> Evaluati
     - trigger remote rollout via RemoteRolloutProcessor (calls init/status)
     - fetch traces from Langfuse filtered by metadata via output_data_loader; FAIL if none found
     """
+    global ASSERTION_EXECUTED
+
     # Sanity check: row should have an invocation_id since it came from Langfuse via output_data_loader
     assert row.messages[0].content == "Hello there! Please say hi back.", "Row should have correct message content"
     assert row.execution_metadata.invocation_id == INVOCATION_ID, "Row should have correct invocation_id set"
 
+    ASSERTION_EXECUTED = True
     print(f"✅ Successfully received row from Langfuse with invocation_id: {row.execution_metadata.invocation_id}")
 
     return row
