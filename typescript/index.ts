@@ -96,3 +96,13 @@ export function initRequestToCompletionParams(
       };
   return completionParams;
 }
+
+export function createLangfuseConfigTags(initRequest: InitRequest): string[] {
+  return [
+    `invocation_id:${initRequest.metadata.invocation_id}`,
+    `experiment_id:${initRequest.metadata.experiment_id}`,
+    `rollout_id:${initRequest.metadata.rollout_id}`,
+    `run_id:${initRequest.metadata.run_id}`,
+    `row_id:${initRequest.metadata.row_id}`,
+  ];
+}
