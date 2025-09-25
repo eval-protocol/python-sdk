@@ -9,7 +9,6 @@ import "./env";
 import {
   initRequestSchema,
   statusResponseSchema,
-  StatusInfo,
   StatusResponse,
   initRequestToCompletionParams,
   InitRequest,
@@ -116,7 +115,7 @@ app.get("/status", (req: Request, res: Response) => {
 
     if (rolloutState.status !== "running") {
       response.info = {
-        reason: rolloutState.status as StatusInfo["reason"],
+        reason: rolloutState.status,
         ended_at: rolloutState.ended_at || new Date().toISOString(),
         ...(rolloutState.error && { error: rolloutState.error }),
       };
