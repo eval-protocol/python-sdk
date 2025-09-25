@@ -5,7 +5,7 @@ from typing import Any, Dict
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import requests
+from langfuse.openai import openai  # pyright: ignore[reportPrivateImportUsage]
 
 
 app = FastAPI()
@@ -42,52 +42,50 @@ def init(req: InitRequest):
     # Persist state
     _STATE[req.rollout_id] = {"terminated": False}
 
-    # Kick off worker thread that runs multi-turn chat via LiteLLM proxy
+    # Kick off worker thread that runs multi-turn chat via Langfuse OpenAI integration
     def _worker():
         try:
-            base_url = os.getenv(
-                "LITELLM_BASE_URL",
-                "https://litellm-cloud-proxy-prod-644257448872.us-central1.run.app",
-            )
-            url = f"{base_url}/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {os.getenv('FIREWORKS_API_KEY', '')}",
-                "Content-Type": "application/json",
-            }
-
-            # Prepare metadata payload to attach for Langfuse filtering
+            # Prepare tags for Langfuse filtering
             metadata = {
-                "tags": [
+                "langfuse_tags": [
                     f"invocation_id:{req.metadata.get('invocation_id')}",
                     f"experiment_id:{req.metadata.get('experiment_id')}",
                     f"rollout_id:{req.metadata.get('rollout_id')}",
                     f"run_id:{req.metadata.get('run_id')}",
                     f"row_id:{req.metadata.get('row_id')}",
-                ],
-                "invocation_id": req.metadata.get("invocation_id"),
-                "experiment_id": req.metadata.get("experiment_id"),
-                "rollout_id": req.metadata.get("rollout_id"),
-                "run_id": req.metadata.get("run_id"),
-                "row_id": req.metadata.get("row_id"),
+                ]
             }
 
             messages = req.messages
 
             # Simulate N-1 assistant turns (single-shot or simple echo)
             for _ in range(max(1, req.num_turns)):
-                payload = {
+                completion_kwargs = {
                     "model": req.model,
                     "messages": _clean_messages_for_api(messages),
                     "metadata": metadata,
                 }
+
                 if req.tools:
-                    payload["tools"] = req.tools
-                r = requests.post(url, json=payload, headers=headers, timeout=60)
-                r.raise_for_status()
-                data = r.json()
-                assistant = data.get("choices", [{}])[0].get("message", {})
+                    completion_kwargs["tools"] = req.tools
+
+                completion = openai.chat.completions.create(**completion_kwargs)
+                assistant_message = completion.choices[0].message
+
+                # Convert to dict format for next turn
+                assistant_dict = {"role": "assistant", "content": assistant_message.content}
+                if assistant_message.tool_calls:
+                    assistant_dict["tool_calls"] = [
+                        {
+                            "id": tc.id,
+                            "type": tc.type,
+                            "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                        }
+                        for tc in assistant_message.tool_calls
+                    ]
+
                 # Append assistant for next turn
-                messages = messages + [assistant]
+                messages = messages + [assistant_dict]
 
         except Exception:
             # Best-effort; mark as done even on error to unblock polling
