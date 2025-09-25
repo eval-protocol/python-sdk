@@ -19,18 +19,6 @@ app = FastAPI()
 
 _STATE: Dict[str, Dict[str, Any]] = {}
 
-ALLOWED_MESSAGE_FIELDS = {"role", "content", "tool_calls", "tool_call_id", "name"}
-
-
-def _clean_messages_for_api(messages: List[Message]) -> list[dict]:
-    cleaned: list[dict] = []
-    for msg in messages:
-        msg_dict = msg.model_dump()
-        cm = {k: v for k, v in msg_dict.items() if k in ALLOWED_MESSAGE_FIELDS and v is not None}
-        # Some providers dislike empty content on assistant messages; keep if present
-        cleaned.append(cm)
-    return cleaned
-
 
 @app.post("/init")
 def init(req: InitRequest):
@@ -44,7 +32,7 @@ def init(req: InitRequest):
 
             completion_kwargs = {
                 "model": req.model,
-                "messages": _clean_messages_for_api(req.messages),
+                "messages": req.messages,
                 "metadata": metadata,
             }
 

@@ -31,6 +31,7 @@ class StatusResponse(BaseModel):
     """Response model for GET /status endpoint."""
 
     terminated: bool
+    info: Optional[Dict[str, Any]] = None
 
 
 def create_langfuse_config_tags(init_request: InitRequest) -> List[str]:

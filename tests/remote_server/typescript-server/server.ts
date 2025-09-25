@@ -4,8 +4,8 @@ import helmet from "helmet";
 import { z } from "zod";
 import { OpenAI } from "openai";
 import { observeOpenAI } from "@langfuse/openai";
-import "./instrumentation";
-import "./env";
+import "./instrumentation.js";
+import "./env.js";
 import {
   initRequestSchema,
   statusResponseSchema,

@@ -1,6 +1,12 @@
+# MANUAL SERVER STARTUP REQUIRED:
+# Before running this test, start the remote server manually:
+# cd /Users/derekxu/Documents/code/python-sdk
+# python -m tests.remote_server.remote_server
+#
+# The server should be running on http://127.0.0.1:7077
+
 import os
 from typing import List
-import atexit
 
 import pytest
 
@@ -21,11 +27,7 @@ def check_rollout_coverage():
     ROLLOUT_IDS.clear()
     yield
 
-    # Verify we've seen the expected number of rollout_ids after test is done
-    expected_rollout_count = 3
-    assert len(ROLLOUT_IDS) == expected_rollout_count, (
-        f"Expected to see {expected_rollout_count} rollout_ids, but only saw {len(ROLLOUT_IDS)}: {ROLLOUT_IDS}"
-    )
+    assert len(ROLLOUT_IDS) == 3, f"Expected to see {ROLLOUT_IDS} rollout_ids, but only saw {ROLLOUT_IDS}"
 
 
 def fetch_langfuse_traces(rollout_id: str) -> List[EvaluationRow]:
@@ -33,7 +35,7 @@ def fetch_langfuse_traces(rollout_id: str) -> List[EvaluationRow]:
     ROLLOUT_IDS.add(rollout_id)
 
     adapter = create_langfuse_adapter()
-    return adapter.get_evaluation_rows(tags=[f"rollout_id:{rollout_id}"])
+    return adapter.get_evaluation_rows(tags=[f"rollout_id:{rollout_id}"], max_retries=5)
 
 
 def langfuse_output_data_loader(rollout_id: str) -> DynamicDataLoader:
@@ -43,31 +45,32 @@ def langfuse_output_data_loader(rollout_id: str) -> DynamicDataLoader:
 
 
 def rows() -> List[EvaluationRow]:
-    # Minimal single-user-turn message to trigger a response
     row = EvaluationRow(messages=[Message(role="user", content="What is the capital of France?")])
     return [row, row, row]
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
-@pytest.mark.parametrize("completion_params", [{"model": "gpt-5"}])
+@pytest.mark.parametrize("completion_params", [{"model": "gpt-4o"}])
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[rows],
     ),
     rollout_processor=RemoteRolloutProcessor(
-        remote_base_url="http://127.0.0.1:3000",
+        remote_base_url="http://127.0.0.1:7077",
         timeout_seconds=30,
         output_data_loader=langfuse_output_data_loader,
     ),
 )
-async def test_remote_rollout_and_fetch_langfuse_typescript(row: EvaluationRow) -> EvaluationRow:
+async def test_remote_rollout_and_fetch_langfuse(row: EvaluationRow) -> EvaluationRow:
     """
     End-to-end test:
-    - remote server started at import time
+    - REQUIRES MANUAL SERVER STARTUP: python -m tests.remote_server.remote_server
     - trigger remote rollout via RemoteRolloutProcessor (calls init/status)
     - fetch traces from Langfuse filtered by metadata via output_data_loader; FAIL if none found
     """
     assert row.messages[0].content == "What is the capital of France?", "Row should have correct message content"
+    assert len(row.messages) > 1, "Row should have a response. If this fails, we fellback to the original row."
+
     assert row.execution_metadata.rollout_id in ROLLOUT_IDS, (
         f"Row rollout_id {row.execution_metadata.rollout_id} should be in tracked rollout_ids: {ROLLOUT_IDS}"
     )
