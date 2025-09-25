@@ -22,6 +22,7 @@
     "@opentelemetry/sdk-node": "^0.205.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
+    "eval-protocol": "^0.1.1",
     "express": "^5.1.0",
     "helmet": "^7.1.0",
     "openai": "^5.23.0"
