@@ -63,7 +63,9 @@ def _create_mock_trace(
     trace_id: str, input_data: Any = None, output_data: Any = None, observations: Optional[List] = None
 ):
     """Helper to create mock trace objects"""
-    return SimpleNamespace(id=trace_id, input=input_data, output=output_data, observations=observations or [])
+    return SimpleNamespace(
+        id=trace_id, input=input_data, output=output_data, observations=observations or [], tags=[], metadata={}
+    )
 
 
 def _create_mock_traces_response(traces: List[Dict[str, Any]]):
@@ -72,7 +74,15 @@ def _create_mock_traces_response(traces: List[Dict[str, Any]]):
     for trace_data in traces:
         trace_objects.append(SimpleNamespace(**trace_data))
 
-    return SimpleNamespace(data=trace_objects, meta=SimpleNamespace(page=1, total_pages=1))
+    return SimpleNamespace(
+        data=trace_objects,
+        meta=SimpleNamespace(
+            page=1,
+            total_pages=1,
+            total_items=len(trace_objects),  # Add total_items to match real API
+            limit=100,
+        ),
+    )
 
 
 @pytest.fixture
@@ -161,7 +171,7 @@ def test_trace_conversion_with_span_name():
     """Test trace conversion with specific span name"""
     # Mock observations with spans and generations
     observations = [
-        SimpleNamespace(id="span1", name="judge", type="SPAN"),
+        SimpleNamespace(id="span1", name="judge", type="SPAN", metadata={}),
         SimpleNamespace(
             id="gen1",
             name="generation",
@@ -170,6 +180,7 @@ def test_trace_conversion_with_span_name():
             input={"messages": [{"role": "user", "content": "Judge this"}]},
             output={"messages": [{"role": "assistant", "content": "Good response"}]},
             start_time=datetime.now(),
+            metadata={},
         ),
     ]
 
@@ -304,7 +315,7 @@ def test_extract_messages_from_various_formats():
         input_data={"messages": [{"role": "user", "content": "Hello"}]},
         output_data={"messages": [{"role": "assistant", "content": "Hi"}]},
     )
-    messages1 = extract_messages_from_trace(trace1)
+    messages1 = extract_messages_from_trace(trace1)  # pyright: ignore[reportArgumentType]
     assert len(messages1) == 2
     assert messages1[0].role == "user"
     assert messages1[1].role == "assistant"
@@ -313,7 +324,7 @@ def test_extract_messages_from_various_formats():
     trace2 = _create_mock_trace(
         "trace2", input_data={"prompt": "What is AI?"}, output_data={"content": "AI is artificial intelligence"}
     )
-    messages2 = extract_messages_from_trace(trace2)
+    messages2 = extract_messages_from_trace(trace2)  # pyright: ignore[reportArgumentType]
     assert len(messages2) == 2
     assert messages2[0].role == "user"
     assert messages2[0].content == "What is AI?"
@@ -326,7 +337,7 @@ def test_extract_messages_from_various_formats():
         input_data=[{"role": "user", "content": "List format"}],
         output_data=[{"role": "assistant", "content": "Response"}],
     )
-    messages3 = extract_messages_from_trace(trace3)
+    messages3 = extract_messages_from_trace(trace3)  # pyright: ignore[reportArgumentType]
     assert len(messages3) == 2
     assert messages3[0].content == "List format"
     assert messages3[1].content == "Response"

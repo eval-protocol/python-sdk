@@ -373,7 +373,7 @@ class LangfuseAdapter(BaseAdapter):
                     )
 
                     # If no results, possible due to indexing delay--remote rollout processor just finished pushing rows to Langfuse
-                    if traces and hasattr(traces, "meta") and traces.meta.total_items == 0 and page == 1:
+                    if traces and traces.meta and traces.meta.total_items == 0 and page == 1:
                         raise Exception("Empty results - indexing delay")
 
                     break
