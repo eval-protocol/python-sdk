@@ -72,7 +72,7 @@ def evaluation_test(
     input_dataset: Sequence[DatasetPathParam] | None = None,
     input_rows: Sequence[list[EvaluationRow]] | None = None,
     data_loaders: Sequence[EvaluationDataLoader] | EvaluationDataLoader | None = None,
-    dataset_adapter: Callable[[list[dict[str, Any]]], Dataset] = default_dataset_adapter,  # pyright: ignore[reportExplicitAny]
+    dataset_adapter: Callable[[list[dict[str, Any]]], Dataset] = default_dataset_adapter,
     rollout_processor: RolloutProcessor | None = None,
     evaluation_test_kwargs: Sequence[EvaluationInputParam | None] | None = None,
     rollout_processor_kwargs: RolloutProcessorInputParam | None = None,
@@ -418,9 +418,7 @@ def evaluation_test(
                             all_results[run_idx] = results
                         elif mode == "groupwise":
                             # rollout all the completion_params for the same row at once, and then send the output to the test_func
-                            row_groups = defaultdict(  # pyright: ignore[reportUnknownVariableType]
-                                list
-                            )  # key: row_id, value: list of rollout_result
+                            row_groups = defaultdict(list)  # key: row_id, value: list of rollout_result
                             tasks: list[asyncio.Task[list[EvaluationRow]]] = []
                             # completion_groups = []
                             for idx, cp in enumerate(original_completion_params):
@@ -435,13 +433,13 @@ def evaluation_test(
                                 )
                                 lst = []
 
-                                async def _collect_result(config, lst):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
+                                async def _collect_result(config, lst):
                                     result = []
                                     async for row in rollout_processor_with_retry(
                                         rollout_processor, lst, config, run_idx
                                     ):  # pyright: ignore[reportUnknownArgumentType]
-                                        result.append(row)  # pyright: ignore[reportUnknownMemberType]
-                                    return result  # pyright: ignore[reportUnknownVariableType]
+                                        result.append(row)
+                                    return result
 
                                 for ori_row in fresh_dataset:
                                     copied_row = ori_row.model_copy(deep=True)
@@ -450,19 +448,19 @@ def evaluation_test(
                                         str(ori_row.execution_metadata.rollout_id) + "_" + str(idx)
                                     )
                                     copied_row.input_metadata.completion_params = cp if cp is not None else {}
-                                    lst.append(copied_row)  # pyright: ignore[reportUnknownMemberType]
-                                tasks.append(asyncio.create_task(_collect_result(config, lst)))  # pyright: ignore[reportUnknownArgumentType]
+                                    lst.append(copied_row)
+                                tasks.append(asyncio.create_task(_collect_result(config, lst)))
                             rollout_results = await asyncio.gather(*tasks)
                             for result in rollout_results:
                                 for row in result:
-                                    row_groups[row.input_metadata.row_id].append(row)  # pyright: ignore[reportUnknownMemberType]
+                                    row_groups[row.input_metadata.row_id].append(row)
                             tasks = []
-                            for _, rows in row_groups.items():  # pyright: ignore[reportUnknownVariableType]
-                                tasks.append(asyncio.create_task(_execute_groupwise_eval_with_semaphore(rows=rows)))  # pyright: ignore[reportUnknownArgumentType]
+                            for _, rows in row_groups.items():
+                                tasks.append(asyncio.create_task(_execute_groupwise_eval_with_semaphore(rows=rows)))
                             results = []
                             for task in tasks:
                                 res = await task
-                                results.extend(res)  # pyright: ignore[reportUnknownMemberType]
+                                results.extend(res)
                             all_results[run_idx] = results
                         else:
                             # Batch mode: collect all results first, then evaluate (no pipelining)
@@ -470,13 +468,12 @@ def evaluation_test(
                             async for row in rollout_processor_with_retry(
                                 rollout_processor, fresh_dataset, config, run_idx
                             ):
-                                input_dataset.append(row)  # pyright: ignore[reportUnknownMemberType]
-
+                                input_dataset.append(row)
                             # NOTE: we will still evaluate errored rows (give users control over this)
                             # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
                             results = await execute_pytest(
                                 test_func,
-                                processed_dataset=input_dataset,  # pyright: ignore[reportUnknownArgumentType]
+                                processed_dataset=input_dataset,
                                 evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                             )
                             if (
@@ -539,16 +536,16 @@ def evaluation_test(
                     # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them
                     # rollout_id is used to differentiate the result from different completion_params
                     if mode == "groupwise":
-                        results_by_group = [  # pyright: ignore[reportUnknownVariableType]
+                        results_by_group = [
                             [[] for _ in range(num_runs)] for _ in range(len(original_completion_params))
                         ]
                         for i_run, result in enumerate(all_results):
                             for r in result:
                                 completion_param_idx = int(r.execution_metadata.rollout_id.split("_")[1])  # pyright: ignore[reportOptionalMemberAccess]
-                                results_by_group[completion_param_idx][i_run].append(r)  # pyright: ignore[reportUnknownMemberType]
-                        for rollout_id, result in enumerate(results_by_group):  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+                                results_by_group[completion_param_idx][i_run].append(r)
+                        for rollout_id, result in enumerate(results_by_group):
                             postprocess(
-                                result,  # pyright: ignore[reportUnknownArgumentType]
+                                result,
                                 aggregation_method,
                                 passed_threshold,
                                 active_logger,
@@ -600,7 +597,7 @@ def evaluation_test(
         pytest_wrapper = pytest.mark.asyncio(pytest_wrapper)
 
         # Create the dual mode wrapper
-        dual_mode_wrapper = create_dual_mode_wrapper(  # pyright: ignore[reportUnknownVariableType]
+        dual_mode_wrapper = create_dual_mode_wrapper(
             test_func, mode, max_concurrent_rollouts, max_concurrent_evaluations, pytest_wrapper
         )
 
