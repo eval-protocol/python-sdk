@@ -1,0 +1,16 @@
+{
+  "name": "eval-protocol",
+  "module": "index.ts",
+  "type": "module",
+  "version": "0.1.2",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "openai": "^5.23.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "zod": "^4.1.11"
+  }
+}

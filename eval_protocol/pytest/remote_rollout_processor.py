@@ -167,6 +167,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
             elif len(output_rows) == 1:  # Return the Langfuse row
                 langfuse_row = output_rows[0]
                 langfuse_row.input_metadata.completion_params = row.input_metadata.completion_params
+                langfuse_row.eval_metadata = row.eval_metadata
                 return langfuse_row
             else:
                 raise ValueError("RemoteRolloutProcessor's output_data_loader should return exactly one row.")
