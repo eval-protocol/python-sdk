@@ -110,6 +110,15 @@ def convert_trace_to_evaluation_row(
                 elif tag.startswith("row_id:") and not row_id:
                     row_id = tag.split(":", 1)[1]
 
+                if (
+                    execution_metadata.invocation_id
+                    and execution_metadata.experiment_id
+                    and execution_metadata.rollout_id
+                    and execution_metadata.run_id
+                    and row_id
+                ):
+                    break  # Break early if we've found all the metadata we need
+
         return EvaluationRow(
             messages=messages,
             tools=tools,
