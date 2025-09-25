@@ -47,11 +47,7 @@ export const initRequestSchema = z.object({
   metadata: metadataSchema,
 });
 
-export const statusInfoSchema = z.object({
-  reason: z.enum(["completed", "failed", "timeout", "cancelled"]),
-  ended_at: z.string(),
-  error: z.string().optional(),
-});
+export const statusInfoSchema = z.record(z.string(), z.any());
 
 export const statusResponseSchema = z.object({
   terminated: z.boolean(),
