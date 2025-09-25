@@ -26,6 +26,9 @@ importers:
       dotenv:
         specifier: ^17.2.2
         version: 17.2.2
+      eval-protocol:
+        specifier: ^0.1.1
+        version: 0.1.1(typescript@5.9.2)
       express:
         specifier: ^5.1.0
         version: 5.1.0
@@ -605,6 +608,11 @@ packages:
     resolution: {integrity: sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==}
     engines: {node: '>= 0.6'}
 
+  eval-protocol@0.1.1:
+    resolution: {integrity: sha512-sXtdLkEUorEQYd/9h+LEMYceencQL4fKZ/CJMCbrflLxATDN87GNXtXdwU1gIYM09Yti5A8XDPqa0TH7oB3r7A==}
+    peerDependencies:
+      typescript: ^5
+
   express@5.1.0:
     resolution: {integrity: sha512-DT9ck5YIRU+8GYzzU5kT3eHGA5iL+1Zd0EutOmTE9Dtk+Tvuzd23VBU+ec7HPNSTxXYO55gPV/hq4pSBJDjFpA==}
     engines: {node: '>= 18'}
@@ -909,6 +917,9 @@ packages:
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
+  zod@4.1.11:
+    resolution: {integrity: sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg==}
 
 snapshots:
 
@@ -1461,6 +1472,11 @@ snapshots:
 
   etag@1.8.1: {}
 
+  eval-protocol@0.1.1(typescript@5.9.2):
+    dependencies:
+      typescript: 5.9.2
+      zod: 4.1.11
+
   express@5.1.0:
     dependencies:
       accepts: 2.0.0
@@ -1808,3 +1824,5 @@ snapshots:
       yargs-parser: 21.1.1
 
   zod@3.25.76: {}
+
+  zod@4.1.11: {}

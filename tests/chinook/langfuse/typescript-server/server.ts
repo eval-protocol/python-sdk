@@ -6,72 +6,15 @@ import { OpenAI } from "openai";
 import { observeOpenAI } from "@langfuse/openai";
 import "./instrumentation";
 import "./env";
-
-// Zod schemas for validation
-const roleSchema = z.enum(["system", "user", "assistant"]);
-const messageSchema = z.union([
-  z.object({
-    role: roleSchema,
-    content: z.string(),
-  }),
-  z.object({
-    role: z.literal("tool"),
-    content: z.string(),
-    tool_call_id: z.string(),
-  }),
-]);
-
-const functionDefinitionSchema = z
-  .object({
-    name: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/),
-    description: z.string().optional(),
-    // JSON Schema object; allow arbitrary keys
-    parameters: z.object({}).passthrough().optional(),
-  })
-  .passthrough();
-
-const toolSchema = z.object({
-  type: z.literal("function"),
-  function: functionDefinitionSchema,
-});
-
-const metadataSchema = z
-  .object({
-    invocation_id: z.string(),
-    experiment_id: z.string(),
-    rollout_id: z.string(),
-    run_id: z.string(),
-    row_id: z.string(),
-  })
-  .passthrough();
-
-export const initRequestSchema = z.object({
-  rollout_id: z.string(),
-  model: z.string(),
-  messages: z.array(messageSchema).min(1),
-  tools: z.array(toolSchema).optional().nullable(),
-  metadata: metadataSchema,
-});
-
-export const statusInfoSchema = z.object({
-  reason: z.enum(["completed", "failed", "timeout", "cancelled"]),
-  ended_at: z.string(),
-  error: z.string().optional(),
-});
-
-export const statusResponseSchema = z.object({
-  terminated: z.boolean(),
-  info: statusInfoSchema.optional(),
-});
-
-// Infer types from schemas
-export type Message = z.infer<typeof messageSchema>;
-export type FunctionDefinition = z.infer<typeof functionDefinitionSchema>;
-export type Tool = z.infer<typeof toolSchema>;
-export type Metadata = z.infer<typeof metadataSchema>;
-export type InitRequest = z.infer<typeof initRequestSchema>;
-export type StatusInfo = z.infer<typeof statusInfoSchema>;
-export type StatusResponse = z.infer<typeof statusResponseSchema>;
+import {
+  initRequestSchema,
+  statusResponseSchema,
+  StatusInfo,
+  StatusResponse,
+  initRequestToCompletionParams,
+  InitRequest,
+  createLangfuseConfigTags,
+} from "eval-protocol";
 
 // In-memory storage for rollout states
 interface RolloutState {
@@ -104,7 +47,7 @@ app.post("/init", async (req: Request, res: Response) => {
   try {
     // Validate request body
     const validatedData = initRequestSchema.parse(req.body);
-    const { rollout_id, model, messages, tools, metadata } = validatedData;
+    const { rollout_id, model } = validatedData;
 
     console.log(`Initializing rollout ${rollout_id} with model ${model}`);
 
@@ -120,13 +63,7 @@ app.post("/init", async (req: Request, res: Response) => {
 
     // Simulate async processing
     setTimeout(async () => {
-      await simulateRolloutExecution(
-        rollout_id,
-        model,
-        messages,
-        tools || null,
-        metadata
-      );
+      await simulateRolloutExecution(validatedData);
     }, 100);
 
     res.status(200).json({
@@ -199,56 +136,23 @@ app.get("/status", (req: Request, res: Response) => {
 
 // Simulate rollout execution
 async function simulateRolloutExecution(
-  rollout_id: string,
-  model: string,
-  messages: Message[],
-  tools: Tool[] | null,
-  metadata: Metadata
+  initRequest: InitRequest
 ): Promise<void> {
-  const rolloutState = rolloutStates.get(rollout_id);
+  const rolloutState = rolloutStates.get(initRequest.rollout_id);
   if (!rolloutState) return;
 
   try {
-    console.log(`Starting rollout execution for ${rollout_id}`);
+    console.log(`Starting rollout execution for ${initRequest.rollout_id}`);
 
     const openai = new OpenAI({
       apiKey: process.env["OPENAI_API_KEY"],
     });
 
     const tracedOpenAI = observeOpenAI(openai, {
-      tags: [
-        `invocation_id:${metadata.invocation_id}`,
-        `experiment_id:${metadata.experiment_id}`,
-        `rollout_id:${metadata.rollout_id}`,
-        `run_id:${metadata.run_id}`,
-        `row_id:${metadata.row_id}`,
-      ],
+      tags: createLangfuseConfigTags(initRequest),
     });
 
-    const toolsToOpenAI = tools?.map((tool) => ({
-      type: "function" as const,
-      function: tool.function.description
-        ? {
-            name: tool.function.name,
-            description: tool.function.description,
-            parameters: tool.function.parameters || {},
-          }
-        : {
-            name: tool.function.name,
-            parameters: tool.function.parameters || {},
-          },
-    }));
-
-    const completionParams = toolsToOpenAI
-      ? {
-          model,
-          messages,
-          tools: toolsToOpenAI,
-        }
-      : {
-          model,
-          messages,
-        };
+    const completionParams = initRequestToCompletionParams(initRequest);
 
     await tracedOpenAI.chat.completions.create(completionParams);
 
@@ -257,9 +161,12 @@ async function simulateRolloutExecution(
     rolloutState.ended_at = new Date().toISOString();
     rolloutState.completed_turns = 1;
 
-    console.log(`Rollout ${rollout_id} completed successfully`);
+    console.log(`Rollout ${initRequest.rollout_id} completed successfully`);
   } catch (error) {
-    console.error(`Error in rollout execution for ${rollout_id}:`, error);
+    console.error(
+      `Error in rollout execution for ${initRequest.rollout_id}:`,
+      error
+    );
 
     rolloutState.status = "failed";
     rolloutState.ended_at = new Date().toISOString();
