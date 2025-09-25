@@ -56,7 +56,6 @@ def rows() -> List[EvaluationRow]:
     ),
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url="http://127.0.0.1:3000",
-        num_turns=2,
         timeout_seconds=30,
         output_data_loader=langfuse_output_data_loader,
     ),
