@@ -1,37 +1,32 @@
 import os
 import threading
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from langfuse.openai import openai  # pyright: ignore[reportPrivateImportUsage]
+
+from eval_protocol.types.remote_rollout_processor import (
+    InitRequest,
+    StatusResponse,
+    create_langfuse_config_tags,
+)
+from eval_protocol.models import Message
 
 
 app = FastAPI()
 
 
-class InitRequest(BaseModel):
-    rollout_id: str
-    model: str
-    messages: list[dict]
-    tools: list[dict] | None = None
-    metadata: dict
-    num_turns: int = 2
-
-
 _STATE: Dict[str, Dict[str, Any]] = {}
-
 
 ALLOWED_MESSAGE_FIELDS = {"role", "content", "tool_calls", "tool_call_id", "name"}
 
 
-def _clean_messages_for_api(messages: list[dict]) -> list[dict]:
+def _clean_messages_for_api(messages: List[Message]) -> list[dict]:
     cleaned: list[dict] = []
     for msg in messages:
-        if not isinstance(msg, dict):
-            continue
-        cm = {k: v for k, v in msg.items() if k in ALLOWED_MESSAGE_FIELDS and v is not None}
+        msg_dict = msg.model_dump()
+        cm = {k: v for k, v in msg_dict.items() if k in ALLOWED_MESSAGE_FIELDS and v is not None}
         # Some providers dislike empty content on assistant messages; keep if present
         cleaned.append(cm)
     return cleaned
@@ -42,53 +37,25 @@ def init(req: InitRequest):
     # Persist state
     _STATE[req.rollout_id] = {"terminated": False}
 
-    # Kick off worker thread that runs multi-turn chat via Langfuse OpenAI integration
+    # Kick off worker thread that does a single-turn chat via Langfuse OpenAI integration
     def _worker():
         try:
-            # Prepare tags for Langfuse filtering
-            metadata = {
-                "langfuse_tags": [
-                    f"invocation_id:{req.metadata.get('invocation_id')}",
-                    f"experiment_id:{req.metadata.get('experiment_id')}",
-                    f"rollout_id:{req.metadata.get('rollout_id')}",
-                    f"run_id:{req.metadata.get('run_id')}",
-                    f"row_id:{req.metadata.get('row_id')}",
-                ]
+            metadata = {"langfuse_tags": create_langfuse_config_tags(req)}
+
+            completion_kwargs = {
+                "model": req.model,
+                "messages": _clean_messages_for_api(req.messages),
+                "metadata": metadata,
             }
 
-            messages = req.messages
+            if req.tools:
+                completion_kwargs["tools"] = req.tools
 
-            # Simulate N-1 assistant turns (single-shot or simple echo)
-            for _ in range(max(1, req.num_turns)):
-                completion_kwargs = {
-                    "model": req.model,
-                    "messages": _clean_messages_for_api(messages),
-                    "metadata": metadata,
-                }
+            completion = openai.chat.completions.create(**completion_kwargs)
 
-                if req.tools:
-                    completion_kwargs["tools"] = req.tools
-
-                completion = openai.chat.completions.create(**completion_kwargs)
-                assistant_message = completion.choices[0].message
-
-                # Convert to dict format for next turn
-                assistant_dict = {"role": "assistant", "content": assistant_message.content}
-                if assistant_message.tool_calls:
-                    assistant_dict["tool_calls"] = [
-                        {
-                            "id": tc.id,
-                            "type": tc.type,
-                            "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-                        }
-                        for tc in assistant_message.tool_calls
-                    ]
-
-                # Append assistant for next turn
-                messages = messages + [assistant_dict]
-
-        except Exception:
+        except Exception as e:
             # Best-effort; mark as done even on error to unblock polling
+            print(f"❌ Error in rollout {req.rollout_id}: {e}")
             pass
         finally:
             _STATE[req.rollout_id]["terminated"] = True
@@ -98,12 +65,12 @@ def init(req: InitRequest):
     return {"ok": True}
 
 
-@app.get("/status")
-def status(rollout_id: str):
+@app.get("/status", response_model=StatusResponse)
+def status(rollout_id: str) -> StatusResponse:
     st = _STATE.get(rollout_id)
     if not st:
         raise HTTPException(status_code=404, detail="unknown rollout_id")
-    return {"terminated": bool(st.get("terminated", False))}
+    return StatusResponse(terminated=bool(st.get("terminated", False)))
 
 
 def main():

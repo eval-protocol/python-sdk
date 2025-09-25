@@ -28,7 +28,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
           "run_id": str | null,
           "row_id": str | null
         },
-        "num_turns": int
       }
       Returns: {"ok": true}
 
@@ -40,7 +39,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self,
         *,
         remote_base_url: Optional[str] = None,
-        num_turns: int = 2,
         poll_interval: float = 1.0,
         timeout_seconds: float = 120.0,
         output_data_loader: Callable[[str], DynamicDataLoader],
@@ -48,7 +46,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
         # Prefer constructor-provided configuration. These can be overridden via
         # config.kwargs at call time for backward compatibility.
         self._remote_base_url = remote_base_url
-        self._num_turns = num_turns
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
         self._output_data_loader = output_data_loader
@@ -58,7 +55,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
         # Start with constructor values
         remote_base_url: Optional[str] = self._remote_base_url
-        num_turns: int = self._num_turns
         poll_interval: float = self._poll_interval
         timeout_seconds: float = self._timeout_seconds
 
@@ -66,7 +62,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
         if config.kwargs:
             if remote_base_url is None:
                 remote_base_url = config.kwargs.get("remote_base_url", remote_base_url)
-            num_turns = int(config.kwargs.get("num_turns", num_turns))
             poll_interval = float(config.kwargs.get("poll_interval", poll_interval))
             timeout_seconds = float(config.kwargs.get("timeout_seconds", timeout_seconds))
 
@@ -121,7 +116,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 "messages": clean_messages,
                 "tools": row.tools,
                 "metadata": meta,
-                "num_turns": num_turns,
             }
 
             # Fire-and-poll

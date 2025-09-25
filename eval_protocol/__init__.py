@@ -62,6 +62,13 @@ try:
 except ImportError:
     LangSmithAdapter = None
 
+# Remote server types
+from .types.remote_rollout_processor import (
+    InitRequest,
+    RolloutMetadata,
+    StatusResponse,
+    create_langfuse_config_tags,
+)
 
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
@@ -110,6 +117,11 @@ __all__ = [
     # Submodules
     "rewards",
     "mcp",
+    # Remote server types
+    "InitRequest",
+    "RolloutMetadata",
+    "StatusResponse",
+    "create_langfuse_config_tags",
 ]
 
 from . import _version

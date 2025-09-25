@@ -1,12 +1,14 @@
+# MANUAL SERVER STARTUP REQUIRED:
+# Before running this test, start the remote server manually:
+# cd /Users/derekxu/Documents/code/python-sdk
+# python -m tests.chinook.langfuse.remote_server
+#
+# The server should be running on http://127.0.0.1:7077
+
 import os
-import multiprocessing
-import time
-from datetime import datetime, timedelta
 from typing import List
-import atexit
 
 import pytest
-import requests
 
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluationRow, Message
@@ -33,7 +35,7 @@ def fetch_langfuse_traces(rollout_id: str) -> List[EvaluationRow]:
     ROLLOUT_IDS.add(rollout_id)
 
     adapter = create_langfuse_adapter()
-    return adapter.get_evaluation_rows(tags=[f"rollout_id:{rollout_id}"])
+    return adapter.get_evaluation_rows(tags=[f"rollout_id:{rollout_id}"], max_retries=5)
 
 
 def langfuse_output_data_loader(rollout_id: str) -> DynamicDataLoader:
@@ -42,51 +44,8 @@ def langfuse_output_data_loader(rollout_id: str) -> DynamicDataLoader:
     )
 
 
-def _start_remote_server():
-    # Starts FastAPI server defined in remote_server.py using absolute import
-    import importlib
-
-    os.environ.setdefault("REMOTE_SERVER_HOST", "127.0.0.1")
-    os.environ.setdefault("REMOTE_SERVER_PORT", "7077")
-    mod = importlib.import_module("tests.chinook.langfuse.remote_server")
-    mod.main()
-
-
-def _ensure_server_running():
-    host = os.getenv("REMOTE_SERVER_HOST", "127.0.0.1")
-    port = int(os.getenv("REMOTE_SERVER_PORT", "7077"))
-    base_url = f"http://{host}:{port}"
-
-    def _is_up() -> bool:
-        try:
-            r = requests.get(f"{base_url}/status", params={"rollout_id": "ping"}, timeout=1.0)
-            return r.status_code in (200, 404)
-        except Exception:
-            return False
-
-    if _is_up():
-        return None
-
-    # Launch in a background process
-    proc = multiprocessing.Process(target=_start_remote_server, daemon=True)
-    proc.start()
-
-    # Poll for readiness up to 10s
-    deadline = time.time() + 10
-    while time.time() < deadline:
-        if _is_up():
-            break
-        time.sleep(0.5)
-    return proc
-
-
 def remote_langfuse_data_generator() -> List[EvaluationRow]:
-    # Ensure server is running BEFORE rollouts start (evaluation_test triggers rollouts before test body)
-    _SERVER_PROC = _ensure_server_running()
-    atexit.register(lambda: (_SERVER_PROC and _SERVER_PROC.is_alive() and _SERVER_PROC.terminate()))
-
-    # Minimal single-user-turn message to trigger a response
-    row = EvaluationRow(messages=[Message(role="user", content="Hello there! Please say hi back.")])
+    row = EvaluationRow(messages=[Message(role="user", content="What is the capital of France?")])
     return [row, row, row]
 
 
@@ -98,7 +57,6 @@ def remote_langfuse_data_generator() -> List[EvaluationRow]:
     ),
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url="http://127.0.0.1:7077",
-        num_turns=2,
         timeout_seconds=30,
         output_data_loader=langfuse_output_data_loader,
     ),
@@ -106,11 +64,11 @@ def remote_langfuse_data_generator() -> List[EvaluationRow]:
 async def test_remote_rollout_and_fetch_langfuse(row: EvaluationRow) -> EvaluationRow:
     """
     End-to-end test:
-    - remote server started at import time
+    - REQUIRES MANUAL SERVER STARTUP: python -m tests.chinook.langfuse.remote_server
     - trigger remote rollout via RemoteRolloutProcessor (calls init/status)
     - fetch traces from Langfuse filtered by metadata via output_data_loader; FAIL if none found
     """
-    assert row.messages[0].content == "Hello there! Please say hi back.", "Row should have correct message content"
+    assert row.messages[0].content == "What is the capital of France?", "Row should have correct message content"
     assert len(row.messages) > 1, "Row should have a response. If this fails, we fellback to the original row."
 
     assert row.execution_metadata.rollout_id in ROLLOUT_IDS, (
