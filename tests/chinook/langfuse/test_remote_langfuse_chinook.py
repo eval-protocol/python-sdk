@@ -12,6 +12,21 @@ from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
+from eval_protocol.adapters.langfuse import create_langfuse_adapter
+
+INVOCATION_ID = ""
+
+
+def fetch_trajectories(invocation_id: str) -> List[EvaluationRow]:
+    global INVOCATION_ID  # This is just to verify the invocation_id is set correctly in the test
+    INVOCATION_ID = invocation_id
+
+    adapter = create_langfuse_adapter()
+    return adapter.get_evaluation_rows(tags=[f"invocation_id:{invocation_id}"])
+
+
+def create_output_data_loader(invocation_id: str) -> DynamicDataLoader:
+    return DynamicDataLoader(generators=[lambda: fetch_trajectories(invocation_id)])
 
 
 def _start_remote_server():
@@ -63,101 +78,29 @@ def remote_langfuse_data_generator() -> List[EvaluationRow]:
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
-@pytest.mark.asyncio
+@pytest.mark.parametrize("completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}])
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[remote_langfuse_data_generator],
     ),
-    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}],
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url="http://127.0.0.1:7077",
         num_turns=2,
         timeout_seconds=30,
+        output_data_loader=create_output_data_loader,
     ),
-    mode="pointwise",
 )
 async def test_remote_rollout_and_fetch_langfuse(row: EvaluationRow) -> EvaluationRow:
     """
     End-to-end test:
     - remote server started at import time
     - trigger remote rollout via RemoteRolloutProcessor (calls init/status)
-    - fetch traces from Langfuse filtered by metadata; FAIL if none found
+    - fetch traces from Langfuse filtered by metadata via output_data_loader; FAIL if none found
     """
-    # Debug print IDs used for filtering
-    print(
-        "[Remote-E2E] IDs:",
-        {
-            "invocation_id": row.execution_metadata.invocation_id,
-            "experiment_id": row.execution_metadata.experiment_id,
-            "rollout_id": row.execution_metadata.rollout_id,
-            "run_id": row.execution_metadata.run_id,
-        },
-    )
+    # Sanity check: row should have an invocation_id since it came from Langfuse via output_data_loader
+    assert row.messages[0].content == "Hello there! Please say hi back.", "Row should have correct message content"
+    assert row.execution_metadata.invocation_id == INVOCATION_ID, "Row should have correct invocation_id set"
 
-    # Attempt retrieval via adapter
-    try:
-        from eval_protocol.adapters.langfuse import create_langfuse_adapter
-
-        adapter = create_langfuse_adapter()
-
-        # Preferred: observations-level requester_metadata contains invocation_id (proxy annotates per-request)
-        contains_val = row.execution_metadata.invocation_id or ""
-        rows = []
-        if contains_val:
-            # Retry loop to allow ingestion/flush
-            deadline = time.time() + 90
-            while time.time() < deadline and not rows:
-                rows = adapter.get_evaluation_rows(
-                    limit=10,
-                    from_timestamp=datetime.now() - timedelta(hours=2),
-                    to_timestamp=datetime.now(),
-                    include_tool_calls=False,
-                    requester_metadata_contains=contains_val,
-                )
-                if rows:
-                    break
-                time.sleep(3)
-        else:
-            print("[Remote-E2E] Missing invocation_id; skipping observations filter")
-
-        # If still empty, dump recent trace metadata for debugging
-        if not rows:
-            try:
-                from langfuse import get_client  # pyright: ignore[reportPrivateImportUsage]
-
-                lf = get_client()
-                recent = lf.api.trace.list(limit=5, order_by="timestamp.desc")
-                print("[Remote-E2E] Recent trace metadata dump (id, metadata, requester_metadata, tags):")
-                if recent and getattr(recent, "data", None):
-                    for t in recent.data:
-                        try:
-                            full = lf.api.trace.get(t.id)
-                            print(
-                                {
-                                    "id": full.id,
-                                    "metadata": getattr(full, "metadata", None),
-                                    "requester_metadata": getattr(full, "requester_metadata", None),
-                                    "tags": getattr(full, "tags", None),
-                                }
-                            )
-                        except Exception as e:
-                            print("[Remote-E2E] Failed to get trace details:", e)
-                else:
-                    print("[Remote-E2E] No recent traces found via list().")
-            except Exception as e:
-                print("[Remote-E2E] Langfuse debug fetch failed:", e)
-
-        assert rows and len(rows) > 0, (
-            "No Langfuse traces matched the metadata. Ensure the LiteLLM proxy is configured to forward "
-            "Langfuse telemetry and that LANGFUSE_* env vars are set."
-        )
-
-        # Minimal sanity: rows contain session_data.langfuse_trace_id
-        assert any((r.input_metadata.session_data or {}).get("langfuse_trace_id") for r in rows), (
-            "Expected langfuse_trace_id in session_data for at least one row"
-        )
-
-    except ImportError:
-        pytest.fail("Langfuse SDK not installed; cannot verify traces.")
+    print(f"✅ Successfully received row from Langfuse with invocation_id: {row.execution_metadata.invocation_id}")
 
     return row

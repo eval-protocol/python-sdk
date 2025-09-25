@@ -1,10 +1,11 @@
 import asyncio
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable
 
 import requests
 
 from eval_protocol.models import EvaluationRow
+from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
 
@@ -35,6 +36,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
       Returns: {"terminated": bool, "info": {...}?}
     """
 
+    supports_pipelining: bool = False  # Remote rollout processor cannot pipeline - must wait for all rollouts to complete before fetching results.
+
     def __init__(
         self,
         *,
@@ -42,6 +45,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
         num_turns: int = 2,
         poll_interval: float = 1.0,
         timeout_seconds: float = 120.0,
+        output_data_loader: Callable[[str], DynamicDataLoader],
     ):
         # Prefer constructor-provided configuration. These can be overridden via
         # config.kwargs at call time for backward compatibility.
@@ -49,6 +53,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._num_turns = num_turns
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
+        self._output_data_loader = output_data_loader
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         tasks: List[asyncio.Task[EvaluationRow]] = []
@@ -157,6 +162,21 @@ class RemoteRolloutProcessor(RolloutProcessor):
             tasks.append(asyncio.create_task(_process_row(r)))
 
         return tasks
+
+    def postprocess(self, finished_rollout_rows: List[EvaluationRow]) -> List[EvaluationRow]:
+        """Fetch actual evaluation rows from Langfuse using the output_data_loader."""
+        invocation_id = finished_rollout_rows[0].execution_metadata.invocation_id
+        if not invocation_id:
+            raise ValueError("Invocation ID is required in RemoteRolloutProcessor")
+
+        data_loader = self._output_data_loader(invocation_id)
+
+        results = data_loader.load()
+        output_rows: List[EvaluationRow] = []
+        for result in results:
+            output_rows.extend(result.rows)
+
+        return output_rows
 
     def cleanup(self) -> None:
         return None

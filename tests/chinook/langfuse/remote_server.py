@@ -57,6 +57,13 @@ def init(req: InitRequest):
 
             # Prepare metadata payload to attach for Langfuse filtering
             metadata = {
+                "tags": [
+                    f"invocation_id:{req.metadata.get('invocation_id')}",
+                    f"experiment_id:{req.metadata.get('experiment_id')}",
+                    f"rollout_id:{req.metadata.get('rollout_id')}",
+                    f"run_id:{req.metadata.get('run_id')}",
+                    f"row_id:{req.metadata.get('row_id')}",
+                ],
                 "invocation_id": req.metadata.get("invocation_id"),
                 "experiment_id": req.metadata.get("experiment_id"),
                 "rollout_id": req.metadata.get("rollout_id"),

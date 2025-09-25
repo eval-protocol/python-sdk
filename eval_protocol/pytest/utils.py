@@ -4,7 +4,7 @@ import os
 import re
 import sys
 from dataclasses import replace
-from typing import Any, Literal
+from typing import Any, Literal, Callable, AsyncGenerator
 
 from litellm.cost_calculator import cost_per_token
 from tqdm import tqdm
@@ -33,7 +33,9 @@ import pandas as pd
 AggregationMethod = Literal["mean", "max", "min", "bootstrap"]
 
 
-async def run_tasks_with_eval_progress(pointwise_tasks: list, run_idx: int):
+async def run_tasks_with_eval_progress(
+    pointwise_tasks: list[asyncio.Task[EvaluationRow]], run_idx: int
+) -> list[EvaluationRow]:
     """
     Run evaluation tasks with a progress bar and proper cancellation handling.
 
@@ -58,7 +60,7 @@ async def run_tasks_with_eval_progress(pointwise_tasks: list, run_idx: int):
         bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
     ) as eval_pbar:
 
-        async def task_with_progress(task):
+        async def task_with_progress(task: asyncio.Task[EvaluationRow]) -> EvaluationRow:
             try:
                 result = await task
                 return result
@@ -77,7 +79,9 @@ async def run_tasks_with_eval_progress(pointwise_tasks: list, run_idx: int):
             raise
 
 
-async def run_tasks_with_run_progress(execute_run_func, num_runs, config):
+async def run_tasks_with_run_progress(
+    execute_run_func: Callable[[int, RolloutProcessorConfig], Any], num_runs: int, config: RolloutProcessorConfig
+) -> None:
     """
     Run tasks with a parallel runs progress bar, preserving original logic.
 
@@ -98,12 +102,12 @@ async def run_tasks_with_run_progress(execute_run_func, num_runs, config):
         bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
     ) as run_pbar:
 
-        async def execute_run_with_progress(run_idx: int, config):
+        async def execute_run_with_progress(run_idx: int, config: RolloutProcessorConfig) -> Any:
             result = await execute_run_func(run_idx, config)
             run_pbar.update(1)
             return result
 
-        tasks = []
+        tasks: list[asyncio.Task[Any]] = []
         for run_idx in range(num_runs):
             tasks.append(asyncio.create_task(execute_run_with_progress(run_idx, config)))
         try:
@@ -274,7 +278,7 @@ async def rollout_processor_with_retry(
     fresh_dataset: list[EvaluationRow],
     config: RolloutProcessorConfig,
     run_idx: int = 0,
-):
+) -> AsyncGenerator[EvaluationRow, None]:
     """
     Wrapper around rollout_processor that handles retry logic using the Python backoff library.
 
@@ -304,13 +308,13 @@ async def rollout_processor_with_retry(
 
         # Create a single backoff-decorated retry function that can be reused
         @exception_config.get_backoff_decorator()  # pyright: ignore[reportUntypedFunctionDecorator]
-        async def execute_row_with_backoff_retry(row: EvaluationRow):
+        async def execute_row_with_backoff_retry(row: EvaluationRow) -> EvaluationRow:
             """Execute rollout for a single row with backoff retry."""
             retry_config = replace(config, kwargs={**(config.kwargs or {}), "start_server": False})
             retry_tasks = rollout_processor([row], retry_config)
             return await retry_tasks[0]
 
-        async def execute_row_with_backoff(task: asyncio.Task, row: EvaluationRow) -> EvaluationRow:  # pyright: ignore[reportMissingTypeArgument, reportUnknownParameterType]
+        async def execute_row_with_backoff(task: asyncio.Task[EvaluationRow], row: EvaluationRow) -> EvaluationRow:
             """Execute a single row task with backoff retry."""
 
             try:
@@ -344,7 +348,9 @@ async def rollout_processor_with_retry(
                     row.rollout_status = Status.rollout_error(repr(e))
                     return row
 
-        async def execute_row_with_backoff_and_log(task: asyncio.Task, row: EvaluationRow) -> EvaluationRow:  # pyright: ignore[reportMissingTypeArgument, reportUnknownParameterType]
+        async def execute_row_with_backoff_and_log(
+            task: asyncio.Task[EvaluationRow], row: EvaluationRow
+        ) -> EvaluationRow:
             """Execute a single row task with backoff retry and logging."""
             result = await execute_row_with_backoff(task, row)
             # Log the row after execution completes (success or failure)
@@ -386,7 +392,7 @@ def sanitize_filename(text: str) -> str:
     return safe[:120]
 
 
-def extract_effort_tag(params: dict) -> str | None:  # pyright: ignore[reportMissingTypeArgument, reportUnknownParameterType]
+def extract_effort_tag(params: dict[str, Any]) -> str | None:
     """
     Extract effort tag from completion parameters for use in file naming.
 

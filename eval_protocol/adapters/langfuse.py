@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Protocol, TYPE_CHECKING, cast
 
 from langfuse.api.resources.commons.types.observations_view import ObservationsView
-from eval_protocol.models import EvaluationRow, InputMetadata, Message
+from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, Message
 from .base import BaseAdapter
 from .utils import extract_messages_from_data
 
@@ -82,14 +82,44 @@ def convert_trace_to_evaluation_row(
         if not messages:
             return None
 
+        execution_metadata = ExecutionMetadata()
+        row_id = None
+
+        if trace.observations:
+            for obs in trace.observations:
+                if obs.metadata and "requester_metadata" in obs.metadata:
+                    req_meta = obs.metadata["requester_metadata"]
+                    if isinstance(req_meta, dict):
+                        execution_metadata.invocation_id = req_meta.get("invocation_id")
+                        execution_metadata.experiment_id = req_meta.get("experiment_id")
+                        execution_metadata.rollout_id = req_meta.get("rollout_id")
+                        execution_metadata.run_id = req_meta.get("run_id")
+                        row_id = req_meta.get("row_id")
+                    break  # Only need to get first observation
+
+        if trace.tags:
+            for tag in trace.tags:
+                if tag.startswith("invocation_id:") and not execution_metadata.invocation_id:
+                    execution_metadata.invocation_id = tag.split(":", 1)[1]
+                elif tag.startswith("experiment_id:") and not execution_metadata.experiment_id:
+                    execution_metadata.experiment_id = tag.split(":", 1)[1]
+                elif tag.startswith("rollout_id:") and not execution_metadata.rollout_id:
+                    execution_metadata.rollout_id = tag.split(":", 1)[1]
+                elif tag.startswith("run_id:") and not execution_metadata.run_id:
+                    execution_metadata.run_id = tag.split(":", 1)[1]
+                elif tag.startswith("row_id:") and not row_id:
+                    row_id = tag.split(":", 1)[1]
+
         return EvaluationRow(
             messages=messages,
             tools=tools,
             input_metadata=InputMetadata(
+                row_id=row_id,
                 session_data={
                     "langfuse_trace_id": trace.id,  # Store the trace ID here
-                }
+                },
             ),
+            execution_metadata=execution_metadata,
         )
 
     except (AttributeError, ValueError, KeyError) as e:
@@ -332,16 +362,18 @@ class LangfuseAdapter(BaseAdapter):
                         to_timestamp=to_timestamp,
                         order_by="timestamp.desc",
                     )
+
+                    # If no results, possible due to indexing delay--remote rollout processor just finished pushing rows to Langfuse
+                    if traces and hasattr(traces, "meta") and traces.meta.total_items == 0 and page == 1:
+                        raise Exception("Empty results - indexing delay")
+
                     break
                 except Exception as e:
                     list_retries += 1
-                    if "429" in str(e) and list_retries < max_retries:
+                    if list_retries < max_retries and ("429" in str(e) or "Empty results" in str(e)):
                         sleep_time = 2**list_retries  # Exponential backoff
                         logger.warning(
-                            "Rate limit hit on trace.list(), retrying in %ds (attempt %d/%d)",
-                            sleep_time,
-                            list_retries,
-                            max_retries,
+                            "Retrying in %ds (attempt %d/%d): %s", sleep_time, list_retries, max_retries, str(e)
                         )
                         time.sleep(sleep_time)
                     else:
