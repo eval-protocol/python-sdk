@@ -1,12 +1,8 @@
 import os
-import multiprocessing
-import time
-from datetime import datetime, timedelta
 from typing import List
 import atexit
 
 import pytest
-import requests
 
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluationRow, Message
@@ -46,68 +42,26 @@ def langfuse_output_data_loader(rollout_id: str) -> DynamicDataLoader:
     )
 
 
-def _start_remote_server():
-    # Starts FastAPI server defined in remote_server.py using absolute import
-    import importlib
-
-    os.environ.setdefault("REMOTE_SERVER_HOST", "127.0.0.1")
-    os.environ.setdefault("REMOTE_SERVER_PORT", "7077")
-    mod = importlib.import_module("tests.chinook.langfuse.remote_server")
-    mod.main()
-
-
-def _ensure_server_running():
-    host = os.getenv("REMOTE_SERVER_HOST", "127.0.0.1")
-    port = int(os.getenv("REMOTE_SERVER_PORT", "7077"))
-    base_url = f"http://{host}:{port}"
-
-    def _is_up() -> bool:
-        try:
-            r = requests.get(f"{base_url}/status", params={"rollout_id": "ping"}, timeout=1.0)
-            return r.status_code in (200, 404)
-        except Exception:
-            return False
-
-    if _is_up():
-        return None
-
-    # Launch in a background process
-    proc = multiprocessing.Process(target=_start_remote_server, daemon=True)
-    proc.start()
-
-    # Poll for readiness up to 10s
-    deadline = time.time() + 10
-    while time.time() < deadline:
-        if _is_up():
-            break
-        time.sleep(0.5)
-    return proc
-
-
 def remote_langfuse_data_generator() -> List[EvaluationRow]:
-    # Ensure server is running BEFORE rollouts start (evaluation_test triggers rollouts before test body)
-    _SERVER_PROC = _ensure_server_running()
-    atexit.register(lambda: (_SERVER_PROC and _SERVER_PROC.is_alive() and _SERVER_PROC.terminate()))
-
     # Minimal single-user-turn message to trigger a response
     row = EvaluationRow(messages=[Message(role="user", content="What is the capital of France?")])
     return [row, row, row]
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
-@pytest.mark.parametrize("completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}])
+@pytest.mark.parametrize("completion_params", [{"model": "gpt-5"}])
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[remote_langfuse_data_generator],
     ),
     rollout_processor=RemoteRolloutProcessor(
-        remote_base_url="http://127.0.0.1:7077",
+        remote_base_url="http://127.0.0.1:3000",
         num_turns=2,
         timeout_seconds=30,
         output_data_loader=langfuse_output_data_loader,
     ),
 )
-async def test_remote_rollout_and_fetch_langfuse(row: EvaluationRow) -> EvaluationRow:
+async def test_remote_rollout_and_fetch_langfuse_typescript(row: EvaluationRow) -> EvaluationRow:
     """
     End-to-end test:
     - remote server started at import time
