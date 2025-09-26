@@ -270,9 +270,6 @@ def pytest_configure(config) -> None:
             [json.loads(s) for s in config.getoption("--ep-completion-params") or []]
         )
 
-    if config.getoption("--ep-remote-rollout-processor-base-url"):
-        os.environ["EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL"] = config.getoption("--ep-remote-rollout-processor-base-url")
-
     # Allow ad-hoc overrides of input params via CLI flags
     try:
         merged: dict = {}
