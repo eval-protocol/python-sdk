@@ -189,7 +189,7 @@ def evaluation_test(
     completion_params = parse_ep_completion_params(completion_params)
     original_completion_params = completion_params
     passed_threshold = parse_ep_passed_threshold(passed_threshold)
-
+    custom_invocation_id = os.environ.get("EP_INVOCATION_ID", None)
     def decorator(
         test_func: TestFunction,
     ) -> TestFunction:
@@ -228,7 +228,10 @@ def evaluation_test(
         # Create wrapper function with exact signature that pytest expects
         def create_wrapper_with_signature() -> Callable[[], None]:
             # Create the function body that will be used
-            invocation_id = generate_id()
+            if custom_invocation_id:
+                invocation_id = custom_invocation_id
+            else:
+                invocation_id = generate_id()
 
             async def wrapper_body(**kwargs: Unpack[ParameterizedTestKwargs]) -> None:
                 # Store URL for viewing results (after all postprocessing is complete)
