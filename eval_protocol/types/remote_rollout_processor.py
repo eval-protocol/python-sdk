@@ -21,7 +21,7 @@ class InitRequest(BaseModel):
     """Request model for POST /init endpoint."""
 
     model: str
-    messages: List[Message] = Field(min_length=1)
+    messages: Optional[List[Message]] = None
     tools: Optional[List[Dict[str, Any]]] = None
 
     model_base_url: Optional[str] = None
