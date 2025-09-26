@@ -46,7 +46,8 @@ app.post("/init", async (req: Request, res: Response) => {
   try {
     // Validate request body
     const validatedData = initRequestSchema.parse(req.body);
-    const { rollout_id, model } = validatedData;
+    const { model, metadata } = validatedData;
+    const rollout_id = metadata.rollout_id;
 
     console.log(`Initializing rollout ${rollout_id} with model ${model}`);
 
@@ -137,11 +138,12 @@ app.get("/status", (req: Request, res: Response) => {
 async function simulateRolloutExecution(
   initRequest: InitRequest
 ): Promise<void> {
-  const rolloutState = rolloutStates.get(initRequest.rollout_id);
+  const rollout_id = initRequest.metadata.rollout_id;
+  const rolloutState = rolloutStates.get(rollout_id);
   if (!rolloutState) return;
 
   try {
-    console.log(`Starting rollout execution for ${initRequest.rollout_id}`);
+    console.log(`Starting rollout execution for ${rollout_id}`);
 
     const openai = new OpenAI({
       apiKey: process.env["OPENAI_API_KEY"],
@@ -160,12 +162,9 @@ async function simulateRolloutExecution(
     rolloutState.ended_at = new Date().toISOString();
     rolloutState.completed_turns = 1;
 
-    console.log(`Rollout ${initRequest.rollout_id} completed successfully`);
+    console.log(`Rollout ${rollout_id} completed successfully`);
   } catch (error) {
-    console.error(
-      `Error in rollout execution for ${initRequest.rollout_id}:`,
-      error
-    );
+    console.error(`Error in rollout execution for ${rollout_id}:`, error);
 
     rolloutState.status = "failed";
     rolloutState.ended_at = new Date().toISOString();

@@ -20,7 +20,6 @@ class RolloutMetadata(BaseModel):
 class InitRequest(BaseModel):
     """Request model for POST /init endpoint."""
 
-    rollout_id: str
     model: str
     messages: List[Message] = Field(min_length=1)
     tools: Optional[List[Dict[str, Any]]] = None

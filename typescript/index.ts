@@ -40,7 +40,6 @@ const metadataSchema = z
   .loose();
 
 export const initRequestSchema = z.object({
-  rollout_id: z.string(),
   model: z.string(),
   messages: z.array(messageSchema).min(1),
   tools: z.array(toolSchema).optional().nullable(),

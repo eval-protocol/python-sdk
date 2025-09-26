@@ -23,7 +23,7 @@ _STATE: Dict[str, Dict[str, Any]] = {}
 @app.post("/init")
 def init(req: InitRequest):
     # Persist state
-    _STATE[req.rollout_id] = {"terminated": False}
+    _STATE[req.metadata.rollout_id] = {"terminated": False}
 
     # Kick off worker thread that does a single-turn chat via Langfuse OpenAI integration
     def _worker():
@@ -43,10 +43,10 @@ def init(req: InitRequest):
 
         except Exception as e:
             # Best-effort; mark as done even on error to unblock polling
-            print(f"❌ Error in rollout {req.rollout_id}: {e}")
+            print(f"❌ Error in rollout {req.metadata.rollout_id}: {e}")
             pass
         finally:
-            _STATE[req.rollout_id]["terminated"] = True
+            _STATE[req.metadata.rollout_id]["terminated"] = True
 
     t = threading.Thread(target=_worker, daemon=True)
     t.start()

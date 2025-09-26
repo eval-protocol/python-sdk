@@ -108,7 +108,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 raise ValueError("Rollout ID is required in RemoteRolloutProcessor")
 
             init_payload: InitRequest = InitRequest(
-                rollout_id=row.execution_metadata.rollout_id,
                 model=model,
                 messages=clean_messages,
                 tools=row.tools,
