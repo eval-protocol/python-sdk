@@ -41,7 +41,7 @@ const metadataSchema = z
 
 export const initRequestSchema = z.object({
   model: z.string(),
-  messages: z.array(messageSchema).min(1),
+  messages: z.array(messageSchema).optional(),
   tools: z.array(toolSchema).optional().nullable(),
   metadata: metadataSchema,
   model_base_url: z.string().optional().nullable(),
@@ -79,6 +79,10 @@ export function initRequestToCompletionParams(
           parameters: tool.function.parameters || {},
         },
   }));
+
+  if (!initRequest.messages) {
+    throw new Error("messages is required");
+  }
 
   const completionParams = toolsToOpenAI
     ? {

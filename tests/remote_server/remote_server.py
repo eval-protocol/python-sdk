@@ -30,6 +30,9 @@ def init(req: InitRequest):
         try:
             metadata = {"langfuse_tags": create_langfuse_config_tags(req)}
 
+            if not req.messages:
+                raise ValueError("messages is required")
+
             completion_kwargs = {
                 "model": req.model,
                 "messages": req.messages,
