@@ -147,7 +147,14 @@ async function simulateRolloutExecution(
 
     const openai = new OpenAI({
       apiKey: process.env["OPENAI_API_KEY"],
+      baseURL: initRequest.model_base_url || undefined,
     });
+
+    if (initRequest.model_base_url) {
+      console.log(`Using custom model_base_url: ${initRequest.model_base_url}`);
+    } else {
+      console.log("Using default OpenAI base URL");
+    }
 
     const tracedOpenAI = observeOpenAI(openai, {
       tags: createLangfuseConfigTags(initRequest),

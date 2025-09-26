@@ -39,7 +39,15 @@ def init(req: InitRequest):
             if req.tools:
                 completion_kwargs["tools"] = req.tools
 
-            completion = openai.chat.completions.create(**completion_kwargs)
+            # Use the provided model_base_url if available
+            if req.model_base_url:
+                print(f"Using custom model_base_url: {req.model_base_url}")
+                # Create a new Langfuse OpenAI client with the custom base URL
+                custom_openai = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url=req.model_base_url)
+                completion = custom_openai.chat.completions.create(**completion_kwargs)
+            else:
+                print("Using default OpenAI base URL")
+                completion = openai.chat.completions.create(**completion_kwargs)
 
         except Exception as e:
             # Best-effort; mark as done even on error to unblock polling

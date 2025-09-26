@@ -11,9 +11,56 @@ from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
 
 
+def _attach_metadata_to_model_base_url(model_base_url: Optional[str], metadata: RolloutMetadata) -> Optional[str]:
+    """
+    Attach rollout metadata as query parameters to the model_base_url.
+
+    Args:
+        model_base_url: The base URL for the model API
+        metadata: The rollout metadata containing IDs to attach
+
+    Returns:
+        The model_base_url with query parameters attached, or None if model_base_url is None
+    """
+    if model_base_url is None:
+        return None
+
+    # Parse existing query parameters
+    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+
+    parsed = urlparse(model_base_url)
+    query_params = parse_qs(parsed.query)
+
+    # Add rollout metadata as query parameters
+    query_params.update(
+        {
+            "rollout_id": [metadata.rollout_id],
+            "invocation_id": [metadata.invocation_id],
+            "experiment_id": [metadata.experiment_id],
+            "run_id": [metadata.run_id],
+            "row_id": [metadata.row_id],
+        }
+    )
+
+    # Rebuild the URL with new query parameters
+    new_query = urlencode(query_params, doseq=True)
+    new_parsed = parsed._replace(query=new_query)
+    return urlunparse(new_parsed)
+
+
 class RemoteRolloutProcessor(RolloutProcessor):
     """
     Rollout processor that triggers a remote HTTP server to perform the rollout.
+
+    The processor automatically attaches rollout metadata (rollout_id, invocation_id,
+    experiment_id, run_id, row_id) as query parameters to the model_base_url when
+    provided. This passes along rollout context to the remote server for use in
+    LLM API calls.
+
+    Example:
+        If model_base_url is "https://api.openai.com/v1" and rollout_id is "abc123",
+        the enhanced URL will be:
+        "https://api.openai.com/v1?rollout_id=abc123&invocation_id=def456&..."
 
     See https://evalprotocol.io/tutorial/remote-rollout-processor for documentation.
     """
@@ -22,13 +69,25 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self,
         *,
         remote_base_url: Optional[str] = None,
+        model_base_url: Optional[str] = None,
         poll_interval: float = 1.0,
         timeout_seconds: float = 120.0,
         output_data_loader: Callable[[str], DynamicDataLoader],
     ):
-        # Prefer constructor-provided configuration. These can be overridden via
-        # config.kwargs at call time for backward compatibility.
+        """
+        Initialize the remote rollout processor.
+
+        Args:
+            remote_base_url: Base URL of the remote rollout server (required)
+            model_base_url: Base URL for LLM API calls. Will be enhanced with rollout
+                metadata as query parameters to pass along rollout context to the remote server.
+            poll_interval: Interval in seconds between status polls
+            timeout_seconds: Maximum time to wait for rollout completion
+            output_data_loader: Function to load rollout results by rollout_id
+        """
+        # Store configuration parameters
         self._remote_base_url = remote_base_url
+        self._model_base_url = model_base_url
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
         self._output_data_loader = output_data_loader
@@ -36,20 +95,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         tasks: List[asyncio.Task[EvaluationRow]] = []
 
-        # Start with constructor values
-        remote_base_url: Optional[str] = self._remote_base_url
-        poll_interval: float = self._poll_interval
-        timeout_seconds: float = self._timeout_seconds
-
-        # Backward compatibility: allow overrides via config.kwargs
-        if config.kwargs:
-            if remote_base_url is None:
-                remote_base_url = config.kwargs.get("remote_base_url", remote_base_url)
-            poll_interval = float(config.kwargs.get("poll_interval", poll_interval))
-            timeout_seconds = float(config.kwargs.get("timeout_seconds", timeout_seconds))
-
-        if not remote_base_url:
-            raise ValueError("remote_base_url is required in RolloutProcessorConfig.kwargs for RemoteRolloutProcessor")
+        if not self._remote_base_url:
+            raise ValueError("remote_base_url is required for RemoteRolloutProcessor")
 
         async def _process_row(row: EvaluationRow) -> EvaluationRow:
             start_time = time.perf_counter()
@@ -107,27 +154,31 @@ class RemoteRolloutProcessor(RolloutProcessor):
             if row.execution_metadata.rollout_id is None:
                 raise ValueError("Rollout ID is required in RemoteRolloutProcessor")
 
+            # Attach rollout metadata to model_base_url as query parameters
+            # This passes along rollout context to the remote server for use in LLM calls
+            enhanced_model_base_url = _attach_metadata_to_model_base_url(self._model_base_url, meta)
+
             init_payload: InitRequest = InitRequest(
                 model=model,
                 messages=clean_messages,
                 tools=row.tools,
                 metadata=meta,
-                model_base_url=config.kwargs.get("model_base_url", None),
+                model_base_url=enhanced_model_base_url,
             )
 
             # Fire-and-poll
             def _post_init() -> None:
-                url = f"{remote_base_url}/init"
+                url = f"{self._remote_base_url}/init"
                 r = requests.post(url, json=init_payload.model_dump(), timeout=30)
                 r.raise_for_status()
 
             await asyncio.to_thread(_post_init)
 
             terminated = False
-            deadline = time.time() + timeout_seconds
+            deadline = time.time() + self._timeout_seconds
 
             def _get_status() -> Dict[str, Any]:
-                url = f"{remote_base_url}/status"
+                url = f"{self._remote_base_url}/status"
                 r = requests.get(url, params={"rollout_id": row.execution_metadata.rollout_id}, timeout=15)
                 r.raise_for_status()
                 return r.json()
@@ -141,7 +192,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 except Exception:
                     # transient errors; continue polling
                     pass
-                await asyncio.sleep(poll_interval)
+                await asyncio.sleep(self._poll_interval)
 
             # Update duration, regardless of termination
             row.execution_metadata.duration_seconds = time.perf_counter() - start_time

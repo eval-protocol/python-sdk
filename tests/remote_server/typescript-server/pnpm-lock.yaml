@@ -27,8 +27,8 @@ importers:
         specifier: ^17.2.2
         version: 17.2.2
       eval-protocol:
-        specifier: ^0.1.2
-        version: 0.1.2(typescript@5.9.2)
+        specifier: ^0.1.3
+        version: 0.1.3(typescript@5.9.2)
       express:
         specifier: ^5.1.0
         version: 5.1.0
@@ -608,8 +608,8 @@ packages:
     resolution: {integrity: sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==}
     engines: {node: '>= 0.6'}
 
-  eval-protocol@0.1.2:
-    resolution: {integrity: sha512-YmEjRUy/MnYPudZpsCRzbQrBD3ZAKlK+jb+E5RklkKz7eDTLvhGY63Ynn5OoKcNW0+o9j9eV7SSHRVye6Sjbaw==}
+  eval-protocol@0.1.3:
+    resolution: {integrity: sha512-Mq+4c9cAJSC+ScO3xqko9WgLsZS9BG+p49wokgL6t/VUOS0o65RCOVZHelOKxcHNo3nlpUwBBA60kPtg72RJzw==}
     peerDependencies:
       typescript: ^5
 
@@ -1472,7 +1472,7 @@ snapshots:
 
   etag@1.8.1: {}
 
-  eval-protocol@0.1.2(typescript@5.9.2):
+  eval-protocol@0.1.3(typescript@5.9.2):
     dependencies:
       typescript: 5.9.2
       zod: 4.1.11

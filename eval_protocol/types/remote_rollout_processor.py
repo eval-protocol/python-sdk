@@ -28,7 +28,16 @@ class InitRequest(BaseModel):
     """
     A Base URL that the remote server can use to make LLM calls. This is useful
     to configure on the eval-protocol side for flexibility in
-    development/traning.
+    development/training.
+
+    The RemoteRolloutProcessor automatically enhances this URL by attaching
+    rollout metadata as query parameters (rollout_id, invocation_id, experiment_id,
+    run_id, row_id) before sending it to the remote server. This passes along
+    rollout context to the remote server for use in LLM API calls.
+
+    Example:
+        If model_base_url is "https://api.openai.com/v1", it will be enhanced to:
+        "https://api.openai.com/v1?rollout_id=abc123&invocation_id=def456&experiment_id=ghi789&run_id=jkl012&row_id=mno345"
     """
 
     metadata: RolloutMetadata

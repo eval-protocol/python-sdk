@@ -64,6 +64,7 @@ def rows() -> List[EvaluationRow]:
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url="http://127.0.0.1:3000",
         timeout_seconds=30,
+        model_base_url="https://api.openai.com/v1",
         output_data_loader=langfuse_output_data_loader,
     ),
 )
