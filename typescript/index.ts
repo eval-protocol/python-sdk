@@ -45,6 +45,7 @@ export const initRequestSchema = z.object({
   messages: z.array(messageSchema).min(1),
   tools: z.array(toolSchema).optional().nullable(),
   metadata: metadataSchema,
+  model_base_url: z.string().optional().nullable(),
 });
 
 export const statusInfoSchema = z.record(z.string(), z.any());
