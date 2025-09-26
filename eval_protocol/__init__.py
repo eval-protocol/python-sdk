@@ -33,13 +33,13 @@ except (ImportError, AttributeError):
     _FIREWORKS_AVAILABLE = False
 # Import submodules to make them available via eval_protocol.rewards, etc.
 from . import mcp, rewards
-from .models import EvaluateResult, Message, MetricResult, EvaluationRow
+from .models import EvaluateResult, Message, MetricResult, EvaluationRow, InputMetadata
 from .playback_policy import PlaybackPolicyBase
 from .resources import create_llm_resource
 from .reward_function import RewardFunction
 from .typed_interface import reward_function
 from .quickstart import aha_judge, multi_turn_assistant_to_ground_truth, assistant_to_ground_truth
-from .pytest import evaluation_test, SingleTurnRolloutProcessor
+from .pytest import evaluation_test, SingleTurnRolloutProcessor, RemoteRolloutProcessor
 from .pytest.parameterize import DefaultParameterIdGenerator
 
 try:
@@ -73,6 +73,9 @@ from .types.remote_rollout_processor import (
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 __all__ = [
+    "RemoteRolloutProcessor",
+    "InputMetadata",
+    "EvaluationRow",
     "DefaultParameterIdGenerator",
     "DynamicDataLoader",
     "InlineDataLoader",
