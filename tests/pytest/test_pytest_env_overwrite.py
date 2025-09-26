@@ -23,8 +23,8 @@ with mock.patch.dict(os.environ, {"EP_INVOCATION_ID": "test-invocation-123"}):
         return row
 
 
+with mock.patch.dict(os.environ, {"EP_COMPLETION_PARAMS": '[{"model": "gpt-40"}]'}):
 
-with mock.patch.dict(os.environ, {"EP_COMPLETION_PARAMS": "[{\"model\": \"gpt-40\"}]"}):
     @evaluation_test(
         input_rows=[[EvaluationRow(messages=[Message(role="user", content="What is 5 * 6?")])]],
         completion_params=[{"model": "no-op"}],  # This should be overridden by the env var
@@ -38,7 +38,6 @@ with mock.patch.dict(os.environ, {"EP_COMPLETION_PARAMS": "[{\"model\": \"gpt-40
         return row
 
 
-
 _jsonl_tmpdir = tempfile.mkdtemp()
 atexit.register(shutil.rmtree, _jsonl_tmpdir, ignore_errors=True)
 
@@ -49,6 +48,7 @@ with open(input_path, "w") as f:
     )
 print(f"finish prepare input file {input_path}")
 with mock.patch.dict(os.environ, {"EP_JSONL_PATH": input_path}):
+
     @evaluation_test(
         input_rows=[[EvaluationRow(messages=[Message(role="user", content="This will be ignored")])]],
         completion_params=[{"model": "no-op"}],
