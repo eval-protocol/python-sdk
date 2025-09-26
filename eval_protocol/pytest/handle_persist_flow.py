@@ -7,6 +7,7 @@ import pathlib
 import re
 from typing import Any
 
+from eval_protocol.directory_utils import find_eval_protocol_dir
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest.store_experiment_link import store_experiment_link
 import requests
@@ -25,7 +26,8 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                     if row.execution_metadata and row.execution_metadata.experiment_id:
                         experiments[row.execution_metadata.experiment_id].append(row)
 
-                exp_dir = pathlib.Path("experiment_results")
+                eval_protocol_dir = find_eval_protocol_dir()
+                exp_dir = pathlib.Path(eval_protocol_dir) / "experiment_results"
                 exp_dir.mkdir(parents=True, exist_ok=True)
 
                 # Create one JSONL file per experiment_id
