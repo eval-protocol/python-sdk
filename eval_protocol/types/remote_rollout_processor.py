@@ -37,7 +37,7 @@ class InitRequest(BaseModel):
 
     Example:
         If model_base_url is "https://api.openai.com/v1", it will be enhanced to:
-        "https://api.openai.com/v1?rollout_id=abc123&invocation_id=def456&experiment_id=ghi789&run_id=jkl012&row_id=mno345"
+        "https://api.openai.com/v1/rollout_id/abc123/invocation_id/def456/experiment_id/ghi789/run_id/jkl012/row_id/mno345/chat/completions"
     """
 
     metadata: RolloutMetadata

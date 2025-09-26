@@ -43,6 +43,7 @@ def init(req: InitRequest):
             if req.model_base_url:
                 print(f"Using custom model_base_url: {req.model_base_url}")
                 # Create a new Langfuse OpenAI client with the custom base URL
+                # The URL already contains the metadata as path segments, so we can use it directly
                 custom_openai = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url=req.model_base_url)
                 completion = custom_openai.chat.completions.create(**completion_kwargs)
             else:

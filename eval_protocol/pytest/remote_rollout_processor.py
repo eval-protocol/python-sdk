@@ -13,38 +13,33 @@ from .types import RolloutProcessorConfig
 
 def _attach_metadata_to_model_base_url(model_base_url: Optional[str], metadata: RolloutMetadata) -> Optional[str]:
     """
-    Attach rollout metadata as query parameters to the model_base_url.
+    Attach rollout metadata as path segments to the model_base_url.
 
     Args:
         model_base_url: The base URL for the model API
         metadata: The rollout metadata containing IDs to attach
 
     Returns:
-        The model_base_url with query parameters attached, or None if model_base_url is None
+        The model_base_url with path segments attached, or None if model_base_url is None
     """
     if model_base_url is None:
         return None
 
-    # Parse existing query parameters
-    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+    # Parse the URL to extract components
+    from urllib.parse import urlparse, urlunparse
 
     parsed = urlparse(model_base_url)
-    query_params = parse_qs(parsed.query)
 
-    # Add rollout metadata as query parameters
-    query_params.update(
-        {
-            "rollout_id": [metadata.rollout_id],
-            "invocation_id": [metadata.invocation_id],
-            "experiment_id": [metadata.experiment_id],
-            "run_id": [metadata.run_id],
-            "row_id": [metadata.row_id],
-        }
-    )
+    # Build the path with metadata segments
+    # Format: /rollout_id/{rollout_id}/invocation_id/{invocation_id}/experiment_id/{experiment_id}/run_id/{run_id}/row_id/{row_id}
+    metadata_path = f"/rollout_id/{metadata.rollout_id}/invocation_id/{metadata.invocation_id}/experiment_id/{metadata.experiment_id}/run_id/{metadata.run_id}/row_id/{metadata.row_id}"
 
-    # Rebuild the URL with new query parameters
-    new_query = urlencode(query_params, doseq=True)
-    new_parsed = parsed._replace(query=new_query)
+    # Append metadata path to existing path, ensuring proper path joining
+    base_path = parsed.path.rstrip("/")
+    new_path = f"{base_path}{metadata_path}"
+
+    # Rebuild the URL with the new path
+    new_parsed = parsed._replace(path=new_path)
     return urlunparse(new_parsed)
 
 
@@ -53,14 +48,14 @@ class RemoteRolloutProcessor(RolloutProcessor):
     Rollout processor that triggers a remote HTTP server to perform the rollout.
 
     The processor automatically attaches rollout metadata (rollout_id, invocation_id,
-    experiment_id, run_id, row_id) as query parameters to the model_base_url when
+    experiment_id, run_id, row_id) as path segments to the model_base_url when
     provided. This passes along rollout context to the remote server for use in
     LLM API calls.
 
     Example:
         If model_base_url is "https://api.openai.com/v1" and rollout_id is "abc123",
         the enhanced URL will be:
-        "https://api.openai.com/v1?rollout_id=abc123&invocation_id=def456&..."
+        "https://api.openai.com/v1/rollout_id/abc123/invocation_id/def456/experiment_id/ghi789/run_id/jkl012/row_id/mno345"
 
     See https://evalprotocol.io/tutorial/remote-rollout-processor for documentation.
     """
