@@ -24,6 +24,14 @@ class InitRequest(BaseModel):
     model: str
     messages: List[Message] = Field(min_length=1)
     tools: Optional[List[Dict[str, Any]]] = None
+
+    model_base_url: Optional[str] = None
+    """
+    A Base URL that the remote server can use to make LLM calls. This is useful
+    to configure on the eval-protocol side for flexibility in
+    development/traning.
+    """
+
     metadata: RolloutMetadata
 
 
