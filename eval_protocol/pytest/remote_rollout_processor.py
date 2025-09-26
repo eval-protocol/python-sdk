@@ -15,25 +15,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
     """
     Rollout processor that triggers a remote HTTP server to perform the rollout.
 
-    Expected remote API:
-    - POST {remote_base_url}/init
-      Body: {
-        "rollout_id": str,
-        "model": str,
-        "messages": list[dict],
-        "tools": list[dict] | null,
-        "metadata": {
-          "invocation_id": str,
-          "experiment_id": str,
-          "rollout_id": str,
-          "run_id": str | null,
-          "row_id": str | null
-        },
-      }
-      Returns: {"ok": true}
-
-    - GET {remote_base_url}/status?rollout_id=...
-      Returns: {"terminated": bool, "info": {...}?}
+    See https://evalprotocol.io/tutorial/remote-rollout-processor for documentation.
     """
 
     def __init__(
