@@ -20,7 +20,7 @@ from eval_protocol.models import (
     Status,
 )
 from eval_protocol.data_loader import DynamicDataLoader
-from eval_protocol.data_loader.models import EvaluationDataLoader 
+from eval_protocol.data_loader.models import EvaluationDataLoader
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import (
     RolloutProcessorConfig,
@@ -240,7 +240,10 @@ def parse_ep_completion_params(
         pass
     return completion_params
 
-def parse_ep_completion_params_overwrite(completion_params: Sequence[CompletionParams | None] | None) -> Sequence[CompletionParams | None]:
+
+def parse_ep_completion_params_overwrite(
+    completion_params: Sequence[CompletionParams | None] | None,
+) -> Sequence[CompletionParams | None]:
     new_completion_params = os.getenv("EP_COMPLETION_PARAMS")
     if new_completion_params:
         try:
@@ -251,6 +254,7 @@ def parse_ep_completion_params_overwrite(completion_params: Sequence[CompletionP
             pass
     return completion_params or []
 
+
 def _rows_from_jsonl(path: str) -> list[EvaluationRow]:
     rows = []
     try:
@@ -260,8 +264,9 @@ def _rows_from_jsonl(path: str) -> list[EvaluationRow]:
     except Exception as e:
         print(f"❌ Failed to load rows from JSONL at {path}: {e}")
         return []
-    
+
     return rows
+
 
 def parse_ep_dataloaders(
     dataloaders: Sequence[EvaluationDataLoader] | EvaluationDataLoader | None,
@@ -269,8 +274,7 @@ def parse_ep_dataloaders(
     try:
         load_from_jsonl_path = os.getenv("EP_JSONL_PATH")
         if load_from_jsonl_path:
-            return DynamicDataLoader(
-                generators=[lambda path=load_from_jsonl_path: _rows_from_jsonl(path)])
+            return DynamicDataLoader(generators=[lambda path=load_from_jsonl_path: _rows_from_jsonl(path)])
     except Exception:
         pass
     return dataloaders or None

@@ -189,7 +189,7 @@ def evaluation_test(
     max_concurrent_rollouts = parse_ep_max_concurrent_rollouts(max_concurrent_rollouts)
     max_dataset_rows = parse_ep_max_rows(max_dataset_rows)
     completion_params = parse_ep_completion_params(completion_params)
-    completion_params = parse_ep_completion_params_overwrite(completion_params) 
+    completion_params = parse_ep_completion_params_overwrite(completion_params)
     original_completion_params = completion_params
     passed_threshold = parse_ep_passed_threshold(passed_threshold)
     data_loaders = parse_ep_dataloaders(data_loaders)
@@ -199,7 +199,7 @@ def evaluation_test(
     if data_loaders:
         input_dataset = None
         input_messages = None
-        input_rows = None 
+        input_rows = None
 
     def decorator(
         test_func: TestFunction,

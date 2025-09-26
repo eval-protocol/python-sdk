@@ -120,23 +120,18 @@ def pytest_addoption(parser) -> None:
     group.addoption(
         "--ep-jsonl-path",
         default=None,
-        help=("Load input from a jsonl file that is already in EvaluationRow or openai CHAT format")
+        help=("Load input from a jsonl file that is already in EvaluationRow or openai CHAT format"),
     )
     group.addoption(
         "--ep-completion-params",
         default=[],
         action="append",
-        help=(
-            "Overwrite completion params with json. Can be used multiple times. "
-        ),
+        help=("Overwrite completion params with json. Can be used multiple times. "),
     )
     group.addoption(
         "--ep-remote-rollout-processor-base-url",
         default=None,
-        help=(
-            "If set, use this base URL for remote rollout processing. "
-            "Example: http://localhost:8000"
-        ),
+        help=("If set, use this base URL for remote rollout processing. Example: http://localhost:8000"),
     )
 
 
@@ -271,10 +266,10 @@ def pytest_configure(config) -> None:
 
     if config.getoption("--ep-completion-params"):
         # redump to json to make sure they are legit
-        os.environ["EP_COMPLETION_PARAMS"] = json.dumps([
-            json.loads(s) for s in config.getoption("--ep-completion-params") or []
-        ])
-    
+        os.environ["EP_COMPLETION_PARAMS"] = json.dumps(
+            [json.loads(s) for s in config.getoption("--ep-completion-params") or []]
+        )
+
     if config.getoption("--ep-remote-rollout-processor-base-url"):
         os.environ["EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL"] = config.getoption("--ep-remote-rollout-processor-base-url")
 
