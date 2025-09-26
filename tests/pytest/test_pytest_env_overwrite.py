@@ -5,6 +5,7 @@ import os
 
 os.environ["EP_INVOCATION_ID"] = "test-invocation-123"
 
+
 @evaluation_test(
     input_rows=[[EvaluationRow(messages=[Message(role="user", content="What is the capital of France?")])]],
     completion_params=[{"model": "no-op"}],
