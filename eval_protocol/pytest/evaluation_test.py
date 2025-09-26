@@ -52,10 +52,12 @@ from eval_protocol.pytest.utils import (
     add_cost_metrics,
     log_eval_status_and_rows,
     parse_ep_completion_params,
+    parse_ep_completion_params_overwrite,
     parse_ep_max_concurrent_rollouts,
     parse_ep_max_rows,
     parse_ep_num_runs,
     parse_ep_passed_threshold,
+    parse_ep_dataloaders,
     rollout_processor_with_retry,
     run_tasks_with_eval_progress,
     run_tasks_with_run_progress,
@@ -187,9 +189,17 @@ def evaluation_test(
     max_concurrent_rollouts = parse_ep_max_concurrent_rollouts(max_concurrent_rollouts)
     max_dataset_rows = parse_ep_max_rows(max_dataset_rows)
     completion_params = parse_ep_completion_params(completion_params)
+    completion_params = parse_ep_completion_params_overwrite(completion_params) 
     original_completion_params = completion_params
     passed_threshold = parse_ep_passed_threshold(passed_threshold)
+    data_loaders = parse_ep_dataloaders(data_loaders)
     custom_invocation_id = os.environ.get("EP_INVOCATION_ID", None)
+
+    # dataloader might be overridden here, to avoid conflict, manually unset other data input params
+    if data_loaders:
+        input_dataset = None
+        input_messages = None
+        input_rows = None 
 
     def decorator(
         test_func: TestFunction,

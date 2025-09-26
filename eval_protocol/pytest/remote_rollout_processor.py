@@ -8,6 +8,7 @@ from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
+import os
 
 
 class RemoteRolloutProcessor(RolloutProcessor):
@@ -46,6 +47,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
         # Prefer constructor-provided configuration. These can be overridden via
         # config.kwargs at call time for backward compatibility.
         self._remote_base_url = remote_base_url
+        if os.getenv("EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL"):
+            self._remote_base_url = os.getenv("EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL")
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
         self._output_data_loader = output_data_loader
