@@ -10,6 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
+from eval_protocol.common_utils import load_jsonl
+from eval_protocol.data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest import evaluation_test, ExceptionHandlerConfig
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
@@ -69,6 +71,14 @@ def _get_retail_dataset_path() -> str:
     return str(Path(__file__).parent / "data" / "retail_dataset.jsonl")
 
 
+def tau_bench_retail_data_generator() -> List[EvaluationRow]:
+    """Load and adapt the retail dataset into evaluation rows."""
+    dataset_rows: List[Dict[str, Any]] = []
+    for dataset_path in [_get_retail_dataset_path()]:
+        dataset_rows.extend(load_jsonl(dataset_path))
+    return tau_bench_retail_to_evaluation_row(dataset_rows)
+
+
 def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
     """
     Convert entries from retail dataset to EvaluationRow objects.
@@ -98,8 +108,9 @@ def tau_bench_retail_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evalu
 
 
 @evaluation_test(
-    input_dataset=[_get_retail_dataset_path()],
-    dataset_adapter=tau_bench_retail_to_evaluation_row,
+    data_loaders=DynamicDataLoader(
+        generators=[tau_bench_retail_data_generator],
+    ),
     completion_params=[
         {
             "temperature": 0.8,

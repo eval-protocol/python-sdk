@@ -1,5 +1,7 @@
 from typing import Any, Dict, List, Optional
 
+from eval_protocol.common_utils import load_jsonl
+from eval_protocol.data_loader import DynamicDataLoader
 from eval_protocol.models import (
     EvaluateResult,
     EvaluationRow,
@@ -11,6 +13,7 @@ from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
+from eval_protocol.pytest.utils import parse_ep_max_rows
 
 SYSTEM_PROMPT = (
     "You are a helpful math assistant. Please reason step by step, and put your final answer within \\boxed{...}."
@@ -71,12 +74,29 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     return converted
 
 
+_AIME2025_DATASET_URLS: List[str] = [
+    "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
+    "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
+]
+
+
+def aime2025_data_generator() -> List[EvaluationRow]:
+    """Load the AIME 2025 datasets and convert them into evaluation rows."""
+    dataset_rows: List[Dict[str, Any]] = []
+    for dataset_url in _AIME2025_DATASET_URLS:
+        dataset_rows.extend(load_jsonl(dataset_url))
+
+    max_rows = parse_ep_max_rows(2)
+    if max_rows is not None:
+        dataset_rows = dataset_rows[:max_rows]
+
+    return aime2025_dataset_adapter(dataset_rows)
+
+
 @evaluation_test(
-    input_dataset=[
-        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
-        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
-    ],
-    dataset_adapter=aime2025_dataset_adapter,
+    data_loaders=DynamicDataLoader(
+        generators=[aime2025_data_generator],
+    ),
     completion_params=[
         {
             "max_tokens": 131000,
