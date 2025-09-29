@@ -169,9 +169,14 @@ class RemoteRolloutProcessor(RolloutProcessor):
             else:
                 raise ValueError("RemoteRolloutProcessor's output_data_loader should return exactly one row.")
 
-        for r in rows:
-            tasks.append(asyncio.create_task(_process_row(r)))
+        semaphore = config.semaphore
 
+        async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:
+            async with semaphore:
+                result = await _process_row(r)
+                return result
+
+        tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
         return tasks
 
     def cleanup(self) -> None:
