@@ -262,6 +262,9 @@ def evaluation_test(
                             results = data_loader.load()
                             for result in results:
                                 data.extend(result.rows)
+                        # Apply max_dataset_rows limit to data from data loaders
+                        if max_dataset_rows is not None:
+                            data = data[:max_dataset_rows]
                     elif "dataset_path" in kwargs and kwargs["dataset_path"] is not None:
                         ds_arg: list[str] = kwargs["dataset_path"]
                         # Support either a single path or a list of paths; if a list is provided,

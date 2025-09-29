@@ -21,3 +21,24 @@ def test_inline_data_loader(row: EvaluationRow) -> EvaluationRow:
     assert row.input_metadata.dataset_info.get("data_loader_variant_description") is None
     assert row.input_metadata.dataset_info.get("data_loader_preprocessed") is False
     return row
+
+
+@evaluation_test(
+    data_loaders=InlineDataLoader(
+        messages=[[Message(role="user", content=f"What is {i} + {i}?")] for i in range(5)],
+    ),
+    max_dataset_rows=2,
+)
+def test_inline_data_loader_max_dataset_rows(row: EvaluationRow) -> EvaluationRow:
+    """Inline data loader should respect max_dataset_rows parameter."""
+
+    # This test should only process 2 rows despite the loader having 5
+    content = row.messages[0].content
+    assert content in ["What is 0 + 0?", "What is 1 + 1?"]
+
+    assert row.input_metadata.dataset_info is not None
+    assert row.input_metadata.dataset_info.get("data_loader_variant_id") == "inline"
+    assert row.input_metadata.dataset_info.get("data_loader_type") == "InlineDataLoader"
+    assert row.input_metadata.dataset_info.get("data_loader_preprocessed") is False
+
+    return row
