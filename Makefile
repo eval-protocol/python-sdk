@@ -1,6 +1,101 @@
 PYTHON_DIRS = tests examples scripts eval_protocol
+PY ?= uv run python
 
 .PHONY: clean build dist upload test lint typecheck format release sync-docs version tag-version show-version bump-major bump-minor bump-patch full-release quick-release
+## -----------------------------
+## Local Langfuse + LiteLLM E2E
+## -----------------------------
+
+.PHONY: local-install local-langfuse-up local-langfuse-up-local local-langfuse-wait local-litellm-up local-litellm-smoke local-adapter-smoke local-generate-traces local-generate-chinook local-eval local-eval-fireworks-only local-quick-run
+
+local-install:
+	uv pip install -e ".[langfuse]"
+
+# 1) Start Langfuse per official docs (run from Langfuse repo). Here we just export env.
+local-langfuse-up:
+	@echo "Ensure you started Langfuse via docker compose as per docs."
+	@echo "Docs: https://langfuse.com/self-hosting/deployment/docker-compose"
+	@echo "Exporting LANGFUSE env vars for SDK..."
+	LANGFUSE_PUBLIC_KEY=$${LANGFUSE_PUBLIC_KEY:-local}; \
+	LANGFUSE_SECRET_KEY=$${LANGFUSE_SECRET_KEY:-local}; \
+	LANGFUSE_HOST=$${LANGFUSE_HOST:-http://localhost:3000}; \
+	printf "LANGFUSE_PUBLIC_KEY=%s\nLANGFUSE_SECRET_KEY=%s\nLANGFUSE_HOST=%s\n" $$LANGFUSE_PUBLIC_KEY $$LANGFUSE_SECRET_KEY $$LANGFUSE_HOST
+
+# Start Langfuse using local compose file
+local-langfuse-up-local:
+	docker compose -f examples/local_langfuse_litellm_ollama/langfuse-docker-compose.yml up -d
+
+# Wait until Langfuse UI responds
+local-langfuse-wait:
+	LANGFUSE_HOST=$${LANGFUSE_HOST:-http://localhost:3000}; \
+	echo "Waiting for $$LANGFUSE_HOST ..."; \
+	for i in $$(seq 1 60); do \
+	  code=$$(curl -s -o /dev/null -w "%{http_code}" $$LANGFUSE_HOST); \
+	  if [ "$$code" = "200" ] || [ "$$code" = "302" ]; then echo "Langfuse is up (HTTP $$code)"; exit 0; fi; \
+	  sleep 2; \
+	done; \
+	echo "Langfuse did not become ready in time."; exit 1
+
+# 2) Start LiteLLM router (requires litellm installed). Keep foreground.
+local-litellm-up:
+	LITELLM_API_KEY=$${LITELLM_API_KEY:-local-demo-key}; \
+	printf "LITELLM_API_KEY=%s\n" $$LITELLM_API_KEY; \
+	LITELLM_API_KEY=$$LITELLM_API_KEY uv run litellm --config examples/local_langfuse_litellm_ollama/litellm-config.yaml --port 4000
+
+# 2b) Smoke test LiteLLM endpoints
+local-litellm-smoke:
+	@test -n "$$LITELLM_API_KEY" || (echo "LITELLM_API_KEY not set" && exit 1)
+	curl -s -H "Authorization: Bearer $$LITELLM_API_KEY" http://127.0.0.1:4000/v1/models | head -n 5 | cat
+	curl -s \
+	  -H "Authorization: Bearer $$LITELLM_API_KEY" \
+	  -H "Content-Type: application/json" \
+	  http://127.0.0.1:4000/v1/chat/completions \
+	  -d '{"model":"ollama/llama3.1","messages":[{"role":"user","content":"Say hi"}]}' \
+	| head -n 40 | cat
+
+# 3) Seed one trace into Langfuse
+
+# 4) Adapter smoke test (fetch 1 row)
+local-adapter-smoke:
+	LANGFUSE_HOST=$${LANGFUSE_HOST:-http://localhost:3000}; \
+	code=$$(curl -s -o /dev/null -w "%{http_code}" $$LANGFUSE_HOST); \
+	if [ "$$code" != "200" ] && [ "$$code" != "302" ]; then \
+	  echo "Langfuse not reachable at $$LANGFUSE_HOST (HTTP $$code). Start it per docs."; \
+	  exit 1; \
+	fi; \
+	LANGFUSE_PUBLIC_KEY=$${LANGFUSE_PUBLIC_KEY:-local}; \
+	LANGFUSE_SECRET_KEY=$${LANGFUSE_SECRET_KEY:-local}; \
+	LANGFUSE_PUBLIC_KEY=$$LANGFUSE_PUBLIC_KEY LANGFUSE_SECRET_KEY=$$LANGFUSE_SECRET_KEY LANGFUSE_HOST=$$LANGFUSE_HOST \
+	$(PY) -c "from eval_protocol.adapters.langfuse import create_langfuse_adapter; a=create_langfuse_adapter(); rows=a.get_evaluation_rows(limit=1, sample_size=1); print('Fetched rows:', len(rows))"
+
+# Generate realistic traces into Langfuse (Chinook) using Fireworks models
+local-generate-traces:
+	@test -n "$$FIREWORKS_API_KEY" || (echo "FIREWORKS_API_KEY not set" && exit 1)
+	uv pip install -e ".[pydantic,fireworks,chinook]" >/dev/null || true
+	CHINOOK_USE_STUB_DB=1 uv run pytest tests/chinook/langfuse/generate_traces.py -q
+
+# Force-run Chinook generator with stub DB and Langfuse observe
+local-generate-chinook:
+	@test -n "$$FIREWORKS_API_KEY" || (echo "FIREWORKS_API_KEY not set" && exit 1)
+	uv pip install -e ".[pydantic,fireworks,chinook]" >/dev/null || true
+	CHINOOK_USE_STUB_DB=1 uv run pytest tests/chinook/langfuse/generate_traces.py -q
+
+# Fallback generator that does not need external DBs
+
+# 5) Run the local evaluation test (uses Fireworks as judge; requires FIREWORKS_API_KEY)
+local-eval:
+	@test -n "$$FIREWORKS_API_KEY" || (echo "FIREWORKS_API_KEY not set" && exit 1)
+	uv run pytest eval_protocol/quickstart/llm_judge_langfuse_local.py -k test_llm_judge_local -q
+
+# Run evaluation by calling Fireworks directly (skip LiteLLM router)
+local-eval-fireworks-only:
+	@test -n "$$FIREWORKS_API_KEY" || (echo "FIREWORKS_API_KEY not set" && exit 1)
+	uv run pytest eval_protocol/quickstart/llm_judge_langfuse_fireworks_only.py -k test_llm_judge_fireworks_only -q
+
+# One-shot: assumes Langfuse is already up externally and LiteLLM already running in another shell
+local-quick-run: local-seed-langfuse local-adapter-smoke local-eval
+	@echo "Done. Check Langfuse UI for scores."
+
 
 clean:
 	rm -rf build/ dist/ *.egg-info/

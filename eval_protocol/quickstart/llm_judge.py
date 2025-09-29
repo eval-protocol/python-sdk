@@ -2,6 +2,7 @@
 Default LLM judge for Eval Protocol. Inspired by Arena-Hard-Auto.
 """
 
+import os
 from typing import Optional
 
 from eval_protocol.models import EvaluationRow, EvaluateResult, MetricResult
@@ -85,6 +86,15 @@ async def aha_judge(
     # Upload score to adapter if provided
     if adapter and row.evaluation_result and row.evaluation_result.is_score_valid:
         model_name = row.input_metadata.completion_params.get("model", "unknown_model")
-        adapter.upload_score(row, model_name)
+        try:
+            if os.getenv("EP_DEBUG", "0").strip() == "1":
+                print(
+                    f"[EP-Debug] Uploading score to Langfuse: model={model_name}, score={row.evaluation_result.score}"
+                )
+            adapter.upload_score(row, model_name)
+            if os.getenv("EP_DEBUG", "0").strip() == "1":
+                print("[EP-Debug] Upload score success")
+        except Exception as e:
+            print(f"[EP-Debug] Upload score failed: {repr(e)}")
 
     return row
