@@ -155,7 +155,13 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 except Exception:
                     # transient errors; continue polling
                     pass
+
                 await asyncio.sleep(poll_interval)
+            else:
+                # Loop completed without breaking, which means we timed out
+                row.rollout_status = Status.rollout_error(
+                    f"Rollout {row.execution_metadata.rollout_id} timed out after {timeout_seconds} seconds"
+                )
 
             # Update duration, regardless of termination
             row.execution_metadata.duration_seconds = time.perf_counter() - start_time
