@@ -79,7 +79,7 @@ def evaluation_test(
     aggregation_method: AggregationMethod = "mean",
     passed_threshold: EvaluationThreshold | float | EvaluationThresholdDict | None = None,
     num_runs: int = 1,
-    row_ids: Sequence[str] | None = None,
+    filtered_row_ids: Sequence[str] | None = None,
     max_dataset_rows: int | None = None,
     mcp_config_path: str | None = None,
     max_concurrent_rollouts: int = 8,
@@ -147,7 +147,7 @@ def evaluation_test(
             Success rate must be above success, and if set, standard error must be below standard_error.
             Success rate +/- one standard_error is equivalent to 68% confidence interval.
         num_runs: Number of times to repeat the rollout and evaluations.
-        row_ids: List of row_ids to use filter for the evaluation. If provided, only the rows with the given row_ids will be evaluated.
+        filtered_row_ids: List of row_ids to filter for the evaluation. If provided, only the rows with the given row_ids will be evaluated.
         max_dataset_rows: Limit dataset to the first N rows.
         mcp_config_path: Path to MCP config file that follows MCPMultiClientConfiguration schema
         max_concurrent_rollouts: Maximum number of concurrent rollouts to run in parallel.
@@ -288,8 +288,8 @@ def evaluation_test(
                     else:
                         raise ValueError("No input dataset, input messages, or input rows provided")
 
-                    if row_ids is not None:
-                        data = [row for row in data if row.input_metadata.row_id in row_ids]
+                    if filtered_row_ids is not None:
+                        data = [row for row in data if row.input_metadata.row_id in filtered_row_ids]
 
                     """
                     data_loaders handles preprocess_fn internally so we want
