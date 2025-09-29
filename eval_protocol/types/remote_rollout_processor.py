@@ -4,7 +4,7 @@ Request and response models for remote rollout processor servers.
 
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
-from eval_protocol.models import Message
+from eval_protocol.models import Message, Status
 
 
 class RolloutMetadata(BaseModel):
@@ -39,6 +39,12 @@ class StatusResponse(BaseModel):
 
     terminated: bool
     info: Optional[Dict[str, Any]] = None
+
+    status: Optional[Status] = None
+    """
+    Optional status indicator for the rollout to be used by eval-protocol. This
+    is useful to distinguish between successful and failed rollouts.
+    """
 
 
 def create_langfuse_config_tags(init_request: InitRequest) -> List[str]:
