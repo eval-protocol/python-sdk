@@ -121,8 +121,19 @@ class RemoteRolloutProcessor(RolloutProcessor):
             # Fire-and-poll
             def _post_init() -> None:
                 url = f"{remote_base_url}/init"
-                r = requests.post(url, json=init_payload.model_dump(), timeout=30)
-                r.raise_for_status()
+                try:
+                    r = requests.post(url, json=init_payload.model_dump(), timeout=30)
+                    r.raise_for_status()
+                except requests.exceptions.Timeout:
+                    raise TimeoutError(
+                        "The /init endpoint timed out after 30 seconds. "
+                        "CRITICAL: The /init endpoint must return immediately (within 30s) and NOT block on rollout execution. "
+                        "Your remote server should:\n"
+                        "1. Accept the /init request and return a 200 response immediately\n"
+                        "2. Process the actual rollout asynchronously in the background\n"
+                        "3. Use the /status endpoint to report progress\n"
+                        "For Python/Node.js: Start a separate process per rollout to avoid blocking the /init response."
+                    )
 
             await asyncio.to_thread(_post_init)
 
