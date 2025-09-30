@@ -83,7 +83,8 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
 
                     should_upload = os.getenv("EP_NO_UPLOAD") != "1"
 
-                    if should_upload:
+                    if not should_upload:
+                        continue
 
                         def get_auth_value(key: str) -> str | None:
                             """Get auth value from config file or environment."""
