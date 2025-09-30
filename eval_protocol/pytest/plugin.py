@@ -258,6 +258,10 @@ def pytest_configure(config) -> None:
     if threshold_env is not None:
         os.environ["EP_PASSED_THRESHOLD"] = threshold_env
 
+    if config.getoption("--ep-no-persist-results-jsonl"):
+        # flag to turn off persisting results as jsonl files
+        os.environ["EP_NO_PERSIST_RESULTS_JSONL"] = "1"
+
     if config.getoption("--ep-no-upload"):
         os.environ["EP_NO_UPLOAD"] = "1"
 
