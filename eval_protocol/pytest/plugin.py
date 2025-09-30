@@ -133,6 +133,12 @@ def pytest_addoption(parser) -> None:
         default=None,
         help=("If set, use this base URL for remote rollout processing. Example: http://localhost:8000"),
     )
+    group.addoption(
+        "--ep-no-persist-results-jsonl",
+        action="store_true",
+        default=False,
+        help=("Disable persisting results as jsonl files. Default: false (results are persisted by default)."),
+    )
 
 
 def _normalize_max_rows(val: Optional[str]) -> Optional[str]:
