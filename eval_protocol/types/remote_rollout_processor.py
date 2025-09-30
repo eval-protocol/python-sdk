@@ -4,7 +4,7 @@ Request and response models for remote rollout processor servers.
 
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
-from eval_protocol.models import Message
+from eval_protocol.models import Message, Status
 
 
 class RolloutMetadata(BaseModel):
@@ -20,10 +20,17 @@ class RolloutMetadata(BaseModel):
 class InitRequest(BaseModel):
     """Request model for POST /init endpoint."""
 
-    rollout_id: str
     model: str
-    messages: List[Message] = Field(min_length=1)
+    messages: Optional[List[Message]] = None
     tools: Optional[List[Dict[str, Any]]] = None
+
+    model_base_url: Optional[str] = None
+    """
+    A Base URL that the remote server can use to make LLM calls. This is useful
+    to configure on the eval-protocol side for flexibility in
+    development/traning.
+    """
+
     metadata: RolloutMetadata
 
 
@@ -32,6 +39,12 @@ class StatusResponse(BaseModel):
 
     terminated: bool
     info: Optional[Dict[str, Any]] = None
+
+    status: Optional[Status] = None
+    """
+    Optional status indicator for the rollout to be used by eval-protocol. This
+    is useful to distinguish between successful and failed rollouts.
+    """
 
 
 def create_langfuse_config_tags(init_request: InitRequest) -> List[str]:

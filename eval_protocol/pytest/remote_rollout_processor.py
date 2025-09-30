@@ -6,6 +6,7 @@ import requests
 
 from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
+from eval_protocol.types.remote_rollout_processor import InitRequest, RolloutMetadata
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
 import os
@@ -15,31 +16,14 @@ class RemoteRolloutProcessor(RolloutProcessor):
     """
     Rollout processor that triggers a remote HTTP server to perform the rollout.
 
-    Expected remote API:
-    - POST {remote_base_url}/init
-      Body: {
-        "rollout_id": str,
-        "model": str,
-        "messages": list[dict],
-        "tools": list[dict] | null,
-        "metadata": {
-          "invocation_id": str,
-          "experiment_id": str,
-          "rollout_id": str,
-          "run_id": str | null,
-          "row_id": str | null
-        },
-      }
-      Returns: {"ok": true}
-
-    - GET {remote_base_url}/status?rollout_id=...
-      Returns: {"terminated": bool, "info": {...}?}
+    See https://evalprotocol.io/tutorial/remote-rollout-processor for documentation.
     """
 
     def __init__(
         self,
         *,
         remote_base_url: Optional[str] = None,
+        model_base_url: Optional[str] = None,
         poll_interval: float = 1.0,
         timeout_seconds: float = 120.0,
         output_data_loader: Callable[[str], DynamicDataLoader],
@@ -58,6 +42,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
         # Start with constructor values
         remote_base_url: Optional[str] = self._remote_base_url
+        model_base_url: Optional[str] = self._model_base_url
         poll_interval: float = self._poll_interval
         timeout_seconds: float = self._timeout_seconds
 
@@ -74,14 +59,25 @@ class RemoteRolloutProcessor(RolloutProcessor):
         async def _process_row(row: EvaluationRow) -> EvaluationRow:
             start_time = time.perf_counter()
 
+            if row.execution_metadata.invocation_id is None:
+                raise ValueError("Invocation ID is required in RemoteRolloutProcessor")
+            if row.execution_metadata.experiment_id is None:
+                raise ValueError("Experiment ID is required in RemoteRolloutProcessor")
+            if row.execution_metadata.rollout_id is None:
+                raise ValueError("Rollout ID is required in RemoteRolloutProcessor")
+            if row.execution_metadata.run_id is None:
+                raise ValueError("Run ID is required in RemoteRolloutProcessor")
+            if row.input_metadata.row_id is None:
+                raise ValueError("Row ID is required in RemoteRolloutProcessor")
+
             # Build request metadata and payload
-            meta: Dict[str, Any] = {
-                "invocation_id": row.execution_metadata.invocation_id,
-                "experiment_id": row.execution_metadata.experiment_id,
-                "rollout_id": row.execution_metadata.rollout_id,
-                "run_id": row.execution_metadata.run_id,
-                "row_id": row.input_metadata.row_id,
-            }
+            meta: RolloutMetadata = RolloutMetadata(
+                invocation_id=row.execution_metadata.invocation_id,
+                experiment_id=row.execution_metadata.experiment_id,
+                rollout_id=row.execution_metadata.rollout_id,
+                run_id=row.execution_metadata.run_id,
+                row_id=row.input_metadata.row_id,
+            )
 
             model: Optional[str] = None
             if row.input_metadata and row.input_metadata.completion_params:
@@ -113,19 +109,33 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     }
                 clean_messages.append({k: v for k, v in md.items() if k in allowed_message_fields and v is not None})
 
-            init_payload: Dict[str, Any] = {
-                "rollout_id": row.execution_metadata.rollout_id,
-                "model": model,
-                "messages": clean_messages,
-                "tools": row.tools,
-                "metadata": meta,
-            }
+            if row.execution_metadata.rollout_id is None:
+                raise ValueError("Rollout ID is required in RemoteRolloutProcessor")
+
+            init_payload: InitRequest = InitRequest(
+                model=model,
+                messages=clean_messages,
+                tools=row.tools,
+                metadata=meta,
+                model_base_url=model_base_url,
+            )
 
             # Fire-and-poll
             def _post_init() -> None:
                 url = f"{remote_base_url}/init"
-                r = requests.post(url, json=init_payload, timeout=30)
-                r.raise_for_status()
+                try:
+                    r = requests.post(url, json=init_payload.model_dump(), timeout=30)
+                    r.raise_for_status()
+                except requests.exceptions.Timeout:
+                    raise TimeoutError(
+                        "The /init endpoint timed out after 30 seconds. "
+                        "CRITICAL: The /init endpoint must return immediately (within 30s) and NOT block on rollout execution. "
+                        "Your remote server should:\n"
+                        "1. Accept the /init request and return a 200 response immediately\n"
+                        "2. Process the actual rollout asynchronously in the background\n"
+                        "3. Use the /status endpoint to report progress\n"
+                        "For Python/Node.js: Start a separate process per rollout to avoid blocking the /init response."
+                    )
 
             await asyncio.to_thread(_post_init)
 
@@ -147,7 +157,13 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 except Exception:
                     # transient errors; continue polling
                     pass
+
                 await asyncio.sleep(poll_interval)
+            else:
+                # Loop completed without breaking, which means we timed out
+                row.rollout_status = Status.rollout_error(
+                    f"Rollout {row.execution_metadata.rollout_id} timed out after {timeout_seconds} seconds"
+                )
 
             # Update duration, regardless of termination
             row.execution_metadata.duration_seconds = time.perf_counter() - start_time
@@ -170,14 +186,28 @@ class RemoteRolloutProcessor(RolloutProcessor):
             elif len(output_rows) == 1:  # Return the Langfuse row
                 langfuse_row = output_rows[0]
                 langfuse_row.input_metadata.completion_params = row.input_metadata.completion_params
+                # merge dataset_info dicts on input_metadata
+                if langfuse_row.input_metadata.dataset_info and row.input_metadata.dataset_info:
+                    langfuse_row.input_metadata.dataset_info = {
+                        **row.input_metadata.dataset_info,
+                        **langfuse_row.input_metadata.dataset_info,
+                    }
+                elif row.input_metadata.dataset_info:
+                    langfuse_row.input_metadata.dataset_info = row.input_metadata.dataset_info
                 langfuse_row.eval_metadata = row.eval_metadata
+                langfuse_row.ground_truth = row.ground_truth
                 return langfuse_row
             else:
                 raise ValueError("RemoteRolloutProcessor's output_data_loader should return exactly one row.")
 
-        for r in rows:
-            tasks.append(asyncio.create_task(_process_row(r)))
+        semaphore = config.semaphore
 
+        async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:
+            async with semaphore:
+                result = await _process_row(r)
+                return result
+
+        tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
         return tasks
 
     def cleanup(self) -> None:

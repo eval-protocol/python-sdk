@@ -46,3 +46,30 @@ def test_dynamic_data_loader_lambda(row: EvaluationRow) -> EvaluationRow:
     assert row.input_metadata.dataset_info.get("data_loader_type") == "DynamicDataLoader"
     assert row.input_metadata.dataset_info.get("data_loader_preprocessed") is False
     return row
+
+
+def generate_many_rows() -> list[EvaluationRow]:
+    """Factory function that generates many evaluation rows for testing max_dataset_rows."""
+    return [EvaluationRow(messages=[Message(role="user", content=f"What is {i} + {i}?")]) for i in range(10)]
+
+
+@evaluation_test(
+    data_loaders=DynamicDataLoader(
+        generators=[generate_many_rows],
+    ),
+    max_dataset_rows=3,
+)
+def test_dynamic_data_loader_max_dataset_rows(row: EvaluationRow) -> EvaluationRow:
+    """Dynamic data loader should respect max_dataset_rows parameter."""
+
+    # This test should only process 3 rows despite the generator creating 10
+    # The row content should be from the first 3 generated rows
+    content = row.messages[0].content
+    assert content in ["What is 0 + 0?", "What is 1 + 1?", "What is 2 + 2?"]
+
+    assert row.input_metadata.dataset_info is not None
+    assert row.input_metadata.dataset_info.get("data_loader_variant_id") == "generate_many_rows"
+    assert row.input_metadata.dataset_info.get("data_loader_type") == "DynamicDataLoader"
+    assert row.input_metadata.dataset_info.get("data_loader_preprocessed") is False
+
+    return row

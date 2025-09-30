@@ -73,6 +73,9 @@ def _is_pytest_parametrize_with_completion_params(decorator: ast.expr) -> bool:
                 and decorator.func.value.attr == "mark"
                 and decorator.func.attr == "parametrize"
             ):
+                # Validate argvalues if present
+                _validate_parametrize_argvalues(decorator)
+
                 # Check positional arguments first (argnames is typically the first positional arg)
                 if len(decorator.args) > 0:
                     argnames_arg = decorator.args[0]
@@ -86,6 +89,90 @@ def _is_pytest_parametrize_with_completion_params(decorator: ast.expr) -> bool:
                             return True
 
     return False
+
+
+def _ast_dict_to_string(dict_node: ast.Dict) -> str:
+    """
+    Convert an AST Dict node to its string representation.
+
+    Args:
+        dict_node: AST node representing a dictionary
+
+    Returns:
+        String representation of the dictionary
+    """
+    if not dict_node.keys:
+        return "{}"
+
+    pairs = []
+    for key, value in zip(dict_node.keys, dict_node.values):
+        if key is not None:
+            key_str = _ast_node_to_string(key)
+            value_str = _ast_node_to_string(value)
+            pairs.append(f"{key_str}: {value_str}")
+
+    return "{" + ", ".join(pairs) + "}"
+
+
+def _ast_node_to_string(node: ast.expr) -> str:
+    """
+    Convert an AST node to its string representation.
+
+    Args:
+        node: AST node to convert
+
+    Returns:
+        String representation of the node
+    """
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, str):
+            return repr(node.value)
+        else:
+            return str(node.value)
+    elif isinstance(node, ast.Name):
+        return node.id
+    elif isinstance(node, ast.Dict):
+        return _ast_dict_to_string(node)
+    elif isinstance(node, ast.List):
+        elements = [_ast_node_to_string(elt) for elt in node.elts]
+        return "[" + ", ".join(elements) + "]"
+    elif isinstance(node, ast.Tuple):
+        elements = [_ast_node_to_string(elt) for elt in node.elts]
+        return "(" + ", ".join(elements) + ")"
+    else:
+        # For complex expressions, return a simplified representation
+        return "<complex expression>"
+
+
+def _validate_parametrize_argvalues(decorator: ast.Call) -> None:
+    """
+    Validate that pytest.mark.parametrize argvalues is a list/tuple, not a dict.
+
+    Args:
+        decorator: AST node representing the pytest.mark.parametrize decorator call
+
+    Raises:
+        ValueError: If argvalues is a dict instead of a list/tuple
+    """
+    # Check positional arguments (argvalues is typically the second positional arg)
+    if len(decorator.args) > 1:
+        argvalues_arg = decorator.args[1]
+        if isinstance(argvalues_arg, ast.Dict):
+            dict_repr = _ast_dict_to_string(argvalues_arg)
+            raise ValueError(
+                f"For evaluation_test with completion_params, pytest.mark.parametrize argvalues must be a list or tuple, not a dict. "
+                f"Use [{dict_repr}] instead of {dict_repr}."
+            )
+
+    # Check keyword arguments for argvalues
+    for keyword in decorator.keywords:
+        if keyword.arg == "argvalues":
+            if isinstance(keyword.value, ast.Dict):
+                dict_repr = _ast_dict_to_string(keyword.value)
+                raise ValueError(
+                    f"For evaluation_test with completion_params, pytest.mark.parametrize argvalues must be a list or tuple, not a dict. "
+                    f"Use [{dict_repr}] instead of {dict_repr}."
+                )
 
 
 def _check_argnames_for_completion_params(argnames_node: ast.expr) -> bool:

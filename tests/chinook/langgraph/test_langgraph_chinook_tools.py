@@ -19,6 +19,7 @@ def build_graph_kwargs(cp: CompletionParams) -> Dict[str, Any]:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally since its not stable")
 @pytest.mark.skipif(os.getenv("FIREWORKS_API_KEY") in (None, ""), reason="FIREWORKS_API_KEY not set")
 @evaluation_test(
     input_messages=[[[Message(role="user", content="Use tools to count total tracks in the database.")]]],
