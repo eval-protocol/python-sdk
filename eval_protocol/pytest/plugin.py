@@ -134,10 +134,9 @@ def pytest_addoption(parser) -> None:
         help=("If set, use this base URL for remote rollout processing. Example: http://localhost:8000"),
     )
     group.addoption(
-        "--ep-no-persist-results-jsonl",
-        action="store_true",
-        default=False,
-        help=("Disable persisting results as jsonl files. Default: false (results are persisted by default)."),
+        "--ep-output-dir",
+        default=None,
+        help=("If set, save evaluation results to this directory in jsonl format."),
     )
 
 
@@ -264,9 +263,9 @@ def pytest_configure(config) -> None:
     if threshold_env is not None:
         os.environ["EP_PASSED_THRESHOLD"] = threshold_env
 
-    if config.getoption("--ep-no-save-results-in-jsonl"):
-        # flag to turn off persisting results as jsonl files
-        os.environ["EP_NO_PERSIST_RESULTS_JSONL"] = "1"
+    if config.getoption("--ep-output-dir"):
+        # set this to save eval results to the target dir in jsonl format
+        os.environ["EP_OUTPUT_DIR"] = config.getoption("--ep-output-dir")
 
     if config.getoption("--ep-no-upload"):
         os.environ["EP_NO_UPLOAD"] = "1"

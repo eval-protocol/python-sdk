@@ -16,7 +16,8 @@ import requests
 def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: str):
     try:
         # Default is to save and upload experiment JSONL files, unless explicitly disabled
-        should_save = os.getenv("EP_NO_PERSIST_RESULTS_JSONL") != "1"
+        custom_output_dir = os.getenv("EP_OUTPUT_DIR")
+        should_save = os.getenv("EP_NO_UPLOAD") != "1" or custom_output_dir is not None
 
         if should_save:
             current_run_rows = [item for sublist in all_results for item in sublist]
@@ -27,6 +28,8 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                         experiments[row.execution_metadata.experiment_id].append(row)
 
                 eval_protocol_dir = find_eval_protocol_dir()
+                if custom_output_dir:
+                    eval_protocol_dir = custom_output_dir
                 exp_dir = pathlib.Path(eval_protocol_dir) / "experiment_results"
                 exp_dir.mkdir(parents=True, exist_ok=True)
 
