@@ -197,7 +197,7 @@ def evaluation_test(
     data_loaders = parse_ep_dataloaders(data_loaders)
     custom_invocation_id = os.environ.get("EP_INVOCATION_ID", None)
 
-    # dataloader might be overridden here, to avoid conflict, manually unset other data input params
+    # ignore other data input params when dataloader is provided
     if data_loaders:
         input_dataset = None
         input_messages = None
