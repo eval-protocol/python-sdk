@@ -1,11 +1,10 @@
 import os
 import logging
 import time
-import requests
 import pytest
-from urllib.parse import urlparse
 
 from eval_protocol.logging.elasticsearch_direct_http_handler import ElasticSearchDirectHttpHandler
+from eval_protocol.logging.elasticsearch_client import ElasticsearchClient, ElasticsearchConfig as ESConfig
 from eval_protocol.pytest.elasticsearch_setup import ElasticsearchSetup
 from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
 
@@ -53,11 +52,20 @@ def elasticsearch_handler(elasticsearch_config: ElasticSearchConfig, rollout_id:
 
 
 @pytest.fixture
+def elasticsearch_client(elasticsearch_config: ElasticSearchConfig):
+    """Create an Elasticsearch client for testing."""
+    config = ESConfig(
+        url=elasticsearch_config.url, api_key=elasticsearch_config.api_key, index_name=elasticsearch_config.index_name
+    )
+    return ElasticsearchClient(config)
+
+
+@pytest.fixture
 def test_logger(elasticsearch_handler, elasticsearch_config, rollout_id: str):
     """Set up a test logger with the Elasticsearch handler."""
     # Create the index for this specific handler
     setup = ElasticsearchSetup()
-    setup.create_logging_index(elasticsearch_handler.index_name)
+    setup.create_logging_index(elasticsearch_handler.config.index_name)
 
     logger = logging.getLogger("test_elasticsearch_logger")
     logger.setLevel(logging.INFO)
@@ -76,7 +84,7 @@ def test_logger(elasticsearch_handler, elasticsearch_config, rollout_id: str):
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
 def test_elasticsearch_direct_http_handler_sends_logs(
-    elasticsearch_config: ElasticSearchConfig, test_logger: logging.Logger, rollout_id: str
+    elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
     """Test that ElasticsearchDirectHttpHandler successfully sends logs to Elasticsearch."""
 
@@ -89,36 +97,11 @@ def test_elasticsearch_direct_http_handler_sends_logs(
     # Give Elasticsearch a moment to process the document
     time.sleep(3)
 
-    # Query Elasticsearch to verify the document was received
-    # Parse the URL to construct the search endpoint
-    parsed_url = urlparse(elasticsearch_config.url)
-    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-    search_url = f"{base_url}/{elasticsearch_config.index_name}/_search"
-
-    # Prepare the search query with sorting by @timestamp
-    search_query = {
-        "query": {"match": {"message": test_message}},
-        "sort": [{"@timestamp": {"order": "desc"}}],
-        "size": 1,
-    }
-
-    # Execute the search
-    response = requests.post(
-        search_url,
-        headers={"Content-Type": "application/json", "Authorization": f"ApiKey {elasticsearch_config.api_key}"},
-        json=search_query,
-        verify=parsed_url.scheme == "https",
-    )
-
-    # Check for errors and provide better debugging
-    if response.status_code != 200:
-        print(f"Elasticsearch search failed with status {response.status_code}")
-        print(f"Response: {response.text}")
-        response.raise_for_status()
-
-    search_results = response.json()
+    # Search for the document using the client
+    search_results = elasticsearch_client.search_by_match("message", test_message, size=1)
 
     # Assert that we found our log message
+    assert search_results is not None, "Search should return results"
     assert "hits" in search_results, "Search response should contain 'hits'"
     assert "total" in search_results["hits"], "Search hits should contain 'total'"
 
@@ -151,7 +134,7 @@ def test_elasticsearch_direct_http_handler_sends_logs(
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
 def test_elasticsearch_direct_http_handler_sorts_logs_chronologically(
-    elasticsearch_config: ElasticSearchConfig, test_logger: logging.Logger, rollout_id: str
+    elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
     """Test that logs can be sorted chronologically by timestamp."""
 
@@ -166,31 +149,20 @@ def test_elasticsearch_direct_http_handler_sorts_logs_chronologically(
     # Give Elasticsearch time to process all documents
     time.sleep(2)
 
-    # Query Elasticsearch to get all our test messages sorted by timestamp
-    parsed_url = urlparse(elasticsearch_config.url)
-    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-    search_url = f"{base_url}/{elasticsearch_config.index_name}/_search"
-
     # Search for all messages containing our test prefix
-    search_query = {
-        "query": {"match_phrase_prefix": {"message": "Chronological test message"}},
-        "sort": [{"@timestamp": {"order": "asc"}}],  # Ascending order (oldest first)
-        "size": 10,
-    }
-
-    response = requests.post(
-        search_url,
-        headers={"Content-Type": "application/json", "Authorization": f"ApiKey {elasticsearch_config.api_key}"},
-        json=search_query,
-        verify=parsed_url.scheme == "https",
+    search_results = elasticsearch_client.search_by_match_phrase_prefix(
+        "message", "Chronological test message", size=10
     )
 
-    if response.status_code != 200:
-        print(f"Elasticsearch search failed with status {response.status_code}")
-        print(f"Response: {response.text}")
-        response.raise_for_status()
+    # Add sorting to the search
+    if search_results is None:
+        search_results = elasticsearch_client.search(
+            {"match_phrase_prefix": {"message": "Chronological test message"}},
+            size=10,
+            sort=[{"@timestamp": {"order": "asc"}}],
+        )
 
-    search_results = response.json()
+    assert search_results is not None, "Search should return results"
 
     # Verify we found our messages
     hits = search_results["hits"]["hits"]
@@ -216,7 +188,7 @@ def test_elasticsearch_direct_http_handler_sorts_logs_chronologically(
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
 def test_elasticsearch_direct_http_handler_includes_rollout_id(
-    elasticsearch_config: ElasticSearchConfig, test_logger: logging.Logger, rollout_id: str
+    elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
     """Test that ElasticsearchDirectHttpHandler includes rollout_id field in indexed logs."""
 
@@ -229,35 +201,11 @@ def test_elasticsearch_direct_http_handler_includes_rollout_id(
     # Give Elasticsearch a moment to process the document
     time.sleep(3)
 
-    # Query Elasticsearch to verify the document was received with rollout_id
-    parsed_url = urlparse(elasticsearch_config.url)
-    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-    search_url = f"{base_url}/{elasticsearch_config.index_name}/_search"
-
-    # Prepare the search query
-    search_query = {
-        "query": {"match": {"message": test_message}},
-        "sort": [{"@timestamp": {"order": "desc"}}],
-        "size": 1,
-    }
-
-    # Execute the search
-    response = requests.post(
-        search_url,
-        headers={"Content-Type": "application/json", "Authorization": f"ApiKey {elasticsearch_config.api_key}"},
-        json=search_query,
-        verify=parsed_url.scheme == "https",
-    )
-
-    # Check for errors
-    if response.status_code != 200:
-        print(f"Elasticsearch search failed with status {response.status_code}")
-        print(f"Response: {response.text}")
-        response.raise_for_status()
-
-    search_results = response.json()
+    # Search for the document using the client
+    search_results = elasticsearch_client.search_by_match("message", test_message, size=1)
 
     # Assert that we found our log message
+    assert search_results is not None, "Search should return results"
     assert "hits" in search_results, "Search response should contain 'hits'"
     assert "total" in search_results["hits"], "Search hits should contain 'total'"
 
@@ -298,7 +246,7 @@ def test_elasticsearch_direct_http_handler_includes_rollout_id(
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
 def test_elasticsearch_direct_http_handler_search_by_rollout_id(
-    elasticsearch_config: ElasticSearchConfig, test_logger: logging.Logger, rollout_id: str
+    elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
     """Test that logs can be searched by rollout_id field in Elasticsearch."""
 
@@ -313,35 +261,11 @@ def test_elasticsearch_direct_http_handler_search_by_rollout_id(
     # Give Elasticsearch time to process all documents
     time.sleep(3)
 
-    # Query Elasticsearch to search by rollout_id
-    parsed_url = urlparse(elasticsearch_config.url)
-    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-    search_url = f"{base_url}/{elasticsearch_config.index_name}/_search"
-
     # Search for logs with our specific rollout_id using term query
-    search_query = {
-        "query": {"term": {"rollout_id": rollout_id}},
-        "sort": [{"@timestamp": {"order": "desc"}}],
-        "size": 10,
-    }
-
-    # Execute the search
-    response = requests.post(
-        search_url,
-        headers={"Content-Type": "application/json", "Authorization": f"ApiKey {elasticsearch_config.api_key}"},
-        json=search_query,
-        verify=parsed_url.scheme == "https",
-    )
-
-    # Check for errors
-    if response.status_code != 200:
-        print(f"Elasticsearch search failed with status {response.status_code}")
-        print(f"Response: {response.text}")
-        response.raise_for_status()
-
-    search_results = response.json()
+    search_results = elasticsearch_client.search_by_term("rollout_id", rollout_id, size=10)
 
     # Assert that we found our log messages
+    assert search_results is not None, "Search should return results"
     assert "hits" in search_results, "Search response should contain 'hits'"
     assert "total" in search_results["hits"], "Search hits should contain 'total'"
 
@@ -374,24 +298,9 @@ def test_elasticsearch_direct_http_handler_search_by_rollout_id(
 
     # Test searching for a different rollout_id (should return no results)
     different_rollout_id = f"different-rollout-{time.time()}"
-    search_query_different = {
-        "query": {"term": {"rollout_id": different_rollout_id}},
-        "size": 10,
-    }
+    different_results = elasticsearch_client.search_by_term("rollout_id", different_rollout_id, size=10)
 
-    response_different = requests.post(
-        search_url,
-        headers={"Content-Type": "application/json", "Authorization": f"ApiKey {elasticsearch_config.api_key}"},
-        json=search_query_different,
-        verify=parsed_url.scheme == "https",
-    )
-
-    if response_different.status_code != 200:
-        print(f"Elasticsearch search failed with status {response_different.status_code}")
-        print(f"Response: {response_different.text}")
-        response_different.raise_for_status()
-
-    different_results = response_different.json()
+    assert different_results is not None, "Search should return results"
     different_total_hits = different_results["hits"]["total"]
     if isinstance(different_total_hits, dict):
         different_count = different_total_hits["value"]
@@ -406,7 +315,7 @@ def test_elasticsearch_direct_http_handler_search_by_rollout_id(
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
 def test_elasticsearch_direct_http_handler_logs_status_info(
-    elasticsearch_config: ElasticSearchConfig, test_logger: logging.Logger, rollout_id: str
+    elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
     """Test that ElasticsearchDirectHttpHandler logs Status class instances and can search by status code."""
     from eval_protocol import Status
@@ -423,35 +332,11 @@ def test_elasticsearch_direct_http_handler_logs_status_info(
     # Give Elasticsearch time to process the document
     time.sleep(3)
 
-    # Query Elasticsearch to verify the document was received with status info
-    parsed_url = urlparse(elasticsearch_config.url)
-    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-    search_url = f"{base_url}/{elasticsearch_config.index_name}/_search"
-
     # Search for logs with our specific status code
-    search_query = {
-        "query": {"term": {"status_code": test_status.code.value}},
-        "sort": [{"@timestamp": {"order": "desc"}}],
-        "size": 1,
-    }
-
-    # Execute the search
-    response = requests.post(
-        search_url,
-        headers={"Content-Type": "application/json", "Authorization": f"ApiKey {elasticsearch_config.api_key}"},
-        json=search_query,
-        verify=parsed_url.scheme == "https",
-    )
-
-    # Check for errors
-    if response.status_code != 200:
-        print(f"Elasticsearch search failed with status {response.status_code}")
-        print(f"Response: {response.text}")
-        response.raise_for_status()
-
-    search_results = response.json()
+    search_results = elasticsearch_client.search_by_term("status_code", test_status.code.value, size=1)
 
     # Assert that we found our log message
+    assert search_results is not None, "Search should return results"
     assert "hits" in search_results, "Search response should contain 'hits'"
     assert "total" in search_results["hits"], "Search hits should contain 'total'"
 
@@ -496,7 +381,7 @@ def test_elasticsearch_direct_http_handler_logs_status_info(
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
 def test_elasticsearch_direct_http_handler_search_by_status_code(
-    elasticsearch_config: ElasticSearchConfig, test_logger: logging.Logger, rollout_id: str
+    elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
     """Test that logs can be searched by status code in Elasticsearch."""
     from eval_protocol.models import Status
@@ -519,36 +404,12 @@ def test_elasticsearch_direct_http_handler_search_by_status_code(
     # Give Elasticsearch time to process all documents
     time.sleep(3)
 
-    # Query Elasticsearch to search by specific status code
-    parsed_url = urlparse(elasticsearch_config.url)
-    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-    search_url = f"{base_url}/{elasticsearch_config.index_name}/_search"
-
     # Search for logs with RUNNING status code
     running_status = Status.Code.RUNNING
-    search_query = {
-        "query": {"term": {"status_code": running_status.value}},
-        "sort": [{"@timestamp": {"order": "desc"}}],
-        "size": 10,
-    }
-
-    # Execute the search
-    response = requests.post(
-        search_url,
-        headers={"Content-Type": "application/json", "Authorization": f"ApiKey {elasticsearch_config.api_key}"},
-        json=search_query,
-        verify=parsed_url.scheme == "https",
-    )
-
-    # Check for errors
-    if response.status_code != 200:
-        print(f"Elasticsearch search failed with status {response.status_code}")
-        print(f"Response: {response.text}")
-        response.raise_for_status()
-
-    search_results = response.json()
+    search_results = elasticsearch_client.search_by_term("status_code", running_status.value, size=10)
 
     # Assert that we found our log messages
+    assert search_results is not None, "Search should return results"
     assert "hits" in search_results, "Search response should contain 'hits'"
     assert "total" in search_results["hits"], "Search hits should contain 'total'"
 

@@ -6,25 +6,22 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Tuple, Any, Dict
 from datetime import datetime
-from urllib.parse import urlparse
-import requests
 
 from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
+from .elasticsearch_client import ElasticsearchClient, ElasticsearchConfig as ESConfig
 
 
 class ElasticSearchDirectHttpHandler(logging.Handler):
     def __init__(self, elasticsearch_config: ElasticSearchConfig) -> None:
         super().__init__()
-        self.base_url: str = elasticsearch_config.url.rstrip("/")
-        self.index_name: str = elasticsearch_config.index_name
-        self.api_key: str = elasticsearch_config.api_key
-        self.url: str = f"{self.base_url}/{self.index_name}/_doc"
+        self.config = ESConfig(
+            url=elasticsearch_config.url,
+            api_key=elasticsearch_config.api_key,
+            index_name=elasticsearch_config.index_name,
+        )
+        self.client = ElasticsearchClient(self.config)
         self.formatter: logging.Formatter = logging.Formatter()
         self._executor = None
-
-        # Parse URL to determine if we should verify SSL
-        parsed_url = urlparse(elasticsearch_config.url)
-        self.verify_ssl = parsed_url.scheme == "https"
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record by scheduling it for async transmission."""
@@ -104,13 +101,9 @@ class ElasticSearchDirectHttpHandler(logging.Handler):
     def _send_to_elasticsearch(self, data: Dict[str, Any], record: logging.LogRecord) -> None:
         """Send data to Elasticsearch (runs in thread pool)."""
         try:
-            response: requests.Response = requests.post(
-                self.url,
-                headers={"Content-Type": "application/json", "Authorization": f"ApiKey {self.api_key}"},
-                data=json.dumps(data),
-                verify=self.verify_ssl,  # If using HTTPS, verify SSL certificate
-            )
-            response.raise_for_status()  # Raise an exception for HTTP errors
+            success = self.client.index_document(data)
+            if not success:
+                raise Exception("Failed to index document to Elasticsearch")
         except Exception as e:
             # Re-raise to be handled by the callback
             raise e
