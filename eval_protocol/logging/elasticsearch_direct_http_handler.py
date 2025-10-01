@@ -8,13 +8,13 @@ from typing import Optional, Tuple, Any, Dict
 from datetime import datetime
 
 from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
-from .elasticsearch_client import ElasticsearchClient, ElasticsearchConfig as ESConfig
+from .elasticsearch_client import ElasticsearchClient
 
 
 class ElasticsearchDirectHttpHandler(logging.Handler):
     def __init__(self, elasticsearch_config: ElasticSearchConfig) -> None:
         super().__init__()
-        self.config = ESConfig(
+        self.config = ElasticSearchConfig(
             url=elasticsearch_config.url,
             api_key=elasticsearch_config.api_key,
             index_name=elasticsearch_config.index_name,

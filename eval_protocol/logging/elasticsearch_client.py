@@ -10,28 +10,13 @@ import json
 import requests
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
-from dataclasses import dataclass
-
-
-@dataclass
-class ElasticsearchConfig:
-    """Configuration for Elasticsearch client."""
-
-    url: str
-    api_key: str
-    index_name: str
-    verify_ssl: bool = True
-
-    def __post_init__(self):
-        """Parse URL to determine SSL verification setting."""
-        parsed_url = urlparse(self.url)
-        self.verify_ssl = parsed_url.scheme == "https"
+from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
 
 
 class ElasticsearchClient:
     """Centralized client for all Elasticsearch operations."""
 
-    def __init__(self, config: ElasticsearchConfig):
+    def __init__(self, config: ElasticSearchConfig):
         """Initialize the Elasticsearch client.
 
         Args:

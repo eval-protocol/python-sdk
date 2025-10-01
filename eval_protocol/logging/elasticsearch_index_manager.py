@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional
-from .elasticsearch_client import ElasticsearchClient, ElasticsearchConfig
+from .elasticsearch_client import ElasticsearchClient
+from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
 
 
 class ElasticsearchIndexManager:
@@ -13,7 +14,7 @@ class ElasticsearchIndexManager:
             index_name: Name of the index to manage
             api_key: API key for authentication
         """
-        self.config = ElasticsearchConfig(url=base_url, api_key=api_key, index_name=index_name)
+        self.config = ElasticSearchConfig(url=base_url, api_key=api_key, index_name=index_name)
         self.client = ElasticsearchClient(self.config)
         self._mapping_created: bool = False
 
