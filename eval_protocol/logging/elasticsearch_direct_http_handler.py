@@ -1,6 +1,7 @@
 import json
 import logging
 import asyncio
+import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Tuple, Any, Dict
@@ -11,7 +12,7 @@ import requests
 from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
 
 
-class ElasticsearchDirectHttpHandler(logging.Handler):
+class ElasticSearchDirectHttpHandler(logging.Handler):
     def __init__(self, elasticsearch_config: ElasticSearchConfig) -> None:
         super().__init__()
         self.base_url: str = elasticsearch_config.url.rstrip("/")
@@ -31,12 +32,14 @@ class ElasticsearchDirectHttpHandler(logging.Handler):
             # Create proper ISO 8601 timestamp
             timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
+            rollout_id = self._get_rollout_id(record)
+
             data: Dict[str, Any] = {
                 "@timestamp": timestamp,
                 "level": record.levelname,
                 "message": record.getMessage(),
                 "logger_name": record.name,
-                # Add other relevant record attributes if needed
+                "rollout_id": rollout_id,
             }
 
             # Schedule the HTTP request to run asynchronously
@@ -44,6 +47,15 @@ class ElasticsearchDirectHttpHandler(logging.Handler):
         except Exception as e:
             self.handleError(record)
             print(f"Error preparing log for Elasticsearch: {e}")
+
+    def _get_rollout_id(self, record: logging.LogRecord) -> str:
+        """Get the rollout ID from environment variables."""
+        rollout_id = os.getenv("EP_ROLLOUT_ID")
+        if rollout_id is None:
+            raise ValueError(
+                "EP_ROLLOUT_ID environment variable is not set but needed for ElasticSearchDirectHttpHandler"
+            )
+        return rollout_id
 
     def _schedule_async_send(self, data: Dict[str, Any], record: logging.LogRecord) -> None:
         """Schedule an async task to send the log data to Elasticsearch."""
