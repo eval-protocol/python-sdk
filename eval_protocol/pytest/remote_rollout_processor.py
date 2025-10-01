@@ -220,6 +220,11 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     langfuse_row.input_metadata.dataset_info = row.input_metadata.dataset_info
                 langfuse_row.eval_metadata = row.eval_metadata
                 langfuse_row.ground_truth = row.ground_truth
+
+                # this is useful to detect stopped evaluations so we can update
+                # the status in the logs server
+                langfuse_row.pid = row.pid
+
                 return langfuse_row
             else:
                 raise ValueError("RemoteRolloutProcessor's output_data_loader should return exactly one row.")
