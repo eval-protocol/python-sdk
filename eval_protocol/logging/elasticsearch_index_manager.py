@@ -98,22 +98,31 @@ class ElasticsearchIndexManager:
             return False
 
     def _has_correct_timestamp_mapping(self, mapping_data: Dict[str, Any]) -> bool:
-        """Check if the mapping has @timestamp as a date field.
+        """Check if the mapping has @timestamp as a date field and rollout_id as a keyword field.
 
         Args:
             mapping_data: Elasticsearch mapping response data
 
         Returns:
-            bool: True if @timestamp is correctly mapped as date field
+            bool: True if @timestamp is correctly mapped as date field and rollout_id as keyword field
         """
         try:
-            return (
+            if not (
                 self.index_name in mapping_data
                 and "mappings" in mapping_data[self.index_name]
                 and "properties" in mapping_data[self.index_name]["mappings"]
-                and "@timestamp" in mapping_data[self.index_name]["mappings"]["properties"]
-                and mapping_data[self.index_name]["mappings"]["properties"]["@timestamp"].get("type") == "date"
-            )
+            ):
+                return False
+
+            properties = mapping_data[self.index_name]["mappings"]["properties"]
+
+            # Check @timestamp is mapped as date
+            timestamp_ok = "@timestamp" in properties and properties["@timestamp"].get("type") == "date"
+
+            # Check rollout_id is mapped as keyword
+            rollout_id_ok = "rollout_id" in properties and properties["rollout_id"].get("type") == "keyword"
+
+            return timestamp_ok and rollout_id_ok
         except (KeyError, TypeError):
             return False
 
@@ -130,6 +139,7 @@ class ElasticsearchIndexManager:
                     "level": {"type": "keyword"},
                     "message": {"type": "text"},
                     "logger_name": {"type": "keyword"},
+                    "rollout_id": {"type": "keyword"},
                 }
             }
         }
