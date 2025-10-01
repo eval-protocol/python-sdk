@@ -10,13 +10,13 @@ import json
 import requests
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
-from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
+from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 
 
 class ElasticsearchClient:
     """Centralized client for all Elasticsearch operations."""
 
-    def __init__(self, config: ElasticSearchConfig):
+    def __init__(self, config: ElasticsearchConfig):
         """Initialize the Elasticsearch client.
 
         Args:

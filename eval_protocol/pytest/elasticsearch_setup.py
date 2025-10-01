@@ -6,7 +6,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from eval_protocol.directory_utils import find_eval_protocol_dir
-from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
+from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 from eval_protocol.logging.elasticsearch_index_manager import ElasticsearchIndexManager
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class ElasticsearchSetup:
     def __init__(self):
         self.eval_protocol_dir = find_eval_protocol_dir()
 
-    def setup_elasticsearch(self, index_name: str = "default-logs") -> ElasticSearchConfig:
+    def setup_elasticsearch(self, index_name: str = "default-logs") -> ElasticsearchConfig:
         """
         Set up Elasticsearch, handling both local and remote scenarios.
 
@@ -32,7 +32,7 @@ class ElasticsearchSetup:
             index_name: Name of the Elasticsearch index to use for logging
 
         Returns:
-            ElasticSearchConfig for the running instance with the specified index name.
+            ElasticsearchConfig for the running instance with the specified index name.
         """
         elastic_start_local_dir = os.path.join(self.eval_protocol_dir, "elastic-start-local")
         env_file_path = os.path.join(elastic_start_local_dir, ".env")
@@ -48,11 +48,11 @@ class ElasticsearchSetup:
         self.create_logging_index(index_name)
 
         # Return config with the specified index name
-        return ElasticSearchConfig(url=config.url, api_key=config.api_key, index_name=index_name)
+        return ElasticsearchConfig(url=config.url, api_key=config.api_key, index_name=index_name)
 
     def _setup_existing_docker_elasticsearch(
         self, elastic_start_local_dir: str, env_file_path: str
-    ) -> ElasticSearchConfig:
+    ) -> ElasticsearchConfig:
         """Set up Elasticsearch using existing Docker start.sh script."""
         from eval_protocol.utils.subprocess_utils import run_script_and_wait
 
@@ -63,7 +63,7 @@ class ElasticsearchSetup:
         )
         return self._parse_elastic_env_file(env_file_path)
 
-    def _setup_initialized_docker_elasticsearch(self, env_file_path: str) -> ElasticSearchConfig:
+    def _setup_initialized_docker_elasticsearch(self, env_file_path: str) -> ElasticsearchConfig:
         """Set up Elasticsearch by initializing Docker setup from scratch with retry logic."""
         max_retries = 2
         for attempt in range(max_retries):
@@ -126,7 +126,7 @@ class ElasticsearchSetup:
                 return False
         return False
 
-    def _parse_elastic_env_file(self, env_file_path: str) -> ElasticSearchConfig:
+    def _parse_elastic_env_file(self, env_file_path: str) -> ElasticsearchConfig:
         """Parse ES_LOCAL_API_KEY and ES_LOCAL_URL from .env file."""
         loaded = load_dotenv(env_file_path)
         if not loaded:
@@ -138,7 +138,7 @@ class ElasticsearchSetup:
         if not url or not api_key:
             raise ElasticsearchSetupError("Failed to parse ES_LOCAL_API_KEY and ES_LOCAL_URL from .env file")
 
-        return ElasticSearchConfig(url=url, api_key=api_key, index_name="default-logs")
+        return ElasticsearchConfig(url=url, api_key=api_key, index_name="default-logs")
 
     def create_logging_index(self, index_name: str) -> bool:
         """Create an Elasticsearch index with proper mapping for logging data.

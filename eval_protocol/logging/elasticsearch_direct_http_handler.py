@@ -7,14 +7,14 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Tuple, Any, Dict
 from datetime import datetime
 
-from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
+from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 from .elasticsearch_client import ElasticsearchClient
 
 
 class ElasticsearchDirectHttpHandler(logging.Handler):
-    def __init__(self, elasticsearch_config: ElasticSearchConfig) -> None:
+    def __init__(self, elasticsearch_config: ElasticsearchConfig) -> None:
         super().__init__()
-        self.config = ElasticSearchConfig(
+        self.config = ElasticsearchConfig(
             url=elasticsearch_config.url,
             api_key=elasticsearch_config.api_key,
             index_name=elasticsearch_config.index_name,

@@ -6,7 +6,7 @@ import pytest
 from eval_protocol.logging.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
 from eval_protocol.logging.elasticsearch_client import ElasticsearchClient
 from eval_protocol.pytest.elasticsearch_setup import ElasticsearchSetup
-from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
+from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ def elasticsearch_config():
 
 
 @pytest.fixture
-def elasticsearch_handler(elasticsearch_config: ElasticSearchConfig, rollout_id: str):
+def elasticsearch_handler(elasticsearch_config: ElasticsearchConfig, rollout_id: str):
     """Create and configure ElasticsearchDirectHttpHandler."""
     # Use a unique test-specific index name with timestamp
 
@@ -52,7 +52,7 @@ def elasticsearch_handler(elasticsearch_config: ElasticSearchConfig, rollout_id:
 
 
 @pytest.fixture
-def elasticsearch_client(elasticsearch_config: ElasticSearchConfig):
+def elasticsearch_client(elasticsearch_config: ElasticsearchConfig):
     """Create an Elasticsearch client for testing."""
     # Create a new config instance for the client
     return ElasticsearchClient(elasticsearch_config)

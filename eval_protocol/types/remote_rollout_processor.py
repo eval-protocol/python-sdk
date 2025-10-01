@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from eval_protocol.models import Message, Status
 
 
-class ElasticSearchConfig(BaseModel):
+class ElasticsearchConfig(BaseModel):
     """
     Configuration for Elasticsearch.
     """
@@ -38,7 +38,7 @@ class InitRequest(BaseModel):
     """Request model for POST /init endpoint."""
 
     model: str
-    elastic_search_config: Optional[ElasticSearchConfig] = None
+    elastic_search_config: Optional[ElasticsearchConfig] = None
     messages: Optional[List[Message]] = None
     tools: Optional[List[Dict[str, Any]]] = None
 
