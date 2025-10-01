@@ -239,5 +239,3 @@ package-lock.json
 package.json
 tau2-bench
 *.err
-
-elastic-start-local/

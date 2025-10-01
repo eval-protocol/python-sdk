@@ -7,6 +7,15 @@ from pydantic import BaseModel, Field
 from eval_protocol.models import Message, Status
 
 
+class ElasticSearchConfig(BaseModel):
+    """
+    Configuration for Elasticsearch.
+    """
+
+    url: str
+    api_key: str
+
+
 class RolloutMetadata(BaseModel):
     """Metadata for rollout execution."""
 
@@ -21,6 +30,7 @@ class InitRequest(BaseModel):
     """Request model for POST /init endpoint."""
 
     model: str
+    elastic_search_config: Optional[ElasticSearchConfig] = None
     messages: Optional[List[Message]] = None
     tools: Optional[List[Dict[str, Any]]] = None
 

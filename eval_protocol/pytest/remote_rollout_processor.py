@@ -1,15 +1,22 @@
 import asyncio
+import subprocess
 import time
 from typing import Any, Dict, List, Optional, Callable
 
+from dotenv import load_dotenv
 import requests
 
+from eval_protocol.directory_utils import find_eval_protocol_dir
 from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
-from eval_protocol.types.remote_rollout_processor import InitRequest, RolloutMetadata
+from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig, InitRequest, RolloutMetadata
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
+import logging
+
 import os
+
+logger = logging.getLogger(__name__)
 
 
 class RemoteRolloutProcessor(RolloutProcessor):
@@ -27,6 +34,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
         poll_interval: float = 1.0,
         timeout_seconds: float = 120.0,
         output_data_loader: Callable[[str], DynamicDataLoader],
+        disable_elastic_search: bool = False,
+        elastic_search_config: Optional[ElasticSearchConfig] = None,
     ):
         # Prefer constructor-provided configuration. These can be overridden via
         # config.kwargs at call time for backward compatibility.
@@ -37,6 +46,58 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
         self._output_data_loader = output_data_loader
+        self._disable_elastic_search = disable_elastic_search
+        self._elastic_search_config = elastic_search_config
+
+    def setup(self) -> None:
+        if self._disable_elastic_search:
+            logger.info("Elasticsearch is disabled, skipping setup")
+            return
+        logger.info("Setting up Elasticsearch")
+        self._elastic_search_config = self._setup_elastic_search()
+        logger.info("Elasticsearch setup complete")
+
+    def _parse_elastic_env_file(self, env_file_path: str) -> ElasticSearchConfig:
+        """Parse ES_LOCAL_API_KEY and ES_LOCAL_URL from .env file."""
+        loaded = load_dotenv(env_file_path)
+        if not loaded:
+            raise RuntimeError("Failed to load .env file")
+        api_key = os.getenv("ES_LOCAL_API_KEY")
+        url = os.getenv("ES_LOCAL_URL")
+        if not url or not api_key:
+            raise RuntimeError("Failed to parse ES_LOCAL_API_KEY and ES_LOCAL_URL from .env file")
+        return ElasticSearchConfig(url=url, api_key=api_key)
+
+    def _setup_elastic_search(self) -> ElasticSearchConfig:
+        eval_protocol_dir = find_eval_protocol_dir()
+        elastic_start_local_dir = os.path.join(eval_protocol_dir, "elastic-start-local")
+        env_file_path = os.path.join(elastic_start_local_dir, ".env")
+
+        # if elastic-start-local directory exists, return the config
+        if os.path.exists(elastic_start_local_dir):
+            # run start.sh in the elastic-start-local directory
+            from eval_protocol.utils.subprocess_utils import run_script_and_wait
+
+            run_script_and_wait(
+                script_name="start.sh",
+                working_directory=elastic_start_local_dir,
+                inherit_stdout=True,
+            )
+            return self._parse_elastic_env_file(env_file_path)
+
+        # run Elasticsearch start-local script: "curl -fsSL https://elastic.co/start-local | sh -s -- --esonly"
+        process = subprocess.Popen(
+            ["sh", "-c", "curl -fsSL https://elastic.co/start-local | sh -s -- --esonly"],
+            cwd=eval_protocol_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        returncode = process.wait()
+        if returncode != 0:
+            raise RuntimeError("Failed to start Elasticsearch")
+
+        return self._parse_elastic_env_file(env_file_path)
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         tasks: List[asyncio.Task[EvaluationRow]] = []
@@ -119,6 +180,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 tools=row.tools,
                 metadata=meta,
                 model_base_url=model_base_url,
+                elastic_search_config=self._elastic_search_config,
             )
 
             # Fire-and-poll

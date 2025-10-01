@@ -10,6 +10,10 @@ class RolloutProcessor(ABC):
     Abstract base class for all rollout processor strategies.
     """
 
+    def setup(self) -> None:
+        """Setup resources. Override in subclasses if setup is needed. Executed once per invocation."""
+        pass
+
     @abstractmethod
     def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
         """Process evaluation rows and return async tasks. Must be implemented by subclasses."""

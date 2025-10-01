@@ -367,6 +367,8 @@ def evaluation_test(
                         exception_handler_config=exception_handler_config,
                     )
 
+                    rollout_processor.setup()
+
                     async def execute_run(run_idx: int, config: RolloutProcessorConfig):
                         nonlocal all_results
 
