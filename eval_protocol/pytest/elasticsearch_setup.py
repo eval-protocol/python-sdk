@@ -31,15 +31,17 @@ class ElasticsearchSetup:
         elastic_start_local_dir = os.path.join(self.eval_protocol_dir, "elastic-start-local")
         env_file_path = os.path.join(elastic_start_local_dir, ".env")
 
-        # If elastic-start-local directory exists, use local script
+        # If elastic-start-local directory exists, use existing Docker script
         if os.path.exists(elastic_start_local_dir):
-            return self._setup_local_elasticsearch(elastic_start_local_dir, env_file_path)
+            return self._setup_existing_docker_elasticsearch(elastic_start_local_dir, env_file_path)
 
-        # Otherwise, use remote curl command with retry logic
-        return self._setup_remote_elasticsearch(env_file_path)
+        # Otherwise, initialize Docker setup from scratch
+        return self._setup_initialized_docker_elasticsearch(env_file_path)
 
-    def _setup_local_elasticsearch(self, elastic_start_local_dir: str, env_file_path: str) -> ElasticSearchConfig:
-        """Set up Elasticsearch using local start.sh script."""
+    def _setup_existing_docker_elasticsearch(
+        self, elastic_start_local_dir: str, env_file_path: str
+    ) -> ElasticSearchConfig:
+        """Set up Elasticsearch using existing Docker start.sh script."""
         from eval_protocol.utils.subprocess_utils import run_script_and_wait
 
         run_script_and_wait(
@@ -49,8 +51,8 @@ class ElasticsearchSetup:
         )
         return self._parse_elastic_env_file(env_file_path)
 
-    def _setup_remote_elasticsearch(self, env_file_path: str) -> ElasticSearchConfig:
-        """Set up Elasticsearch using remote curl command with retry logic."""
+    def _setup_initialized_docker_elasticsearch(self, env_file_path: str) -> ElasticSearchConfig:
+        """Set up Elasticsearch by initializing Docker setup from scratch with retry logic."""
         max_retries = 2
         for attempt in range(max_retries):
             # Use a temporary file to capture output while also showing it in parent stdout
