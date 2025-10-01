@@ -402,3 +402,176 @@ def test_elasticsearch_direct_http_handler_search_by_rollout_id(
 
     print(f"Successfully verified search by rollout_id '{rollout_id}' found {len(hits)} log messages")
     print("Verified that search for different rollout_id returns 0 results")
+
+
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
+def test_elasticsearch_direct_http_handler_logs_status_info(
+    elasticsearch_config: ElasticSearchConfig, test_logger: logging.Logger, rollout_id: str
+):
+    """Test that ElasticsearchDirectHttpHandler logs Status class instances and can search by status code."""
+    from eval_protocol import Status
+
+    # Create a Status instance
+    test_status = Status.rollout_running()
+
+    # Generate a unique test message
+    test_message = f"Status logging test message at {time.time()}"
+
+    # Log with Status instance in extra data
+    test_logger.info(test_message, extra={"status": test_status})
+
+    # Give Elasticsearch time to process the document
+    time.sleep(3)
+
+    # Query Elasticsearch to verify the document was received with status info
+    parsed_url = urlparse(elasticsearch_config.url)
+    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+    search_url = f"{base_url}/{elasticsearch_config.index_name}/_search"
+
+    # Search for logs with our specific status code
+    search_query = {
+        "query": {"term": {"status_code": test_status.code.value}},
+        "sort": [{"@timestamp": {"order": "desc"}}],
+        "size": 1,
+    }
+
+    # Execute the search
+    response = requests.post(
+        search_url,
+        headers={"Content-Type": "application/json", "Authorization": f"ApiKey {elasticsearch_config.api_key}"},
+        json=search_query,
+        verify=parsed_url.scheme == "https",
+    )
+
+    # Check for errors
+    if response.status_code != 200:
+        print(f"Elasticsearch search failed with status {response.status_code}")
+        print(f"Response: {response.text}")
+        response.raise_for_status()
+
+    search_results = response.json()
+
+    # Assert that we found our log message
+    assert "hits" in search_results, "Search response should contain 'hits'"
+    assert "total" in search_results["hits"], "Search hits should contain 'total'"
+
+    total_hits = search_results["hits"]["total"]
+    if isinstance(total_hits, dict):
+        total_count = total_hits["value"]
+    else:
+        total_count = total_hits
+
+    assert total_count > 0, f"Expected to find at least 1 log message, but found {total_count}"
+
+    # Verify the content of the found document
+    hits = search_results["hits"]["hits"]
+    assert len(hits) > 0, "Expected at least one hit"
+
+    found_document = hits[0]["_source"]
+
+    # Verify the status fields are present and correct
+    assert "status_code" in found_document, "Expected document to contain 'status_code' field"
+    assert found_document["status_code"] == test_status.code.value, (
+        f"Expected status_code {test_status.code.value}, got {found_document['status_code']}"
+    )
+    assert "status_message" in found_document, "Expected document to contain 'status_message' field"
+    assert found_document["status_message"] == test_status.message, (
+        f"Expected status_message '{test_status.message}', got '{found_document['status_message']}'"
+    )
+    assert "status_details" in found_document, "Expected document to contain 'status_details' field"
+    assert found_document["status_details"] == test_status.details, (
+        f"Expected status_details {test_status.details}, got {found_document['status_details']}"
+    )
+
+    # Verify other expected fields are still present
+    assert found_document["message"] == test_message, (
+        f"Expected message '{test_message}', got '{found_document['message']}'"
+    )
+    assert found_document["rollout_id"] == rollout_id, (
+        f"Expected rollout_id '{rollout_id}', got '{found_document['rollout_id']}'"
+    )
+
+    print(f"Successfully verified Status logging with code {test_status.code.value} in Elasticsearch: {test_message}")
+
+
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
+def test_elasticsearch_direct_http_handler_search_by_status_code(
+    elasticsearch_config: ElasticSearchConfig, test_logger: logging.Logger, rollout_id: str
+):
+    """Test that logs can be searched by status code in Elasticsearch."""
+    from eval_protocol.models import Status
+
+    # Create different Status instances for testing
+    statuses = [
+        Status.rollout_running(),
+        Status.eval_finished(),
+        Status.error("Test error message"),
+    ]
+
+    # Generate unique test messages
+    test_messages = []
+    for i, status in enumerate(statuses):
+        message = f"Status search test message {i} at {time.time()}"
+        test_messages.append((message, status))
+        test_logger.info(message, extra={"status": status})
+        time.sleep(0.1)  # Small delay to ensure different timestamps
+
+    # Give Elasticsearch time to process all documents
+    time.sleep(3)
+
+    # Query Elasticsearch to search by specific status code
+    parsed_url = urlparse(elasticsearch_config.url)
+    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+    search_url = f"{base_url}/{elasticsearch_config.index_name}/_search"
+
+    # Search for logs with RUNNING status code
+    running_status = Status.Code.RUNNING
+    search_query = {
+        "query": {"term": {"status_code": running_status.value}},
+        "sort": [{"@timestamp": {"order": "desc"}}],
+        "size": 10,
+    }
+
+    # Execute the search
+    response = requests.post(
+        search_url,
+        headers={"Content-Type": "application/json", "Authorization": f"ApiKey {elasticsearch_config.api_key}"},
+        json=search_query,
+        verify=parsed_url.scheme == "https",
+    )
+
+    # Check for errors
+    if response.status_code != 200:
+        print(f"Elasticsearch search failed with status {response.status_code}")
+        print(f"Response: {response.text}")
+        response.raise_for_status()
+
+    search_results = response.json()
+
+    # Assert that we found our log messages
+    assert "hits" in search_results, "Search response should contain 'hits'"
+    assert "total" in search_results["hits"], "Search hits should contain 'total'"
+
+    total_hits = search_results["hits"]["total"]
+    if isinstance(total_hits, dict):
+        total_count = total_hits["value"]
+    else:
+        total_count = total_hits
+
+    assert total_count >= 1, f"Expected to find at least 1 log message with RUNNING status, but found {total_count}"
+
+    # Verify the content of the found documents
+    hits = search_results["hits"]["hits"]
+    assert len(hits) >= 1, f"Expected at least 1 hit, found {len(hits)}"
+
+    # Verify all found documents have the correct status code
+    for hit in hits:
+        document = hit["_source"]
+        assert document["status_code"] == running_status.value, (
+            f"Expected status_code {running_status.value}, got {document['status_code']}"
+        )
+        assert document["rollout_id"] == rollout_id, (
+            f"Expected rollout_id '{rollout_id}', got '{document['rollout_id']}'"
+        )
+
+    print(f"Successfully verified search by status code {running_status.value} found {len(hits)} log messages")

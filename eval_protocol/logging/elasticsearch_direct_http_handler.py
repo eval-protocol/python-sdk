@@ -33,6 +33,7 @@ class ElasticSearchDirectHttpHandler(logging.Handler):
             timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
             rollout_id = self._get_rollout_id(record)
+            status_info = self._get_status_info(record)
 
             data: Dict[str, Any] = {
                 "@timestamp": timestamp,
@@ -41,6 +42,10 @@ class ElasticSearchDirectHttpHandler(logging.Handler):
                 "logger_name": record.name,
                 "rollout_id": rollout_id,
             }
+
+            # Add status information if present
+            if status_info:
+                data.update(status_info)
 
             # Schedule the HTTP request to run asynchronously
             self._schedule_async_send(data, record)
@@ -56,6 +61,34 @@ class ElasticSearchDirectHttpHandler(logging.Handler):
                 "EP_ROLLOUT_ID environment variable is not set but needed for ElasticSearchDirectHttpHandler"
             )
         return rollout_id
+
+    def _get_status_info(self, record: logging.LogRecord) -> Optional[Dict[str, Any]]:
+        """Extract status information from the log record's extra data."""
+        # Check if 'status' is in the extra data (passed via extra parameter)
+        if hasattr(record, "status") and record.status is not None:  # type: ignore
+            status = record.status  # type: ignore
+
+            # Handle Status class instances (Pydantic BaseModel)
+            if hasattr(status, "code") and hasattr(status, "message"):
+                # Status object - extract code and message
+                status_code = status.code
+                # Handle both enum values and direct integer values
+                if hasattr(status_code, "value"):
+                    status_code = status_code.value
+
+                return {
+                    "status_code": status_code,
+                    "status_message": status.message,
+                    "status_details": getattr(status, "details", []),
+                }
+            elif isinstance(status, dict):
+                # Dictionary representation of status
+                return {
+                    "status_code": status.get("code"),
+                    "status_message": status.get("message"),
+                    "status_details": status.get("details", []),
+                }
+        return None
 
     def _schedule_async_send(self, data: Dict[str, Any], record: logging.LogRecord) -> None:
         """Schedule an async task to send the log data to Elasticsearch."""
