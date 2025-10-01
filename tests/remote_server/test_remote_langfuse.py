@@ -56,7 +56,7 @@ def rows() -> List[EvaluationRow]:
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
-@pytest.mark.parametrize("completion_params", [{"model": "gpt-4o"}])
+@pytest.mark.parametrize("completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}])
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[rows],
@@ -65,6 +65,7 @@ def rows() -> List[EvaluationRow]:
         remote_base_url="http://127.0.0.1:3000",
         timeout_seconds=30,
         output_data_loader=langfuse_output_data_loader,
+        model_base_url="https://tracing.fireworks.ai/project_id/cmg5fd57b0006y107kuxkcrhk",
     ),
 )
 async def test_remote_rollout_and_fetch_langfuse(row: EvaluationRow) -> EvaluationRow:
