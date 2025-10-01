@@ -33,7 +33,7 @@ except (ImportError, AttributeError):
     _FIREWORKS_AVAILABLE = False
 # Import submodules to make them available via eval_protocol.rewards, etc.
 from . import mcp, rewards
-from .models import EvaluateResult, Message, MetricResult, EvaluationRow, InputMetadata
+from .models import EvaluateResult, Message, MetricResult, EvaluationRow, InputMetadata, Status
 from .playback_policy import PlaybackPolicyBase
 from .resources import create_llm_resource
 from .reward_function import RewardFunction
@@ -73,6 +73,7 @@ from .types.remote_rollout_processor import (
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 __all__ = [
+    "Status",
     "RemoteRolloutProcessor",
     "InputMetadata",
     "EvaluationRow",
