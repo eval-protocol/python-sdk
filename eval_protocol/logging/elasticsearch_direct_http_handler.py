@@ -11,7 +11,7 @@ from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
 from .elasticsearch_client import ElasticsearchClient, ElasticsearchConfig as ESConfig
 
 
-class ElasticSearchDirectHttpHandler(logging.Handler):
+class ElasticsearchDirectHttpHandler(logging.Handler):
     def __init__(self, elasticsearch_config: ElasticSearchConfig) -> None:
         super().__init__()
         self.config = ESConfig(
@@ -55,7 +55,7 @@ class ElasticSearchDirectHttpHandler(logging.Handler):
         rollout_id = os.getenv("EP_ROLLOUT_ID")
         if rollout_id is None:
             raise ValueError(
-                "EP_ROLLOUT_ID environment variable is not set but needed for ElasticSearchDirectHttpHandler"
+                "EP_ROLLOUT_ID environment variable is not set but needed for ElasticsearchDirectHttpHandler"
             )
         return rollout_id
 

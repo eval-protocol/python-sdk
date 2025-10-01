@@ -3,7 +3,7 @@ import logging
 import time
 import pytest
 
-from eval_protocol.logging.elasticsearch_direct_http_handler import ElasticSearchDirectHttpHandler
+from eval_protocol.logging.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
 from eval_protocol.logging.elasticsearch_client import ElasticsearchClient, ElasticsearchConfig as ESConfig
 from eval_protocol.pytest.elasticsearch_setup import ElasticsearchSetup
 from eval_protocol.types.remote_rollout_processor import ElasticSearchConfig
@@ -43,7 +43,7 @@ def elasticsearch_handler(elasticsearch_config: ElasticSearchConfig, rollout_id:
     """Create and configure ElasticsearchDirectHttpHandler."""
     # Use a unique test-specific index name with timestamp
 
-    handler = ElasticSearchDirectHttpHandler(elasticsearch_config)
+    handler = ElasticsearchDirectHttpHandler(elasticsearch_config)
 
     # Set a specific log level
     handler.setLevel(logging.INFO)
