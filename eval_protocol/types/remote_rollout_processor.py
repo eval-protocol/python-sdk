@@ -14,6 +14,7 @@ class ElasticSearchConfig(BaseModel):
 
     url: str
     api_key: str
+    index_name: str
 
 
 class RolloutMetadata(BaseModel):
