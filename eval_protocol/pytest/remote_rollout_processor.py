@@ -135,12 +135,22 @@ class RemoteRolloutProcessor(RolloutProcessor):
             if row.execution_metadata.rollout_id is None:
                 raise ValueError("Rollout ID is required in RemoteRolloutProcessor")
 
+            final_model_base_url = model_base_url
+            if model_base_url and model_base_url.startswith("https://tracing.fireworks.ai/project_id/"):
+                final_model_base_url = (
+                    f"{model_base_url}/rollout_id/{meta.rollout_id}"
+                    f"/invocation_id/{meta.invocation_id}"
+                    f"/experiment_id/{meta.experiment_id}"
+                    f"/run_id/{meta.run_id}"
+                    f"/row_id/{meta.row_id}"
+                )
+
             init_payload: InitRequest = InitRequest(
                 model=model,
                 messages=clean_messages,
                 tools=row.tools,
                 metadata=meta,
-                model_base_url=model_base_url,
+                model_base_url=final_model_base_url,
                 elastic_search_config=self._elastic_search_config,
             )
 
