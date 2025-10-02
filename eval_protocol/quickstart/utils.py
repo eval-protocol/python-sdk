@@ -3,15 +3,10 @@ Arena-Hard-Auto utility functions adapted for Eval Protocol.
 """
 
 import os
-from datetime import datetime
 import re
-from typing import List, Dict, Any, Optional
-from openai import AsyncOpenAI
-import pandas as pd
+from typing import Dict, Any, Optional
 
-from eval_protocol.models import EvaluationRow, Message, EvaluateResult, MetricResult
-import asyncio
-from openai import OpenAI
+from eval_protocol.models import EvaluationRow, Message
 
 OG_ARENA_HARD_PROMPT = """Please act as an impartial judge and evaluate the quality of the responses provided by two AI assistants to the user prompt displayed below. You will be given assistant A's answer and assistant B's answer. Your job is to evaluate which assistant's answer is better.
 

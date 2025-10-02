@@ -208,6 +208,33 @@ class TestPostprocess:
         assert mock_logger.log.call_count == 2
 
 
+class TestBootstrapEquivalence:
+    def test_bootstrap_equivalence_pandas_vs_pure_python(self):
+        import random
+        import pandas as pd
+        from eval_protocol.pytest.utils import calculate_bootstrap_scores as py_bootstrap
+
+        # Deterministic synthetic scores
+        rng = random.Random(123)
+        scores = [rng.random() for _ in range(100)]
+
+        n_boot = 1000
+        seed = 42
+
+        # Old (pandas) style bootstrap: resample full column with replacement
+        df = pd.DataFrame({"score": scores})
+        pandas_means = [
+            df.sample(frac=1.0, replace=True, random_state=seed + i)["score"].mean() for i in range(n_boot)
+        ]
+        pandas_boot_mean = sum(pandas_means) / len(pandas_means)
+
+        # New pure-python implementation
+        py_boot_mean = py_bootstrap(scores, n_boot=n_boot, seed=seed)
+
+        # They estimate the same quantity; allow small Monte Carlo tolerance
+        assert abs(pandas_boot_mean - py_boot_mean) < 0.02
+
+
 class TestComputeFixedSetMuCi:
     """Tests for compute_fixed_set_mu_ci function."""
 

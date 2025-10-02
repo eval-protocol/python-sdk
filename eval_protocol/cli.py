@@ -28,6 +28,7 @@ from .cli_commands.deploy_mcp import deploy_mcp_command
 from .cli_commands.logs import logs_command
 from .cli_commands.preview import preview_command
 from .cli_commands.run_eval_cmd import hydra_cli_entry_point
+from .cli_commands.upload import upload_command
 
 
 def parse_args(args=None):
@@ -291,6 +292,44 @@ def parse_args(args=None):
     logs_parser = subparsers.add_parser("logs", help="Serve logs with file watching and real-time updates")
     logs_parser.add_argument("--port", type=int, default=8000, help="Port to bind to (default: 8000)")
 
+    # Upload command
+    upload_parser = subparsers.add_parser(
+        "upload",
+        help="Scan for evaluation tests, select, and upload as Fireworks evaluators",
+    )
+    upload_parser.add_argument(
+        "--path",
+        default=".",
+        help="Path to search for evaluation tests (default: current directory)",
+    )
+    upload_parser.add_argument(
+        "--entry",
+        help="Entrypoint of evaluation test to upload (module:function or path::function). For multiple, separate by commas.",
+    )
+    upload_parser.add_argument(
+        "--id",
+        help="Evaluator ID to use (if multiple selections, a numeric suffix is appended)",
+    )
+    upload_parser.add_argument(
+        "--display-name",
+        help="Display name for evaluator (defaults to ID)",
+    )
+    upload_parser.add_argument(
+        "--description",
+        help="Description for evaluator",
+    )
+    upload_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing evaluator with the same ID",
+    )
+    upload_parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Non-interactive: upload all discovered evaluation tests",
+    )
+
     # Run command (for Hydra-based evaluations)
     # This subparser intentionally defines no arguments itself.
     # All arguments after 'run' will be passed to Hydra by parse_known_args.
@@ -346,6 +385,8 @@ def main():
         return agent_eval_command(args)
     elif args.command == "logs":
         return logs_command(args)
+    elif args.command == "upload":
+        return upload_command(args)
     elif args.command == "run":
         # For the 'run' command, Hydra takes over argument parsing.
 

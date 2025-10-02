@@ -12,7 +12,6 @@ from typing import Any, Dict, List, Optional, Union, cast
 
 import aiohttp
 import hydra
-from datasets import Dataset, DatasetDict
 from hydra.errors import InstantiationException
 from omegaconf import DictConfig, OmegaConf
 
@@ -23,6 +22,14 @@ from eval_protocol.mcp.clients import IntermediaryMCPClient
 from eval_protocol.models import Message
 from eval_protocol.utils.module_loader import load_function as load_reward_function
 from eval_protocol.utils.packaging_utils import install_requirements
+
+try:
+    from datasets import Dataset, DatasetDict  # pyright: ignore[reportAttributeAccessIssue]
+except ImportError:
+    raise ImportError(
+        "The 'datasets' package is required to use this function. "
+        "Please install it with 'pip install \"eval-protocol[huggingface]\"'"
+    )
 
 logger = logging.getLogger(__name__)
 
