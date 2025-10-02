@@ -23,15 +23,6 @@ from .mcp_env import (
     test_mcp,
 )
 from .data_loader import DynamicDataLoader, InlineDataLoader
-
-# Try to import FireworksPolicy if available
-try:
-    from .mcp_env import FireworksPolicy
-
-    _FIREWORKS_AVAILABLE = True
-except (ImportError, AttributeError):
-    _FIREWORKS_AVAILABLE = False
-# Import submodules to make them available via eval_protocol.rewards, etc.
 from . import mcp, rewards
 from .models import EvaluateResult, Message, MetricResult, EvaluationRow, InputMetadata
 from .playback_policy import PlaybackPolicyBase
@@ -41,6 +32,13 @@ from .typed_interface import reward_function
 from .quickstart import aha_judge, multi_turn_assistant_to_ground_truth, assistant_to_ground_truth
 from .pytest import evaluation_test, SingleTurnRolloutProcessor, RemoteRolloutProcessor
 from .pytest.parameterize import DefaultParameterIdGenerator
+
+from .types.remote_rollout_processor import (
+    InitRequest,
+    RolloutMetadata,
+    StatusResponse,
+    create_langfuse_config_tags,
+)
 
 try:
     from .adapters import OpenAIResponsesAdapter
@@ -61,14 +59,6 @@ try:
     from .adapters import LangSmithAdapter
 except ImportError:
     LangSmithAdapter = None
-
-# Remote server types
-from .types.remote_rollout_processor import (
-    InitRequest,
-    RolloutMetadata,
-    StatusResponse,
-    create_langfuse_config_tags,
-)
 
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 

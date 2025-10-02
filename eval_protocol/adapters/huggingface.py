@@ -13,12 +13,9 @@ from .base import BaseAdapter
 logger = logging.getLogger(__name__)
 
 try:
-    from datasets import Dataset, DatasetDict, load_dataset
-
-    DATASETS_AVAILABLE = True
+    from datasets import Dataset, DatasetDict, load_dataset  # pyright: ignore[reportAttributeAccessIssue]
 except ImportError:
-    DATASETS_AVAILABLE = False
-    logger.warning("HuggingFace datasets not installed. Install with: pip install 'eval-protocol[huggingface]'")
+    raise ImportError("HuggingFace datasets not installed. Install with: pip install 'eval-protocol[huggingface]'")
 
 # Type alias for transformation function
 TransformFunction = Callable[[Dict[str, Any]], Dict[str, Any]]
@@ -80,11 +77,6 @@ class HuggingFaceAdapter(BaseAdapter):
             revision: Optional dataset revision/commit hash
             **load_dataset_kwargs: Additional arguments to pass to load_dataset
         """
-        if not DATASETS_AVAILABLE:
-            raise ImportError(
-                "HuggingFace datasets not installed. Install with: pip install 'eval-protocol[huggingface]'"
-            )
-
         self.dataset_id = dataset_id
         self.transform_fn = transform_fn
         self.config_name = config_name

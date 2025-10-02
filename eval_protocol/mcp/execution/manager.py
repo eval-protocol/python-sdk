@@ -17,9 +17,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, ca
 import anyio
 from openai.types import CompletionUsage
 
-from vendor.tau2.data_model.message import AssistantMessage, UserMessage
-from vendor.tau2.user.user_simulator import UserSimulator
-
 from ...models import EvaluationRow, InputMetadata, Message, Status
 from ...types import TerminationReason, Trajectory, NonSkippableException
 
@@ -234,6 +231,10 @@ class ExecutionManager:
 
             # If user simulation is enabled, initial message is from the simulated user
             if dataset_row.user_simulation and dataset_row.user_simulation.get("enabled", False):
+                # Lazy import vendor.tau2 - only load when user simulation is actually used
+                from vendor.tau2.data_model.message import AssistantMessage, UserMessage
+                from vendor.tau2.user.user_simulator import UserSimulator
+
                 user_simulator = UserSimulator(
                     instructions=dataset_row.user_simulation.get("system_prompt"),
                     llm=dataset_row.user_simulation.get("llm", "gpt-4.1"),
@@ -598,6 +599,9 @@ class ExecutionManager:
         """
         Filter conversation history for user simulator and convert to tau2-bench format.
         """
+        # Lazy import vendor.tau2 types
+        from vendor.tau2.data_model.message import AssistantMessage, UserMessage
+
         tau2_messages = []
 
         for message in conversation_history:
