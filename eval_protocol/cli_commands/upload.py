@@ -347,28 +347,22 @@ def _prompt_select_interactive(tests: list[DiscoveredTest]) -> list[DiscoveredTe
         choices = []
         for idx, test in enumerate(tests, 1):
             choice_text = _format_test_choice(test, idx)
-            choices.append({"name": choice_text, "value": idx - 1, "checked": False})
+            choices.append({"name": choice_text, "value": idx - 1})
 
         print("\n")
-        print("💡 Tip: Use ↑/↓ arrows to navigate, SPACE to select/deselect, ENTER when done")
-        print("        You can select multiple tests!\n")
-        selected_indices = questionary.checkbox(
-            "Select evaluation tests to upload:",
+        print("💡 Tip: Use ↑/↓ arrows to navigate, press ENTER to select\n")
+        selected_index = questionary.select(
+            "Select evaluation test to upload:",
             choices=choices,
             style=custom_style,
         ).ask()
 
-        if selected_indices is None:  # User pressed Ctrl+C
+        if selected_index is None:  # User pressed Ctrl+C
             print("\nUpload cancelled.")
             return []
 
-        if not selected_indices:
-            print("\n⚠️  No tests were selected.")
-            print("   Remember: Use SPACE bar to select tests, then press ENTER to confirm.")
-            return []
-
-        print(f"\n✓ Selected {len(selected_indices)} test(s)")
-        return [tests[i] for i in selected_indices]
+        print(f"\n✓ Selected: {_format_test_choice(tests[selected_index], selected_index + 1)}")
+        return [tests[selected_index]]
 
     except ImportError:
         # Fallback to simpler implementation
