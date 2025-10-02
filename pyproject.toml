@@ -43,7 +43,7 @@ dependencies = [
     "docstring-parser>=0.15",
     "rich>=12.0.0",
     "psutil>=5.8.0",
-    "litellm>=1.0.0,<1.75.0",
+    "litellm<1.75.0",
     "addict>=2.4.0",
     "deepdiff>=6.0.0",
     "pandas>=1.5.0",
