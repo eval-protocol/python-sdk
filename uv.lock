@@ -1388,7 +1388,7 @@ requires-dist = [
     { name = "langgraph", marker = "extra == 'langgraph'", specifier = ">=0.6.7" },
     { name = "langgraph", marker = "extra == 'langgraph-tools'", specifier = ">=0.6.7" },
     { name = "langsmith", marker = "extra == 'langsmith'", specifier = ">=0.1.86" },
-    { name = "litellm", specifier = "==1.74.9" },
+    { name = "litellm", specifier = ">=1.0.0,<1.75.0" },
     { name = "loguru", specifier = ">=0.6.0" },
     { name = "mcp", specifier = ">=1.9.2" },
     { name = "omegaconf", specifier = ">=2.3.0" },
