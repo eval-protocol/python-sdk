@@ -29,7 +29,8 @@ from eval_protocol.pytest.exception_config import get_default_exception_handler_
 
 import logging
 import json
-import pandas as pd
+import random
+import statistics
 
 
 AggregationMethod = Literal["mean", "max", "min", "bootstrap"]
@@ -122,30 +123,25 @@ async def run_tasks_with_run_progress(
             raise
 
 
-def calculate_bootstrap_scores(all_scores: list[float]) -> float:
+def calculate_bootstrap_scores(all_scores: list[float], n_boot: int = 100, seed: int | None = None) -> float:
     """
-    Calculate bootstrap confidence intervals for individual scores.
+    Calculate the mean of bootstrap sample means for a list of scores.
 
     Args:
-        all_scores: List of individual scores from all rows
+        all_scores: List of individual scores from all rows.
+        n_boot: Number of bootstrap resamples to draw (default 100).
+        seed: Optional RNG seed for reproducibility.
 
     Returns:
-        Mean bootstrap score
+        Mean bootstrap score (float). Returns 0.0 if all_scores is empty.
     """
     if not all_scores:
         return 0.0
 
-    # Create DataFrame (single column of scores)
-    battles = pd.DataFrame({"score": all_scores})
-
-    # Bootstrap sampling for calculating relative performance
-    bootstrap_means = [battles.sample(frac=1.0, replace=True)["score"].mean() for _ in range(100)]
-
-    # Calculate final scores
-    bootstraps = pd.Series(bootstrap_means)
-    mean_score = bootstraps.mean()
-
-    return float(mean_score)
+    rng = random.Random(seed) if seed is not None else random
+    k = len(all_scores)
+    bootstrap_means = [statistics.fmean(rng.choices(all_scores, k=k)) for _ in range(n_boot)]
+    return float(statistics.fmean(bootstrap_means))
 
 
 def aggregate(scores: list[float], method: AggregationMethod) -> float:
