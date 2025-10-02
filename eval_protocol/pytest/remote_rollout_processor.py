@@ -194,9 +194,15 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     terminated = bool(status.get("terminated", False))
                     if terminated:
                         break
+                except requests.exceptions.HTTPError as e:
+                    if e.response is not None and e.response.status_code == 404:
+                        # Only pass on 404 errors; continue polling
+                        pass
+                    else:
+                        raise
                 except Exception:
-                    # transient errors; continue polling
-                    pass
+                    # For all other exceptions, raise them
+                    raise
 
                 await asyncio.sleep(poll_interval)
             else:
