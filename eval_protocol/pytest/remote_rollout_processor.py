@@ -188,24 +188,44 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 ElasticsearchClient(self._elastic_search_config) if self._elastic_search_config else None
             )
 
+            continue_polling_status = True
             while time.time() < deadline:
                 try:
-                    status = await asyncio.to_thread(_get_status)
-                    terminated = bool(status.get("terminated", False))
-                    if terminated:
-                        break
+                    if continue_polling_status:
+                        status = await asyncio.to_thread(_get_status)
+                        terminated = bool(status.get("terminated", False))
+                        if terminated:
+                            break
                 except requests.exceptions.HTTPError as e:
                     if e.response is not None and e.response.status_code == 404:
                         # 404 means server doesn't implement /status endpoint, stop polling
                         logger.info(
                             f"Server doesn't implement /status endpoint (404), stopping status polling for rollout {row.execution_metadata.rollout_id}"
                         )
-                        break
+                        continue_polling_status = False
                     else:
                         raise
                 except Exception:
                     # For all other exceptions, raise them
                     raise
+
+                if not elasticsearch_client:
+                    continue
+
+                search_results = elasticsearch_client.search_by_status_code_not_in(
+                    row.execution_metadata.rollout_id, [Status.Code.RUNNING]
+                )
+                hits = search_results["hits"]["hits"] if search_results else []
+
+                if hits:
+                    # log all statuses found
+                    for hit in hits:
+                        document = hit["_source"]
+                        logger.info(
+                            f"Found log for rollout {row.execution_metadata.rollout_id} with status code {document['status_code']}"
+                        )
+                    logger.info("Stopping status polling for rollout %s", row.execution_metadata.rollout_id)
+                    break
 
                 await asyncio.sleep(poll_interval)
             else:
@@ -234,23 +254,20 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 return row
             elif len(output_rows) == 1:  # Return the Langfuse row
                 langfuse_row = output_rows[0]
-                langfuse_row.input_metadata.completion_params = row.input_metadata.completion_params
-                # merge dataset_info dicts on input_metadata
-                if langfuse_row.input_metadata.dataset_info and row.input_metadata.dataset_info:
-                    langfuse_row.input_metadata.dataset_info = {
-                        **row.input_metadata.dataset_info,
-                        **langfuse_row.input_metadata.dataset_info,
-                    }
-                elif row.input_metadata.dataset_info:
-                    langfuse_row.input_metadata.dataset_info = row.input_metadata.dataset_info
-                langfuse_row.eval_metadata = row.eval_metadata
-                langfuse_row.ground_truth = row.ground_truth
 
-                # this is useful to detect stopped evaluations so we can update
-                # the status in the logs server
-                langfuse_row.pid = row.pid
+                # if the langfuse_row has the same number of messages as the original row,
+                # something went wrong
+                if len(langfuse_row.messages) == len(row.messages):
+                    row.rollout_status = Status.rollout_error(
+                        "Rollout finished with the same number of messages as the original row"
+                    )
+                    return row
 
-                return langfuse_row
+                row.messages = langfuse_row.messages
+                row.tools = langfuse_row.tools
+                row.input_metadata.session_data = langfuse_row.input_metadata.session_data
+                row.execution_metadata = langfuse_row.execution_metadata
+                return row
             else:
                 raise ValueError("RemoteRolloutProcessor's output_data_loader should return exactly one row.")
 

@@ -373,7 +373,6 @@ const ExpandedContent = observer(
 
         {/* Right Column - Metadata */}
         <div className="w-[500px] flex-shrink-0 space-y-3">
-          <LogsSection rolloutId={row.execution_metadata?.rollout_id} />
           <EvalMetadataSection data={eval_metadata} />
           <EvaluationResultSection data={evaluation_result} />
           <RolloutStatusSection data={rollout_status} />
@@ -383,6 +382,8 @@ const ExpandedContent = observer(
           <InputMetadataSection data={input_metadata} />
           <ToolsSection data={tools} />
         </div>
+
+        <LogsSection rolloutId={row.execution_metadata?.rollout_id} />
       </div>
     </div>
   )

@@ -1,35 +1,51 @@
-import json
 import logging
-import asyncio
 import os
-import threading
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Tuple, Any, Dict
+from typing import Optional, Any, Dict
 from datetime import datetime
 
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 from .elasticsearch_client import ElasticsearchClient
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+# do not inherit root logger since we are a handler ourselves
+logger.propagate = False
+
+logger.addHandler(logging.StreamHandler())
+
+if os.environ.get("EP_DEBUG") == "true":
+    logger.setLevel(logging.DEBUG)
+    logger.debug("EP_DEBUG=true detected, set log level to DEBUG")
+
 
 class ElasticsearchDirectHttpHandler(logging.Handler):
-    def __init__(self, elasticsearch_config: ElasticsearchConfig) -> None:
+    def __init__(self, elasticsearch_config: ElasticsearchConfig | None = None) -> None:
         super().__init__()
-        self.config = ElasticsearchConfig(
-            url=elasticsearch_config.url,
-            api_key=elasticsearch_config.api_key,
-            index_name=elasticsearch_config.index_name,
-        )
-        self.client = ElasticsearchClient(self.config)
+        self.config = elasticsearch_config
+        self.client = ElasticsearchClient(self.config) if self.config else None
         self.formatter: logging.Formatter = logging.Formatter()
         self._executor = None
 
+    def configure(self, elasticsearch_config: ElasticsearchConfig) -> None:
+        self.config = elasticsearch_config
+        self.client = ElasticsearchClient(self.config)
+
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record by scheduling it for async transmission."""
+        logger.debug(f"Emitting log record: {record.getMessage()}")
         try:
             # Create proper ISO 8601 timestamp
             timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
             rollout_id = self._get_rollout_id(record)
+            if not rollout_id:
+                logger.debug(
+                    "No rollout_id provided in extra data for ElasticsearchDirectHttpHandler through EP_ROLLOUT_ID environment variable or rollout_id extra data. Skipping log record."
+                )
+                return
             status_info = self._get_status_info(record)
 
             data: Dict[str, Any] = {
@@ -50,7 +66,7 @@ class ElasticsearchDirectHttpHandler(logging.Handler):
             self.handleError(record)
             print(f"Error preparing log for Elasticsearch: {e}")
 
-    def _get_rollout_id(self, record: logging.LogRecord) -> str:
+    def _get_rollout_id(self, record: logging.LogRecord) -> str | None:
         """Get the rollout ID from record extra data or environment variables."""
         # Check if rollout_id is provided in the extra data first
         if hasattr(record, "rollout_id") and record.rollout_id is not None:  # type: ignore
@@ -58,10 +74,6 @@ class ElasticsearchDirectHttpHandler(logging.Handler):
 
         # Fall back to environment variable
         rollout_id = os.getenv("EP_ROLLOUT_ID")
-        if rollout_id is None:
-            raise ValueError(
-                "EP_ROLLOUT_ID environment variable is not set and no rollout_id provided in extra data for ElasticsearchDirectHttpHandler"
-            )
         return rollout_id
 
     def _get_status_info(self, record: logging.LogRecord) -> Optional[Dict[str, Any]]:
@@ -105,6 +117,9 @@ class ElasticsearchDirectHttpHandler(logging.Handler):
 
     def _send_to_elasticsearch(self, data: Dict[str, Any], record: logging.LogRecord) -> None:
         """Send data to Elasticsearch (runs in thread pool)."""
+        if not self.client:
+            logger.warning("No Elasticsearch client configured, skipping log record")
+            return
         try:
             success = self.client.index_document(data)
             if not success:

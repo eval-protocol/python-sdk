@@ -10,6 +10,7 @@ import json
 import requests
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
+from eval_protocol.models import Status
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 
 
@@ -255,6 +256,34 @@ class ElasticsearchClient:
             Dict containing search results, or None if failed
         """
         query = {"match_all": {}}
+        return self.search(query, size=size)
+
+    def search_by_status_code_not_in(
+        self,
+        rollout_id: str,
+        excluded_codes: list[Status.Code],
+        size: int = 10,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Search documents where status_code does NOT match any of the provided status codes.
+
+        Args:
+            excluded_codes: List of status codes to exclude (i.e., find logs NOT having these codes)
+            size: Number of results to return
+            rollout_id: Optional rollout ID to filter by
+
+        Returns:
+            Dict containing search results, or None if failed
+        """
+        # Build the query with must_not for status code exclusion
+        bool_query: dict[str, list[dict[str, Any]]] = {
+            "must_not": [{"terms": {"status_code": [code.value for code in excluded_codes]}}]
+        }
+
+        # Add rollout_id filter if provided
+        bool_query["must"] = [{"term": {"rollout_id": rollout_id}}]
+
+        query = {"bool": bool_query}
         return self.search(query, size=size)
 
     # Health and Status Operations
