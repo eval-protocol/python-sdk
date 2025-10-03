@@ -18,7 +18,6 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<string>("");
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   const fetchLogs = async (isInitialLoad = false) => {
     if (!rolloutId) return;
@@ -73,7 +72,6 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
           } else {
             // 404 with JSON content-type means "no logs found" - this is valid
             setLogs([]);
-            setHasLoadedOnce(true);
             return;
           }
         }
@@ -93,7 +91,6 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
         await response.json()
       );
       setLogs(data.logs);
-      setHasLoadedOnce(true);
     } catch (err) {
       if (err instanceof Error && err.message.includes("Unexpected token")) {
         setError(
@@ -109,7 +106,6 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
 
   useEffect(() => {
     if (rolloutId) {
-      setHasLoadedOnce(false); // Reset when filters change
       fetchLogs(true); // Initial load
       const interval = setInterval(() => fetchLogs(false), 5000); // Poll every 5 seconds without loading state
       return () => clearInterval(interval);
@@ -121,16 +117,9 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
   }
 
   return (
-    <div className="mb-2">
-      {/* Header - matching MetadataSection styling */}
-      <div className="p-1">
-        <h4 className="font-semibold text-xs text-gray-700">
-          Logs {hasLoadedOnce ? `(${logs.length})` : ""}
-        </h4>
-      </div>
-
+    <div>
       {/* Content - matching MetadataSection container styling */}
-      <div className="border border-gray-200 p-2 text-xs bg-white mt-1">
+      <div className="border border-gray-200 p-2 w-[1200px] text-xs bg-white">
         {/* Log level filter */}
         <div className="mb-2 flex items-center gap-2">
           <Select
@@ -150,7 +139,7 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
             size="sm"
             disabled={loading}
           >
-            {loading ? "Loading..." : "Refresh"}
+            {loading ? "Loading..." : "Refresh Logs"}
           </Button>
         </div>
 
@@ -169,7 +158,7 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
         )}
 
         {logs.length > 0 && (
-          <div className="max-h-80 w-[1200px] overflow-auto border border-gray-200">
+          <div className="max-h-80 min-h-4 overflow-auto border border-gray-200">
             <div>
               {logs.map((log, index) => (
                 <div
