@@ -51,11 +51,16 @@ class ElasticsearchDirectHttpHandler(logging.Handler):
             print(f"Error preparing log for Elasticsearch: {e}")
 
     def _get_rollout_id(self, record: logging.LogRecord) -> str:
-        """Get the rollout ID from environment variables."""
+        """Get the rollout ID from record extra data or environment variables."""
+        # Check if rollout_id is provided in the extra data first
+        if hasattr(record, "rollout_id") and record.rollout_id is not None:  # type: ignore
+            return str(record.rollout_id)  # type: ignore
+
+        # Fall back to environment variable
         rollout_id = os.getenv("EP_ROLLOUT_ID")
         if rollout_id is None:
             raise ValueError(
-                "EP_ROLLOUT_ID environment variable is not set but needed for ElasticsearchDirectHttpHandler"
+                "EP_ROLLOUT_ID environment variable is not set and no rollout_id provided in extra data for ElasticsearchDirectHttpHandler"
             )
         return rollout_id
 

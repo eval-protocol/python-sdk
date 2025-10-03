@@ -434,3 +434,83 @@ def test_elasticsearch_direct_http_handler_search_by_status_code(
         )
 
     print(f"Successfully verified search by status code {running_status.value} found {len(hits)} log messages")
+
+
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
+def test_elasticsearch_direct_http_handler_rollout_id_from_extra_overrides_env(
+    elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
+):
+    """Test that rollout_id in extra parameter overrides environment variable."""
+
+    # Create a different rollout_id to pass in extra
+    extra_rollout_id = f"extra-rollout-{time.time()}"
+
+    # Generate a unique test message
+    test_message = f"Rollout ID override test message at {time.time()}"
+
+    # Log with rollout_id in extra data (should override environment variable)
+    test_logger.info(test_message, extra={"rollout_id": extra_rollout_id})
+
+    # Give Elasticsearch time to process the document
+    time.sleep(3)
+
+    # Search for logs with the extra rollout_id (not the environment one)
+    search_results = elasticsearch_client.search_by_term("rollout_id", extra_rollout_id, size=1)
+
+    # Assert that we found our log message with the extra rollout_id
+    assert search_results is not None, "Search should return results"
+    assert "hits" in search_results, "Search response should contain 'hits'"
+    assert "total" in search_results["hits"], "Search hits should contain 'total'"
+
+    total_hits = search_results["hits"]["total"]
+    if isinstance(total_hits, dict):
+        total_count = total_hits["value"]
+    else:
+        total_count = total_hits
+
+    assert total_count > 0, f"Expected to find at least 1 log message with extra rollout_id, but found {total_count}"
+
+    # Verify the content of the found document
+    hits = search_results["hits"]["hits"]
+    assert len(hits) > 0, "Expected at least one hit"
+
+    found_document = hits[0]["_source"]
+
+    # Verify the rollout_id field matches the extra parameter (not environment variable)
+    assert "rollout_id" in found_document, "Expected document to contain 'rollout_id' field"
+    assert found_document["rollout_id"] == extra_rollout_id, (
+        f"Expected rollout_id '{extra_rollout_id}', got '{found_document['rollout_id']}'"
+    )
+
+    # Verify it's NOT the environment variable rollout_id
+    assert found_document["rollout_id"] != rollout_id, (
+        f"Expected rollout_id to be overridden, but got environment rollout_id '{rollout_id}'"
+    )
+
+    # Verify other expected fields are still present
+    assert found_document["message"] == test_message, (
+        f"Expected message '{test_message}', got '{found_document['message']}'"
+    )
+    assert found_document["level"] == "INFO", f"Expected level 'INFO', got '{found_document['level']}'"
+    assert found_document["logger_name"] == "test_elasticsearch_logger", (
+        f"Expected logger name 'test_elasticsearch_logger', got '{found_document['logger_name']}'"
+    )
+    assert "@timestamp" in found_document, "Expected document to contain '@timestamp' field"
+
+    # Verify that searching for the original environment rollout_id doesn't find this message
+    env_search_results = elasticsearch_client.search(
+        {"bool": {"must": [{"term": {"rollout_id": rollout_id}}, {"match": {"message": test_message}}]}}, size=1
+    )
+
+    assert env_search_results is not None, "Environment rollout_id search should return results"
+    env_total_hits = env_search_results["hits"]["total"]
+    if isinstance(env_total_hits, dict):
+        env_count = env_total_hits["value"]
+    else:
+        env_count = env_total_hits
+
+    assert env_count == 0, (
+        f"Expected 0 results when searching for message with environment rollout_id, but found {env_count}"
+    )
+
+    print(f"Successfully verified rollout_id override: extra '{extra_rollout_id}' overrode environment '{rollout_id}'")
