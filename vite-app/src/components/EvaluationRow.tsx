@@ -5,6 +5,7 @@ import type {
 } from "../types/eval-protocol";
 import { ChatInterface } from "./ChatInterface";
 import { MetadataSection } from "./MetadataSection";
+import { LogsSection } from "./LogsSection";
 import StatusIndicator from "./StatusIndicator";
 import { state } from "../App";
 import { TableCell, TableRowInteractive } from "./TableContainer";
@@ -372,6 +373,7 @@ const ExpandedContent = observer(
 
         {/* Right Column - Metadata */}
         <div className="w-[500px] flex-shrink-0 space-y-3">
+          <LogsSection rolloutId={row.execution_metadata?.rollout_id} />
           <EvalMetadataSection data={eval_metadata} />
           <EvaluationResultSection data={evaluation_result} />
           <RolloutStatusSection data={rollout_status} />

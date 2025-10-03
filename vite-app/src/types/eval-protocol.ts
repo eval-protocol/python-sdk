@@ -560,3 +560,31 @@ export type MCPConfigurationServerUrl = z.infer<
 export type MCPMultiClientConfiguration = z.infer<
   typeof MCPMultiClientConfigurationSchema
 >;
+
+// Log-related schemas
+export const LogEntrySchema = z.object({
+  "@timestamp": z.string().describe("ISO 8601 timestamp of the log entry"),
+  level: z.string().describe("Log level (DEBUG, INFO, WARNING, ERROR)"),
+  message: z.string().describe("The log message"),
+  logger_name: z
+    .string()
+    .describe("Name of the logger that created this entry"),
+  rollout_id: z.string().describe("ID of the rollout this log belongs to"),
+  status_code: z.number().optional().describe("Optional status code"),
+  status_message: z.string().optional().describe("Optional status message"),
+  status_details: z
+    .array(z.any())
+    .optional()
+    .describe("Optional status details"),
+});
+
+export const LogsResponseSchema = z.object({
+  logs: z.array(LogEntrySchema),
+  total: z.number().describe("Total number of logs available"),
+  rollout_id: z.string().describe("The rollout ID these logs belong to"),
+  filtered_by_level: z.string().optional().describe("Log level filter applied"),
+});
+
+// Type exports
+export type LogEntry = z.infer<typeof LogEntrySchema>;
+export type LogsResponse = z.infer<typeof LogsResponseSchema>;

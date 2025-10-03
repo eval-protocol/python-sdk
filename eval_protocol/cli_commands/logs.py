@@ -19,8 +19,13 @@ def logs_command(args):
     print("Press Ctrl+C to stop the server")
     print("-" * 50)
 
+    # setup Elasticsearch
+    from eval_protocol.pytest.elasticsearch_setup import ElasticsearchSetup
+
+    elasticsearch_config = ElasticsearchSetup().setup_elasticsearch()
+
     try:
-        serve_logs(port=args.port)
+        serve_logs(port=args.port, elasticsearch_config=elasticsearch_config)
         return 0
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")

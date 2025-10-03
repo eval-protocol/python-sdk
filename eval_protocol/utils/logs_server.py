@@ -6,17 +6,20 @@ import threading
 import time
 from contextlib import asynccontextmanager
 from queue import Queue
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import psutil
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import LOG_EVENT_TYPE
 from eval_protocol.event_bus import event_bus
 from eval_protocol.models import Status
 from eval_protocol.utils.vite_server import ViteServer
+from eval_protocol.logging.elasticsearch_client import ElasticsearchClient
+from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 
 if TYPE_CHECKING:
     from eval_protocol.models import EvaluationRow
@@ -71,8 +74,11 @@ class WebSocketManager:
         while True:
             try:
                 # Wait for a message to be queued
-                message = await asyncio.get_event_loop().run_in_executor(None, self._broadcast_queue.get)
-                await self._send_text_to_all_connections(message)
+                message_data = await asyncio.get_event_loop().run_in_executor(None, self._broadcast_queue.get)
+
+                # Regular string message for all connections
+                await self._send_text_to_all_connections(str(message_data))
+
             except Exception as e:
                 logger.error(f"Error in broadcast loop: {e}")
                 await asyncio.sleep(0.1)
@@ -238,8 +244,8 @@ class LogsServer(ViteServer):
     Enhanced server for serving Vite-built SPA with file watching and WebSocket support.
 
     This server extends ViteServer to add:
-    - WebSocket connections for real-time updates
-    - Live log streaming
+    - WebSocket connections for real-time evaluation row updates
+    - REST API for log querying
     """
 
     def __init__(
@@ -250,17 +256,40 @@ class LogsServer(ViteServer):
         host: str = "localhost",
         port: Optional[int] = 8000,
         index_file: str = "index.html",
+        elasticsearch_config: Optional[ElasticsearchConfig] = None,
     ):
         # Initialize WebSocket manager
         self.websocket_manager = WebSocketManager()
 
+        # Initialize Elasticsearch client if config is provided
+        self.elasticsearch_client: Optional[ElasticsearchClient] = None
+        if elasticsearch_config:
+            self.elasticsearch_client = ElasticsearchClient(elasticsearch_config)
+
         super().__init__(build_dir, host, port if port is not None else 8000, index_file)
+
+        # Add CORS middleware to allow frontend access
+        allowed_origins = [
+            "http://localhost:5173",  # Vite dev server
+            "http://127.0.0.1:5173",  # Vite dev server (alternative)
+            f"http://{host}:{port}",  # Server's own origin
+            f"http://localhost:{port}",  # Server on localhost
+        ]
+
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=allowed_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
         # Initialize evaluation watcher
         self.evaluation_watcher = EvaluationWatcher(self.websocket_manager)
 
-        # Add WebSocket endpoint
+        # Add WebSocket endpoint and API routes
         self._setup_websocket_routes()
+        self._setup_api_routes()
 
         # Subscribe to events and start listening for cross-process events
         event_bus.subscribe(self._handle_event)
@@ -275,13 +304,16 @@ class LogsServer(ViteServer):
             await self.websocket_manager.connect(websocket)
             try:
                 while True:
-                    # Keep connection alive
+                    # Keep connection alive (for evaluation row updates)
                     await websocket.receive_text()
             except WebSocketDisconnect:
                 self.websocket_manager.disconnect(websocket)
             except Exception as e:
                 logger.error(f"WebSocket error: {e}")
                 self.websocket_manager.disconnect(websocket)
+
+    def _setup_api_routes(self):
+        """Set up API routes."""
 
         @self.app.get("/api/status")
         async def status():
@@ -295,7 +327,58 @@ class LogsServer(ViteServer):
                 # LogsServer inherits from ViteServer which doesn't expose watch_paths
                 # Expose an empty list to satisfy consumers and type checker
                 "watch_paths": [],
+                "elasticsearch_enabled": self.elasticsearch_client is not None,
             }
+
+        @self.app.get("/api/logs/{rollout_id}")
+        async def get_logs(
+            rollout_id: str,
+            level: Optional[str] = Query(None, description="Filter by log level (DEBUG, INFO, WARNING, ERROR)"),
+            limit: int = Query(100, description="Maximum number of log entries to return"),
+        ):
+            """Get logs for a specific rollout ID from Elasticsearch."""
+            if not self.elasticsearch_client:
+                raise HTTPException(status_code=503, detail="Elasticsearch is not configured for this logs server")
+
+            try:
+                # Search for logs by rollout_id
+                search_results = self.elasticsearch_client.search_by_match("rollout_id", rollout_id, size=limit)
+
+                if not search_results or "hits" not in search_results:
+                    return {"logs": [], "total": 0}
+
+                logs = []
+                for hit in search_results["hits"]["hits"]:
+                    log_entry = hit["_source"]
+
+                    # Filter by level if specified
+                    if level and log_entry.get("level") != level:
+                        continue
+
+                    logs.append(log_entry)
+
+                # Sort by timestamp (most recent first)
+                logs.sort(key=lambda x: x.get("@timestamp", ""), reverse=True)
+
+                # Get total count
+                total_hits = search_results["hits"]["total"]
+                if isinstance(total_hits, dict):
+                    # Elasticsearch 7+ format
+                    total_count = total_hits["value"]
+                else:
+                    # Elasticsearch 6 format
+                    total_count = total_hits
+
+                return {
+                    "logs": logs,
+                    "total": total_count,
+                    "rollout_id": rollout_id,
+                    "filtered_by_level": level,
+                }
+
+            except Exception as e:
+                logger.error(f"Error retrieving logs for rollout {rollout_id}: {e}")
+                raise HTTPException(status_code=500, detail=f"Failed to retrieve logs: {str(e)}")
 
     def _handle_event(self, event_type: str, data: Any) -> None:
         """Handle events from the event bus."""
@@ -353,7 +436,12 @@ class LogsServer(ViteServer):
         asyncio.run(self.run_async())
 
 
-def create_app(host: str = "localhost", port: int = 8000, build_dir: Optional[str] = None) -> FastAPI:
+def create_app(
+    host: str = "localhost",
+    port: int = 8000,
+    build_dir: Optional[str] = None,
+    elasticsearch_config: Optional[ElasticsearchConfig] = None,
+) -> FastAPI:
     """
     Factory function to create a FastAPI app instance and start the server with async loops.
 
@@ -364,6 +452,7 @@ def create_app(host: str = "localhost", port: int = 8000, build_dir: Optional[st
         host: Host to bind to
         port: Port to bind to
         build_dir: Optional custom build directory path
+        elasticsearch_config: Optional Elasticsearch configuration for log querying
 
     Returns:
         FastAPI app instance with server running in background
@@ -373,17 +462,17 @@ def create_app(host: str = "localhost", port: int = 8000, build_dir: Optional[st
             os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "vite-app", "dist")
         )
 
-    server = LogsServer(host=host, port=port, build_dir=build_dir)
+    server = LogsServer(host=host, port=port, build_dir=build_dir, elasticsearch_config=elasticsearch_config)
     server.start_loops()
     return server.app
 
 
 # For backward compatibility and direct usage
-def serve_logs(port: Optional[int] = None):
+def serve_logs(port: Optional[int] = None, elasticsearch_config: Optional[ElasticsearchConfig] = None):
     """
     Convenience function to create and run a LogsServer.
     """
-    server = LogsServer(port=port)
+    server = LogsServer(port=port, elasticsearch_config=elasticsearch_config)
     server.run()
 
 
