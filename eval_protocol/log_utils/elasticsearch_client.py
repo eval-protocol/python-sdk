@@ -202,19 +202,22 @@ class ElasticsearchClient:
         except Exception:
             return None
 
-    def search_by_term(self, field: str, value: Any, size: int = 10) -> Optional[Dict[str, Any]]:
+    def search_by_term(
+        self, field: str, value: Any, size: int = 10, sort: Optional[List[Dict[str, Any]]] = None
+    ) -> Optional[Dict[str, Any]]:
         """Search documents by exact term match.
 
         Args:
             field: Field name to search
             value: Value to match
             size: Number of results to return
+            sort: Sort specification
 
         Returns:
             Dict containing search results, or None if failed
         """
         query = {"term": {field: value}}
-        return self.search(query, size=size)
+        return self.search(query, size=size, sort=sort)
 
     def search_by_match(
         self, field: str, value: str, size: int = 10, sort: Optional[List[Dict[str, Any]]] = None

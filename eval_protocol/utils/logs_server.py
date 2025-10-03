@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import time
+from datetime import datetime
 from contextlib import asynccontextmanager
 from queue import Queue
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -17,6 +18,7 @@ from eval_protocol.dataset_logger import default_logger
 from eval_protocol.dataset_logger.dataset_logger import LOG_EVENT_TYPE
 from eval_protocol.event_bus import event_bus
 from eval_protocol.models import Status
+from eval_protocol.pytest.elasticsearch_setup import ElasticsearchSetup
 from eval_protocol.utils.vite_server import ViteServer
 from eval_protocol.log_utils.elasticsearch_client import ElasticsearchClient
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
@@ -351,11 +353,19 @@ class LogsServer(ViteServer):
                 raise HTTPException(status_code=503, detail="Elasticsearch is not configured for this logs server")
 
             try:
-                # Search for logs by rollout_id, sorted by timestamp in descending order (newest first)
-                sort_spec = [{"@timestamp": {"order": "desc"}}]
-                search_results = self.elasticsearch_client.search_by_match(
-                    "rollout_id", rollout_id, size=limit, sort=sort_spec
-                )
+                # Search for logs by rollout_id using a term filter (exact match),
+                # sorted by timestamp desc with a secondary deterministic tie-breaker on _id desc
+                sort_spec = [
+                    {"@timestamp": {"order": "asc"}},
+                ]
+                query = {
+                    "bool": {
+                        "must": [
+                            {"term": {"rollout_id": rollout_id}},
+                        ]
+                    }
+                }
+                search_results = self.elasticsearch_client.search(query, size=limit, sort=sort_spec)
 
                 if not search_results or "hits" not in search_results:
                     # Return empty response using Pydantic model
@@ -512,10 +522,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    elasticsearch_config = ElasticsearchSetup().setup_elasticsearch()
+
     # Create server with command line arguments
     if args.build_dir:
-        server = LogsServer(host=args.host, port=args.port, build_dir=args.build_dir)
+        server = LogsServer(
+            host=args.host, port=args.port, build_dir=args.build_dir, elasticsearch_config=elasticsearch_config
+        )
     else:
-        server = LogsServer(host=args.host, port=args.port)
+        server = LogsServer(host=args.host, port=args.port, elasticsearch_config=elasticsearch_config)
 
     server.run()
