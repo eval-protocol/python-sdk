@@ -3,8 +3,8 @@ import logging
 import time
 import pytest
 
-from eval_protocol.logging.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
-from eval_protocol.logging.elasticsearch_client import ElasticsearchClient
+from eval_protocol.log_utils.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
+from eval_protocol.log_utils.elasticsearch_client import ElasticsearchClient
 from eval_protocol.pytest.elasticsearch_setup import ElasticsearchSetup
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 
