@@ -9,7 +9,6 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 
 from eval_protocol.cli_commands.deploy import deploy_command
-from eval_protocol.config import GCPCloudRunConfig, RewardKitConfig
 
 # Constants for a dummy reward function module
 # This module will be created and deleted by tests needing it.
@@ -144,7 +143,6 @@ def test_deploy_gcp_with_inline_requirements(
     # Mock all external dependencies of _deploy_to_gcp_cloud_run and deploy_command
     with (
         patch("eval_protocol.cli_commands.deploy.check_environment", return_value=True) as mock_check_env,
-        patch("eval_protocol.cli_commands.deploy.get_config") as mock_get_config,
         patch(
             "eval_protocol.cli_commands.deploy.ensure_artifact_registry_repo_exists",
             return_value=True,
@@ -174,17 +172,6 @@ def test_deploy_gcp_with_inline_requirements(
             return_value={"name": evaluator_id},
         ) as mock_create_eval,
     ):
-        # Configure mock_get_config to return a basic config
-        mock_config_instance = RewardKitConfig(
-            gcp_cloud_run=GCPCloudRunConfig(
-                project_id="test-gcp-project-yaml",  # Test CLI override
-                region="us-west1-yaml",  # Test CLI override
-                default_auth_mode="api-key",
-            ),
-            evaluator_endpoint_keys={},
-        )
-        mock_get_config.return_value = mock_config_instance
-
         # Call the deploy command
         result_code = deploy_command(args)
 

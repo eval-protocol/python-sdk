@@ -169,17 +169,17 @@ def parse_args(args=None):
     gcp_group.add_argument(
         "--gcp-project",
         required=False,
-        help="Google Cloud Project ID. Must be provided via CLI or rewardkit.yaml.",
+        help="Google Cloud Project ID. Required for GCP deployments.",
     )
     gcp_group.add_argument(
         "--gcp-region",
         required=False,
-        help="Google Cloud Region for deployment (e.g., 'us-central1'). Must be provided via CLI or rewardkit.yaml.",
+        help="Google Cloud Region for deployment (e.g., 'us-central1'). Required for GCP deployments.",
     )
     gcp_group.add_argument(
         "--gcp-ar-repo",
         required=False,
-        help="Google Artifact Registry repository name. Optional, defaults to value in rewardkit.yaml or 'eval-protocol-evaluators' if not specified.",
+        help="Google Artifact Registry repository name. Optional, defaults to 'eval-protocol-evaluators' if not specified.",
     )
     gcp_group.add_argument(
         "--service-account",
@@ -202,7 +202,7 @@ def parse_args(args=None):
         help="Authentication mode for the deployed GCP Cloud Run service. "
         "'open': Publicly accessible. "
         "'api-key': Service is publicly accessible but requires an API key in requests (handled by the application). "
-        "If not specified, defaults to value in rewardkit.yaml or 'api-key'. Optional.",
+        "If not specified, defaults to 'api-key'. Optional.",
     )
 
     # Deploy MCP command
@@ -218,11 +218,11 @@ def parse_args(args=None):
     )
     deploy_mcp_parser.add_argument(
         "--gcp-project",
-        help="Google Cloud Project ID. Can also be set in rewardkit.yaml",
+        help="Google Cloud Project ID. Required for GCP deployments.",
     )
     deploy_mcp_parser.add_argument(
         "--gcp-region",
-        help="Google Cloud Region (e.g., 'us-central1'). Can also be set in rewardkit.yaml",
+        help="Google Cloud Region (e.g., 'us-central1'). Required for GCP deployments.",
     )
     deploy_mcp_parser.add_argument(
         "--gcp-ar-repo",

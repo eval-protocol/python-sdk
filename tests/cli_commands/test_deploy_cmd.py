@@ -284,12 +284,8 @@ class TestDeployCommandGCPMode:
             in captured.out
         )
 
-    @patch("eval_protocol.cli_commands.deploy.get_config")
-    def test_deploy_gcp_mode_missing_args(self, mock_get_config, mock_check_environment, capsys):
-        # Mock empty config to test missing project/region scenarios
-        from eval_protocol.config import RewardKitConfig
-
-        mock_get_config.return_value = RewardKitConfig()
+    def test_deploy_gcp_mode_missing_args(self, mock_check_environment, capsys):
+        # Test missing required args for GCP deployment
 
         args = MockArgs(target="gcp-cloud-run", id="gcp-eval-incomplete")
         # function_ref is missing, gcp_project, gcp_region also
