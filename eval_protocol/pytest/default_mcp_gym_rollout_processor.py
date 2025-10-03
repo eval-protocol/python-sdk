@@ -25,7 +25,7 @@ class MCPServerManager:
     def __init__(self, server_script: str, port: int = 8000, **kwargs):
         self.server_script = server_script
         self.port = port
-        self.domain = str(kwargs.get("domain", "airline"))
+        self.domain = kwargs.get("domain", None)
         self.process: Optional[subprocess.Popen] = None
         self.base_dir = Path(".").resolve()
         self._log_file = None
@@ -59,11 +59,14 @@ class MCPServerManager:
         env = os.environ.copy()
         env["PORT"] = str(self.port)
 
-        # Start server process (no domain argument needed for tau2_mcp server)
-        cmd = ["python", self.server_script, "--port", str(self.port), "--domain", self.domain]
+        # Build command, add --domain only if provided (e.g. tau2 needs it, frozen_lake doesn't)
+        cmd = ["python", self.server_script, "--port", str(self.port)]
+        if self.domain:
+            cmd.extend(["--domain", self.domain])
 
         # Setup log file with cleanup
-        log_file_path = os.path.join(self.base_dir, f"server_output_{self.domain}_{self.port}.log")
+        domain_part = self.domain if self.domain else "server"
+        log_file_path = os.path.join(self.base_dir, f"server_output_{domain_part}_{self.port}.log")
         if os.path.exists(log_file_path):
             os.remove(log_file_path)
 

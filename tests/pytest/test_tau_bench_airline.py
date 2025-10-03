@@ -73,6 +73,7 @@ def tau_bench_airline_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Eval
         }
     ],
     rollout_processor=MCPGymRolloutProcessor(),
+    rollout_processor_kwargs={"domain": "airline"},
     passed_threshold={"success": 0.4, "standard_error": 0.02},
     num_runs=8,
     mode="pointwise",
