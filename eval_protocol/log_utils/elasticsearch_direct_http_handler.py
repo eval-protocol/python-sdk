@@ -35,12 +35,12 @@ class ElasticsearchDirectHttpHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record by scheduling it for async transmission."""
-        logger.debug(f"Emitting log record: {record.getMessage()}")
         try:
             # Create proper ISO 8601 timestamp
             timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
             rollout_id = self._get_rollout_id(record)
+            logger.debug(f"Emitting log record: {record.getMessage()} with rollout_id: {rollout_id}")
             if not rollout_id:
                 logger.debug(
                     "No rollout_id provided in extra data for ElasticsearchDirectHttpHandler through EP_ROLLOUT_ID environment variable or rollout_id extra data. Skipping log record."

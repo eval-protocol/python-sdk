@@ -371,6 +371,9 @@ const ExpandedContent = observer(
           <ChatInterfaceSection messages={messages} />
         </div>
 
+        {/* Middle Column - Logs */}
+        <LogsSection rolloutId={row.execution_metadata?.rollout_id} />
+
         {/* Right Column - Metadata */}
         <div className="w-[500px] flex-shrink-0 space-y-3">
           <EvalMetadataSection data={eval_metadata} />
@@ -382,8 +385,6 @@ const ExpandedContent = observer(
           <InputMetadataSection data={input_metadata} />
           <ToolsSection data={tools} />
         </div>
-
-        <LogsSection rolloutId={row.execution_metadata?.rollout_id} />
       </div>
     </div>
   )

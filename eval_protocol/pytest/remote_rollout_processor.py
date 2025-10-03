@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Callable
 
 import requests
 
-from eval_protocol.logging.elasticsearch_client import ElasticsearchClient
+from eval_protocol.log_utils.elasticsearch_client import ElasticsearchClient
 from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig, InitRequest, RolloutMetadata
@@ -229,6 +229,9 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
                 await asyncio.sleep(poll_interval)
             else:
+                logger.info(
+                    f"Loop completed without breaking for {row.execution_metadata.rollout_id}, which means we timed out"
+                )
                 # Loop completed without breaking, which means we timed out
                 row.rollout_status = Status.rollout_error(
                     f"Rollout {row.execution_metadata.rollout_id} timed out after {timeout_seconds} seconds"

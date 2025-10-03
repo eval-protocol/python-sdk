@@ -6,10 +6,8 @@ used throughout the codebase, including index management, document operations,
 and search functionality.
 """
 
-import json
 import requests
 from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urlparse
 from eval_protocol.models import Status
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 
@@ -280,8 +278,8 @@ class ElasticsearchClient:
             "must_not": [{"terms": {"status_code": [code.value for code in excluded_codes]}}]
         }
 
-        # Add rollout_id filter if provided
-        bool_query["must"] = [{"term": {"rollout_id": rollout_id}}]
+        # Add rollout_id filter and ensure status_code exists
+        bool_query["must"] = [{"term": {"rollout_id": rollout_id}}, {"exists": {"field": "status_code"}}]
 
         query = {"bool": bool_query}
         return self.search(query, size=size)

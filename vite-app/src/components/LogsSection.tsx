@@ -169,16 +169,16 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
         )}
 
         {logs.length > 0 && (
-          <div className="max-h-80 w-full overflow-auto border border-gray-200">
-            <div className="min-w-max">
+          <div className="max-h-80 max-w-[1200px] overflow-auto border border-gray-200">
+            <div>
               {logs.map((log, index) => (
                 <div
                   key={index}
-                  className={`text-xs px-3 py-1 border-b border-gray-200 last:border-b-0 min-w-full ${
+                  className={`text-xs px-3 py-1 border-b border-gray-200 last:border-b-0 ${
                     index % 2 === 0 ? "bg-white" : "bg-gray-50"
                   }`}
                 >
-                  <div className="flex items-center gap-2 whitespace-nowrap">
+                  <div className="flex items-start gap-2">
                     <span
                       className={`font-medium text-xs flex-shrink-0 ${
                         log.level === "ERROR"
@@ -198,7 +198,7 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
                     <span className="text-gray-400 text-xs flex-shrink-0">
                       {log.logger_name}
                     </span>
-                    <span className="text-gray-900">
+                    <span className="text-gray-900 break-words min-w-0 flex-1">
                       {log.status_message && (
                         <span className="text-gray-500 font-mono">
                           Status: {log.status_message}{" "}

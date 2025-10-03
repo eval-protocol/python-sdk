@@ -18,7 +18,7 @@ from eval_protocol.dataset_logger.dataset_logger import LOG_EVENT_TYPE
 from eval_protocol.event_bus import event_bus
 from eval_protocol.models import Status
 from eval_protocol.utils.vite_server import ViteServer
-from eval_protocol.logging.elasticsearch_client import ElasticsearchClient
+from eval_protocol.log_utils.elasticsearch_client import ElasticsearchClient
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 from eval_protocol.utils.logs_models import LogEntry, LogsResponse
 
@@ -381,9 +381,6 @@ class LogsServer(ViteServer):
                         # Log the error but continue processing other entries
                         logger.warning(f"Failed to parse log entry: {e}, data: {log_data}")
                         continue
-
-                # Sort by timestamp (most recent first)
-                log_entries.sort(key=lambda x: x.timestamp, reverse=True)
 
                 # Get total count
                 total_hits = search_results["hits"]["total"]

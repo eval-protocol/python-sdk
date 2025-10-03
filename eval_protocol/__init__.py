@@ -32,6 +32,8 @@ from .typed_interface import reward_function
 from .quickstart import aha_judge, multi_turn_assistant_to_ground_truth, assistant_to_ground_truth
 from .pytest import evaluation_test, SingleTurnRolloutProcessor, RemoteRolloutProcessor
 from .pytest.parameterize import DefaultParameterIdGenerator
+from .log_utils.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
+from .log_utils.rollout_id_filter import RolloutIdFilter
 
 from .types.remote_rollout_processor import (
     InitRequest,
@@ -63,6 +65,8 @@ except ImportError:
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 __all__ = [
+    "ElasticsearchDirectHttpHandler",
+    "RolloutIdFilter",
     "Status",
     "RemoteRolloutProcessor",
     "InputMetadata",

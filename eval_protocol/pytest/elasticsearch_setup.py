@@ -7,7 +7,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from eval_protocol.directory_utils import find_eval_protocol_dir
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
-from eval_protocol.logging.elasticsearch_index_manager import ElasticsearchIndexManager
+from eval_protocol.log_utils.elasticsearch_index_manager import ElasticsearchIndexManager
 
 logger = logging.getLogger(__name__)
 

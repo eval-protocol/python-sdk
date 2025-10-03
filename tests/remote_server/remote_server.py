@@ -7,18 +7,14 @@ from fastapi import FastAPI
 from openai import OpenAI
 import logging
 
-from eval_protocol.models import Status
-from eval_protocol.types.remote_rollout_processor import (
-    InitRequest,
-)
-from eval_protocol.logging.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
+from eval_protocol import Status, InitRequest, ElasticsearchDirectHttpHandler, RolloutIdFilter
+
 
 app = FastAPI()
 
-handler = ElasticsearchDirectHttpHandler()
 # attach handler to root logger
+handler = ElasticsearchDirectHttpHandler()
 logging.getLogger().addHandler(handler)
-logger = logging.getLogger(__name__)
 
 
 @app.post("/init")
@@ -26,16 +22,12 @@ def init(req: InitRequest):
     if req.elastic_search_config:
         handler.configure(req.elastic_search_config)
 
-    # with a 50% chance, log that rollout has finished
-    if random.random() < 0.5:
-        logger.info(
-            f"Rollout {req.metadata.rollout_id} finished",
-            extra={"status": Status.rollout_finished(), "rollout_id": req.metadata.rollout_id},
-        )
-        return
+    # attach rollout_id filter to logger
+    logger = logging.getLogger(f"{__name__}.{req.metadata.rollout_id}")
+    logger.addFilter(RolloutIdFilter(req.metadata.rollout_id))
 
     # Kick off worker thread that does a single-turn chat via Langfuse OpenAI integration
-    def _worker(rollout_id: str):
+    def _worker():
         try:
             if not req.messages:
                 raise ValueError("messages is required")
@@ -50,7 +42,9 @@ def init(req: InitRequest):
 
             client = OpenAI(base_url=req.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 
+            logger.info(f"Sending completion request to model {req.model}")
             completion = client.chat.completions.create(**completion_kwargs)
+            logger.info(f"Completed response: {completion}")
 
         except Exception as e:
             # Best-effort; mark as done even on error to unblock polling
@@ -59,10 +53,10 @@ def init(req: InitRequest):
         finally:
             logger.info(
                 f"Rollout {req.metadata.rollout_id} completed",
-                extra={"status": Status.rollout_finished(), "rollout_id": rollout_id},
+                extra={"status": Status.rollout_finished()},
             )
 
-    t = threading.Thread(target=_worker, daemon=True, args=(req.metadata.rollout_id,))
+    t = threading.Thread(target=_worker, daemon=True)
     t.start()
 
 
