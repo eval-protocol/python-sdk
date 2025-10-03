@@ -15,6 +15,7 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState<string>("");
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   const fetchLogs = async (isInitialLoad = false) => {
     if (!rolloutId) return;
@@ -69,6 +70,7 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
           } else {
             // 404 with JSON content-type means "no logs found" - this is valid
             setLogs([]);
+            setHasLoadedOnce(true);
             return;
           }
         }
@@ -86,6 +88,7 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
 
       const data: LogsResponse = await response.json();
       setLogs(data.logs);
+      setHasLoadedOnce(true);
     } catch (err) {
       if (err instanceof Error && err.message.includes("Unexpected token")) {
         setError(
@@ -101,6 +104,7 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
 
   useEffect(() => {
     if (isExpanded && rolloutId) {
+      setHasLoadedOnce(false); // Reset when filters change
       fetchLogs(true); // Initial load
       const interval = setInterval(() => fetchLogs(false), 5000); // Poll every 5 seconds without loading state
       return () => clearInterval(interval);
@@ -119,7 +123,7 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <h4 className="font-semibold text-xs text-gray-700">
-          Logs ({logs.length})
+          Logs {hasLoadedOnce ? `(${logs.length})` : ""}
         </h4>
         <svg
           className={`h-3 w-3 text-gray-500 transition-transform duration-200 ${
