@@ -16,10 +16,13 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState<string>("");
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (isInitialLoad = false) => {
     if (!rolloutId) return;
 
-    setLoading(true);
+    // Only show loading on initial load, not during polling
+    if (isInitialLoad) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -98,8 +101,8 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
 
   useEffect(() => {
     if (isExpanded && rolloutId) {
-      fetchLogs(); // Initial load
-      const interval = setInterval(fetchLogs, 5000); // Poll every 5 seconds
+      fetchLogs(true); // Initial load
+      const interval = setInterval(() => fetchLogs(false), 5000); // Poll every 5 seconds without loading state
       return () => clearInterval(interval);
     }
   }, [isExpanded, rolloutId, selectedLevel]);
@@ -152,7 +155,7 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
               <option value="ERROR">ERROR</option>
             </Select>
             <Button
-              onClick={fetchLogs}
+              onClick={() => fetchLogs(true)}
               variant="primary"
               size="sm"
               disabled={loading}
