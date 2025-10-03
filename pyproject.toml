@@ -77,6 +77,7 @@ dev = [
     "pip>=25.1.1",
     "haikus==0.3.8",
     "syrupy>=4.0.0",
+    "gymnasium>=1.2.0",
 ]
 trl = [
     "torch>=1.9",
