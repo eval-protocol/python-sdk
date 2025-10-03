@@ -1,6 +1,10 @@
 import { observer } from "mobx-react";
 import { useState, useEffect } from "react";
-import type { LogEntry, LogsResponse } from "../types/eval-protocol";
+import {
+  LogsResponseSchema,
+  type LogEntry,
+  type LogsResponse,
+} from "../types/eval-protocol";
 import { getApiUrl } from "../config";
 import Select from "./Select";
 import Button from "./Button";
@@ -86,7 +90,9 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data: LogsResponse = await response.json();
+      const data: LogsResponse = LogsResponseSchema.parse(
+        await response.json()
+      );
       setLogs(data.logs);
       setHasLoadedOnce(true);
     } catch (err) {
