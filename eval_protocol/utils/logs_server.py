@@ -351,8 +351,11 @@ class LogsServer(ViteServer):
                 raise HTTPException(status_code=503, detail="Elasticsearch is not configured for this logs server")
 
             try:
-                # Search for logs by rollout_id
-                search_results = self.elasticsearch_client.search_by_match("rollout_id", rollout_id, size=limit)
+                # Search for logs by rollout_id, sorted by timestamp in descending order (newest first)
+                sort_spec = [{"@timestamp": {"order": "desc"}}]
+                search_results = self.elasticsearch_client.search_by_match(
+                    "rollout_id", rollout_id, size=limit, sort=sort_spec
+                )
 
                 if not search_results or "hits" not in search_results:
                     # Return empty response using Pydantic model

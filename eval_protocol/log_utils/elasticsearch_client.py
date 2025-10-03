@@ -216,19 +216,22 @@ class ElasticsearchClient:
         query = {"term": {field: value}}
         return self.search(query, size=size)
 
-    def search_by_match(self, field: str, value: str, size: int = 10) -> Optional[Dict[str, Any]]:
+    def search_by_match(
+        self, field: str, value: str, size: int = 10, sort: Optional[List[Dict[str, Any]]] = None
+    ) -> Optional[Dict[str, Any]]:
         """Search documents by text match.
 
         Args:
             field: Field name to search
             value: Text to match
             size: Number of results to return
+            sort: Sort specification (e.g., [{"@timestamp": {"order": "desc"}}])
 
         Returns:
             Dict containing search results, or None if failed
         """
         query = {"match": {field: value}}
-        return self.search(query, size=size)
+        return self.search(query, size=size, sort=sort)
 
     def search_by_match_phrase_prefix(self, field: str, value: str, size: int = 10) -> Optional[Dict[str, Any]]:
         """Search documents by phrase prefix match.
