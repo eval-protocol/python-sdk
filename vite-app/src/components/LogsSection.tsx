@@ -169,7 +169,7 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
         )}
 
         {logs.length > 0 && (
-          <div className="max-h-80 max-w-[1200px] overflow-auto border border-gray-200">
+          <div className="max-h-80 w-[1200px] overflow-auto border border-gray-200">
             <div>
               {logs.map((log, index) => (
                 <div
