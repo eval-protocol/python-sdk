@@ -12,7 +12,6 @@ import warnings
 
 from .auth import get_fireworks_account_id, get_fireworks_api_key
 from .common_utils import load_jsonl
-from .config import RewardKitConfig, get_config, load_config
 from .mcp_env import (
     AnthropicPolicy,
     FireworksPolicy,
@@ -90,10 +89,6 @@ __all__ = [
     # Authentication
     "get_fireworks_api_key",
     "get_fireworks_account_id",
-    # Configuration
-    "load_config",
-    "get_config",
-    "RewardKitConfig",
     # Utilities
     "load_jsonl",
     # MCP Environment API

@@ -9,12 +9,6 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Optional
 
-from eval_protocol.config import (
-    GCPCloudRunConfig,
-    RewardKitConfig,
-    _config_file_path as global_loaded_config_path,
-    get_config,
-)
 from eval_protocol.gcp_tools import (
     build_and_push_docker_image,
     deploy_to_cloud_run,
@@ -129,7 +123,7 @@ CMD ["python", "-m", "{mcp_server_module}", "--host", "0.0.0.0", "--port", "{ser
     return dockerfile_content
 
 
-def _deploy_mcp_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
+def _deploy_mcp_to_gcp_cloud_run(args):
     """Deploy MCP server to GCP Cloud Run."""
     print(f"Starting MCP server deployment to GCP Cloud Run for '{args.id}'...")
 
@@ -140,22 +134,16 @@ def _deploy_mcp_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
 
     # Resolve GCP configuration
     gcp_project_id = args.gcp_project
-    if not gcp_project_id and gcp_config_from_yaml:
-        gcp_project_id = gcp_config_from_yaml.project_id
     if not gcp_project_id:
-        print("Error: GCP Project ID must be provided via --gcp-project or rewardkit.yaml.")
+        print("Error: GCP Project ID must be provided via --gcp-project argument.")
         return None
 
     gcp_region = args.gcp_region
-    if not gcp_region and gcp_config_from_yaml:
-        gcp_region = gcp_config_from_yaml.region
     if not gcp_region:
-        print("Error: GCP Region must be provided via --gcp-region or rewardkit.yaml.")
+        print("Error: GCP Region must be provided via --gcp-region argument.")
         return None
 
     gcp_ar_repo_name = args.gcp_ar_repo
-    if not gcp_ar_repo_name and gcp_config_from_yaml:
-        gcp_ar_repo_name = gcp_config_from_yaml.artifact_registry_repository
     if not gcp_ar_repo_name:
         gcp_ar_repo_name = "eval-protocol-mcp-servers"
 
@@ -266,14 +254,8 @@ def deploy_mcp_command(args):
         return False
 
     try:
-        # Load configuration
-        current_config = get_config()
-        gcp_config_from_yaml: Optional[GCPCloudRunConfig] = None
-        if current_config and current_config.gcp_cloud_run:
-            gcp_config_from_yaml = current_config.gcp_cloud_run
-
         # Deploy to GCP Cloud Run
-        service_url = _deploy_mcp_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml)
+        service_url = _deploy_mcp_to_gcp_cloud_run(args)
 
         if service_url:
             print(f"✅ MCP server '{args.id}' successfully deployed!")

@@ -12,8 +12,6 @@ import time  # For sleep
 from pathlib import Path  # For path operations
 from typing import Any, Dict
 
-import yaml  # For saving config if save_config helper doesn't exist
-
 # TODO: Consider moving subprocess_manager functions to a more central location if used by core CLI
 try:
     # Import functions with explicit names to match expected signatures
@@ -79,12 +77,6 @@ else:
 
 
 from eval_protocol.auth import get_fireworks_account_id
-from eval_protocol.config import (
-    GCPCloudRunConfig,
-    RewardKitConfig,
-    _config_file_path as global_loaded_config_path,
-    get_config,
-)
 from eval_protocol.evaluation import create_evaluation
 from eval_protocol.gcp_tools import (
     build_and_push_docker_image,
@@ -176,7 +168,7 @@ def _establish_local_server_and_tunnel(args):
             )  # URL, provider, server_pid, tunnel_pid
 
 
-def _deploy_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
+def _deploy_to_gcp_cloud_run(args):
     """Handles the logic for --target gcp-cloud-run up to service deployment."""
     print(f"Starting GCP Cloud Run deployment for evaluator '{args.id}'...")
 
@@ -201,24 +193,18 @@ def _deploy_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
 
     # Resolve GCP project_id
     gcp_project_id = args.gcp_project
-    if not gcp_project_id and gcp_config_from_yaml:
-        gcp_project_id = gcp_config_from_yaml.project_id
     if not gcp_project_id:
-        print("Error: GCP Project ID must be provided via --gcp-project argument or in rewardkit.yaml.")
+        print("Error: GCP Project ID must be provided via --gcp-project argument.")
         return None
 
     # Resolve GCP region
     gcp_region = args.gcp_region
-    if not gcp_region and gcp_config_from_yaml:
-        gcp_region = gcp_config_from_yaml.region
     if not gcp_region:
-        print("Error: GCP Region must be provided via --gcp-region argument or in rewardkit.yaml.")
+        print("Error: GCP Region must be provided via --gcp-region argument.")
         return None
 
     # Resolve GCP AR repo name
     gcp_ar_repo_name = args.gcp_ar_repo
-    if not gcp_ar_repo_name and gcp_config_from_yaml:
-        gcp_ar_repo_name = gcp_config_from_yaml.artifact_registry_repository
     if not gcp_ar_repo_name:
         gcp_ar_repo_name = "eval-protocol-evaluators"
 
@@ -264,32 +250,15 @@ def _deploy_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
     parsed_gcp_secrets: Dict[str, Any] = {}
     allow_unauthenticated_gcp = True
 
-    resolved_auth_mode = "api-key"
-    if gcp_config_from_yaml and gcp_config_from_yaml.default_auth_mode:
-        resolved_auth_mode = gcp_config_from_yaml.default_auth_mode
-    if args.gcp_auth_mode is not None:
-        resolved_auth_mode = args.gcp_auth_mode
+    resolved_auth_mode = args.gcp_auth_mode if args.gcp_auth_mode is not None else "api-key"
     print(f"Using GCP Auth Mode for service: {resolved_auth_mode}")
 
     if resolved_auth_mode == "api-key":
         print("Configuring GCP Cloud Run service for API key authentication (application layer).")
         evaluator_id = args.id
-        api_key_for_service = None  # This is the key the service itself will use
-        config_path = global_loaded_config_path
-
-        if current_config.evaluator_endpoint_keys and evaluator_id in current_config.evaluator_endpoint_keys:
-            api_key_for_service = current_config.evaluator_endpoint_keys[evaluator_id]
-            print(f"Using existing API key for '{evaluator_id}' from configuration for the service.")
-        else:
-            api_key_for_service = secrets.token_hex(32)
-            print(f"Generated new API key for '{evaluator_id}' for the service.")
-            if not current_config.evaluator_endpoint_keys:
-                current_config.evaluator_endpoint_keys = {}
-            current_config.evaluator_endpoint_keys[evaluator_id] = api_key_for_service
-            if config_path:
-                _save_config(current_config, config_path)
-            else:
-                print(f"Warning: No rewardkit.yaml found to save API key for '{evaluator_id}'.")
+        # Generate API key for the service
+        api_key_for_service = secrets.token_hex(32)
+        print(f"Generated new API key for '{evaluator_id}' for the service.")
 
         gcp_sanitized_eval_id = "".join(filter(lambda char: char.isalnum() or char in ["-", "_"], args.id))
         if not gcp_sanitized_eval_id:
@@ -349,17 +318,6 @@ def _deploy_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml):
     return cloud_run_service_url
 
 
-# Helper to save config (can be moved to config.py later)
-def _save_config(config_data: RewardKitConfig, path: str):
-    # Basic save, ideally config.py would provide a robust method
-    try:
-        with open(path, "w") as f:
-            yaml.dump(config_data.model_dump(exclude_none=True), f, sort_keys=False)
-        print(f"Config updated and saved to {path}")
-    except Exception as e:
-        print(f"Warning: Failed to save updated config to {path}: {e}")
-
-
 def deploy_command(args):
     """Create and deploy an evaluator or register a remote one."""
 
@@ -390,10 +348,7 @@ def deploy_command(args):
     local_tunnel_pid_to_clean = None  # Initialize here
 
     if args.target == "gcp-cloud-run":
-        current_config = get_config()  # Needed by the helper
-        gcp_config_from_yaml = current_config.gcp_cloud_run if current_config.gcp_cloud_run else None
-
-        cloud_run_service_url = _deploy_to_gcp_cloud_run(args, current_config, gcp_config_from_yaml)
+        cloud_run_service_url = _deploy_to_gcp_cloud_run(args)
         if not cloud_run_service_url:
             return 1  # Error already printed by helper
         service_url_to_register = cloud_run_service_url
