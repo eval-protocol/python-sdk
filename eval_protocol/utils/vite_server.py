@@ -32,13 +32,13 @@ class ViteServer:
         host: str = "localhost",
         port: int = 8000,
         index_file: str = "index.html",
-        lifespan: Optional[Callable[[FastAPI], Any]] = None,
+        app: Optional[FastAPI] = None,
     ):
         self.build_dir = Path(build_dir)
         self.host = host
         self.port = port
         self.index_file = index_file
-        self.app = FastAPI(title="Vite SPA Server", lifespan=lifespan)
+        self.app = app if app is not None else FastAPI(title="Vite SPA Server")
 
         # Validate build directory exists
         if not self.build_dir.exists():

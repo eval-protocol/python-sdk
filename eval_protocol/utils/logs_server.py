@@ -266,7 +266,13 @@ class LogsServer(ViteServer):
         if elasticsearch_config:
             self.elasticsearch_client = ElasticsearchClient(elasticsearch_config)
 
-        super().__init__(build_dir, host, port if port is not None else 8000, index_file)
+        self.app = FastAPI(title="Logs Server")
+
+        # Add WebSocket endpoint and API routes
+        self._setup_websocket_routes()
+        self._setup_api_routes()
+
+        super().__init__(build_dir, host, port if port is not None else 8000, index_file, self.app)
 
         # Add CORS middleware to allow frontend access
         allowed_origins = [
@@ -287,9 +293,12 @@ class LogsServer(ViteServer):
         # Initialize evaluation watcher
         self.evaluation_watcher = EvaluationWatcher(self.websocket_manager)
 
-        # Add WebSocket endpoint and API routes
-        self._setup_websocket_routes()
-        self._setup_api_routes()
+        # Log all registered routes for debugging
+        logger.info("Registered routes:")
+        for route in self.app.routes:
+            path = getattr(route, "path", "UNKNOWN")
+            methods = getattr(route, "methods", {"UNKNOWN"})
+            logger.info(f"  {methods} {path}")
 
         # Subscribe to events and start listening for cross-process events
         event_bus.subscribe(self._handle_event)
