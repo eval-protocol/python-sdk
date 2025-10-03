@@ -373,7 +373,7 @@ class TestLogsServer:
             serve_logs(port=test_port)
 
             # Verify that LogsServer was created with the correct port
-            mock_logs_server_class.assert_called_once_with(port=test_port)
+            mock_logs_server_class.assert_called_once_with(port=test_port, elasticsearch_config=None)
             # Verify that the run method was called on the instance
             mock_server_instance.run.assert_called_once()
 
@@ -387,7 +387,7 @@ class TestLogsServer:
             serve_logs()
 
             # Verify that LogsServer was created with None port (which will use LogsServer's default of 8000)
-            mock_logs_server_class.assert_called_once_with(port=None)
+            mock_logs_server_class.assert_called_once_with(port=None, elasticsearch_config=None)
             # Verify that the run method was called on the instance
             mock_server_instance.run.assert_called_once()
 
