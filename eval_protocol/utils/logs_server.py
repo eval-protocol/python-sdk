@@ -20,6 +20,7 @@ from eval_protocol.models import Status
 from eval_protocol.utils.vite_server import ViteServer
 from eval_protocol.logging.elasticsearch_client import ElasticsearchClient
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
+from eval_protocol.utils.logs_models import LogEntry, LogsResponse
 
 if TYPE_CHECKING:
     from eval_protocol.models import EvaluationRow
@@ -339,12 +340,12 @@ class LogsServer(ViteServer):
                 "elasticsearch_enabled": self.elasticsearch_client is not None,
             }
 
-        @self.app.get("/api/logs/{rollout_id}")
+        @self.app.get("/api/logs/{rollout_id}", response_model=LogsResponse, response_model_exclude_none=True)
         async def get_logs(
             rollout_id: str,
             level: Optional[str] = Query(None, description="Filter by log level (DEBUG, INFO, WARNING, ERROR)"),
             limit: int = Query(100, description="Maximum number of log entries to return"),
-        ):
+        ) -> LogsResponse:
             """Get logs for a specific rollout ID from Elasticsearch."""
             if not self.elasticsearch_client:
                 raise HTTPException(status_code=503, detail="Elasticsearch is not configured for this logs server")
@@ -354,20 +355,35 @@ class LogsServer(ViteServer):
                 search_results = self.elasticsearch_client.search_by_match("rollout_id", rollout_id, size=limit)
 
                 if not search_results or "hits" not in search_results:
-                    return {"logs": [], "total": 0}
+                    # Return empty response using Pydantic model
+                    return LogsResponse(
+                        logs=[],
+                        total=0,
+                        rollout_id=rollout_id,
+                        filtered_by_level=level,
+                    )
 
-                logs = []
+                log_entries = []
                 for hit in search_results["hits"]["hits"]:
-                    log_entry = hit["_source"]
+                    log_data = hit["_source"]
 
                     # Filter by level if specified
-                    if level and log_entry.get("level") != level:
+                    if level and log_data.get("level") != level:
                         continue
 
-                    logs.append(log_entry)
+                    # Create LogEntry using Pydantic model for validation
+                    try:
+                        log_entry = LogEntry(
+                            **log_data  # Use ** to unpack the dict, Pydantic will handle field mapping
+                        )
+                        log_entries.append(log_entry)
+                    except Exception as e:
+                        # Log the error but continue processing other entries
+                        logger.warning(f"Failed to parse log entry: {e}, data: {log_data}")
+                        continue
 
                 # Sort by timestamp (most recent first)
-                logs.sort(key=lambda x: x.get("@timestamp", ""), reverse=True)
+                log_entries.sort(key=lambda x: x.timestamp, reverse=True)
 
                 # Get total count
                 total_hits = search_results["hits"]["total"]
@@ -378,12 +394,13 @@ class LogsServer(ViteServer):
                     # Elasticsearch 6 format
                     total_count = total_hits
 
-                return {
-                    "logs": logs,
-                    "total": total_count,
-                    "rollout_id": rollout_id,
-                    "filtered_by_level": level,
-                }
+                # Return response using Pydantic model
+                return LogsResponse(
+                    logs=log_entries,
+                    total=total_count,
+                    rollout_id=rollout_id,
+                    filtered_by_level=level,
+                )
 
             except Exception as e:
                 logger.error(f"Error retrieving logs for rollout {rollout_id}: {e}")
