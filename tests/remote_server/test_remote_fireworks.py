@@ -4,7 +4,7 @@
 # python -m tests.remote_server.remote_server (runs on http://127.0.0.1:3000)
 #
 # For TypeScript server testing, start:
-# cd /Users/derekxu/Documents/code/python-sdk/tests/remote_server/typescript-server
+# cd tests/remote_server/typescript-server
 # npm install
 # npm start
 #
