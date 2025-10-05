@@ -20,7 +20,7 @@ from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
-from eval_protocol.adapters.langfuse import create_langfuse_adapter
+from eval_protocol.adapters.fireworks_tracing import create_fireworks_tracing_adapter
 from eval_protocol.quickstart.utils import filter_longest_conversation
 
 ROLLOUT_IDS = set()
@@ -33,20 +33,20 @@ def check_rollout_coverage():
     ROLLOUT_IDS.clear()
     yield
 
-    assert len(ROLLOUT_IDS) == 3, f"Expected to see {ROLLOUT_IDS} rollout_ids, but only saw {ROLLOUT_IDS}"
+    assert len(ROLLOUT_IDS) == 3, f"Expected to see 3 rollout_ids, but only saw {ROLLOUT_IDS}"
 
 
-def fetch_langfuse_traces(rollout_id: str) -> List[EvaluationRow]:
+def fetch_fireworks_traces(rollout_id: str) -> List[EvaluationRow]:
     global ROLLOUT_IDS  # Track all rollout_ids we've seen
     ROLLOUT_IDS.add(rollout_id)
 
-    adapter = create_langfuse_adapter()
+    adapter = create_fireworks_tracing_adapter()
     return adapter.get_evaluation_rows(tags=[f"rollout_id:{rollout_id}"], max_retries=5)
 
 
-def langfuse_output_data_loader(rollout_id: str) -> DynamicDataLoader:
+def fireworks_output_data_loader(rollout_id: str) -> DynamicDataLoader:
     return DynamicDataLoader(
-        generators=[lambda: fetch_langfuse_traces(rollout_id)], preprocess_fn=filter_longest_conversation
+        generators=[lambda: fetch_fireworks_traces(rollout_id)], preprocess_fn=filter_longest_conversation
     )
 
 
@@ -64,16 +64,15 @@ def rows() -> List[EvaluationRow]:
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url="http://127.0.0.1:3000",
         timeout_seconds=30,
-        output_data_loader=langfuse_output_data_loader,
-        model_base_url="https://tracing.fireworks.ai/project_id/cmg5fd57b0006y107kuxkcrhk",
+        output_data_loader=fireworks_output_data_loader,
     ),
 )
-async def test_remote_rollout_and_fetch_langfuse(row: EvaluationRow) -> EvaluationRow:
+async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> EvaluationRow:
     """
     End-to-end test:
     - REQUIRES MANUAL SERVER STARTUP: python -m tests.remote_server.remote_server
     - trigger remote rollout via RemoteRolloutProcessor (calls init/status)
-    - fetch traces from Langfuse filtered by metadata via output_data_loader; FAIL if none found
+    - fetch traces from Langfuse via Fireworks tracing proxy filtered by metadata via output_data_loader; FAIL if none found
     """
     assert row.messages[0].content == "What is the capital of France?", "Row should have correct message content"
     assert len(row.messages) > 1, "Row should have a response. If this fails, we fellback to the original row."
