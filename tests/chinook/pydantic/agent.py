@@ -61,6 +61,7 @@ table_name,column_name,data_type,is_nullable
 
             return "\n".join(table_lines)
         except Exception as e:
+            print("Show exception: ", e)
             connection.rollback()
             raise ModelRetry("Please try again with a different query. Here is the error: " + str(e))
 
