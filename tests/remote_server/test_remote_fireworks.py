@@ -22,6 +22,7 @@ from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 from eval_protocol.adapters.fireworks_tracing import create_fireworks_tracing_adapter
 from eval_protocol.quickstart.utils import filter_longest_conversation
+from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
 
 ROLLOUT_IDS = set()
 
@@ -36,17 +37,18 @@ def check_rollout_coverage():
     assert len(ROLLOUT_IDS) == 3, f"Expected to see 3 rollout_ids, but only saw {ROLLOUT_IDS}"
 
 
-def fetch_fireworks_traces(rollout_id: str, base_url: str) -> List[EvaluationRow]:
+def fetch_fireworks_traces(config: DataLoaderConfig) -> List[EvaluationRow]:
     global ROLLOUT_IDS  # Track all rollout_ids we've seen
-    ROLLOUT_IDS.add(rollout_id)
+    ROLLOUT_IDS.add(config.rollout_id)
 
+    base_url = config.model_base_url or "https://tracing.fireworks.ai"
     adapter = create_fireworks_tracing_adapter(base_url=base_url)
-    return adapter.get_evaluation_rows(tags=[f"rollout_id:{rollout_id}"], max_retries=5)
+    return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
 
 
-def fireworks_output_data_loader(rollout_id: str, base_url: str) -> DynamicDataLoader:
+def fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
     return DynamicDataLoader(
-        generators=[lambda: fetch_fireworks_traces(rollout_id, base_url)], preprocess_fn=filter_longest_conversation
+        generators=[lambda: fetch_fireworks_traces(config)], preprocess_fn=filter_longest_conversation
     )
 
 

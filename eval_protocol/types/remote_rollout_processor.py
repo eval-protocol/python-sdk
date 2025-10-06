@@ -34,6 +34,13 @@ class RolloutMetadata(BaseModel):
     row_id: str
 
 
+class DataLoaderConfig(BaseModel):
+    """Configuration passed to output_data_loader functions."""
+
+    rollout_id: str
+    model_base_url: Optional[str] = None
+
+
 class InitRequest(BaseModel):
     """Request model for POST /init endpoint."""
 
