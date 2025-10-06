@@ -20,34 +20,6 @@ from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
-from eval_protocol.adapters.fireworks_tracing import create_fireworks_tracing_adapter
-from eval_protocol.quickstart.utils import filter_longest_conversation
-
-ROLLOUT_IDS = set()
-
-
-@pytest.fixture(autouse=True)
-def check_rollout_coverage():
-    """Ensure we processed all expected rollout_ids"""
-    global ROLLOUT_IDS
-    ROLLOUT_IDS.clear()
-    yield
-
-    assert len(ROLLOUT_IDS) == 3, f"Expected to see 3 rollout_ids, but only saw {ROLLOUT_IDS}"
-
-
-def fetch_fireworks_traces(rollout_id: str, base_url: str) -> List[EvaluationRow]:
-    global ROLLOUT_IDS  # Track all rollout_ids we've seen
-    ROLLOUT_IDS.add(rollout_id)
-
-    adapter = create_fireworks_tracing_adapter(base_url=base_url)
-    return adapter.get_evaluation_rows(tags=[f"rollout_id:{rollout_id}"], max_retries=5)
-
-
-def fireworks_output_data_loader(rollout_id: str, base_url: str) -> DynamicDataLoader:
-    return DynamicDataLoader(
-        generators=[lambda: fetch_fireworks_traces(rollout_id, base_url)], preprocess_fn=filter_longest_conversation
-    )
 
 
 def rows() -> List[EvaluationRow]:
@@ -64,7 +36,6 @@ def rows() -> List[EvaluationRow]:
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url="http://127.0.0.1:3000",
         timeout_seconds=30,
-        output_data_loader=fireworks_output_data_loader,
     ),
 )
 async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> EvaluationRow:
@@ -72,13 +43,11 @@ async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> Evaluat
     End-to-end test:
     - REQUIRES MANUAL SERVER STARTUP: python -m tests.remote_server.remote_server
     - trigger remote rollout via RemoteRolloutProcessor (calls init/status)
-    - fetch traces from Langfuse via Fireworks tracing proxy filtered by metadata via output_data_loader; FAIL if none found
+    - fetch traces from Langfuse via Fireworks tracing proxy (uses default FireworksTracingAdapter)
+    - FAIL if no traces found or rollout_id missing
     """
     assert row.messages[0].content == "What is the capital of France?", "Row should have correct message content"
     assert len(row.messages) > 1, "Row should have a response. If this fails, we fellback to the original row."
-
-    assert row.execution_metadata.rollout_id in ROLLOUT_IDS, (
-        f"Row rollout_id {row.execution_metadata.rollout_id} should be in tracked rollout_ids: {ROLLOUT_IDS}"
-    )
+    assert row.execution_metadata.rollout_id, "Row should have a rollout_id from the remote rollout"
 
     return row

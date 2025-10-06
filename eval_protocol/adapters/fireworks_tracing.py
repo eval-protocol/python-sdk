@@ -347,9 +347,9 @@ class FireworksTracingAdapter(BaseAdapter):
 
         # Make request to proxy
         if self.project_id:
-            url = f"{self.base_url}/v1/project_id/{self.project_id}/langfuse/traces"
+            url = f"{self.base_url}/v1/project_id/{self.project_id}/traces"
         else:
-            url = f"{self.base_url}/v1/langfuse/traces"
+            url = f"{self.base_url}/v1/traces"
 
         try:
             response = requests.post(url, json=payload, timeout=self.timeout)
