@@ -42,6 +42,10 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._model_base_url = model_base_url
         if os.getenv("EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL"):
             self._remote_base_url = os.getenv("EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL")
+        self._model_base_url = model_base_url
+        _ep_model_base_url = os.getenv("EP_MODEL_BASE_URL")
+        if _ep_model_base_url:
+            self._model_base_url = _ep_model_base_url
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
         self._output_data_loader = output_data_loader
