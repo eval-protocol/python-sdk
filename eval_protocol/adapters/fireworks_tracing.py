@@ -321,8 +321,8 @@ class FireworksTracingAdapter(BaseAdapter):
 
         eval_rows = []
 
-        # Build request payload
-        payload = {
+        # Build query parameters for GET request
+        params = {
             "limit": limit,
             "sample_size": sample_size,
             "tags": tags,
@@ -336,14 +336,12 @@ class FireworksTracingAdapter(BaseAdapter):
             "hours_back": hours_back,
             "from_timestamp": from_timestamp.isoformat() if from_timestamp else None,
             "to_timestamp": to_timestamp.isoformat() if to_timestamp else None,
-            "include_tool_calls": include_tool_calls,
             "sleep_between_gets": sleep_between_gets,
             "max_retries": max_retries,
-            "span_name": span_name,
         }
 
         # Remove None values
-        payload = {k: v for k, v in payload.items() if v is not None}
+        params = {k: v for k, v in params.items() if v is not None}
 
         # Make request to proxy
         if self.project_id:
@@ -352,7 +350,7 @@ class FireworksTracingAdapter(BaseAdapter):
             url = f"{self.base_url}/v1/traces"
 
         try:
-            response = requests.post(url, json=payload, timeout=self.timeout)
+            response = requests.get(url, params=params, timeout=self.timeout)
             response.raise_for_status()
             result = response.json()
         except requests.exceptions.RequestException as e:
