@@ -30,13 +30,6 @@ from .fireworks_tracing import FireworksTracingAdapter
 __all__.extend(["FireworksTracingAdapter"])
 
 try:
-    from .fireworks_tracing import FireworksTracingAdapter, create_fireworks_tracing_adapter
-
-    __all__.extend(["FireworksTracingAdapter", "create_fireworks_tracing_adapter"])
-except ImportError:
-    pass
-
-try:
     from .huggingface import (
         HuggingFaceAdapter,
         create_gsm8k_adapter,
