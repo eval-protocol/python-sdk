@@ -7,7 +7,12 @@ import requests
 from eval_protocol.log_utils.elasticsearch_client import ElasticsearchClient
 from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
-from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig, InitRequest, RolloutMetadata
+from eval_protocol.types.remote_rollout_processor import (
+    DataLoaderConfig,
+    ElasticsearchConfig,
+    InitRequest,
+    RolloutMetadata,
+)
 from eval_protocol.adapters.fireworks_tracing import create_fireworks_tracing_adapter
 from eval_protocol.quickstart.utils import filter_longest_conversation
 from .rollout_processor import RolloutProcessor
@@ -20,19 +25,20 @@ import os
 logger = logging.getLogger(__name__)
 
 
-def _default_output_data_loader(rollout_id: str, base_url: str) -> DynamicDataLoader:
+def _default_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
     """Default output data loader that fetches traces from Fireworks tracing proxy.
 
     Args:
-        rollout_id: The rollout ID to filter traces by
+        config: Configuration containing rollout_id and optional model_base_url
 
     Returns:
         DynamicDataLoader configured to fetch and process traces
     """
 
     def fetch_traces() -> List[EvaluationRow]:
+        base_url = config.model_base_url or "https://tracing.fireworks.ai"
         adapter = create_fireworks_tracing_adapter(base_url=base_url)
-        return adapter.get_evaluation_rows(tags=[f"rollout_id:{rollout_id}"], max_retries=5)
+        return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
 
     return DynamicDataLoader(generators=[fetch_traces], preprocess_fn=filter_longest_conversation)
 
@@ -54,7 +60,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
         model_base_url: str = "https://tracing.fireworks.ai",
         poll_interval: float = 1.0,
         timeout_seconds: float = 120.0,
-        output_data_loader: Optional[Callable[[str, str], DynamicDataLoader]] = None,
+        output_data_loader: Optional[Callable[[DataLoaderConfig], DynamicDataLoader]] = None,
         disable_elastic_search: bool = False,
         elastic_search_config: Optional[ElasticsearchConfig] = None,
     ):
@@ -64,7 +70,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._model_base_url = model_base_url
         if os.getenv("EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL"):
             self._remote_base_url = os.getenv("EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL")
-        self._model_base_url = model_base_url
         _ep_model_base_url = os.getenv("EP_MODEL_BASE_URL")
         if _ep_model_base_url:
             self._model_base_url = _ep_model_base_url
@@ -268,7 +273,10 @@ class RemoteRolloutProcessor(RolloutProcessor):
             if row.execution_metadata.rollout_id is None:
                 raise ValueError("Rollout ID is required in RemoteRolloutProcessor")
 
-            data_loader = self._output_data_loader(row.execution_metadata.rollout_id, model_base_url)
+            loader_config = DataLoaderConfig(
+                rollout_id=row.execution_metadata.rollout_id, model_base_url=model_base_url
+            )
+            data_loader = self._output_data_loader(loader_config)
 
             def _load_data():
                 return data_loader.load()
