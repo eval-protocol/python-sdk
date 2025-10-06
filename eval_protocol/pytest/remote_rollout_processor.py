@@ -29,7 +29,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self,
         *,
         remote_base_url: Optional[str] = None,
-        model_base_url: Optional[str] = None,
+        model_base_url: str = "https://tracing.fireworks.ai",
         poll_interval: float = 1.0,
         timeout_seconds: float = 120.0,
         output_data_loader: Callable[[str], DynamicDataLoader],
@@ -43,8 +43,9 @@ class RemoteRolloutProcessor(RolloutProcessor):
         if os.getenv("EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL"):
             self._remote_base_url = os.getenv("EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL")
         self._model_base_url = model_base_url
-        if os.getenv("EP_MODEL_BASE_URL"):
-            self._model_base_url = os.getenv("EP_MODEL_BASE_URL")
+        _ep_model_base_url = os.getenv("EP_MODEL_BASE_URL")
+        if _ep_model_base_url:
+            self._model_base_url = _ep_model_base_url
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
         self._output_data_loader = output_data_loader
@@ -69,7 +70,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
         # Start with constructor values
         remote_base_url: Optional[str] = self._remote_base_url
-        model_base_url: Optional[str] = self._model_base_url
+        model_base_url: str = self._model_base_url
         poll_interval: float = self._poll_interval
         timeout_seconds: float = self._timeout_seconds
 
@@ -140,7 +141,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 raise ValueError("Rollout ID is required in RemoteRolloutProcessor")
 
             final_model_base_url = model_base_url
-            if model_base_url and model_base_url.startswith("https://tracing.fireworks.ai/project_id/"):
+            if model_base_url and model_base_url.startswith("https://tracing.fireworks.ai"):
                 final_model_base_url = (
                     f"{model_base_url}/rollout_id/{meta.rollout_id}"
                     f"/invocation_id/{meta.invocation_id}"
@@ -261,24 +262,24 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
             output_rows: List[EvaluationRow] = [row for result in results for row in result.rows]
 
-            if len(output_rows) == 0:  # Fallback to original row if no Langfuse data found
-                row.rollout_status = Status(code=Status.Code.NOT_FOUND, message="No Langfuse data found for rollout")
+            if len(output_rows) == 0:  # Fallback to original row if no Remote data found
+                row.rollout_status = Status(code=Status.Code.NOT_FOUND, message="No remote data found for rollout")
                 return row
-            elif len(output_rows) == 1:  # Return the Langfuse row
-                langfuse_row = output_rows[0]
+            elif len(output_rows) == 1:  # Return the remote row
+                remote_row = output_rows[0]
 
-                # if the langfuse_row has the same number of messages as the original row,
+                # if the remote_row has the same number of messages as the original row,
                 # something went wrong
-                if len(langfuse_row.messages) == len(row.messages):
+                if len(remote_row.messages) == len(row.messages):
                     row.rollout_status = Status.rollout_error(
                         "Rollout finished with the same number of messages as the original row"
                     )
                     return row
 
-                row.messages = langfuse_row.messages
-                row.tools = langfuse_row.tools
-                row.input_metadata.session_data = langfuse_row.input_metadata.session_data
-                row.execution_metadata = langfuse_row.execution_metadata
+                row.messages = remote_row.messages
+                row.tools = remote_row.tools
+                row.input_metadata.session_data = remote_row.input_metadata.session_data
+                row.execution_metadata = remote_row.execution_metadata
                 return row
             else:
                 raise ValueError("RemoteRolloutProcessor's output_data_loader should return exactly one row.")
