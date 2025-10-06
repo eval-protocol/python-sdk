@@ -11,8 +11,6 @@
 # The TypeScript server should be running on http://127.0.0.1:3000
 # You only need to start one of the servers!
 
-import os
-import random
 import subprocess
 import socket
 import time
@@ -22,7 +20,7 @@ import pytest
 import requests
 
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, Status
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 from eval_protocol.adapters.fireworks_tracing import create_fireworks_tracing_adapter
@@ -55,9 +53,22 @@ def wait_for_server_to_startup(timeout: int = 10):
 @pytest.fixture(autouse=True)
 def setup_remote_server():
     """Start the remote server"""
+    # kill all Python processes matching "python -m tests.remote_server.remote_server"
+    subprocess.run(["pkill", "-f", "python -m tests.remote_server.remote_server"])
+
     host = "127.0.0.1"
     process = subprocess.Popen(
-        ["python", "-m", "tests.remote_server.remote_server", "--host", host, "--port", str(SERVER_PORT)]
+        [
+            "python",
+            "-m",
+            "tests.remote_server.remote_server",
+            "--host",
+            host,
+            "--port",
+            str(SERVER_PORT),
+            "--force-early-error",
+            "test error",
+        ]
     )
     # wait for the server to startup by pollingK
     wait_for_server_to_startup()
@@ -94,4 +105,6 @@ def rows() -> List[EvaluationRow]:
     ),
 )
 async def test_remote_rollout_and_fetch_fireworks_propagate_status(row: EvaluationRow) -> EvaluationRow:
+    assert row.rollout_status.code == Status.Code.INTERNAL
+    assert row.rollout_status.message == "test error"
     return row
