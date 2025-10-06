@@ -312,6 +312,16 @@ def deep_update_dict(base: dict[str, Any], override: dict[str, Any]) -> dict[str
     return base
 
 
+def _set_rollout_status_to_finished(result: EvaluationRow) -> None:
+    # Only set to finished if execution finished while not
+    # updating status itself. In the case that the rollout
+    # processor set the status to an error, we want to
+    # preserve the error so we do nothing in this case.
+    # test_remote_fireworks_propagate_status.py verifies this.
+    if result.rollout_status.is_running():
+        result.rollout_status = Status.rollout_finished()
+
+
 async def rollout_processor_with_retry(
     rollout_processor: RolloutProcessor,
     fresh_dataset: list[EvaluationRow],
@@ -359,7 +369,9 @@ async def rollout_processor_with_retry(
             try:
                 # Try original task first
                 result = await task  # pyright: ignore[reportUnknownVariableType]
-                result.rollout_status = Status.rollout_finished()
+
+                _set_rollout_status_to_finished(result)
+
                 return result  # pyright: ignore[reportUnknownVariableType]
             except Exception as e:
                 # NOTE: we perform these checks because we don't put the backoff decorator on initial batch call. we don't want to retry whole batch if anything fails.
@@ -372,7 +384,9 @@ async def rollout_processor_with_retry(
                     # Use shared backoff function for retryable exceptions
                     try:
                         result = await execute_row_with_backoff_retry(row)
-                        result.rollout_status = Status.rollout_finished()
+
+                        _set_rollout_status_to_finished(result)
+
                         return result
                     except Exception as retry_error:
                         # Backoff gave up
