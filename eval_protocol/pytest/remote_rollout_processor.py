@@ -220,12 +220,19 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 hits = search_results["hits"]["hits"] if search_results else []
 
                 if hits:
-                    # log all statuses found
+                    # log all statuses found and update rollout status from the last hit
                     for hit in hits:
                         document = hit["_source"]
                         logger.info(
                             f"Found log for rollout {row.execution_metadata.rollout_id} with status code {document['status_code']}"
                         )
+                        # Update rollout status from the document
+                        if "status_code" in document:
+                            row.rollout_status = Status(
+                                code=Status.Code(document["status_code"]),
+                                message=document.get("status_message", ""),
+                                details=document.get("status_details", []),
+                            )
                     logger.info("Stopping status polling for rollout %s", row.execution_metadata.rollout_id)
                     break
 
