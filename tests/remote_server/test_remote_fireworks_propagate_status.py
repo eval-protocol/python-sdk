@@ -25,6 +25,7 @@ from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 from eval_protocol.adapters.fireworks_tracing import create_fireworks_tracing_adapter
 from eval_protocol.quickstart.utils import filter_longest_conversation
+from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
 
 
 def find_available_port() -> int:
@@ -77,14 +78,16 @@ def setup_remote_server():
     process.wait()
 
 
-def fetch_fireworks_traces(rollout_id: str, base_url: str) -> List[EvaluationRow]:
+def fetch_fireworks_traces(config: DataLoaderConfig) -> List[EvaluationRow]:
+    rollout_id = config.rollout_id
+    base_url = config.model_base_url or "https://tracing.fireworks.ai"
     adapter = create_fireworks_tracing_adapter(base_url=base_url)
     return adapter.get_evaluation_rows(tags=[f"rollout_id:{rollout_id}"], max_retries=5)
 
 
-def fireworks_output_data_loader(rollout_id: str, base_url: str) -> DynamicDataLoader:
+def fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
     return DynamicDataLoader(
-        generators=[lambda: fetch_fireworks_traces(rollout_id, base_url)], preprocess_fn=filter_longest_conversation
+        generators=[lambda: fetch_fireworks_traces(config)], preprocess_fn=filter_longest_conversation
     )
 
 
