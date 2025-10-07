@@ -58,7 +58,15 @@ def rows() -> List[EvaluationRow]:
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
-@pytest.mark.parametrize("completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}])
+@pytest.mark.parametrize(
+    "completion_params",
+    [
+        {
+            "model": "fireworks_ai/accounts/pyroworks-dev/deployedModels/qwen-v2p5-7b-mix0elk1",
+            "base_url": "https://dev.api.fireworks.ai/inference/v1/chat/completions",
+        }
+    ],
+)  # TODO: move to its own separate test
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[rows],

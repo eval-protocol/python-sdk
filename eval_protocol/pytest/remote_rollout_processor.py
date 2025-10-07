@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import time
 from typing import Any, Dict, List, Optional, Callable
 
@@ -49,6 +50,11 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
     By default, fetches traces from the Fireworks tracing proxy using rollout_id tags.
     You can provide a custom output_data_loader for different tracing backends.
+
+    If a `base_url` is provided in `completion_params` (e.g., "https://dev.api.fireworks.ai/inference/v1"),
+    it will be base64-encoded and appended to the model_base_url path as `/encoded_base_url/{encoded}`.
+    This allows routing LLM calls through a metadata gateway that can inject tracing while
+    forwarding to the actual LLM provider endpoint.
 
     See https://evalprotocol.io/tutorial/remote-rollout-processor for documentation.
     """
@@ -144,6 +150,13 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     "Model must be provided in row.input_metadata.completion_params or config.completion_params"
                 )
 
+            # Extract base_url from completion_params if provided
+            llm_base_url: Optional[str] = None
+            if row.input_metadata and row.input_metadata.completion_params:
+                llm_base_url = row.input_metadata.completion_params.get("base_url")
+            if llm_base_url is None and config.completion_params:
+                llm_base_url = config.completion_params.get("base_url")
+
             # Strip non-OpenAI fields from messages before sending to remote
             allowed_message_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
             clean_messages = []
@@ -179,6 +192,10 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     f"/run_id/{meta.run_id}"
                     f"/row_id/{meta.row_id}"
                 )
+
+                if llm_base_url:
+                    encoded_base_url = base64.urlsafe_b64encode(llm_base_url.encode()).decode()
+                    final_model_base_url = f"{final_model_base_url}/encoded_base_url/{encoded_base_url}"
 
             init_payload: InitRequest = InitRequest(
                 model=model,
