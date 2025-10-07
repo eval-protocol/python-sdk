@@ -1,4 +1,4 @@
-name: RemoteRolloutProcessor Propagate Status Smoke Test
+name: RemoteRolloutProcessor Propagate Status Test
 
 on:
   push:
