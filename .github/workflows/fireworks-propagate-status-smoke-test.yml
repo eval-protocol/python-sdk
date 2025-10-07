@@ -1,0 +1,58 @@
+name: Fireworks Propagate Status Smoke Test
+
+# Run every 6 hours: at 00:00, 06:00, 12:00, and 18:00 UTC
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual triggering
+    inputs:
+      debug_mode:
+        description: 'Enable debug output'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  fireworks-propagate-status-smoke-test:
+    name: Fireworks Propagate Status Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run Fireworks Propagate Status Smoke Test
+        env:
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          FIREWORKS_ACCOUNT_ID: ${{ secrets.FIREWORKS_ACCOUNT_ID }}
+          PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
+        run: |
+          uv run pytest tests/remote_server/test_remote_fireworks_propagate_status.py::test_remote_rollout_and_fetch_fireworks_propagate_status \
+            -v --tb=short \
+            --ignore-markers=skip
+
+      - name: Send failure notification to Slack
+        uses: act10ns/slack@v1
+        if: failure()
+        with:
+          status: failure
+          message: |
+            Fireworks Propagate Status Smoke Test failed
+            Job: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
