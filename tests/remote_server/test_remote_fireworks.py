@@ -43,7 +43,7 @@ def fetch_fireworks_traces(config: DataLoaderConfig) -> List[EvaluationRow]:
 
     base_url = config.model_base_url or "https://tracing.fireworks.ai"
     adapter = create_fireworks_tracing_adapter(base_url=base_url)
-    return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
+    return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], proxy_max_retries=5)
 
 
 def fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
@@ -65,7 +65,7 @@ def rows() -> List[EvaluationRow]:
     ),
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url="http://127.0.0.1:3000",
-        timeout_seconds=30,
+        timeout_seconds=180,
         output_data_loader=fireworks_output_data_loader,
     ),
 )

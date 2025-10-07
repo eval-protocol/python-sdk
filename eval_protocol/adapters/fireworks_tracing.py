@@ -7,6 +7,7 @@ to pull data from Langfuse deployments with simplified retry logic handling.
 from __future__ import annotations
 import logging
 import requests
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Protocol
 
@@ -280,8 +281,9 @@ class FireworksTracingAdapter(BaseAdapter):
         from_timestamp: Optional[datetime] = None,
         to_timestamp: Optional[datetime] = None,
         include_tool_calls: bool = True,
-        sleep_between_gets: float = 2.5,
-        max_retries: int = 3,
+        backend_sleep_between_gets: float = 0.1,
+        backend_max_retries: int = 3,
+        proxy_max_retries: int = 3,
         span_name: Optional[str] = None,
         converter: Optional[TraceDictConverter] = None,
     ) -> List[EvaluationRow]:
@@ -303,8 +305,9 @@ class FireworksTracingAdapter(BaseAdapter):
             from_timestamp: Explicit start time (ISO format)
             to_timestamp: Explicit end time (ISO format)
             include_tool_calls: Whether to include tool calling traces
-            sleep_between_gets: Sleep time between trace.get() calls (handled by proxy)
-            max_retries: Maximum retries for rate limit errors (handled by proxy)
+            backend_sleep_between_gets: Sleep time between backend trace fetches (passed to proxy)
+            backend_max_retries: Maximum retries for backend operations (passed to proxy)
+            proxy_max_retries: Maximum retries when proxy returns 404 (client-side retries with exponential backoff)
             span_name: If provided, extract messages from generations within this named span
             converter: Optional custom converter implementing TraceDictConverter protocol.
                 If provided, this will be used instead of the default conversion logic.
@@ -336,25 +339,60 @@ class FireworksTracingAdapter(BaseAdapter):
             "hours_back": hours_back,
             "from_timestamp": from_timestamp.isoformat() if from_timestamp else None,
             "to_timestamp": to_timestamp.isoformat() if to_timestamp else None,
-            "sleep_between_gets": sleep_between_gets,
-            "max_retries": max_retries,
+            "sleep_between_gets": backend_sleep_between_gets,
+            "max_retries": backend_max_retries,
         }
 
         # Remove None values
         params = {k: v for k, v in params.items() if v is not None}
 
-        # Make request to proxy
+        # Make request to proxy with retry logic
         if self.project_id:
             url = f"{self.base_url}/v1/project_id/{self.project_id}/traces"
         else:
             url = f"{self.base_url}/v1/traces"
 
-        try:
-            response = requests.get(url, params=params, timeout=self.timeout)
-            response.raise_for_status()
-            result = response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error("Failed to fetch traces from proxy: %s", e)
+        # Retry loop for handling backend indexing delays (proxy returns 404)
+        result = None
+        for attempt in range(proxy_max_retries):
+            try:
+                response = requests.get(url, params=params, timeout=self.timeout)
+                response.raise_for_status()
+                result = response.json()
+                break  # Success, exit retry loop
+            except requests.exceptions.HTTPError as e:
+                error_msg = str(e)
+                should_retry = False
+
+                # Try to extract detail message from response
+                if e.response is not None:
+                    try:
+                        error_detail = e.response.json().get("detail", "")
+                        error_msg = error_detail or e.response.text
+
+                        # Retry on 404 if it's due to incomplete/missing traces (backend still indexing)
+                        if e.response.status_code == 404 and (
+                            "Incomplete traces" in error_detail or "No traces found" in error_detail
+                        ):
+                            should_retry = True
+                    except Exception:
+                        error_msg = e.response.text
+
+                if should_retry and attempt < proxy_max_retries - 1:
+                    sleep_time = 2 ** (attempt + 1)
+                    logger.warning(error_msg)
+                    time.sleep(sleep_time)
+                else:
+                    # Final retry or non-retryable error
+                    logger.error("Failed to fetch traces from proxy: %s", error_msg)
+                    return eval_rows
+            except requests.exceptions.RequestException as e:
+                # Non-HTTP errors (network issues, timeouts, etc.)
+                logger.error("Failed to fetch traces from proxy: %s", str(e))
+                return eval_rows
+
+        if result is None:
+            logger.error("Failed to fetch traces after %d retries", proxy_max_retries)
             return eval_rows
 
         # Extract traces from response
