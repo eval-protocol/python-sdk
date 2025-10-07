@@ -375,18 +375,3 @@ class FireworksTracingAdapter(BaseAdapter):
 
         logger.info("Successfully converted %d traces to evaluation rows", len(eval_rows))
         return eval_rows
-
-
-def create_fireworks_tracing_adapter(
-    project_id: Optional[str] = None, base_url: str = "https://tracing.fireworks.ai"
-) -> FireworksTracingAdapter:
-    """Factory function to create a Fireworks Tracing adapter.
-
-    Args:
-        project_id: Optional project ID. If not provided, uses the default project configured on the server.
-        base_url: The base URL of the tracing proxy
-
-    Returns:
-        FireworksTracingAdapter instance
-    """
-    return FireworksTracingAdapter(project_id=project_id, base_url=base_url)
