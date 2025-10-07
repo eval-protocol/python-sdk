@@ -41,7 +41,6 @@ jobs:
       - name: Run Fireworks Propagate Status Smoke Test
         env:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
-          FIREWORKS_ACCOUNT_ID: ${{ secrets.FIREWORKS_ACCOUNT_ID }}
           PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
         run: |
           uv run pytest tests/remote_server/test_remote_fireworks_propagate_status.py::test_remote_rollout_and_fetch_fireworks_propagate_status \
