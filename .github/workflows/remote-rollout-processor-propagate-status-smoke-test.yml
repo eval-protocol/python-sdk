@@ -44,7 +44,7 @@ jobs:
           PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
         run: |
           uv run pytest tests/remote_server/test_remote_fireworks_propagate_status.py::test_remote_rollout_and_fetch_fireworks_propagate_status \
-            -v --tb=short -m "skip"
+            -v --tb=short
 
       - name: Send failure notification to Slack
         uses: act10ns/slack@v1
