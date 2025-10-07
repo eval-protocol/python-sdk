@@ -4,8 +4,6 @@ name: RemoteRolloutProcessor Propagate Status Smoke Test
 on:
   schedule:
     - cron: '0 */6 * * *'
-  pull_request: # Temporarily enable for PR testing
-    branches: [main]
   workflow_dispatch: # Allow manual triggering
     inputs:
       debug_mode:
