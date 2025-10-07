@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
 import pytest
+from eval_protocol.auth import get_fireworks_account_id, get_fireworks_api_key
+from eval_protocol.platform_api import create_or_update_fireworks_secret
 
 from eval_protocol.evaluation import create_evaluation
 
@@ -343,28 +345,45 @@ def _prompt_select_interactive(tests: list[DiscoveredTest]) -> list[DiscoveredTe
             else:
                 return []
 
-        # Create choices with nice formatting
-        choices = []
-        for idx, test in enumerate(tests, 1):
-            choice_text = _format_test_choice(test, idx)
-            choices.append({"name": choice_text, "value": idx - 1, "checked": False})
+        # Enter-only selection UX with optional multi-select via repeat
+        remaining_indices = list(range(len(tests)))
+        selected_indices: list[int] = []
 
         print("\n")
-        print("💡 Tip: Use ↑/↓ arrows to navigate, SPACE to select/deselect, ENTER when done")
-        print("        You can select multiple tests!\n")
-        selected_indices = questionary.checkbox(
-            "Select evaluation tests to upload:",
-            choices=choices,
-            style=custom_style,
-        ).ask()
+        print("Tip: Use ↑/↓ arrows to navigate and press ENTER to select.")
+        print("     After selecting one, you can choose to add more.\n")
 
-        if selected_indices is None:  # User pressed Ctrl+C
-            print("\nUpload cancelled.")
-            return []
+        while remaining_indices:
+            # Build choices from remaining
+            choices = []
+            for idx, test_idx in enumerate(remaining_indices, 1):
+                t = tests[test_idx]
+                choice_text = _format_test_choice(t, idx)
+                choices.append({"name": choice_text, "value": test_idx})
+
+            selected = questionary.select(
+                "Select an evaluation test to upload:", choices=choices, style=custom_style
+            ).ask()
+
+            if selected is None:  # Ctrl+C
+                print("\nUpload cancelled.")
+                return []
+
+            if isinstance(selected, int):
+                selected_indices.append(selected)
+                # Remove from remaining
+                if selected in remaining_indices:
+                    remaining_indices.remove(selected)
+
+                # Ask whether to add another (ENTER to finish)
+                add_more = questionary.confirm("Add another?", default=False, style=custom_style).ask()
+                if not add_more:
+                    break
+            else:
+                break
 
         if not selected_indices:
             print("\n⚠️  No tests were selected.")
-            print("   Remember: Use SPACE bar to select tests, then press ENTER to confirm.")
             return []
 
         print(f"\n✓ Selected {len(selected_indices)} test(s)")
@@ -473,6 +492,28 @@ def upload_command(args: argparse.Namespace) -> int:
     display_name = getattr(args, "display_name", None)
     description = getattr(args, "description", None)
     force = bool(getattr(args, "force", False))
+
+    # Ensure FIREWORKS_API_KEY is available to the remote by storing it as a Fireworks secret
+    try:
+        fw_account_id = get_fireworks_account_id()
+        fw_api_key_value = get_fireworks_api_key()
+        if fw_account_id and fw_api_key_value:
+            print("Ensuring FIREWORKS_API_KEY is registered as a secret on Fireworks for rollout...")
+            if create_or_update_fireworks_secret(
+                account_id=fw_account_id,
+                key_name="FIREWORKS_API_KEY",
+                secret_value=fw_api_key_value,
+            ):
+                print("✓ FIREWORKS_API_KEY secret created/updated on Fireworks.")
+            else:
+                print("Warning: Failed to create/update FIREWORKS_API_KEY secret on Fireworks.")
+        else:
+            if not fw_account_id:
+                print("Warning: FIREWORKS_ACCOUNT_ID not found; cannot register FIREWORKS_API_KEY secret.")
+            if not fw_api_key_value:
+                print("Warning: FIREWORKS_API_KEY not found locally; cannot register secret.")
+    except Exception as e:
+        print(f"Warning: Skipped Fireworks secret registration due to error: {e}")
 
     exit_code = 0
     for i, (code, file_name, qualname, source_file_path) in enumerate(selected_specs):
