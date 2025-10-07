@@ -58,7 +58,7 @@ def _default_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
     def fetch_traces() -> List[EvaluationRow]:
         base_url = config.model_base_url or "https://tracing.fireworks.ai"
         adapter = FireworksTracingAdapter(base_url=base_url)
-        return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
+        return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], proxy_max_retries=5)
 
     return DynamicDataLoader(generators=[fetch_traces], preprocess_fn=filter_longest_conversation)
 
@@ -188,7 +188,10 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 raise ValueError("Rollout ID is required in RemoteRolloutProcessor")
 
             final_model_base_url = model_base_url
-            if model_base_url and model_base_url.startswith("https://tracing.fireworks.ai"):
+            if model_base_url and (
+                model_base_url.startswith("https://tracing.fireworks.ai")
+                or model_base_url.startswith("http://localhost")
+            ):
                 final_model_base_url = _build_fireworks_tracing_url(model_base_url, meta)
 
             init_payload: InitRequest = InitRequest(
