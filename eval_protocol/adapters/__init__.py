@@ -25,9 +25,9 @@ try:
 except ImportError:
     pass
 
-from .fireworks_tracing import FireworksTracingAdapter, create_fireworks_tracing_adapter
+from .fireworks_tracing import FireworksTracingAdapter
 
-__all__.extend(["FireworksTracingAdapter", "create_fireworks_tracing_adapter"])
+__all__.extend(["FireworksTracingAdapter"])
 
 try:
     from .huggingface import (

@@ -13,7 +13,7 @@ from eval_protocol.types.remote_rollout_processor import (
     InitRequest,
     RolloutMetadata,
 )
-from eval_protocol.adapters.fireworks_tracing import create_fireworks_tracing_adapter
+from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
 from eval_protocol.quickstart.utils import filter_longest_conversation
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
@@ -23,6 +23,26 @@ import logging
 import os
 
 logger = logging.getLogger(__name__)
+
+
+def _build_fireworks_tracing_url(base_url: str, metadata: RolloutMetadata) -> str:
+    """Build a Fireworks tracing URL by appending rollout metadata to the base URL path,
+    allowing the Fireworks tracing proxy to automatically tag traces.
+
+    Format: {base_url}/rollout_id/{id}/invocation_id/{id}/experiment_id/{id}/run_id/{id}/row_id/{id}
+
+    Args:
+        base_url: Fireworks tracing proxy URL (we expect this to be https://tracing.fireworks.ai or
+                  https://tracing.fireworks.ai/project_id/{project_id})
+        metadata: Rollout metadata containing IDs to embed in the URL
+    """
+    return (
+        f"{base_url}/rollout_id/{metadata.rollout_id}"
+        f"/invocation_id/{metadata.invocation_id}"
+        f"/experiment_id/{metadata.experiment_id}"
+        f"/run_id/{metadata.run_id}"
+        f"/row_id/{metadata.row_id}"
+    )
 
 
 def _default_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
@@ -37,7 +57,7 @@ def _default_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
 
     def fetch_traces() -> List[EvaluationRow]:
         base_url = config.model_base_url or "https://tracing.fireworks.ai"
-        adapter = create_fireworks_tracing_adapter(base_url=base_url)
+        adapter = FireworksTracingAdapter(base_url=base_url)
         return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
 
     return DynamicDataLoader(generators=[fetch_traces], preprocess_fn=filter_longest_conversation)
@@ -169,13 +189,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
             final_model_base_url = model_base_url
             if model_base_url and model_base_url.startswith("https://tracing.fireworks.ai"):
-                final_model_base_url = (
-                    f"{model_base_url}/rollout_id/{meta.rollout_id}"
-                    f"/invocation_id/{meta.invocation_id}"
-                    f"/experiment_id/{meta.experiment_id}"
-                    f"/run_id/{meta.run_id}"
-                    f"/row_id/{meta.row_id}"
-                )
+                final_model_base_url = _build_fireworks_tracing_url(model_base_url, meta)
 
             init_payload: InitRequest = InitRequest(
                 model=model,
