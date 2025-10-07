@@ -4,6 +4,8 @@ name: Fireworks Propagate Status Smoke Test
 on:
   schedule:
     - cron: '0 */6 * * *'
+  pull_request: # Temporarily enable for PR testing
+    branches: [propagate-error-status]
   workflow_dispatch: # Allow manual triggering
     inputs:
       debug_mode:
