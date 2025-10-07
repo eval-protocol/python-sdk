@@ -1,19 +1,19 @@
 name: RemoteRolloutProcessor Propagate Status Smoke Test
 
-# Run every 6 hours: at 00:00, 06:00, 12:00, and 18:00 UTC
 on:
-  schedule:
-    - cron: '0 */6 * * *'
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+  pull_request: # Run on all pull requests
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
   workflow_dispatch: # Allow manual triggering
-    inputs:
-      debug_mode:
-        description: 'Enable debug output'
-        required: false
-        default: false
-        type: boolean
 
 jobs:
-  fireworks-propagate-status-smoke-test:
+  remote-rollout-processor-propagate-status-smoke-test:
     name: Fireworks Propagate Status Smoke Test
     runs-on: ubuntu-latest
 
@@ -36,21 +36,10 @@ jobs:
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
-      - name: Run Fireworks Propagate Status Smoke Test
+      - name: Run RemoteRolloutProcessor Propagate Status Smoke Test
         env:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
         run: |
           uv run pytest tests/remote_server/test_remote_fireworks_propagate_status.py::test_remote_rollout_and_fetch_fireworks_propagate_status \
             -v --tb=short
-
-      - name: Send failure notification to Slack
-        uses: act10ns/slack@v1
-        if: failure()
-        with:
-          status: failure
-          message: |
-            Fireworks Propagate Status Smoke Test failed
-            Job: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
