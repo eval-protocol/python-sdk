@@ -39,7 +39,7 @@ def find_available_port() -> int:
 SERVER_PORT = find_available_port()
 
 
-def wait_for_server_to_startup(timeout: int = 10):
+def wait_for_server_to_startup(timeout: int = 120):
     start_time = time.time()
     while True:
         try:
@@ -96,6 +96,7 @@ def rows() -> List[EvaluationRow]:
     return [row]
 
 
+@pytest.mark.skip(reason="Smoke test - only runs in scheduled smoke test workflow")
 @pytest.mark.parametrize("completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}])
 @evaluation_test(
     data_loaders=DynamicDataLoader(
