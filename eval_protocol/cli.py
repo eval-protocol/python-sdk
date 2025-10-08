@@ -14,6 +14,23 @@ logger = logging.getLogger(__name__)
 
 from .cli_commands.common import setup_logging
 
+# Re-export deploy_command for backward compatibility with tests importing from eval_protocol.cli
+try:  # pragma: no cover - import-time alias for tests
+    from .cli_commands import deploy as _deploy_mod
+
+    deploy_command = _deploy_mod.deploy_command  # type: ignore[attr-defined]
+except Exception:  # pragma: no cover
+    # If import fails in constrained environments, tests that import it will surface the issue
+    deploy_command = None  # type: ignore[assignment]
+
+# Re-export preview_command for backward compatibility with tests importing from eval_protocol.cli
+try:  # pragma: no cover - import-time alias for tests
+    from .cli_commands import preview as _preview_mod
+
+    preview_command = _preview_mod.preview_command  # type: ignore[attr-defined]
+except Exception:  # pragma: no cover
+    preview_command = None  # type: ignore[assignment]
+
 
 def parse_args(args=None):
     """Parse command line arguments"""
@@ -424,12 +441,12 @@ def main():
     setup_logging(args.verbose, getattr(args, "debug", False))
 
     if args.command == "preview":
-        from .cli_commands.preview import preview_command
-
+        if preview_command is None:
+            raise ImportError("preview_command is unavailable")
         return preview_command(args)
     elif args.command == "deploy":
-        from .cli_commands.deploy import deploy_command
-
+        if deploy_command is None:
+            raise ImportError("deploy_command is unavailable")
         return deploy_command(args)
     elif args.command == "deploy-mcp":
         from .cli_commands.deploy_mcp import deploy_mcp_command
