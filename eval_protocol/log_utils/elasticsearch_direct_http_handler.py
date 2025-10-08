@@ -2,7 +2,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Any, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 from .elasticsearch_client import ElasticsearchClient
@@ -36,8 +36,8 @@ class ElasticsearchDirectHttpHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record by scheduling it for async transmission."""
         try:
-            # Create proper ISO 8601 timestamp
-            timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            # Create proper ISO 8601 timestamp in UTC
+            timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
             rollout_id = self._get_rollout_id(record)
             logger.debug(f"Emitting log record: {record.getMessage()} with rollout_id: {rollout_id}")
