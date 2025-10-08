@@ -19,14 +19,17 @@ def main():
 
     logger = logging.getLogger("eval_protocol.sdk.validate")
 
-    logger.info("SDK sending structured log to dev gateway", extra={
-        "rollout_id": rollout_id,
-        "program": "eval_protocol",
-        "status": "completed",
-        "experiment_id": "dev-exp",
-        "run_id": "dev-run",
-        "metadata": {"source": "sdk-validate"},
-    })
+    logger.info(
+        "SDK sending structured log to dev gateway",
+        extra={
+            "rollout_id": rollout_id,
+            "program": "eval_protocol",
+            "status": "completed",
+            "experiment_id": "dev-exp",
+            "run_id": "dev-run",
+            "metadata": {"source": "sdk-validate"},
+        },
+    )
 
     # Poll fetch with retries for indexing
     params = {

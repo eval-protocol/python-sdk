@@ -169,7 +169,9 @@ class OpenAIResponsesAdapter(BaseAdapter):
                         raise NotImplementedError(f"Unsupported content type: {content_item.type}")
             elif item.type == "function_call_output":
                 # Collect tool call outputs to add before assistant message
-                tool_call_outputs.append(Message(role="tool", content=item.output, tool_call_id=item.call_id))
+                tool_call_outputs.append(
+                    Message(role="tool", content=self._coerce_tool_output(item.output), tool_call_id=item.call_id)
+                )
             elif item.type == "function_call":
                 tool_call = ChatCompletionMessageToolCall(
                     id=item.call_id, type="function", function=Function(name=item.name, arguments=item.arguments)
@@ -186,3 +188,29 @@ class OpenAIResponsesAdapter(BaseAdapter):
             messages.append(Message(role="assistant", tool_calls=current_tool_calls))
 
         return reversed(messages)
+
+    def _coerce_tool_output(self, output: Any) -> str:
+        """Coerce OpenAI Responses tool output into a string for Message.content.
+
+        The Responses API may return structured content lists. For our purposes,
+        we stringify non-string outputs to satisfy the Message.content type.
+        """
+        if isinstance(output, str):
+            return output
+        try:
+            # Attempt to join list of objects with any 'text' fields
+            if isinstance(output, list):
+                parts: list[str] = []
+                for part in output:
+                    text = None
+                    if isinstance(part, dict):
+                        text = part.get("text")
+                    if text:
+                        parts.append(str(text))
+                    else:
+                        parts.append(str(part))
+                return "\n".join(parts)
+            # Fallback to string conversion
+            return str(output)
+        except Exception:
+            return str(output)

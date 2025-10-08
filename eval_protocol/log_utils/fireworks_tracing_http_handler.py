@@ -2,7 +2,7 @@ import logging
 import os
 import threading
 from datetime import datetime, timezone
-from typing import Optional, Any, Dict, List
+from typing import Optional, Any, Dict, List, cast
 
 import requests
 
@@ -33,8 +33,8 @@ class FireworksTracingHttpHandler(logging.Handler):
             self.handleError(record)
 
     def _get_rollout_id(self, record: logging.LogRecord) -> Optional[str]:
-        if hasattr(record, "rollout_id") and record.rollout_id is not None:  # type: ignore
-            return str(record.rollout_id)  # type: ignore
+        if hasattr(record, "rollout_id") and cast(Any, getattr(record, "rollout_id")) is not None:
+            return str(cast(Any, getattr(record, "rollout_id")))
         return os.getenv(self.rollout_id_env)
 
     def _build_payload(self, record: logging.LogRecord, rollout_id: str) -> Dict[str, Any]:
@@ -42,18 +42,19 @@ class FireworksTracingHttpHandler(logging.Handler):
         message = record.getMessage()
         tags: List[str] = [f"rollout_id:{rollout_id}"]
         # Optional additional tags
-        if hasattr(record, "experiment_id") and record.experiment_id:
-            tags.append(f"experiment_id:{record.experiment_id}")  # type: ignore
-        if hasattr(record, "run_id") and record.run_id:
-            tags.append(f"run_id:{record.run_id}")  # type: ignore
-        program = getattr(record, "program", None) or "eval_protocol"
-        status = getattr(record, "status", None)
+        if hasattr(record, "experiment_id") and cast(Any, getattr(record, "experiment_id")):
+            tags.append(f"experiment_id:{cast(Any, getattr(record, 'experiment_id'))}")
+        if hasattr(record, "run_id") and cast(Any, getattr(record, "run_id")):
+            tags.append(f"run_id:{cast(Any, getattr(record, 'run_id'))}")
+        program = cast(Optional[str], getattr(record, "program", None)) or "eval_protocol"
+        status_val = cast(Any, getattr(record, "status", None))
+        status = status_val if isinstance(status_val, str) else None
         return {
             "program": program,
-            "status": status if isinstance(status, str) else None,
+            "status": status,
             "message": message,
             "tags": tags,
-            "metadata": getattr(record, "metadata", None),
+            "metadata": cast(Any, getattr(record, "metadata", None)),
             "extras": {
                 "logger_name": record.name,
                 "level": record.levelname,
