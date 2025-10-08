@@ -34,7 +34,7 @@ from .pytest import evaluation_test, SingleTurnRolloutProcessor, RemoteRolloutPr
 from .pytest.parameterize import DefaultParameterIdGenerator
 from .log_utils.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
 from .log_utils.rollout_id_filter import RolloutIdFilter
-from .log_utils.setup import setup_rollout_logging_for_elasticsearch_handler
+from .log_utils.util import setup_rollout_logging_for_elasticsearch_handler
 
 from .types.remote_rollout_processor import (
     InitRequest,

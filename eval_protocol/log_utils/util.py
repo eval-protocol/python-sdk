@@ -1,6 +1,6 @@
 import os
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
-from tests.logging.test_elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
+from .elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
 
 
 def setup_rollout_logging_for_elasticsearch_handler(
