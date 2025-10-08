@@ -23,12 +23,19 @@ class SqliteDatasetLoggerAdapter(DatasetLogger):
 
     def log(self, row: "EvaluationRow") -> None:
         data = row.model_dump(exclude_none=True, mode="json")
+        rollout_id = data.get("execution_metadata", {}).get("rollout_id", "unknown")
+        logger.debug(f"[EVENT_BUS_EMIT] Starting to log row with rollout_id: {rollout_id}")
+
         self._store.upsert_row(data=data)
+        logger.debug(f"[EVENT_BUS_EMIT] Successfully stored row in database for rollout_id: {rollout_id}")
+
         try:
+            logger.debug(f"[EVENT_BUS_EMIT] Emitting event '{LOG_EVENT_TYPE}' for rollout_id: {rollout_id}")
             event_bus.emit(LOG_EVENT_TYPE, EvaluationRow(**data))
+            logger.debug(f"[EVENT_BUS_EMIT] Successfully emitted event for rollout_id: {rollout_id}")
         except Exception as e:
             # Avoid breaking storage due to event emission issues
-            logger.error(f"Failed to emit row_upserted event: {e}")
+            logger.error(f"[EVENT_BUS_EMIT] Failed to emit row_upserted event for rollout_id {rollout_id}: {e}")
             pass
 
     def read(self, rollout_id: Optional[str] = None) -> List["EvaluationRow"]:

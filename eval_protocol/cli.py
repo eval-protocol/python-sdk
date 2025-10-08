@@ -300,6 +300,7 @@ def parse_args(args=None):
     # Logs command
     logs_parser = subparsers.add_parser("logs", help="Serve logs with file watching and real-time updates")
     logs_parser.add_argument("--port", type=int, default=8000, help="Port to bind to (default: 8000)")
+    logs_parser.add_argument("--debug", action="store_true", help="Enable debug mode")
 
     # Upload command
     upload_parser = subparsers.add_parser(

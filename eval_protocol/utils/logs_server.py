@@ -30,6 +30,19 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def enable_debug_mode():
+    """Enable debug mode for all relevant loggers in the logs server system."""
+    # Set debug level for all relevant loggers
+    logger.setLevel(logging.DEBUG)
+
+    # Set debug level for event bus logger
+    from eval_protocol.event_bus.logger import logger as event_bus_logger
+
+    event_bus_logger.setLevel(logging.DEBUG)
+
+    print("Debug mode enabled for all relevant loggers")
+
+
 class WebSocketManager:
     """Manages WebSocket connections and broadcasts messages."""
 
@@ -40,100 +53,158 @@ class WebSocketManager:
         self._lock = threading.Lock()
 
     async def connect(self, websocket: WebSocket):
+        logger.debug("[WEBSOCKET_CONNECT] New websocket connection attempt")
         await websocket.accept()
         with self._lock:
             self.active_connections.append(websocket)
             connection_count = len(self.active_connections)
-        logger.info(f"WebSocket connected. Total connections: {connection_count}")
+        logger.info(f"[WEBSOCKET_CONNECT] WebSocket connected. Total connections: {connection_count}")
+
+        logger.debug("[WEBSOCKET_CONNECT] Reading logs for initialization")
         logs = default_logger.read()
+        logger.debug(f"[WEBSOCKET_CONNECT] Found {len(logs)} logs to send")
+
         data = {
             "type": "initialize_logs",
             "logs": [log.model_dump(exclude_none=True, mode="json") for log in logs],
         }
+        logger.debug("[WEBSOCKET_CONNECT] Sending initialization data")
         await websocket.send_text(json.dumps(data))
+        logger.debug("[WEBSOCKET_CONNECT] Successfully sent initialization data")
 
     def disconnect(self, websocket: WebSocket):
+        logger.debug("[WEBSOCKET_DISCONNECT] WebSocket disconnection")
         with self._lock:
             if websocket in self.active_connections:
                 self.active_connections.remove(websocket)
+                logger.debug("[WEBSOCKET_DISCONNECT] Removed websocket from active connections")
+            else:
+                logger.debug("[WEBSOCKET_DISCONNECT] Websocket was not in active connections")
             connection_count = len(self.active_connections)
-        logger.info(f"WebSocket disconnected. Total connections: {connection_count}")
+        logger.info(f"[WEBSOCKET_DISCONNECT] WebSocket disconnected. Total connections: {connection_count}")
 
     def broadcast_row_upserted(self, row: "EvaluationRow"):
         """Broadcast a row-upsert event to all connected clients.
 
         Safe no-op if server loop is not running or there are no connections.
         """
+        rollout_id = row.execution_metadata.rollout_id if row.execution_metadata else "unknown"
+        logger.debug(f"[WEBSOCKET_BROADCAST] Starting broadcast for rollout_id: {rollout_id}")
+
+        with self._lock:
+            active_connections_count = len(self.active_connections)
+        logger.debug(f"[WEBSOCKET_BROADCAST] Active connections: {active_connections_count}")
+
+        if active_connections_count == 0:
+            logger.debug(
+                f"[WEBSOCKET_BROADCAST] No active connections, skipping broadcast for rollout_id: {rollout_id}"
+            )
+            return
+
         try:
             # Serialize pydantic model
+            logger.debug(f"[WEBSOCKET_BROADCAST] Serializing row for rollout_id: {rollout_id}")
             json_message = json.dumps({"type": "log", "row": row.model_dump(exclude_none=True, mode="json")})
+            logger.debug(
+                f"[WEBSOCKET_BROADCAST] Successfully serialized message (length: {len(json_message)}) for rollout_id: {rollout_id}"
+            )
+
             # Queue the message for broadcasting in the main event loop
+            logger.debug(f"[WEBSOCKET_BROADCAST] Queuing message for broadcast for rollout_id: {rollout_id}")
             self._broadcast_queue.put(json_message)
+            logger.debug(f"[WEBSOCKET_BROADCAST] Successfully queued message for rollout_id: {rollout_id}")
         except Exception as e:
-            logger.error(f"Failed to serialize row for broadcast: {e}")
+            logger.error(
+                f"[WEBSOCKET_BROADCAST] Failed to serialize row for broadcast for rollout_id {rollout_id}: {e}"
+            )
 
     async def _start_broadcast_loop(self):
         """Start the broadcast loop that processes queued messages."""
+        logger.debug("[WEBSOCKET_BROADCAST_LOOP] Starting broadcast loop")
         while True:
             try:
                 # Wait for a message to be queued
+                logger.debug("[WEBSOCKET_BROADCAST_LOOP] Waiting for message from queue")
                 message_data = await asyncio.get_event_loop().run_in_executor(None, self._broadcast_queue.get)
+                logger.debug(
+                    f"[WEBSOCKET_BROADCAST_LOOP] Retrieved message from queue (length: {len(str(message_data))})"
+                )
 
                 # Regular string message for all connections
+                logger.debug("[WEBSOCKET_BROADCAST_LOOP] Sending message to all connections")
                 await self._send_text_to_all_connections(str(message_data))
+                logger.debug("[WEBSOCKET_BROADCAST_LOOP] Successfully sent message to all connections")
 
             except Exception as e:
-                logger.error(f"Error in broadcast loop: {e}")
+                logger.error(f"[WEBSOCKET_BROADCAST_LOOP] Error in broadcast loop: {e}")
                 await asyncio.sleep(0.1)
             except asyncio.CancelledError:
-                logger.info("Broadcast loop cancelled")
+                logger.info("[WEBSOCKET_BROADCAST_LOOP] Broadcast loop cancelled")
                 break
 
     async def _send_text_to_all_connections(self, text: str):
         with self._lock:
             connections = list(self.active_connections)
 
+        logger.debug(f"[WEBSOCKET_SEND] Attempting to send to {len(connections)} connections")
+
         if not connections:
+            logger.debug("[WEBSOCKET_SEND] No connections available, skipping send")
             return
 
         tasks = []
         failed_connections = []
 
-        for connection in connections:
+        for i, connection in enumerate(connections):
             try:
+                logger.debug(f"[WEBSOCKET_SEND] Preparing to send to connection {i}")
                 tasks.append(connection.send_text(text))
             except Exception as e:
-                logger.error(f"Failed to send text to WebSocket: {e}")
+                logger.error(f"[WEBSOCKET_SEND] Failed to prepare send to WebSocket {i}: {e}")
                 failed_connections.append(connection)
 
         # Execute all sends in parallel
         if tasks:
+            logger.debug(f"[WEBSOCKET_SEND] Executing {len(tasks)} parallel sends")
             results = await asyncio.gather(*tasks, return_exceptions=True)
+            logger.debug("[WEBSOCKET_SEND] Completed parallel sends")
 
             # Check for any exceptions that occurred during execution
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    logger.error(f"Failed to send text to WebSocket: {result}")
+                    logger.error(f"[WEBSOCKET_SEND] Failed to send text to WebSocket {i}: {result}")
                     failed_connections.append(connections[i])
+                else:
+                    logger.debug(f"[WEBSOCKET_SEND] Successfully sent to connection {i}")
 
         # Remove all failed connections
-        with self._lock:
-            for connection in failed_connections:
-                try:
-                    self.active_connections.remove(connection)
-                except ValueError:
-                    pass
+        if failed_connections:
+            logger.debug(f"[WEBSOCKET_SEND] Removing {len(failed_connections)} failed connections")
+            with self._lock:
+                for connection in failed_connections:
+                    try:
+                        self.active_connections.remove(connection)
+                    except ValueError:
+                        pass
 
     def start_broadcast_loop(self):
         """Start the broadcast loop in the current event loop."""
         if self._broadcast_task is None or self._broadcast_task.done():
+            logger.debug("[WEBSOCKET_BROADCAST_LOOP] Creating new broadcast task")
             self._broadcast_task = asyncio.create_task(self._start_broadcast_loop())
+            logger.debug("[WEBSOCKET_BROADCAST_LOOP] Broadcast task created")
+        else:
+            logger.debug("[WEBSOCKET_BROADCAST_LOOP] Broadcast task already running")
 
     def stop_broadcast_loop(self):
         """Stop the broadcast loop."""
         if self._broadcast_task and not self._broadcast_task.done():
+            logger.debug("[WEBSOCKET_BROADCAST_LOOP] Cancelling broadcast task")
             self._broadcast_task.cancel()
             self._broadcast_task = None
+            logger.debug("[WEBSOCKET_BROADCAST_LOOP] Broadcast task cancelled")
+        else:
+            logger.debug("[WEBSOCKET_BROADCAST_LOOP] No active broadcast task to stop")
 
 
 class EvaluationWatcher:
@@ -260,7 +331,12 @@ class LogsServer(ViteServer):
         port: Optional[int] = 8000,
         index_file: str = "index.html",
         elasticsearch_config: Optional[ElasticsearchConfig] = None,
+        debug: bool = False,
     ):
+        # Enable debug mode if requested
+        if debug:
+            enable_debug_mode()
+
         # Initialize WebSocket manager
         self.websocket_manager = WebSocketManager()
 
@@ -304,9 +380,11 @@ class LogsServer(ViteServer):
             logger.info(f"  {methods} {path}")
 
         # Subscribe to events and start listening for cross-process events
+        logger.debug("[LOGS_SERVER_INIT] Subscribing to event bus")
         event_bus.subscribe(self._handle_event)
+        logger.debug("[LOGS_SERVER_INIT] Successfully subscribed to event bus")
 
-        logger.info(f"LogsServer initialized on {host}:{port}")
+        logger.info(f"[LOGS_SERVER_INIT] LogsServer initialized on {host}:{port}")
 
     def _setup_websocket_routes(self):
         """Set up WebSocket routes for real-time communication."""
@@ -418,17 +496,34 @@ class LogsServer(ViteServer):
 
     def _handle_event(self, event_type: str, data: Any) -> None:
         """Handle events from the event bus."""
+        logger.debug(f"[EVENT_BUS_RECEIVE] Received event type: {event_type}")
+
         if event_type in [LOG_EVENT_TYPE]:
             from eval_protocol.models import EvaluationRow
 
-            data = EvaluationRow(**data)
-            self.websocket_manager.broadcast_row_upserted(data)
+            try:
+                logger.debug("[EVENT_BUS_RECEIVE] Processing LOG_EVENT_TYPE event")
+                data = EvaluationRow(**data)
+                rollout_id = data.execution_metadata.rollout_id if data.execution_metadata else "unknown"
+                logger.debug(f"[EVENT_BUS_RECEIVE] Successfully parsed EvaluationRow for rollout_id: {rollout_id}")
+
+                logger.debug("[EVENT_BUS_RECEIVE] Broadcasting row_upserted to websocket manager")
+                self.websocket_manager.broadcast_row_upserted(data)
+                logger.debug(f"[EVENT_BUS_RECEIVE] Successfully queued broadcast for rollout_id: {rollout_id}")
+            except Exception as e:
+                logger.error(f"[EVENT_BUS_RECEIVE] Failed to process LOG_EVENT_TYPE event: {e}")
+        else:
+            logger.debug(f"[EVENT_BUS_RECEIVE] Ignoring event type: {event_type} (not LOG_EVENT_TYPE)")
 
     def start_loops(self):
         """Start the broadcast loop and evaluation watcher."""
+        logger.debug("[LOGS_SERVER_LOOPS] Starting all loops")
         self.websocket_manager.start_broadcast_loop()
+        logger.debug("[LOGS_SERVER_LOOPS] Started websocket broadcast loop")
         self.evaluation_watcher.start()
+        logger.debug("[LOGS_SERVER_LOOPS] Started evaluation watcher")
         event_bus.start_listening()
+        logger.debug("[LOGS_SERVER_LOOPS] Started event bus listening")
 
     async def run_async(self):
         """
@@ -477,6 +572,7 @@ def create_app(
     port: int = 8000,
     build_dir: Optional[str] = None,
     elasticsearch_config: Optional[ElasticsearchConfig] = None,
+    debug: bool = False,
 ) -> FastAPI:
     """
     Factory function to create a FastAPI app instance and start the server with async loops.
@@ -498,17 +594,21 @@ def create_app(
             os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "vite-app", "dist")
         )
 
-    server = LogsServer(host=host, port=port, build_dir=build_dir, elasticsearch_config=elasticsearch_config)
+    server = LogsServer(
+        host=host, port=port, build_dir=build_dir, elasticsearch_config=elasticsearch_config, debug=debug
+    )
     server.start_loops()
     return server.app
 
 
 # For backward compatibility and direct usage
-def serve_logs(port: Optional[int] = None, elasticsearch_config: Optional[ElasticsearchConfig] = None):
+def serve_logs(
+    port: Optional[int] = None, elasticsearch_config: Optional[ElasticsearchConfig] = None, debug: bool = False
+):
     """
     Convenience function to create and run a LogsServer.
     """
-    server = LogsServer(port=port, elasticsearch_config=elasticsearch_config)
+    server = LogsServer(port=port, elasticsearch_config=elasticsearch_config, debug=debug)
     server.run()
 
 
@@ -519,17 +619,27 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="localhost", help="Host to bind to (default: localhost)")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind to (default: 8000)")
     parser.add_argument("--build-dir", help="Path to Vite build directory")
+    parser.add_argument("--debug", help="Set logger level to DEBUG")
 
     args = parser.parse_args()
+
+    if args.debug:
+        enable_debug_mode()
 
     elasticsearch_config = ElasticsearchSetup().setup_elasticsearch()
 
     # Create server with command line arguments
     if args.build_dir:
         server = LogsServer(
-            host=args.host, port=args.port, build_dir=args.build_dir, elasticsearch_config=elasticsearch_config
+            host=args.host,
+            port=args.port,
+            build_dir=args.build_dir,
+            elasticsearch_config=elasticsearch_config,
+            debug=bool(args.debug),
         )
     else:
-        server = LogsServer(host=args.host, port=args.port, elasticsearch_config=elasticsearch_config)
+        server = LogsServer(
+            host=args.host, port=args.port, elasticsearch_config=elasticsearch_config, debug=bool(args.debug)
+        )
 
     server.run()

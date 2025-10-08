@@ -16,6 +16,7 @@ def logs_command(args):
     print(f"🌐 URL: http://localhost:{port}")
     print(f"🔌 WebSocket: ws://localhost:{port}/ws")
     print(f"👀 Watching paths: {['current directory']}")
+    print(f"🔍 Debug mode: {args.debug}")
     print("Press Ctrl+C to stop the server")
     print("-" * 50)
 
@@ -25,7 +26,7 @@ def logs_command(args):
     elasticsearch_config = ElasticsearchSetup().setup_elasticsearch()
 
     try:
-        serve_logs(port=args.port, elasticsearch_config=elasticsearch_config)
+        serve_logs(port=args.port, elasticsearch_config=elasticsearch_config, debug=args.debug)
         return 0
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
