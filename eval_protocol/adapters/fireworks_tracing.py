@@ -305,10 +305,7 @@ class FireworksTracingAdapter(BaseAdapter):
             to_timestamp: Explicit end time (ISO format)
             include_tool_calls: Whether to include tool calling traces
             sleep_between_gets: Sleep time between polling attempts (default: 2.5s)
-            max_retries: Max retry attempts used by proxy for both:
-                1. Rate limit errors (429) on individual API calls (fast exponential backoff)
-                2. Ensuring all traces are fetched
-            span_name: If provided, extract messages from generations within this named span
+            max_retries: Max retry attempts used by proxy (default: 3)
             converter: Optional custom converter implementing TraceDictConverter protocol.
                 If provided, this will be used instead of the default conversion logic.
 
