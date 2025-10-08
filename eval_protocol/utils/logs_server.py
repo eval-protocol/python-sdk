@@ -95,12 +95,6 @@ class WebSocketManager:
             active_connections_count = len(self.active_connections)
         logger.debug(f"[WEBSOCKET_BROADCAST] Active connections: {active_connections_count}")
 
-        if active_connections_count == 0:
-            logger.debug(
-                f"[WEBSOCKET_BROADCAST] No active connections, skipping broadcast for rollout_id: {rollout_id}"
-            )
-            return
-
         try:
             # Serialize pydantic model
             logger.debug(f"[WEBSOCKET_BROADCAST] Serializing row for rollout_id: {rollout_id}")
