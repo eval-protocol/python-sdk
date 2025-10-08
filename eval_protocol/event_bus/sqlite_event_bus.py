@@ -1,3 +1,5 @@
+import asyncio
+import os
 import threading
 import time
 from typing import Any, Optional
@@ -16,17 +18,14 @@ class SqliteEventBus(EventBus):
 
         # Use the same database as the evaluation row store
         if db_path is None:
-            import os
-
             from eval_protocol.directory_utils import find_eval_protocol_dir
 
             eval_protocol_dir = find_eval_protocol_dir()
             db_path = os.path.join(eval_protocol_dir, "logs.db")
 
-        self._db = SqliteEventBusDatabase(db_path)
+        self._db: SqliteEventBusDatabase = SqliteEventBusDatabase(db_path)
         self._running = False
-        self._listener_thread: Optional[threading.Thread] = None
-        self._process_id = str(uuid4())
+        self._process_id = str(os.getpid())
 
     def emit(self, event_type: str, data: Any) -> None:
         """Emit an event to all subscribers.
@@ -64,67 +63,54 @@ class SqliteEventBus(EventBus):
 
         logger.debug("[CROSS_PROCESS_LISTEN] Starting cross-process event listening")
         self._running = True
-        self._start_database_listener()
-        logger.debug("[CROSS_PROCESS_LISTEN] Started database listener thread")
+        loop = asyncio.get_running_loop()
+        loop.create_task(self._database_listener_task())
+        logger.debug("[CROSS_PROCESS_LISTEN] Started async database listener task")
 
     def stop_listening(self) -> None:
         """Stop listening for cross-process events."""
         logger.debug("[CROSS_PROCESS_LISTEN] Stopping cross-process event listening")
         self._running = False
-        if self._listener_thread and self._listener_thread.is_alive():
-            logger.debug("[CROSS_PROCESS_LISTEN] Waiting for listener thread to stop")
-            self._listener_thread.join(timeout=1)
-            logger.debug("[CROSS_PROCESS_LISTEN] Listener thread stopped")
 
-    def _start_database_listener(self) -> None:
-        """Start database-based event listener."""
+    async def _database_listener_task(self) -> None:
+        """Single database listener task that processes events and recreates itself."""
+        if not self._running:
+            # this should end the task loop
+            logger.debug("[CROSS_PROCESS_LISTENER] Stopping database listener task")
+            return
 
-        def database_listener():
-            logger.debug("[CROSS_PROCESS_LISTENER] Starting database listener loop")
-            last_cleanup = time.time()
+        # Get unprocessed events from other processes
+        events = self._db.get_unprocessed_events(str(self._process_id))
+        if events:
+            logger.debug(f"[CROSS_PROCESS_LISTENER] Found {len(events)} unprocessed events")
+        else:
+            logger.debug(f"[CROSS_PROCESS_LISTENER] No unprocessed events found for process {self._process_id}")
 
-            while self._running:
-                try:
-                    # Get unprocessed events from other processes
-                    events = self._db.get_unprocessed_events(self._process_id)
-                    if events:
-                        logger.debug(f"[CROSS_PROCESS_LISTENER] Found {len(events)} unprocessed events")
+        for event in events:
+            logger.debug(
+                f"[CROSS_PROCESS_LISTENER] Processing event {event['event_id']} of type {event['event_type']}"
+            )
+            # Handle the event
+            self._handle_cross_process_event(event["event_type"], event["data"])
+            logger.debug(f"[CROSS_PROCESS_LISTENER] Successfully processed event {event['event_id']}")
 
-                    for event in events:
-                        if not self._running:
-                            break
+            # Mark as processed
+            self._db.mark_event_processed(event["event_id"])
+            logger.debug(f"[CROSS_PROCESS_LISTENER] Marked event {event['event_id']} as processed")
 
-                        try:
-                            logger.debug(
-                                f"[CROSS_PROCESS_LISTENER] Processing event {event['event_id']} of type {event['event_type']}"
-                            )
-                            # Handle the event
-                            self._handle_cross_process_event(event["event_type"], event["data"])
-                            logger.debug(f"[CROSS_PROCESS_LISTENER] Successfully processed event {event['event_id']}")
+        # Clean up old events every hour
+        current_time = time.time()
+        if not hasattr(self, "_last_cleanup"):
+            self._last_cleanup = current_time
+        elif current_time - self._last_cleanup >= 3600:
+            logger.debug("[CROSS_PROCESS_LISTENER] Cleaning up old events")
+            self._db.cleanup_old_events()
+            self._last_cleanup = current_time
 
-                            # Mark as processed
-                            self._db.mark_event_processed(event["event_id"])
-                            logger.debug(f"[CROSS_PROCESS_LISTENER] Marked event {event['event_id']} as processed")
-
-                        except Exception as e:
-                            logger.debug(f"[CROSS_PROCESS_LISTENER] Failed to process event {event['event_id']}: {e}")
-
-                    # Clean up old events every hour
-                    current_time = time.time()
-                    if current_time - last_cleanup >= 3600:
-                        logger.debug("[CROSS_PROCESS_LISTENER] Cleaning up old events")
-                        self._db.cleanup_old_events()
-                        last_cleanup = current_time
-
-                    # Small sleep to prevent busy waiting
-                    time.sleep(0.1)
-
-                except Exception as e:
-                    logger.debug(f"[CROSS_PROCESS_LISTENER] Database listener error: {e}")
-                    time.sleep(1)
-
-        self._listener_thread = threading.Thread(target=database_listener, daemon=True)
-        self._listener_thread.start()
+        # Schedule the next task if still running
+        await asyncio.sleep(1.0)
+        loop = asyncio.get_running_loop()
+        loop.create_task(self._database_listener_task())
 
     def _handle_cross_process_event(self, event_type: str, data: Any) -> None:
         """Handle events received from other processes."""

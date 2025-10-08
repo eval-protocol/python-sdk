@@ -2,7 +2,7 @@ import time
 from typing import Any, List
 from uuid import uuid4
 
-from peewee import CharField, DateTimeField, Model, SqliteDatabase
+from peewee import BooleanField, CharField, DateTimeField, Model, SqliteDatabase
 from playhouse.sqlite_ext import JSONField
 
 from eval_protocol.event_bus.logger import logger
@@ -25,7 +25,7 @@ class SqliteEventBusDatabase:
             data = JSONField()
             timestamp = DateTimeField()
             process_id = CharField()
-            processed = CharField(default="false")  # Track if event has been processed
+            processed = BooleanField(default=False)  # Track if event has been processed
 
         self._Event = Event
         self._db.connect()
@@ -46,7 +46,7 @@ class SqliteEventBusDatabase:
                 data=serialized_data,
                 timestamp=time.time(),
                 process_id=process_id,
-                processed="false",
+                processed=False,
             )
         except Exception as e:
             logger.warning(f"Failed to publish event to database: {e}")
@@ -56,7 +56,7 @@ class SqliteEventBusDatabase:
         try:
             query = (
                 self._Event.select()
-                .where((self._Event.process_id != process_id) & (self._Event.processed == "false"))
+                .where((self._Event.process_id != process_id) & (~self._Event.processed))
                 .order_by(self._Event.timestamp)
             )
 
@@ -80,7 +80,7 @@ class SqliteEventBusDatabase:
     def mark_event_processed(self, event_id: str) -> None:
         """Mark an event as processed."""
         try:
-            self._Event.update(processed="true").where(self._Event.event_id == event_id).execute()
+            self._Event.update(processed=True).where(self._Event.event_id == event_id).execute()
         except Exception as e:
             logger.debug(f"Failed to mark event as processed: {e}")
 
@@ -88,8 +88,6 @@ class SqliteEventBusDatabase:
         """Clean up old processed events."""
         try:
             cutoff_time = time.time() - (max_age_hours * 3600)
-            self._Event.delete().where(
-                (self._Event.processed == "true") & (self._Event.timestamp < cutoff_time)
-            ).execute()
+            self._Event.delete().where((self._Event.processed) & (self._Event.timestamp < cutoff_time)).execute()
         except Exception as e:
             logger.debug(f"Failed to cleanup old events: {e}")

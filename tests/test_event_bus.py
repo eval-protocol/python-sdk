@@ -1,9 +1,9 @@
+import asyncio
 import tempfile
-import time
 
 from eval_protocol.event_bus import SqliteEventBus
 from eval_protocol.event_bus.event_bus import EventBus
-from eval_protocol.models import EvaluationRow, InputMetadata
+from eval_protocol.models import EvaluationRow, InputMetadata, Message
 
 
 class TestSqliteEventBus:
@@ -37,70 +37,108 @@ class TestSqliteEventBus:
 
             os.unlink(db_path)
 
-    def test_cross_process_events(self):
+    async def test_cross_process_events(self):
         """Test cross-process event communication."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             db_path = tmp.name
 
         try:
-            # Create two event buses (simulating different processes)
-            event_bus1 = SqliteEventBus(db_path=db_path)
-            event_bus2 = SqliteEventBus(db_path=db_path)
+            # Start listener process
+            listener_process = await asyncio.create_subprocess_exec(
+                "python",
+                "tests/test_event_bus_helper.py",
+                "listener",
+                db_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
 
-            # Set up listener on event_bus2
-            received_events = []
+            # Give the listener time to start
+            await asyncio.sleep(0.5)
 
-            def test_listener(event_type: str, data):
-                received_events.append((event_type, data))
-
-            event_bus2.subscribe(test_listener)
-            event_bus2.start_listening()
-
-            # Emit event from event_bus1
+            # Emit event from a separate process
             test_data = {"test": "cross_process"}
-            event_bus1.emit("cross_process_event", test_data)
+            import json
 
-            # Wait a bit for the event to be processed
-            time.sleep(0.2)
+            data_json = json.dumps(test_data)
 
-            # Check that event_bus2 received the event
+            emitter_process = await asyncio.create_subprocess_exec(
+                "python",
+                "tests/test_event_bus_helper.py",
+                "emitter",
+                db_path,
+                "cross_process_event",
+                data_json,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            # Wait for emitter to complete
+            await emitter_process.wait()
+
+            # Wait for listener to complete and get results
+            stdout, stderr = await listener_process.communicate()
+
+            # Parse results
+            received_events = json.loads(stdout.decode())
+
+            # Check that the event was received
             assert len(received_events) == 1
             assert received_events[0][0] == "cross_process_event"
             assert received_events[0][1] == test_data
-
-            event_bus2.stop_listening()
 
         finally:
             import os
 
             os.unlink(db_path)
 
-    def test_evaluation_row_events(self):
+    async def test_evaluation_row_events(self):
         """Test that EvaluationRow objects can be emitted and received."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             db_path = tmp.name
 
         try:
-            event_bus1 = SqliteEventBus(db_path=db_path)
-            event_bus2 = SqliteEventBus(db_path=db_path)
-
-            received_events = []
-
-            def test_listener(event_type: str, data):
-                received_events.append((event_type, data))
-
-            event_bus2.subscribe(test_listener)
-            event_bus2.start_listening()
-
-            # Create and emit an EvaluationRow
-            test_row = EvaluationRow(
-                messages=[{"role": "user", "content": "test"}], input_metadata=InputMetadata(row_id="test-123")
+            # Start listener process
+            listener_process = await asyncio.create_subprocess_exec(
+                "python",
+                "test_event_bus_helper.py",
+                "listener",
+                db_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
 
-            event_bus1.emit("row_upserted", test_row)
+            # Give the listener time to start
+            await asyncio.sleep(0.5)
 
-            # Wait for processing
-            time.sleep(0.2)
+            # Create and emit an EvaluationRow from a separate process
+            test_row = EvaluationRow(
+                messages=[Message(role="user", content="test")], input_metadata=InputMetadata(row_id="test-123")
+            )
+
+            import json
+
+            data_json = json.dumps(test_row.model_dump(mode="json"))
+
+            emitter_process = await asyncio.create_subprocess_exec(
+                "python",
+                "test_event_bus_helper.py",
+                "emitter",
+                db_path,
+                "row_upserted",
+                data_json,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            # Wait for emitter to complete
+            await emitter_process.wait()
+
+            # Wait for listener to complete and get results
+            stdout, stderr = await listener_process.communicate()
+
+            # Parse results
+            received_events = json.loads(stdout.decode())
 
             # Check that the event was received
             assert len(received_events) == 1
@@ -111,14 +149,12 @@ class TestSqliteEventBus:
             event = EvaluationRow(**received_events[0][1])
             assert event.input_metadata.row_id == "test-123"
 
-            event_bus2.stop_listening()
-
         finally:
             import os
 
             os.unlink(db_path)
 
-    def test_process_isolation(self):
+    async def test_process_isolation(self):
         """Test that processes receive their own events locally but not via cross-process mechanism."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             db_path = tmp.name
@@ -138,7 +174,7 @@ class TestSqliteEventBus:
             event_bus.emit("self_event", {"test": "data"})
 
             # Wait for processing
-            time.sleep(0.2)
+            await asyncio.sleep(1.0)
 
             # Should receive the event from its own process via local delivery
             assert len(received_events) == 1
