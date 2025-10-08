@@ -70,7 +70,7 @@ def _default_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
     def fetch_traces() -> List[EvaluationRow]:
         base_url = config.model_base_url or "https://tracing.fireworks.ai"
         adapter = FireworksTracingAdapter(base_url=base_url)
-        return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], proxy_max_retries=5)
+        return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
 
     return DynamicDataLoader(generators=[fetch_traces], preprocess_fn=filter_longest_conversation)
 

@@ -43,7 +43,7 @@ def fetch_fireworks_traces(config: DataLoaderConfig) -> List[EvaluationRow]:
 
     base_url = config.model_base_url or "https://tracing.fireworks.ai"
     adapter = FireworksTracingAdapter(base_url=base_url)
-    return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], proxy_max_retries=5)
+    return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
 
 
 def fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
