@@ -36,7 +36,9 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
       if (selectedLevel) {
         params.append("level", selectedLevel);
       }
-      params.append("limit", "50");
+
+      // max is 10,000 so I set it to 10,000: https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search#operation-search-size
+      params.append("limit", "10000");
 
       const fullUrl = `${apiUrl}/api/logs/${rolloutId}?${params}`;
       console.log("Attempting to fetch logs from:", fullUrl);
