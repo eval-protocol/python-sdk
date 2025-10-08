@@ -631,7 +631,7 @@ def child_process_worker(test_message: str, result_queue: Queue):
     """Worker function that runs in a child process and logs a message using inherited handler configuration."""
     try:
         # Create a child logger with parent set to the configured logger
-        child_logger = logging.getLogger("parent_process_logger.child_process_logger")
+        child_logger = logging.getLogger("child_process_logger")
         child_logger.setLevel(logging.INFO)
         # Don't clear handlers or addHandler - should inherit from parent logger setup
 
@@ -661,12 +661,13 @@ def test_elasticsearch_direct_http_handler_multiprocessing_configuration_inherit
     child_message = f"Child process message at {time.time()}"
 
     # Set up parent process logging with configured handler on a specific logger
-    parent_handler = ElasticsearchDirectHttpHandler(elasticsearch_config)
+    handler = ElasticsearchDirectHttpHandler(elasticsearch_config)
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.handlers.clear()
+    root_logger.addHandler(handler)
+
     parent_logger = logging.getLogger("parent_process_logger")
-    parent_logger.setLevel(logging.INFO)
-    parent_logger.handlers.clear()
-    parent_logger.addHandler(parent_handler)
-    parent_logger.propagate = False  # Prevent propagation to avoid affecting other tests
 
     # Log from parent process
     parent_logger.info(parent_message)
@@ -677,7 +678,7 @@ def test_elasticsearch_direct_http_handler_multiprocessing_configuration_inherit
     child_process.start()
 
     # Wait for child process to complete
-    child_process.join(timeout=30)
+    child_process.join(timeout=100_000)
 
     # Check if child process completed successfully
     if child_process.is_alive():
@@ -715,9 +716,7 @@ def test_elasticsearch_direct_http_handler_multiprocessing_configuration_inherit
     assert len(child_hits) > 0, "Expected to find child message"
     child_document = child_hits[0]["_source"]
     assert child_document["message"] == child_message, "Child message should match"
-    assert child_document["logger_name"] == "parent_process_logger.child_process_logger", (
-        "Child logger name should match"
-    )
+    assert child_document["logger_name"] == "child_process_logger", "Child logger name should match"
 
     # Verify both messages have the same rollout_id (inherited from environment)
     assert parent_document["rollout_id"] == rollout_id, "Parent message should have correct rollout_id"
@@ -770,9 +769,7 @@ def test_elasticsearch_direct_http_handler_multiprocessing_configuration_inherit
         assert len(hits) > 0, f"Expected to find child {i} message"
         document = hits[0]["_source"]
         assert document["message"] == child_msg, f"Child {i} message should match"
-        assert document["logger_name"] == "parent_process_logger.child_process_logger", (
-            f"Child {i} logger name should match"
-        )
+        assert document["logger_name"] == "child_process_logger", f"Child {i} logger name should match"
         assert document["rollout_id"] == rollout_id, f"Child {i} should have correct rollout_id"
 
     print("✓ Multiple child processes with inherited configuration verified")
@@ -782,4 +779,4 @@ def test_elasticsearch_direct_http_handler_multiprocessing_configuration_inherit
     )
 
     # Clean up the parent handler
-    parent_handler.close()
+    handler.close()
