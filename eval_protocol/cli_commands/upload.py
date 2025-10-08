@@ -496,6 +496,16 @@ def upload_command(args: argparse.Namespace) -> int:
         # Normalize the evaluator ID to meet Fireworks requirements
         evaluator_id = _normalize_evaluator_id(evaluator_id)
 
+        # Compute entry point metadata for backend: prefer module:function, fallback to path::function
+        func_name = qualname.split(".")[-1]
+        module_part = qualname.rsplit(".", 1)[0] if "." in qualname else ""
+        # Use pytest pyargs style: package.module:function
+        if module_part and "." in module_part:
+            entry_point = f"{module_part}:{func_name}"
+        else:
+            # If we cannot derive a dotted module path, don't set entry point
+            entry_point = None
+
         print(f"\nUploading evaluator '{evaluator_id}' for {qualname.split('.')[-1]}...")
         try:
             result = create_evaluation(
@@ -507,6 +517,7 @@ def upload_command(args: argparse.Namespace) -> int:
                 display_name=display_name or evaluator_id,
                 description=description or f"Evaluator for {qualname}",
                 force=force,
+                entry_point=entry_point,
             )
             name = result.get("name", evaluator_id) if isinstance(result, dict) else evaluator_id
 
