@@ -186,9 +186,7 @@ def get_fireworks_account_id() -> Optional[str]:
             return account_id_from_file
         account_id = os.environ.get("FIREWORKS_ACCOUNT_ID")
         if account_id:
-            logger.debug(
-                "Using FIREWORKS_ACCOUNT_ID from environment variable (profile active but file missing)."
-            )
+            logger.debug("Using FIREWORKS_ACCOUNT_ID from environment variable (profile active but file missing).")
             return account_id
     else:
         # Default behavior: env overrides file

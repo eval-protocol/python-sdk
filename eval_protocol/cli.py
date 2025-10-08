@@ -425,21 +425,27 @@ def main():
 
     if args.command == "preview":
         from .cli_commands.preview import preview_command
+
         return preview_command(args)
     elif args.command == "deploy":
         from .cli_commands.deploy import deploy_command
+
         return deploy_command(args)
     elif args.command == "deploy-mcp":
         from .cli_commands.deploy_mcp import deploy_mcp_command
+
         return deploy_mcp_command(args)
     elif args.command == "agent-eval":
         from .cli_commands.agent_eval_cmd import agent_eval_command
+
         return agent_eval_command(args)
     elif args.command == "logs":
         from .cli_commands.logs import logs_command
+
         return logs_command(args)
     elif args.command == "upload":
         from .cli_commands.upload import upload_command
+
         return upload_command(args)
     elif args.command == "run":
         # For the 'run' command, Hydra takes over argument parsing.
@@ -496,6 +502,7 @@ def main():
 
         try:
             from .cli_commands.run_eval_cmd import hydra_cli_entry_point
+
             hydra_entry = cast(Any, hydra_cli_entry_point)
             hydra_entry()  # type: ignore  # pylint: disable=no-value-for-parameter
             return 0

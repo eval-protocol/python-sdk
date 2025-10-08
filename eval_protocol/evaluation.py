@@ -536,6 +536,14 @@ class Evaluator:
         # Include optional entry point when provided
         if self.entry_point:
             payload_data["evaluator"]["entryPoint"] = self.entry_point
+            logger.info(f"Including entryPoint in payload: {self.entry_point}")
+
+        # Debug log the create payload structure (without sample data)
+        try:
+            logger.info(f"Create API Request Payload: {json.dumps(payload_data, indent=2)}")
+        except Exception:
+            # If serialization fails for any reason, skip debug dump
+            pass
 
         if "dev.api.fireworks.ai" in self.api_base and account_id == "fireworks":
             account_id = "pyroworks-dev"
