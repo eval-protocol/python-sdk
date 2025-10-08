@@ -87,7 +87,7 @@ export const ChatInterface = ({ messages }: ChatInterfaceProps) => {
         e.preventDefault();
         const deltaY = e.clientY - initialMouseY;
         const newHeight = initialHeight + deltaY;
-        setChatHeight(Math.max(200, Math.min(800, newHeight))); // Min 200px, max 800px
+        setChatHeight(Math.max(200, Math.min(844, newHeight))); // Min 200px, max 844px
       }
     };
 
