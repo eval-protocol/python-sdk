@@ -3,32 +3,47 @@ Command-line interface for Eval Protocol.
 """
 
 import argparse
-import asyncio
-import json
 import logging
 import os
 import sys
-import traceback
-import uuid
 from pathlib import Path
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
 
-from .cli_commands.agent_eval_cmd import agent_eval_command
 from .cli_commands.common import setup_logging
-from .cli_commands.deploy import deploy_command
-from .cli_commands.deploy_mcp import deploy_mcp_command
-from .cli_commands.logs import logs_command
-from .cli_commands.preview import preview_command
-from .cli_commands.run_eval_cmd import hydra_cli_entry_point
-from .cli_commands.upload import upload_command
+
+# Re-export deploy_command for backward compatibility with tests importing from eval_protocol.cli
+try:  # pragma: no cover - import-time alias for tests
+    from .cli_commands import deploy as _deploy_mod
+
+    deploy_command = _deploy_mod.deploy_command  # type: ignore[attr-defined]
+except Exception:  # pragma: no cover
+    # If import fails in constrained environments, tests that import it will surface the issue
+    deploy_command = None  # type: ignore[assignment]
+
+# Re-export preview_command for backward compatibility with tests importing from eval_protocol.cli
+try:  # pragma: no cover - import-time alias for tests
+    from .cli_commands import preview as _preview_mod
+
+    preview_command = _preview_mod.preview_command  # type: ignore[attr-defined]
+except Exception:  # pragma: no cover
+    preview_command = None  # type: ignore[assignment]
 
 
 def parse_args(args=None):
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(description="eval-protocol: Tools for evaluation and reward modeling")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument(
+        "--profile",
+        help="Fireworks profile to use (reads ~/.fireworks/profiles/<name>/auth.ini and settings.ini)",
+    )
+    parser.add_argument(
+        "--server",
+        help="Fireworks API server hostname or URL (e.g., dev.api.fireworks.ai or https://dev.api.fireworks.ai)",
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
@@ -356,12 +371,68 @@ def main():
             os.environ["PYTHONPATH"] = f"{current_dir}{os.pathsep}{current_pythonpath}"
         else:
             os.environ["PYTHONPATH"] = current_dir
-        logger.debug(f"Added current directory to PYTHONPATH: {current_dir}")
+        logger.debug("Added current directory to PYTHONPATH: %s", current_dir)
 
         # Also add to sys.path so it takes effect immediately for the current process
         if current_dir not in sys.path:
             sys.path.insert(0, current_dir)
 
+    # Pre-scan raw argv for global flags anywhere (before parsing or imports)
+    raw_argv = sys.argv[1:]
+
+    def _extract_flag_value(argv_list, flag_name):
+        # Supports --flag value and --flag=value
+        for i, tok in enumerate(argv_list):
+            if tok == flag_name:
+                if i + 1 < len(argv_list):
+                    return argv_list[i + 1]
+            elif tok.startswith(flag_name + "="):
+                return tok.split("=", 1)[1]
+        return None
+
+    pre_profile = _extract_flag_value(raw_argv, "--profile")
+    pre_server = _extract_flag_value(raw_argv, "--server")
+
+    # Handle Fireworks profile selection early so downstream modules see the env
+    profile = pre_profile
+    if profile:
+        try:
+            os.environ["FIREWORKS_PROFILE"] = profile
+            # Mirror firectl behavior: ~/.fireworks[/profiles/<profile>]
+            base_dir = Path.home() / ".fireworks"
+            if profile:
+                base_dir = base_dir / "profiles" / profile
+            os.makedirs(str(base_dir), mode=0o700, exist_ok=True)
+
+            # Provide helpful env hints for consumers (optional)
+            os.environ["FIREWORKS_AUTH_FILE"] = str(base_dir / "auth.ini")
+            os.environ["FIREWORKS_SETTINGS_FILE"] = str(base_dir / "settings.ini")
+            logger.debug("Using Fireworks profile '%s' at %s", profile, base_dir)
+        except OSError as e:
+            logger.warning("Failed to initialize Fireworks profile '%s': %s", profile, e)
+
+        # Proactively resolve and export account_id from the active profile to avoid stale .env overrides
+        try:
+            from eval_protocol.auth import get_fireworks_account_id as _resolve_account_id
+
+            resolved_account = _resolve_account_id()
+            if resolved_account:
+                os.environ["FIREWORKS_ACCOUNT_ID"] = resolved_account
+                logger.debug("Resolved account_id from profile '%s': %s", profile, resolved_account)
+        except Exception as e:  # noqa: B902
+            logger.debug("Unable to resolve account_id from profile '%s': %s", profile, e)
+
+    # Handle Fireworks server selection early
+    server = pre_server
+    if server:
+        # Normalize to full URL if just a hostname is supplied
+        normalized = server.strip()
+        if not normalized.startswith("http://") and not normalized.startswith("https://"):
+            normalized = f"https://{normalized}"
+        os.environ["FIREWORKS_API_BASE"] = normalized
+        logger.debug("Using Fireworks API base: %s", normalized)
+
+    # Now parse args normally (so help/commands work), after globals applied
     # Store original sys.argv[0] because Hydra might manipulate it
     # and we need it if we're not calling a Hydra app.
     original_script_name = sys.argv[0]
@@ -370,16 +441,28 @@ def main():
     setup_logging(args.verbose, getattr(args, "debug", False))
 
     if args.command == "preview":
+        if preview_command is None:
+            raise ImportError("preview_command is unavailable")
         return preview_command(args)
     elif args.command == "deploy":
+        if deploy_command is None:
+            raise ImportError("deploy_command is unavailable")
         return deploy_command(args)
     elif args.command == "deploy-mcp":
+        from .cli_commands.deploy_mcp import deploy_mcp_command
+
         return deploy_mcp_command(args)
     elif args.command == "agent-eval":
+        from .cli_commands.agent_eval_cmd import agent_eval_command
+
         return agent_eval_command(args)
     elif args.command == "logs":
+        from .cli_commands.logs import logs_command
+
         return logs_command(args)
     elif args.command == "upload":
+        from .cli_commands.upload import upload_command
+
         return upload_command(args)
     elif args.command == "run":
         # For the 'run' command, Hydra takes over argument parsing.
@@ -393,7 +476,7 @@ def main():
         local_conf_dir = os.path.join(current_dir, "conf")
 
         if not has_config_path and os.path.isdir(local_conf_dir):
-            logger.info(f"Auto-detected local conf directory: {local_conf_dir}")
+            logger.info("Auto-detected local conf directory: %s", local_conf_dir)
             hydra_specific_args = [
                 "--config-path",
                 local_conf_dir,
@@ -410,18 +493,21 @@ def main():
                     path_val = hydra_specific_args[i]
                     abs_path = os.path.abspath(path_val)
                     logger.debug(
-                        f"Converting relative --config-path '{path_val}' (space separated) to absolute '{abs_path}'"
+                        "Converting relative --config-path '%s' (space separated) to absolute '%s'",
+                        path_val,
+                        abs_path,
                     )
                     processed_hydra_args.append(abs_path)
                 else:
                     logger.error("--config-path specified without a value.")
-                    pass
             elif arg.startswith("--config-path="):
                 flag_part, path_val = arg.split("=", 1)
                 processed_hydra_args.append(flag_part)
                 abs_path = os.path.abspath(path_val)
                 logger.debug(
-                    f"Converting relative --config-path '{path_val}' (equals separated) to absolute '{abs_path}'"
+                    "Converting relative --config-path '%s' (equals separated) to absolute '%s'",
+                    path_val,
+                    abs_path,
                 )
                 processed_hydra_args.append(abs_path)
             else:
@@ -429,14 +515,17 @@ def main():
             i += 1
 
         sys.argv = [sys.argv[0]] + processed_hydra_args
-        logger.info(f"SYSCALL_ARGV_FOR_HYDRA (after potential abspath conversion): {sys.argv}")
+        logger.info("SYSCALL_ARGV_FOR_HYDRA (after potential abspath conversion): %s", sys.argv)
 
         try:
-            hydra_cli_entry_point()
+            from .cli_commands.run_eval_cmd import hydra_cli_entry_point
+
+            hydra_entry = cast(Any, hydra_cli_entry_point)
+            hydra_entry()  # type: ignore  # pylint: disable=no-value-for-parameter
             return 0
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             error_msg = str(e)
-            logger.error(f"Evaluation failed: {e}")
+            logger.error("Evaluation failed: %s", e)
 
             # Provide helpful suggestions for common Hydra/config errors
             if "Cannot find primary config" in error_msg:

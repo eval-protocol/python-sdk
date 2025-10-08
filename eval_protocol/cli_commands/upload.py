@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
 import pytest
+from eval_protocol.auth import get_fireworks_account_id, get_fireworks_api_key
+from eval_protocol.platform_api import create_or_update_fireworks_secret
 
 from eval_protocol.evaluation import create_evaluation
 
@@ -179,22 +181,85 @@ def _discover_tests(root: str) -> list[DiscoveredTest]:
     return sorted(by_qual.values(), key=lambda x: (x.file_path, x.lineno or 0))
 
 
+def _to_pyargs_nodeid(file_path: str, func_name: str) -> str | None:
+    """Attempt to build a pytest nodeid suitable for `pytest <nodeid>`.
+
+    Preference order:
+    1) Dotted package module path with double-colon: pkg.subpkg.module::func
+    2) Filesystem path with double-colon: path/to/module.py::func
+
+    Returns dotted form when package root can be inferred (directory chain with __init__.py
+    leading up to a directory contained in sys.path). Returns None if no reasonable
+    nodeid can be created (should be rare).
+    """
+    try:
+        abs_path = os.path.abspath(file_path)
+        dir_path, filename = os.path.split(abs_path)
+        module_base, ext = os.path.splitext(filename)
+        if ext != ".py":
+            # Not a python file
+            return None
+
+        # Walk up while packages have __init__.py
+        segments: list[str] = [module_base]
+        current = dir_path
+        package_root = None
+        while True:
+            if os.path.isfile(os.path.join(current, "__init__.py")):
+                segments.insert(0, os.path.basename(current))
+                parent = os.path.dirname(current)
+                # Stop if parent is not within current sys.path import roots
+                if parent == current:
+                    break
+                current = parent
+            else:
+                package_root = current
+                break
+
+        # If we found a package chain, check that the package_root is importable (in sys.path)
+        if package_root and any(
+            os.path.abspath(sp).rstrip(os.sep) == os.path.abspath(package_root).rstrip(os.sep) for sp in sys.path
+        ):
+            dotted = ".".join(segments)
+            return f"{dotted}::{func_name}"
+
+        # Do not emit a dotted top-level module for non-packages; prefer path-based nodeid
+
+        # Fallback to relative path (if under cwd) or absolute path
+        cwd = os.getcwd()
+        try:
+            rel = os.path.relpath(abs_path, cwd)
+        except Exception:
+            rel = abs_path
+        return f"{rel}::{func_name}"
+    except Exception:
+        return None
+
+
 def _parse_entry(entry: str, cwd: str) -> tuple[str, str]:
-    # Accept module:function or path::function
+    # Accept module::function, path::function, or legacy module:function
     entry = entry.strip()
     if "::" in entry:
-        path_part, func = entry.split("::", 1)
-        abs_path = os.path.abspath(os.path.join(cwd, path_part))
-        module_name = Path(abs_path).stem
-        return abs_path, func
+        target, func = entry.split("::", 1)
+        # Determine if target looks like a filesystem path; otherwise treat as module path
+        looks_like_path = (
+            "/" in target or "\\" in target or target.endswith(".py") or os.path.exists(os.path.join(cwd, target))
+        )
+        if looks_like_path:
+            abs_path = os.path.abspath(os.path.join(cwd, target))
+            return abs_path, func
+        else:
+            # Treat as module path for --pyargs style
+            return target, func
     elif ":" in entry:
+        # Legacy support: module:function → convert to module path + function
         module, func = entry.split(":", 1)
         return module, func
     else:
-        raise ValueError("--entry must be in 'module:function' or 'path::function' format")
+        raise ValueError("--entry must be in 'module::function', 'path::function', or 'module:function' format")
 
 
-def _generate_ts_mode_code_from_entry(entry: str, cwd: str) -> tuple[str, str, str]:
+def _generate_ts_mode_code_from_entry(entry: str, cwd: str) -> tuple[str, str, str, str]:
     target, func = _parse_entry(entry, cwd)
 
     # Check if target looks like a file path
@@ -217,10 +282,12 @@ def _generate_ts_mode_code_from_entry(entry: str, cwd: str) -> tuple[str, str, s
         sys.modules[spec.name] = module
         spec.loader.exec_module(module)  # type: ignore[attr-defined]
         module_name = spec.name
+        source_file_path = target
     else:
         # Treat as module path (e.g., "my_package.my_module")
         module_name = target
         module = importlib.import_module(module_name)
+        source_file_path = getattr(module, "__file__", "") or ""
 
     if not hasattr(module, func):
         raise ValueError(f"Function '{func}' not found in module '{module_name}'")
@@ -238,7 +305,7 @@ def _generate_ts_mode_code_from_entry(entry: str, cwd: str) -> tuple[str, str, s
             nodeids=[],
         )
     )
-    return code, file_name, qualname
+    return code, file_name, qualname, os.path.abspath(source_file_path) if source_file_path else ""
 
 
 def _generate_ts_mode_code(test: DiscoveredTest) -> tuple[str, str]:
@@ -343,28 +410,45 @@ def _prompt_select_interactive(tests: list[DiscoveredTest]) -> list[DiscoveredTe
             else:
                 return []
 
-        # Create choices with nice formatting
-        choices = []
-        for idx, test in enumerate(tests, 1):
-            choice_text = _format_test_choice(test, idx)
-            choices.append({"name": choice_text, "value": idx - 1, "checked": False})
+        # Enter-only selection UX with optional multi-select via repeat
+        remaining_indices = list(range(len(tests)))
+        selected_indices: list[int] = []
 
         print("\n")
-        print("💡 Tip: Use ↑/↓ arrows to navigate, SPACE to select/deselect, ENTER when done")
-        print("        You can select multiple tests!\n")
-        selected_indices = questionary.checkbox(
-            "Select evaluation tests to upload:",
-            choices=choices,
-            style=custom_style,
-        ).ask()
+        print("Tip: Use ↑/↓ arrows to navigate and press ENTER to select.")
+        print("     After selecting one, you can choose to add more.\n")
 
-        if selected_indices is None:  # User pressed Ctrl+C
-            print("\nUpload cancelled.")
-            return []
+        while remaining_indices:
+            # Build choices from remaining
+            choices = []
+            for idx, test_idx in enumerate(remaining_indices, 1):
+                t = tests[test_idx]
+                choice_text = _format_test_choice(t, idx)
+                choices.append({"name": choice_text, "value": test_idx})
+
+            selected = questionary.select(
+                "Select an evaluation test to upload:", choices=choices, style=custom_style
+            ).ask()
+
+            if selected is None:  # Ctrl+C
+                print("\nUpload cancelled.")
+                return []
+
+            if isinstance(selected, int):
+                selected_indices.append(selected)
+                # Remove from remaining
+                if selected in remaining_indices:
+                    remaining_indices.remove(selected)
+
+                # Ask whether to add another (ENTER to finish)
+                add_more = questionary.confirm("Add another?", default=False, style=custom_style).ask()
+                if not add_more:
+                    break
+            else:
+                break
 
         if not selected_indices:
             print("\n⚠️  No tests were selected.")
-            print("   Remember: Use SPACE bar to select tests, then press ENTER to confirm.")
             return []
 
         print(f"\n✓ Selected {len(selected_indices)} test(s)")
@@ -440,10 +524,8 @@ def upload_command(args: argparse.Namespace) -> int:
         entries = [e.strip() for e in re.split(r"[,\s]+", entries_arg) if e.strip()]
         selected_specs: list[tuple[str, str, str, str]] = []
         for e in entries:
-            code, file_name, qualname = _generate_ts_mode_code_from_entry(e, root)
-            # For --entry mode, extract file path from the entry
-            file_path = e.split("::")[0] if "::" in e else ""
-            selected_specs.append((code, file_name, qualname, file_path))
+            code, file_name, qualname, resolved_path = _generate_ts_mode_code_from_entry(e, root)
+            selected_specs.append((code, file_name, qualname, resolved_path))
     else:
         print("Scanning for evaluation tests...")
         tests = _discover_tests(root)
@@ -474,6 +556,28 @@ def upload_command(args: argparse.Namespace) -> int:
     description = getattr(args, "description", None)
     force = bool(getattr(args, "force", False))
 
+    # Ensure FIREWORKS_API_KEY is available to the remote by storing it as a Fireworks secret
+    try:
+        fw_account_id = get_fireworks_account_id()
+        fw_api_key_value = get_fireworks_api_key()
+        if fw_account_id and fw_api_key_value:
+            print("Ensuring FIREWORKS_API_KEY is registered as a secret on Fireworks for rollout...")
+            if create_or_update_fireworks_secret(
+                account_id=fw_account_id,
+                key_name="FIREWORKS_API_KEY",
+                secret_value=fw_api_key_value,
+            ):
+                print("✓ FIREWORKS_API_KEY secret created/updated on Fireworks.")
+            else:
+                print("Warning: Failed to create/update FIREWORKS_API_KEY secret on Fireworks.")
+        else:
+            if not fw_account_id:
+                print("Warning: FIREWORKS_ACCOUNT_ID not found; cannot register FIREWORKS_API_KEY secret.")
+            if not fw_api_key_value:
+                print("Warning: FIREWORKS_API_KEY not found locally; cannot register secret.")
+    except Exception as e:
+        print(f"Warning: Skipped Fireworks secret registration due to error: {e}")
+
     exit_code = 0
     for i, (code, file_name, qualname, source_file_path) in enumerate(selected_specs):
         # Use ts_mode to upload evaluator
@@ -496,6 +600,22 @@ def upload_command(args: argparse.Namespace) -> int:
         # Normalize the evaluator ID to meet Fireworks requirements
         evaluator_id = _normalize_evaluator_id(evaluator_id)
 
+        # Compute entry point metadata for backend as a pytest nodeid usable with `pytest <entrypoint>`
+        # Always prefer a path-based nodeid to work in plain pytest environments (server may not use --pyargs)
+        func_name = qualname.split(".")[-1]
+        entry_point = None
+        if source_file_path:
+            # Use path relative to current working directory if possible
+            abs_path = os.path.abspath(source_file_path)
+            try:
+                rel = os.path.relpath(abs_path, root)
+            except Exception:
+                rel = abs_path
+            entry_point = f"{rel}::{func_name}"
+        else:
+            # Fallback: use filename from qualname only (rare)
+            entry_point = f"{func_name}.py::{func_name}"
+
         print(f"\nUploading evaluator '{evaluator_id}' for {qualname.split('.')[-1]}...")
         try:
             result = create_evaluation(
@@ -507,13 +627,34 @@ def upload_command(args: argparse.Namespace) -> int:
                 display_name=display_name or evaluator_id,
                 description=description or f"Evaluator for {qualname}",
                 force=force,
+                entry_point=entry_point,
             )
             name = result.get("name", evaluator_id) if isinstance(result, dict) else evaluator_id
 
             # Print success message with Fireworks dashboard link
             print(f"\n✅ Successfully uploaded evaluator: {evaluator_id}")
             print("📊 View in Fireworks Dashboard:")
-            print(f"   https://app.fireworks.ai/dashboard/evaluators/{evaluator_id}")
+            # Map API base to app host (e.g., dev.api.fireworks.ai -> dev.app.fireworks.ai)
+            from urllib.parse import urlparse
+
+            api_base = os.environ.get("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+            try:
+                parsed = urlparse(api_base)
+                host = parsed.netloc or parsed.path  # handle cases where scheme may be missing
+                # Mapping rules:
+                # - dev.api.fireworks.ai → dev.fireworks.ai
+                # - *.api.fireworks.ai → *.app.fireworks.ai (default)
+                if host.startswith("dev.api.fireworks.ai"):
+                    app_host = "dev.fireworks.ai"
+                elif host.startswith("api."):
+                    app_host = host.replace("api.", "app.", 1)
+                else:
+                    app_host = host
+                scheme = parsed.scheme or "https"
+                dashboard_url = f"{scheme}://{app_host}/dashboard/evaluators/{evaluator_id}"
+            except Exception:
+                dashboard_url = f"https://app.fireworks.ai/dashboard/evaluators/{evaluator_id}"
+            print(f"   {dashboard_url}")
             print()
         except Exception as e:
             print(f"Failed to upload {qualname}: {e}")

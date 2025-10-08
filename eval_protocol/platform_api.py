@@ -53,6 +53,16 @@ class PlatformAPIError(Exception):
         return f"{super().__str__()} (Status: {self.status_code}, Response: {self.response_text or 'N/A'})"
 
 
+def _normalize_secret_resource_id(key_name: str) -> str:
+    """
+    Normalize a secret's resource ID for Fireworks paths:
+    - Lowercase
+    - Replace underscores with hyphens
+    - Leave other characters as-is (server enforces allowed set)
+    """
+    return key_name.lower().replace("_", "-")
+
+
 def create_or_update_fireworks_secret(
     account_id: str,
     key_name: str,  # This is the identifier for the secret, e.g., "my-eval-api-key"
@@ -95,8 +105,9 @@ def create_or_update_fireworks_secret(
     # Let's assume for POST, we send 'keyName' and 'value'.
     # For PATCH, the path contains {secret_id} which is the key_name. The body is also gatewaySecret.
 
-    # Check if secret exists using GET (path uses secret_id which is our key_name)
-    get_url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{key_name}"
+    # Check if secret exists using GET (path uses normalized resource id)
+    resource_id = _normalize_secret_resource_id(key_name)
+    get_url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
     secret_exists = False
     try:
         response = requests.get(get_url, headers=headers, timeout=10)
@@ -120,7 +131,7 @@ def create_or_update_fireworks_secret(
 
     if secret_exists:
         # Update existing secret (PATCH)
-        patch_url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{key_name}"
+        patch_url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
         # Body for PATCH requires 'keyName' and 'value'.
         # Transform key_name for payload: uppercase and underscores
         payload_key_name = key_name.upper().replace("-", "_")
@@ -148,16 +159,14 @@ def create_or_update_fireworks_secret(
     else:
         # Create new secret (POST)
         post_url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets"
-        # Body for POST is gatewaySecret. 'name' field in payload is tricky.
+        # Body for POST is gatewaySecret. 'name' field in payload is the resource path.
         # Let's assume for POST, the 'name' in payload can be omitted or is the key_name.
         # The API should ideally use 'keyName' from URL or a specific 'secretId' in payload for creation if 'name' is server-assigned.
         # Given the Swagger, 'name' is required in gatewaySecret.
         # Let's try with 'name' being the 'key_name' for the payload, as the full path is not known yet.
         # This might need adjustment based on actual API behavior.
         # Construct the full 'name' path for the POST payload as per Swagger's title for 'name'
-        full_resource_name_for_payload = (
-            f"accounts/{resolved_account_id}/secrets/{key_name}"  # Path uses lowercase-hyphenated key_name
-        )
+        full_resource_name_for_payload = f"accounts/{resolved_account_id}/secrets/{resource_id}"
 
         # Transform key_name for payload "keyName" field: uppercase and underscores
         payload_key_name = key_name.upper().replace("-", "_")
@@ -209,7 +218,8 @@ def get_fireworks_secret(
         return None
 
     headers = {"Authorization": f"Bearer {resolved_api_key}"}
-    url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{key_name}"
+    resource_id = _normalize_secret_resource_id(key_name)
+    url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
 
     try:
         response = requests.get(url, headers=headers, timeout=10)
@@ -245,7 +255,8 @@ def delete_fireworks_secret(
         return False
 
     headers = {"Authorization": f"Bearer {resolved_api_key}"}
-    url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{key_name}"
+    resource_id = _normalize_secret_resource_id(key_name)
+    url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
 
     try:
         response = requests.delete(url, headers=headers, timeout=30)

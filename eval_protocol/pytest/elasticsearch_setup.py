@@ -76,7 +76,7 @@ class ElasticsearchSetup:
                 # Use set -o pipefail to ensure we get the return code of the first failing command
                 process = subprocess.Popen(
                     [
-                        "sh",
+                        "bash",
                         "-c",
                         f"set -o pipefail; curl -fsSL https://elastic.co/start-local | sh -s -- --esonly | tee {temp_file_path}",
                     ],

@@ -40,6 +40,7 @@ from .types.remote_rollout_processor import (
     RolloutMetadata,
     StatusResponse,
     create_langfuse_config_tags,
+    DataLoaderConfig,
 )
 
 try:
@@ -67,6 +68,7 @@ warnings.filterwarnings("default", category=DeprecationWarning, module="eval_pro
 __all__ = [
     "ElasticsearchDirectHttpHandler",
     "RolloutIdFilter",
+    "DataLoaderConfig",
     "Status",
     "RemoteRolloutProcessor",
     "InputMetadata",

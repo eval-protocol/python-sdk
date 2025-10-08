@@ -14,7 +14,7 @@ from eval_protocol.types.remote_rollout_processor import (
     InitRequest,
     RolloutMetadata,
 )
-from eval_protocol.adapters.fireworks_tracing import create_fireworks_tracing_adapter
+from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
 from eval_protocol.quickstart.utils import filter_longest_conversation
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
@@ -24,6 +24,37 @@ import logging
 import os
 
 logger = logging.getLogger(__name__)
+
+
+def _build_fireworks_tracing_url(
+    base_url: str, metadata: RolloutMetadata, completion_params_base_url: Optional[str] = None
+) -> str:
+    """Build a Fireworks tracing URL by appending rollout metadata to the base URL path,
+    allowing the Fireworks tracing proxy to automatically tag traces.
+
+    Format: {base_url}/rollout_id/{id}/invocation_id/{id}/experiment_id/{id}/run_id/{id}/row_id/{id}
+
+    Args:
+        base_url: Fireworks tracing proxy URL (we expect this to be https://tracing.fireworks.ai or
+                  https://tracing.fireworks.ai/project_id/{project_id})
+        metadata: Rollout metadata containing IDs to embed in the URL
+        completion_params_base_url: Optional LLM base URL to encode and append to the final URL
+    """
+    url = (
+        f"{base_url}/rollout_id/{metadata.rollout_id}"
+        f"/invocation_id/{metadata.invocation_id}"
+        f"/experiment_id/{metadata.experiment_id}"
+        f"/run_id/{metadata.run_id}"
+        f"/row_id/{metadata.row_id}"
+    )
+
+    if (
+        completion_params_base_url
+    ):  # The final URL is both tracing.fireworks.ai and the actual LLM base URL we want to use
+        encoded_base_url = base64.urlsafe_b64encode(completion_params_base_url.encode()).decode()
+        url = f"{url}/encoded_base_url/{encoded_base_url}"
+
+    return url
 
 
 def _default_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
@@ -38,7 +69,7 @@ def _default_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
 
     def fetch_traces() -> List[EvaluationRow]:
         base_url = config.model_base_url or "https://tracing.fireworks.ai"
-        adapter = create_fireworks_tracing_adapter(base_url=base_url)
+        adapter = FireworksTracingAdapter(base_url=base_url)
         return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], proxy_max_retries=5)
 
     return DynamicDataLoader(generators=[fetch_traces], preprocess_fn=filter_longest_conversation)
@@ -50,11 +81,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
     By default, fetches traces from the Fireworks tracing proxy using rollout_id tags.
     You can provide a custom output_data_loader for different tracing backends.
-
-    If a `base_url` is provided in `completion_params` (e.g., "https://dev.api.fireworks.ai/inference/v1"),
-    it will be base64-encoded and appended to the model_base_url path as `/encoded_base_url/{encoded}`.
-    This allows routing LLM calls through a metadata gateway that can inject tracing while
-    forwarding to the actual LLM provider endpoint.
 
     See https://evalprotocol.io/tutorial/remote-rollout-processor for documentation.
     """
@@ -150,12 +176,12 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     "Model must be provided in row.input_metadata.completion_params or config.completion_params"
                 )
 
-            # Extract base_url from completion_params if provided
-            llm_base_url: Optional[str] = None
+            # Extract base_url from completion_params if provided. If we're using tracing.fireworks.ai, this base_url gets encoded and passed to LiteLLM inside the proxy.
+            completion_params_base_url: Optional[str] = None
             if row.input_metadata and row.input_metadata.completion_params:
-                llm_base_url = row.input_metadata.completion_params.get("base_url")
-            if llm_base_url is None and config.completion_params:
-                llm_base_url = config.completion_params.get("base_url")
+                completion_params_base_url = row.input_metadata.completion_params.get("base_url")
+            if completion_params_base_url is None and config.completion_params:
+                completion_params_base_url = config.completion_params.get("base_url")
 
             # Strip non-OpenAI fields from messages before sending to remote
             allowed_message_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
@@ -185,17 +211,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 model_base_url.startswith("https://tracing.fireworks.ai")
                 or model_base_url.startswith("http://localhost")
             ):
-                final_model_base_url = (
-                    f"{model_base_url}/rollout_id/{meta.rollout_id}"
-                    f"/invocation_id/{meta.invocation_id}"
-                    f"/experiment_id/{meta.experiment_id}"
-                    f"/run_id/{meta.run_id}"
-                    f"/row_id/{meta.row_id}"
-                )
-
-                if llm_base_url:
-                    encoded_base_url = base64.urlsafe_b64encode(llm_base_url.encode()).decode()
-                    final_model_base_url = f"{final_model_base_url}/encoded_base_url/{encoded_base_url}"
+                final_model_base_url = _build_fireworks_tracing_url(model_base_url, meta, completion_params_base_url)
 
             init_payload: InitRequest = InitRequest(
                 model=model,
@@ -268,12 +284,19 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 hits = search_results["hits"]["hits"] if search_results else []
 
                 if hits:
-                    # log all statuses found
+                    # log all statuses found and update rollout status from the last hit
                     for hit in hits:
                         document = hit["_source"]
                         logger.info(
                             f"Found log for rollout {row.execution_metadata.rollout_id} with status code {document['status_code']}"
                         )
+                        # Update rollout status from the document
+                        if "status_code" in document:
+                            row.rollout_status = Status(
+                                code=Status.Code(document["status_code"]),
+                                message=document.get("status_message", ""),
+                                details=document.get("status_details", []),
+                            )
                     logger.info("Stopping status polling for rollout %s", row.execution_metadata.rollout_id)
                     break
 

@@ -161,6 +161,7 @@ class Evaluator:
         reward_function_mode: EvaluationMode = "pointwise",  # New parameter for input processing mode
         account_id: Optional[str] = None,
         api_key: Optional[str] = None,
+        entry_point: Optional[str] = None,
     ):
         self.multi_metrics = multi_metrics
         self.remote_url = remote_url
@@ -175,6 +176,8 @@ class Evaluator:
         self.api_base = os.environ.get("FIREWORKS_API_BASE", "https://api.fireworks.ai")
         # Optional requirements string for multi-metric mode (when loaded differently)
         self._loaded_multi_metric_requirements_str: Optional[str] = None
+        # Optional entry point metadata (module::function or path::function)
+        self.entry_point: Optional[str] = entry_point
 
         if self.ts_mode_config:
             python_code = self.ts_mode_config.get("python_code")
@@ -529,6 +532,18 @@ class Evaluator:
             },
             "evaluatorId": evaluator_id,
         }
+
+        # Include optional entry point when provided
+        if self.entry_point:
+            payload_data["evaluator"]["entryPoint"] = self.entry_point
+            logger.info(f"Including entryPoint in payload: {self.entry_point}")
+
+        # Debug log the create payload structure (without sample data)
+        try:
+            logger.info(f"Create API Request Payload: {json.dumps(payload_data, indent=2)}")
+        except Exception:
+            # If serialization fails for any reason, skip debug dump
+            pass
 
         if "dev.api.fireworks.ai" in self.api_base and account_id == "fireworks":
             account_id = "pyroworks-dev"
@@ -919,6 +934,7 @@ def create_evaluation(
     reward_function_mode: EvaluationMode = "pointwise",  # Added
     account_id: Optional[str] = None,
     api_key: Optional[str] = None,
+    entry_point: Optional[str] = None,
 ):
     ts_mode_config = None
     if python_code_to_evaluate:
@@ -938,6 +954,7 @@ def create_evaluation(
         reward_function_mode=reward_function_mode,
         account_id=account_id,
         api_key=api_key,
+        entry_point=entry_point,
     )
 
     if remote_url:
