@@ -35,6 +35,8 @@ from .pytest.parameterize import DefaultParameterIdGenerator
 from .log_utils.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
 from .log_utils.rollout_id_filter import RolloutIdFilter
 from .log_utils.util import setup_rollout_logging_for_elasticsearch_handler
+from .log_utils.fireworks_tracing_http_handler import FireworksTracingHttpHandler
+
 
 from .types.remote_rollout_processor import (
     InitRequest,
@@ -89,6 +91,7 @@ __all__ = [
     "BraintrustAdapter",
     "create_braintrust_adapter",
     "LangSmithAdapter",
+    "FireworksTracingHttpHandler",
     # Core interfaces
     "Message",
     "MetricResult",
