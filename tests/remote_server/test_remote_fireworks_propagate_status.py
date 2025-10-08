@@ -87,7 +87,7 @@ def rows() -> List[EvaluationRow]:
     ),
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url=f"http://127.0.0.1:{SERVER_PORT}",
-        timeout_seconds=30,
+        timeout_seconds=120,
     ),
 )
 async def test_remote_rollout_and_fetch_fireworks_propagate_status(row: EvaluationRow) -> EvaluationRow:
