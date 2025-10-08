@@ -23,8 +23,11 @@ const App = observer(() => {
   const reconnectAttemptsRef = useRef(0);
 
   const connectWebSocket = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      return; // Already connected
+    if (
+      wsRef.current?.readyState === WebSocket.OPEN ||
+      wsRef.current?.readyState === WebSocket.CONNECTING
+    ) {
+      return; // Already connected or connecting. This will happen in React strict mode.
     }
 
     const ws = new WebSocket(getWebSocketUrl());
