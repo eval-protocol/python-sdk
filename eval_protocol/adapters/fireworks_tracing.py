@@ -314,11 +314,6 @@ class FireworksTracingAdapter(BaseAdapter):
 
         Raises:
             ValueError: If tags list is empty
-
-        Note:
-            The proxy handles all retry logic internally using a single max_retries parameter
-            for both rate limiting and completeness checking. If traces are incomplete after
-            all retries, the proxy will return 404 with details about missing insertion_ids.
         """
         # Validate that tags are provided
         if not tags or len(tags) == 0:
