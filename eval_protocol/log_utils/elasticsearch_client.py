@@ -100,6 +100,25 @@ class ElasticsearchClient:
         except Exception:
             return False
 
+    def clear_index(self) -> bool:
+        """Clear all documents from the index.
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Delete all documents by query
+            response = self._make_request(
+                "POST", f"{self.index_url}/_delete_by_query", json_data={"query": {"match_all": {}}}
+            )
+            if response.status_code == 200:
+                # Refresh the index to ensure changes are visible
+                refresh_response = self._make_request("POST", f"{self.index_url}/_refresh")
+                return refresh_response.status_code == 200
+            return False
+        except Exception:
+            return False
+
     def get_mapping(self) -> Optional[Dict[str, Any]]:
         """Get the index mapping.
 

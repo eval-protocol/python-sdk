@@ -32,11 +32,23 @@ def rollout_id():
 def elasticsearch_config():
     """Set up Elasticsearch and return configuration."""
     import time
+    import uuid
 
-    index_name = f"test-logs-{int(time.time())}"
+    # Use a more unique index name to avoid conflicts between tests
+    index_name = f"test-logs-{int(time.time())}-{uuid.uuid4().hex[:8]}"
     setup = ElasticsearchSetup()
     config = setup.setup_elasticsearch(index_name)
-    return config
+    yield config
+
+    # Clean up the index after the test
+    try:
+        # Create a client to clean up the index
+        from eval_protocol.log_utils.elasticsearch_client import ElasticsearchClient
+
+        client = ElasticsearchClient(config)
+        client.delete_index()
+    except Exception as e:
+        print(f"Warning: Failed to cleanup Elasticsearch index {index_name}: {e}")
 
 
 @pytest.fixture
@@ -78,7 +90,24 @@ def test_logger(elasticsearch_handler, elasticsearch_config, rollout_id: str):
     # Prevent propagation to avoid duplicate logs
     logger.propagate = False
 
-    return logger
+    yield logger
+
+    # Clean up the logger handlers after the test
+    logger.handlers.clear()
+
+
+@pytest.fixture(autouse=True)
+def clear_elasticsearch_before_test(
+    elasticsearch_client: ElasticsearchClient, elasticsearch_config: ElasticsearchConfig
+):
+    """Clear Elasticsearch index before each test to ensure clean state."""
+    try:
+        # Clear all documents from the index before each test
+        success = elasticsearch_client.clear_index()
+        if not success:
+            print(f"Warning: Failed to clear Elasticsearch index {elasticsearch_config.index_name}")
+    except Exception as e:
+        print(f"Warning: Failed to clear Elasticsearch index before test: {e}")
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
