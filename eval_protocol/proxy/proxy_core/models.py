@@ -11,6 +11,7 @@ class ProxyConfig(BaseModel):
 
     litellm_url: str
     request_timeout: float = 300.0
+    langfuse_host: str
     langfuse_keys: Dict[str, Dict[str, str]]
     default_project_id: str
 

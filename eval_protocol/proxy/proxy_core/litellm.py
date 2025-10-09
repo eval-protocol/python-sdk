@@ -87,7 +87,7 @@ async def handle_chat_completion(
     # Add Langfuse configuration
     data["langfuse_public_key"] = config.langfuse_keys[project_id]["public_key"]
     data["langfuse_secret_key"] = config.langfuse_keys[project_id]["secret_key"]
-    data["langfuse_host"] = "https://langfuse.fireworks.ai"
+    data["langfuse_host"] = config.langfuse_host
 
     # Forward to LiteLLM's standard /chat/completions endpoint
     # Set longer timeout for LLM API calls (LLMs can be slow)

@@ -8,7 +8,7 @@ from typing import Optional, List
 import os
 import redis
 import logging
-import json
+import yaml
 from pathlib import Path
 import sys
 from contextlib import asynccontextmanager
@@ -36,33 +36,35 @@ def build_proxy_config() -> ProxyConfig:
     if not litellm_url:
         raise ValueError("LITELLM_URL environment variable must be set")
     request_timeout = float(os.getenv("REQUEST_TIMEOUT", "300.0"))
+    langfuse_host = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
-    # Secrets - use SECRETS_PATH env var if set, otherwise default to proxy/secrets.json
+    # Secrets - use SECRETS_PATH env var if set, otherwise default to proxy/secrets.yaml
     secrets_path_str = os.getenv("SECRETS_PATH")
     if secrets_path_str:
         secrets_path = Path(secrets_path_str)
     else:
-        secrets_path = Path(__file__).parent / "secrets.json"
+        secrets_path = Path(__file__).parent / "secrets.yaml"
     if not secrets_path.exists():
         raise ValueError(
-            "secrets.json not found! Please create it from secrets.json.example:\n"
-            "  cp litellm_proxy_config/proxy/secrets.json.example litellm_proxy_config/proxy/secrets.json\n"
-            "Then add your Langfuse API keys to secrets.json"
+            "Secrets file not found! Please create it from secrets.yaml.example:\n"
+            "  cp eval_protocol/proxy/proxy_core/secrets.yaml.example eval_protocol/proxy/proxy_core/secrets.yaml\n"
+            "Then add your Langfuse API keys to the secrets file"
         )
     try:
         with open(secrets_path, "r") as f:
-            secrets_config = json.load(f)
+            secrets_config = yaml.safe_load(f)
         langfuse_keys = secrets_config["langfuse_keys"]
         default_project_id = secrets_config["default_project_id"]
-        logger.info(f"Loaded {len(langfuse_keys)} Langfuse project(s) from secrets.json")
+        logger.info(f"Loaded {len(langfuse_keys)} Langfuse project(s) from {secrets_path.name}")
     except KeyError as e:
-        raise ValueError(f"Missing required key in secrets.json: {e}")
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in secrets.json: {e}")
+        raise ValueError(f"Missing required key in secrets file: {e}")
+    except yaml.YAMLError as e:
+        raise ValueError(f"Invalid format in secrets file {secrets_path.name}: {e}")
 
     return ProxyConfig(
         litellm_url=litellm_url,
         request_timeout=request_timeout,
+        langfuse_host=langfuse_host,
         langfuse_keys=langfuse_keys,
         default_project_id=default_project_id,
     )
@@ -118,12 +120,7 @@ def create_app(
         return request.app.state.redis
 
     async def require_auth(request: Request) -> None:
-        auth_header = request.headers.get("authorization", "")
-        api_key = None
-        if auth_header.startswith("Bearer "):
-            api_key = auth_header.replace("Bearer ", "").strip()
-
-        auth_provider.validate(api_key)
+        auth_provider.validate(request)
         return None
 
     # =====================

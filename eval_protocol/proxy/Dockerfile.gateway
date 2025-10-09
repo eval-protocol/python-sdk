@@ -6,9 +6,6 @@ WORKDIR /app
 # Prevent Python from buffering stdout/stderr
 ENV PYTHONUNBUFFERED=1
 
-# Set secrets path to proxy directory
-ENV SECRETS_PATH=/app/proxy_core/secrets.json
-
 # Copy requirements file
 COPY ./requirements.txt /app/requirements.txt
 

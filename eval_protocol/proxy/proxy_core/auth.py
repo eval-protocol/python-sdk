@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Optional
+from fastapi import Request
 
 
 class AuthProvider(ABC):
     @abstractmethod
-    def validate(self, api_key: Optional[str]) -> Optional[str]: ...
+    def validate(self, request: Request) -> Optional[str]: ...
 
 
 class NoAuthProvider(AuthProvider):
-    def validate(self, api_key: Optional[str]) -> Optional[str]:
+    def validate(self, request: Request) -> Optional[str]:
         return None

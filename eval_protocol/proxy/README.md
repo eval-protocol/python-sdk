@@ -80,7 +80,7 @@ URL paths encode evaluation metadata that gets injected as Langfuse tags:
 3. **Retry logic**: Automatic retries with exponential backoff for incomplete traces
 
 ### Multi-Project Support
-- Store Langfuse credentials for multiple projects in `secrets.json`
+- Store Langfuse credentials for multiple projects in `secrets.yaml`
 - Route requests to the correct project via `project_id` in URL or use default
 - Credentials never exposed to clients
 
@@ -94,21 +94,17 @@ URL paths encode evaluation metadata that gets injected as Langfuse tags:
 
 1. **Create secrets file:**
    ```bash
-   cp proxy_core/secrets.json.example proxy_core/secrets.json
+   cp proxy_core/secrets.yaml.example proxy_core/secrets.yaml
    ```
 
-2. **Edit `proxy_core/secrets.json`** with your Langfuse credentials.
-**Important**: where we have  "my-project", you would use the ID of your Langfuse project, similar to format `cmg00asdf0123...`.
-   ```json
-   {
-     "langfuse_keys": {
-       "my-project": {
-         "public_key": "pk-lf-...",
-         "secret_key": "sk-lf-..."
-       }
-     },
-     "default_project_id": "my-project"
-   }
+2. **Edit `proxy_core/secrets.yaml`** with your Langfuse credentials.
+**Important**: use your real Langfuse project ID (e.g. `cmg00asdf0123...`).
+   ```yaml
+   langfuse_keys:
+     my-project:
+       public_key: pk-lf-...
+       secret_key: sk-lf-...
+   default_project_id: my-project
    ```
 
 3. **Start services:**
@@ -238,31 +234,27 @@ Forwards any other request to LiteLLM backend with API key injection.
 | `REDIS_HOST` | Yes | - | Redis hostname |
 | `REDIS_PORT` | No | 6379 | Redis port |
 | `REDIS_PASSWORD` | No | - | Redis password |
-| `SECRETS_PATH` | No | `proxy_core/secrets.json` | Path to secrets file |
-| `REQUEST_TIMEOUT` | No | 300.0 | Request timeout in seconds |
+| `SECRETS_PATH` | No | `proxy_core/secrets.yaml` | Path to secrets file (YAML) |
+| `LANGFUSE_HOST` | No | `https://cloud.langfuse.com` | Langfuse base URL |
+| `REQUEST_TIMEOUT` | No | 300.0 | Request timeout (LLM calls) in seconds |
 | `LOG_LEVEL` | No | INFO | Logging level |
 | `PORT` | No | 4000 | Gateway port |
 
 ### Secrets Configuration
 
-Create `proxy_core/secrets.json`:
-```json
-{
-  "langfuse_keys": {
-    "project-1": {
-      "public_key": "pk-lf-...",
-      "secret_key": "sk-lf-..."
-    },
-    "project-2": {
-      "public_key": "pk-lf-...",
-      "secret_key": "sk-lf-..."
-    }
-  },
-  "default_project_id": "project-1"
-}
+Create `proxy_core/secrets.yaml`:
+```yaml
+langfuse_keys:
+  project-1:
+    public_key: pk-lf-...
+    secret_key: sk-lf-...
+  project-2:
+    public_key: pk-lf-...
+    secret_key: sk-lf-...
+default_project_id: project-1
 ```
 
-**Security:** Add `secrets.json` to `.gitignore` (already configured).
+**Security:** `secrets.yaml` is ignored via `.gitignore`.
 
 ### LiteLLM Configuration
 
@@ -332,7 +324,7 @@ eval_protocol/proxy/
 │   ├── models.py           # Pydantic models
 │   ├── auth.py             # Authentication
 │   ├── main.py             # Entry point
-│   └── secrets.json.example
+│   └── secrets.yaml.example
 ├── docker-compose.yml       # Local development stack
 ├── Dockerfile.gateway       # Gateway container
 ├── config_no_cache.yaml     # LiteLLM config
@@ -345,17 +337,17 @@ eval_protocol/proxy/
 Extend `AuthProvider` in `auth.py`:
 ```python
 from .auth import AuthProvider
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 class MyAuthProvider(AuthProvider):
-    def validate(self, api_key: Optional[str]) -> Optional[str]:
-        if not api_key or not self.is_valid(api_key):
+    def validate(self, request: Request) -> Optional[str]:
+        api_key = None
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            api_key = auth_header.replace("Bearer ", "").strip()
+        if not api_key:
             raise HTTPException(status_code=401, detail="Invalid API key")
         return api_key
-
-    def is_valid(self, api_key: str) -> bool:
-        # Your validation logic
-        return True
 ```
 
 Then pass it to `create_app`:

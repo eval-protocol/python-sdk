@@ -210,7 +210,7 @@ async def fetch_langfuse_traces(
         langfuse_client = Langfuse(
             public_key=config.langfuse_keys[project_id]["public_key"],
             secret_key=config.langfuse_keys[project_id]["secret_key"],
-            host="https://langfuse.fireworks.ai",
+            host=config.langfuse_host,
         )
 
         # Parse datetime strings if provided

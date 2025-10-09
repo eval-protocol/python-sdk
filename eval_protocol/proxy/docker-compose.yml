@@ -22,7 +22,6 @@ services:
     environment:
       - LANGFUSE_PUBLIC_KEY=dummy  # Set dummy public and private key so Langfuse instance initializes in LiteLLM, then real keys get sent in proxy
       - LANGFUSE_SECRET_KEY=dummy
-      - LANGFUSE_HOST=https://langfuse.fireworks.ai
     volumes:
       - ./config_no_cache.yaml:/app/config.yaml:ro
     ports:
@@ -48,6 +47,8 @@ services:
       - REQUEST_TIMEOUT=300
       # Logging level: INFO (default)
       - LOG_LEVEL=INFO
+      # Langfuse and secrets
+      - SECRETS_PATH=/app/proxy_core/secrets.yaml
     ports:
       - "4000:4000"  # Main public-facing port
     networks:
