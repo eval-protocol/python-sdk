@@ -70,6 +70,13 @@ try:
 except ImportError:
     WeaveAdapter = None
 
+try:
+    from .proxy import create_app, AuthProvider
+except ImportError:
+    create_app = None
+    AuthProvider = None
+
+
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 __all__ = [
@@ -130,6 +137,9 @@ __all__ = [
     "RolloutMetadata",
     "StatusResponse",
     "create_langfuse_config_tags",
+    # Proxy
+    "create_app",
+    "AuthProvider",
 ]
 
 from . import _version
