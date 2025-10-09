@@ -7,9 +7,9 @@ to pull data from Langfuse deployments with simplified retry logic handling.
 from __future__ import annotations
 import logging
 import requests
-import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Protocol
+import os
 
 from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, Message
 from .base import BaseAdapter
@@ -349,9 +349,11 @@ class FireworksTracingAdapter(BaseAdapter):
         else:
             url = f"{self.base_url}/v1/traces"
 
+        headers = {"Authorization": f"Bearer {os.environ.get('FIREWORKS_API_KEY')}"}
+
         result = None
         try:
-            response = requests.get(url, params=params, timeout=self.timeout)
+            response = requests.get(url, params=params, timeout=self.timeout, headers=headers)
             response.raise_for_status()
             result = response.json()
         except requests.exceptions.HTTPError as e:

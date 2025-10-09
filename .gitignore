@@ -105,6 +105,9 @@ env.bak/
 venv.bak/
 *.backup
 
+# Secrets
+secrets.json
+
 # Spyder project settings
 .spyderproject
 .spyproject
