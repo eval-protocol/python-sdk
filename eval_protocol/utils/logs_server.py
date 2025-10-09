@@ -6,6 +6,7 @@ import threading
 import time
 from datetime import datetime
 from contextlib import asynccontextmanager
+from pathlib import Path
 from queue import Queue
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -23,6 +24,7 @@ from eval_protocol.utils.vite_server import ViteServer
 from eval_protocol.log_utils.elasticsearch_client import ElasticsearchClient
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
 from eval_protocol.utils.logs_models import LogEntry, LogsResponse
+from eval_protocol.utils.browser_utils import write_pid_file
 
 if TYPE_CHECKING:
     from eval_protocol.models import EvaluationRow
@@ -378,7 +380,7 @@ class LogsServer(ViteServer):
         event_bus.subscribe(self._handle_event)
         logger.debug("[LOGS_SERVER_INIT] Successfully subscribed to event bus")
 
-        logger.info(f"[LOGS_SERVER_INIT] LogsServer initialized on {host}:{port}")
+        logger.info(f"[LOGS_SERVER_INIT] LogsServer initialized on {self.host}:{self.port}")
 
     def _setup_websocket_routes(self):
         """Set up WebSocket routes for real-time communication."""
@@ -541,6 +543,12 @@ class LogsServer(ViteServer):
             )
 
             server = uvicorn.Server(config)
+
+            # Write PID file after server is configured but before serving
+            logger.debug(f"[LOGS_SERVER_RUN_ASYNC] Writing PID file for port {self.port}")
+            write_pid_file(os.getpid(), self.port)
+            logger.debug(f"[LOGS_SERVER_RUN_ASYNC] Successfully wrote PID file for port {self.port}")
+
             await server.serve()
 
         except KeyboardInterrupt:

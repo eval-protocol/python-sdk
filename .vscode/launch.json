@@ -25,22 +25,10 @@
       }
     },
     {
-      "name": "Python: Debug Module",
+      "name": "Python: Debug Logs Server",
       "type": "python",
       "request": "launch",
-      "module": "eval_protocol",
-      "console": "integratedTerminal",
-      "justMyCode": false,
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}"
-      }
-    },
-    {
-      "name": "Python: Debug Logs Server (Uvicorn)",
-      "type": "python",
-      "request": "launch",
-      "module": "uvicorn",
-      "args": ["eval_protocol.utils.logs_server:app", "--reload"],
+      "module": "eval_protocol.utils.logs_server",
       "console": "integratedTerminal",
       "justMyCode": false,
       "env": {

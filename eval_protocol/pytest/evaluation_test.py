@@ -62,7 +62,8 @@ from eval_protocol.pytest.utils import (
     run_tasks_with_eval_progress,
     run_tasks_with_run_progress,
 )
-from eval_protocol.utils.show_results_url import store_local_ui_results_url
+from eval_protocol.utils.show_results_url import store_local_ui_results_url, generate_invocation_filter_url
+from eval_protocol.utils.browser_utils import is_logs_server_running, open_browser_tab
 
 from ..common_utils import load_jsonl
 
@@ -80,6 +81,7 @@ def evaluation_test(
     rollout_processor_kwargs: RolloutProcessorInputParam | None = None,
     aggregation_method: AggregationMethod = "mean",
     passed_threshold: EvaluationThreshold | float | EvaluationThresholdDict | None = None,
+    disable_browser_open: bool = False,
     num_runs: int = 1,
     filtered_row_ids: Sequence[str] | None = None,
     max_dataset_rows: int | None = None,
@@ -246,9 +248,28 @@ def evaluation_test(
             else:
                 invocation_id = generate_id()
 
+            # Track whether we've opened browser for this invocation
+            browser_opened_for_invocation = False
+
             async def wrapper_body(**kwargs: Unpack[ParameterizedTestKwargs]) -> None:
+                nonlocal browser_opened_for_invocation
+
                 # Store URL for viewing results (after all postprocessing is complete)
                 store_local_ui_results_url(invocation_id)
+
+                # Auto-open browser if server is running and not disabled (only once per invocation)
+                if (
+                    not browser_opened_for_invocation
+                    and not disable_browser_open
+                    and os.environ.get("EP_DISABLE_AUTO_BROWSER") is None
+                ):
+                    is_running, port = is_logs_server_running()
+                    if is_running:
+                        # Generate URL for table view with invocation filter
+                        base_url = f"http://localhost:{port}" if port else "http://localhost:8000"
+                        table_url = generate_invocation_filter_url(invocation_id, f"{base_url}/table")
+                        open_browser_tab(table_url)
+                        browser_opened_for_invocation = True
 
                 eval_metadata = None
 
