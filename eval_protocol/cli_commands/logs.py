@@ -31,6 +31,28 @@ def logs_command(args):
             )
 
             elasticsearch_config = create_elasticsearch_config_from_env()
+            # Ensure index exists with correct mapping, mirroring Docker setup path
+            try:
+                from eval_protocol.log_utils.elasticsearch_index_manager import (
+                    ElasticsearchIndexManager,
+                )
+
+                index_manager = ElasticsearchIndexManager(
+                    elasticsearch_config.url,
+                    elasticsearch_config.index_name,
+                    elasticsearch_config.api_key,
+                )
+                created = index_manager.create_logging_index_mapping()
+                if created:
+                    print(
+                        f"🧭 Verified Elasticsearch index '{elasticsearch_config.index_name}' mapping (created or already correct)"
+                    )
+                else:
+                    print(
+                        f"⚠️ Could not verify/create mapping for index '{elasticsearch_config.index_name}'. Searches may behave unexpectedly."
+                    )
+            except Exception as e:
+                print(f"⚠️ Failed to ensure index mapping via IndexManager: {e}")
         elif not getattr(args, "disable_elasticsearch_setup", False):
             # Default behavior: start or connect to local Elasticsearch via Docker helper
             from eval_protocol.pytest.elasticsearch_setup import ElasticsearchSetup
