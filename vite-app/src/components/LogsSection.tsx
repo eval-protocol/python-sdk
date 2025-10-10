@@ -1,5 +1,5 @@
 import { observer } from "mobx-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LogsResponseSchema,
   type LogEntry,
@@ -18,6 +18,7 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<string>("");
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   const fetchLogs = async (isInitialLoad = false) => {
     if (!rolloutId) return;
@@ -114,6 +115,13 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
     }
   }, [rolloutId, selectedLevel]);
 
+  // Auto-scroll to bottom whenever logs update
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [logs]);
+
   if (!rolloutId) {
     return null;
   }
@@ -160,7 +168,10 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
         )}
 
         {logs.length > 0 && (
-          <div className="max-h-[800px] min-h-4 overflow-auto border border-gray-200">
+          <div
+            ref={scrollContainerRef}
+            className="max-h-[800px] min-h-4 overflow-auto border border-gray-200"
+          >
             <div>
               {logs.map((log, index) => (
                 <div
