@@ -307,7 +307,7 @@ def pytest_configure(config) -> None:
             # Always place under extra_body to avoid LiteLLM rejecting top-level params
             eb = merged.setdefault("extra_body", {})
             # Convert "none" string to None value for API compatibility
-            eb["reasoning_effort"] = None if reasoning_effort.lower() == "none" else str(reasoning_effort)
+            eb["reasoning_effort"] = str(reasoning_effort)
         if merged:
             os.environ["EP_INPUT_PARAMS_JSON"] = json.dumps(merged)
     except Exception:
