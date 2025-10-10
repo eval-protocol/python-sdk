@@ -163,11 +163,6 @@ async def fetch_langfuse_traces(
     This endpoint uses the stored Langfuse keys for the project and polls
     traces based on the provided filters.
 
-    SECURITY:
-    - Tags are REQUIRED and must not be empty
-    - At least one tag MUST be in the format 'rollout_id:*'
-    - This prevents accidentally fetching all traces or traces from other clients
-
     If project_id is not provided, uses the default project.
 
     Returns a list of full trace objects (including observations) in JSON format.
