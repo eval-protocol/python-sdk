@@ -236,6 +236,7 @@ async def fetch_langfuse_traces(
         expected_ids: Set[str] = set()
         if rollout_id:
             expected_ids = get_insertion_ids(redis_client, rollout_id)
+            logger.info(f"Fetching traces for rollout_id '{rollout_id}', expecting {len(expected_ids)} insertion_ids")
             if not expected_ids:
                 logger.warning(
                     f"No expected insertion_ids found in Redis for rollout '{rollout_id}'. Returning empty traces."
@@ -258,7 +259,9 @@ async def fetch_langfuse_traces(
                 # Build targeted tags for missing insertion_ids
                 missing_ids = expected_ids - insertion_ids
                 fetch_tags = [f"insertion_id:{id}" for id in missing_ids]
-                logger.info(f"Retry {retry}: Targeting {len(fetch_tags)} missing insertion_ids")
+                logger.info(
+                    f"Retry {retry}: Targeting {len(fetch_tags)} missing insertion_ids for rollout '{rollout_id}': {[id[:5] for id in sorted(missing_ids)[:10]]}{'...' if len(missing_ids) > 10 else ''}"
+                )
 
             current_page = 1
             collected = 0
@@ -313,6 +316,7 @@ async def fetch_langfuse_traces(
                             insertion_id = _extract_tag_value(trace_dict.get("tags", []), "insertion_id:")
                             if insertion_id:
                                 insertion_ids.add(insertion_id)
+                                logger.debug(f"Found insertion_id '{insertion_id}' for rollout '{rollout_id}'")
 
                         except Exception as e:
                             logger.warning("Failed to serialize trace %s: %s", trace_info.id, e)
@@ -331,8 +335,12 @@ async def fetch_langfuse_traces(
 
             # If we have all expected completions or more, return traces. At least once is ok.
             if expected_ids <= insertion_ids:
+                logger.info(
+                    f"Traces complete for rollout '{rollout_id}': {len(insertion_ids)}/{len(expected_ids)} insertion_ids found, returning {len(all_traces)} traces"
+                )
                 if sample_size is not None and len(all_traces) > sample_size:
                     all_traces = random.sample(all_traces, sample_size)
+                    logger.info(f"Sampled down to {sample_size} traces")
 
                 return LangfuseTracesResponse(
                     project_id=project_id,
@@ -343,8 +351,9 @@ async def fetch_langfuse_traces(
             # If it doesn't match, wait and do loop again (exponential backoff)
             if retry < max_retries - 1:
                 wait_time = 2**retry
+                still_missing = expected_ids - insertion_ids
                 logger.info(
-                    f"Attempt {retry + 1}/{max_retries}. Found {len(insertion_ids)}/{len(expected_ids)} expected. Waiting {wait_time}s..."
+                    f"Attempt {retry + 1}/{max_retries}. Found {len(insertion_ids)}/{len(expected_ids)} for rollout '{rollout_id}'. Still missing: {[id[:5] for id in sorted(still_missing)[:10]]}{'...' if len(still_missing) > 10 else ''}. Waiting {wait_time}s..."
                 )
                 await asyncio.sleep(wait_time)
 
