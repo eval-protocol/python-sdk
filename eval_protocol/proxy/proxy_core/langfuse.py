@@ -8,16 +8,18 @@ import logging
 import asyncio
 from typing import List, Optional, Dict, Any, Set
 from datetime import datetime, timedelta
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 import redis
 from .redis_utils import get_insertion_ids
-from .models import ProxyConfig, LangfuseTracesResponse, TraceResponse
+from .models import ProxyConfig, LangfuseTracesResponse, TraceResponse, TracesParams
 
 logger = logging.getLogger(__name__)
 
 
-def _extract_tag_value(tags: List[str], prefix: str) -> Optional[str]:
+def _extract_tag_value(tags: Optional[List[str]], prefix: str) -> Optional[str]:
     """Extract value from a tag with the given prefix (e.g., 'rollout_id:' or 'insertion_id:')."""
+    if not tags:
+        return None
     for tag in tags:
         if tag.startswith(prefix):
             return tag.split(":", 1)[1]
@@ -60,7 +62,7 @@ async def _fetch_trace_list_with_retry(
     langfuse_client: Any,
     page: int,
     limit: int,
-    tags: List[str],
+    tags: Optional[List[str]],
     user_id: Optional[str],
     session_id: Optional[str],
     name: Optional[str],
@@ -152,22 +154,8 @@ async def _fetch_trace_detail_with_retry(
 async def fetch_langfuse_traces(
     config: ProxyConfig,
     redis_client: redis.Redis,
-    tags: List[str],
-    project_id: Optional[str] = None,
-    limit: int = 100,
-    sample_size: Optional[int] = None,
-    user_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-    name: Optional[str] = None,
-    environment: Optional[str] = None,
-    version: Optional[str] = None,
-    release: Optional[str] = None,
-    fields: Optional[str] = None,
-    hours_back: Optional[int] = None,
-    from_timestamp: Optional[str] = None,
-    to_timestamp: Optional[str] = None,
-    sleep_between_gets: float = 2.5,
-    max_retries: int = 3,
+    request: Request,
+    params: TracesParams,
 ):
     """
     Fetch full traces from Langfuse for the specified project.
@@ -184,9 +172,27 @@ async def fetch_langfuse_traces(
 
     Returns a list of full trace objects (including observations) in JSON format.
     """
-    # Validate tags
-    if not tags or not any(tag.startswith("rollout_id:") for tag in tags):
-        raise HTTPException(status_code=422, detail="Tags must include at least one 'rollout_id:*' tag")
+
+    # Preprocess traces request
+    if config.preprocess_traces_request:
+        params = config.preprocess_traces_request(request, params)
+
+    tags = params.tags
+    project_id = params.project_id
+    limit = params.limit
+    sample_size = params.sample_size
+    user_id = params.user_id
+    session_id = params.session_id
+    name = params.name
+    environment = params.environment
+    version = params.version
+    release = params.release
+    fields = params.fields
+    hours_back = params.hours_back
+    from_timestamp = params.from_timestamp
+    to_timestamp = params.to_timestamp
+    sleep_between_gets = params.sleep_between_gets
+    max_retries = params.max_retries
 
     # Use default project if not specified
     if project_id is None:

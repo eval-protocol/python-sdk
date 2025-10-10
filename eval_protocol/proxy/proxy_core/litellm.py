@@ -11,7 +11,7 @@ from fastapi import Request, Response, HTTPException
 from typing import Optional
 import redis
 from .redis_utils import register_insertion_id
-from .models import ProxyConfig
+from .models import ProxyConfig, ChatParams
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +20,7 @@ async def handle_chat_completion(
     config: ProxyConfig,
     redis_client: redis.Redis,
     request: Request,
-    project_id: Optional[str] = None,
-    rollout_id: Optional[str] = None,
-    invocation_id: Optional[str] = None,
-    experiment_id: Optional[str] = None,
-    run_id: Optional[str] = None,
-    row_id: Optional[str] = None,
-    encoded_base_url: Optional[str] = None,
+    params: ChatParams,
 ) -> Response:
     """
     Handle chat completion requests and forward to LiteLLM.
@@ -36,13 +30,23 @@ async def handle_chat_completion(
 
     If encoded_base_url is provided, it will be decoded and added to the request.
     """
+    body = await request.body()
+    data = json.loads(body) if body else {}
+
+    if config.preprocess_chat_request:
+        data, params = config.preprocess_chat_request(data, request, params)
+
+    project_id = params.project_id
+    rollout_id = params.rollout_id
+    invocation_id = params.invocation_id
+    experiment_id = params.experiment_id
+    run_id = params.run_id
+    row_id = params.row_id
+    encoded_base_url = params.encoded_base_url
+
     # Use default project if not specified
     if project_id is None:
         project_id = config.default_project_id
-
-    # Read the original request body
-    body = await request.body()
-    data = json.loads(body) if body else {}
 
     # Decode and add base_url if provided
     if encoded_base_url:
@@ -135,12 +139,11 @@ async def proxy_to_litellm(config: ProxyConfig, path: str, request: Request) -> 
         # Get body
         body = await request.body()
 
-        # For POST/PUT/PATCH with JSON, extract API key from header
+        # Pass through API key from Authorization header
         if request.method in ["POST", "PUT", "PATCH"] and body:
             try:
                 data = json.loads(body)
 
-                # Extract API key from Authorization header
                 auth_header = request.headers.get("authorization", "")
                 if auth_header.startswith("Bearer "):
                     api_key = auth_header.replace("Bearer ", "").strip()

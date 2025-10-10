@@ -49,6 +49,7 @@ services:
       - LOG_LEVEL=INFO
       # Langfuse and secrets
       - SECRETS_PATH=/app/proxy_core/secrets.yaml
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
     ports:
       - "4000:4000"  # Main public-facing port
     networks:

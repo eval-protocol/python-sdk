@@ -4,7 +4,7 @@ A FastAPI service that sits in front of LiteLLM and extracts metadata from URL p
 """
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Query
-from typing import Optional, List
+from typing import Optional, Callable, Dict, Any, List
 import os
 import redis
 import logging
@@ -13,24 +13,28 @@ from pathlib import Path
 import sys
 from contextlib import asynccontextmanager
 
-from .models import ProxyConfig, LangfuseTracesResponse
+from .models import ProxyConfig, LangfuseTracesResponse, TracesParams, ChatParams, ChatRequestHook, TracesRequestHook
 from .auth import AuthProvider, NoAuthProvider
 from .litellm import handle_chat_completion, proxy_to_litellm
 from .langfuse import fetch_langfuse_traces
 
 # Configure logging before any other imports (so all modules inherit this config)
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(
-    level=getattr(logging, log_level),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
+if not logging.getLogger().hasHandlers():
+    logging.basicConfig(
+        level=getattr(logging, log_level),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
 
 logger = logging.getLogger(__name__)
 
 
-def build_proxy_config() -> ProxyConfig:
-    """Load environment and secrets, and build ProxyConfig (no Redis)."""
+def build_proxy_config(
+    preprocess_chat_request: Optional[ChatRequestHook] = None,
+    preprocess_traces_request: Optional[TracesRequestHook] = None,
+) -> ProxyConfig:
+    """Load environment and secrets, and build ProxyConfig"""
     # Env
     litellm_url = os.getenv("LITELLM_URL")
     if not litellm_url:
@@ -67,6 +71,8 @@ def build_proxy_config() -> ProxyConfig:
         langfuse_host=langfuse_host,
         langfuse_keys=langfuse_keys,
         default_project_id=default_project_id,
+        preprocess_chat_request=preprocess_chat_request,
+        preprocess_traces_request=preprocess_traces_request,
     )
 
 
@@ -97,12 +103,15 @@ def init_redis() -> redis.Redis:
 
 def create_app(
     auth_provider: AuthProvider = NoAuthProvider(),
+    preprocess_chat_request: Optional[ChatRequestHook] = None,
+    preprocess_traces_request: Optional[TracesRequestHook] = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         # Build runtime on startup
-        app.state.config = build_proxy_config()
+        app.state.config = build_proxy_config(preprocess_chat_request, preprocess_traces_request)
         app.state.redis = init_redis()
+
         try:
             yield
         finally:
@@ -119,8 +128,46 @@ def create_app(
     def get_redis(request: Request) -> redis.Redis:
         return request.app.state.redis
 
+    def get_traces_params(
+        tags: Optional[List[str]] = Query(default=None),
+        project_id: Optional[str] = None,
+        limit: int = 100,
+        sample_size: Optional[int] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        name: Optional[str] = None,
+        environment: Optional[str] = None,
+        version: Optional[str] = None,
+        release: Optional[str] = None,
+        fields: Optional[str] = None,
+        hours_back: Optional[int] = None,
+        from_timestamp: Optional[str] = None,
+        to_timestamp: Optional[str] = None,
+        sleep_between_gets: float = 2.5,
+        max_retries: int = 3,
+    ) -> TracesParams:
+        return TracesParams(
+            tags=tags,
+            project_id=project_id,
+            limit=limit,
+            sample_size=sample_size,
+            user_id=user_id,
+            session_id=session_id,
+            name=name,
+            environment=environment,
+            version=version,
+            release=release,
+            fields=fields,
+            hours_back=hours_back,
+            from_timestamp=from_timestamp,
+            to_timestamp=to_timestamp,
+            sleep_between_gets=sleep_between_gets,
+            max_retries=max_retries,
+        )
+
     async def require_auth(request: Request) -> None:
-        auth_provider.validate(request)
+        account_id = auth_provider.validate_and_return_account_id(request)
+        request.state.account_id = account_id
         return None
 
     # =====================
@@ -161,11 +208,9 @@ def create_app(
         encoded_base_url: Optional[str] = None,
         config: ProxyConfig = Depends(get_config),
         redis_client: redis.Redis = Depends(get_redis),
+        _: None = Depends(require_auth),
     ):
-        return await handle_chat_completion(
-            config=config,
-            redis_client=redis_client,
-            request=request,
+        params = ChatParams(
             project_id=project_id,
             rollout_id=rollout_id,
             invocation_id=invocation_id,
@@ -173,6 +218,12 @@ def create_app(
             run_id=run_id,
             row_id=row_id,
             encoded_base_url=encoded_base_url,
+        )
+        return await handle_chat_completion(
+            config=config,
+            redis_client=redis_client,
+            request=request,
+            params=params,
         )
 
     @app.post("/project_id/{project_id}/chat/completions")
@@ -182,12 +233,14 @@ def create_app(
         request: Request,
         config: ProxyConfig = Depends(get_config),
         redis_client: redis.Redis = Depends(get_redis),
+        _: None = Depends(require_auth),
     ):
+        params = ChatParams(project_id=project_id)
         return await handle_chat_completion(
             config=config,
             redis_client=redis_client,
             request=request,
-            project_id=project_id,
+            params=params,
         )
 
     # ===============
@@ -198,45 +251,20 @@ def create_app(
     @app.get("/project_id/{project_id}/traces", response_model=LangfuseTracesResponse)
     @app.get("/v1/project_id/{project_id}/traces", response_model=LangfuseTracesResponse)
     async def get_langfuse_traces(
-        tags: List[str] = Query(...),  # REQUIRED query param
+        request: Request,
+        params: TracesParams = Depends(get_traces_params),
         project_id: Optional[str] = None,
-        limit: int = 100,
-        sample_size: Optional[int] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        name: Optional[str] = None,
-        environment: Optional[str] = None,
-        version: Optional[str] = None,
-        release: Optional[str] = None,
-        fields: Optional[str] = None,
-        hours_back: Optional[int] = None,
-        from_timestamp: Optional[str] = None,
-        to_timestamp: Optional[str] = None,
-        sleep_between_gets: float = 2.5,
-        max_retries: int = 3,
         config: ProxyConfig = Depends(get_config),
         redis_client: redis.Redis = Depends(get_redis),
         _: None = Depends(require_auth),
     ) -> LangfuseTracesResponse:
+        if project_id is not None:
+            params.project_id = project_id
         return await fetch_langfuse_traces(
             config=config,
             redis_client=redis_client,
-            tags=tags,
-            project_id=project_id,
-            limit=limit,
-            sample_size=sample_size,
-            user_id=user_id,
-            session_id=session_id,
-            name=name,
-            environment=environment,
-            version=version,
-            release=release,
-            fields=fields,
-            hours_back=hours_back,
-            from_timestamp=from_timestamp,
-            to_timestamp=to_timestamp,
-            sleep_between_gets=sleep_between_gets,
-            max_retries=max_retries,
+            request=request,
+            params=params,
         )
 
     # Health

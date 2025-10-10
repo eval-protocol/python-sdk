@@ -5,11 +5,13 @@ A proxy service for extracting evaluation metadata from URL paths and managing
 Langfuse tracing for distributed evaluation workflows.
 """
 
-from .proxy_core import create_app, AuthProvider, NoAuthProvider, ProxyConfig
+from .proxy_core import create_app, AuthProvider, NoAuthProvider, ProxyConfig, ChatParams, TracesParams
 
 __all__ = [
     "create_app",
     "AuthProvider",
     "NoAuthProvider",
     "ProxyConfig",
+    "ChatParams",
+    "TracesParams",
 ]

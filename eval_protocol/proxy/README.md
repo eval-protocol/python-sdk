@@ -332,32 +332,6 @@ eval_protocol/proxy/
 └── README.md               # This file
 ```
 
-### Adding Custom Authentication
-
-Extend `AuthProvider` in `auth.py`:
-```python
-from .auth import AuthProvider
-from fastapi import HTTPException, Request
-
-class MyAuthProvider(AuthProvider):
-    def validate(self, request: Request) -> Optional[str]:
-        api_key = None
-        auth_header = request.headers.get("authorization", "")
-        if auth_header.startswith("Bearer "):
-            api_key = auth_header.replace("Bearer ", "").strip()
-        if not api_key:
-            raise HTTPException(status_code=401, detail="Invalid API key")
-        return api_key
-```
-
-Then pass it to `create_app`:
-```python
-from proxy_core import create_app
-from my_auth import MyAuthProvider
-
-app = create_app(auth_provider=MyAuthProvider())
-```
-
 ### Testing
 
 #### Test chat completion:
