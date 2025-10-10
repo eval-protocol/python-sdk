@@ -12,7 +12,12 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
 import pytest
-from eval_protocol.auth import get_fireworks_account_id, get_fireworks_api_key
+from eval_protocol.auth import (
+    get_fireworks_account_id,
+    get_fireworks_api_key,
+    get_fireworks_api_base,
+    verify_api_key_and_get_account_id,
+)
 from eval_protocol.platform_api import create_or_update_fireworks_secret
 
 from eval_protocol.evaluation import create_evaluation
@@ -259,7 +264,7 @@ def _parse_entry(entry: str, cwd: str) -> tuple[str, str]:
         raise ValueError("--entry must be in 'module::function', 'path::function', or 'module:function' format")
 
 
-def _generate_ts_mode_code_from_entry(entry: str, cwd: str) -> tuple[str, str, str, str]:
+def _resolve_entry_to_qual_and_source(entry: str, cwd: str) -> tuple[str, str]:
     target, func = _parse_entry(entry, cwd)
 
     # Check if target looks like a file path
@@ -293,47 +298,12 @@ def _generate_ts_mode_code_from_entry(entry: str, cwd: str) -> tuple[str, str, s
         raise ValueError(f"Function '{func}' not found in module '{module_name}'")
 
     qualname = f"{module_name}.{func}"
-    code, file_name = _generate_ts_mode_code(
-        DiscoveredTest(
-            module_path=module_name,
-            module_name=module_name,
-            qualname=qualname,
-            file_path=getattr(module, "__file__", module_name),
-            lineno=None,
-            has_parametrize=False,
-            param_count=0,
-            nodeids=[],
-        )
-    )
-    return code, file_name, qualname, os.path.abspath(source_file_path) if source_file_path else ""
+    return qualname, os.path.abspath(source_file_path) if source_file_path else ""
 
 
 def _generate_ts_mode_code(test: DiscoveredTest) -> tuple[str, str]:
-    # Generate a minimal main.py that imports the test module and calls the function
-    module = test.module_name
-    func = test.qualname.split(".")[-1]
-    code = f"""
-from typing import Any, Dict, List, Optional, Union
-
-from eval_protocol.models import EvaluationRow, Message
-from {module} import {func} as _ep_test
-
-def evaluate(messages: List[Dict[str, Any]], ground_truth: Optional[Union[str, List[Dict[str, Any]]]] = None, tools=None, **kwargs):
-    row = EvaluationRow(messages=[Message(**m) for m in messages], ground_truth=ground_truth)
-    result = _ep_test(row)  # Supports sync/async via decorator's dual-mode
-    if hasattr(result, "__await__"):
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(result)
-    if result.evaluation_result is None:
-        return {{"score": 0.0, "reason": "No evaluation_result set"}}
-    out = {{
-        "score": float(result.evaluation_result.score or 0.0),
-        "reason": result.evaluation_result.reason,
-        "metrics": {{k: (v.model_dump() if hasattr(v, "model_dump") else v) for k, v in (result.evaluation_result.metrics or {{}}).items()}},
-    }}
-    return out
-"""
-    return (code, "main.py")
+    # Deprecated: we no longer generate a shim; keep stub for import compatibility
+    return ("", "main.py")
 
 
 def _normalize_evaluator_id(evaluator_id: str) -> str:
@@ -522,10 +492,10 @@ def upload_command(args: argparse.Namespace) -> int:
     entries_arg = getattr(args, "entry", None)
     if entries_arg:
         entries = [e.strip() for e in re.split(r"[,\s]+", entries_arg) if e.strip()]
-        selected_specs: list[tuple[str, str, str, str]] = []
+        selected_specs: list[tuple[str, str]] = []
         for e in entries:
-            code, file_name, qualname, resolved_path = _generate_ts_mode_code_from_entry(e, root)
-            selected_specs.append((code, file_name, qualname, resolved_path))
+            qualname, resolved_path = _resolve_entry_to_qual_and_source(e, root)
+            selected_specs.append((qualname, resolved_path))
     else:
         print("Scanning for evaluation tests...")
         tests = _discover_tests(root)
@@ -545,11 +515,7 @@ def upload_command(args: argparse.Namespace) -> int:
             print("      handles all parameter combinations. The evaluator will work with")
             print("      the same logic regardless of which model/parameters are used.")
 
-        selected_specs = []
-        for t in selected_tests:
-            code, file_name = _generate_ts_mode_code(t)
-            # Store test info for better ID generation
-            selected_specs.append((code, file_name, t.qualname, t.file_path))
+        selected_specs = [(t.qualname, t.file_path) for t in selected_tests]
 
     base_id = getattr(args, "id", None)
     display_name = getattr(args, "display_name", None)
@@ -560,6 +526,16 @@ def upload_command(args: argparse.Namespace) -> int:
     try:
         fw_account_id = get_fireworks_account_id()
         fw_api_key_value = get_fireworks_api_key()
+        if not fw_account_id and fw_api_key_value:
+            # Attempt to verify and resolve account id from server headers
+            resolved = verify_api_key_and_get_account_id(
+                api_key=fw_api_key_value, api_base=get_fireworks_api_base()
+            )
+            if resolved:
+                fw_account_id = resolved
+                # Propagate to environment so downstream calls use it if needed
+                os.environ["FIREWORKS_ACCOUNT_ID"] = fw_account_id
+                print(f"Resolved FIREWORKS_ACCOUNT_ID via API verification: {fw_account_id}")
         if fw_account_id and fw_api_key_value:
             print("Ensuring FIREWORKS_API_KEY is registered as a secret on Fireworks for rollout...")
             if create_or_update_fireworks_secret(
@@ -579,8 +555,7 @@ def upload_command(args: argparse.Namespace) -> int:
         print(f"Warning: Skipped Fireworks secret registration due to error: {e}")
 
     exit_code = 0
-    for i, (code, file_name, qualname, source_file_path) in enumerate(selected_specs):
-        # Use ts_mode to upload evaluator
+    for i, (qualname, source_file_path) in enumerate(selected_specs):
         # Generate a short default ID from just the test function name
         if base_id:
             evaluator_id = base_id
@@ -618,17 +593,31 @@ def upload_command(args: argparse.Namespace) -> int:
 
         print(f"\nUploading evaluator '{evaluator_id}' for {qualname.split('.')[-1]}...")
         try:
-            result = create_evaluation(
-                evaluator_id=evaluator_id,
-                python_code_to_evaluate=code,
-                python_file_name_for_code=file_name,
-                criterion_name_for_code=qualname,
-                criterion_description_for_code=description or f"Evaluator for {qualname}",
-                display_name=display_name or evaluator_id,
-                description=description or f"Evaluator for {qualname}",
-                force=force,
-                entry_point=entry_point,
-            )
+            # Upload full directory of the test as multi-metric if the dir contains multiple files
+            test_dir = os.path.dirname(source_file_path) if source_file_path else root
+            # Use multi_metrics if multiple .py files exist at the root dir; otherwise treat as single metric dir
+            py_files = [f for f in os.listdir(test_dir) if f.endswith(".py")]
+            if len(py_files) > 1:
+                result = create_evaluation(
+                    evaluator_id=evaluator_id,
+                    multi_metrics=True,
+                    folder=test_dir,
+                    display_name=display_name or evaluator_id,
+                    description=description or f"Evaluator for {qualname}",
+                    force=force,
+                    entry_point=entry_point,
+                )
+            else:
+                # Single metric mode: metric name derived from folder name; include all files recursively
+                metric_name = os.path.basename(test_dir) or "metric"
+                result = create_evaluation(
+                    evaluator_id=evaluator_id,
+                    metric_folders=[f"{metric_name}={test_dir}"],
+                    display_name=display_name or evaluator_id,
+                    description=description or f"Evaluator for {qualname}",
+                    force=force,
+                    entry_point=entry_point,
+                )
             name = result.get("name", evaluator_id) if isinstance(result, dict) else evaluator_id
 
             # Print success message with Fireworks dashboard link

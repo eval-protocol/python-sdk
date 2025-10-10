@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from typing import Dict, Optional  # Added Dict
 
+import requests
+
 logger = logging.getLogger(__name__)
 
 # Default locations (used for tests and as fallback). Actual resolution is dynamic via _get_auth_ini_file().
@@ -218,3 +220,40 @@ def get_fireworks_api_base() -> str:
     else:
         logger.debug("FIREWORKS_API_BASE not set in environment, defaulting to %s.", api_base)
     return api_base
+
+
+def verify_api_key_and_get_account_id(
+    api_key: Optional[str] = None,
+    api_base: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Calls the Fireworks API verify endpoint to validate the API key and returns the
+    account id from response headers when available.
+
+    Args:
+        api_key: Optional explicit API key. When None, resolves via get_fireworks_api_key().
+        api_base: Optional explicit API base. When None, resolves via get_fireworks_api_base().
+
+    Returns:
+        The resolved account id if verification succeeds and the header is present; otherwise None.
+    """
+    try:
+        resolved_key = api_key or get_fireworks_api_key()
+        if not resolved_key:
+            return None
+        resolved_base = api_base or get_fireworks_api_base()
+        url = f"{resolved_base.rstrip('/')}/verifyApiKey"
+        headers = {"Authorization": f"Bearer {resolved_key}"}
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            logger.debug("verifyApiKey returned status %s", resp.status_code)
+            return None
+        # Header keys could vary in case; requests provides case-insensitive dict
+        account_id = resp.headers.get("x-fireworks-account-id") or resp.headers.get("X-Fireworks-Account-Id")
+        if account_id and account_id.strip():
+            logger.debug("Resolved FIREWORKS_ACCOUNT_ID via verifyApiKey: %s", account_id)
+            return account_id.strip()
+        return None
+    except Exception as e:
+        logger.debug("Failed to verify API key for account id resolution: %s", e)
+        return None

@@ -15,7 +15,11 @@ if TYPE_CHECKING:
 
 import requests
 
-from eval_protocol.auth import get_fireworks_account_id, get_fireworks_api_key
+from eval_protocol.auth import (
+    get_fireworks_account_id,
+    get_fireworks_api_key,
+    verify_api_key_and_get_account_id,
+)
 from eval_protocol.typed_interface import EvaluationMode
 
 logger = logging.getLogger(__name__)
@@ -195,17 +199,16 @@ class Evaluator:
 
     def _load_python_files_from_folder(self, folder_path: str) -> Dict[str, str]:
         """
-        Loads all Python files from a given folder.
+        Recursively loads all Python files from a given folder (excluding common ignored dirs).
 
         Args:
             folder_path: Absolute path to the folder.
 
         Returns:
-            A dictionary mapping filenames to their content.
+            A dictionary mapping relative file paths (within folder) to their content.
 
         Raises:
-            ValueError: If folder_path is invalid, not a directory,
-                        or if main.py is missing or doesn't contain 'evaluate'.
+            ValueError: If folder_path is invalid or not a directory.
         """
         if not os.path.exists(folder_path):
             raise ValueError(f"Folder does not exist: {folder_path}")
@@ -213,21 +216,22 @@ class Evaluator:
         if not os.path.isdir(folder_path):
             raise ValueError(f"Not a directory: {folder_path}")
 
-        files = {}
-        for file_path in Path(folder_path).glob("*.py"):
-            if file_path.is_file():
-                with open(file_path, "r") as f:
-                    filename = file_path.name
+        files: Dict[str, str] = {}
+        ignored_dirs = {".git", "__pycache__", "node_modules", "venv", ".venv", "dist", "build", "vendor"}
+        base_path = Path(folder_path)
+        for dirpath, dirnames, filenames in os.walk(folder_path):
+            # prune ignored directories
+            dirnames[:] = [d for d in dirnames if d not in ignored_dirs and not d.startswith(".")]
+            for name in filenames:
+                if not name.endswith(".py"):
+                    continue
+                abs_path = Path(dirpath) / name
+                rel_path = str(abs_path.relative_to(base_path))
+                with open(abs_path, "r", encoding="utf-8") as f:
                     content = f.read()
-                    files[filename] = content
-
-                    # Check for main.py with evaluate function
-                    if filename == "main.py" and "evaluate" not in content:
-                        raise ValueError(f"main.py in {folder_path} must contain an evaluate function")
-
-        if "main.py" not in files:
-            raise ValueError(f"main.py is required in {folder_path}")
-
+                files[rel_path] = content
+        if not files:
+            raise ValueError(f"No Python files found in {folder_path}")
         return files
 
     def load_metric_folder(self, metric_name, folder_path):
@@ -348,8 +352,10 @@ class Evaluator:
         if not samples:
             raise ValueError(f"No valid samples found in {sample_file}")
 
-        account_id = self.account_id or get_fireworks_account_id()
         auth_token = self.api_key or get_fireworks_api_key()
+        account_id = self.account_id or get_fireworks_account_id()
+        if not account_id and auth_token:
+            account_id = verify_api_key_and_get_account_id(api_key=auth_token, api_base=self.api_base)
         logger.debug(f"Preview using account_id: {account_id}")
 
         if not account_id or not auth_token:
@@ -507,8 +513,11 @@ class Evaluator:
         if not self.remote_url and not self.ts_mode_config and not self.code_files:
             raise ValueError("No code files loaded. Load metric folder(s) or provide ts_mode_config/remote_url first.")
 
-        account_id = self.account_id or get_fireworks_account_id()
         auth_token = self.api_key or get_fireworks_api_key()
+        account_id = self.account_id or get_fireworks_account_id()
+        if not account_id and auth_token:
+            # Attempt to verify the API key and derive account id from server headers
+            account_id = verify_api_key_and_get_account_id(api_key=auth_token, api_base=self.api_base)
         if not auth_token or not account_id:
             logger.error("Authentication error: API credentials appear to be invalid or incomplete.")
             raise ValueError("Invalid or missing API credentials.")
@@ -648,6 +657,12 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
             description = self.ts_mode_config.get("description", "Python code execution")
             if not python_code:
                 raise ValueError("python_code is required in ts_mode_config")
+            entry_func = "evaluate"
+            try:
+                if self.entry_point and "::" in self.entry_point:
+                    entry_func = self.entry_point.split("::", 1)[1]
+            except Exception:
+                entry_func = "evaluate"
             assertions.append(
                 {
                     "type": "CODE_SNIPPETS",
@@ -656,6 +671,8 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
                     "codeSnippets": {
                         "language": "python",
                         "fileContents": {file_name: python_code},
+                        "entryFile": file_name,
+                        "entryFunc": entry_func,
                     },
                 }
             )
@@ -667,11 +684,48 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
                 file_contents[filename] = self._update_evaluate_signature(content)
             if not file_contents:
                 raise ValueError("No Python files found for multi-metrics mode.")
+            # Determine entry file from entry_point if provided; otherwise detect
+            entry_file = None
+            if self.entry_point and "::" in self.entry_point:
+                try:
+                    ep_file = self.entry_point.split("::", 1)[0]
+                    if ep_file in file_contents:
+                        entry_file = ep_file
+                    else:
+                        ep_base = os.path.basename(ep_file)
+                        for fname in file_contents.keys():
+                            if os.path.basename(fname) == ep_base:
+                                entry_file = fname
+                                break
+                except Exception:
+                    entry_file = None
+            if not entry_file:
+                try:
+                    for fname, content in file_contents.items():
+                        for line in content.split("\n"):
+                            s = line.lstrip()
+                            if s.startswith("def evaluate(") or s.startswith("async def evaluate("):
+                                entry_file = fname
+                                break
+                        if entry_file:
+                            break
+                except Exception:
+                    entry_file = None
+                if not entry_file:
+                    entry_file = "main.py" if "main.py" in file_contents else list(file_contents.keys())[0]
+            entry_func = "evaluate"
+            try:
+                if self.entry_point and "::" in self.entry_point:
+                    entry_func = self.entry_point.split("::", 1)[1]
+            except Exception:
+                entry_func = "evaluate"
             assertions.append(
                 {
                     "codeSnippets": {
                         "language": "python",
                         "fileContents": file_contents,
+                        "entryFile": entry_file,
+                        "entryFunc": entry_func,
                     },
                     "name": "eval",
                     "type": "CODE_SNIPPETS",
@@ -681,29 +735,60 @@ def evaluate(messages, ground_truth: Optional[Union[str, List[Dict[str, Any]]]] 
         else:  # Folder-based, non-multi_metrics
             for metric_name in self.metric_folders:
                 file_contents = {}
-                # Prioritize sending only main.py for the preview evaluator
-                main_py_key = f"{metric_name}/main.py"
-                if main_py_key in self.code_files:
-                    file_contents["main.py"] = self._update_evaluate_signature(self.code_files[main_py_key])
-                else:
-                    # Fallback to sending all files if main.py isn't found directly under metric_name/ (should not happen with current loading logic)
-                    # Or if a more complex structure was intended. For now, this path means an issue.
-                    logger.warning(
-                        f"main.py not found for metric '{metric_name}' with key '{main_py_key}'. "
-                        "The preview payload might be incorrect or incomplete."
-                    )
-
+                # Include all discovered files for this metric folder, preserving filenames
+                for filename, content in self.code_files.items():
+                    if filename.startswith(f"{metric_name}/") and filename.endswith(".py"):
+                        # Use the file name within the metric folder for clarity
+                        short_name = filename.split(f"{metric_name}/", 1)[1]
+                        file_contents[short_name] = self._update_evaluate_signature(content)
                 if not file_contents:
                     logger.warning(
-                        f"No Python files (specifically main.py) prepared for metric '{metric_name}', skipping this metric for criteria."
+                        f"No Python files prepared for metric '{metric_name}', skipping this metric for criteria."
                     )
                     continue
+                # Determine entry file within this metric's files using entry_point if present
+                entry_file = None
+                if self.entry_point and "::" in self.entry_point:
+                    try:
+                        ep_file = self.entry_point.split("::", 1)[0]
+                        if ep_file in file_contents:
+                            entry_file = ep_file
+                        else:
+                            ep_base = os.path.basename(ep_file)
+                            for fname in file_contents.keys():
+                                if os.path.basename(fname) == ep_base:
+                                    entry_file = fname
+                                    break
+                    except Exception:
+                        entry_file = None
+                if not entry_file:
+                    try:
+                        for fname, content in file_contents.items():
+                            for line in content.split("\n"):
+                                s = line.lstrip()
+                                if s.startswith("def evaluate(") or s.startswith("async def evaluate("):
+                                    entry_file = fname
+                                    break
+                            if entry_file:
+                                break
+                    except Exception:
+                        entry_file = None
+                    if not entry_file:
+                        entry_file = "main.py" if "main.py" in file_contents else list(file_contents.keys())[0]
 
+                entry_func = "evaluate"
+                try:
+                    if self.entry_point and "::" in self.entry_point:
+                        entry_func = self.entry_point.split("::", 1)[1]
+                except Exception:
+                    entry_func = "evaluate"
                 assertions.append(
                     {
                         "codeSnippets": {
                             "language": "python",
-                            "fileContents": file_contents,  # Should now ideally only contain main.py
+                            "fileContents": file_contents,
+                            "entryFile": entry_file,
+                            "entryFunc": entry_func,
                         },
                         "name": metric_name,
                         "type": "CODE_SNIPPETS",
