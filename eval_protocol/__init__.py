@@ -36,6 +36,7 @@ from .log_utils.elasticsearch_direct_http_handler import ElasticsearchDirectHttp
 from .log_utils.rollout_id_filter import RolloutIdFilter
 from .log_utils.util import setup_rollout_logging_for_elasticsearch_handler
 from .log_utils.fireworks_tracing_http_handler import FireworksTracingHttpHandler
+from .log_utils.elasticsearch_client import ElasticsearchConfig
 
 
 from .types.remote_rollout_processor import (
@@ -75,6 +76,7 @@ except ImportError:
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 __all__ = [
+    "ElasticsearchConfig",
     "ElasticsearchDirectHttpHandler",
     "RolloutIdFilter",
     "setup_rollout_logging_for_elasticsearch_handler",
