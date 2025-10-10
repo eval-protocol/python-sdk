@@ -441,23 +441,25 @@ async def pointwise_fetch_langfuse_trace(
             to_ts = datetime.now()
             from_ts = to_ts - timedelta(hours=hours_back)
 
-        # Get expected insertion_ids from Redis for completeness checking
+        # Get insertion_ids from Redis to find the latest one
         expected_ids: Set[str] = set()
         if rollout_id:
             expected_ids = get_insertion_ids(redis_client, rollout_id)
-            logger.info(f"Pointwise fetch for rollout_id '{rollout_id}', expecting {len(expected_ids)} insertion_ids")
+            logger.info(
+                f"Pointwise fetch for rollout_id '{rollout_id}', found {len(expected_ids)} insertion_ids in Redis"
+            )
             if not expected_ids:
                 logger.warning(
-                    f"No expected insertion_ids found in Redis for rollout '{rollout_id}'. Returning empty trace."
+                    f"No insertion_ids found in Redis for rollout '{rollout_id}'. Cannot determine latest trace."
                 )
                 raise HTTPException(
                     status_code=500,
-                    detail=f"No expected insertion_ids found in Redis for rollout '{rollout_id}'. Returning empty trace.",
+                    detail=f"No insertion_ids found in Redis for rollout '{rollout_id}'. Cannot determine latest trace.",
                 )
 
         # Get the latest (last) insertion_id since UUID v7 is time-ordered
         latest_insertion_id = max(expected_ids)  # UUID v7 max = newest
-        logger.info(f"Targeting latest insertion_id (last5): {latest_insertion_id[-5:]} for rollout '{rollout_id}'")
+        logger.info(f"Targeting latest insertion_id: {latest_insertion_id} for rollout '{rollout_id}'")
 
         for retry in range(max_retries):
             # Fetch trace list targeting the latest insertion_id
@@ -481,7 +483,7 @@ async def pointwise_fetch_langfuse_trace(
             if traces and traces.data:
                 # Get the trace info
                 trace_info = traces.data[0]
-                logger.debug(f"Found trace {trace_info.id} for latest insertion_id {latest_insertion_id[-5:]}")
+                logger.debug(f"Found trace {trace_info.id} for latest insertion_id {latest_insertion_id}")
 
                 # Fetch full trace details
                 trace_full = await _fetch_trace_detail_with_retry(
@@ -493,7 +495,7 @@ async def pointwise_fetch_langfuse_trace(
                 if trace_full:
                     trace_dict = _serialize_trace_to_dict(trace_full)
                     logger.info(
-                        f"Successfully fetched latest trace for rollout '{rollout_id}', insertion_id (last5): {latest_insertion_id[-5:]}"
+                        f"Successfully fetched latest trace for rollout '{rollout_id}', insertion_id: {latest_insertion_id}"
                     )
                     return LangfuseTracesResponse(
                         project_id=project_id,
@@ -505,13 +507,13 @@ async def pointwise_fetch_langfuse_trace(
             if retry < max_retries - 1:
                 wait_time = 2**retry
                 logger.info(
-                    f"Pointwise fetch attempt {retry + 1}/{max_retries} failed for rollout '{rollout_id}', insertion_id (last5): {latest_insertion_id[-5:]}. Retrying in {wait_time}s..."
+                    f"Pointwise fetch attempt {retry + 1}/{max_retries} failed for rollout '{rollout_id}', insertion_id: {latest_insertion_id}. Retrying in {wait_time}s..."
                 )
                 await asyncio.sleep(wait_time)
 
         # After all retries failed
         logger.error(
-            f"Failed to fetch latest trace for rollout '{rollout_id}', insertion_id (last5): {latest_insertion_id[-5:]} after {max_retries} retries"
+            f"Failed to fetch latest trace for rollout '{rollout_id}', insertion_id: {latest_insertion_id} after {max_retries} retries"
         )
         raise HTTPException(
             status_code=404,
