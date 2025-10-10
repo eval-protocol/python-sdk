@@ -301,6 +301,12 @@ def parse_args(args=None):
     logs_parser = subparsers.add_parser("logs", help="Serve logs with file watching and real-time updates")
     logs_parser.add_argument("--port", type=int, default=8000, help="Port to bind to (default: 8000)")
     logs_parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+    logs_parser.add_argument("--disable-elasticsearch-setup", action="store_true", help="Disable Elasticsearch setup")
+    logs_parser.add_argument(
+        "--use-env-elasticsearch-confi",
+        action="store_true",
+        help="Use env vars for Elasticsearch config (requires ELASTICSEARCH_URL, ELASTICSEARCH_API_KEY, ELASTICSEARCH_INDEX_NAME)",
+    )
 
     # Upload command
     upload_parser = subparsers.add_parser(

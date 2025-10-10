@@ -26,6 +26,25 @@ import os
 logger = logging.getLogger(__name__)
 
 
+def create_elasticsearch_config_from_env() -> ElasticsearchConfig:
+    """Setup Elasticsearch config from environment variables."""
+    url = os.getenv("ELASTICSEARCH_URL")
+    api_key = os.getenv("ELASTICSEARCH_API_KEY")
+    index_name = os.getenv("ELASTICSEARCH_INDEX_NAME")
+
+    if url is None:
+        raise ValueError("ELASTICSEARCH_URL must be set")
+    if api_key is None:
+        raise ValueError("ELASTICSEARCH_API_KEY must be set")
+    if index_name is None:
+        raise ValueError("ELASTICSEARCH_INDEX_NAME must be set")
+    return ElasticsearchConfig(
+        url=url,
+        api_key=api_key,
+        index_name=index_name,
+    )
+
+
 def _build_fireworks_tracing_url(
     base_url: str, metadata: RolloutMetadata, completion_params_base_url: Optional[str] = None
 ) -> str:

@@ -20,10 +20,28 @@ def logs_command(args):
     print("Press Ctrl+C to stop the server")
     print("-" * 50)
 
-    # setup Elasticsearch
-    from eval_protocol.pytest.elasticsearch_setup import ElasticsearchSetup
+    # Setup Elasticsearch based on flags
+    elasticsearch_config = None
+    try:
+        if getattr(args, "use_env_elasticsearch_config", False):
+            # Use environment variables for configuration
+            print("⚙️ Using environment variables for Elasticsearch config")
+            from eval_protocol.pytest.remote_rollout_processor import (
+                create_elasticsearch_config_from_env,
+            )
 
-    elasticsearch_config = ElasticsearchSetup().setup_elasticsearch()
+            elasticsearch_config = create_elasticsearch_config_from_env()
+        elif not getattr(args, "disable_elasticsearch_setup", False):
+            # Default behavior: start or connect to local Elasticsearch via Docker helper
+            from eval_protocol.pytest.elasticsearch_setup import ElasticsearchSetup
+
+            print("🧰 Auto-configuring local Elasticsearch (Docker)")
+            elasticsearch_config = ElasticsearchSetup().setup_elasticsearch()
+        else:
+            print("🚫 Elasticsearch setup disabled; running without Elasticsearch integration")
+    except Exception as e:
+        print(f"❌ Failed to configure Elasticsearch: {e}")
+        return 1
 
     try:
         serve_logs(port=args.port, elasticsearch_config=elasticsearch_config, debug=args.debug)
