@@ -343,11 +343,11 @@ class FireworksTracingAdapter(BaseAdapter):
         # Remove None values
         params = {k: v for k, v in params.items() if v is not None}
 
-        # Make request to proxy
+        # Make request to proxy (using pointwise for efficiency)
         if self.project_id:
-            url = f"{self.base_url}/v1/project_id/{self.project_id}/traces"
+            url = f"{self.base_url}/v1/project_id/{self.project_id}/traces/pointwise"
         else:
-            url = f"{self.base_url}/v1/traces"
+            url = f"{self.base_url}/v1/traces/pointwise"
 
         headers = {"Authorization": f"Bearer {os.environ.get('FIREWORKS_API_KEY')}"}
 
@@ -367,7 +367,7 @@ class FireworksTracingAdapter(BaseAdapter):
                 except Exception:  # In case e.response.json() fails
                     error_msg = f"Proxy error: {e.response.text}"
 
-            logger.error("Failed to fetch traces from proxy: %s", error_msg)
+            logger.error("Failed to fetch traces from proxy (HTTP %s): %s", e.response.status_code, error_msg)
             return eval_rows
         except requests.exceptions.RequestException as e:
             # Non-HTTP errors (network issues, timeouts, etc.)

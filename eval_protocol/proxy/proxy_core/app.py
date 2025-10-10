@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from .models import ProxyConfig, LangfuseTracesResponse, TracesParams, ChatParams, ChatRequestHook, TracesRequestHook
 from .auth import AuthProvider, NoAuthProvider
 from .litellm import handle_chat_completion, proxy_to_litellm
-from .langfuse import fetch_langfuse_traces
+from .langfuse import fetch_langfuse_traces, pointwise_fetch_langfuse_trace
 
 # Configure logging before any other imports (so all modules inherit this config)
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -261,6 +261,27 @@ def create_app(
         if project_id is not None:
             params.project_id = project_id
         return await fetch_langfuse_traces(
+            config=config,
+            redis_client=redis_client,
+            request=request,
+            params=params,
+        )
+
+    @app.get("/traces/pointwise", response_model=LangfuseTracesResponse)
+    @app.get("/v1/traces/pointwise", response_model=LangfuseTracesResponse)
+    @app.get("/project_id/{project_id}/traces/pointwise", response_model=LangfuseTracesResponse)
+    @app.get("/v1/project_id/{project_id}/traces/pointwise", response_model=LangfuseTracesResponse)
+    async def pointwise_get_langfuse_trace(
+        request: Request,
+        params: TracesParams = Depends(get_traces_params),
+        project_id: Optional[str] = None,
+        config: ProxyConfig = Depends(get_config),
+        redis_client: redis.Redis = Depends(get_redis),
+        _: None = Depends(require_auth),
+    ) -> LangfuseTracesResponse:
+        if project_id is not None:
+            params.project_id = project_id
+        return await pointwise_fetch_langfuse_trace(
             config=config,
             redis_client=redis_client,
             request=request,

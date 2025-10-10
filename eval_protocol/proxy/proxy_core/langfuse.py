@@ -366,3 +366,161 @@ async def fetch_langfuse_traces(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching traces from Langfuse: {str(e)}")
+
+
+async def pointwise_fetch_langfuse_trace(
+    config: ProxyConfig,
+    redis_client: redis.Redis,
+    request: Request,
+    params: TracesParams,
+):
+    """
+    Fetch the latest trace from Langfuse for the specified project.
+
+    Since insertion_ids are UUID v7 (time-ordered), we only fetch the last one
+    as it contains all accumulated information from the pointwise evaluation.
+
+    Returns a single trace object or raises if not found.
+    """
+
+    # Preprocess traces request
+    if config.preprocess_traces_request:
+        params = config.preprocess_traces_request(request, params)
+
+    tags = params.tags
+    project_id = params.project_id
+    user_id = params.user_id
+    session_id = params.session_id
+    name = params.name
+    environment = params.environment
+    version = params.version
+    release = params.release
+    fields = params.fields
+    hours_back = params.hours_back
+    from_timestamp = params.from_timestamp
+    to_timestamp = params.to_timestamp
+    sleep_between_gets = params.sleep_between_gets
+    max_retries = params.max_retries
+
+    # Use default project if not specified
+    if project_id is None:
+        project_id = config.default_project_id
+
+    # Validate project_id
+    if project_id not in config.langfuse_keys:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Project ID '{project_id}' not found. Available projects: {list(config.langfuse_keys.keys())}",
+        )
+
+    # Extract rollout_id from tags for Redis lookup
+    rollout_id = _extract_tag_value(tags, "rollout_id:")
+
+    try:
+        # Import the Langfuse adapter
+        from langfuse import Langfuse
+
+        # Create Langfuse client with the project's keys
+        logger.debug(f"Connecting to Langfuse at {config.langfuse_host} for project '{project_id}'")
+        langfuse_client = Langfuse(
+            public_key=config.langfuse_keys[project_id]["public_key"],
+            secret_key=config.langfuse_keys[project_id]["secret_key"],
+            host=config.langfuse_host,
+        )
+
+        # Parse datetime strings if provided
+        from_ts = None
+        to_ts = None
+        if from_timestamp:
+            from_ts = datetime.fromisoformat(from_timestamp.replace("Z", "+00:00"))
+        if to_timestamp:
+            to_ts = datetime.fromisoformat(to_timestamp.replace("Z", "+00:00"))
+
+        # Determine time window: explicit from/to takes precedence over hours_back
+        if from_ts is None and to_ts is None and hours_back:
+            to_ts = datetime.now()
+            from_ts = to_ts - timedelta(hours=hours_back)
+
+        # Get expected insertion_ids from Redis for completeness checking
+        expected_ids: Set[str] = set()
+        if rollout_id:
+            expected_ids = get_insertion_ids(redis_client, rollout_id)
+            logger.info(f"Pointwise fetch for rollout_id '{rollout_id}', expecting {len(expected_ids)} insertion_ids")
+            if not expected_ids:
+                logger.warning(
+                    f"No expected insertion_ids found in Redis for rollout '{rollout_id}'. Returning empty trace."
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"No expected insertion_ids found in Redis for rollout '{rollout_id}'. Returning empty trace.",
+                )
+
+        # Get the latest (last) insertion_id since UUID v7 is time-ordered
+        latest_insertion_id = max(expected_ids)  # UUID v7 max = newest
+        logger.info(f"Targeting latest insertion_id (last5): {latest_insertion_id[-5:]} for rollout '{rollout_id}'")
+
+        for retry in range(max_retries):
+            # Fetch trace list targeting the latest insertion_id
+            traces = await _fetch_trace_list_with_retry(
+                langfuse_client,
+                page=1,
+                limit=1,  # Only need the one trace
+                tags=[f"insertion_id:{latest_insertion_id}"],
+                user_id=user_id,
+                session_id=session_id,
+                name=name,
+                environment=environment,
+                version=version,
+                release=release,
+                fields=fields,
+                from_ts=from_ts,
+                to_ts=to_ts,
+                max_retries=max_retries,
+            )
+
+            if traces and traces.data:
+                # Get the trace info
+                trace_info = traces.data[0]
+                logger.debug(f"Found trace {trace_info.id} for latest insertion_id {latest_insertion_id[-5:]}")
+
+                # Fetch full trace details
+                trace_full = await _fetch_trace_detail_with_retry(
+                    langfuse_client,
+                    trace_info.id,
+                    max_retries,
+                )
+
+                if trace_full:
+                    trace_dict = _serialize_trace_to_dict(trace_full)
+                    logger.info(
+                        f"Successfully fetched latest trace for rollout '{rollout_id}', insertion_id (last5): {latest_insertion_id[-5:]}"
+                    )
+                    return LangfuseTracesResponse(
+                        project_id=project_id,
+                        total_traces=1,
+                        traces=[TraceResponse(**trace_dict)],
+                    )
+
+            # If not successful and not last retry, sleep and continue
+            if retry < max_retries - 1:
+                wait_time = 2**retry
+                logger.info(
+                    f"Pointwise fetch attempt {retry + 1}/{max_retries} failed for rollout '{rollout_id}', insertion_id (last5): {latest_insertion_id[-5:]}. Retrying in {wait_time}s..."
+                )
+                await asyncio.sleep(wait_time)
+
+        # After all retries failed
+        logger.error(
+            f"Failed to fetch latest trace for rollout '{rollout_id}', insertion_id (last5): {latest_insertion_id[-5:]} after {max_retries} retries"
+        )
+        raise HTTPException(
+            status_code=404,
+            detail=f"Failed to fetch latest trace for rollout '{rollout_id}' after {max_retries} retries",
+        )
+
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Langfuse SDK not installed. Install with: pip install langfuse")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching latest trace from Langfuse: {str(e)}")

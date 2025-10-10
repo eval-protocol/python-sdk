@@ -166,11 +166,25 @@ The `encoded_base_url` is base64-encoded URL string injected into the request bo
 
 ### Trace Fetching
 
-#### Fetch Langfuse Traces
+#### Fetch All Langfuse Traces
 ```
 GET /traces?tags=rollout_id:abc123
+GET /v1/traces?tags=rollout_id:abc123
 GET /project_id/{project_id}/traces?tags=rollout_id:abc123
+GET /v1/project_id/{project_id}/traces?tags=rollout_id:abc123
 ```
+
+Waits for all expected insertion_ids to complete before returning all traces.
+
+#### Fetch Latest Langfuse Trace (Pointwise)
+```
+GET /traces/pointwise?tags=rollout_id:abc123
+GET /v1/traces/pointwise?tags=rollout_id:abc123
+GET /project_id/{project_id}/traces/pointwise?tags=rollout_id:abc123
+GET /v1/project_id/{project_id}/traces/pointwise?tags=rollout_id:abc123
+```
+
+Returns only the latest trace (UUID v7 time-ordered). Much faster for pointwise evaluations where you only need the final accumulated result.
 
 **Required Query Parameters:**
 - `tags`: Array of tags (must include at least one `rollout_id:*` tag)
