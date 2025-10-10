@@ -65,7 +65,6 @@ def rows() -> List[EvaluationRow]:
     ),
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url="http://127.0.0.1:3000",
-        model_base_url="http://localhost:4000",
         timeout_seconds=180,
         output_data_loader=fireworks_output_data_loader,
     ),

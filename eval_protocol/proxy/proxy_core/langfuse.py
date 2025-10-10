@@ -260,7 +260,7 @@ async def fetch_langfuse_traces(
                 missing_ids = expected_ids - insertion_ids
                 fetch_tags = [f"insertion_id:{id}" for id in missing_ids]
                 logger.info(
-                    f"Retry {retry}: Targeting {len(fetch_tags)} missing insertion_ids for rollout '{rollout_id}': {[id[:5] for id in sorted(missing_ids)[:10]]}{'...' if len(missing_ids) > 10 else ''}"
+                    f"Retry {retry}: Targeting {len(fetch_tags)} missing insertion_ids for rollout '{rollout_id}' (last5): {[id[-5:] for id in sorted(missing_ids)[:10]]}{'...' if len(missing_ids) > 10 else ''}"
                 )
 
             current_page = 1
@@ -353,7 +353,7 @@ async def fetch_langfuse_traces(
                 wait_time = 2**retry
                 still_missing = expected_ids - insertion_ids
                 logger.info(
-                    f"Attempt {retry + 1}/{max_retries}. Found {len(insertion_ids)}/{len(expected_ids)} for rollout '{rollout_id}'. Still missing: {[id[:5] for id in sorted(still_missing)[:10]]}{'...' if len(still_missing) > 10 else ''}. Waiting {wait_time}s..."
+                    f"Attempt {retry + 1}/{max_retries}. Found {len(insertion_ids)}/{len(expected_ids)} for rollout '{rollout_id}'. Still missing (last5): {[id[-5:] for id in sorted(still_missing)[:10]]}{'...' if len(still_missing) > 10 else ''}. Waiting {wait_time}s..."
                 )
                 await asyncio.sleep(wait_time)
 
