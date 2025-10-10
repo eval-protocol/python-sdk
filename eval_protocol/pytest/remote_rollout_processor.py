@@ -93,7 +93,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
         poll_interval: float = 1.0,
         timeout_seconds: float = 120.0,
         output_data_loader: Optional[Callable[[DataLoaderConfig], DynamicDataLoader]] = None,
-        disable_elastic_search: bool = False,
+        disable_elastic_search_setup: bool = False,
         elastic_search_config: Optional[ElasticsearchConfig] = None,
     ):
         # Prefer constructor-provided configuration. These can be overridden via
@@ -108,11 +108,11 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
         self._output_data_loader = output_data_loader or _default_output_data_loader
-        self._disable_elastic_search = disable_elastic_search
+        self._disable_elastic_search_setup = disable_elastic_search_setup
         self._elastic_search_config = elastic_search_config
 
     def setup(self) -> None:
-        if self._disable_elastic_search:
+        if self._disable_elastic_search_setup:
             logger.info("Elasticsearch is disabled, skipping setup")
             return
         logger.info("Setting up Elasticsearch")
