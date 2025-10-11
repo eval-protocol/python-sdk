@@ -3,8 +3,8 @@ Metadata Extraction Gateway
 A FastAPI service that sits in front of LiteLLM and extracts metadata from URL paths.
 """
 
-from fastapi import FastAPI, Depends, HTTPException, Request, Query
-from typing import Optional, Callable, Dict, Any, List
+from fastapi import FastAPI, Depends, Request, Query
+from typing import Optional, List
 import os
 import redis
 import logging
@@ -166,8 +166,8 @@ def create_app(
         )
 
     async def require_auth(request: Request) -> None:
-        account_id = auth_provider.validate_and_return_account_id(request)
-        request.state.account_id = account_id
+        account_info = auth_provider.validate_and_return_account_info(request)
+        request.state.account_id = account_info.account_id if account_info else None
         return None
 
     # =====================

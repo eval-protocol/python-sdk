@@ -8,7 +8,6 @@ import httpx
 import logging
 from uuid6 import uuid7
 from fastapi import Request, Response, HTTPException
-from typing import Optional
 import redis
 from .redis_utils import register_insertion_id
 from .models import ProxyConfig, ChatParams
