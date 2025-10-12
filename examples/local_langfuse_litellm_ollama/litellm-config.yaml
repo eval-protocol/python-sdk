@@ -1,0 +1,14 @@
+model_list:
+  - model_name: "candidate/llama3.8b"
+    litellm_params:
+      model: "llama.cpp"
+      api_base: "http://127.0.0.1:8080/v1"
+      model_path: "/path/to/Meta-Llama-3-8B-Instruct.gguf"
+  - model_name: "ollama/llama3.1"
+    litellm_params:
+      model: "ollama/llama3.1"
+      api_base: "http://127.0.0.1:11434"
+
+litellm_settings:
+  drop_params: true
+  telemetry: false

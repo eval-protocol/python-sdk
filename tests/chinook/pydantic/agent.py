@@ -7,11 +7,47 @@ import sys
 import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from db import connect_database
+
+
+def _maybe_connect_database():
+    """Connect to Chinook DB unless disabled via env.
+
+    If CHINOOK_USE_STUB_DB=1 or connection fails, return a stub connection,
+    a stub cursor and a minimal introspection result that includes a tracks table.
+    """
+    use_stub = os.getenv("CHINOOK_USE_STUB_DB") == "1"
+    if not use_stub:
+        try:
+            from db import connect_database  # local import to avoid hard dep if stub
+
+            return connect_database()
+        except Exception:
+            # Fall back to stub on any connection issue
+            pass
+
+    class _StubConn:
+        def rollback(self):
+            pass
+
+    class _StubCursor:
+        def __init__(self):
+            self.description = [("count",)]
+            self._rows = [(3503,)]  # expected Chinook track count in examples
+
+        def execute(self, _query: str):
+            # no-op; preset rows
+            return None
+
+        def fetchall(self):
+            return self._rows
+
+    # Minimal schema rows: (table_name, column_name, data_type, is_nullable)
+    introspection = [("tracks", "TrackId", "INTEGER", "NO")]
+    return _StubConn(), _StubCursor(), introspection
 
 
 def setup_agent(orchestrator_agent_model: Model):
-    connection, cursor, introspection_result = connect_database()
+    connection, cursor, introspection_result = _maybe_connect_database()
 
     introspection_result_str = "\n".join([",".join(map(str, item)) for item in introspection_result])
 

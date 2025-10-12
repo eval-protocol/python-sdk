@@ -18,7 +18,66 @@ With hundreds of models and configs, you need objective data to choose the right
 - **LLM judge**: Stack-rank models using pairwise Arena-Hard-Auto
 - **Local UI**: Pivot/table views for real-time analysis
 
-## ⚡ Quickstart (no labels needed)
+## ⚡ Quickstart (local traces + local models)
+
+This end-to-end uses a local Langfuse (Docker Compose), seeds app traces, then runs a model picker with a Fireworks-based judge and your local models (Ollama or llama.cpp). See `examples/local_langfuse_litellm_ollama/README.md` for a full guide.
+
+### 1) Start Langfuse locally (compose file included)
+
+```bash
+# From repo root
+docker compose -f examples/local_langfuse_litellm_ollama/langfuse-docker-compose.yml up -d
+export LANGFUSE_HOST=http://localhost:3000
+export LANGFUSE_PUBLIC_KEY=...  # create in Langfuse UI
+export LANGFUSE_SECRET_KEY=...
+export LANGFUSE_ENVIRONMENT=local
+```
+
+Open `http://localhost:3000` and confirm the UI loads.
+
+### 2) Seed traces (PydanticAgent, no external DB required)
+
+```bash
+export FIREWORKS_API_KEY=...
+export CHINOOK_USE_STUB_DB=1
+make -C . local-generate-chinook
+```
+
+Optionally verify the adapter can fetch rows:
+
+```bash
+make -C . local-adapter-smoke
+```
+
+### 3) Evaluate with local models
+
+Ollama only, direct (bypass LiteLLM):
+
+```bash
+export DIRECT_OLLAMA=1
+export OLLAMA_BASE_URL=http://127.0.0.1:11434
+export OLLAMA_MODELS='ollama/llama3.1'   # comma-separated to compare multiple
+export FIREWORKS_API_KEY=...
+# Optional debug to verify calls and logging
+export EP_DEBUG=1
+pytest eval_protocol/quickstart/llm_judge_langfuse_local.py -k test_llm_judge_local -q
+```
+
+Optional: via LiteLLM router (Ollama/llama.cpp):
+
+```bash
+export LITELLM_API_KEY=local-demo-key
+litellm --config examples/local_langfuse_litellm_ollama/litellm-config.yaml --port 4000
+export LITELLM_BASE_URL=http://127.0.0.1:4000
+export OLLAMA_MODELS='ollama/llama3.1,ollama/llama3.2:1b'
+# Optional debug to verify router calls and logging
+export EP_DEBUG=1
+pytest eval_protocol/quickstart/llm_judge_langfuse_local.py -k test_llm_judge_local -q
+```
+
+The pytest output includes local links for a leaderboard and row-level traces at `http://localhost:8000`.
+
+## Basic AHA judge example (remote APIs)
 
 Install with your tracing platform extras and set API keys:
 
@@ -103,6 +162,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Add to your project
 uv add eval-protocol
 ```
+
+## 🧑‍💻 Developer notes
+
+- The `eval-protocol logs` command currently may show no rows in some local setups even when Langfuse traces exist; use the local UI links printed by pytest and the Langfuse UI to inspect results. We’re tracking improvements to unify local logs with external trace sources.
+- For Langfuse seeding, prefer `tests/chinook/langfuse/generate_traces.py` with `CHINOOK_USE_STUB_DB=1` to avoid external DBs.
+- To compare multiple local models, set `OLLAMA_MODELS` (comma-separated) or use the LiteLLM config for mix-and-match backends.
 
 ## 📚 Resources
 

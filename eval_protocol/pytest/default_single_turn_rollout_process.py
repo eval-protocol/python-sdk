@@ -4,7 +4,6 @@ import os
 import time
 from typing import List
 
-from litellm import acompletion
 from typing import Dict
 
 from eval_protocol.dataset_logger import default_logger
@@ -67,10 +66,23 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
             _litellm = importlib.import_module("litellm")
             acompletion = getattr(_litellm, "acompletion")
+            if os.getenv("EP_DEBUG", "0").strip() == "1":
+                try:
+                    dbg_model = request_params.get("model")
+                    dbg_base = request_params.get("base_url")
+                    print(
+                        f"[EP-Debug] LiteLLM call: model={dbg_model}, base_url={dbg_base}, tools={'yes' if 'tools' in request_params else 'no'}"
+                    )
+                except Exception:
+                    pass
             response = await acompletion(**request_params)
-
             assistant_content = response.choices[0].message.content or ""
             tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
 
             converted_tool_calls = None
             if tool_calls:
@@ -112,9 +124,9 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             ]
 
             row.execution_metadata.usage = CompletionUsage(
-                prompt_tokens=response.usage.prompt_tokens,
-                completion_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens,
+                prompt_tokens=usage["prompt_tokens"],
+                completion_tokens=usage["completion_tokens"],
+                total_tokens=usage["total_tokens"],
             )
 
             row.messages = messages
@@ -122,6 +134,13 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             row.execution_metadata.duration_seconds = time.perf_counter() - start_time
 
             default_logger.log(row)
+            if os.getenv("EP_DEBUG", "0").strip() == "1":
+                try:
+                    print(
+                        f"[EP-Debug] Logged row to EP: rollout_id={row.execution_metadata.rollout_id}, invoc_id={row.execution_metadata.invocation_id}, msg_count={len(row.messages)}"
+                    )
+                except Exception:
+                    pass
             return row
 
         semaphore = config.semaphore
