@@ -528,9 +528,7 @@ def upload_command(args: argparse.Namespace) -> int:
         fw_api_key_value = get_fireworks_api_key()
         if not fw_account_id and fw_api_key_value:
             # Attempt to verify and resolve account id from server headers
-            resolved = verify_api_key_and_get_account_id(
-                api_key=fw_api_key_value, api_base=get_fireworks_api_base()
-            )
+            resolved = verify_api_key_and_get_account_id(api_key=fw_api_key_value, api_base=get_fireworks_api_base())
             if resolved:
                 fw_account_id = resolved
                 # Propagate to environment so downstream calls use it if needed
@@ -593,31 +591,17 @@ def upload_command(args: argparse.Namespace) -> int:
 
         print(f"\nUploading evaluator '{evaluator_id}' for {qualname.split('.')[-1]}...")
         try:
-            # Upload full directory of the test as multi-metric if the dir contains multiple files
+            # Always treat as a single evaluator (single-metric) even if folder has helper modules
             test_dir = os.path.dirname(source_file_path) if source_file_path else root
-            # Use multi_metrics if multiple .py files exist at the root dir; otherwise treat as single metric dir
-            py_files = [f for f in os.listdir(test_dir) if f.endswith(".py")]
-            if len(py_files) > 1:
-                result = create_evaluation(
-                    evaluator_id=evaluator_id,
-                    multi_metrics=True,
-                    folder=test_dir,
-                    display_name=display_name or evaluator_id,
-                    description=description or f"Evaluator for {qualname}",
-                    force=force,
-                    entry_point=entry_point,
-                )
-            else:
-                # Single metric mode: metric name derived from folder name; include all files recursively
-                metric_name = os.path.basename(test_dir) or "metric"
-                result = create_evaluation(
-                    evaluator_id=evaluator_id,
-                    metric_folders=[f"{metric_name}={test_dir}"],
-                    display_name=display_name or evaluator_id,
-                    description=description or f"Evaluator for {qualname}",
-                    force=force,
-                    entry_point=entry_point,
-                )
+            metric_name = os.path.basename(test_dir) or "metric"
+            result = create_evaluation(
+                evaluator_id=evaluator_id,
+                metric_folders=[f"{metric_name}={test_dir}"],
+                display_name=display_name or evaluator_id,
+                description=description or f"Evaluator for {qualname}",
+                force=force,
+                entry_point=entry_point,
+            )
             name = result.get("name", evaluator_id) if isinstance(result, dict) else evaluator_id
 
             # Print success message with Fireworks dashboard link

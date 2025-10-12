@@ -362,9 +362,7 @@ class Evaluator:
             logger.error("Authentication error: Missing Fireworks Account ID or API Key.")
             raise ValueError("Missing Fireworks Account ID or API Key.")
 
-        # Determine multiMetrics for payload based on ts_mode_config or original flag
-        payload_multi_metrics = True
-        payload_rollup_settings = {"skipRollup": True}
+        # Do not set multiMetrics/rollupSettings in preview payload; keep minimal
 
         # For preview, evaluator_id might not be as critical for shim's env var name,
         # but pass it for consistency. Use display_name as a proxy if no specific ID.
@@ -372,10 +370,9 @@ class Evaluator:
         evaluator_payload_data = {
             "displayName": self.display_name or "Preview Evaluator",
             "description": self.description or "Preview Evaluator",
-            "multiMetrics": payload_multi_metrics,
+            # multiMetrics omitted intentionally
             "criteria": self._construct_criteria(criteria_data={}),
-            "requirements": self._get_combined_requirements(),  # Changed to use combined requirements
-            "rollupSettings": payload_rollup_settings,
+            "requirements": self._get_combined_requirements(),
         }
 
         sample_strings = [json.dumps(sample) for sample in samples]
@@ -525,19 +522,16 @@ class Evaluator:
         self.display_name = display_name or evaluator_id
         self.description = description or f"Evaluator created from {evaluator_id}"
 
-        # Determine multiMetrics for payload
-        payload_multi_metrics = True
-        payload_rollup_settings = {"skipRollup": True}
+        # Do not set multiMetrics/rollupSettings; server will infer when needed
 
         payload_data = {
             "evaluator": {
                 "displayName": self.display_name,
                 "description": self.description,
-                "multiMetrics": payload_multi_metrics,  # How results are structured
+                # multiMetrics omitted intentionally
                 # "rewardFunctionMode": self.reward_function_mode,  # How input is processed by user func
                 "criteria": self._construct_criteria(criteria_data={}),
                 "requirements": "",
-                "rollupSettings": payload_rollup_settings,
             },
             "evaluatorId": evaluator_id,
         }
