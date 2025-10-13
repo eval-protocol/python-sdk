@@ -314,10 +314,43 @@ export function TableRowInteractive({
     ? "hover:bg-gray-100 cursor-pointer"
     : "";
 
+  // Track simple drag to prevent triggering click (expand/collapse) when selecting text
+  const mouseDownPos = React.useRef<{ x: number; y: number } | null>(null);
+  const didDrag = React.useRef(false);
+
+  function handleMouseDown(e: React.MouseEvent<HTMLTableRowElement>) {
+    mouseDownPos.current = { x: e.clientX, y: e.clientY };
+    didDrag.current = false;
+  }
+
+  function handleMouseMove(e: React.MouseEvent<HTMLTableRowElement>) {
+    if (!mouseDownPos.current || e.buttons === 0) return;
+    const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+    const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+    if (dx > 3 || dy > 3) didDrag.current = true;
+  }
+
+  function handleMouseUp() {
+    mouseDownPos.current = null;
+  }
+
+  function handleClick(e: React.MouseEvent<HTMLTableRowElement>) {
+    if (didDrag.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      didDrag.current = false;
+      return;
+    }
+    onClick?.();
+  }
+
   return (
     <tr
       className={`text-sm ${interactiveClasses} ${className}`}
-      onClick={onClick}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onClick={handleClick}
     >
       {children}
     </tr>
