@@ -1,16 +1,7 @@
-# MANUAL GITHUB ACTIONS SETUP REQUIRED:
+# GitHub Actions rollout processor test
 #
-# This test requires a GitHub repository with the rollout.yml workflow.
-# The workflow should be available at .github/workflows/rollout.yml
-#
-# Required GitHub secrets:
-# - FIREWORKS_API_KEY: Your Fireworks API key for model calls
-#
-# Required environment variables for this test:
-# - GITHUB_TOKEN: GitHub token with workflow dispatch permissions
-# - GITHUB_OWNER: GitHub repository owner (e.g., "your-org")
-# - GITHUB_REPO: GitHub repository name (e.g., "your-repo")
-# - GITHUB_REF: Branch/ref to run workflow on (e.g., "main")
+# Pattern: Test creates empty rows with row_id, worker loads dataset by row_id
+# Setup: GitHub repo with rollout.yml, FIREWORKS_API_KEY secret, GITHUB_TOKEN env var
 
 import os
 from typing import List
@@ -56,12 +47,14 @@ def fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
 def rows() -> List[EvaluationRow]:
     return [
         EvaluationRow(input_metadata=InputMetadata(row_id=str(i)))
-        for i in range(3)  # In this example we use index to associate rows.
+        for i in range(
+            3
+        )  # In this example we use index to associate rows. Dataset is assumed to be accessible to the worker.
     ]
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
-@pytest.mark.parametrize("completion_params", [{"model": "accounts/fireworks/models/gpt-oss-120b"}])
+@pytest.mark.parametrize("completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}])
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[rows],
@@ -75,21 +68,21 @@ def rows() -> List[EvaluationRow]:
         output_data_loader=fireworks_output_data_loader,
     ),
 )
-async def test_github_actions_rollout_direct_artifacts(row: EvaluationRow) -> EvaluationRow:
-    """
-    End-to-end test for GitHub Actions rollout processor with direct artifact fetching:
-    - REQUIRES GITHUB REPOSITORY WITH WORKFLOW: .github/workflows/rollout.yml
-    - REQUIRES ENVIRONMENT VARIABLES: GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, GITHUB_REF
-    - REQUIRES GITHUB SECRET: FIREWORKS_API_KEY
-    - Triggers GitHub Actions workflow via GithubActionRolloutProcessor
-    - Fetches conversation traces directly from GitHub Actions artifacts
-    - FAIL if no trace artifact found (indicates workflow didn't run or save trace properly)
-    """
+async def test_github_actions_rollout(row: EvaluationRow) -> EvaluationRow:
+    """Test GitHub Actions rollout with worker-controlled dataset."""
     # Track rollout IDs for coverage check
     global ROLLOUT_IDS
     ROLLOUT_IDS.add(row.execution_metadata.rollout_id)
 
-    assert row.messages[0].content == "What is the capital of France?", "Row should have correct message content"
+    # This dataset is built into github_actions/rollout_worker.py
+    if row.messages[0].content == "What is the capital of France?":
+        assert row.input_metadata.row_id == "0"
+    elif row.messages[0].content == "What is the capital of Germany?":
+        assert row.input_metadata.row_id == "1"
+    elif row.messages[0].content == "What is the capital of Italy?":
+        assert row.input_metadata.row_id == "2"
+    else:
+        assert False, "Row should have correct message content"
     assert len(row.messages) > 1, "Row should have a response. If this fails, we fell back to the original row."
 
     return row

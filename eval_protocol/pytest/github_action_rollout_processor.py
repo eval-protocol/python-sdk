@@ -200,19 +200,13 @@ class GithubActionRolloutProcessor(RolloutProcessor):
                 row.execution_metadata.duration_seconds = time.perf_counter() - start_time
                 return row
 
-            print(f"DEBUG: Found and polling run {run_id} for rollout {row.execution_metadata.rollout_id}")
-
             # Poll the specific run until completion
             deadline = time.time() + self.timeout_seconds
-            workflow_conclusion = None
-            # TODO: no clue what to do with workflow_conclusion
 
             while time.time() < deadline:
                 run_data = await asyncio.to_thread(self._get_run, run_id)
 
                 if run_data.get("status") == "completed":
-                    # Store the conclusion for later use in trace application
-                    # workflow_conclusion = run_data.get("conclusion")
                     break
 
                 await asyncio.sleep(self.poll_interval)
@@ -229,6 +223,14 @@ class GithubActionRolloutProcessor(RolloutProcessor):
                 return update_row_with_remote_trace(row, self._output_data_loader, self.model_base_url)
 
             await asyncio.to_thread(_update_with_trace)
+
+            # Add GitHub Actions run URL to session data
+            if run_id:
+                github_run_url = f"https://github.com/{self.owner}/{self.repo}/actions/runs/{run_id}"
+                if not row.input_metadata.session_data:
+                    row.input_metadata.session_data = {}
+                row.input_metadata.session_data["github_actions_run_url"] = github_run_url
+
             return row
 
         semaphore = config.semaphore
