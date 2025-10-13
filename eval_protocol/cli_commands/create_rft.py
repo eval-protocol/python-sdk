@@ -19,6 +19,7 @@ from ..fireworks_rft import (
     load_evaluator_trace,
     materialize_dataset_via_builder,
 )
+from .upload import _discover_tests, _normalize_evaluator_id, _resolve_entry_to_qual_and_source
 
 
 def _ensure_account_id() -> Optional[str]:
@@ -32,24 +33,51 @@ def _ensure_account_id() -> Optional[str]:
     return account_id
 
 
+def _extract_terminal_segment(resource_name: str) -> str:
+    """Return the last path segment if a fully-qualified resource name is provided."""
+    try:
+        return resource_name.strip("/").split("/")[-1]
+    except Exception:
+        return resource_name
+
+
 def _print_links(evaluator_id: str, dataset_id: str, job_name: Optional[str]) -> None:
     api_base = get_fireworks_api_base()
     app_base = _map_api_host_to_app_host(api_base)
     print("\n📊 Dashboard Links:")
-    print(f"   Evaluator: {app_base}/dashboard/evaluators/{evaluator_id}")
+    evaluator_slug = _extract_terminal_segment(evaluator_id)
+    print(f"   Evaluator: {app_base}/dashboard/evaluators/{evaluator_slug}")
     if dataset_id:
         print(f"   Dataset:   {app_base}/dashboard/datasets/{dataset_id}")
     if job_name:
         # job_name likely like accounts/{account}/reinforcementFineTuningJobs/{id}
         try:
             job_id = job_name.strip().split("/")[-1]
-            print(f"   RFT Job:   {app_base}/dashboard/rft/{job_id}")
+            print(f"   RFT Job:   {app_base}/dashboard/fine-tuning/reinforcement/{job_id}")
         except Exception:
             pass
 
 
+def _auto_select_evaluator_id(cwd: str) -> Optional[str]:
+    # Try local traces
+    traces_dir = os.path.join(cwd, ".eval_protocol", "evaluators")
+    if os.path.isdir(traces_dir):
+        candidates = [f[:-5] for f in os.listdir(traces_dir) if f.endswith(".json")]
+        if len(candidates) == 1:
+            return candidates[0]
+    # Fall back to discovering a single evaluation_test
+    tests = _discover_tests(cwd)
+    if len(tests) == 1:
+        qualname, source_file_path = tests[0].qualname, tests[0].file_path
+        test_func_name = qualname.split(".")[-1]
+        source_file_name = os.path.splitext(os.path.basename(source_file_path))[0]
+        evaluator_id = _normalize_evaluator_id(f"{source_file_name}-{test_func_name}")
+        return evaluator_id
+    return None
+
+
 def create_rft_command(args) -> int:
-    evaluator_id: str = getattr(args, "evaluator_id")
+    evaluator_id: Optional[str] = getattr(args, "evaluator_id", None)
     non_interactive: bool = bool(getattr(args, "yes", False))
     dry_run: bool = bool(getattr(args, "dry_run", False))
 
@@ -65,15 +93,23 @@ def create_rft_command(args) -> int:
 
     api_base = get_fireworks_api_base()
 
-    # Resolve evaluator resource name via local trace
+    # Resolve evaluator id if omitted
     project_root = os.getcwd()
-    trace = load_evaluator_trace(project_root, evaluator_id)
-    if not trace or not isinstance(trace, dict):
-        print(
-            "Error: Evaluator trace not found. Run 'eval-protocol upload' first or provide --dataset-id/--dataset-jsonl and --evaluator-id."
-        )
-        return 1
-    evaluator_resource_name = trace.get("evaluator_resource_name") or trace.get("name") or evaluator_id
+    if not evaluator_id:
+        evaluator_id = _auto_select_evaluator_id(project_root)
+        if not evaluator_id:
+            print("Error: Could not infer evaluator id. Provide --evaluator-id or run 'eval-protocol upload' first.")
+            return 1
+
+    # Resolve evaluator resource name via local trace
+    # trace = load_evaluator_trace(project_root, evaluator_id)
+    # if not trace or not isinstance(trace, dict):
+    #     print(
+    #         "Error: Evaluator trace not found. Run 'eval-protocol upload' first or provide --dataset-id/--dataset-jsonl and --evaluator-id."
+    #     )
+    #     return 1
+    # evaluator_resource_name = trace.get("evaluator_resource_name") or trace.get("name") or evaluator_id
+    evaluator_resource_name = evaluator_id
 
     # Determine dataset id and materialization path
     dataset_id = getattr(args, "dataset_id", None)
@@ -82,25 +118,29 @@ def create_rft_command(args) -> int:
     dataset_builder = getattr(args, "dataset_builder", None)
 
     if not dataset_id:
+        # Try builder from args, else from trace detection
+        # TODO: build dataset from traces directly
+        # builder_spec = dataset_builder or trace.get("dataset_builder")
+        # if not builder_spec:
+        #     # Attempt detect from metric_dir
+        #     metric_dir = trace.get("metric_dir")
+        #     if metric_dir:
+        #         builder_spec = detect_dataset_builder(metric_dir)
+        # if not builder_spec:
+        #     print(
+        #         "Error: Could not determine dataset. Provide --dataset-id, --dataset-jsonl, or --dataset-builder."
+        #     )
+        #     return 1
+        # try:
+        #     dataset_jsonl, count = materialize_dataset_via_builder(builder_spec)
+        #     print(f"✓ Materialized dataset via builder ({builder_spec}): {count} rows → {dataset_jsonl}")
+        # except Exception as e:
+        #     print(f"Error: dataset builder failed: {e}")
+        #     return 1
+
         if not dataset_jsonl:
-            # Try builder from args, else from trace detection
-            builder_spec = dataset_builder or trace.get("dataset_builder")
-            if not builder_spec:
-                # Attempt detect from metric_dir
-                metric_dir = trace.get("metric_dir")
-                if metric_dir:
-                    builder_spec = detect_dataset_builder(metric_dir)
-            if not builder_spec:
-                print(
-                    "Error: Could not determine dataset. Provide --dataset-id, --dataset-jsonl, or --dataset-builder."
-                )
-                return 1
-            try:
-                dataset_jsonl, count = materialize_dataset_via_builder(builder_spec)
-                print(f"✓ Materialized dataset via builder ({builder_spec}): {count} rows → {dataset_jsonl}")
-            except Exception as e:
-                print(f"Error: dataset builder failed: {e}")
-                return 1
+            print("Error: Could not determine dataset. Provide --dataset-id or --dataset-jsonl.")
+            return 1
 
         inferred_dataset_id = build_default_dataset_id(evaluator_id)
         if dry_run:
@@ -170,8 +210,8 @@ def create_rft_command(args) -> int:
         }
 
     body: Dict[str, Any] = {
-        "displayName": getattr(args, "display_name", None) or f"{evaluator_id}-rft",
-        "dataset": dataset_id,
+        # "displayName": getattr(args, "display_name", None) or f"{evaluator_id}-rft",
+        "dataset": f"accounts/{account_id}/datasets/{dataset_id}",
         "evaluator": evaluator_resource_name,
         "evalAutoCarveout": bool(getattr(args, "eval_auto_carveout", True)),
         "trainingConfig": training_config,
@@ -181,10 +221,12 @@ def create_rft_command(args) -> int:
         "outputMetrics": None,
         "mcpServer": None,
     }
+    print("Show body:")
+    print(json.dumps(body, indent=2))
     if getattr(args, "evaluation_dataset", None):
         body["evaluationDataset"] = args.evaluation_dataset
     if getattr(args, "output_model", None):
-        body.setdefault("trainingConfig", {})["outputModel"] = args.output_model
+        body.setdefault("trainingConfig", {})["outputModel"] = f"accounts/{account_id}/models/{args.output_model}"
     else:
         body.setdefault("trainingConfig", {})["outputModel"] = build_default_output_model(evaluator_id)
 

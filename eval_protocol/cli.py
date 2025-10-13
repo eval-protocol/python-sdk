@@ -368,8 +368,7 @@ def parse_args(args=None):
     )
     rft_parser.add_argument(
         "--evaluator-id",
-        required=True,
-        help="Evaluator ID used during upload; resolves evaluator resource via local trace",
+        help="Evaluator ID used during upload; if omitted, derive from local traces or a single discovered test",
     )
     # Dataset options
     rft_parser.add_argument(
