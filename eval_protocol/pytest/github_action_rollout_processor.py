@@ -1,17 +1,21 @@
 import asyncio
+import base64
 import json
 import os
 import tempfile
 import time
 import zipfile
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import requests
 
 from eval_protocol.models import EvaluationRow, Message, Status
+from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
+from eval_protocol.types.remote_rollout_processor import DataLoaderConfig, RolloutMetadata
 
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
+from .tracing_utils import default_fireworks_output_data_loader, build_init_request, update_row_with_remote_trace
 
 
 class GithubActionRolloutProcessor(RolloutProcessor):
@@ -31,160 +35,202 @@ class GithubActionRolloutProcessor(RolloutProcessor):
         repo: str,
         workflow_id: str,
         ref: str = "main",
-        github_token: Optional[str] = None,
+        model_base_url: str = "https://tracing.fireworks.ai",
         poll_interval: float = 3.0,
         timeout_seconds: float = 1800.0,
+        output_data_loader: Optional[Callable[[DataLoaderConfig], DynamicDataLoader]] = None,
     ):
-        self._owner = owner
-        self._repo = repo
-        self._workflow_id = workflow_id
-        self._ref = ref
-        self._poll_interval = poll_interval
-        self._timeout_seconds = timeout_seconds
-        self._token = github_token or os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+        self.owner = owner
+        self.repo = repo
+        self.workflow_id = workflow_id
+        self.ref = ref
+        self.model_base_url = model_base_url
+        _ep_model_base_url = os.getenv("EP_MODEL_BASE_URL")
+        if _ep_model_base_url:
+            self.model_base_url = _ep_model_base_url
+        self.poll_interval = poll_interval
+        self.timeout_seconds = timeout_seconds
+        self._output_data_loader = output_data_loader or default_fireworks_output_data_loader
 
     def _headers(self) -> Dict[str, str]:
         headers = {"Accept": "application/vnd.github+json"}
-        if self._token:
-            headers["Authorization"] = f"Bearer {self._token}"
+        token = os.getenv("GITHUB_TOKEN")
+        if not token:
+            raise ValueError("GITHUB_TOKEN environment variable is required")
+        headers["Authorization"] = f"Bearer {token}"
         return headers
+
+    def _get_run(self, run_id: int) -> Dict[str, Any]:
+        """Get status of a specific workflow run."""
+        url = f"https://api.github.com/repos/{self.owner}/{self.repo}/actions/runs/{run_id}"
+        r = requests.get(url, headers=self._headers(), timeout=30)
+        r.raise_for_status()
+        return r.json()
+
+    def _get_run_artifacts(self, run_id: int) -> Dict[str, Any]:
+        """Get artifacts for a specific workflow run."""
+        url = f"https://api.github.com/repos/{self.owner}/{self.repo}/actions/runs/{run_id}/artifacts"
+        r = requests.get(url, headers=self._headers(), timeout=30)
+        r.raise_for_status()
+        return r.json()
+
+    def _download_and_extract_trace(self, artifact_url: str, rollout_id: str) -> Optional[Dict[str, Any]]:
+        """Download artifact and extract trace JSON."""
+        # Download artifact
+        r = requests.get(artifact_url, headers=self._headers(), timeout=60)
+        r.raise_for_status()
+
+        # Extract trace JSON
+        with tempfile.NamedTemporaryFile() as tmp_file:
+            tmp_file.write(r.content)
+            tmp_file.flush()
+
+            with zipfile.ZipFile(tmp_file.name, "r") as zip_file:
+                trace_filename = f"rollout_trace_{rollout_id}.json"
+                if trace_filename in zip_file.namelist():
+                    with zip_file.open(trace_filename) as trace_file:
+                        return json.loads(trace_file.read().decode("utf-8"))
+        return None
+
+    def _apply_trace_data_to_row(
+        self, row: EvaluationRow, trace_data: Optional[Dict[str, Any]], workflow_conclusion: Optional[str]
+    ) -> EvaluationRow:
+        """Apply trace data from GitHub Actions artifact to the evaluation row."""
+        # First check workflow conclusion
+        if workflow_conclusion != "success":
+            if workflow_conclusion == "failure":
+                row.rollout_status = Status.rollout_error("GitHub Actions workflow failed")
+            elif workflow_conclusion == "cancelled":
+                row.rollout_status = Status(
+                    code=Status.Code.CANCELLED, message="GitHub Actions workflow was cancelled"
+                )
+            elif workflow_conclusion == "skipped":
+                row.rollout_status = Status(code=Status.Code.CANCELLED, message="GitHub Actions workflow was skipped")
+            else:
+                row.rollout_status = Status(
+                    code=Status.Code.UNKNOWN, message=f"GitHub Actions workflow concluded with '{workflow_conclusion}'"
+                )
+            return row
+
+        # Workflow succeeded, now check trace data
+        if not trace_data:  # No trace data found
+            row.rollout_status = Status(code=Status.Code.NOT_FOUND, message="No trace data found")
+            return row
+        elif trace_data.get("status") == "error":  # Rollout script failed
+            error_msg = trace_data.get("error", "Unknown error")
+            row.rollout_status = Status.rollout_error(f"Rollout failed: {error_msg}")
+            return row
+        elif trace_data.get("status") == "success":  # Successful rollout
+            trace_messages = trace_data.get("messages", [])
+
+            # if the trace has the same number of messages as the original row, something went wrong
+            if len(trace_messages) == len(row.messages):
+                row.rollout_status = Status.rollout_error(
+                    "Rollout finished with the same number of messages as the original row"
+                )
+                return row
+
+            row.messages = [Message(**msg) if isinstance(msg, dict) else msg for msg in trace_messages]
+            if trace_data.get("tools"):
+                row.tools = trace_data["tools"]
+            return row
+        else:
+            row.rollout_status = Status.rollout_error(f"Unknown trace status: {trace_data.get('status')}")
+            return row
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         async def _process_row(row: EvaluationRow) -> EvaluationRow:
             start_time = time.perf_counter()
 
-            # Extract model
-            model: Optional[str] = None
-            if row.input_metadata and row.input_metadata.completion_params:
-                model = row.input_metadata.completion_params.get("model")
-            if model is None and config.completion_params:
-                model = config.completion_params.get("model")
-            if model is None:
-                raise ValueError("Model must be provided")
+            if row.execution_metadata.invocation_id is None:
+                raise ValueError("Invocation ID is required in GithubActionRolloutProcessor")
+            if row.execution_metadata.experiment_id is None:
+                raise ValueError("Experiment ID is required in GithubActionRolloutProcessor")
+            if row.execution_metadata.rollout_id is None:
+                raise ValueError("Rollout ID is required in GithubActionRolloutProcessor")
+            if row.execution_metadata.run_id is None:
+                raise ValueError("Run ID is required in GithubActionRolloutProcessor")
+            if row.input_metadata.row_id is None:
+                raise ValueError("Row ID is required in GithubActionRolloutProcessor")
 
-            # Extract user prompt (first user message)
-            user_prompt = None
-            for msg in row.messages:
-                if hasattr(msg, "role"):
-                    if msg.role == "user":
-                        user_prompt = msg.content
-                        break
-                elif isinstance(msg, dict):
-                    if msg.get("role") == "user":
-                        user_prompt = msg.get("content")
-                        break
+            init_request = build_init_request(row, config, self.model_base_url)
 
-            if not user_prompt:
-                raise ValueError("At least one user message is required")
-
-            # Prepare workflow inputs
-            inputs = {
-                "model": model,
-                "rollout_id": row.execution_metadata.rollout_id,
-                "prompt": user_prompt,
-            }
-
-            # Dispatch workflow
-            def _dispatch():
-                url = f"https://api.github.com/repos/{self._owner}/{self._repo}/actions/workflows/{self._workflow_id}/dispatches"
-                payload = {"ref": self._ref, "inputs": inputs}
+            def _dispatch_workflow():
+                url = f"https://api.github.com/repos/{self.owner}/{self.repo}/actions/workflows/{self.workflow_id}/dispatches"
+                payload = {
+                    "ref": self.ref,
+                    "inputs": {
+                        "model": init_request.model,
+                        "metadata": init_request.metadata.model_dump_json(),
+                        "messages": json.dumps(init_request.messages),
+                        "tools": json.dumps(init_request.tools),
+                        "model_base_url": init_request.model_base_url,
+                    },
+                }
                 r = requests.post(url, json=payload, headers=self._headers(), timeout=30)
                 r.raise_for_status()
 
-            await asyncio.to_thread(_dispatch)
+            await asyncio.to_thread(_dispatch_workflow)
 
-            # Poll for completion
-            deadline = time.time() + self._timeout_seconds
+            # Wait for GitHub to create the run, then find it by name. TODO: not sure if this is janky
+            await asyncio.sleep(5)
+
+            def _get_workflow_runs() -> Dict[str, Any]:
+                """Get recent workflow runs for this workflow."""
+                url = (
+                    f"https://api.github.com/repos/{self.owner}/{self.repo}/actions/workflows/{self.workflow_id}/runs"
+                )
+                params = {"event": "workflow_dispatch", "branch": self.ref, "per_page": 20}
+                r = requests.get(url, params=params, headers=self._headers(), timeout=30)
+                r.raise_for_status()
+                return r.json()
+
+            runs_data = await asyncio.to_thread(_get_workflow_runs)
+
+            # Find our specific run by name
+            target_name = f"rollout:{row.execution_metadata.rollout_id}"
             run_id = None
-
-            while time.time() < deadline:
-
-                def _list_runs():
-                    url = f"https://api.github.com/repos/{self._owner}/{self._repo}/actions/workflows/{self._workflow_id}/runs"
-                    params = {"event": "workflow_dispatch", "branch": self._ref, "per_page": 10}
-                    r = requests.get(url, params=params, headers=self._headers(), timeout=30)
-                    r.raise_for_status()
-                    return r.json()
-
-                runs_data = await asyncio.to_thread(_list_runs)
-                runs = runs_data.get("workflow_runs", [])
-
-                # Find our run (prefer by name, fallback to newest)
-                preferred_name = f"rollout-{row.execution_metadata.rollout_id}"
-                candidate_run = None
-                for r in runs:
-                    if r.get("name") == preferred_name:
-                        candidate_run = r
-                        break
-                if not candidate_run and runs:
-                    candidate_run = sorted(runs, key=lambda r: r.get("id", 0), reverse=True)[0]
-
-                if candidate_run and candidate_run.get("status") == "completed":
-                    run_id = candidate_run.get("id")
-                    row.rollout_status = self._map_conclusion_to_status(candidate_run.get("conclusion"))
+            for run in runs_data.get("workflow_runs", []):
+                if run.get("name") == target_name:
+                    run_id = run.get("id")
                     break
 
-                await asyncio.sleep(self._poll_interval)
-            else:
+            if not run_id:
                 row.rollout_status = Status.rollout_error(
-                    f"GitHub Actions run timed out after {self._timeout_seconds} seconds"
+                    f"Failed to find workflow run in GHA with rollout_id {row.execution_metadata.rollout_id}"
                 )
                 row.execution_metadata.duration_seconds = time.perf_counter() - start_time
                 return row
 
-            # Fetch trace from artifacts
-            if run_id:
+            print(f"DEBUG: Found and polling run {run_id} for rollout {row.execution_metadata.rollout_id}")
 
-                def _get_artifacts():
-                    url = f"https://api.github.com/repos/{self._owner}/{self._repo}/actions/runs/{run_id}/artifacts"
-                    r = requests.get(url, headers=self._headers(), timeout=30)
-                    r.raise_for_status()
-                    return r.json()
+            # Poll the specific run until completion
+            deadline = time.time() + self.timeout_seconds
+            workflow_conclusion = None
+            # TODO: no clue what to do with workflow_conclusion
 
-                artifacts_data = await asyncio.to_thread(_get_artifacts)
-                artifacts = artifacts_data.get("artifacts", [])
+            while time.time() < deadline:
+                run_data = await asyncio.to_thread(self._get_run, run_id)
 
-                # Find trace artifact
-                trace_artifact = None
-                for artifact in artifacts:
-                    if artifact.get("name") == f"rollout-trace-{row.execution_metadata.rollout_id}":
-                        trace_artifact = artifact
-                        break
+                if run_data.get("status") == "completed":
+                    # Store the conclusion for later use in trace application
+                    # workflow_conclusion = run_data.get("conclusion")
+                    break
 
-                if trace_artifact:
-
-                    def _download_and_extract():
-                        # Download artifact
-                        r = requests.get(trace_artifact["archive_download_url"], headers=self._headers(), timeout=60)
-                        r.raise_for_status()
-
-                        # Extract trace JSON
-                        with tempfile.NamedTemporaryFile() as tmp_file:
-                            tmp_file.write(r.content)
-                            tmp_file.flush()
-
-                            with zipfile.ZipFile(tmp_file.name, "r") as zip_file:
-                                trace_filename = f"rollout_trace_{row.execution_metadata.rollout_id}.json"
-                                if trace_filename in zip_file.namelist():
-                                    with zip_file.open(trace_filename) as trace_file:
-                                        return json.loads(trace_file.read().decode("utf-8"))
-                        return None
-
-                    trace_data = await asyncio.to_thread(_download_and_extract)
-
-                    if trace_data and trace_data.get("status") == "success":
-                        trace_messages = trace_data.get("messages", [])
-                        if len(trace_messages) > len(row.messages):
-                            row.messages = [Message(**msg) if isinstance(msg, dict) else msg for msg in trace_messages]
-                            if trace_data.get("tools"):
-                                row.tools = trace_data["tools"]
-                        else:
-                            row.rollout_status = Status.rollout_error("Rollout finished with same number of messages")
-                    else:
-                        error_msg = trace_data.get("error", "Unknown error") if trace_data else "No trace data found"
-                        row.rollout_status = Status.rollout_error(f"Rollout failed: {error_msg}")
+                await asyncio.sleep(self.poll_interval)
+            else:
+                row.rollout_status = Status.rollout_error(
+                    f"GitHub Actions run timed out after {self.timeout_seconds} seconds"
+                )
+                row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+                return row
 
             row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+
+            def _update_with_trace() -> None:
+                return update_row_with_remote_trace(row, self._output_data_loader, self.model_base_url)
+
+            await asyncio.to_thread(_update_with_trace)
             return row
 
         semaphore = config.semaphore
@@ -194,14 +240,6 @@ class GithubActionRolloutProcessor(RolloutProcessor):
                 return await _process_row(r)
 
         return [asyncio.create_task(_sem_wrapper(row)) for row in rows]
-
-    @staticmethod
-    def _map_conclusion_to_status(conclusion: Optional[str]) -> Status:
-        if conclusion == "success":
-            return Status.finished("GitHub Actions workflow succeeded")
-        if conclusion in {"failure", "timed_out", "cancelled", "stale"}:
-            return Status.rollout_error(f"GitHub Actions workflow concluded with '{conclusion}'")
-        return Status(code=Status.Code.UNKNOWN, message=f"GitHub Actions workflow concluded with '{conclusion}'")
 
     def cleanup(self) -> None:
         return None

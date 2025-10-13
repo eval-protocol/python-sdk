@@ -40,28 +40,18 @@ def rows() -> List[EvaluationRow]:
     return [row, row, row]
 
 
-def check_required_env_vars():
-    """Check if required environment variables are set."""
-    required_vars = ["GITHUB_TOKEN", "GITHUB_OWNER", "GITHUB_REPO", "GITHUB_REF"]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-
-    if missing_vars:
-        pytest.skip(f"Missing required environment variables: {', '.join(missing_vars)}")
-
-
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
-@pytest.mark.parametrize("completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}])
+@pytest.mark.parametrize("completion_params", [{"model": "accounts/fireworks/models/gpt-oss-120b"}])
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[rows],
     ),
     rollout_processor=GithubActionRolloutProcessor(
-        owner=os.getenv("GITHUB_OWNER", "your-org"),
-        repo=os.getenv("GITHUB_REPO", "your-repo"),
-        workflow_id="rollout.yml",  # or use numeric ID like "12345678"
+        owner="eval-protocol",
+        repo="python-sdk",
+        workflow_id="rollout.yml",  # or you can use numeric ID like "12345678"
         ref=os.getenv("GITHUB_REF", "main"),
-        github_token=os.getenv("GITHUB_TOKEN"),
-        timeout_seconds=300,  # 5 minutes - GHA workflows can be slower than local servers
+        timeout_seconds=300,
     ),
 )
 async def test_github_actions_rollout_direct_artifacts(row: EvaluationRow) -> EvaluationRow:
@@ -74,8 +64,6 @@ async def test_github_actions_rollout_direct_artifacts(row: EvaluationRow) -> Ev
     - Fetches conversation traces directly from GitHub Actions artifacts
     - FAIL if no trace artifact found (indicates workflow didn't run or save trace properly)
     """
-    check_required_env_vars()
-
     # Track rollout IDs for coverage check
     global ROLLOUT_IDS
     ROLLOUT_IDS.add(row.execution_metadata.rollout_id)
@@ -84,31 +72,3 @@ async def test_github_actions_rollout_direct_artifacts(row: EvaluationRow) -> Ev
     assert len(row.messages) > 1, "Row should have a response. If this fails, we fell back to the original row."
 
     return row
-
-
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
-def test_github_actions_processor_creation():
-    """Test that GithubActionRolloutProcessor can be created with various configurations."""
-    check_required_env_vars()
-
-    # Test basic creation
-    processor = GithubActionRolloutProcessor(owner="test-owner", repo="test-repo", workflow_id="test.yml", ref="main")
-    assert processor._owner == "test-owner"
-    assert processor._repo == "test-repo"
-    assert processor._workflow_id == "test.yml"
-    assert processor._ref == "main"
-
-    # Test with custom configuration
-    processor_with_config = GithubActionRolloutProcessor(
-        owner="test-owner",
-        repo="test-repo",
-        workflow_id="test.yml",
-        ref="develop",
-        timeout_seconds=600,
-        poll_interval=5.0,
-        github_token="test-token",
-    )
-    assert processor_with_config._ref == "develop"
-    assert processor_with_config._timeout_seconds == 600
-    assert processor_with_config._poll_interval == 5.0
-    assert processor_with_config._token == "test-token"

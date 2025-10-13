@@ -11,6 +11,7 @@ import json
 import os
 
 from openai import OpenAI
+from eval_protocol.types.remote_rollout_processor import InitRequest
 
 
 def main():
@@ -18,18 +19,25 @@ def main():
 
     # Required arguments from workflow inputs
     parser.add_argument("--model", required=True, help="Model to use")
-    parser.add_argument("--rollout-id", required=True, help="Rollout ID for tracking")
-    parser.add_argument("--prompt", required=True, help="User prompt for the rollout")
+    parser.add_argument("--metadata", required=True, help="JSON serialized metadata object")
+    parser.add_argument("--messages", required=True, help="JSON serialized messages array")
+    parser.add_argument("--tools", required=False, help="JSON serialized tools array")
+    parser.add_argument("--model-base-url", required=True, help="Base URL for the model API")
 
     args = parser.parse_args()
 
-    print(f"🚀 Starting rollout {args.rollout_id}")
+    # Parse the JSON inputs
+    try:
+        metadata = json.loads(args.metadata)
+        messages = json.loads(args.messages)
+        tools = json.loads(args.tools) if args.tools else None
+    except Exception as e:
+        print(f"❌ Failed to parse JSON inputs: {e}")
+        exit(1)
+
+    rollout_id = metadata["rollout_id"]
+    print(f"🚀 Starting rollout {rollout_id}")
     print(f"   Model: {args.model}")
-    print(f"   Prompt: {args.prompt}")
-
-    # Build messages array
-    messages = [{"role": "user", "content": args.prompt}]
-
     print(f"   Messages: {len(messages)} messages")
 
     # Perform the rollout
@@ -37,8 +45,10 @@ def main():
 
     try:
         completion_kwargs = {"model": args.model, "messages": messages}
+        if tools:
+            completion_kwargs["tools"] = tools
 
-        client = OpenAI(base_url="https://api.fireworks.ai/inference/v1", api_key=os.environ.get("FIREWORKS_API_KEY"))
+        client = OpenAI(base_url=args.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 
         print("📡 Calling OpenAI completion...")
         completion = client.chat.completions.create(**completion_kwargs)
@@ -49,35 +59,10 @@ def main():
             assistant_message = completion.choices[0].message.model_dump()
             conversation.append(assistant_message)
 
-        # Save successful trace
-        trace_data = {
-            "status": "success",
-            "rollout_id": args.rollout_id,
-            "model": args.model,
-            "messages": conversation,
-            "usage": completion.usage.model_dump() if completion.usage else None,
-        }
-
-        print(f"✅ Rollout {args.rollout_id} completed successfully")
+        print(f"✅ Rollout {rollout_id} completed successfully")
 
     except Exception as e:
-        print(f"❌ Error in rollout {args.rollout_id}: {e}")
-
-        # Save error trace
-        trace_data = {
-            "status": "error",
-            "rollout_id": args.rollout_id,
-            "model": args.model,
-            "messages": conversation,
-            "error": str(e),
-        }
-
-    # Save trace to file
-    output_file = f"rollout_trace_{args.rollout_id}.json"
-    with open(output_file, "w") as f:
-        json.dump(trace_data, f, indent=2)
-
-    print(f"💾 Saved trace to {output_file}")
+        print(f"❌ Error in rollout {rollout_id}: {e}")
 
 
 if __name__ == "__main__":
