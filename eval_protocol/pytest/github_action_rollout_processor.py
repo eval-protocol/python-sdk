@@ -1,17 +1,13 @@
 import asyncio
-import base64
-import json
 import os
-import tempfile
 import time
-import zipfile
 from typing import Any, Callable, Dict, List, Optional
 
 import requests
 
-from eval_protocol.models import EvaluationRow, Message, Status
+from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
-from eval_protocol.types.remote_rollout_processor import DataLoaderConfig, RolloutMetadata
+from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
 
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig

@@ -1,6 +1,5 @@
 """Tests for evaluation postprocess functionality."""
 
-import pytest
 from unittest.mock import Mock, patch
 
 from eval_protocol.models import EvaluationRow, EvaluateResult, EvalMetadata, ExecutionMetadata, InputMetadata, Message

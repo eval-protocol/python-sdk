@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 import pytest
 
 from eval_protocol.pytest.evaluation_test_utils import rollout_processor_with_retry
