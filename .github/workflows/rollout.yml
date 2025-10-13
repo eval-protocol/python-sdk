@@ -1,5 +1,7 @@
 name: Eval Protocol Rollout
 
+run-name: rollout:${{ inputs.rollout_id }}
+
 on:
   workflow_dispatch:
     inputs:
@@ -40,8 +42,8 @@ jobs:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
         run: |
           python tests/github_actions/rollout_worker.py \
-            --model "${{ inputs.model }}" \
             --rollout-id "${{ inputs.rollout_id }}" \
+            --model "${{ inputs.model }}" \
             --prompt "${{ inputs.prompt }}"
 
       - name: Upload rollout trace
