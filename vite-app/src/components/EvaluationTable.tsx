@@ -55,6 +55,28 @@ export const EvaluationTable = observer(() => {
     state.handleSortFieldClick(field);
   };
 
+  const handleExportFilteredRows = () => {
+    const rows = state.filteredOriginalDataset;
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    const jsonlContent = rows.map((row) => JSON.stringify(row)).join("\n");
+    const blob = new Blob([jsonlContent], {
+      type: "application/x-ndjson",
+    });
+    const url = URL.createObjectURL(blob);
+    const timestamp = new Date().toISOString().replace(/[.:]/g, "-");
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `evaluation-rows-${timestamp}.jsonl`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="bg-white border border-gray-200">
       {/* Filter Controls */}
@@ -104,6 +126,14 @@ export const EvaluationTable = observer(() => {
               <option value={100}>100</option>
               <option value={200}>200</option>
             </Select>
+            <Button
+              onClick={handleExportFilteredRows}
+              size="sm"
+              variant="primary"
+              disabled={totalRows === 0}
+            >
+              Export JSONL
+            </Button>
           </div>
         </div>
         <div className="flex items-center gap-2">
