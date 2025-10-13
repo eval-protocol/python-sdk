@@ -432,6 +432,16 @@ export const EvaluationRow = observer(
             />
           </TableCell>
 
+          {/* Model */}
+          <TableCell className="py-3 text-xs">
+            <RowModel model={row.input_metadata.completion_params.model} />
+          </TableCell>
+
+          {/* Score */}
+          <TableCell className="py-3 text-xs">
+            <RowScore score={row.evaluation_result?.score} />
+          </TableCell>
+
           {/* Invocation ID */}
           <TableCell className="py-3 text-xs">
             <InvocationId
@@ -459,16 +469,6 @@ export const EvaluationRow = observer(
           {/* Rollout ID */}
           <TableCell className="py-3 text-xs">
             <RolloutId rolloutId={row.execution_metadata?.rollout_id} />
-          </TableCell>
-
-          {/* Model */}
-          <TableCell className="py-3 text-xs">
-            <RowModel model={row.input_metadata.completion_params.model} />
-          </TableCell>
-
-          {/* Score */}
-          <TableCell className="py-3 text-xs">
-            <RowScore score={row.evaluation_result?.score} />
           </TableCell>
         </TableRowInteractive>
 

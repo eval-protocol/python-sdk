@@ -6,7 +6,6 @@ import Select from "./Select";
 import FilterSelector from "./FilterSelector";
 import {
   TableHeader,
-  TableHead,
   TableBody as TableBodyBase,
   SortableTableHeader,
 } from "./TableContainer";
@@ -159,11 +158,11 @@ export const EvaluationTable = observer(() => {
           </Button>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-max">
+        <div className="max-h-[calc(100vh-80px)] overflow-auto">
+          <table className="text-nowrap">
             {/* Table Header */}
-            <TableHead>
-              <tr>
+            <thead>
+              <tr className="bg-gray-50 sticky top-0 z-10">
                 <TableHeader className="w-8">&nbsp;</TableHeader>
                 <SortableTableHeader
                   sortField="created_at"
@@ -196,6 +195,22 @@ export const EvaluationTable = observer(() => {
                   onSort={handleSort}
                 >
                   Rollout Status
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="$.input_metadata.completion_params.model"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Model
+                </SortableTableHeader>
+                <SortableTableHeader
+                  sortField="$.evaluation_result.score"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Score
                 </SortableTableHeader>
                 <SortableTableHeader
                   sortField="$.execution_metadata.invocation_id"
@@ -237,24 +252,8 @@ export const EvaluationTable = observer(() => {
                 >
                   Rollout ID
                 </SortableTableHeader>
-                <SortableTableHeader
-                  sortField="$.input_metadata.completion_params.model"
-                  currentSortField={state.sortField}
-                  currentSortDirection={state.sortDirection}
-                  onSort={handleSort}
-                >
-                  Model
-                </SortableTableHeader>
-                <SortableTableHeader
-                  sortField="$.evaluation_result.score"
-                  currentSortField={state.sortField}
-                  currentSortDirection={state.sortDirection}
-                  onSort={handleSort}
-                >
-                  Score
-                </SortableTableHeader>
               </tr>
-            </TableHead>
+            </thead>
 
             {/* Table Body */}
             <TableBody
