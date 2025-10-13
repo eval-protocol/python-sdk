@@ -212,7 +212,7 @@ class TestBootstrapEquivalence:
     def test_bootstrap_equivalence_pandas_vs_pure_python(self):
         import random
         import pandas as pd
-        from eval_protocol.pytest.utils import calculate_bootstrap_scores as py_bootstrap
+        from eval_protocol.pytest.evaluation_test_utils import calculate_bootstrap_scores as py_bootstrap
 
         # Deterministic synthetic scores
         rng = random.Random(123)
