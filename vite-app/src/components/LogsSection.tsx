@@ -9,6 +9,10 @@ import { getApiUrl } from "../config";
 import Select from "./Select";
 import Button from "./Button";
 
+const haveLogsChanged = (prevLogs: LogEntry[], nextLogs: LogEntry[]) => {
+  return prevLogs.length !== nextLogs.length;
+};
+
 interface LogsSectionProps {
   rolloutId?: string;
 }
@@ -19,6 +23,8 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
   const [error, setError] = useState<string | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<string>("");
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const isAtBottomRef = useRef(true);
+  const shouldAutoScrollRef = useRef(false);
 
   const fetchLogs = async (isInitialLoad = false) => {
     if (!rolloutId) return;
@@ -93,7 +99,19 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
       const data: LogsResponse = LogsResponseSchema.parse(
         await response.json()
       );
-      setLogs(data.logs);
+      setLogs((prevLogs) => {
+        const hasChanges = haveLogsChanged(prevLogs, data.logs);
+
+        if (!hasChanges) {
+          return prevLogs;
+        }
+
+        if (isAtBottomRef.current) {
+          shouldAutoScrollRef.current = true;
+        }
+
+        return data.logs;
+      });
     } catch (err) {
       if (err instanceof Error && err.message.includes("Unexpected token")) {
         setError(
@@ -115,11 +133,43 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
     }
   }, [rolloutId, selectedLevel]);
 
-  // Auto-scroll to bottom whenever logs update
   useEffect(() => {
     const el = scrollContainerRef.current;
-    if (!el) return;
+
+    if (!el) {
+      isAtBottomRef.current = true;
+      return;
+    }
+
+    const handleScroll = () => {
+      const distanceFromBottom =
+        el.scrollHeight - el.scrollTop - el.clientHeight;
+      isAtBottomRef.current = distanceFromBottom <= 8;
+    };
+
+    el.addEventListener("scroll", handleScroll);
+    handleScroll();
+
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+    };
+  }, [logs.length]);
+
+  // Auto-scroll to bottom when new logs arrive and user was already at bottom
+  useEffect(() => {
+    if (!shouldAutoScrollRef.current) {
+      return;
+    }
+
+    const el = scrollContainerRef.current;
+    if (!el) {
+      shouldAutoScrollRef.current = false;
+      return;
+    }
+
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    shouldAutoScrollRef.current = false;
+    isAtBottomRef.current = true;
   }, [logs]);
 
   if (!rolloutId) {
@@ -170,13 +220,13 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
         {logs.length > 0 && (
           <div
             ref={scrollContainerRef}
-            className="max-h-[800px] min-h-4 overflow-auto border border-gray-200"
+            className="max-h-[800px] min-h-4 overflow-auto border border-gray-200 bg-white"
           >
-            <div>
+            <div className="min-w-max">
               {logs.map((log, index) => (
                 <div
                   key={index}
-                  className={`text-xs px-3 py-1 border-b border-gray-200 last:border-b-0 ${
+                  className={`w-full text-xs px-3 py-1 border-b border-gray-200 last:border-b-0 ${
                     index % 2 === 0 ? "bg-white" : "bg-gray-50"
                   }`}
                 >
