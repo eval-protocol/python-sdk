@@ -11,13 +11,9 @@ on:
         description: 'Rollout ID for tracking'
         required: true
         type: string
-      messages_b64:
-        description: 'Base64 encoded JSON messages array'
+      prompt:
+        description: 'User prompt for the rollout'
         required: true
-        type: string
-      tools_b64:
-        description: 'Base64 encoded JSON tools array (optional)'
-        required: false
         type: string
 
 jobs:
@@ -46,8 +42,7 @@ jobs:
           python tests/github_actions/rollout_worker.py \
             --model "${{ inputs.model }}" \
             --rollout-id "${{ inputs.rollout_id }}" \
-            --messages-b64 "${{ inputs.messages_b64 }}" \
-            ${{ inputs.tools_b64 && format('--tools-b64 "{0}"', inputs.tools_b64) || '' }}
+            --prompt "${{ inputs.prompt }}"
 
       - name: Upload rollout trace
         uses: actions/upload-artifact@v4

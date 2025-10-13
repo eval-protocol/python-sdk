@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import json
 import os
 import tempfile
@@ -63,32 +62,27 @@ class GithubActionRolloutProcessor(RolloutProcessor):
             if model is None:
                 raise ValueError("Model must be provided")
 
-            # Clean and encode messages
-            allowed_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
-            clean_messages = []
-            for m in row.messages:
-                if hasattr(m, "model_dump"):
-                    md = m.model_dump()
-                elif isinstance(m, dict):
-                    md = m
-                else:
-                    md = {
-                        "role": getattr(m, "role", None),
-                        "content": getattr(m, "content", None),
-                        "tool_calls": getattr(m, "tool_calls", None),
-                        "tool_call_id": getattr(m, "tool_call_id", None),
-                        "name": getattr(m, "name", None),
-                    }
-                clean_messages.append({k: v for k, v in md.items() if k in allowed_fields and v is not None})
+            # Extract user prompt (first user message)
+            user_prompt = None
+            for msg in row.messages:
+                if hasattr(msg, "role"):
+                    if msg.role == "user":
+                        user_prompt = msg.content
+                        break
+                elif isinstance(msg, dict):
+                    if msg.get("role") == "user":
+                        user_prompt = msg.get("content")
+                        break
+
+            if not user_prompt:
+                raise ValueError("At least one user message is required")
 
             # Prepare workflow inputs
             inputs = {
                 "model": model,
                 "rollout_id": row.execution_metadata.rollout_id,
-                "messages_b64": base64.b64encode(json.dumps(clean_messages).encode()).decode(),
+                "prompt": user_prompt,
             }
-            if row.tools:
-                inputs["tools_b64"] = base64.b64encode(json.dumps(row.tools).encode()).decode()
 
             # Dispatch workflow
             def _dispatch():

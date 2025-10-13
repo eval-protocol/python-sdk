@@ -7,7 +7,6 @@ It makes an OpenAI completion call and saves the full conversation trace as JSON
 """
 
 import argparse
-import base64
 import json
 import os
 
@@ -20,44 +19,24 @@ def main():
     # Required arguments from workflow inputs
     parser.add_argument("--model", required=True, help="Model to use")
     parser.add_argument("--rollout-id", required=True, help="Rollout ID for tracking")
-    parser.add_argument("--messages-b64", required=True, help="Base64 encoded JSON messages")
-    parser.add_argument("--tools-b64", required=False, help="Base64 encoded JSON tools (optional)")
+    parser.add_argument("--prompt", required=True, help="User prompt for the rollout")
 
     args = parser.parse_args()
 
     print(f"🚀 Starting rollout {args.rollout_id}")
     print(f"   Model: {args.model}")
+    print(f"   Prompt: {args.prompt}")
 
-    # Decode messages and tools
-    try:
-        messages = json.loads(base64.b64decode(args.messages_b64).decode("utf-8"))
-        tools = None
-        if args.tools_b64:
-            tools = json.loads(base64.b64decode(args.tools_b64).decode("utf-8"))
-    except Exception as e:
-        print(f"❌ Failed to decode inputs: {e}")
-        # Save error trace
-        error_data = {
-            "status": "error",
-            "rollout_id": args.rollout_id,
-            "model": args.model,
-            "messages": [],
-            "error": f"Failed to decode inputs: {e}",
-        }
-        with open(f"rollout_trace_{args.rollout_id}.json", "w") as f:
-            json.dump(error_data, f, indent=2)
-        exit(1)
+    # Build messages array
+    messages = [{"role": "user", "content": args.prompt}]
 
     print(f"   Messages: {len(messages)} messages")
-    print(f"   Tools: {len(tools) if tools else 0} tools")
 
     # Perform the rollout
     conversation = messages.copy()
 
     try:
         completion_kwargs = {"model": args.model, "messages": messages}
-        if tools:
-            completion_kwargs["tools"] = tools
 
         client = OpenAI(api_key=os.environ.get("FIREWORKS_API_KEY"))
 
@@ -76,7 +55,6 @@ def main():
             "rollout_id": args.rollout_id,
             "model": args.model,
             "messages": conversation,
-            "tools": tools,
             "usage": completion.usage.model_dump() if completion.usage else None,
         }
 
@@ -91,7 +69,6 @@ def main():
             "rollout_id": args.rollout_id,
             "model": args.model,
             "messages": conversation,
-            "tools": tools,
             "error": str(e),
         }
 
