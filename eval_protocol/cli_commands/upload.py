@@ -21,6 +21,7 @@ from eval_protocol.auth import (
 from eval_protocol.platform_api import create_or_update_fireworks_secret
 
 from eval_protocol.evaluation import create_evaluation
+from eval_protocol.fireworks_rft import save_evaluator_trace, detect_dataset_builder
 
 
 @dataclass
@@ -665,6 +666,23 @@ def upload_command(args: argparse.Namespace) -> int:
                 entry_point=entry_point,
             )
             name = result.get("name", evaluator_id) if isinstance(result, dict) else evaluator_id
+
+            # Persist local evaluator trace for later `create rft`
+            try:
+                metric_dir = os.path.dirname(source_file_path) if source_file_path else root
+                builder_spec = detect_dataset_builder(metric_dir) or None
+                trace_payload = {
+                    "evaluator_id": evaluator_id,
+                    "evaluator_resource_name": name,
+                    "entry_point": entry_point,
+                    "metric_dir": metric_dir,
+                    "project_root": root,
+                    "dataset_builder": builder_spec,
+                }
+                save_evaluator_trace(project_root=root, evaluator_id=evaluator_id, trace=trace_payload)
+            except Exception:
+                # Non-fatal; continue
+                pass
 
             # Print success message with Fireworks dashboard link
             print(f"\n✅ Successfully uploaded evaluator: {evaluator_id}")

@@ -356,6 +356,71 @@ def parse_args(args=None):
         help="Non-interactive: upload all discovered evaluation tests",
     )
 
+    # Create command group
+    create_parser = subparsers.add_parser(
+        "create",
+        help="Resource creation commands",
+    )
+    create_subparsers = create_parser.add_subparsers(dest="create_command")
+    rft_parser = create_subparsers.add_parser(
+        "rft",
+        help="Create a Reinforcement Fine-tuning Job on Fireworks",
+    )
+    rft_parser.add_argument(
+        "--evaluator-id",
+        required=True,
+        help="Evaluator ID used during upload; resolves evaluator resource via local trace",
+    )
+    # Dataset options
+    rft_parser.add_argument(
+        "--dataset-id",
+        help="Use existing Fireworks dataset id (skip local materialization)",
+    )
+    rft_parser.add_argument(
+        "--dataset-jsonl",
+        help="Path to JSONL to upload as a new Fireworks dataset",
+    )
+    rft_parser.add_argument(
+        "--dataset-builder",
+        help="Explicit dataset builder spec (module::function or path::function)",
+    )
+    rft_parser.add_argument(
+        "--dataset-display-name",
+        help="Display name for dataset on Fireworks (defaults to dataset id)",
+    )
+    # Training config and evaluator/job settings
+    rft_parser.add_argument("--base-model", help="Base model resource id")
+    rft_parser.add_argument("--warm-start-from", help="Addon model to warm start from")
+    rft_parser.add_argument("--output-model", help="Output model id (defaults from evaluator)")
+    rft_parser.add_argument("--epochs", type=int)
+    rft_parser.add_argument("--batch-size", type=int)
+    rft_parser.add_argument("--learning-rate", type=float)
+    rft_parser.add_argument("--max-context-length", type=int)
+    rft_parser.add_argument("--lora-rank", type=int)
+    rft_parser.add_argument("--accelerator-count", type=int)
+    rft_parser.add_argument("--region", help="Fireworks region enum value")
+    rft_parser.add_argument("--display-name", help="RFT job display name")
+    rft_parser.add_argument("--evaluation-dataset", help="Optional separate eval dataset id")
+    rft_parser.add_argument("--eval-auto-carveout", dest="eval_auto_carveout", action="store_true", default=True)
+    rft_parser.add_argument("--no-eval-auto-carveout", dest="eval_auto_carveout", action="store_false")
+    # Inference params
+    rft_parser.add_argument("--temperature", type=float)
+    rft_parser.add_argument("--top-p", type=float)
+    rft_parser.add_argument("--top-k", type=int)
+    rft_parser.add_argument("--max-tokens", type=int)
+    rft_parser.add_argument("--n", type=int)
+    rft_parser.add_argument("--inference-extra-body", help="JSON string for extra inference params")
+    # Wandb
+    rft_parser.add_argument("--wandb-enabled", action="store_true")
+    rft_parser.add_argument("--wandb-project")
+    rft_parser.add_argument("--wandb-entity")
+    rft_parser.add_argument("--wandb-run-id")
+    rft_parser.add_argument("--wandb-api-key")
+    # Misc
+    rft_parser.add_argument("--rft-job-id", help="Specify an explicit RFT job id")
+    rft_parser.add_argument("--yes", "-y", action="store_true", help="Non-interactive mode")
+    rft_parser.add_argument("--dry-run", action="store_true", help="Print planned REST calls without sending")
+
     # Run command (for Hydra-based evaluations)
     # This subparser intentionally defines no arguments itself.
     # All arguments after 'run' will be passed to Hydra by parse_known_args.
@@ -481,6 +546,13 @@ def main():
         from .cli_commands.upload import upload_command
 
         return upload_command(args)
+    elif args.command == "create":
+        if args.create_command == "rft":
+            from .cli_commands.create_rft import create_rft_command
+
+            return create_rft_command(args)
+        print("Error: missing subcommand for 'create'. Try: eval-protocol create rft")
+        return 1
     elif args.command == "run":
         # For the 'run' command, Hydra takes over argument parsing.
 
