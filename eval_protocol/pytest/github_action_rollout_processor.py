@@ -88,7 +88,7 @@ class GithubActionRolloutProcessor(RolloutProcessor):
 
             await asyncio.to_thread(_dispatch_workflow)
 
-            # Wait for GitHub to create the run, then find it by name. TODO: not sure if this is janky
+            # Need to wait a bit for GitHub to create the run. Is this problematic when we have a lot of workflows to start?
             await asyncio.sleep(5)
 
             def _get_workflow_runs() -> Dict[str, Any]:
