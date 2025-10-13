@@ -598,7 +598,9 @@ class EvaluationRow(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     # Core OpenAI ChatCompletion compatible conversation data
-    messages: List[Message] = Field(description="List of messages in the conversation. Also known as a trajectory.")
+    messages: List[Message] = Field(
+        default_factory=list, description="List of messages in the conversation. Also known as a trajectory."
+    )
 
     # Tool and function call information
     tools: Optional[List[Dict[str, Any]]] = Field(

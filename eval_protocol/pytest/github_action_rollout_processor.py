@@ -162,8 +162,6 @@ class GithubActionRolloutProcessor(RolloutProcessor):
                     "inputs": {
                         "model": init_request.model,
                         "metadata": init_request.metadata.model_dump_json(),
-                        "messages": json.dumps(init_request.messages),
-                        "tools": json.dumps(init_request.tools),
                         "model_base_url": init_request.model_base_url,
                     },
                 }

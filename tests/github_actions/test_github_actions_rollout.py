@@ -18,9 +18,12 @@ from typing import List
 import pytest
 
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, InputMetadata
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.github_action_rollout_processor import GithubActionRolloutProcessor
+from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
+from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
+from eval_protocol.quickstart.utils import filter_longest_conversation
 
 ROLLOUT_IDS = set()
 
@@ -35,9 +38,26 @@ def check_rollout_coverage():
     assert len(ROLLOUT_IDS) == 3, f"Expected to see 3 rollout_ids, but only saw {ROLLOUT_IDS}"
 
 
+def fetch_fireworks_traces(config: DataLoaderConfig) -> List[EvaluationRow]:
+    global ROLLOUT_IDS  # Track all rollout_ids we've seen
+    ROLLOUT_IDS.add(config.rollout_id)
+
+    base_url = config.model_base_url or "https://tracing.fireworks.ai"
+    adapter = FireworksTracingAdapter(base_url=base_url)
+    return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
+
+
+def fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
+    return DynamicDataLoader(
+        generators=[lambda: fetch_fireworks_traces(config)], preprocess_fn=filter_longest_conversation
+    )
+
+
 def rows() -> List[EvaluationRow]:
-    row = EvaluationRow(messages=[Message(role="user", content="What is the capital of France?")])
-    return [row, row, row]
+    return [
+        EvaluationRow(input_metadata=InputMetadata(row_id=str(i)))
+        for i in range(3)  # In this example we use index to associate rows.
+    ]
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
@@ -52,6 +72,7 @@ def rows() -> List[EvaluationRow]:
         workflow_id="rollout.yml",  # or you can use numeric ID like "12345678"
         ref=os.getenv("GITHUB_REF", "main"),
         timeout_seconds=300,
+        output_data_loader=fireworks_output_data_loader,
     ),
 )
 async def test_github_actions_rollout_direct_artifacts(row: EvaluationRow) -> EvaluationRow:

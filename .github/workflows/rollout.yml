@@ -13,14 +13,6 @@ on:
         description: 'JSON serialized metadata object'
         required: true
         type: string
-      messages:
-        description: 'JSON serialized messages array'
-        required: true
-        type: string
-      tools:
-        description: 'JSON serialized tools array'
-        required: false
-        type: string
       model_base_url:
         description: 'Base URL for the model API'
         required: true
@@ -51,6 +43,4 @@ jobs:
           python tests/github_actions/rollout_worker.py \
             --model "${{ inputs.model }}" \
             --metadata '${{ inputs.metadata }}' \
-            --messages '${{ inputs.messages }}' \
-            --tools '${{ inputs.tools }}' \
             --model-base-url "${{ inputs.model_base_url }}"
