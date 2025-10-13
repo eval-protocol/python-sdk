@@ -38,7 +38,7 @@ def main():
     try:
         completion_kwargs = {"model": args.model, "messages": messages}
 
-        client = OpenAI(api_key=os.environ.get("FIREWORKS_API_KEY"))
+        client = OpenAI(base_url="https://api.fireworks.ai/inference/v1", api_key=os.environ.get("FIREWORKS_API_KEY"))
 
         print("📡 Calling OpenAI completion...")
         completion = client.chat.completions.create(**completion_kwargs)
