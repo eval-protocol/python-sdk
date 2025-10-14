@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional
+from pathlib import Path
 
 from eval_protocol.models import (
     EvaluateResult,
@@ -58,6 +59,11 @@ def _normalize_to_int_or_none(s: Optional[str]) -> Optional[int]:
         return None
 
 
+def _get_aime_dataset_path() -> str:
+    """Get the AIME dataset file path."""
+    return str(Path(__file__).parent / "data" / "aime.jsonl")
+
+
 def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     converted: List[EvaluationRow] = []
     for r in rows:
@@ -73,7 +79,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
 
 @evaluation_test(
     input_dataset=[
-        "eval_protocol/benchmarks/data/aime.jsonl",
+        _get_aime_dataset_path(),
         # "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
         # "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
     ],
