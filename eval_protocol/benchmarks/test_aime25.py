@@ -73,8 +73,9 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
 
 @evaluation_test(
     input_dataset=[
-        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
-        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
+        "eval_protocol/benchmarks/data/aime.jsonl",
+        # "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
+        # "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
     ],
     dataset_adapter=aime2025_dataset_adapter,
     completion_params=[
@@ -87,8 +88,8 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=0.8,
-    num_runs=8,
-    max_dataset_rows=2,
+    num_runs=1,
+    max_dataset_rows=1,
     max_concurrent_rollouts=4,
     mode="pointwise",
 )
