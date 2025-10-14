@@ -35,7 +35,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             request_params = {"messages": messages_payload, **config.completion_params}
             # Ensure caching is disabled only for this request (review feedback)
             request_params["cache"] = {"no-cache": True}
-            request_params["timeout"] = 1200  # 20 minutes timeout
+            request_params["stream"] = True  # Enable streaming
             # Single-level reasoning effort: expect `reasoning_effort` only
             effort_val = None
 
@@ -68,10 +68,23 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
             _litellm = importlib.import_module("litellm")
             acompletion = getattr(_litellm, "acompletion")
-            response = await acompletion(**request_params)
 
-            assistant_content = response.choices[0].message.content or ""
-            tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
+            # Handle streaming response
+            assistant_content = ""
+            tool_calls = None
+            usage_info = None
+
+            async for chunk in await acompletion(**request_params):
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if hasattr(delta, "content") and delta.content:
+                        assistant_content += delta.content
+                    if hasattr(delta, "tool_calls") and delta.tool_calls:
+                        tool_calls = delta.tool_calls
+
+                # Capture usage info from the final chunk
+                if hasattr(chunk, "usage") and chunk.usage:
+                    usage_info = chunk.usage
 
             converted_tool_calls = None
             if tool_calls:
@@ -112,11 +125,19 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 )
             ]
 
-            row.execution_metadata.usage = CompletionUsage(
-                prompt_tokens=response.usage.prompt_tokens,
-                completion_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens,
-            )
+            if usage_info:
+                row.execution_metadata.usage = CompletionUsage(
+                    prompt_tokens=usage_info.prompt_tokens,
+                    completion_tokens=usage_info.completion_tokens,
+                    total_tokens=usage_info.total_tokens,
+                )
+            else:
+                # Fallback if usage info not available from streaming
+                row.execution_metadata.usage = CompletionUsage(
+                    prompt_tokens=0,
+                    completion_tokens=0,
+                    total_tokens=0,
+                )
 
             row.messages = messages
 
