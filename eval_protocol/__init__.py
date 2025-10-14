@@ -71,10 +71,11 @@ except ImportError:
     WeaveAdapter = None
 
 try:
-    from .proxy import create_app, AuthProvider
+    from .proxy import create_app, AuthProvider, AccountInfo
 except ImportError:
     create_app = None
     AuthProvider = None
+    AccountInfo = None
 
 
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
@@ -140,6 +141,7 @@ __all__ = [
     # Proxy
     "create_app",
     "AuthProvider",
+    "AccountInfo",
 ]
 
 from . import _version
