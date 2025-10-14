@@ -81,7 +81,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     completion_params=[
         {
             "max_tokens": 131000,
-            "extra_body": {"reasoning_effort": "low"},
+            # "extra_body": {"reasoning_effort": "low"},
             "model": "fireworks_ai/accounts/pyroworks/deployedModels/glm-4p6-qpwrimne",
             # "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         }
@@ -89,9 +89,9 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=0.8,
-    num_runs=8,
-    max_dataset_rows=2,
-    max_concurrent_rollouts=4,
+    num_runs=1,
+    max_dataset_rows=30,
+    max_concurrent_rollouts=8,
     mode="pointwise",
 )
 def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
