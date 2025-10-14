@@ -11,8 +11,6 @@ from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.types.remote_rollout_processor import (
     DataLoaderConfig,
     ElasticsearchConfig,
-    InitRequest,
-    RolloutMetadata,
 )
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig

@@ -4,7 +4,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 
 import requests
-
+from datetime import datetime, timezone, timedelta
 from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
@@ -22,6 +22,8 @@ class GithubActionRolloutProcessor(RolloutProcessor):
     - Workflow dispatch with inputs: model, messages_b64, tools_b64, rollout_id, etc.
     - Workflow uploads artifact named "rollout-trace-{rollout_id}" containing trace JSON
     - Trace JSON format: {"status": "success"|"error", "messages": [...], "tools": [...], "error": str?}
+
+    NOTE: GHA has a rate limit of 5000 requests per hour.
     """
 
     def __init__(
@@ -34,6 +36,7 @@ class GithubActionRolloutProcessor(RolloutProcessor):
         model_base_url: str = "https://tracing.fireworks.ai",
         poll_interval: float = 3.0,
         timeout_seconds: float = 1800.0,
+        max_retry_attempts: int = 5,
         output_data_loader: Optional[Callable[[DataLoaderConfig], DynamicDataLoader]] = None,
     ):
         self.owner = owner
@@ -46,6 +49,7 @@ class GithubActionRolloutProcessor(RolloutProcessor):
             self.model_base_url = _ep_model_base_url
         self.poll_interval = poll_interval
         self.timeout_seconds = timeout_seconds
+        self.max_retry_attempts = max_retry_attempts
         self._output_data_loader = output_data_loader or default_fireworks_output_data_loader
 
     def _headers(self) -> Dict[str, str]:
@@ -57,6 +61,10 @@ class GithubActionRolloutProcessor(RolloutProcessor):
         return headers
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        # Calculate max_pages based on number of rows we're processing
+        num_rows = len(rows)
+        max_pages = (num_rows + 99) // 100  # Round up pages
+
         async def _process_row(row: EvaluationRow) -> EvaluationRow:
             start_time = time.perf_counter()
 
@@ -88,29 +96,70 @@ class GithubActionRolloutProcessor(RolloutProcessor):
 
             await asyncio.to_thread(_dispatch_workflow)
 
-            # Need to wait a bit for GitHub to create the run. Is this problematic when we have a lot of workflows to start?
-            await asyncio.sleep(5)
-
-            def _get_workflow_runs() -> Dict[str, Any]:
-                """Get recent workflow runs for this workflow."""
-                url = (
-                    f"https://api.github.com/repos/{self.owner}/{self.repo}/actions/workflows/{self.workflow_id}/runs"
-                )
-                params = {"event": "workflow_dispatch", "branch": self.ref, "per_page": 20}
-                r = requests.get(url, params=params, headers=self._headers(), timeout=30)
-                r.raise_for_status()
-                return r.json()
-
-            runs_data = await asyncio.to_thread(_get_workflow_runs)
-
-            # Find our specific run by name
+            run = None
             target_name = f"rollout:{row.execution_metadata.rollout_id}"
-            run_id = None
-            for run in runs_data.get("workflow_runs", []):
-                if run.get("name") == target_name:
-                    run_id = run.get("id")
-                    break
 
+            # Look for runs created in the last 15 minutes (we just dispatched it)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=15)
+            cutoff_iso = cutoff_time.isoformat()
+
+            for attempt in range(self.max_retry_attempts):
+                try:
+                    page = 1
+                    while page <= max_pages:
+
+                        def _list_runs():
+                            url = f"https://api.github.com/repos/{self.owner}/{self.repo}/actions/workflows/{self.workflow_id}/runs"
+                            params = {
+                                "event": "workflow_dispatch",
+                                "branch": self.ref,
+                                "per_page": 100,
+                                "page": page,
+                                "created": f">={cutoff_iso}",  # Only look at recent runs
+                            }
+
+                            r = requests.get(url, params=params, headers=self._headers(), timeout=30)
+                            r.raise_for_status()
+                            return r.json()
+
+                        runs_data = await asyncio.to_thread(_list_runs)
+
+                        # Search for our target run in this page
+                        for candidate_run in runs_data.get("workflow_runs", []):
+                            if candidate_run.get("name") == target_name:
+                                run = candidate_run
+
+                        # If we got fewer results than per_page, we've reached the end
+                        if len(runs_data.get("workflow_runs", [])) < 100:
+                            break
+
+                        page += 1
+
+                    # If no run found, GHA might still be populating it, retry
+                    if attempt < self.max_retry_attempts - 1:
+                        delay = 2**attempt  # Exponential backoff
+                        await asyncio.sleep(delay)
+
+                except requests.exceptions.HTTPError as e:
+                    # Retry on rate limits (HTTP 429)
+                    if e.response and e.response.status_code == 429:
+                        if attempt < self.max_retry_attempts - 1:
+                            delay = 2**attempt  # Exponential backoff
+                            await asyncio.sleep(delay)
+                        else:
+                            # Give up after max attempts
+                            raise e
+                    else:
+                        raise e
+
+            if not run:
+                row.rollout_status = Status.rollout_error(
+                    f"Failed to find workflow run in GHA with rollout_id {row.execution_metadata.rollout_id}"
+                )
+                row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+                return row
+
+            run_id = run.get("id")
             if not run_id:
                 row.rollout_status = Status.rollout_error(
                     f"Failed to find workflow run in GHA with rollout_id {row.execution_metadata.rollout_id}"
