@@ -3,24 +3,18 @@ Models for the LiteLLM Metadata Proxy.
 """
 
 from pydantic import BaseModel
-from typing import Optional, List, Any, Dict, Protocol
+from typing import Optional, List, Any, Dict, TypeAlias, Callable
 from fastapi import Request
+
+
+ChatRequestHook: TypeAlias = Callable[[Dict[str, Any], Request, "ChatParams"], tuple[Dict[str, Any], "ChatParams"]]
+TracesRequestHook: TypeAlias = Callable[[Request, "TracesParams"], "TracesParams"]
 
 
 class AccountInfo(BaseModel):
     """Account information returned from authentication."""
 
     account_id: str
-
-
-class ChatRequestHook(Protocol):
-    def __call__(
-        self, data: Dict[str, Any], request: Request, params: "ChatParams"
-    ) -> tuple[Dict[str, Any], "ChatParams"]: ...
-
-
-class TracesRequestHook(Protocol):
-    def __call__(self, request: Request, params: "TracesParams") -> "TracesParams": ...
 
 
 class ChatParams(BaseModel):
