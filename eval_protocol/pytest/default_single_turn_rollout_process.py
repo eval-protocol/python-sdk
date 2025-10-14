@@ -35,6 +35,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             request_params = {"messages": messages_payload, **config.completion_params}
             # Ensure caching is disabled only for this request (review feedback)
             request_params["cache"] = {"no-cache": True}
+            # request_params["timeout"] = 1200  # 20 minutes timeout
             request_params["stream"] = True  # Enable streaming
             # Single-level reasoning effort: expect `reasoning_effort` only
             effort_val = None
@@ -69,22 +70,23 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             _litellm = importlib.import_module("litellm")
             acompletion = getattr(_litellm, "acompletion")
 
-            # Handle streaming response
+            # Handle streaming response - following LiteLLM docs pattern
             assistant_content = ""
             tool_calls = None
-            usage_info = None
+            chunks = []
 
-            async for chunk in await acompletion(**request_params):
+            response = await acompletion(**request_params)
+
+            # Process streaming chunks
+            async for chunk in response:
+                chunks.append(chunk)  # Collect chunks for potential use with stream_chunk_builder
+
                 if chunk.choices and len(chunk.choices) > 0:
                     delta = chunk.choices[0].delta
                     if hasattr(delta, "content") and delta.content:
                         assistant_content += delta.content
                     if hasattr(delta, "tool_calls") and delta.tool_calls:
                         tool_calls = delta.tool_calls
-
-                # Capture usage info from the final chunk
-                if hasattr(chunk, "usage") and chunk.usage:
-                    usage_info = chunk.usage
 
             converted_tool_calls = None
             if tool_calls:
@@ -125,6 +127,13 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 )
             ]
 
+            # Try to get usage info from chunks, fallback to estimates
+            usage_info = None
+            for chunk in reversed(chunks):  # Check last chunks first for usage info
+                if hasattr(chunk, "usage") and chunk.usage:
+                    usage_info = chunk.usage
+                    break
+
             if usage_info:
                 row.execution_metadata.usage = CompletionUsage(
                     prompt_tokens=usage_info.prompt_tokens,
@@ -132,11 +141,12 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                     total_tokens=usage_info.total_tokens,
                 )
             else:
-                # Fallback if usage info not available from streaming
+                # Fallback estimates when streaming doesn't provide usage
+                estimated_completion_tokens = len(assistant_content.split()) if assistant_content else 0
                 row.execution_metadata.usage = CompletionUsage(
                     prompt_tokens=0,
-                    completion_tokens=0,
-                    total_tokens=0,
+                    completion_tokens=estimated_completion_tokens,
+                    total_tokens=estimated_completion_tokens,
                 )
 
             row.messages = messages
