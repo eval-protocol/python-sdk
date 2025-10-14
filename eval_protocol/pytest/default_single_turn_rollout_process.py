@@ -35,6 +35,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             request_params = {"messages": messages_payload, **config.completion_params}
             # Ensure caching is disabled only for this request (review feedback)
             request_params["cache"] = {"no-cache": True}
+            request_params["timeout"] = 1200  # 20 minutes timeout
             # Single-level reasoning effort: expect `reasoning_effort` only
             effort_val = None
 
