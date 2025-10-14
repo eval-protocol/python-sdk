@@ -59,11 +59,6 @@ def _normalize_to_int_or_none(s: Optional[str]) -> Optional[int]:
         return None
 
 
-def _get_aime_dataset_path() -> str:
-    """Get the AIME dataset file path."""
-    return str(Path(__file__).parent / "data" / "aime.jsonl")
-
-
 def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     converted: List[EvaluationRow] = []
     for r in rows:
@@ -79,9 +74,8 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
 
 @evaluation_test(
     input_dataset=[
-        _get_aime_dataset_path(),
-        # "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
-        # "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
+        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
+        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
     ],
     dataset_adapter=aime2025_dataset_adapter,
     completion_params=[
@@ -95,9 +89,9 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=0.8,
-    num_runs=1,
-    max_dataset_rows=1,
-    max_concurrent_rollouts=1,
+    num_runs=8,
+    max_dataset_rows=2,
+    max_concurrent_rollouts=4,
     mode="pointwise",
 )
 def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
