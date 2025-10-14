@@ -89,6 +89,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
             "max_tokens": 131000,
             "extra_body": {"reasoning_effort": "low"},
             "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+            "request_timeout": 1200,  # 20 minutes Fireworks timeout
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
