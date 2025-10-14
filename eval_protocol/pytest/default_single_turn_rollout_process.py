@@ -16,8 +16,6 @@ from eval_protocol.pytest.types import RolloutProcessorConfig
 
 logger = logging.getLogger(__name__)
 
-litellm._turn_on_debug()  # pyright: ignore[reportPrivateImportUsage]
-
 
 class SingleTurnRolloutProcessor(RolloutProcessor):
     """Single turn rollout processor for direct LLM calls."""
@@ -66,26 +64,19 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             if row.tools is not None:
                 request_params["tools"] = row.tools
 
-            # _litellm = importlib.import_module("litellm")
-            # acompletion = getattr(_litellm, "acompletion")
-
-            # Handle streaming response
-            assistant_content = ""
-            tool_calls = None
-            usage_info = None
+            chunks = []
 
             stream = await acompletion(**request_params)
-            async for chunk in stream:  # pyright: ignore[reportGeneralTypeIssues]
-                if chunk.choices and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta
-                    if hasattr(delta, "content") and delta.content:
-                        assistant_content += delta.content
-                    if hasattr(delta, "tool_calls") and delta.tool_calls:
-                        tool_calls = delta.tool_calls
+            async for chunk in stream:
+                chunks.append(chunk)
 
-                # Capture usage info from the final chunk
-                if hasattr(chunk, "usage") and chunk.usage:
-                    usage_info = chunk.usage
+            response = litellm.stream_chunk_builder(chunks, messages_payload)
+
+            if response is None:
+                raise ValueError("Response is None")
+
+            assistant_content = response.choices[0].message.content or ""
+            tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
 
             converted_tool_calls = None
             if tool_calls:
@@ -125,20 +116,11 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                     tool_calls=converted_tool_calls,
                 )
             ]
-
-            if usage_info:
-                row.execution_metadata.usage = CompletionUsage(
-                    prompt_tokens=usage_info.prompt_tokens,
-                    completion_tokens=usage_info.completion_tokens,
-                    total_tokens=usage_info.total_tokens,
-                )
-            else:
-                # Fallback if usage info not available from streaming
-                row.execution_metadata.usage = CompletionUsage(
-                    prompt_tokens=0,
-                    completion_tokens=0,
-                    total_tokens=0,
-                )
+            row.execution_metadata.usage = CompletionUsage(
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+            )
 
             row.messages = messages
 
