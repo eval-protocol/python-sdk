@@ -63,7 +63,10 @@ async def handle_chat_completion(
     auth_header = request.headers.get("authorization", "")
     if auth_header.startswith("Bearer "):
         api_key = auth_header.replace("Bearer ", "").strip()
-        data["api_key"] = api_key
+        # Only inject API key if model is a Fireworks model
+        model = data.get("model")
+        if model and isinstance(model, str) and model.startswith("fireworks_ai"):
+            data["api_key"] = api_key
 
     # If metadata IDs are provided, add them as tags
     insertion_id = None
