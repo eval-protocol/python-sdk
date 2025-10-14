@@ -65,9 +65,12 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 request_params["tools"] = row.tools
 
             chunks = []
+            print("time: ", time.time())
 
             stream = await acompletion(**request_params)
             async for chunk in stream:
+                print("chunk added at time: ", time.time())
+                print("chunk: ", chunk)
                 chunks.append(chunk)
 
             response = litellm.stream_chunk_builder(chunks, messages_payload)

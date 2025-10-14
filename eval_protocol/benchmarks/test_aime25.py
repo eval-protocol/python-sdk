@@ -86,10 +86,10 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     dataset_adapter=aime2025_dataset_adapter,
     completion_params=[
         {
-            "max_tokens": 131000,
-            "extra_body": {"reasoning_effort": "low"},
-            # "model": "fireworks_ai/accounts/pyroworks/deployedModels/glm-4p6-qpwrimne",
-            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+            "max_tokens": 65536,
+            # "extra_body": {"reasoning_effort": "low"},
+            "model": "fireworks_ai/accounts/pyroworks/deployedModels/glm-4p6-qpwrimne",
+            # "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
