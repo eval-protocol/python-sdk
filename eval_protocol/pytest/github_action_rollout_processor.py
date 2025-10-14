@@ -19,9 +19,9 @@ class GithubActionRolloutProcessor(RolloutProcessor):
     Rollout processor that dispatches and monitors a GitHub Actions workflow per evaluation row.
 
     Expected GitHub Actions workflow:
-    - Workflow dispatch with inputs: model, messages_b64, tools_b64, rollout_id, etc.
-    - Workflow uploads artifact named "rollout-trace-{rollout_id}" containing trace JSON
-    - Trace JSON format: {"status": "success"|"error", "messages": [...], "tools": [...], "error": str?}
+    - Workflow dispatch with inputs: model, metadata (JSON), model_base_url
+    - Workflow makes API calls that get traced (e.g., via Fireworks tracing proxy)
+    - Traces are fetched later via output_data_loader using rollout_id tags
 
     NOTE: GHA has a rate limit of 5000 requests per hour.
     """
@@ -34,9 +34,10 @@ class GithubActionRolloutProcessor(RolloutProcessor):
         workflow_id: str,
         ref: str = "main",
         model_base_url: str = "https://tracing.fireworks.ai",
-        poll_interval: float = 3.0,
+        poll_interval: float = 10.0,
         timeout_seconds: float = 1800.0,
-        max_retry_attempts: int = 5,
+        max_find_workflow_retries: int = 5,
+        github_token: Optional[str] = None,
         output_data_loader: Optional[Callable[[DataLoaderConfig], DynamicDataLoader]] = None,
     ):
         self.owner = owner
@@ -49,14 +50,17 @@ class GithubActionRolloutProcessor(RolloutProcessor):
             self.model_base_url = _ep_model_base_url
         self.poll_interval = poll_interval
         self.timeout_seconds = timeout_seconds
-        self.max_retry_attempts = max_retry_attempts
+        self.max_find_workflow_retries = max_find_workflow_retries
+        self.github_token = github_token
         self._output_data_loader = output_data_loader or default_fireworks_output_data_loader
 
     def _headers(self) -> Dict[str, str]:
         headers = {"Accept": "application/vnd.github+json"}
-        token = os.getenv("GITHUB_TOKEN")
+        token = self.github_token or os.getenv("GITHUB_TOKEN")
         if not token:
-            raise ValueError("GITHUB_TOKEN environment variable is required")
+            raise ValueError(
+                "GitHub token is required. Provide it via github_token parameter or GITHUB_TOKEN environment variable"
+            )
         headers["Authorization"] = f"Bearer {token}"
         return headers
 
@@ -103,7 +107,7 @@ class GithubActionRolloutProcessor(RolloutProcessor):
             cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=15)
             cutoff_iso = cutoff_time.isoformat()
 
-            for attempt in range(self.max_retry_attempts):
+            for attempt in range(self.max_find_workflow_retries):
                 try:
                     page = 1
                     while page <= max_pages:
@@ -113,7 +117,7 @@ class GithubActionRolloutProcessor(RolloutProcessor):
                             params = {
                                 "event": "workflow_dispatch",
                                 "branch": self.ref,
-                                "per_page": 100,
+                                "per_page": 100,  # Max per_page is 100, minimize total number of pages
                                 "page": page,
                                 "created": f">={cutoff_iso}",  # Only look at recent runs
                             }
@@ -129,21 +133,21 @@ class GithubActionRolloutProcessor(RolloutProcessor):
                             if candidate_run.get("name") == target_name:
                                 run = candidate_run
 
-                        # If we got fewer results than per_page, we've reached the end
+                        # If we got fewer results than 100, we've reached the end, since we paginate in chunks of 100
                         if len(runs_data.get("workflow_runs", [])) < 100:
                             break
 
                         page += 1
 
                     # If no run found, GHA might still be populating it, retry
-                    if attempt < self.max_retry_attempts - 1:
+                    if attempt < self.max_find_workflow_retries - 1:
                         delay = 2**attempt  # Exponential backoff
                         await asyncio.sleep(delay)
 
                 except requests.exceptions.HTTPError as e:
                     # Retry on rate limits (HTTP 429)
                     if e.response and e.response.status_code == 429:
-                        if attempt < self.max_retry_attempts - 1:
+                        if attempt < self.max_find_workflow_retries - 1:
                             delay = 2**attempt  # Exponential backoff
                             await asyncio.sleep(delay)
                         else:

@@ -3,7 +3,7 @@
 GitHub Actions rollout worker script.
 
 This script is called by the GitHub Actions workflow to perform the actual rollout.
-It makes an OpenAI completion call and saves the full conversation trace as JSON.
+It makes an OpenAI completion call that gets automatically traced via the tracing proxy.
 """
 
 import argparse

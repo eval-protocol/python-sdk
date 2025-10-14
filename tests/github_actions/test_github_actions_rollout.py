@@ -64,6 +64,7 @@ def rows() -> List[EvaluationRow]:
         repo="python-sdk",
         workflow_id="rollout.yml",  # or you can use numeric ID like "12345678"
         ref=os.getenv("GITHUB_REF", "main"),
+        poll_interval=3.0,  # For multi-turn, you'll likely want higher poll interval
         timeout_seconds=300,
         output_data_loader=fireworks_output_data_loader,
     ),
