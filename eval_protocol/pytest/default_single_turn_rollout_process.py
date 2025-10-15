@@ -73,6 +73,15 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 async for chunk in stream:  # pyright: ignore[reportGeneralTypeIssues]
                     chunks.append(chunk)
                 response = litellm.stream_chunk_builder(chunks, messages_payload)
+
+                # Check for reasoning content
+                print("DEBUG: ", messages_payload)
+                if hasattr(response.choices[0].message, "reasoning_content"):
+                    print(f"Reasoning: {response.choices[0].message.reasoning_content}")
+
+                # Check for thinking blocks
+                if hasattr(response.choices[0].message, "thinking_blocks"):
+                    print(f"Thinking: {response.choices[0].message.thinking_blocks}")
             else:
                 response = await acompletion(**request_params)
 
