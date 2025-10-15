@@ -47,7 +47,7 @@ from eval_protocol.pytest.types import (
 )
 
 
-from eval_protocol.pytest.utils import (
+from eval_protocol.pytest.evaluation_test_utils import (
     AggregationMethod,
     add_cost_metrics,
     log_eval_status_and_rows,

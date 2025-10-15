@@ -1,27 +1,26 @@
 name: Eval Protocol Rollout
 
-run-name: rollout:${{ inputs.rollout_id }}
+run-name: rollout:${{ fromJSON(inputs.metadata).rollout_id }}
 
 on:
   workflow_dispatch:
     inputs:
       model:
-        description: 'Model to use for the rollout'
+        description: 'Model to use'
         required: true
         type: string
-      rollout_id:
-        description: 'Rollout ID for tracking'
+      metadata:
+        description: 'JSON serialized metadata object'
         required: true
         type: string
-      prompt:
-        description: 'User prompt for the rollout'
+      model_base_url:
+        description: 'Base URL for the model API'
         required: true
         type: string
 
 jobs:
   rollout:
     runs-on: ubuntu-latest
-    name: rollout-${{ inputs.rollout_id }}
 
     steps:
       - name: Checkout code
@@ -43,13 +42,5 @@ jobs:
         run: |
           python tests/github_actions/rollout_worker.py \
             --model "${{ inputs.model }}" \
-            --rollout-id "${{ inputs.rollout_id }}" \
-            --prompt "${{ inputs.prompt }}"
-
-      - name: Upload rollout trace
-        uses: actions/upload-artifact@v4
-        if: always()  # Upload even if the rollout failed
-        with:
-          name: rollout-trace-${{ inputs.rollout_id }}
-          path: rollout_trace_${{ inputs.rollout_id }}.json
-          retention-days: 7
+            --metadata '${{ inputs.metadata }}' \
+            --model-base-url "${{ inputs.model_base_url }}"

@@ -21,7 +21,7 @@ from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
-from eval_protocol.quickstart.utils import filter_longest_conversation
+from eval_protocol.utils.evaluation_row_utils import filter_longest_conversation
 from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
 
 ROLLOUT_IDS = set()
@@ -43,7 +43,7 @@ def fetch_fireworks_traces(config: DataLoaderConfig) -> List[EvaluationRow]:
 
     base_url = config.model_base_url or "https://tracing.fireworks.ai"
     adapter = FireworksTracingAdapter(base_url=base_url)
-    return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
+    return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=7)
 
 
 def fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:

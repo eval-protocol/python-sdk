@@ -7,9 +7,9 @@ to pull data from Langfuse deployments with simplified retry logic handling.
 from __future__ import annotations
 import logging
 import requests
-import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Protocol
+import os
 
 from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, Message
 from .base import BaseAdapter
@@ -343,15 +343,17 @@ class FireworksTracingAdapter(BaseAdapter):
         # Remove None values
         params = {k: v for k, v in params.items() if v is not None}
 
-        # Make request to proxy
+        # Make request to proxy (using pointwise for efficiency)
         if self.project_id:
-            url = f"{self.base_url}/v1/project_id/{self.project_id}/traces"
+            url = f"{self.base_url}/v1/project_id/{self.project_id}/traces/pointwise"
         else:
-            url = f"{self.base_url}/v1/traces"
+            url = f"{self.base_url}/v1/traces/pointwise"
+
+        headers = {"Authorization": f"Bearer {os.environ.get('FIREWORKS_API_KEY')}"}
 
         result = None
         try:
-            response = requests.get(url, params=params, timeout=self.timeout)
+            response = requests.get(url, params=params, timeout=self.timeout, headers=headers)
             response.raise_for_status()
             result = response.json()
         except requests.exceptions.HTTPError as e:
@@ -365,7 +367,7 @@ class FireworksTracingAdapter(BaseAdapter):
                 except Exception:  # In case e.response.json() fails
                     error_msg = f"Proxy error: {e.response.text}"
 
-            logger.error("Failed to fetch traces from proxy: %s", error_msg)
+            logger.error("Failed to fetch traces from proxy (HTTP %s): %s", e.response.status_code, error_msg)
             return eval_rows
         except requests.exceptions.RequestException as e:
             # Non-HTTP errors (network issues, timeouts, etc.)

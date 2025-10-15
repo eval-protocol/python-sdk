@@ -1,0 +1,23 @@
+# Metadata Extraction Gateway - Sits in front of LiteLLM
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Prevent Python from buffering stdout/stderr
+ENV PYTHONUNBUFFERED=1
+
+# Copy requirements file
+COPY ./requirements.txt /app/requirements.txt
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the proxy package
+COPY ./proxy_core /app/proxy_core
+
+# Expose port
+EXPOSE 4000
+
+# Run the gateway as a module
+# LITELLM_URL will be set by environment (docker-compose or Cloud Run)
+CMD ["python", "-m", "proxy_core.main"]

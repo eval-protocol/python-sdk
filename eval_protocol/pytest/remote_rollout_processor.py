@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import time
 from typing import Any, Dict, List, Optional, Callable
 
@@ -11,14 +10,11 @@ from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.types.remote_rollout_processor import (
     DataLoaderConfig,
     ElasticsearchConfig,
-    InitRequest,
-    RolloutMetadata,
 )
-from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
-from eval_protocol.quickstart.utils import filter_longest_conversation
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
 from .elasticsearch_setup import ElasticsearchSetup
+from .tracing_utils import default_fireworks_output_data_loader, build_init_request, update_row_with_remote_trace
 import logging
 
 import os
@@ -43,55 +39,6 @@ def create_elasticsearch_config_from_env() -> ElasticsearchConfig:
         api_key=api_key,
         index_name=index_name,
     )
-
-
-def _build_fireworks_tracing_url(
-    base_url: str, metadata: RolloutMetadata, completion_params_base_url: Optional[str] = None
-) -> str:
-    """Build a Fireworks tracing URL by appending rollout metadata to the base URL path,
-    allowing the Fireworks tracing proxy to automatically tag traces.
-
-    Format: {base_url}/rollout_id/{id}/invocation_id/{id}/experiment_id/{id}/run_id/{id}/row_id/{id}
-
-    Args:
-        base_url: Fireworks tracing proxy URL (we expect this to be https://tracing.fireworks.ai or
-                  https://tracing.fireworks.ai/project_id/{project_id})
-        metadata: Rollout metadata containing IDs to embed in the URL
-        completion_params_base_url: Optional LLM base URL to encode and append to the final URL
-    """
-    url = (
-        f"{base_url}/rollout_id/{metadata.rollout_id}"
-        f"/invocation_id/{metadata.invocation_id}"
-        f"/experiment_id/{metadata.experiment_id}"
-        f"/run_id/{metadata.run_id}"
-        f"/row_id/{metadata.row_id}"
-    )
-
-    if (
-        completion_params_base_url
-    ):  # The final URL is both tracing.fireworks.ai and the actual LLM base URL we want to use
-        encoded_base_url = base64.urlsafe_b64encode(completion_params_base_url.encode()).decode()
-        url = f"{url}/encoded_base_url/{encoded_base_url}"
-
-    return url
-
-
-def _default_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
-    """Default output data loader that fetches traces from Fireworks tracing proxy.
-
-    Args:
-        config: Configuration containing rollout_id and optional model_base_url
-
-    Returns:
-        DynamicDataLoader configured to fetch and process traces
-    """
-
-    def fetch_traces() -> List[EvaluationRow]:
-        base_url = config.model_base_url or "https://tracing.fireworks.ai"
-        adapter = FireworksTracingAdapter(base_url=base_url)
-        return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
-
-    return DynamicDataLoader(generators=[fetch_traces], preprocess_fn=filter_longest_conversation)
 
 
 class RemoteRolloutProcessor(RolloutProcessor):
@@ -126,7 +73,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
             self._model_base_url = _ep_model_base_url
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
-        self._output_data_loader = output_data_loader or _default_output_data_loader
+        self._output_data_loader = output_data_loader or default_fireworks_output_data_loader
         self._disable_elastic_search_setup = disable_elastic_search_setup
         self._elastic_search_config = elastic_search_config
 
@@ -331,45 +278,13 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     f"Rollout {row.execution_metadata.rollout_id} timed out after {timeout_seconds} seconds"
                 )
 
-            # Update duration, regardless of termination
             row.execution_metadata.duration_seconds = time.perf_counter() - start_time
 
-            if row.execution_metadata.rollout_id is None:
-                raise ValueError("Rollout ID is required in RemoteRolloutProcessor")
+            def _update_with_trace() -> None:
+                return update_row_with_remote_trace(row, self._output_data_loader, model_base_url)
 
-            loader_config = DataLoaderConfig(
-                rollout_id=row.execution_metadata.rollout_id, model_base_url=model_base_url
-            )
-            data_loader = self._output_data_loader(loader_config)
-
-            def _load_data():
-                return data_loader.load()
-
-            results = await asyncio.to_thread(_load_data)
-
-            output_rows: List[EvaluationRow] = [row for result in results for row in result.rows]
-
-            if len(output_rows) == 0:  # Fallback to original row if no Remote data found
-                row.rollout_status = Status(code=Status.Code.NOT_FOUND, message="No remote data found for rollout")
-                return row
-            elif len(output_rows) == 1:  # Return the remote row
-                remote_row = output_rows[0]
-
-                # if the remote_row has the same number of messages as the original row,
-                # something went wrong
-                if len(remote_row.messages) == len(row.messages):
-                    row.rollout_status = Status.rollout_error(
-                        "Rollout finished with the same number of messages as the original row"
-                    )
-                    return row
-
-                row.messages = remote_row.messages
-                row.tools = remote_row.tools
-                row.input_metadata.session_data = remote_row.input_metadata.session_data
-                row.execution_metadata = remote_row.execution_metadata
-                return row
-            else:
-                raise ValueError("RemoteRolloutProcessor's output_data_loader should return exactly one row.")
+            await asyncio.to_thread(_update_with_trace)  # Update row with remote trace in-place
+            return row
 
         semaphore = config.semaphore
 

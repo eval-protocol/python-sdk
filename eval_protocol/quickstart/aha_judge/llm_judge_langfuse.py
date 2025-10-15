@@ -10,14 +10,12 @@ import pytest
 from eval_protocol import (
     evaluation_test,
     aha_judge,
-    multi_turn_assistant_to_ground_truth,
     EvaluationRow,
     SingleTurnRolloutProcessor,
     create_langfuse_adapter,
     DynamicDataLoader,
+    multi_turn_assistant_to_ground_truth,
 )
-
-from eval_protocol.quickstart import aha_judge
 
 
 def langfuse_data_generator():
