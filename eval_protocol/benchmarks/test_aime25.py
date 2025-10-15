@@ -1,5 +1,4 @@
 from typing import Any, Dict, List, Optional
-from pathlib import Path
 
 from eval_protocol.models import (
     EvaluateResult,
