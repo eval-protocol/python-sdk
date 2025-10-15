@@ -46,10 +46,10 @@ app.post("/init", async (req: Request, res: Response) => {
   try {
     // Validate request body
     const validatedData = initRequestSchema.parse(req.body);
-    const { model, metadata } = validatedData;
+    const { completion_params, metadata } = validatedData;
     const rollout_id = metadata.rollout_id;
 
-    console.log(`Initializing rollout ${rollout_id} with model ${model}`);
+    console.log(`Initializing rollout ${rollout_id} with model ${completion_params.model}`);
 
     // Create rollout state
     const rolloutState: RolloutState = {

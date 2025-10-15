@@ -44,7 +44,10 @@ class DataLoaderConfig(BaseModel):
 class InitRequest(BaseModel):
     """Request model for POST /init endpoint."""
 
-    model: str
+    completion_params: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Completion parameters including model and optional model_kwargs, temperature, etc."
+    )
     elastic_search_config: Optional[ElasticsearchConfig] = None
     messages: Optional[List[Message]] = None
     tools: Optional[List[Dict[str, Any]]] = None

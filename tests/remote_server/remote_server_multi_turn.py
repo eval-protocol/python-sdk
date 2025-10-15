@@ -34,6 +34,10 @@ def init(req: InitRequest):
 
             client = OpenAI(base_url=req.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 
+            model = req.completion_params.get("model")
+            if not model:
+                raise ValueError("model is required in completion_params")
+
             # Build up conversation over 6 turns (3 user messages + 3 assistant responses)
             # Convert Message objects to dicts for OpenAI API
             conversation_history = [{"role": m.role, "content": m.content} for m in req.messages]
@@ -43,10 +47,11 @@ def init(req: InitRequest):
                 "What else can you share about this topic?",
             ]
 
+            
             # First completion (turns 1-2: initial user message + assistant response)
-            logger.info(f"Turn 1-2: Sending initial completion request to model {req.model}")
+            logger.info(f"Turn 1-2: Sending initial completion request to model {model}")
             completion = client.chat.completions.create(
-                model=req.model,
+                model=model,
                 messages=conversation_history,  # type: ignore
             )
             assistant_message = completion.choices[0].message
@@ -58,7 +63,7 @@ def init(req: InitRequest):
             conversation_history.append({"role": "user", "content": follow_up_questions[0]})
             logger.info(f"Turn 3: User asks: {follow_up_questions[0]}")
             completion = client.chat.completions.create(
-                model=req.model,
+                model=model,
                 messages=conversation_history,  # type: ignore
             )
             assistant_message = completion.choices[0].message
@@ -70,7 +75,7 @@ def init(req: InitRequest):
             conversation_history.append({"role": "user", "content": follow_up_questions[1]})
             logger.info(f"Turn 5: User asks: {follow_up_questions[1]}")
             completion = client.chat.completions.create(
-                model=req.model,
+                model=model,
                 messages=conversation_history,  # type: ignore
             )
             assistant_message = completion.choices[0].message

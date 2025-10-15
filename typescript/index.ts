@@ -40,7 +40,7 @@ const metadataSchema = z
   .loose();
 
 export const initRequestSchema = z.object({
-  model: z.string(),
+  completion_params: z.record(z.string(), z.any()).describe("Completion parameters including model and optional model_kwargs, temperature, etc."),
   messages: z.array(messageSchema).optional(),
   tools: z.array(toolSchema).optional().nullable(),
   metadata: metadataSchema,
@@ -66,6 +66,11 @@ export type StatusResponse = z.infer<typeof statusResponseSchema>;
 export function initRequestToCompletionParams(
   initRequest: InitRequest
 ): ChatCompletionCreateParamsNonStreaming {
+  const model = initRequest.completion_params?.model;
+  if (!model) {
+    throw new Error("model is required in completion_params");
+  }
+
   const toolsToOpenAI = initRequest.tools?.map((tool) => ({
     type: "function" as const,
     function: tool.function.description
@@ -84,17 +89,19 @@ export function initRequestToCompletionParams(
     throw new Error("messages is required");
   }
 
-  const completionParams = toolsToOpenAI
-    ? {
-        model: initRequest.model,
-        messages: initRequest.messages,
-        tools: toolsToOpenAI,
-      }
-    : {
-        model: initRequest.model,
-        messages: initRequest.messages,
-      };
-  return completionParams;
+  const baseParams: ChatCompletionCreateParamsNonStreaming = {
+    model: model,
+    messages: initRequest.messages,
+    ...(toolsToOpenAI && { tools: toolsToOpenAI }),
+  };
+  
+  // Apply model_kwargs if present (temperature, max_tokens, etc.)
+  const model_kwargs = initRequest.completion_params?.model_kwargs;
+  if (model_kwargs && typeof model_kwargs === 'object') {
+    Object.assign(baseParams, model_kwargs);
+  }
+  
+  return baseParams;
 }
 
 export function createLangfuseConfigTags(initRequest: InitRequest): string[] {

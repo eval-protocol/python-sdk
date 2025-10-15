@@ -185,22 +185,24 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 row_id=row.input_metadata.row_id,
             )
 
-            model: Optional[str] = None
-            if row.input_metadata and row.input_metadata.completion_params:
-                model = row.input_metadata.completion_params.get("model")
-            if model is None and config.completion_params:
-                model = config.completion_params.get("model")
-            if model is None:
-                raise ValueError(
-                    "Model must be provided in row.input_metadata.completion_params or config.completion_params"
-                )
+            completion_params_dict: Dict[str, Any] = {}
 
-            # Extract base_url from completion_params if provided. If we're using tracing.fireworks.ai, this base_url gets encoded and passed to LiteLLM inside the proxy.
-            completion_params_base_url: Optional[str] = None
+            # Start with config-level completion_params
+            if config.completion_params and isinstance(config.completion_params, dict):
+                completion_params_dict.update(config.completion_params)
+            
+            #Override with row-level completion_params
             if row.input_metadata and row.input_metadata.completion_params:
-                completion_params_base_url = row.input_metadata.completion_params.get("base_url")
-            if completion_params_base_url is None and config.completion_params:
-                completion_params_base_url = config.completion_params.get("base_url")
+            row_cp = row.input_metadata.completion_params
+            if isinstance(row_cp, dict):
+                completion_params_dict.update(row_cp)
+
+            # Validate model is present
+            if not completion_params_dict.get("model"):
+                raise ValueError("Model must be provided in completion_params")
+
+            # Extract base_url from completion_params if provided
+            completion_params_base_url: Optional[str] = completion_params_dict.get("base_url")
 
             # Strip non-OpenAI fields from messages before sending to remote
             allowed_message_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
@@ -233,7 +235,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 final_model_base_url = _build_fireworks_tracing_url(model_base_url, meta, completion_params_base_url)
 
             init_payload: InitRequest = InitRequest(
-                model=model,
+                completion_params=completion_params_dict,
                 messages=clean_messages,
                 tools=row.tools,
                 metadata=meta,
