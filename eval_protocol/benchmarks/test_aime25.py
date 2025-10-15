@@ -79,9 +79,9 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
 
 @evaluation_test(
     input_dataset=[
-        # _get_aime_dataset_path(),
-        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
-        "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
+        _get_aime_dataset_path(),
+        # "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-I.jsonl",
+        # "https://huggingface.co/datasets/opencompass/AIME2025/raw/main/aime2025-II.jsonl",
     ],
     dataset_adapter=aime2025_dataset_adapter,
     completion_params=[
@@ -91,6 +91,7 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
             "model": "fireworks_ai/accounts/pyroworks/deployedModels/glm-4p6-qpwrimne",
             # "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
             "stream": True,
+            # "timeout": 2400,
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
