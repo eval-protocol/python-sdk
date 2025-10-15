@@ -6,7 +6,6 @@ from typing import List
 
 import litellm
 from litellm import acompletion
-from typing import Dict
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
@@ -36,7 +35,6 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             request_params = {"messages": messages_payload, **config.completion_params}
             # Ensure caching is disabled only for this request (review feedback)
             request_params["cache"] = {"no-cache": True}
-            request_params["stream"] = True  # Enable streaming
             # Single-level reasoning effort: expect `reasoning_effort` only
             effort_val = None
 
@@ -64,16 +62,14 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             if row.tools is not None:
                 request_params["tools"] = row.tools
 
-            chunks = []
-            print("time: ", time.time())
-
-            stream = await acompletion(**request_params)
-            async for chunk in stream:
-                # print("chunk added at time: ", time.time())
-                # print("chunk: ", chunk)
-                chunks.append(chunk)
-
-            response = litellm.stream_chunk_builder(chunks, messages_payload)
+            if request_params.get("stream") is True:
+                chunks = []
+                stream = await acompletion(**request_params)
+                async for chunk in stream:  # pyright: ignore[reportGeneralTypeIssues]
+                    chunks.append(chunk)
+                response = litellm.stream_chunk_builder(chunks, messages_payload)
+            else:
+                response = await acompletion(**request_params)
 
             if response is None:
                 raise ValueError("Response is None")
