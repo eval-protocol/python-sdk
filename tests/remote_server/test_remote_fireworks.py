@@ -21,7 +21,7 @@ from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
-from eval_protocol.quickstart.utils import filter_longest_conversation
+from eval_protocol.utils.evaluation_row_utils import filter_longest_conversation
 from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
 
 ROLLOUT_IDS = set()

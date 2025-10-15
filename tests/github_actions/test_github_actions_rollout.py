@@ -14,7 +14,7 @@ from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.github_action_rollout_processor import GithubActionRolloutProcessor
 from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
-from eval_protocol.quickstart.utils import filter_longest_conversation
+from eval_protocol.utils.evaluation_row_utils import filter_longest_conversation
 
 ROLLOUT_IDS = set()
 

@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluationRow, Status
-from eval_protocol.quickstart.utils import filter_longest_conversation
+from eval_protocol.utils.evaluation_row_utils import filter_longest_conversation
 from eval_protocol.types.remote_rollout_processor import DataLoaderConfig, RolloutMetadata, InitRequest
 from eval_protocol.pytest.types import RolloutProcessorConfig
 

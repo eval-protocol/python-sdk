@@ -26,8 +26,8 @@ from eval_protocol import (
     SingleTurnRolloutProcessor,
     OpenAIResponsesAdapter,
     DynamicDataLoader,
+    multi_turn_assistant_to_ground_truth,
 )
-from eval_protocol import multi_turn_assistant_to_ground_truth
 
 
 def openai_responses_data_generator():
