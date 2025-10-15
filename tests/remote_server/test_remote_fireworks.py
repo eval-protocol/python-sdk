@@ -58,7 +58,9 @@ def rows() -> List[EvaluationRow]:
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
-@pytest.mark.parametrize("completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}])
+@pytest.mark.parametrize("completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b", 
+"model_kwargs": {"temperature": 0.5}
+}])
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[rows],
@@ -82,5 +84,6 @@ async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> Evaluat
     assert row.execution_metadata.rollout_id in ROLLOUT_IDS, (
         f"Row rollout_id {row.execution_metadata.rollout_id} should be in tracked rollout_ids: {ROLLOUT_IDS}"
     )
-
+    assert row.input_metadata.completion_params["model_kwargs"] == {"temperature": 0.5}, "Row should have correct model_kwargs"
+    
     return row

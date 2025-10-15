@@ -18,12 +18,20 @@ def main():
 
     # Required arguments from workflow inputs
     parser.add_argument("--model", required=True, help="Model to use")
+    parser.add_argument("--completion-params", required=False, help="JSON completion params (optional)")
     parser.add_argument("--metadata", required=True, help="JSON serialized metadata object")
     parser.add_argument("--model-base-url", required=True, help="Base URL for the model API")
 
     args = parser.parse_args()
 
     # Parse the metadata
+    completion_params = {}
+    if args.completion_params:
+        try:
+            completion_params = json.loads(args.completion_params)
+        except Exception as e:
+            print(f"⚠️  Failed to parse completion_params: {e}")
+
     try:
         metadata = json.loads(args.metadata)
     except Exception as e:
@@ -50,6 +58,9 @@ def main():
 
     try:
         completion_kwargs = {"model": args.model, "messages": messages}
+
+        if completion_params.get("model_kwargs"):
+            completion_kwargs.update(completion_params["model_kwargs"])
 
         client = OpenAI(base_url=args.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 

@@ -31,6 +31,10 @@ def init(req: InitRequest):
         try:
             if not req.messages:
                 raise ValueError("messages is required")
+            
+            model = req.completion_params.get("model")
+            if not model:
+                raise ValueError("model is required in completion_params")
 
             client = OpenAI(base_url=req.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 
