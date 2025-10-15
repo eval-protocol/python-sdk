@@ -38,10 +38,11 @@ def init(req: InitRequest):
 
             client = OpenAI(base_url=req.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 
-            model = req.completion_params.get("model")
-            if not model:
-                raise ValueError("model is required in completion_params")
-
+            # Apply model_kwargs if present
+            if req.completion_params.get("model_kwargs"):
+                model_kwargs = req.completion_params["model_kwargs"]
+                if isinstance(model_kwargs, dict):
+                    completion_kwargs.update(model_kwargs)
             # Build up conversation over 6 turns (3 user messages + 3 assistant responses)
             # Convert Message objects to dicts for OpenAI API
             conversation_history = [{"role": m.role, "content": m.content} for m in req.messages]
@@ -56,7 +57,8 @@ def init(req: InitRequest):
             logger.info(f"Turn 1-2: Sending initial completion request to model {model}")
             completion = client.chat.completions.create(
                 model=model,
-                messages=conversation_history,  # type: ignore
+                messages=conversation_history,  # type: ignore,
+                **completion_kwargs
             )
             assistant_message = completion.choices[0].message
             assistant_content = assistant_message.content or ""
