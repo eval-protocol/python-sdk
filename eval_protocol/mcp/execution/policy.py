@@ -5,15 +5,14 @@ Base classes and implementations for LLM policies that work with MCP environment
 Rewritten to use LiteLLM for unified retry logic, caching, and provider support.
 """
 
-import asyncio
-import json
 import logging
 import os
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional
 
 import litellm
-from litellm import acompletion, completion
+from litellm import acompletion
+from litellm.types.utils import ModelResponse
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.caching.caching import Cache
 from litellm.caching.dual_cache import DualCache
 from litellm.caching.in_memory_cache import InMemoryCache
@@ -194,7 +193,20 @@ class LiteLLMPolicy(LLMBasePolicy):
             request_params["tools"] = tools
 
         try:
-            response = await acompletion(model=self.model_id, **request_params)
+            if request_params.get("stream") is True:
+                chunks = []
+                stream = await acompletion(model=self.model_id, **request_params)
+
+                assert isinstance(stream, CustomStreamWrapper), "Stream should be a CustomStreamWrapper"
+
+                async for chunk in stream:  # pyright: ignore[reportGeneralTypeIssues]
+                    chunks.append(chunk)
+                response = litellm.stream_chunk_builder(chunks, messages)
+            else:
+                response = await acompletion(model=self.model_id, **request_params)
+
+            assert response is not None, "Response is None"
+            assert isinstance(response, ModelResponse), "Response should be ModelResponse"
 
             # Log cache hit/miss for monitoring
             hidden = getattr(response, "_hidden_params", {})
