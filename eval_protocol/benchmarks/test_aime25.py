@@ -59,11 +59,6 @@ def _normalize_to_int_or_none(s: Optional[str]) -> Optional[int]:
         return None
 
 
-def _get_aime_dataset_path() -> str:
-    """Get the AIME dataset file path."""
-    return str(Path(__file__).parent / "data" / "aime.jsonl")
-
-
 def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     converted: List[EvaluationRow] = []
     for r in rows:
