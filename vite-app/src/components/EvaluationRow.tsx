@@ -372,7 +372,7 @@ const ExpandedContent = observer(
         </div>
 
         {/* Middle Column - Logs */}
-        <LogsSection rolloutId={row.execution_metadata?.rollout_id} />
+        <LogsSection rolloutId={row.execution_metadata?.rollout_id} inputMetadata={row.input_metadata} />
 
         {/* Right Column - Metadata */}
         <div className="w-[500px] flex-shrink-0 space-y-3">

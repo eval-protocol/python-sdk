@@ -4,6 +4,7 @@ import {
   LogsResponseSchema,
   type LogEntry,
   type LogsResponse,
+  type InputMetadata,
 } from "../types/eval-protocol";
 import { getApiUrl } from "../config";
 import Select from "./Select";
@@ -15,9 +16,10 @@ const haveLogsChanged = (prevLogs: LogEntry[], nextLogs: LogEntry[]) => {
 
 interface LogsSectionProps {
   rolloutId?: string;
+  inputMetadata?: InputMetadata;
 }
 
-export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
+export const LogsSection = observer(({ rolloutId, inputMetadata }: LogsSectionProps) => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -214,7 +216,24 @@ export const LogsSection = observer(({ rolloutId }: LogsSectionProps) => {
         )}
 
         {logs.length === 0 && !loading && !error && (
-          <div className="text-gray-500 text-xs">No logs found</div>
+          <div className="text-gray-500 text-xs">
+            {(() => {
+              const githubUrl = inputMetadata?.session_data?.github_actions_run_url;
+              if (githubUrl) {
+                return (
+                  <a 
+                    href={githubUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    View GitHub Actions run
+                  </a>
+                );
+              }
+              return "No logs found";
+            })()}
+          </div>
         )}
 
         {logs.length > 0 && (

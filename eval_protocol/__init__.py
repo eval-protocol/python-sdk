@@ -30,7 +30,7 @@ from .resources import create_llm_resource
 from .reward_function import RewardFunction
 from .typed_interface import reward_function
 from .quickstart import aha_judge, multi_turn_assistant_to_ground_truth, assistant_to_ground_truth
-from .pytest import evaluation_test, SingleTurnRolloutProcessor, RemoteRolloutProcessor
+from .pytest import evaluation_test, SingleTurnRolloutProcessor, RemoteRolloutProcessor, GithubActionRolloutProcessor
 from .pytest.remote_rollout_processor import create_elasticsearch_config_from_env
 from .pytest.parameterize import DefaultParameterIdGenerator
 from .log_utils.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
@@ -93,6 +93,7 @@ __all__ = [
     "DataLoaderConfig",
     "Status",
     "RemoteRolloutProcessor",
+    "GithubActionRolloutProcessor",
     "InputMetadata",
     "EvaluationRow",
     "DefaultParameterIdGenerator",

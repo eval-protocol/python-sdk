@@ -2,7 +2,7 @@ import pytest
 from openai.types import CompletionUsage
 
 from eval_protocol.models import EvaluationRow, ExecutionMetadata, InputMetadata, CostMetrics, Message
-from eval_protocol.pytest.utils import add_cost_metrics
+from eval_protocol.pytest.evaluation_test_utils import add_cost_metrics
 
 
 class TestExecutionMetadata:
