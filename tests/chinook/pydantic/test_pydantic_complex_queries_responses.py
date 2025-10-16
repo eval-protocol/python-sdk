@@ -1,4 +1,5 @@
 from collections.abc import Awaitable, Callable
+import logging
 import os
 from typing_extensions import cast
 from pydantic_ai import Agent
@@ -36,7 +37,7 @@ def agent_factory(config: RolloutProcessorConfig) -> Agent:
     input_rows=[collect_dataset()],
     completion_params=[
         {
-            "model": "gpt-5",
+            "model": "gpt-5-nano",
         },
     ],
     rollout_processor=PydanticAgentRolloutProcessor(agent_factory),
@@ -45,6 +46,19 @@ async def test_pydantic_complex_queries_responses(row: EvaluationRow) -> Evaluat
     """
     Evaluation of complex queries for the Chinook database using PydanticAI
     """
+
+    logger = logging.getLogger("tests.chinook.pydantic.complex_queries_responses")
+    logger.info(
+        "Starting chinook responses evaluation",
+        extra={"status": {"code": 101, "message": "RUNNING"}},
+    )
+
     casted_evaluation_test = cast(Callable[[EvaluationRow], Awaitable[EvaluationRow]], eval)
     evaluated_row = await casted_evaluation_test(row)
+
+    logger.info(
+        "Finished chinook responses evaluation",
+        extra={"status": {"code": 100, "message": "FINISHED"}},
+    )
+
     return evaluated_row

@@ -46,15 +46,36 @@ class FireworksTracingHttpHandler(logging.Handler):
             tags.append(f"experiment_id:{cast(Any, getattr(record, 'experiment_id'))}")
         if hasattr(record, "run_id") and cast(Any, getattr(record, "run_id")):
             tags.append(f"run_id:{cast(Any, getattr(record, 'run_id'))}")
+        # Groupwise list of rollout_ids
+        if hasattr(record, "rollout_ids") and cast(Any, getattr(record, "rollout_ids")):
+            try:
+                for rid in cast(List[str], getattr(record, "rollout_ids")):
+                    tags.append(f"rollout_id:{rid}")
+            except Exception:
+                pass
         program = cast(Optional[str], getattr(record, "program", None)) or "eval_protocol"
         status_val = cast(Any, getattr(record, "status", None))
         status = status_val if isinstance(status_val, str) else None
+        # Capture optional structured status fields if present
+        metadata: Dict[str, Any] = {}
+        status_code = cast(Any, getattr(record, "status_code", None))
+        if isinstance(status_code, int):
+            metadata["status_code"] = status_code
+        status_message = cast(Any, getattr(record, "status_message", None))
+        if isinstance(status_message, str):
+            metadata["status_message"] = status_message
+        status_details = getattr(record, "status_details", None)
+        if status_details is not None:
+            metadata["status_details"] = status_details
+        extra_metadata = cast(Any, getattr(record, "metadata", None))
+        if isinstance(extra_metadata, dict):
+            metadata.update(extra_metadata)
         return {
             "program": program,
             "status": status,
             "message": message,
             "tags": tags,
-            "metadata": cast(Any, getattr(record, "metadata", None)),
+            "metadata": metadata or None,
             "extras": {
                 "logger_name": record.name,
                 "level": record.levelname,
