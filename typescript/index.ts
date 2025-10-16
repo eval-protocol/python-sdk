@@ -66,7 +66,7 @@ export type StatusResponse = z.infer<typeof statusResponseSchema>;
 export function initRequestToCompletionParams(
   initRequest: InitRequest
 ): ChatCompletionCreateParamsNonStreaming {
-  const model = initRequest.completion_params?.model;
+  const model = initRequest.completion_params?.['model'];
   if (!model) {
     throw new Error("model is required in completion_params");
   }
@@ -94,13 +94,13 @@ export function initRequestToCompletionParams(
     messages: initRequest.messages,
     ...(toolsToOpenAI && { tools: toolsToOpenAI }),
   };
-  
-  // Apply model_kwargs if present (temperature, max_tokens, etc.)
-  const model_kwargs = initRequest.completion_params?.model_kwargs;
+
+  // Apply model_kwargs if present
+  const model_kwargs = initRequest.completion_params?.['model_kwargs'];
   if (model_kwargs && typeof model_kwargs === 'object') {
     Object.assign(baseParams, model_kwargs);
   }
-  
+
   return baseParams;
 }
 

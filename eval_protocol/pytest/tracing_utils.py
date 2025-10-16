@@ -82,21 +82,21 @@ def build_init_request(
 
     # Build completion_params from row and config
     completion_params_dict: Dict[str, Any] = {}
-    
+
     # Start with config-level completion_params
     if config.completion_params and isinstance(config.completion_params, dict):
         completion_params_dict.update(config.completion_params)
-    
+
     # Override with row-specific completion_params
     if row.input_metadata and row.input_metadata.completion_params:
         row_cp = row.input_metadata.completion_params
         if isinstance(row_cp, dict):
             completion_params_dict.update(row_cp)
-    
+
     # Validate model is present
     if not completion_params_dict.get("model"):
         raise ValueError("Model must be provided in completion_params")
-    
+
     # Extract base_url from completion_params
     completion_params_base_url: Optional[str] = completion_params_dict.get("base_url")
 

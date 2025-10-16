@@ -46,7 +46,7 @@ class InitRequest(BaseModel):
 
     completion_params: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Completion parameters including model and optional model_kwargs, temperature, etc."
+        description="Completion parameters including model and optional model_kwargs, temperature, etc.",
     )
     elastic_search_config: Optional[ElasticsearchConfig] = None
     messages: Optional[List[Message]] = None

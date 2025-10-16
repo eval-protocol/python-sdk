@@ -58,13 +58,20 @@ def main():
 
     try:
         completion_kwargs = {"model": args.model, "messages": messages}
-
-        if completion_params.get("model_kwargs"):
-            completion_kwargs.update(completion_params["model_kwargs"])
+        # Parse and apply completion_params if provided
+        if args.completion_params:
+            try:
+                cp = json.loads(args.completion_params)
+                if cp.get("model_kwargs"):
+                    completion_kwargs.update(cp["model_kwargs"])
+                    print(f"   Applied model_kwargs: {cp.get('model_kwargs')}")
+            except Exception as e:
+                print(f"⚠️  Failed to parse completion_params: {e}")
 
         client = OpenAI(base_url=args.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 
         print("📡 Calling OpenAI completion...")
+        print(f"   Completion kwargs: {completion_kwargs}")
         completion = client.chat.completions.create(**completion_kwargs)
 
         print(f"✅ Rollout {rollout_id} completed successfully")

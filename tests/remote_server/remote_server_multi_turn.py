@@ -31,7 +31,7 @@ def init(req: InitRequest):
         try:
             if not req.messages:
                 raise ValueError("messages is required")
-            
+
             model = req.completion_params.get("model")
             if not model:
                 raise ValueError("model is required in completion_params")
@@ -52,13 +52,12 @@ def init(req: InitRequest):
                 "What else can you share about this topic?",
             ]
 
-            
             # First completion (turns 1-2: initial user message + assistant response)
             logger.info(f"Turn 1-2: Sending initial completion request to model {model}")
             completion = client.chat.completions.create(
                 model=model,
                 messages=conversation_history,  # type: ignore,
-                **completion_kwargs
+                **completion_kwargs,
             )
             assistant_message = completion.choices[0].message
             assistant_content = assistant_message.content or ""

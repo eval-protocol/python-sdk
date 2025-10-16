@@ -97,6 +97,7 @@ class GithubActionRolloutProcessor(RolloutProcessor):
                         "model": model,
                         "metadata": init_request.metadata.model_dump_json(),
                         "model_base_url": init_request.model_base_url,
+                        "completion_params": json.dumps(init_request.completion_params),
                     },
                 }
                 r = requests.post(url, json=payload, headers=self._headers(), timeout=30)
