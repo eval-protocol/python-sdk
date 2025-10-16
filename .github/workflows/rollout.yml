@@ -17,6 +17,10 @@ on:
         description: 'Base URL for the model API'
         required: true
         type: string
+      completion_params:
+        description: 'JSON completion params (optional, includes model_kwargs)'
+        required: false
+        type: string
 
 jobs:
   rollout:
@@ -43,4 +47,5 @@ jobs:
           python tests/github_actions/rollout_worker.py \
             --model "${{ inputs.model }}" \
             --metadata '${{ inputs.metadata }}' \
-            --model-base-url "${{ inputs.model_base_url }}"
+            --model-base-url "${{ inputs.model_base_url }}" \
+            ${{ inputs.completion_params && format('--completion-params ''{0}''', inputs.completion_params) || '' }}
