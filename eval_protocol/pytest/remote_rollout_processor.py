@@ -123,72 +123,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
             if row.input_metadata.row_id is None:
                 raise ValueError("Row ID is required in RemoteRolloutProcessor")
 
-            # Build request metadata and payload
-            meta: RolloutMetadata = RolloutMetadata(
-                invocation_id=row.execution_metadata.invocation_id,
-                experiment_id=row.execution_metadata.experiment_id,
-                rollout_id=row.execution_metadata.rollout_id,
-                run_id=row.execution_metadata.run_id,
-                row_id=row.input_metadata.row_id,
-            )
-
-            completion_params_dict: Dict[str, Any] = {}
-
-            # Start with config-level completion_params
-            if config.completion_params and isinstance(config.completion_params, dict):
-                completion_params_dict.update(config.completion_params)
-            
-            #Override with row-level completion_params
-            if row.input_metadata and row.input_metadata.completion_params:
-            row_cp = row.input_metadata.completion_params
-            if isinstance(row_cp, dict):
-                completion_params_dict.update(row_cp)
-
-            # Validate model is present
-            if not completion_params_dict.get("model"):
-                raise ValueError("Model must be provided in completion_params")
-
-            # Extract base_url from completion_params if provided
-            completion_params_base_url: Optional[str] = completion_params_dict.get("base_url")
-
-            # Strip non-OpenAI fields from messages before sending to remote
-            allowed_message_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
-            clean_messages = []
-            for m in row.messages:
-                md: Dict[str, Any]
-                if hasattr(m, "model_dump"):
-                    md = m.model_dump()  # type: ignore[assignment]
-                elif isinstance(m, dict):
-                    md = m  # type: ignore[assignment]
-                else:
-                    # Fallback to constructing a dict from Message-like object
-                    md = {
-                        "role": getattr(m, "role", None),
-                        "content": getattr(m, "content", None),
-                        "tool_calls": getattr(m, "tool_calls", None),
-                        "tool_call_id": getattr(m, "tool_call_id", None),
-                        "name": getattr(m, "name", None),
-                    }
-                clean_messages.append({k: v for k, v in md.items() if k in allowed_message_fields and v is not None})
-
-            if row.execution_metadata.rollout_id is None:
-                raise ValueError("Rollout ID is required in RemoteRolloutProcessor")
-
-            final_model_base_url = model_base_url
-            if model_base_url and (
-                model_base_url.startswith("https://tracing.fireworks.ai")
-                or model_base_url.startswith("http://localhost")
-            ):
-                final_model_base_url = _build_fireworks_tracing_url(model_base_url, meta, completion_params_base_url)
-
-            init_payload: InitRequest = InitRequest(
-                completion_params=completion_params_dict,
-                messages=clean_messages,
-                tools=row.tools,
-                metadata=meta,
-                model_base_url=final_model_base_url,
-                elastic_search_config=self._elastic_search_config,
-            )
+            init_payload = build_init_request(row, config, model_base_url, self._elastic_search_config)
 
             # Fire-and-poll
             def _post_init() -> None:
