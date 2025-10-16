@@ -60,7 +60,7 @@ def init(req: InitRequest):
 
         except Exception as e:
             # Best-effort; mark as done even on error to unblock polling
-            print(f"❌ Error in rollout {req.metadata.rollout_id}: {e}")
+            logger.error(f"❌ Error in rollout {req.metadata.rollout_id}: {e}")
             pass
         finally:
             if not force_early_error_message:

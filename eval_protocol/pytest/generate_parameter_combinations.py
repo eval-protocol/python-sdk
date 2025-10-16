@@ -2,7 +2,7 @@ from typing import TypedDict
 from eval_protocol.data_loader.models import EvaluationDataLoader
 from eval_protocol.models import CompletionParams, EvaluationRow
 from eval_protocol.pytest.types import Dataset, DatasetPathParam, EvaluationInputParam, InputMessagesParam
-from eval_protocol.pytest.utils import parse_ep_max_rows
+from eval_protocol.pytest.evaluation_test_utils import parse_ep_max_rows
 from collections.abc import Sequence
 
 

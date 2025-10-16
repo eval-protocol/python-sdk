@@ -4,8 +4,10 @@ import os
 import time
 from typing import List
 
+import litellm
 from litellm import acompletion
-from typing import Dict
+from litellm.types.utils import ModelResponse, Choices
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 
 from eval_protocol.dataset_logger import default_logger
 from eval_protocol.models import EvaluationRow, Message
@@ -62,12 +64,21 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             if row.tools is not None:
                 request_params["tools"] = row.tools
 
-            # Dynamic import to avoid static dependency/lint errors if LiteLLM isn't installed yet
-            import importlib
+            if request_params.get("stream") is True:
+                chunks = []
+                stream = await acompletion(**request_params)
 
-            _litellm = importlib.import_module("litellm")
-            acompletion = getattr(_litellm, "acompletion")
-            response = await acompletion(**request_params)
+                assert isinstance(stream, CustomStreamWrapper), "Stream should be a CustomStreamWrapper"
+
+                async for chunk in stream:  # pyright: ignore[reportGeneralTypeIssues]
+                    chunks.append(chunk)
+                response = litellm.stream_chunk_builder(chunks, messages_payload)
+            else:
+                response = await acompletion(**request_params)
+
+            assert response is not None, "Response is None"
+            assert isinstance(response, ModelResponse), "Response should be ModelResponse"
+            assert isinstance(response.choices[0], Choices), "Response choice should be a Choices"
 
             assistant_content = response.choices[0].message.content or ""
             tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
@@ -110,11 +121,12 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                     tool_calls=converted_tool_calls,
                 )
             ]
-
-            row.execution_metadata.usage = CompletionUsage(
-                prompt_tokens=response.usage.prompt_tokens,
-                completion_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens,
+            row.execution_metadata.usage = (
+                CompletionUsage(  # Note: LiteLLM sets usage dynamically via setattr(), not as a typed field
+                    prompt_tokens=response.usage.prompt_tokens,  # pyright: ignore[reportAttributeAccessIssue]
+                    completion_tokens=response.usage.completion_tokens,  # pyright: ignore[reportAttributeAccessIssue]
+                    total_tokens=response.usage.total_tokens,  # pyright: ignore[reportAttributeAccessIssue]
+                )
             )
 
             row.messages = messages

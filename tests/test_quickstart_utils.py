@@ -3,7 +3,7 @@
 import pytest
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
-from eval_protocol.quickstart.utils import (
+from eval_protocol.utils.evaluation_row_utils import (
     multi_turn_assistant_to_ground_truth,
     serialize_message,
     assistant_to_ground_truth,

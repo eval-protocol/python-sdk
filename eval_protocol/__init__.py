@@ -29,8 +29,13 @@ from .playback_policy import PlaybackPolicyBase
 from .resources import create_llm_resource
 from .reward_function import RewardFunction
 from .typed_interface import reward_function
-from .quickstart import aha_judge, multi_turn_assistant_to_ground_truth, assistant_to_ground_truth
-from .pytest import evaluation_test, SingleTurnRolloutProcessor, RemoteRolloutProcessor
+from .quickstart.aha_judge import aha_judge
+from .utils.evaluation_row_utils import (
+    multi_turn_assistant_to_ground_truth,
+    assistant_to_ground_truth,
+    filter_longest_conversation,
+)
+from .pytest import evaluation_test, SingleTurnRolloutProcessor, RemoteRolloutProcessor, GithubActionRolloutProcessor
 from .pytest.remote_rollout_processor import create_elasticsearch_config_from_env
 from .pytest.parameterize import DefaultParameterIdGenerator
 from .log_utils.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
@@ -74,6 +79,14 @@ try:
 except ImportError:
     WeaveAdapter = None
 
+try:
+    from .proxy import create_app, AuthProvider, AccountInfo
+except ImportError:
+    create_app = None
+    AuthProvider = None
+    AccountInfo = None
+
+
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 __all__ = [
@@ -85,6 +98,7 @@ __all__ = [
     "DataLoaderConfig",
     "Status",
     "RemoteRolloutProcessor",
+    "GithubActionRolloutProcessor",
     "InputMetadata",
     "EvaluationRow",
     "DefaultParameterIdGenerator",
@@ -93,6 +107,7 @@ __all__ = [
     "aha_judge",
     "multi_turn_assistant_to_ground_truth",
     "assistant_to_ground_truth",
+    "filter_longest_conversation",
     "evaluation_test",
     "SingleTurnRolloutProcessor",
     "OpenAIResponsesAdapter",
@@ -137,6 +152,10 @@ __all__ = [
     "RolloutMetadata",
     "StatusResponse",
     "create_langfuse_config_tags",
+    # Proxy
+    "create_app",
+    "AuthProvider",
+    "AccountInfo",
 ]
 
 from . import _version

@@ -10,7 +10,12 @@ from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.models import CompletionParams, EvaluationRow, EvaluationThreshold, Status
 from eval_protocol.pytest.handle_persist_flow import handle_persist_flow
 from eval_protocol.pytest.types import EvaluationTestMode
-from eval_protocol.pytest.utils import AggregationMethod, aggregate, extract_effort_tag, sanitize_filename
+from eval_protocol.pytest.evaluation_test_utils import (
+    AggregationMethod,
+    aggregate,
+    extract_effort_tag,
+    sanitize_filename,
+)
 from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
 
 

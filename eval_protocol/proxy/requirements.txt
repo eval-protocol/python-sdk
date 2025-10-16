@@ -1,0 +1,7 @@
+fastapi>=0.116.1
+uvicorn>=0.24.0
+httpx>=0.25.0
+redis>=5.0.0
+langfuse>=2.0.0
+uuid6>=2025.0.0
+PyYAML>=6.0.0

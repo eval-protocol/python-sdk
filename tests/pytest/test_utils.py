@@ -1,8 +1,8 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 import pytest
 
-from eval_protocol.pytest.utils import rollout_processor_with_retry
+from eval_protocol.pytest.evaluation_test_utils import rollout_processor_with_retry
 from eval_protocol.pytest.types import RolloutProcessorConfig
 from eval_protocol.models import EvaluationRow, Status, InputMetadata, ExecutionMetadata
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
@@ -112,12 +112,14 @@ class TestRolloutProcessorWithRetry:
             if call_count == 1:
                 raise ConnectionError("Connection failed")
             else:
+                from datetime import datetime
+
                 row = EvaluationRow(
                     messages=[],
-                    input_metadata={},
+                    input_metadata=InputMetadata(completion_params={}),
                     rollout_status=Status.rollout_finished(),
-                    execution_metadata={},
-                    created_at="2024-01-01T00:00:00Z",
+                    execution_metadata=ExecutionMetadata(),
+                    created_at=datetime.fromisoformat("2024-01-01T00:00:00"),
                 )
                 return row
 
