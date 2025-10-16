@@ -12,10 +12,19 @@ class FireworksTracingHttpHandler(logging.Handler):
 
     def __init__(self, gateway_base_url: Optional[str] = None, rollout_id_env: str = "EP_ROLLOUT_ID") -> None:
         super().__init__()
-        self.gateway_base_url = gateway_base_url or os.getenv("FW_TRACING_GATEWAY_BASE_URL")
+        self.gateway_base_url = (
+            gateway_base_url or os.getenv("FW_TRACING_GATEWAY_BASE_URL") or "https://tracing.fireworks.ai"
+        )
         self.rollout_id_env = rollout_id_env
         self._session = requests.Session()
         self._lock = threading.Lock()
+        # Include Authorization header if FIREWORKS_API_KEY is available
+        api_key = os.environ.get("FIREWORKS_API_KEY")
+        if api_key:
+            try:
+                self._session.headers.update({"Authorization": f"Bearer {api_key}"})
+            except Exception:
+                pass
 
     def emit(self, record: logging.LogRecord) -> None:
         try:

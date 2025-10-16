@@ -39,9 +39,10 @@ def init_external_logging_from_env() -> None:
     # Ensure we do not add duplicate handlers if already present
     existing_handler_types = {type(h).__name__ for h in root_logger.handlers}
 
-    # Fireworks tracing
-    fw_url = _get_env("FW_TRACING_GATEWAY_BASE_URL")
-    if fw_url and "FireworksTracingHttpHandler" not in existing_handler_types:
+    # Fireworks tracing: prefer if FIREWORKS_API_KEY is present; default base URL if not provided
+    fw_key = _get_env("FIREWORKS_API_KEY")
+    fw_url = _get_env("FW_TRACING_GATEWAY_BASE_URL") or "https://tracing.fireworks.ai"
+    if fw_key and "FireworksTracingHttpHandler" not in existing_handler_types:
         fw_handler = FireworksTracingHttpHandler(gateway_base_url=fw_url)
         fw_handler.setLevel(logging.INFO)
         fw_handler.addFilter(ContextRolloutIdFilter())
@@ -51,7 +52,13 @@ def init_external_logging_from_env() -> None:
     es_url = _get_env("EP_ELASTICSEARCH_URL")
     es_api_key = _get_env("EP_ELASTICSEARCH_API_KEY")
     es_index = _get_env("EP_ELASTICSEARCH_INDEX")
-    if es_url and es_api_key and es_index and "ElasticsearchDirectHttpHandler" not in existing_handler_types:
+    if (
+        not fw_key
+        and es_url
+        and es_api_key
+        and es_index
+        and "ElasticsearchDirectHttpHandler" not in existing_handler_types
+    ):
         es_config = ElasticsearchConfig(url=es_url, api_key=es_api_key, index_name=es_index)
         es_handler = ElasticsearchDirectHttpHandler(elasticsearch_config=es_config)
         es_handler.setLevel(logging.INFO)

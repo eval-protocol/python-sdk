@@ -307,6 +307,16 @@ def parse_args(args=None):
         action="store_true",
         help="Use env vars for Elasticsearch config (requires ELASTICSEARCH_URL, ELASTICSEARCH_API_KEY, ELASTICSEARCH_INDEX_NAME)",
     )
+    logs_parser.add_argument(
+        "--use-fireworks",
+        action="store_true",
+        help="Force Fireworks tracing backend for logs UI (overrides env auto-detection)",
+    )
+    logs_parser.add_argument(
+        "--use-elasticsearch",
+        action="store_true",
+        help="Force Elasticsearch backend for logs UI (overrides env auto-detection)",
+    )
 
     # Upload command
     upload_parser = subparsers.add_parser(
