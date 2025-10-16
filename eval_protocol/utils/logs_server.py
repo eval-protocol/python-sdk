@@ -670,13 +670,20 @@ def serve_logs(
     """
     Convenience function to create and run a LogsServer.
     """
-    server = LogsServer(
-        port=port,
-        elasticsearch_config=elasticsearch_config,
-        debug=debug,
-        backend=backend,
-        fireworks_base_url=fireworks_base_url,
-    )
+    # For backward compatibility with tests that assert exact constructor kwargs,
+    # only pass additional backend-related kwargs when they are actually needed.
+    logs_server_kwargs: Dict[str, Any] = {
+        "port": port,
+        "elasticsearch_config": elasticsearch_config,
+        "debug": debug,
+    }
+
+    # If non-default backend (fireworks) is requested or a base URL is provided, include them.
+    if backend != "elasticsearch" or fireworks_base_url is not None:
+        logs_server_kwargs["backend"] = backend
+        logs_server_kwargs["fireworks_base_url"] = fireworks_base_url
+
+    server = LogsServer(**logs_server_kwargs)
     server.run()
 
 
