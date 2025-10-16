@@ -1,19 +1,21 @@
 import os
 import pytest
 
-import os
-import pytest
 
 MODEL_ID_OPT = None
 CONCURRENCY_OPT = None
 MODEL_KWARGS_OPT = None
+
 
 def pytest_addoption(parser):
     parser.addoption("--model-id", action="store", default=None, help="Fireworks model ID")
     parser.addoption("--concurrent-workers", action="store", type=int, default=None, help="Max concurrent rollouts")
     parser.addoption("--temperature", action="store", type=float, default=None, help="Model temperature")
     parser.addoption("--max-tokens", action="store", type=int, default=None, help="Max tokens")
-    parser.addoption("--reasoning", action="store", choices=["low", "medium", "high"], default=None, help="Reasoning effort")
+    parser.addoption(
+        "--reasoning", action="store", choices=["low", "medium", "high"], default=None, help="Reasoning effort"
+    )
+
 
 def pytest_configure(config):
     global MODEL_ID_OPT, CONCURRENCY_OPT, MODEL_KWARGS_OPT

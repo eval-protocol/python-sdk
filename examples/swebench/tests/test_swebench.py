@@ -9,6 +9,7 @@ from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
 from eval_protocol.quickstart.utils import filter_longest_conversation
+
 # Reuse the converter used by the built-in adapter
 from eval_protocol.adapters.fireworks_tracing import convert_trace_dict_to_evaluation_row
 import conftest
@@ -24,6 +25,7 @@ CLI_MODEL_KWARGS = conftest.MODEL_KWARGS_OPT
 COMPLETION_PARAMS = {"model": MODEL_ID}
 if CLI_MODEL_KWARGS:
     COMPLETION_PARAMS["model_kwargs"] = CLI_MODEL_KWARGS
+
 
 def fetch_traces_with_auth(config: DataLoaderConfig) -> List[EvaluationRow]:
     """
@@ -70,13 +72,12 @@ def _merge_rows_into_one(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     seen = set()
     merged_msgs: List[Message] = []
     for r in rows:
-        for m in (r.messages or []):
+        for m in r.messages or []:
             # Dedup by role+name+content+tool_calls signature
             tool_sig = None
             if getattr(m, "tool_calls", None):
                 tool_sig = tuple(
-                    (tc.get("id"), tc.get("type"), (tc.get("function") or {}).get("name"))
-                    for tc in m.tool_calls
+                    (tc.get("id"), tc.get("type"), (tc.get("function") or {}).get("name")) for tc in m.tool_calls
                 )
             key = (m.role, getattr(m, "name", None), m.content, tool_sig)
             if key in seen:
@@ -86,11 +87,13 @@ def _merge_rows_into_one(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     base.messages = merged_msgs
     return [base]
 
+
 def fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
     return DynamicDataLoader(
         generators=[lambda: fetch_traces_with_auth(config)],
         preprocess_fn=_merge_rows_into_one,  # merge all tool/LLM traces into one row
     )
+
 
 def rows_from_instance_ids(ids: list[str]) -> List[EvaluationRow]:
     out = []
@@ -99,14 +102,15 @@ def rows_from_instance_ids(ids: list[str]) -> List[EvaluationRow]:
             EvaluationRow(
                 messages=[Message(role="user", content=f"Run SWE-bench instance {iid}")],
                 input_metadata={
-                    "row_id": str(idx),                 # ← use instance_id here
-                    "instance_id": iid,           # ← explicit for debugging
-                    "instance_index": str(idx),   # ← optional: keep index
+                    "row_id": str(idx),  # ← use instance_id here
+                    "instance_id": iid,  # ← explicit for debugging
+                    "instance_index": str(idx),  # ← optional: keep index
                     "completion_params": {"model": MODEL_ID},
                 },
             )
         )
     return out
+
 
 def rows_from_indices(count: int) -> List[EvaluationRow]:
     out: List[EvaluationRow] = []
@@ -118,7 +122,7 @@ def rows_from_indices(count: int) -> List[EvaluationRow]:
         # Add model_kwargs to metadata so server can read from req.metadata
         if CLI_MODEL_KWARGS:
             metadata["model_kwargs"] = CLI_MODEL_KWARGS
-        
+
         out.append(
             EvaluationRow(
                 messages=[Message(role="user", content=f"Run SWE-bench index {idx}")],
@@ -126,6 +130,7 @@ def rows_from_indices(count: int) -> List[EvaluationRow]:
             )
         )
     return out
+
 
 def rows() -> List[EvaluationRow]:
     # Generate 10 rows by index; server maps index -> dataset instance via --slice
@@ -136,24 +141,27 @@ def rows() -> List[EvaluationRow]:
 import json
 from pathlib import Path
 
+
 def _safe_model_id(model_id: str) -> str:
     return model_id.replace("/", "__").replace(":", "-")
+
 
 def attach_eval_result(row: EvaluationRow, model_id: str) -> EvaluationRow:
     """Attach evaluation result by reading harness report or exit status."""
     import logging
+
     logger = logging.getLogger(__name__)
-    
+
     # Get row_id and instance_id
     try:
         row_id = str(row.input_metadata.row_id)  # ← use attribute, not .get()
     except Exception as e:
         logger.warning(f"Could not get row_id: {e}")
         return row
-    
+
     row_dir = Path.cwd() / f"row_{row_id}"
     logger.info(f"[Row {row_id}] Looking for results in {row_dir}")
-    
+
     # Find instance_id from preds.json
     preds_path = row_dir / "preds.json"
     instance_id = None
@@ -164,18 +172,18 @@ def attach_eval_result(row: EvaluationRow, model_id: str) -> EvaluationRow:
             logger.info(f"[Row {row_id}] Found instance_id: {instance_id}")
         except Exception as e:
             logger.warning(f"[Row {row_id}] Could not read preds.json: {e}")
-    
+
     if not instance_id:
         logger.warning(f"[Row {row_id}] No instance_id found, skipping eval result")
         return row
-    
+
     resolved: bool | None = None
     reason_text: str | None = None
-    
+
     # 1. Try to read from report.json (harness ran tests)
     safe_model = _safe_model_id(model_id)
     report_path = row_dir / "logs" / "run_evaluation" / "eval-run" / safe_model / instance_id / "report.json"
-    
+
     if report_path.exists():
         logger.info(f"[Row {row_id}] Found report.json at {report_path}")
         try:
@@ -188,7 +196,7 @@ def attach_eval_result(row: EvaluationRow, model_id: str) -> EvaluationRow:
             logger.error(f"[Row {row_id}] Failed to parse report.json: {e}")
     else:
         logger.info(f"[Row {row_id}] No report.json found at {report_path}")
-    
+
     # 2. If no report, check exit status YAML (agent didn't produce a patch)
     if resolved is None:
         exit_status_files = sorted(row_dir.glob("exit_statuses_*.yaml"))
@@ -208,7 +216,7 @@ def attach_eval_result(row: EvaluationRow, model_id: str) -> EvaluationRow:
                 logger.error(f"[Row {row_id}] Failed to parse exit status: {e}")
         else:
             logger.warning(f"[Row {row_id}] No exit status YAML found")
-    
+
     # 3. Attach result if we found anything
     if resolved is not None:
         logger.info(f"[Row {row_id}] Final: resolved={resolved}, reason={reason_text}")
@@ -227,10 +235,10 @@ def attach_eval_result(row: EvaluationRow, model_id: str) -> EvaluationRow:
         )
     else:
         logger.warning(f"[Row {row_id}] Could not determine resolved status")
-    
+
     return row
 
-    
+
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[rows],

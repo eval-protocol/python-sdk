@@ -1,4 +1,5 @@
 """Minimal SWE-bench server - wraps run_swe_agent_fw.py with tracing via model_base_url."""
+
 import os
 import threading
 import subprocess
@@ -14,6 +15,7 @@ app = FastAPI()
 handler = ElasticsearchDirectHttpHandler()
 logging.getLogger().addHandler(handler)
 rollout_states = {}
+
 
 @app.post("/init")
 def init(req: InitRequest):
@@ -37,7 +39,6 @@ def init(req: InitRequest):
             if not req.model:
                 raise ValueError("model is required")
 
-            
             if not req.metadata or not req.metadata.row_id:
                 raise ValueError("metadata.row_id is required and must be an integer index as string, e.g. '0'")
             try:
@@ -56,9 +57,9 @@ def init(req: InitRequest):
             out_dir = os.getcwd()
 
             from pathlib import Path
-            
+
             script_path = str((Path(__file__).parent / "run_swe_agent_fw.py").resolve())
-            
+
             # Extract model_kwargs from req.metadata (forwarded from input_metadata)
             model_kwargs = {}
             logger.info(f"DEBUG: req.metadata attributes: {dir(req.metadata)}")
@@ -69,8 +70,8 @@ def init(req: InitRequest):
                     model_kwargs = mk
                     logger.info(f"Extracted model_kwargs from metadata: {model_kwargs}")
             else:
-                logger.info(f"DEBUG: req.metadata has NO model_kwargs attribute")
-            
+                logger.info("DEBUG: req.metadata has NO model_kwargs attribute")
+
             # Set tracing URL
             if req.model_base_url:
                 env["TRACING_BASE_URL"] = req.model_base_url
@@ -79,10 +80,13 @@ def init(req: InitRequest):
                 "python3",
                 script_path,
                 req.model,
-                "--single", str(single_index),
+                "--single",
+                str(single_index),
                 "--exit-immediately",
-                "--output", str(out_dir),
-                "--model-class", "tracing_model.TracingFireworksModel",
+                "--output",
+                str(out_dir),
+                "--model-class",
+                "tracing_model.TracingFireworksModel",
             ]
             # Forward model kwargs as CLI flags to the wrapper
             if model_kwargs.get("reasoning") in ("low", "medium", "high"):
@@ -92,6 +96,7 @@ def init(req: InitRequest):
             if model_kwargs.get("max_tokens") is not None:
                 cmd.extend(["--max-tokens", str(model_kwargs["max_tokens"])])
             import json
+
             # Log path inside row directory for this run
             row_dir = Path(out_dir) / f"row_{single_index}"
             row_dir.mkdir(parents=True, exist_ok=True)
@@ -108,7 +113,6 @@ def init(req: InitRequest):
                     bufsize=1,
                 )
                 ret = proc.wait()
-
 
             # Stream stdout/stderr to logs
             # assert proc.stdout is not None and proc.stderr is not None
@@ -130,11 +134,17 @@ def init(req: InitRequest):
             # 2) Run SWE-bench evaluation harness on preds.json
             preds_path_str = str(preds_path)
             eval_cmd = [
-                "python3", "-m", "swebench.harness.run_evaluation",
-                "--dataset_name", "princeton-nlp/SWE-bench_Verified",
-                "--predictions_path", preds_path_str,
-                "--max_workers", str(os.getenv("SWEBENCH_EVAL_WORKERS", "5")),
-                "--run_id", "eval-run",
+                "python3",
+                "-m",
+                "swebench.harness.run_evaluation",
+                "--dataset_name",
+                "princeton-nlp/SWE-bench_Verified",
+                "--predictions_path",
+                preds_path_str,
+                "--max_workers",
+                str(os.getenv("SWEBENCH_EVAL_WORKERS", "5")),
+                "--run_id",
+                "eval-run",
             ]
             logger.info("Starting SWE-bench harness: %s", " ".join(map(str, eval_cmd)))
             eval_proc = subprocess.Popen(
@@ -156,14 +166,17 @@ def init(req: InitRequest):
     threading.Thread(target=_worker, daemon=True).start()
     return {"status": "accepted"}
 
+
 @app.get("/status")
 def status(rollout_id: str):
     return rollout_states.get(rollout_id, {"terminated": False})
+
 
 def main():
     host = os.getenv("REMOTE_SERVER_HOST", "127.0.0.1")
     port = int(os.getenv("REMOTE_SERVER_PORT", "3000"))
     uvicorn.run(app, host=host, port=port)
+
 
 if __name__ == "__main__":
     main()
