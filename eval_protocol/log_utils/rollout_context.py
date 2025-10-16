@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import List, Optional
 
@@ -25,6 +26,9 @@ class ContextRolloutIdFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:  # type: ignore[override]
         rollout_id = current_rollout_id.get()
+        if not rollout_id:
+            # Allow explicit rollout IDs on the record or via environment fallback.
+            rollout_id = getattr(record, "rollout_id", None) or os.getenv("EP_ROLLOUT_ID")
         if not rollout_id:
             # No correlation context → do not emit to external sink
             return False
