@@ -56,10 +56,12 @@ def init(req: InitRequest):
             script_dir = Path(__file__).parent
             env["PYTHONPATH"] = f"{script_dir}:{env.get('PYTHONPATH', '')}"
 
-            # Determine output directory (from env or default)
-            out_dir = os.getcwd()
-
+            # Sandbox by invocation_id to isolate concurrent test runs
             from pathlib import Path
+
+            invocation_id = req.metadata.invocation_id
+            base_dir = Path(os.getcwd()) / invocation_id
+            base_dir.mkdir(parents=True, exist_ok=True)
 
             script_path = str((Path(__file__).parent / "run_swe_agent_fw.py").resolve())
 
@@ -89,7 +91,7 @@ def init(req: InitRequest):
                 str(single_index),
                 "--exit-immediately",
                 "--output",
-                str(out_dir),
+                str(base_dir),
                 "--model-class",
                 "tracing_model.TracingFireworksModel",
             ]
@@ -103,7 +105,7 @@ def init(req: InitRequest):
             import json
 
             # Log path inside row directory for this run
-            row_dir = Path(out_dir) / f"row_{single_index}"
+            row_dir = base_dir / f"row_{single_index}"
             row_dir.mkdir(parents=True, exist_ok=True)
             log_path = row_dir / f"agent_{single_index}.log"
 
@@ -150,12 +152,60 @@ def init(req: InitRequest):
                 logger.info(line.rstrip("\n"))
             eval_rc = eval_proc.wait()
 
+            # Collect evaluation results to send via Elasticsearch
+            import yaml
+
+            instance_id = None
+            resolved = None
+
+            if preds_path.exists():
+                try:
+                    preds = json.loads(preds_path.read_text())
+                    instance_id = next(iter(preds.keys()), None)
+                except Exception:
+                    pass
+
+            if instance_id:
+                model_id = req.completion_params.get("model") if req.completion_params else None
+                if model_id:
+                    safe_model = model_id.replace("/", "__").replace(":", "-")
+                    report_path = (
+                        row_dir / "logs" / "run_evaluation" / "eval-run" / safe_model / instance_id / "report.json"
+                    )
+
+                    if report_path.exists():
+                        try:
+                            report_data = json.loads(report_path.read_text())
+                            resolved = bool(report_data.get(instance_id, {}).get("resolved", False))
+                        except Exception:
+                            pass
+
+                    if resolved is None:
+                        exit_files = sorted(row_dir.glob("exit_statuses_*.yaml"))
+                        if exit_files:
+                            try:
+                                status_doc = yaml.safe_load(exit_files[-1].read_text()) or {}
+                                by_status = status_doc.get("instances_by_exit_status", {})
+                                for status_name, ids in by_status.items():
+                                    if instance_id in (ids or []):
+                                        resolved = False
+                                        break
+                            except Exception:
+                                pass
+
+            results_data = {
+                "instance_id": instance_id,
+                "resolved": resolved,
+                "row_id": str(single_index),
+            }
+
         except Exception as e:
             # Best-effort: mark error but still finish to unblock polling
+            results_data = {"error": str(e), "row_id": str(single_index)}
             logger.error(f"Rollout error: {e}", extra={"status": Status.rollout_error(str(e))})
         finally:
-            # Always mark finished so RemoteRolloutProcessor stops polling
-            logger.info("Rollout completed", extra={"status": Status.rollout_finished()})
+            # Log results and mark finished
+            logger.info("Evaluation results", extra={"results": results_data, "status": Status.rollout_finished()})
 
     threading.Thread(target=_worker, daemon=True).start()
     return {"status": "accepted"}
