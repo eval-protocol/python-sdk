@@ -51,7 +51,10 @@ def init(req: InitRequest):
                 env["FIREWORKS_API_KEY"] = os.environ["FIREWORKS_API_KEY"]
             # Make sure the tracing model module is importable by the subprocess
             # so "tracing_model.TracingFireworksModel" can be imported
-            env["PYTHONPATH"] = "/Users/shrey/Documents/python-sdk/examples/swebench:" + env.get("PYTHONPATH", "")
+            from pathlib import Path
+
+            script_dir = Path(__file__).parent
+            env["PYTHONPATH"] = f"{script_dir}:{env.get('PYTHONPATH', '')}"
 
             # Determine output directory (from env or default)
             out_dir = os.getcwd()
@@ -62,15 +65,17 @@ def init(req: InitRequest):
 
             # Extract model_kwargs from req.metadata (forwarded from input_metadata)
             model_kwargs = {}
-            logger.info(f"DEBUG: req.metadata attributes: {dir(req.metadata)}")
+            # convert to logger.debug everywhere, remove debug then
+            logger.debug(f"req.metadata attributes: {dir(req.metadata)}")
+
             if hasattr(req.metadata, "model_kwargs"):
                 mk = getattr(req.metadata, "model_kwargs", None)
-                logger.info(f"DEBUG: Found req.metadata.model_kwargs = {mk}")
+                logger.debug(f"Found req.metadata.model_kwargs = {mk}")
                 if isinstance(mk, dict):
                     model_kwargs = mk
-                    logger.info(f"Extracted model_kwargs from metadata: {model_kwargs}")
+                    logger.debug(f"Extracted model_kwargs from metadata: {model_kwargs}")
             else:
-                logger.info("DEBUG: req.metadata has NO model_kwargs attribute")
+                logger.debug("req.metadata has NO model_kwargs attribute")
 
             # Set tracing URL
             if req.model_base_url:
@@ -114,16 +119,6 @@ def init(req: InitRequest):
                 )
                 ret = proc.wait()
 
-            # Stream stdout/stderr to logs
-            # assert proc.stdout is not None and proc.stderr is not None
-            # for line in proc.stdout:
-            #     logger.info(line.rstrip("\n"))
-            # for line in proc.stderr:
-            #     logger.warning(line.rstrip("\n"))
-
-            # ret = proc.wait()
-            # logger.info(f"mini-swe-agent exited with code {ret}")
-
             # Use row-specific preds.json to avoid cross-run interference
             preds_path = row_dir / "preds.json"
             if preds_path.exists():
@@ -154,7 +149,6 @@ def init(req: InitRequest):
             for line in eval_proc.stdout:
                 logger.info(line.rstrip("\n"))
             eval_rc = eval_proc.wait()
-            # logger.info(f"SWE-bench harness exited with code {eval_rc}")
 
         except Exception as e:
             # Best-effort: mark error but still finish to unblock polling

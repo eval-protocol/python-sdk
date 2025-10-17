@@ -12,14 +12,6 @@ Requires fully qualified Fireworks model paths:
 Usage:
     python run_swe_agent_fw.py <fully_qualified_model_path> [options]
 
-Examples:
-    # Serverless models
-    python run_swe_agent_fw.py fireworks_ai/accounts/fireworks/models/kimi-k2-instruct --instances 10 --workers 5
-    python run_swe_agent_fw.py fireworks_ai/accounts/fireworks/models/llama-v3p1-70b-instruct --subset full --workers 8
-
-    # Deployed models
-    python run_swe_agent_fw.py fireworks_ai/accounts/cognition/deployedModels/swe-1-mtp-tc1huggf --single 0
-    python run_swe_agent_fw.py fireworks_ai/accounts/fireworks/models/kimi-k2-instruct --test
 
 Requirements:
     - mini-swe-agent: pip install mini-swe-agent
@@ -39,94 +31,11 @@ from minisweagent.models.litellm_model import LitellmModel, LitellmModelConfig
 import litellm
 
 
-class FireworksCompatibleModel(LitellmModel):
-    """
-    Fireworks-compatible wrapper for LitellmModel.
-    """
-
-    def __init__(self, **kwargs):
-        if model_id := os.environ.get("FIREWORKS_MODEL_ID"):
-            kwargs["model_name"] = model_id
-        print(f"kwargs: {kwargs}")
-        if "model_kwargs" not in kwargs:
-            kwargs["model_kwargs"] = {}
-
-        # CRITICAL: Set drop_params to False so stop sequences aren't stripped!
-        kwargs["model_kwargs"]["drop_params"] = False
-
-        # Get existing stop sequences
-        existing_stop = kwargs["model_kwargs"].get("stop", [])
-        if isinstance(existing_stop, str):
-            existing_stop = [existing_stop]
-        elif existing_stop is None:
-            existing_stop = []
-
-        # Add stop sequences (only the non-natural ones)
-        stop_sequences = existing_stop + [
-            # ASCII versions
-            "<|User|>",
-            "<|Assistant|>",
-            # Full-width PIPE versions (U+FF5C)
-            "<｜User|>",  # \uff5c
-            "<｜Assistant|>",
-            "```<｜",
-            "<｜User",
-            "<｜Ass",
-            # Full-width LETTER L versions (U+FF4C)
-            "<ｌUser|>",  # \uff4c
-            "<ｌAssistant|>",
-            "```<ｌ",
-            "<ｌUser",
-            "<ｌAss",
-        ]
-        kwargs["model_kwargs"]["stop"] = stop_sequences
-        kwargs["model_kwargs"]["max_tokens"] = 1024  # Reduce to 1024 to save tokens
-
-        if "temperature" not in kwargs["model_kwargs"]:
-            kwargs["model_kwargs"]["temperature"] = 0.0
-
-        # Apply per-run overrides injected by the wrapper (no environment variables)
-        overrides = globals().get("WRAPPER_MODEL_OVERRIDES")
-        if isinstance(overrides, dict):
-            if overrides.get("reasoning") in ("low", "medium", "high"):
-                kwargs["model_kwargs"]["reasoning_effort"] = overrides["reasoning"]
-            if overrides.get("temperature") is not None:
-                try:
-                    kwargs["model_kwargs"]["temperature"] = float(overrides["temperature"])
-                except Exception:
-                    pass
-            if overrides.get("max_tokens") is not None:
-                try:
-                    kwargs["model_kwargs"]["max_tokens"] = int(overrides["max_tokens"])
-                except Exception:
-                    pass
-
-        super().__init__(**kwargs)
-
-    def _query(self, messages: list[dict[str, str]], **kwargs):
-        """Remove non-standard fields before sending to Fireworks API."""
-        # Keep only standard OpenAI-compatible fields
-        clean_messages = []
-        for msg in messages:
-            clean_msg = {"role": msg["role"], "content": msg["content"]}
-            if "tool_calls" in msg:
-                clean_msg["tool_calls"] = msg["tool_calls"]
-            if "name" in msg:
-                clean_msg["name"] = msg["name"]
-            clean_messages.append(clean_msg)
-
-        # IMPORTANT: Ensure drop_params stays False in the actual query
-        kwargs_with_stop = kwargs.copy()
-        if "drop_params" not in kwargs_with_stop:
-            kwargs_with_stop["drop_params"] = False
-
-        return super()._query(clean_messages, **kwargs_with_stop)
-
-
 def __get_api_key():
     """Get Fireworks API key from environment or mini-swe-agent config."""
     # Environment variable takes precedence
-    if api_key := os.environ.get("FIREWORKS_API_KEY"):
+    api_key = os.environ.get("FIREWORKS_API_KEY")
+    if api_key:
         return api_key
 
     # Try to get API key from mini-swe-agent's config system
@@ -213,7 +122,7 @@ def __build_command(args, wrapper_module_path):
         "--model",
         args.model_id,
         "--model-class",
-        model_class,
+        "tracing_model.FireworksCompatibleModel",
         "--subset",
         args.subset,
         "--split",

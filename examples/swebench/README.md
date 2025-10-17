@@ -1,57 +1,300 @@
-SWE-bench (Remote) - Local (non-Docker) Setup and Usage
+# SWE-bench Evaluation Example
 
-Prerequisites
-- Python 3.12 environment (same one you use for this repo)
-- Fireworks API key
-- mini-swe-agent and datasets (for patch generation)
-- SWE-bench harness installed (for evaluation)
+This example shows how to evaluate LLM models on the SWE-bench software engineering benchmark using eval-protocol.
 
-Setup mini-swe-agent (non-Docker)
-1) Install dependencies
+## Quick Start
+
+### 1. Install Dependencies
+
 ```bash
-pip install mini-swe-agent datasets
+# From the python-sdk repository root
+cd python-sdk
+
+# Install eval-protocol with swebench support
+pip install -e ".[swebench]"
 ```
 
-2) Configure API key for mini-swe-agent
+### 2. Set up mini-swe-agent
+
+mini-swe-agent requires a Fireworks API key to function:
+
 ```bash
-mini-extra config set FIREWORKS_API_KEY <your_fireworks_key>
+# Configure API key for mini-swe-agent
+mini-extra config set FIREWORKS_API_KEY your_fireworks_api_key
+
+# Verify it's set
+mini-extra config get FIREWORKS_API_KEY
 ```
 
-3) (Optional) Test connectivity
-```bash
-python3 examples/swebench/run_swe_agent_fw.py fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905 --test
-```
+### 3. Install SWE-bench Harness
 
-Install SWE-bench evaluation harness
 ```bash
+# Navigate to the swebench example directory
+cd examples/swebench
+
+# Clone and install SWE-bench
 git clone https://github.com/princeton-nlp/SWE-bench
 pip install -e SWE-bench
 ```
 
-Environment
+### 4. Set Environment Variables
+
 ```bash
-export FIREWORKS_API_KEY="<your_fireworks_key>"
+export FIREWORKS_API_KEY="your_fireworks_api_key"
 ```
 
-Run the server
+## Running the Evaluation
+
+**IMPORTANT:** Always run both the server and tests from the `examples/swebench/` directory.
+
+### Step 1: Start the Server
+
+Open a terminal and run:
+
 ```bash
-python examples/swebench/server.py
+cd examples/swebench
+python server.py
 ```
 
-What the server does
-- Invokes `run_swe_agent_fw.py` in batch mode with a single-slice per request
-- Writes outputs to a per-row directory: `./row_{index}/`
-  - `row_{index}/preds.json`
-  - `row_{index}/<instance_id>/<instance_id>.traj.json`
-- Runs the SWE-bench harness on `row_{index}/preds.json`
-
-Run pytest to evaluate a model on SWE-bench
-```bash
-cd /Users/shrey/Documents/python-sdk
-pytest examples/swebench/tests/test_swebench.py -v -s
+You should see:
+```
+INFO:     Uvicorn running on http://127.0.0.1:3000 (Press CTRL+C to quit)
 ```
 
-Notes
-- The test currently generates 10 rows by numeric index (0–9)
-- Each request triggers the server to run one SWE-bench instance and write to its own `row_{index}`
-- Control harness workers via: `export SWEBENCH_EVAL_WORKERS=5`
+### Step 2: Configure Your Test
+
+Edit `tests/test_swebench.py` to set your model and parameters:
+
+```python
+completion_params=[{
+    "model": "accounts/fireworks/models/your-model-name",  # Edit this
+    "model_kwargs": {
+        "temperature": 0.2,      # Optional
+        # "max_tokens": 2048,    # Optional
+        # "reasoning": "high",   # Optional
+    }
+}],
+max_concurrent_rollouts=3,  # How many instances to run in parallel
+```
+
+To test different numbers of instances, edit line 26:
+```python
+def rows() -> List[EvaluationRow]:
+    return rows_from_indices(2)  # Change 2 to desired number (max 500)
+```
+
+### Step 3: Run the Test
+
+Open a second terminal:
+
+```bash
+cd examples/swebench
+pytest tests/test_swebench.py -v -s
+```
+
+## What Happens During a Run
+
+For each instance (row):
+
+1. **Server receives request** from pytest
+2. **Wrapper script** (`run_swe_agent_fw.py`) is called with the instance index
+3. **mini-swe-agent** runs in a Docker container for that specific repository
+4. **Agent attempts to solve** the issue by editing code
+5. **Patch is generated** and saved to `preds.json`
+6. **SWE-bench harness** applies the patch and runs tests
+7. **Results** are written to the row directory
+8. **Test fetches results** and displays pass/fail in the UI
+
+## Understanding the Output
+
+### Directory Structure
+
+Each instance creates its own `row_N/` directory:
+
+```
+examples/swebench/
+├── row_0/                                    # First instance
+│   ├── preds.json                            # ← Model's generated patch
+│   ├── astropy__astropy-12907/               # Instance-specific folder
+│   │   └── astropy__astropy-12907.traj.json  # Agent's execution trace
+│   ├── logs/                                 # Harness execution logs
+│   │   └── run_evaluation/
+│   │       └── eval-run/
+│   │           └── <safe_model_name>/
+│   │               └── astropy__astropy-12907/
+│   │                   ├── report.json       # ← Test results (pass/fail)
+│   │                   ├── test_output.txt   # Test execution output
+│   │                   ├── patch.diff        # Applied patch
+│   │                   └── eval.sh           # Evaluation script
+│   ├── agent_0.log                           # Agent console output
+│   ├── exit_statuses_*.yaml                  # Exit status if failed
+│   └── <model_name>.eval-run.json            # Overall run summary
+├── row_1/                                    # Second instance
+│   └── ...
+└── ...
+```
+
+### Key Files Explained
+
+#### `preds.json` - Model Predictions
+Location: `row_N/preds.json`
+
+Contains the patch generated by the model:
+```json
+{
+  "astropy__astropy-12907": {
+    "model_name_or_path": "accounts/fireworks/models/...",
+    "instance_id": "astropy__astropy-12907",
+    "model_patch": "diff --git a/... (the actual patch)"
+  }
+}
+```
+
+**If missing:** Agent failed before generating a patch (check `exit_statuses_*.yaml`)
+
+#### `report.json` - Test Results
+Location: `row_N/logs/run_evaluation/eval-run/<model_name>/<instance_id>/report.json`
+
+Contains pass/fail status after running tests:
+```json
+{
+  "astropy__astropy-12907": {
+    "patch_is_None": false,
+    "patch_exists": true,
+    "patch_successfully_applied": true,
+    "resolved": true,  // ← Was the issue fixed?
+    "tests_status": {
+      "FAIL_TO_PASS": {"success": [...], "failure": []},
+      "PASS_TO_PASS": {"success": [...], "failure": []}
+    }
+  }
+}
+```
+
+- `resolved: true` = Instance solved! All required tests pass.
+- `resolved: false` = Instance not solved (tests still failing)
+
+**If missing:** Agent didn't generate a patch or harness didn't run
+
+#### `exit_statuses_*.yaml` - Why Runs Failed
+Location: `row_N/exit_statuses_*.yaml`
+
+```yaml
+instances_by_exit_status:
+  Submitted: []
+  LimitsExceeded: ["astropy__astropy-12907"]  # Hit step/cost limits
+  Error: []
+```
+
+Common statuses:
+- `Submitted`: Completed normally
+- `LimitsExceeded`: Agent hit max steps or cost limit
+- `Error`: Unexpected error during execution
+
+#### `agent_N.log` - Agent Execution
+Location: `row_N/agent_N.log`
+
+Full console output from the agent run, including:
+- Docker container startup
+- Model API calls
+- Commands executed
+- Errors (if any)
+
+#### `*.traj.json` - Agent Trajectory
+Location: `row_N/<instance_id>/<instance_id>.traj.json`
+
+Complete record of the agent's execution:
+```json
+{
+  "instance_id": "astropy__astropy-12907",
+  "info": {
+    "submission": "...",  // The patch
+    "exit_status": "Submitted",
+    "model_stats": {
+      "instance_cost": 0.05,
+      "api_calls": 15
+    }
+  },
+  "messages": [...]  // All agent messages
+}
+```
+
+## Viewing Results
+
+### In the Terminal
+
+The test output shows:
+```
+INFO:test_swebench:[Row 0] Found instance_id: astropy__astropy-12907
+INFO:test_swebench:[Row 0] Report says resolved=True
+INFO:test_swebench:[Row 0] Final: resolved=True, reason=harness_resolved=True
+```
+
+### In the Eval Protocol UI
+
+If Elasticsearch is running, visit: `http://localhost:8000`
+- View aggregate scores
+- Inspect individual trajectories
+- Filter by resolved/unresolved
+- See cost and token usage
+
+### Check Individual Files
+
+```bash
+# Check if instance was solved
+cat row_0/logs/run_evaluation/eval-run/<model>/astropy__astropy-12907/report.json | jq '.["astropy__astropy-12907"].resolved'
+
+# View the generated patch
+cat row_0/preds.json | jq '.["astropy__astropy-12907"].model_patch'
+
+# Check exit status
+cat row_0/exit_statuses_*.yaml
+```
+
+## Performance Notes
+
+- **Small test (2 instances):** ~10-30 minutes
+- **Full dataset (500 instances):** 24-48 hours on a 16-core machine
+- **Concurrent runs:** Recommended 3-5 based on CPU/memory
+- **Docker space:** ~100GB for all images (downloads happen automatically)
+
+## Troubleshooting
+
+### Docker container fails to start
+```bash
+# Check Docker is running
+docker ps
+
+# Check disk space
+df -h
+```
+
+### Agent hits step limits
+Instances that consistently hit limits may need:
+- Higher step limit (edit mini-swe-agent config)
+- Different prompting strategy
+- More capable model
+
+### Server not responding
+```bash
+# Check server is running
+curl http://127.0.0.1:3000/status?rollout_id=test
+
+# Check server logs for errors
+# (shown in terminal where server.py is running)
+```
+
+## Next Steps
+
+- Review results in `row_*/logs/.../report.json`
+- Analyze failed instances to improve your model
+- Run on larger subsets to get statistical significance
+- Export results for further analysis
+
+## Support
+
+For issues:
+- Check agent logs: `row_N/agent_N.log`
+- Check exit statuses: `row_N/exit_statuses_*.yaml`
+- Verify Docker has sufficient resources
+- Ensure API key is valid and has credits
