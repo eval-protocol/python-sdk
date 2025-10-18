@@ -15,8 +15,30 @@ def _now_rollout_id() -> str:
     return f"verify-{int(time.time())}"
 
 
+def _detect_gateway_base_url() -> str:
+    # Prefer explicit FW_TRACING_GATEWAY_BASE_URL, else GATEWAY_URL, else public default
+    return os.getenv("FW_TRACING_GATEWAY_BASE_URL") or os.getenv("GATEWAY_URL") or "https://tracing.fireworks.ai"
+
+
+def _detect_logs_endpoint(base_url: str) -> str:
+    # Inspect OpenAPI and choose the correct logs endpoint
+    try:
+        import requests
+
+        r = requests.get(f"{base_url.rstrip('/')}/openapi.json", timeout=5)
+        if r.ok:
+            paths = (r.json() or {}).get("paths", {})
+            if any(p.startswith("/v1/logs") for p in paths.keys()):
+                return "/v1/logs"
+            if any(p.startswith("/logs") for p in paths.keys()):
+                return "/logs"
+    except Exception:
+        pass
+    return "/logs"
+
+
 def verify_fireworks(rollout_id: str) -> int:
-    base_url = os.getenv("FW_TRACING_GATEWAY_BASE_URL") or "https://tracing.fireworks.ai"
+    base_url = _detect_gateway_base_url()
     api_key = os.getenv("FIREWORKS_API_KEY")
     if not api_key:
         print("FIREWORKS_API_KEY not set; cannot verify Fireworks")
@@ -26,6 +48,20 @@ def verify_fireworks(rollout_id: str) -> int:
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     init_external_logging_from_env()
+    # Detect and use the correct logs endpoint
+    logs_ep = _detect_logs_endpoint(base_url)
+    # Print handler info for diagnostics
+    handlers = [type(h).__name__ for h in root.handlers]
+    print(
+        json.dumps(
+            {
+                "gateway_url": base_url,
+                "logs_endpoint": logs_ep,
+                "root_handlers": handlers,
+            }
+        )
+    )
+
     logger = logging.getLogger("ep.verify.fireworks")
     for i in range(2):
         logger.info(
@@ -47,12 +83,22 @@ def verify_fireworks(rollout_id: str) -> int:
         "limit": 50,
         "hours_back": 6,
     }
-    url = f"{base_url.rstrip('/')}/logs"
+    candidate_eps = [logs_ep, "/v1/logs" if logs_ep != "/v1/logs" else "/logs"]
     for _ in range(20):
         try:
-            r = requests.get(url, headers=headers, params=params, timeout=15)
-            r.raise_for_status()
-            data: Dict[str, Any] = r.json() or {}
+            data: Dict[str, Any] = {}
+            last_err: str | None = None
+            for ep in candidate_eps:
+                url = f"{base_url.rstrip('/')}{ep}"
+                r = requests.get(url, headers=headers, params=params, timeout=15)
+                if r.status_code == 404:
+                    last_err = f"404 for {ep}"
+                    continue
+                r.raise_for_status()
+                data = r.json() or {}
+                break
+            else:
+                raise Exception(last_err or "all endpoints failed")
             entries: List[Dict[str, Any]] = data.get("entries", []) or []
             matched = [e for e in entries if any(t == f"rollout_id:{rollout_id}" for t in e.get("tags", []))]
             if matched:

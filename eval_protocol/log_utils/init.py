@@ -41,7 +41,8 @@ def init_external_logging_from_env() -> None:
 
     # Fireworks tracing: prefer if FIREWORKS_API_KEY is present; default base URL if not provided
     fw_key = _get_env("FIREWORKS_API_KEY")
-    fw_url = _get_env("FW_TRACING_GATEWAY_BASE_URL") or "https://tracing.fireworks.ai"
+    # Allow remote validation gateway to act as tracing base when provided
+    fw_url = _get_env("FW_TRACING_GATEWAY_BASE_URL") or _get_env("GATEWAY_URL") or "https://tracing.fireworks.ai"
     if fw_key and "FireworksTracingHttpHandler" not in existing_handler_types:
         fw_handler = FireworksTracingHttpHandler(gateway_base_url=fw_url)
         fw_handler.setLevel(logging.INFO)

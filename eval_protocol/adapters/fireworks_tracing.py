@@ -273,16 +273,30 @@ class FireworksTracingAdapter(BaseAdapter):
         if not tags:
             raise ValueError("At least one tag is required to fetch logs")
 
-        url = f"{self.base_url}/logs"
         headers = {"Authorization": f"Bearer {os.environ.get('FIREWORKS_API_KEY')}"}
         params: Dict[str, Any] = {"tags": tags, "limit": limit, "hours_back": hours_back, "program": "eval_protocol"}
 
-        try:
-            response = requests.get(url, params=params, timeout=self.timeout, headers=headers)
-            response.raise_for_status()
-            data = response.json() or {}
-        except requests.exceptions.RequestException as e:
-            logger.error("Failed to fetch logs from Fireworks /logs: %s", str(e))
+        # Try /logs first, fall back to /v1/logs if not found
+        urls_to_try = [f"{self.base_url}/logs", f"{self.base_url}/v1/logs"]
+        data: Dict[str, Any] = {}
+        last_error: Optional[str] = None
+        for url in urls_to_try:
+            try:
+                response = requests.get(url, params=params, timeout=self.timeout, headers=headers)
+                if response.status_code == 404:
+                    # Try next variant
+                    last_error = f"404 for {url}"
+                    continue
+                response.raise_for_status()
+                data = response.json() or {}
+                break
+            except requests.exceptions.RequestException as e:
+                last_error = str(e)
+                continue
+        else:
+            # All attempts failed
+            if last_error:
+                logger.error("Failed to fetch logs from Fireworks (tried %s): %s", urls_to_try, last_error)
             return []
 
         entries: List[Dict[str, Any]] = data.get("entries", []) or []

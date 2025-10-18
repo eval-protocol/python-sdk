@@ -32,7 +32,13 @@ def logs_command(args):
 
     # Setup backend configs
     elasticsearch_config = None
-    fireworks_base_url = os.environ.get("FW_TRACING_GATEWAY_BASE_URL") or "https://tracing.fireworks.ai"
+    # Prefer explicit FW_TRACING_GATEWAY_BASE_URL, then GATEWAY_URL from env (remote validation),
+    # finally default to public tracing.fireworks.ai
+    fireworks_base_url = (
+        os.environ.get("FW_TRACING_GATEWAY_BASE_URL")
+        or os.environ.get("GATEWAY_URL")
+        or "https://tracing.fireworks.ai"
+    )
     try:
         if not use_fireworks:
             if getattr(args, "use_env_elasticsearch_config", False):

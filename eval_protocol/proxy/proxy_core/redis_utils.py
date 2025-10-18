@@ -3,7 +3,7 @@ Redis utilities for tracking chat completions via insertion IDs.
 """
 
 import logging
-from typing import Set
+from typing import Set, cast
 import redis
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,16 @@ def get_insertion_ids(redis_client: redis.Redis, rollout_id: str) -> Set[str]:
         Set of insertion_id strings, empty set if none found or on error
     """
     try:
-        insertion_ids = redis_client.smembers(rollout_id)
+        raw = redis_client.smembers(rollout_id)
+        # Typing in redis stubs may be Awaitable[Set[Any]] | Set[Any]; at runtime this is a Set[bytes]
+        raw_ids = cast(Set[object], raw)
+        # Normalize to set[str]
+        insertion_ids: Set[str] = set()
+        for b in raw_ids:
+            try:
+                insertion_ids.add(b.decode("utf-8") if isinstance(b, (bytes, bytearray)) else cast(str, b))
+            except Exception:
+                continue
         logger.debug(f"Found {len(insertion_ids)} expected insertion_ids for rollout {rollout_id}")
         return insertion_ids
     except Exception as e:
