@@ -8,7 +8,7 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
 from queue import Queue
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Literal
 
 import psutil
 import uvicorn
@@ -327,6 +327,8 @@ class LogsServer(ViteServer):
         port: Optional[int] = 8000,
         index_file: str = "index.html",
         elasticsearch_config: Optional[ElasticsearchConfig] = None,
+        backend: Literal["fireworks", "elasticsearch"] = "elasticsearch",
+        fireworks_base_url: Optional[str] = None,
         debug: bool = False,
     ):
         # Enable debug mode if requested
@@ -335,6 +337,10 @@ class LogsServer(ViteServer):
 
         # Initialize WebSocket manager
         self.websocket_manager = WebSocketManager()
+
+        # Backend selection
+        self.backend: Literal["fireworks", "elasticsearch"] = backend
+        self.fireworks_base_url = fireworks_base_url
 
         # Initialize Elasticsearch client if config is provided
         self.elasticsearch_client: Optional[ElasticsearchClient] = None
@@ -414,6 +420,8 @@ class LogsServer(ViteServer):
                 # Expose an empty list to satisfy consumers and type checker
                 "watch_paths": [],
                 "elasticsearch_enabled": self.elasticsearch_client is not None,
+                "backend": self.backend,
+                "fireworks_enabled": self.backend == "fireworks",
             }
 
         @self.app.get("/api/logs/{rollout_id}", response_model=LogsResponse, response_model_exclude_none=True)
@@ -422,7 +430,47 @@ class LogsServer(ViteServer):
             level: Optional[str] = Query(None, description="Filter by log level (DEBUG, INFO, WARNING, ERROR)"),
             limit: int = Query(100, description="Maximum number of log entries to return"),
         ) -> LogsResponse:
-            """Get logs for a specific rollout ID from Elasticsearch."""
+            """Get logs for a specific rollout ID from the configured backend."""
+            # Fireworks backend
+            if self.backend == "fireworks":
+                try:
+                    from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
+
+                    base_url = self.fireworks_base_url or "https://tracing.fireworks.ai"
+                    adapter = FireworksTracingAdapter(base_url=base_url)
+                    # Fetch lightweight log entries filtered by rollout_id tag
+                    tags = [f"rollout_id:{rollout_id}"]
+                    entries = adapter.search_logs(tags=tags, limit=limit)
+                    # Map to LogEntry responses
+                    log_entries: List[LogEntry] = []
+                    for e in entries:
+                        ts = e.get("timestamp") or datetime.utcnow().isoformat() + "Z"
+                        msg = e.get("message") or "trace"
+                        sev = e.get("severity") or "INFO"
+                        entry = LogEntry(
+                            **{
+                                "@timestamp": ts,
+                                "level": sev,
+                                "message": str(msg),
+                                "logger_name": "fireworks",
+                                "rollout_id": rollout_id,
+                            }
+                        )
+                        log_entries.append(entry)
+
+                    return LogsResponse(
+                        logs=log_entries,
+                        total=len(log_entries),
+                        rollout_id=rollout_id,
+                        filtered_by_level=level,
+                    )
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    logger.error(f"Error retrieving Fireworks logs for rollout {rollout_id}: {e}")
+                    raise HTTPException(status_code=500, detail=f"Failed to retrieve Fireworks logs: {str(e)}")
+
+            # Elasticsearch backend
             if not self.elasticsearch_client:
                 raise HTTPException(status_code=503, detail="Elasticsearch is not configured for this logs server")
 
@@ -574,6 +622,8 @@ def create_app(
     port: int = 8000,
     build_dir: Optional[str] = None,
     elasticsearch_config: Optional[ElasticsearchConfig] = None,
+    backend: Literal["fireworks", "elasticsearch"] = "elasticsearch",
+    fireworks_base_url: Optional[str] = None,
     debug: bool = False,
 ) -> FastAPI:
     """
@@ -597,7 +647,13 @@ def create_app(
         )
 
     server = LogsServer(
-        host=host, port=port, build_dir=build_dir, elasticsearch_config=elasticsearch_config, debug=debug
+        host=host,
+        port=port,
+        build_dir=build_dir,
+        elasticsearch_config=elasticsearch_config,
+        backend=backend,
+        fireworks_base_url=fireworks_base_url,
+        debug=debug,
     )
     server.start_loops()
     return server.app
@@ -605,12 +661,29 @@ def create_app(
 
 # For backward compatibility and direct usage
 def serve_logs(
-    port: Optional[int] = None, elasticsearch_config: Optional[ElasticsearchConfig] = None, debug: bool = False
+    port: Optional[int] = None,
+    elasticsearch_config: Optional[ElasticsearchConfig] = None,
+    debug: bool = False,
+    backend: Literal["fireworks", "elasticsearch"] = "elasticsearch",
+    fireworks_base_url: Optional[str] = None,
 ):
     """
     Convenience function to create and run a LogsServer.
     """
-    server = LogsServer(port=port, elasticsearch_config=elasticsearch_config, debug=debug)
+    # For backward compatibility with tests that assert exact constructor kwargs,
+    # only pass additional backend-related kwargs when they are actually needed.
+    logs_server_kwargs: Dict[str, Any] = {
+        "port": port,
+        "elasticsearch_config": elasticsearch_config,
+        "debug": debug,
+    }
+
+    # If non-default backend (fireworks) is requested or a base URL is provided, include them.
+    if backend != "elasticsearch" or fireworks_base_url is not None:
+        logs_server_kwargs["backend"] = backend
+        logs_server_kwargs["fireworks_base_url"] = fireworks_base_url
+
+    server = LogsServer(**logs_server_kwargs)
     server.run()
 
 

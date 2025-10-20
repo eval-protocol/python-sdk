@@ -265,6 +265,54 @@ class FireworksTracingAdapter(BaseAdapter):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
+    def search_logs(self, tags: List[str], limit: int = 100, hours_back: int = 24) -> List[Dict[str, Any]]:
+        """Fetch logs from Fireworks tracing gateway /logs endpoint.
+
+        Returns entries with keys: timestamp, message, severity, tags.
+        """
+        if not tags:
+            raise ValueError("At least one tag is required to fetch logs")
+
+        headers = {"Authorization": f"Bearer {os.environ.get('FIREWORKS_API_KEY')}"}
+        params: Dict[str, Any] = {"tags": tags, "limit": limit, "hours_back": hours_back, "program": "eval_protocol"}
+
+        # Try /logs first, fall back to /v1/logs if not found
+        urls_to_try = [f"{self.base_url}/logs", f"{self.base_url}/v1/logs"]
+        data: Dict[str, Any] = {}
+        last_error: Optional[str] = None
+        for url in urls_to_try:
+            try:
+                response = requests.get(url, params=params, timeout=self.timeout, headers=headers)
+                if response.status_code == 404:
+                    # Try next variant
+                    last_error = f"404 for {url}"
+                    continue
+                response.raise_for_status()
+                data = response.json() or {}
+                break
+            except requests.exceptions.RequestException as e:
+                last_error = str(e)
+                continue
+        else:
+            # All attempts failed
+            if last_error:
+                logger.error("Failed to fetch logs from Fireworks (tried %s): %s", urls_to_try, last_error)
+            return []
+
+        entries: List[Dict[str, Any]] = data.get("entries", []) or []
+        # Normalize minimal shape
+        results: List[Dict[str, Any]] = []
+        for e in entries:
+            results.append(
+                {
+                    "timestamp": e.get("timestamp"),
+                    "message": e.get("message"),
+                    "severity": e.get("severity", "INFO"),
+                    "tags": e.get("tags", []),
+                }
+            )
+        return results
+
     def get_evaluation_rows(
         self,
         tags: List[str],
