@@ -1,5 +1,38 @@
 """
-TracingFireworksModel - Routes through tracing using OpenAI SDK.
+Custom model classes for integrating mini-swe-agent with eval-protocol's tracing infrastructure.
+
+## Why This File Exists
+
+mini-swe-agent is an autonomous agent that makes 20-100+ LLM API calls per SWE-bench instance
+(e.g., reading files, editing code, running tests). To debug agent behavior and display results
+in eval-protocol's UI, we need to capture and analyze every LLM call.
+
+This file bridges mini-swe-agent (which uses LitellmModel) with the Fireworks tracing proxy
+(which requires specific URL patterns and SDK usage).
+
+## Problem Without This File
+
+By default, mini-swe-agent would:
+- Call Fireworks API directly (no tracing)
+- Agent conversations invisible in eval-protocol UI
+- Can't debug why agent failed
+- No cost tracking per call
+- Model names get mangled by litellm routing
+
+## What These Classes Do
+
+### FireworksCompatibleModel (Base)
+- Extends mini-swe-agent's LitellmModel
+- Handles Fireworks API compatibility:
+  * Strips non-standard message fields that Fireworks API rejects
+  * Adds stop sequences to prevent common agent failure modes
+  * Applies temperature/reasoning overrides from wrapper script
+- Used when tracing isn't needed (direct Fireworks API calls)
+
+### TracingFireworksModel (For eval-protocol integration)
+- Extends FireworksCompatibleModel
+- Routes ALL LLM calls through Fireworks tracing proxy instead of direct API
+- Uses OpenAI SDK (not litellm) to preserve full model names
 """
 
 import sys
