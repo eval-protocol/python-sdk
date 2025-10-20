@@ -97,11 +97,6 @@ box2d = [
     "gymnasium[box2d]>=0.29.0",
     "Pillow",
 ]
-swebench = [
-    "mini-swe-agent>=1.14.0",
-    "datasets>=2.0.0",
-    "litellm>=1.75.0",  # Note: Overrides core litellm<1.75.0 for swebench compatibility
-]
 langfuse = [
     "langfuse>=2.0.0",
 ]

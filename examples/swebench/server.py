@@ -14,7 +14,7 @@ app = FastAPI()
 # Attach Elasticsearch handler to root logger (Eval Protocol UI)
 handler = ElasticsearchDirectHttpHandler()
 logging.getLogger().addHandler(handler)
-rollout_states = {}
+# rollout_states = {}
 
 
 @app.post("/init")
@@ -27,11 +27,11 @@ def init(req: InitRequest):
     logger = logging.getLogger(f"{__name__}.{req.metadata.rollout_id}")
     logger.addFilter(RolloutIdFilter(req.metadata.rollout_id))
 
-    rollout_states[req.metadata.rollout_id] = {
-        "terminated": False,
-        "status": "running",
-        "instance_id": req.metadata.row_id,
-    }
+    # rollout_states[req.metadata.rollout_id] = {
+    #     "terminated": False,
+    #     "status": "running",
+    #     "instance_id": req.metadata.row_id,
+    # }
 
     def _worker():
         try:
@@ -157,6 +157,7 @@ def init(req: InitRequest):
 
             instance_id = None
             resolved = None
+            exit_reason = None
 
             if preds_path.exists():
                 try:
@@ -166,7 +167,7 @@ def init(req: InitRequest):
                     pass
 
             if instance_id:
-                model_id = req.completion_params.get("model") if req.completion_params else None
+                model_id = req.model
                 if model_id:
                     safe_model = model_id.replace("/", "__").replace(":", "-")
                     report_path = (
@@ -189,6 +190,7 @@ def init(req: InitRequest):
                                 for status_name, ids in by_status.items():
                                     if instance_id in (ids or []):
                                         resolved = False
+                                        exit_reason = status_name
                                         break
                             except Exception:
                                 pass
@@ -196,6 +198,7 @@ def init(req: InitRequest):
             results_data = {
                 "instance_id": instance_id,
                 "resolved": resolved,
+                "exit_reason": exit_reason,
                 "row_id": str(single_index),
             }
 
@@ -204,16 +207,40 @@ def init(req: InitRequest):
             results_data = {"error": str(e), "row_id": str(single_index)}
             logger.error(f"Rollout error: {e}", extra={"status": Status.rollout_error(str(e))})
         finally:
-            # Log results and mark finished
-            logger.info("Evaluation results", extra={"results": results_data, "status": Status.rollout_finished()})
+            # Create and log EvaluateResult in standardized format
+            from eval_protocol.models import EvaluateResult, MetricResult
+
+            if resolved is not None:
+                reason = f"instance={instance_id}, resolved={resolved}"
+                if exit_reason:
+                    reason += f", exit_reason={exit_reason}"
+
+                eval_result = EvaluateResult(
+                    score=1.0 if resolved else 0.0,
+                    reason=reason,
+                    is_score_valid=True,
+                    metrics={
+                        "resolved": MetricResult(
+                            score=1.0 if resolved else 0.0,
+                            is_score_valid=True,
+                            reason=f"resolved={resolved}",
+                            value=int(resolved),
+                        )
+                    },
+                )
+                logger.info(
+                    f"EVAL_RESULT:{eval_result.model_dump_json()}", extra={"status": Status.rollout_finished()}
+                )
+            else:
+                logger.info("EVAL_RESULT:null", extra={"status": Status.rollout_finished()})
 
     threading.Thread(target=_worker, daemon=True).start()
     return {"status": "accepted"}
 
 
-@app.get("/status")
-def status(rollout_id: str):
-    return rollout_states.get(rollout_id, {"terminated": False})
+# @app.get("/status")
+# def status(rollout_id: str):
+#     return rollout_states.get(rollout_id, {"terminated": False})
 
 
 def main():
