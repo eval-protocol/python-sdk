@@ -1,15 +1,17 @@
-# MANUAL SERVER STARTUP REQUIRED:
+# REMOTE SERVER OPTIONS:
 #
-# For Python server testing, start:
-# python -m tests.remote_server.remote_server (runs on http://127.0.0.1:3000)
+# Option 1: Use Vercel dev server locally (recommended for development)
+# cd eval_protocol/quickstart/svg_agent/vercel_svg_server
+# vercel dev
+# Then change remote_base_url to: "http://localhost:3000"
 #
-# For TypeScript server testing, start:
-# cd tests/remote_server/typescript-server
-# npm install
-# npm start
+# Option 2: Use deployed Vercel production server (current configuration)
+# No setup needed - uses the deployed serverless function
+# Currently using: https://vercel-svg-server-qntltzfaq-xzrdereks-projects.vercel.app
 #
-# The TypeScript server should be running on http://127.0.0.1:3000
-# You only need to start one of the servers!
+# Option 3: Use local Python server (for testing)
+# python -m tests.remote_server.remote_server
+# Then change remote_base_url to: "http://127.0.0.1:3000"
 
 import os
 from typing import List
@@ -34,14 +36,16 @@ def rows() -> List[EvaluationRow]:
         generators=[rows],
     ),
     rollout_processor=RemoteRolloutProcessor(
-        remote_base_url="http://127.0.0.1:3000",
+        # For local Vercel dev: "http://localhost:3000"
+        # For production Vercel: (current setting)
+        remote_base_url="https://vercel-svg-server.vercel.app",
         timeout_seconds=30,
     ),
 )
 async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> EvaluationRow:
     """
-    End-to-end test:
-    - REQUIRES MANUAL SERVER STARTUP: python -m tests.remote_server.remote_server
+    End-to-end test with Vercel production server:
+    - Uses deployed Vercel serverless function (no manual startup needed)
     - trigger remote rollout via RemoteRolloutProcessor (calls init/status)
     - fetch traces from Langfuse via Fireworks tracing proxy (uses default FireworksTracingAdapter)
     - FAIL if no traces found or rollout_id missing

@@ -3,6 +3,7 @@ Shared utilities for rollout processors.
 """
 
 import base64
+import os
 from typing import Any, Callable, Dict, List, Optional
 
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
@@ -122,12 +123,16 @@ def build_init_request(
     ):
         final_model_base_url = build_fireworks_tracing_url(model_base_url, meta, completion_params_base_url)
 
+    # Extract API key from environment or completion_params
+    api_key = os.environ.get("FIREWORKS_API_KEY")
+
     return InitRequest(
         model=model,
         messages=clean_messages,
         tools=row.tools,
         metadata=meta,
         model_base_url=final_model_base_url,
+        api_key=api_key,
     )
 
 
