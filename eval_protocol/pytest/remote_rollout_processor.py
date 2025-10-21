@@ -151,10 +151,10 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
                     # Look for structured status dictionary in status field
                     status_dict = latest_log.get("status")
-                    if status_dict and isinstance(status_dict, dict) and "status_code" in status_dict:
-                        status_code = status_dict.get("status_code")
-                        status_message = status_dict.get("status_message", "")
-                        status_details = status_dict.get("status_details", [])
+                    if status_dict and isinstance(status_dict, dict) and "code" in status_dict:
+                        status_code = status_dict.get("code")
+                        status_message = status_dict.get("message", "")
+                        status_details = status_dict.get("details", [])
 
                         logger.info(
                             f"Found Fireworks log for rollout {row.execution_metadata.rollout_id} with status code {status_code}"

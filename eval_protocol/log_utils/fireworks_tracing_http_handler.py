@@ -94,16 +94,16 @@ class FireworksTracingHttpHandler(logging.Handler):
                     status_code = status_code.value
 
                 return {
-                    "status_code": status_code,
-                    "status_message": status.message,
-                    "status_details": getattr(status, "details", []),
+                    "code": status_code,
+                    "message": status.message,
+                    "details": getattr(status, "details", []),
                 }
             elif isinstance(status, dict):
                 # Dictionary representation of status
                 return {
-                    "status_code": status.get("code"),
-                    "status_message": status.get("message"),
-                    "status_details": status.get("details", []),
+                    "code": status.get("code"),
+                    "message": status.get("message"),
+                    "details": status.get("details", []),
                 }
         return None
 
