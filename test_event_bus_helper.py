@@ -4,8 +4,7 @@
 import asyncio
 import sys
 import json
-from eval_protocol.event_bus import SqliteEventBus
-from eval_protocol.models import EvaluationRow, InputMetadata
+from eval_protocol.event_bus.sqlite_event_bus import SqliteEventBus
 
 
 async def listener_process(db_path: str):
