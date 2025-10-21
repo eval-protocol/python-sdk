@@ -1,20 +1,13 @@
-# MANUAL SERVER STARTUP REQUIRED:
-#
-# For Python server testing, start:
-# python -m tests.remote_server.remote_server (runs on http://127.0.0.1:3000)
-#
-# For TypeScript server testing, start:
-# cd tests/remote_server/typescript-server
-# npm install
-# npm start
-#
-# The TypeScript server should be running on http://127.0.0.1:3000
-# You only need to start one of the servers!
+# AUTO SERVER STARTUP: Server is automatically started and stopped by the test
 
 import os
+import subprocess
+import socket
+import time
 from typing import List
 
 import pytest
+import requests
 
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluationRow, Message
@@ -25,6 +18,54 @@ from eval_protocol.utils.evaluation_row_utils import filter_longest_conversation
 from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
 
 ROLLOUT_IDS = set()
+
+
+def find_available_port() -> int:
+    """Find an available port on localhost"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        port = s.getsockname()[1]
+    return port
+
+
+SERVER_PORT = find_available_port()
+
+
+def wait_for_server_to_startup(timeout: int = 120):
+    start_time = time.time()
+    while True:
+        try:
+            requests.get(f"http://127.0.0.1:{SERVER_PORT}")
+            break
+        except requests.exceptions.RequestException:
+            time.sleep(1)
+        if time.time() - start_time > timeout:
+            raise TimeoutError(f"Server did not start within {timeout} seconds")
+
+
+@pytest.fixture(autouse=True)
+def setup_remote_server():
+    """Start the remote server"""
+    # kill all Python processes matching "python -m tests.remote_server.remote_server"
+    subprocess.run(["pkill", "-f", "python -m tests.remote_server.remote_server"], capture_output=True)
+
+    host = "127.0.0.1"
+    process = subprocess.Popen(
+        [
+            "python",
+            "-m",
+            "tests.remote_server.remote_server",
+            "--host",
+            host,
+            "--port",
+            str(SERVER_PORT),
+        ]
+    )
+    # wait for the server to startup by polling
+    wait_for_server_to_startup()
+    yield
+    process.terminate()
+    process.wait()
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +105,7 @@ def rows() -> List[EvaluationRow]:
         generators=[rows],
     ),
     rollout_processor=RemoteRolloutProcessor(
-        remote_base_url="http://127.0.0.1:3000",
+        remote_base_url=f"http://127.0.0.1:{SERVER_PORT}",
         timeout_seconds=180,
         output_data_loader=fireworks_output_data_loader,
     ),
@@ -72,7 +113,7 @@ def rows() -> List[EvaluationRow]:
 async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> EvaluationRow:
     """
     End-to-end test:
-    - REQUIRES MANUAL SERVER STARTUP: python -m tests.remote_server.remote_server
+    - AUTO SERVER STARTUP: Server is automatically started and stopped by the test
     - trigger remote rollout via RemoteRolloutProcessor (calls init/status)
     - fetch traces from Langfuse via Fireworks tracing proxy filtered by metadata via output_data_loader; FAIL if none found
     """

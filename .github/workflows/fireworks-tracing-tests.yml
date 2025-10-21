@@ -41,6 +41,10 @@ jobs:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
         run: |
-          # Run RemoteRolloutProcessor Propagate Status Smoke Test (now uses Fireworks tracing)
+          # Run RemoteRolloutProcessor End-to-End Test (auto server startup)
+          uv run pytest tests/remote_server/test_remote_fireworks.py::test_remote_rollout_and_fetch_fireworks \
+            -v --tb=short
+
+          # Run RemoteRolloutProcessor Propagate Status Test (auto server startup)
           uv run pytest tests/remote_server/test_remote_fireworks_propagate_status.py::test_remote_rollout_and_fetch_fireworks_propagate_status \
             -v --tb=short
