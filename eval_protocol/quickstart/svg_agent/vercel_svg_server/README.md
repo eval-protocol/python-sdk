@@ -11,6 +11,8 @@ A Vercel serverless function that handles model calls for the SVGBench evaluatio
 
 ## Setup
 
+### Option 1: Local Development (Recommended)
+
 1. **Install Vercel CLI:**
    ```bash
    npm install -g vercel
@@ -21,7 +23,28 @@ A Vercel serverless function that handles model calls for the SVGBench evaluatio
    cd eval_protocol/quickstart/svg_agent/vercel_svg_server
    ```
 
-3. **Deploy to Vercel:**
+3. **Create .env file with your API key (optional):**
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your actual API key
+   ```
+
+   **Note:** The API key can be provided either:
+   - In the request payload (automatically handled by `RemoteRolloutProcessor`)
+   - In a local `.env` file (fallback option)
+
+4. **Start local development server:**
+   ```bash
+   vercel dev
+   ```
+
+   Your function will be available at `http://localhost:3000`
+
+### Option 2: Production Deployment
+
+1. **Follow steps 1-2 above**
+
+2. **Deploy to Vercel:**
    ```bash
    vercel deploy
    ```
@@ -30,16 +53,12 @@ A Vercel serverless function that handles model calls for the SVGBench evaluatio
    - Create a new project (or link existing)
    - Set project name (e.g., `svgbench-server`)
 
-4. **Set environment variable:**
-   ```bash
-   vercel env add FIREWORKS_API_KEY
-   # Enter your Fireworks API key when prompted
-   ```
-
-5. **Deploy to production:**
+3. **Deploy to production:**
    ```bash
    vercel --prod
    ```
+
+**Note:** The function receives the API key in the request payload (automatically handled by `RemoteRolloutProcessor`), but can also fall back to a local `.env` file if needed.
 
 ## Usage
 
@@ -62,12 +81,15 @@ Processes SVGBench evaluation requests.
   "metadata": {
     "rollout_id": "some-unique-id"
   },
+  "api_key": "your-fireworks-api-key",
   "completion_params": {
     "temperature": 0.8,
     "max_tokens": 32768
   }
 }
 ```
+
+**Note:** The `api_key` field is automatically populated by `RemoteRolloutProcessor` from your local `FIREWORKS_API_KEY` environment variable.
 
 **Response format:**
 ```json
@@ -90,17 +112,43 @@ Health check endpoint - returns server status.
 
 ## Integration with Tests
 
-Update your `test_remote_svgbench.py` to use your deployed URL:
+### Local Development
+For local testing with `vercel dev`:
 
 ```python
 @evaluation_test(
     rollout_processor=RemoteRolloutProcessor(
-        remote_base_url="https://your-deployment-url.vercel.app",
+        remote_base_url="http://localhost:3000",
         timeout_seconds=300,
     ),
     # ... other params
 )
 ```
+
+### Production Deployment
+For testing with deployed function:
+
+```python
+@evaluation_test(
+    rollout_processor=RemoteRolloutProcessor(
+        remote_base_url="https://vercel-svg-server.vercel.app",
+        timeout_seconds=300,
+    ),
+    # ... other params
+)
+```
+
+**Note:** The `RemoteRolloutProcessor` automatically passes your local `FIREWORKS_API_KEY` environment variable to the Vercel function.
+
+## API Key Configuration
+
+The function uses the following priority for API keys:
+
+1. **Request payload** (`req.api_key`) - Automatically provided by `RemoteRolloutProcessor`
+2. **Local .env file** (`FIREWORKS_API_KEY`) - Fallback for local development
+3. **Environment variable** - Fallback for other deployment methods
+
+This flexible approach works for both local development and production deployment.
 
 ## Architecture
 
