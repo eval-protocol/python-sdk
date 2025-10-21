@@ -36,7 +36,6 @@ from .utils.evaluation_row_utils import (
     filter_longest_conversation,
 )
 from .pytest import evaluation_test, SingleTurnRolloutProcessor, RemoteRolloutProcessor, GithubActionRolloutProcessor
-from .pytest.remote_rollout_processor import create_elasticsearch_config_from_env
 from .pytest.parameterize import DefaultParameterIdGenerator
 from .log_utils.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
 from .log_utils.rollout_id_filter import RolloutIdFilter
@@ -90,7 +89,6 @@ except ImportError:
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 __all__ = [
-    "create_elasticsearch_config_from_env",
     "ElasticsearchConfig",
     "ElasticsearchDirectHttpHandler",
     "RolloutIdFilter",

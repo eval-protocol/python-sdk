@@ -2,12 +2,24 @@ import os
 import logging
 import time
 import pytest
+import warnings
 from datetime import datetime, timezone
 
 from eval_protocol.log_utils.elasticsearch_direct_http_handler import ElasticsearchDirectHttpHandler
 from eval_protocol.log_utils.elasticsearch_client import ElasticsearchClient
 from eval_protocol.pytest.elasticsearch_setup import ElasticsearchSetup
 from eval_protocol.types.remote_rollout_processor import ElasticsearchConfig
+
+# DEPRECATION WARNING: These Elasticsearch integration tests are deprecated
+# in favor of Fireworks tracing integration tests. See:
+# tests/logging/test_fireworks_tracing_integration.py
+warnings.warn(
+    "Elasticsearch integration tests are deprecated. "
+    "Use Fireworks tracing integration tests instead: "
+    "tests/logging/test_fireworks_tracing_integration.py",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 @pytest.fixture
@@ -110,6 +122,7 @@ def clear_elasticsearch_before_test(
         print(f"Warning: Failed to clear Elasticsearch index before test: {e}")
 
 
+@pytest.mark.skip(reason="Deprecated: Use Fireworks tracing integration tests instead")
 def test_elasticsearch_direct_http_handler_sends_logs(
     elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
@@ -159,6 +172,7 @@ def test_elasticsearch_direct_http_handler_sends_logs(
     print(f"Successfully verified log message in Elasticsearch: {test_message}")
 
 
+@pytest.mark.skip(reason="Deprecated: Use Fireworks tracing integration tests instead")
 def test_elasticsearch_direct_http_handler_sorts_logs_chronologically(
     elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
@@ -212,6 +226,7 @@ def test_elasticsearch_direct_http_handler_sorts_logs_chronologically(
     print(f"Timestamps in order: {found_timestamps}")
 
 
+@pytest.mark.skip(reason="Deprecated: Use Fireworks tracing integration tests instead")
 def test_elasticsearch_direct_http_handler_includes_rollout_id(
     elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
@@ -269,6 +284,7 @@ def test_elasticsearch_direct_http_handler_includes_rollout_id(
     print(f"Successfully verified log message with rollout_id '{rollout_id}' in Elasticsearch: {test_message}")
 
 
+@pytest.mark.skip(reason="Deprecated: Use Fireworks tracing integration tests instead")
 def test_elasticsearch_direct_http_handler_search_by_rollout_id(
     elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
@@ -337,6 +353,7 @@ def test_elasticsearch_direct_http_handler_search_by_rollout_id(
     print("Verified that search for different rollout_id returns 0 results")
 
 
+@pytest.mark.skip(reason="Deprecated: Use Fireworks tracing integration tests instead")
 def test_elasticsearch_direct_http_handler_logs_status_info(
     elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
@@ -402,6 +419,7 @@ def test_elasticsearch_direct_http_handler_logs_status_info(
     print(f"Successfully verified Status logging with code {test_status.code.value} in Elasticsearch: {test_message}")
 
 
+@pytest.mark.skip(reason="Deprecated: Use Fireworks tracing integration tests instead")
 def test_elasticsearch_direct_http_handler_search_by_status_code(
     elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
@@ -460,6 +478,7 @@ def test_elasticsearch_direct_http_handler_search_by_status_code(
     print(f"Successfully verified search by status code {running_status.value} found {len(hits)} log messages")
 
 
+@pytest.mark.skip(reason="Deprecated: Use Fireworks tracing integration tests instead")
 def test_elasticsearch_direct_http_handler_rollout_id_from_extra_overrides_env(
     elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):
@@ -539,6 +558,7 @@ def test_elasticsearch_direct_http_handler_rollout_id_from_extra_overrides_env(
     print(f"Successfully verified rollout_id override: extra '{extra_rollout_id}' overrode environment '{rollout_id}'")
 
 
+@pytest.mark.skip(reason="Deprecated: Use Fireworks tracing integration tests instead")
 def test_elasticsearch_direct_http_handler_timestamp_format(
     elasticsearch_client: ElasticsearchClient, test_logger: logging.Logger, rollout_id: str
 ):

@@ -60,6 +60,17 @@ class ElasticsearchDirectHttpHandler(logging.Handler):
             if status_info:
                 data.update(status_info)
 
+            # Optional correlation enrichment
+            experiment_id = getattr(record, "experiment_id", None)
+            if experiment_id is not None:
+                data["experiment_id"] = experiment_id
+            run_id = getattr(record, "run_id", None)
+            if run_id is not None:
+                data["run_id"] = run_id
+            rollout_ids = getattr(record, "rollout_ids", None)
+            if rollout_ids is not None:
+                data["rollout_ids"] = rollout_ids
+
             # Schedule the HTTP request to run asynchronously
             self._schedule_async_send(data, record)
         except Exception as e:

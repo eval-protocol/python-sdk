@@ -4,41 +4,21 @@ from typing import Any, Dict, List, Optional, Callable
 
 import requests
 
-from eval_protocol.log_utils.elasticsearch_client import ElasticsearchClient
 from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.types.remote_rollout_processor import (
     DataLoaderConfig,
-    ElasticsearchConfig,
 )
+from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
+
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
-from .elasticsearch_setup import ElasticsearchSetup
 from .tracing_utils import default_fireworks_output_data_loader, build_init_request, update_row_with_remote_trace
 import logging
 
 import os
 
 logger = logging.getLogger(__name__)
-
-
-def create_elasticsearch_config_from_env() -> ElasticsearchConfig:
-    """Setup Elasticsearch config from environment variables."""
-    url = os.getenv("ELASTICSEARCH_URL")
-    api_key = os.getenv("ELASTICSEARCH_API_KEY")
-    index_name = os.getenv("ELASTICSEARCH_INDEX_NAME")
-
-    if url is None:
-        raise ValueError("ELASTICSEARCH_URL must be set")
-    if api_key is None:
-        raise ValueError("ELASTICSEARCH_API_KEY must be set")
-    if index_name is None:
-        raise ValueError("ELASTICSEARCH_INDEX_NAME must be set")
-    return ElasticsearchConfig(
-        url=url,
-        api_key=api_key,
-        index_name=index_name,
-    )
 
 
 class RemoteRolloutProcessor(RolloutProcessor):
@@ -59,8 +39,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
         poll_interval: float = 1.0,
         timeout_seconds: float = 120.0,
         output_data_loader: Optional[Callable[[DataLoaderConfig], DynamicDataLoader]] = None,
-        disable_elastic_search_setup: bool = False,
-        elastic_search_config: Optional[ElasticsearchConfig] = None,
     ):
         # Prefer constructor-provided configuration. These can be overridden via
         # config.kwargs at call time for backward compatibility.
@@ -74,21 +52,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
         self._output_data_loader = output_data_loader or default_fireworks_output_data_loader
-        self._disable_elastic_search_setup = disable_elastic_search_setup
-        self._elastic_search_config = elastic_search_config
-
-    def setup(self) -> None:
-        if self._disable_elastic_search_setup:
-            logger.info("Elasticsearch is disabled, skipping setup")
-            return
-        logger.info("Setting up Elasticsearch")
-        self._elastic_search_config = self._setup_elastic_search()
-        logger.info("Elasticsearch setup complete")
-
-    def _setup_elastic_search(self) -> ElasticsearchConfig:
-        """Set up Elasticsearch using the dedicated setup module."""
-        setup = ElasticsearchSetup()
-        return setup.setup_elasticsearch()
+        self._tracing_adapter = FireworksTracingAdapter(base_url=self._model_base_url)
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         tasks: List[asyncio.Task[EvaluationRow]] = []
@@ -123,7 +87,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
             if row.input_metadata.row_id is None:
                 raise ValueError("Row ID is required in RemoteRolloutProcessor")
 
-            init_payload = build_init_request(row, config, model_base_url, self._elastic_search_config)
+            init_payload = build_init_request(row, config, model_base_url)
 
             # Fire-and-poll
             def _post_init() -> None:
@@ -153,10 +117,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 r.raise_for_status()
                 return r.json()
 
-            elasticsearch_client = (
-                ElasticsearchClient(self._elastic_search_config) if self._elastic_search_config else None
-            )
-
             continue_polling_status = True
             while time.time() < deadline:
                 try:
@@ -178,29 +138,41 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     # For all other exceptions, raise them
                     raise
 
-                if not elasticsearch_client:
-                    continue
-
-                search_results = elasticsearch_client.search_by_status_code_not_in(
-                    row.execution_metadata.rollout_id, [Status.Code.RUNNING]
+                # Search Fireworks tracing logs for completion
+                completed_logs = self._tracing_adapter.search_logs(
+                    tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
                 )
-                hits = search_results["hits"]["hits"] if search_results else []
+                # Filter for logs that actually have status information
+                status_logs = []
+                for log in completed_logs:
+                    status_dict = log.get("status")
+                    if status_dict and isinstance(status_dict, dict) and "code" in status_dict:
+                        status_logs.append(log)
 
-                if hits:
-                    # log all statuses found and update rollout status from the last hit
-                    for hit in hits:
-                        document = hit["_source"]
-                        logger.info(
-                            f"Found log for rollout {row.execution_metadata.rollout_id} with status code {document['status_code']}"
-                        )
-                        # Update rollout status from the document
-                        if "status_code" in document:
-                            row.rollout_status = Status(
-                                code=Status.Code(document["status_code"]),
-                                message=document.get("status_message", ""),
-                                details=document.get("status_details", []),
-                            )
-                    logger.info("Stopping status polling for rollout %s", row.execution_metadata.rollout_id)
+                if status_logs:
+                    # Use the first log with status information
+                    status_log = status_logs[0]
+                    status_dict = status_log.get("status")
+
+                    logger.info(
+                        f"Found status log for rollout {row.execution_metadata.rollout_id}: {status_log.get('message', '')}"
+                    )
+
+                    status_code = status_dict.get("code")
+                    status_message = status_dict.get("message", "")
+                    status_details = status_dict.get("details", [])
+
+                    logger.info(
+                        f"Found Fireworks log for rollout {row.execution_metadata.rollout_id} with status code {status_code}"
+                    )
+
+                    row.rollout_status = Status(
+                        code=Status.Code(status_code),
+                        message=status_message,
+                        details=status_details,
+                    )
+
+                    logger.info("Stopping polling for rollout %s", row.execution_metadata.rollout_id)
                     break
 
                 await asyncio.sleep(poll_interval)

@@ -63,6 +63,8 @@ from eval_protocol.pytest.evaluation_test_utils import (
     run_tasks_with_run_progress,
 )
 from eval_protocol.utils.show_results_url import store_local_ui_results_url, generate_invocation_filter_url
+from eval_protocol.log_utils.init import init_external_logging_from_env
+from eval_protocol.log_utils.rollout_context import rollout_logging_context
 from eval_protocol.utils.browser_utils import is_logs_server_running, open_browser_tab
 
 from ..common_utils import load_jsonl
@@ -254,6 +256,9 @@ def evaluation_test(
             async def wrapper_body(**kwargs: Unpack[ParameterizedTestKwargs]) -> None:
                 nonlocal browser_opened_for_invocation
 
+                # Initialize external logging sinks (Fireworks/ES) from env (idempotent)
+                init_external_logging_from_env()
+
                 # Store URL for viewing results (after all postprocessing is complete)
                 store_local_ui_results_url(invocation_id)
 
@@ -419,11 +424,16 @@ def evaluation_test(
                         ) -> EvaluationRow:
                             async with semaphore:
                                 evaluation_test_kwargs = kwargs.get("evaluation_test_kwargs") or {}
-                                result = await execute_pytest(
-                                    test_func,
-                                    processed_row=row,
-                                    evaluation_test_kwargs=evaluation_test_kwargs,
-                                )
+                                async with rollout_logging_context(
+                                    row.execution_metadata.rollout_id or "",
+                                    experiment_id=experiment_id,
+                                    run_id=run_id,
+                                ):
+                                    result = await execute_pytest(
+                                        test_func,
+                                        processed_row=row,
+                                        evaluation_test_kwargs=evaluation_test_kwargs,
+                                    )
                                 if not isinstance(result, EvaluationRow):
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
@@ -435,11 +445,21 @@ def evaluation_test(
                         ) -> list[EvaluationRow]:
                             async with semaphore:
                                 evaluation_test_kwargs = kwargs.get("evaluation_test_kwargs") or {}
-                                results = await execute_pytest(
-                                    test_func,
-                                    processed_dataset=rows,
-                                    evaluation_test_kwargs=evaluation_test_kwargs,
-                                )
+                                primary_rollout_id = rows[0].execution_metadata.rollout_id if rows else None
+                                group_rollout_ids = [
+                                    r.execution_metadata.rollout_id for r in rows if r.execution_metadata.rollout_id
+                                ]
+                                async with rollout_logging_context(
+                                    primary_rollout_id or "",
+                                    experiment_id=experiment_id,
+                                    run_id=run_id,
+                                    rollout_ids=group_rollout_ids or None,
+                                ):
+                                    results = await execute_pytest(
+                                        test_func,
+                                        processed_dataset=rows,
+                                        evaluation_test_kwargs=evaluation_test_kwargs,
+                                    )
                                 if not isinstance(results, list):
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
@@ -516,11 +536,25 @@ def evaluation_test(
                                 input_dataset.append(row)
                             # NOTE: we will still evaluate errored rows (give users control over this)
                             # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
-                            results = await execute_pytest(
-                                test_func,
-                                processed_dataset=input_dataset,
-                                evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                            primary_rollout_id = (
+                                input_dataset[0].execution_metadata.rollout_id if input_dataset else None
                             )
+                            group_rollout_ids = [
+                                r.execution_metadata.rollout_id
+                                for r in input_dataset
+                                if r.execution_metadata.rollout_id
+                            ]
+                            async with rollout_logging_context(
+                                primary_rollout_id or "",
+                                experiment_id=experiment_id,
+                                run_id=run_id,
+                                rollout_ids=group_rollout_ids or None,
+                            ):
+                                results = await execute_pytest(
+                                    test_func,
+                                    processed_dataset=input_dataset,
+                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                )
                             if (
                                 results is None
                                 or not isinstance(results, list)

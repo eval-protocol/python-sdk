@@ -1,4 +1,4 @@
-name: Elasticsearch Tests
+name: Fireworks Tracing Tests
 
 on:
   push:
@@ -13,8 +13,8 @@ on:
   workflow_dispatch: # Allow manual triggering
 
 jobs:
-  elasticsearch-tests:
-    name: Elasticsearch Integration Tests
+  fireworks-tracing-tests:
+    name: Fireworks Tracing Integration Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -36,14 +36,15 @@ jobs:
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
-      - name: Run Elasticsearch Tests
+      - name: Run Fireworks Tracing Tests
         env:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
         run: |
-          # Run Elasticsearch direct HTTP handler tests
-          uv run pytest tests/logging/test_elasticsearch_direct_http_handler.py -v --tb=short
+          # Run RemoteRolloutProcessor End-to-End Test (auto server startup)
+          uv run pytest tests/remote_server/test_remote_fireworks.py::test_remote_rollout_and_fetch_fireworks \
+            -v --tb=short
 
-          # Run RemoteRolloutProcessor Propagate Status Smoke Test (also uses Elasticsearch)
+          # Run RemoteRolloutProcessor Propagate Status Test (auto server startup)
           uv run pytest tests/remote_server/test_remote_fireworks_propagate_status.py::test_remote_rollout_and_fetch_fireworks_propagate_status \
             -v --tb=short

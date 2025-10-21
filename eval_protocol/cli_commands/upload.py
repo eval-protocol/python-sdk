@@ -267,32 +267,29 @@ def _parse_entry(entry: str, cwd: str) -> tuple[str, str]:
 def _resolve_entry_to_qual_and_source(entry: str, cwd: str) -> tuple[str, str]:
     target, func = _parse_entry(entry, cwd)
 
-    # Check if target looks like a file path
+    # Determine the file path to load
     if "/" in target or "\\" in target or os.path.exists(target):
-        # It's a file path - convert to absolute and load as module
+        # It's a file path - convert to absolute
         if not os.path.isabs(target):
             target = os.path.abspath(os.path.join(cwd, target))
-
         if not target.endswith(".py"):
             target = target + ".py"
-
         if not os.path.isfile(target):
             raise ValueError(f"File not found: {target}")
-
-        # Import module from file path
-        spec = importlib.util.spec_from_file_location(Path(target).stem, target)
-        if not spec or not spec.loader:
-            raise ValueError(f"Unable to load module from path: {target}")
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)  # type: ignore[attr-defined]
-        module_name = spec.name
         source_file_path = target
     else:
-        # Treat as module path (e.g., "my_package.my_module")
-        module_name = target
-        module = importlib.import_module(module_name)
-        source_file_path = getattr(module, "__file__", "") or ""
+        # Treat dotted name as a file path
+        dotted_as_path = target.replace(".", "/") + ".py"
+        source_file_path = os.path.join(cwd, dotted_as_path)
+
+    # Load the module from the file path
+    spec = importlib.util.spec_from_file_location(Path(source_file_path).stem, source_file_path)
+    if not spec or not spec.loader:
+        raise ValueError(f"Unable to load module from path: {source_file_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)  # type: ignore[attr-defined]
+    module_name = spec.name
 
     if not hasattr(module, func):
         raise ValueError(f"Function '{func}' not found in module '{module_name}'")
@@ -591,8 +588,7 @@ def upload_command(args: argparse.Namespace) -> int:
 
         print(f"\nUploading evaluator '{evaluator_id}' for {qualname.split('.')[-1]}...")
         try:
-            # Always treat as a single evaluator (single-metric) even if folder has helper modules
-            test_dir = os.path.dirname(source_file_path) if source_file_path else root
+            test_dir = root
             metric_name = os.path.basename(test_dir) or "metric"
             result = create_evaluation(
                 evaluator_id=evaluator_id,
