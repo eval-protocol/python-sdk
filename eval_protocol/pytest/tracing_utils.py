@@ -56,7 +56,6 @@ def build_init_request(
     row: EvaluationRow,
     config: RolloutProcessorConfig,
     model_base_url: str,
-    elastic_search_config: Optional[Any] = None,
 ) -> InitRequest:
     """Build an InitRequest from an EvaluationRow and config (shared logic)."""
     # Validation
@@ -129,7 +128,6 @@ def build_init_request(
         tools=row.tools,
         metadata=meta,
         model_base_url=final_model_base_url,
-        elastic_search_config=elastic_search_config,
     )
 
 

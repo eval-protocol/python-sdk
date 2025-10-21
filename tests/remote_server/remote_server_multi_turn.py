@@ -7,22 +7,19 @@ from fastapi import FastAPI
 from openai import OpenAI
 import logging
 
-from eval_protocol import Status, InitRequest, ElasticsearchDirectHttpHandler, RolloutIdFilter
+from eval_protocol import Status, InitRequest, FireworksTracingHttpHandler, RolloutIdFilter
 
 
 app = FastAPI()
 
-# attach handler to root logger
-handler = ElasticsearchDirectHttpHandler()
-logging.getLogger().addHandler(handler)
+# Attach Fireworks tracing handler to root logger
+fireworks_handler = FireworksTracingHttpHandler()
+logging.getLogger().addHandler(fireworks_handler)
 
 
 @app.post("/init")
 def init(req: InitRequest):
-    if req.elastic_search_config:
-        handler.configure(req.elastic_search_config)
-
-    # attach rollout_id filter to logger
+    # Attach rollout_id filter to logger
     logger = logging.getLogger(f"{__name__}.{req.metadata.rollout_id}")
     logger.addFilter(RolloutIdFilter(req.metadata.rollout_id))
 
