@@ -52,8 +52,8 @@ app.post("/init", async (req: Request, res: Response) => {
     if (!model) {
       throw new Error("model is required in completion_params");
     }
-console.log(`Initializing rollout ${rollout_id} with model ${model}`);
-    console.log(`Initializing rollout ${rollout_id} with model ${completion_params['model']}`);
+    console.log(`Initializing rollout ${rollout_id} with model ${model}`);
+
 
     // Create rollout state
     const rolloutState: RolloutState = {
