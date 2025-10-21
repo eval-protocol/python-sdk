@@ -509,6 +509,54 @@ class Evaluator:
         preview_result.total_runtime_ms = max(1, int((end_time - start_time) * 1000))
         return preview_result
 
+    def _build_minimal_criteria(self) -> List[Dict[str, str]]:
+        """Build minimal criteria (name, type, description) without code snippets."""
+
+        # Remote URL mode
+        if self.remote_url:
+            return [
+                {
+                    "name": "remote_eval_proxy",
+                    "type": "CODE_SNIPPETS",
+                    "description": f"Proxies evaluation to remote URL: {self.remote_url}",
+                }
+            ]
+
+        # TS mode (direct code snippet)
+        elif self.ts_mode_config:
+            criterion_name = self.ts_mode_config.get("criterion_name", "default_code_criterion")
+            description = self.ts_mode_config.get("description", "Python code execution")
+            return [
+                {
+                    "name": criterion_name,
+                    "type": "CODE_SNIPPETS",
+                    "description": description,
+                }
+            ]
+
+        # Multi-metrics mode
+        elif self.multi_metrics:
+            return [
+                {
+                    "name": "eval",
+                    "type": "CODE_SNIPPETS",
+                    "description": self.description or "Multi-metric evaluation",
+                }
+            ]
+
+        # Single metric folders
+        else:
+            criteria = []
+            for metric_name in self.metric_folders:
+                criteria.append(
+                    {
+                        "name": metric_name,
+                        "type": "CODE_SNIPPETS",
+                        "description": self.description or f"Evaluation metric: {metric_name}",
+                    }
+                )
+            return criteria
+
     def create(self, evaluator_id, display_name=None, description=None, force=False):
         if not self.remote_url and not self.ts_mode_config and not self.code_files:
             raise ValueError("No code files loaded. Load metric folder(s) or provide ts_mode_config/remote_url first.")
@@ -524,18 +572,19 @@ class Evaluator:
 
         self.display_name = display_name or evaluator_id
         self.description = description or f"Evaluator created from {evaluator_id}"
-
+        account_id = "pyroworks-dev"
         # Keep multiMetrics/rollupSettings for backward compatibility with tests
         payload_multi_metrics = True
         payload_rollup_settings = {"skipRollup": True}
-
+        parent = f"accounts/{account_id}"
         payload_data = {
+            "parent": parent,
             "evaluator": {
                 "displayName": self.display_name,
                 "description": self.description,
                 "multiMetrics": payload_multi_metrics,
                 # "rewardFunctionMode": self.reward_function_mode,  # How input is processed by user func
-                "criteria": self._construct_criteria(criteria_data={}),
+                "criteria": self._build_minimal_criteria(),
                 "requirements": "",
                 "rollupSettings": payload_rollup_settings,
             },
@@ -557,10 +606,11 @@ class Evaluator:
         if "dev.api.fireworks.ai" in self.api_base and account_id == "fireworks":
             account_id = "pyroworks-dev"
 
-        base_url = f"{self.api_base}/v1/accounts/{account_id}/evaluators"
+        base_url = f"{self.api_base}/v1/{parent}/evaluators"
         headers = {
             "Authorization": f"Bearer {auth_token}",
             "Content-Type": "application/json",
+            "X-Fireworks-Gateway-Secret": "8b8a823c-0b29-41f4-8537-4c9f650a113c",
         }
         logger.info(f"Creating evaluator '{evaluator_id}' for account '{account_id}'...")
 
