@@ -45,8 +45,8 @@ class handler(BaseHTTPRequestHandler):
 
             # Prepare completion arguments
             completion_kwargs = {
-                "model": req.model,
                 "messages": req.messages,
+                **req.completion_params,
             }
 
             # Add tools if present
@@ -70,7 +70,7 @@ class handler(BaseHTTPRequestHandler):
             # Create OpenAI client
             client = OpenAI(base_url=req.model_base_url, api_key=api_key)
 
-            logger.info(f"Sending completion request to model {req.model}")
+            logger.info(f"Sending completion request to model {req.completion_params.get('model')}")
 
             # Make the model call
             completion = client.chat.completions.create(**completion_kwargs)
