@@ -142,32 +142,38 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 completed_logs = self._tracing_adapter.search_logs(
                     tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
                 )
-                if completed_logs:
-                    latest_log = completed_logs[0]
+                # Filter for logs that actually have status information
+                status_logs = []
+                for log in completed_logs:
+                    status_dict = log.get("status")
+                    if status_dict and isinstance(status_dict, dict) and "code" in status_dict:
+                        status_logs.append(log)
+
+                if status_logs:
+                    # Use the first log with status information
+                    status_log = status_logs[0]
+                    status_dict = status_log.get("status")
 
                     logger.info(
-                        f"Found completion log for rollout {row.execution_metadata.rollout_id}: {latest_log.get('message', '')}"
+                        f"Found status log for rollout {row.execution_metadata.rollout_id}: {status_log.get('message', '')}"
                     )
 
-                    # Look for structured status dictionary in status field
-                    status_dict = latest_log.get("status")
-                    if status_dict and isinstance(status_dict, dict) and "code" in status_dict:
-                        status_code = status_dict.get("code")
-                        status_message = status_dict.get("message", "")
-                        status_details = status_dict.get("details", [])
+                    status_code = status_dict.get("code")
+                    status_message = status_dict.get("message", "")
+                    status_details = status_dict.get("details", [])
 
-                        logger.info(
-                            f"Found Fireworks log for rollout {row.execution_metadata.rollout_id} with status code {status_code}"
-                        )
+                    logger.info(
+                        f"Found Fireworks log for rollout {row.execution_metadata.rollout_id} with status code {status_code}"
+                    )
 
-                        row.rollout_status = Status(
-                            code=Status.Code(status_code),
-                            message=status_message,
-                            details=status_details,
-                        )
+                    row.rollout_status = Status(
+                        code=Status.Code(status_code),
+                        message=status_message,
+                        details=status_details,
+                    )
 
-                        logger.info("Stopping polling for rollout %s", row.execution_metadata.rollout_id)
-                        break
+                    logger.info("Stopping polling for rollout %s", row.execution_metadata.rollout_id)
+                    break
 
                 await asyncio.sleep(poll_interval)
             else:
