@@ -38,11 +38,6 @@ def init(req: InitRequest):
 
             client = OpenAI(base_url=req.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 
-            # Apply model_kwargs if present
-            if req.completion_params.get("model_kwargs"):
-                model_kwargs = req.completion_params["model_kwargs"]
-                if isinstance(model_kwargs, dict):
-                    completion_kwargs.update(model_kwargs)
             # Build up conversation over 6 turns (3 user messages + 3 assistant responses)
             # Convert Message objects to dicts for OpenAI API
             conversation_history = [{"role": m.role, "content": m.content} for m in req.messages]
@@ -55,9 +50,8 @@ def init(req: InitRequest):
             # First completion (turns 1-2: initial user message + assistant response)
             logger.info(f"Turn 1-2: Sending initial completion request to model {model}")
             completion = client.chat.completions.create(
-                model=model,
-                messages=conversation_history,  # type: ignore,
-                **completion_kwargs,
+                messages=conversation_history,  # type: ignore
+                **req.completion_params,
             )
             assistant_message = completion.choices[0].message
             assistant_content = assistant_message.content or ""
@@ -68,8 +62,8 @@ def init(req: InitRequest):
             conversation_history.append({"role": "user", "content": follow_up_questions[0]})
             logger.info(f"Turn 3: User asks: {follow_up_questions[0]}")
             completion = client.chat.completions.create(
-                model=model,
                 messages=conversation_history,  # type: ignore
+                **req.completion_params,
             )
             assistant_message = completion.choices[0].message
             assistant_content = assistant_message.content or ""
@@ -80,8 +74,8 @@ def init(req: InitRequest):
             conversation_history.append({"role": "user", "content": follow_up_questions[1]})
             logger.info(f"Turn 5: User asks: {follow_up_questions[1]}")
             completion = client.chat.completions.create(
-                model=model,
                 messages=conversation_history,  # type: ignore
+                **req.completion_params,
             )
             assistant_message = completion.choices[0].message
             assistant_content = assistant_message.content or ""

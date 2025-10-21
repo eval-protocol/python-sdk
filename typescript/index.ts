@@ -89,19 +89,17 @@ export function initRequestToCompletionParams(
     throw new Error("messages is required");
   }
 
-  const baseParams: ChatCompletionCreateParamsNonStreaming = {
+  // Spread completion_params directly (model, temperature, max_tokens, etc.)
+  const { model: _, ...otherParams } = initRequest.completion_params || {};
+
+  const completionParams: ChatCompletionCreateParamsNonStreaming = {
     model: model,
     messages: initRequest.messages,
     ...(toolsToOpenAI && { tools: toolsToOpenAI }),
+    ...otherParams  // Spreads temperature, max_tokens, etc.
   };
 
-  // Apply model_kwargs if present
-  const model_kwargs = initRequest.completion_params?.['model_kwargs'];
-  if (model_kwargs && typeof model_kwargs === 'object') {
-    Object.assign(baseParams, model_kwargs);
-  }
-
-  return baseParams;
+  return completionParams;
 }
 
 export function createLangfuseConfigTags(initRequest: InitRequest): string[] {

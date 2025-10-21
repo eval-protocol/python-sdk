@@ -17,20 +17,23 @@ def main():
     parser = argparse.ArgumentParser(description="GitHub Actions rollout worker")
 
     # Required arguments from workflow inputs
-    parser.add_argument("--model", required=True, help="Model to use")
-    parser.add_argument("--completion-params", required=False, help="JSON completion params (optional)")
+    parser.add_argument("--completion-params", required=True, help="JSON completion params (includes model)")
     parser.add_argument("--metadata", required=True, help="JSON serialized metadata object")
     parser.add_argument("--model-base-url", required=True, help="Base URL for the model API")
 
     args = parser.parse_args()
 
-    # Parse the metadata
-    completion_params = {}
-    if args.completion_params:
-        try:
-            completion_params = json.loads(args.completion_params)
-        except Exception as e:
-            print(f"⚠️  Failed to parse completion_params: {e}")
+    # Parse completion_params
+    try:
+        completion_params = json.loads(args.completion_params)
+    except Exception as e:
+        print(f"❌ Failed to parse completion_params: {e}")
+        exit(1)
+
+    model = completion_params.get("model")
+    if not model:
+        print("Error: model is required in completion_params")
+        exit(1)
 
     try:
         metadata = json.loads(args.metadata)
@@ -42,7 +45,7 @@ def main():
     row_id = metadata["row_id"]
 
     print(f"🚀 Starting rollout {rollout_id}")
-    print(f"   Model: {args.model}")
+    print(f"   Model: {model}")
     print(f"   Row ID: {row_id}")
 
     dataset = [  # In this example, worker has access to the dataset and we use index to associate rows.
@@ -57,16 +60,8 @@ def main():
     print(f"   Messages: {len(messages)} messages")
 
     try:
-        completion_kwargs = {"model": args.model, "messages": messages}
-        # Parse and apply completion_params if provided
-        if args.completion_params:
-            try:
-                cp = json.loads(args.completion_params)
-                if cp.get("model_kwargs"):
-                    completion_kwargs.update(cp["model_kwargs"])
-                    print(f"   Applied model_kwargs: {cp.get('model_kwargs')}")
-            except Exception as e:
-                print(f"⚠️  Failed to parse completion_params: {e}")
+        # Build completion kwargs from completion_params
+        completion_kwargs = {"messages": messages, **completion_params}
 
         client = OpenAI(base_url=args.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 

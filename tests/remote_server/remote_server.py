@@ -40,16 +40,8 @@ def init(req: InitRequest):
             if not model:
                 raise ValueError("model is required in completion_params")
 
-            completion_kwargs = {
-                "model": model,
-                "messages": req.messages,
-            }
-
-            # Apply model_kwargs if present
-            if req.completion_params.get("model_kwargs"):
-                model_kwargs = req.completion_params["model_kwargs"]
-                if isinstance(model_kwargs, dict):
-                    completion_kwargs.update(model_kwargs)
+            # Spread all completion_params (model, temperature, max_tokens, etc.)
+            completion_kwargs = {"messages": req.messages, **req.completion_params}
 
             if req.tools:
                 completion_kwargs["tools"] = req.tools
