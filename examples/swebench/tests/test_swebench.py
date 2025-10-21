@@ -2,9 +2,7 @@ from typing import List
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluationRow, EvaluateResult, MetricResult
 from eval_protocol.pytest import evaluation_test
-from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor, create_elasticsearch_config_from_env
-
-# from eval_protocol.pytest.tracing_utils import default_fireworks_output_data_loader
+from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 from eval_protocol.utils.evaluation_row_utils import create_rows_from_indices
 
 
@@ -23,39 +21,59 @@ def rows() -> List[EvaluationRow]:
         model_base_url="https://tracing.fireworks.ai",
         timeout_seconds=1800,
         disable_elastic_search_setup=True,
-        elastic_search_config=create_elasticsearch_config_from_env(),
     ),
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     max_concurrent_rollouts=3,
 )
 async def test_swebench_remote(row: EvaluationRow) -> EvaluationRow:
-    """Evaluate SWE-bench instance by reading results from Elasticsearch."""
+    """Evaluate SWE-bench instance by reading results from Fireworks tracing logs."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     rollout_id = row.execution_metadata.rollout_id
+    logger.info(f"[DEBUG] Processing rollout_id: {rollout_id}")
+
     if not rollout_id:
+        logger.warning("[DEBUG] No rollout_id")
         return row
 
     try:
-        from eval_protocol.log_utils.elasticsearch_client import ElasticsearchClient
+        from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
 
-        es_config = create_elasticsearch_config_from_env()
-        es_client = ElasticsearchClient(es_config)
+        adapter = FireworksTracingAdapter(base_url="https://tracing.fireworks.ai")
+        logger.info("[DEBUG] Created adapter for https://tracing.fireworks.ai")
 
-        # Get all logs for this rollout and find EVAL_RESULT message
-        query = {"match": {"rollout_id": rollout_id}}
-        search_results = es_client.search(query=query, size=50)
+        # Fetch logs for this rollout
+        logger.info(f"[DEBUG] Searching for tag: rollout_id:{rollout_id}")
+        log_entries = adapter.search_logs(tags=[f"rollout_id:{rollout_id}"], limit=100, hours_back=24)
 
-        if search_results and search_results["hits"]["total"]["value"] > 0:
-            for hit in search_results["hits"]["hits"]:
-                message = hit["_source"].get("message", "")
+        logger.info(f"[DEBUG] Received {len(log_entries)} log entries")
+        if log_entries:
+            logger.info(f"[DEBUG] Sample messages: {[e.get('message', '')[:50] for e in log_entries[:3]]}")
 
-                if message.startswith("EVAL_RESULT:"):
-                    result_json = message.replace("EVAL_RESULT:", "")
+        # Find EVAL_RESULT message
+        found = False
+        for entry in log_entries:
+            message = entry.get("message", "")
+            if message.startswith("EVAL_RESULT:"):
+                logger.info("[DEBUG] Found EVAL_RESULT message!")
+                result_json = message.replace("EVAL_RESULT:", "")
+                logger.info(f"[DEBUG] Parsing JSON: {result_json[:100]}...")
+
+                if result_json != "null":
                     row.evaluation_result = EvaluateResult.model_validate_json(result_json)
-                    break
+                    logger.info(
+                        f"[DEBUG] Attached result: score={row.evaluation_result.score}, reason={row.evaluation_result.reason}"
+                    )
+                    found = True
+                break
+
+        if not found:
+            logger.warning(f"[DEBUG] No EVAL_RESULT message found in {len(log_entries)} logs")
 
     except Exception as e:
-        import logging
+        logger.error(f"[DEBUG] Exception: {e}", exc_info=True)
 
-        logging.getLogger(__name__).warning(f"Could not read results from Elasticsearch: {e}")
-
+    logger.info(f"[DEBUG] Returning row, has evaluation_result: {row.evaluation_result is not None}")
     return row

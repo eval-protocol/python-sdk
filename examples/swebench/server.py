@@ -7,31 +7,23 @@ import logging
 from fastapi import FastAPI
 import uvicorn
 
-from eval_protocol import Status, InitRequest, ElasticsearchDirectHttpHandler, RolloutIdFilter
+from eval_protocol import Status, InitRequest, RolloutIdFilter
+from eval_protocol.log_utils.init import init_external_logging_from_env
 
 app = FastAPI()
 
 # Attach Elasticsearch handler to root logger (Eval Protocol UI)
-handler = ElasticsearchDirectHttpHandler()
-logging.getLogger().addHandler(handler)
+init_external_logging_from_env()
 # rollout_states = {}
 
 
 @app.post("/init")
 def init(req: InitRequest):
     # Allow Eval Protocol to dynamically configure ES endpoint
-    if req.elastic_search_config:
-        handler.configure(req.elastic_search_config)
 
     # Tag all logs for this rollout_id
     logger = logging.getLogger(f"{__name__}.{req.metadata.rollout_id}")
     logger.addFilter(RolloutIdFilter(req.metadata.rollout_id))
-
-    # rollout_states[req.metadata.rollout_id] = {
-    #     "terminated": False,
-    #     "status": "running",
-    #     "instance_id": req.metadata.row_id,
-    # }
 
     def _worker():
         try:
@@ -130,6 +122,7 @@ def init(req: InitRequest):
 
             # 2) Run SWE-bench evaluation harness on preds.json
             preds_path_str = str(preds_path)
+            unique_run_id = f"eval-{invocation_id}"
             eval_cmd = [
                 "python3",
                 "-m",
@@ -141,7 +134,7 @@ def init(req: InitRequest):
                 "--max_workers",
                 str(os.getenv("SWEBENCH_EVAL_WORKERS", "5")),
                 "--run_id",
-                "eval-run",
+                unique_run_id,
             ]
             logger.info("Starting SWE-bench harness: %s", " ".join(map(str, eval_cmd)))
             eval_proc = subprocess.Popen(
