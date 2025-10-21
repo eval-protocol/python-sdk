@@ -33,17 +33,21 @@ def init(req: InitRequest):
             if not req.messages:
                 raise ValueError("messages is required")
 
-            completion_kwargs = {
-                "model": req.model,
-                "messages": req.messages,
-            }
+            model = req.completion_params.get("model")
+            if not model:
+                raise ValueError("model is required in completion_params")
+
+            # Spread all completion_params (model, temperature, max_tokens, etc.)
+            completion_kwargs = {"messages": req.messages, **req.completion_params}
 
             if req.tools:
                 completion_kwargs["tools"] = req.tools
 
+            logger.info(f"Final completion_kwargs: {completion_kwargs}")
+
             client = OpenAI(base_url=req.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 
-            logger.info(f"Sending completion request to model {req.model}")
+            logger.info(f"Sending completion request to model {model}")
             completion = client.chat.completions.create(**completion_kwargs)
             logger.info(f"Completed response: {completion}")
 

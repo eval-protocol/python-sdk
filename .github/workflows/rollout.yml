@@ -5,8 +5,8 @@ run-name: rollout:${{ fromJSON(inputs.metadata).rollout_id }}
 on:
   workflow_dispatch:
     inputs:
-      model:
-        description: 'Model to use'
+      completion_params:
+        description: 'JSON completion params (optional, includes model_kwargs)'
         required: true
         type: string
       metadata:
@@ -17,6 +17,7 @@ on:
         description: 'Base URL for the model API'
         required: true
         type: string
+
 
 jobs:
   rollout:
@@ -41,6 +42,6 @@ jobs:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
         run: |
           python tests/github_actions/rollout_worker.py \
-            --model "${{ inputs.model }}" \
+            --completion-params '${{ inputs.completion_params }}' \
             --metadata '${{ inputs.metadata }}' \
             --model-base-url "${{ inputs.model_base_url }}"

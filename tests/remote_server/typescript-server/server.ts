@@ -46,10 +46,14 @@ app.post("/init", async (req: Request, res: Response) => {
   try {
     // Validate request body
     const validatedData = initRequestSchema.parse(req.body);
-    const { model, metadata } = validatedData;
+    const { completion_params, metadata } = validatedData;
     const rollout_id = metadata.rollout_id;
-
+    const model = validatedData.completion_params?.['model'];
+    if (!model) {
+      throw new Error("model is required in completion_params");
+    }
     console.log(`Initializing rollout ${rollout_id} with model ${model}`);
+
 
     // Create rollout state
     const rolloutState: RolloutState = {
@@ -146,7 +150,8 @@ async function simulateRolloutExecution(
     console.log(`Starting rollout execution for ${rollout_id}`);
 
     const openai = new OpenAI({
-      apiKey: process.env["OPENAI_API_KEY"],
+      baseURL: initRequest.model_base_url || "https://api.fireworks.ai/inference/v1",
+      apiKey: process.env["FIREWORKS_API_KEY"] || process.env["OPENAI_API_KEY"],
     });
 
     const tracedOpenAI = observeOpenAI(openai, {

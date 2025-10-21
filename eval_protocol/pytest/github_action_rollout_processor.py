@@ -2,7 +2,7 @@ import asyncio
 import os
 import time
 from typing import Any, Callable, Dict, List, Optional
-
+import json
 import requests
 from datetime import datetime, timezone, timedelta
 from eval_protocol.models import EvaluationRow, Status
@@ -87,10 +87,14 @@ class GithubActionRolloutProcessor(RolloutProcessor):
 
             def _dispatch_workflow():
                 url = f"https://api.github.com/repos/{self.owner}/{self.repo}/actions/workflows/{self.workflow_id}/dispatches"
+
+                model = init_request.completion_params.get("model")
+                if not model:
+                    raise ValueError("model is required in completion_params")
                 payload = {
                     "ref": self.ref,
                     "inputs": {
-                        "model": init_request.model,
+                        "completion_params": json.dumps(init_request.completion_params),
                         "metadata": init_request.metadata.model_dump_json(),
                         "model_base_url": init_request.model_base_url,
                     },
