@@ -7,7 +7,7 @@ on:
     inputs:
       completion_params:
         description: 'JSON completion params (optional, includes model_kwargs)'
-        required: false
+        required: true
         type: string
       metadata:
         description: 'JSON serialized metadata object'
