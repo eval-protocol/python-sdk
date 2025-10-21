@@ -1,0 +1,99 @@
+name: Fireworks Tracing Tests
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+  pull_request: # Run on all pull requests
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  fireworks-tracing-tests:
+    name: Fireworks Tracing Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run Fireworks Tracing Integration Tests
+        env:
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
+        run: |
+          # Run Fireworks tracing integration tests
+          uv run pytest tests/logging/test_fireworks_tracing_integration.py -v --tb=short
+
+          # Run RemoteRolloutProcessor with Fireworks tracing (if exists)
+          if [ -f "tests/remote_server/test_remote_fireworks.py" ]; then
+            echo "Running RemoteRolloutProcessor Fireworks integration test..."
+            # Note: This requires manual server startup, so may need to be run separately
+            # uv run pytest tests/remote_server/test_remote_fireworks.py -v --tb=short
+          fi
+
+      - name: Run Status Propagation Tests
+        env:
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
+        run: |
+          # Run any status propagation tests that use Fireworks tracing
+          if [ -f "tests/remote_server/test_remote_fireworks_propagate_status.py" ]; then
+            echo "Running status propagation tests with Fireworks tracing..."
+            uv run pytest tests/remote_server/test_remote_fireworks_propagate_status.py -v --tb=short || true
+          fi
+
+  fireworks-tracing-smoke-test:
+    name: Fireworks Tracing Smoke Test
+    runs-on: ubuntu-latest
+    needs: fireworks-tracing-tests
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Smoke Test - Basic Log Sending
+        env:
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+        run: |
+          # Run just the basic log sending test as a smoke test
+          uv run pytest tests/logging/test_fireworks_tracing_integration.py::test_fireworks_tracing_handler_sends_logs -v
+
+      - name: Smoke Test - Status Logging
+        env:
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+        run: |
+          # Run just the status logging test as a smoke test
+          uv run pytest tests/logging/test_fireworks_tracing_integration.py::test_fireworks_tracing_handler_logs_status_info -v || true

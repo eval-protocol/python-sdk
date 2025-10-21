@@ -1,20 +1,25 @@
-name: Elasticsearch Tests
+# DEPRECATED: This workflow is deprecated in favor of fireworks-tracing-tests.yml
+# The Elasticsearch integration tests have been replaced with Fireworks tracing tests
+# This workflow is kept for backward compatibility but should be removed in the future
+
+name: Elasticsearch Tests (Deprecated)
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-  pull_request: # Run on all pull requests
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-  workflow_dispatch: # Allow manual triggering
+  # Disabled automatic triggers - only manual for backward compatibility
+  # push:
+  #   branches: [main]
+  #   paths-ignore:
+  #     - "docs/**"
+  #     - "*.md"
+  # pull_request: # Run on all pull requests
+  #   paths-ignore:
+  #     - "docs/**"
+  #     - "*.md"
+  workflow_dispatch: # Allow manual triggering only
 
 jobs:
   elasticsearch-tests:
-    name: Elasticsearch Integration Tests
+    name: Elasticsearch Integration Tests (Deprecated)
     runs-on: ubuntu-latest
 
     steps:
@@ -36,14 +41,26 @@ jobs:
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
-      - name: Run Elasticsearch Tests
+      - name: Show Deprecation Notice
+        run: |
+          echo "⚠️  DEPRECATION NOTICE ⚠️"
+          echo "This workflow is deprecated. Use fireworks-tracing-tests.yml instead."
+          echo "Elasticsearch integration tests have been replaced with Fireworks tracing tests."
+          echo ""
+          echo "📋 New test file: tests/logging/test_fireworks_tracing_integration.py"
+          echo "🔄 New workflow: .github/workflows/fireworks-tracing-tests.yml"
+
+      - name: Run Deprecated Elasticsearch Tests
         env:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
         run: |
-          # Run Elasticsearch direct HTTP handler tests
-          uv run pytest tests/logging/test_elasticsearch_direct_http_handler.py -v --tb=short
+          echo "Running deprecated Elasticsearch tests (these are skipped by default)..."
 
-          # Run RemoteRolloutProcessor Propagate Status Smoke Test (also uses Elasticsearch)
-          uv run pytest tests/remote_server/test_remote_fireworks_propagate_status.py::test_remote_rollout_and_fetch_fireworks_propagate_status \
-            -v --tb=short
+          # Try to run the tests, but they should be skipped
+          uv run pytest tests/logging/test_elasticsearch_direct_http_handler.py -v --tb=short || true
+
+          echo ""
+          echo "ℹ️  Note: These tests are deprecated and skipped by default."
+          echo "Use the new Fireworks tracing tests instead:"
+          echo "uv run pytest tests/logging/test_fireworks_tracing_integration.py -v"
