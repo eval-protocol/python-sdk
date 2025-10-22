@@ -606,18 +606,21 @@ class Evaluator:
         if "dev.api.fireworks.ai" in self.api_base and account_id == "fireworks":
             account_id = "pyroworks-dev"
 
-        base_url = f"{self.api_base}/v1/{parent}/evaluators"
+        base_url = f"{self.api_base}/v1/{parent}/evaluatorsV2"
         headers = {
             "Authorization": f"Bearer {auth_token}",
+            "x-api-key": f"{auth_token}",
             "Content-Type": "application/json",
             "X-Fireworks-Gateway-Secret": "8b8a823c-0b29-41f4-8537-4c9f650a113c",
         }
+        
         logger.info(f"Creating evaluator '{evaluator_id}' for account '{account_id}'...")
 
         try:
             if force:
                 check_url = f"{base_url}/{evaluator_id}"
                 try:
+                    logger.info(f"check_url: {check_url}, headers: {headers}")
                     check_response = requests.get(check_url, headers=headers)
                     if check_response.status_code == 200:
                         logger.info(f"Evaluator '{evaluator_id}' already exists, deleting and recreating...")
@@ -632,12 +635,15 @@ class Evaluator:
                                 )
                         except Exception as e_del:
                             logger.warning(f"Error deleting evaluator: {str(e_del)}")
+                        logger.info(f"base_url: {base_url}, payload_data: {payload_data}, headers: {headers}")
                         response = requests.post(base_url, json=payload_data, headers=headers)
                     else:
+                        print(f"base_url: {base_url}, payload_data: {payload_data}, headers: {headers}")
                         response = requests.post(base_url, json=payload_data, headers=headers)
                 except requests.exceptions.RequestException:
                     response = requests.post(base_url, json=payload_data, headers=headers)
             else:
+                logger.info(f"check_url: {base_url}, headers: {headers}, payload_data: {payload_data}")
                 response = requests.post(base_url, json=payload_data, headers=headers)
 
             response.raise_for_status()

@@ -519,35 +519,35 @@ def upload_command(args: argparse.Namespace) -> int:
     description = getattr(args, "description", None)
     force = bool(getattr(args, "force", False))
 
-    # Ensure FIREWORKS_API_KEY is available to the remote by storing it as a Fireworks secret
-    try:
-        fw_account_id = get_fireworks_account_id()
-        fw_api_key_value = get_fireworks_api_key()
-        if not fw_account_id and fw_api_key_value:
-            # Attempt to verify and resolve account id from server headers
-            resolved = verify_api_key_and_get_account_id(api_key=fw_api_key_value, api_base=get_fireworks_api_base())
-            if resolved:
-                fw_account_id = resolved
-                # Propagate to environment so downstream calls use it if needed
-                os.environ["FIREWORKS_ACCOUNT_ID"] = fw_account_id
-                print(f"Resolved FIREWORKS_ACCOUNT_ID via API verification: {fw_account_id}")
-        if fw_account_id and fw_api_key_value:
-            print("Ensuring FIREWORKS_API_KEY is registered as a secret on Fireworks for rollout...")
-            if create_or_update_fireworks_secret(
-                account_id=fw_account_id,
-                key_name="FIREWORKS_API_KEY",
-                secret_value=fw_api_key_value,
-            ):
-                print("✓ FIREWORKS_API_KEY secret created/updated on Fireworks.")
-            else:
-                print("Warning: Failed to create/update FIREWORKS_API_KEY secret on Fireworks.")
-        else:
-            if not fw_account_id:
-                print("Warning: FIREWORKS_ACCOUNT_ID not found; cannot register FIREWORKS_API_KEY secret.")
-            if not fw_api_key_value:
-                print("Warning: FIREWORKS_API_KEY not found locally; cannot register secret.")
-    except Exception as e:
-        print(f"Warning: Skipped Fireworks secret registration due to error: {e}")
+    # # Ensure FIREWORKS_API_KEY is available to the remote by storing it as a Fireworks secret
+    # try:
+    #     fw_account_id = get_fireworks_account_id()
+    #     fw_api_key_value = get_fireworks_api_key()
+    #     if not fw_account_id and fw_api_key_value:
+    #         # Attempt to verify and resolve account id from server headers
+    #         resolved = verify_api_key_and_get_account_id(api_key=fw_api_key_value, api_base=get_fireworks_api_base())
+    #         if resolved:
+    #             fw_account_id = resolved
+    #             # Propagate to environment so downstream calls use it if needed
+    #             os.environ["FIREWORKS_ACCOUNT_ID"] = fw_account_id
+    #             print(f"Resolved FIREWORKS_ACCOUNT_ID via API verification: {fw_account_id}")
+    #     if fw_account_id and fw_api_key_value:
+    #         print("Ensuring FIREWORKS_API_KEY is registered as a secret on Fireworks for rollout...")
+    #         if create_or_update_fireworks_secret(
+    #             account_id=fw_account_id,
+    #             key_name="FIREWORKS_API_KEY",
+    #             secret_value=fw_api_key_value,
+    #         ):
+    #             print("✓ FIREWORKS_API_KEY secret created/updated on Fireworks.")
+    #         else:
+    #             print("Warning: Failed to create/update FIREWORKS_API_KEY secret on Fireworks.")
+    #     else:
+    #         if not fw_account_id:
+    #             print("Warning: FIREWORKS_ACCOUNT_ID not found; cannot register FIREWORKS_API_KEY secret.")
+    #         if not fw_api_key_value:
+    #             print("Warning: FIREWORKS_API_KEY not found locally; cannot register secret.")
+    # except Exception as e:
+    #     print(f"Warning: Skipped Fireworks secret registration due to error: {e}")
 
     exit_code = 0
     for i, (qualname, source_file_path) in enumerate(selected_specs):
