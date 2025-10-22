@@ -7,22 +7,19 @@ from fastapi import FastAPI
 from openai import OpenAI
 import logging
 
-from eval_protocol import Status, InitRequest, ElasticsearchDirectHttpHandler, RolloutIdFilter
+from eval_protocol import Status, InitRequest, FireworksTracingHttpHandler, RolloutIdFilter
 
 
 app = FastAPI()
 
-# attach handler to root logger
-handler = ElasticsearchDirectHttpHandler()
-logging.getLogger().addHandler(handler)
+# Attach Fireworks tracing handler to root logger
+fireworks_handler = FireworksTracingHttpHandler()
+logging.getLogger().addHandler(fireworks_handler)
 
 
 @app.post("/init")
 def init(req: InitRequest):
-    if req.elastic_search_config:
-        handler.configure(req.elastic_search_config)
-
-    # attach rollout_id filter to logger
+    # Attach rollout_id filter to logger
     logger = logging.getLogger(f"{__name__}.{req.metadata.rollout_id}")
     logger.addFilter(RolloutIdFilter(req.metadata.rollout_id))
 
@@ -31,6 +28,10 @@ def init(req: InitRequest):
         try:
             if not req.messages:
                 raise ValueError("messages is required")
+
+            model = req.completion_params.get("model")
+            if not model:
+                raise ValueError("model is required in completion_params")
 
             client = OpenAI(base_url=req.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 
@@ -44,10 +45,10 @@ def init(req: InitRequest):
             ]
 
             # First completion (turns 1-2: initial user message + assistant response)
-            logger.info(f"Turn 1-2: Sending initial completion request to model {req.model}")
+            logger.info(f"Turn 1-2: Sending initial completion request to model {model}")
             completion = client.chat.completions.create(
-                model=req.model,
                 messages=conversation_history,  # type: ignore
+                **req.completion_params,
             )
             assistant_message = completion.choices[0].message
             assistant_content = assistant_message.content or ""
@@ -58,8 +59,8 @@ def init(req: InitRequest):
             conversation_history.append({"role": "user", "content": follow_up_questions[0]})
             logger.info(f"Turn 3: User asks: {follow_up_questions[0]}")
             completion = client.chat.completions.create(
-                model=req.model,
                 messages=conversation_history,  # type: ignore
+                **req.completion_params,
             )
             assistant_message = completion.choices[0].message
             assistant_content = assistant_message.content or ""
@@ -70,8 +71,8 @@ def init(req: InitRequest):
             conversation_history.append({"role": "user", "content": follow_up_questions[1]})
             logger.info(f"Turn 5: User asks: {follow_up_questions[1]}")
             completion = client.chat.completions.create(
-                model=req.model,
                 messages=conversation_history,  # type: ignore
+                **req.completion_params,
             )
             assistant_message = completion.choices[0].message
             assistant_content = assistant_message.content or ""

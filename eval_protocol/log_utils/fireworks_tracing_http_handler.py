@@ -79,6 +79,34 @@ class FireworksTracingHttpHandler(logging.Handler):
             return str(cast(Any, getattr(record, "rollout_id")))
         return os.getenv(self.rollout_id_env)
 
+    def _get_status_info(self, record: logging.LogRecord) -> Optional[Dict[str, Any]]:
+        """Extract status information from the log record's extra data."""
+        # Check if 'status' is in the extra data (passed via extra parameter)
+        if hasattr(record, "status") and record.status is not None:  # type: ignore
+            status = record.status  # type: ignore
+
+            # Handle Status class instances (Pydantic BaseModel)
+            if hasattr(status, "code") and hasattr(status, "message"):
+                # Status object - extract code and message
+                status_code = status.code
+                # Handle both enum values and direct integer values
+                if hasattr(status_code, "value"):
+                    status_code = status_code.value
+
+                return {
+                    "code": status_code,
+                    "message": status.message,
+                    "details": getattr(status, "details", []),
+                }
+            elif isinstance(status, dict):
+                # Dictionary representation of status
+                return {
+                    "code": status.get("code"),
+                    "message": status.get("message"),
+                    "details": status.get("details", []),
+                }
+        return None
+
     def _build_payload(self, record: logging.LogRecord, rollout_id: str) -> Dict[str, Any]:
         timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         message = record.getMessage()
@@ -96,28 +124,12 @@ class FireworksTracingHttpHandler(logging.Handler):
             except Exception:
                 pass
         program = cast(Optional[str], getattr(record, "program", None)) or "eval_protocol"
-        status_val = cast(Any, getattr(record, "status", None))
-        status = status_val if isinstance(status_val, str) else None
-        # Capture optional structured status fields if present
-        metadata: Dict[str, Any] = {}
-        status_code = cast(Any, getattr(record, "status_code", None))
-        if isinstance(status_code, int):
-            metadata["status_code"] = status_code
-        status_message = cast(Any, getattr(record, "status_message", None))
-        if isinstance(status_message, str):
-            metadata["status_message"] = status_message
-        status_details = getattr(record, "status_details", None)
-        if status_details is not None:
-            metadata["status_details"] = status_details
-        extra_metadata = cast(Any, getattr(record, "metadata", None))
-        if isinstance(extra_metadata, dict):
-            metadata.update(extra_metadata)
+
         return {
             "program": program,
-            "status": status,
+            "status": self._get_status_info(record),
             "message": message,
             "tags": tags,
-            "metadata": metadata or None,
             "extras": {
                 "logger_name": record.name,
                 "level": record.levelname,

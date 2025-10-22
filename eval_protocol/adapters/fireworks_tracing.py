@@ -309,6 +309,7 @@ class FireworksTracingAdapter(BaseAdapter):
                     "message": e.get("message"),
                     "severity": e.get("severity", "INFO"),
                     "tags": e.get("tags", []),
+                    "status": e.get("status"),
                 }
             )
         return results

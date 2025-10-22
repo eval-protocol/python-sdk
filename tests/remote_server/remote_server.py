@@ -8,14 +8,14 @@ from fastapi import FastAPI
 from openai import OpenAI
 import logging
 
-from eval_protocol import Status, InitRequest, ElasticsearchDirectHttpHandler, RolloutIdFilter
+from eval_protocol import Status, InitRequest, FireworksTracingHttpHandler, RolloutIdFilter
 
 
 app = FastAPI()
 
-# attach handler to root logger
-handler = ElasticsearchDirectHttpHandler()
-logging.getLogger().addHandler(handler)
+# Attach Fireworks tracing handler to root logger
+fireworks_handler = FireworksTracingHttpHandler()
+logging.getLogger().addHandler(fireworks_handler)
 
 
 force_early_error_message = None
@@ -23,10 +23,7 @@ force_early_error_message = None
 
 @app.post("/init")
 def init(req: InitRequest):
-    if req.elastic_search_config:
-        handler.configure(req.elastic_search_config)
-
-    # attach rollout_id filter to logger
+    # Attach rollout_id filter to logger
     logger = logging.getLogger(f"{__name__}.{req.metadata.rollout_id}")
     logger.addFilter(RolloutIdFilter(req.metadata.rollout_id))
 
@@ -36,17 +33,21 @@ def init(req: InitRequest):
             if not req.messages:
                 raise ValueError("messages is required")
 
-            completion_kwargs = {
-                "model": req.model,
-                "messages": req.messages,
-            }
+            model = req.completion_params.get("model")
+            if not model:
+                raise ValueError("model is required in completion_params")
+
+            # Spread all completion_params (model, temperature, max_tokens, etc.)
+            completion_kwargs = {"messages": req.messages, **req.completion_params}
 
             if req.tools:
                 completion_kwargs["tools"] = req.tools
 
+            logger.info(f"Final completion_kwargs: {completion_kwargs}")
+
             client = OpenAI(base_url=req.model_base_url, api_key=os.environ.get("FIREWORKS_API_KEY"))
 
-            logger.info(f"Sending completion request to model {req.model}")
+            logger.info(f"Sending completion request to model {model}")
             completion = client.chat.completions.create(**completion_kwargs)
             logger.info(f"Completed response: {completion}")
 

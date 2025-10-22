@@ -3,6 +3,7 @@ Shared utilities for rollout processors.
 """
 
 import base64
+import os
 from typing import Any, Callable, Dict, List, Optional
 
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
@@ -56,7 +57,6 @@ def build_init_request(
     row: EvaluationRow,
     config: RolloutProcessorConfig,
     model_base_url: str,
-    elastic_search_config: Optional[Any] = None,
 ) -> InitRequest:
     """Build an InitRequest from an EvaluationRow and config (shared logic)."""
     # Validation
@@ -80,21 +80,25 @@ def build_init_request(
         row_id=row.input_metadata.row_id,
     )
 
-    # Extract model
-    model: Optional[str] = None
+    # Build completion_params from row and config
+    completion_params_dict: Dict[str, Any] = {}
+
+    # Start with config-level completion_params
+    if config.completion_params and isinstance(config.completion_params, dict):
+        completion_params_dict.update(config.completion_params)
+
+    # Override with row-specific completion_params
     if row.input_metadata and row.input_metadata.completion_params:
-        model = row.input_metadata.completion_params.get("model")
-    if model is None and config.completion_params:
-        model = config.completion_params.get("model")
-    if model is None:
-        raise ValueError("Model must be provided in row.input_metadata.completion_params or config.completion_params")
+        row_cp = row.input_metadata.completion_params
+        if isinstance(row_cp, dict):
+            completion_params_dict.update(row_cp)
+
+    # Validate model is present
+    if not completion_params_dict.get("model"):
+        raise ValueError("Model must be provided in completion_params")
 
     # Extract base_url from completion_params
-    completion_params_base_url: Optional[str] = None
-    if row.input_metadata and row.input_metadata.completion_params:
-        completion_params_base_url = row.input_metadata.completion_params.get("base_url")
-    if completion_params_base_url is None and config.completion_params:
-        completion_params_base_url = config.completion_params.get("base_url")
+    completion_params_base_url: Optional[str] = completion_params_dict.get("base_url")
 
     # Strip non-OpenAI fields from messages
     allowed_message_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
@@ -123,13 +127,16 @@ def build_init_request(
     ):
         final_model_base_url = build_fireworks_tracing_url(model_base_url, meta, completion_params_base_url)
 
+    # Extract API key from environment or completion_params
+    api_key = os.environ.get("FIREWORKS_API_KEY")
+
     return InitRequest(
-        model=model,
+        completion_params=completion_params_dict,
         messages=clean_messages,
         tools=row.tools,
         metadata=meta,
         model_base_url=final_model_base_url,
-        elastic_search_config=elastic_search_config,
+        api_key=api_key,
     )
 
 

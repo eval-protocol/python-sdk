@@ -1,7 +1,7 @@
 import asyncio
 import tempfile
 
-from eval_protocol.event_bus import SqliteEventBus
+from eval_protocol.event_bus.sqlite_event_bus import SqliteEventBus
 from eval_protocol.event_bus.event_bus import EventBus
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
 

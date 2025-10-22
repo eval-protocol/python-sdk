@@ -54,7 +54,9 @@ def rows() -> List[EvaluationRow]:
 
 
 @pytest.mark.skipif(os.environ.get("CI") == "true", reason="Only run this test locally (skipped in CI)")
-@pytest.mark.parametrize("completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}])
+@pytest.mark.parametrize(
+    "completion_params", [{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b", "temperature": 0.5}]
+)
 @evaluation_test(
     data_loaders=DynamicDataLoader(
         generators=[rows],
