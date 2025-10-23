@@ -97,6 +97,14 @@ def _extract_param_info_from_marks(obj: Any) -> tuple[bool, int, list[str]]:
         (has_parametrize, param_count, param_ids)
     """
     marks = getattr(obj, "pytestmark", [])
+
+    # Handle pytest proxy objects (APIRemovedInV1Proxy) - same as _is_eval_protocol_test
+    if not isinstance(marks, (list, tuple)):
+        try:
+            marks = list(marks) if marks else []
+        except (TypeError, AttributeError):
+            marks = []
+
     has_parametrize = False
     total_combinations = 0
     all_param_ids: list[str] = []

@@ -741,108 +741,122 @@ class Evaluator:
             # Upload code as tar.gz to GCS
             evaluator_name = result.get("name")  # e.g., "accounts/pyroworks/evaluators/test-123"
 
-            if evaluator_name:
-                try:
-                    # Create tar.gz of current directory
-                    cwd = os.getcwd()
-                    dir_name = os.path.basename(cwd)
-                    tar_filename = f"{dir_name}.tar.gz"
-                    tar_path = os.path.join(cwd, tar_filename)
+            if not evaluator_name:
+                raise ValueError(
+                    "Create evaluator response missing 'name' field. "
+                    f"Cannot proceed with code upload. Response: {result}"
+                )
 
-                    tar_size = self._create_tar_gz_with_ignores(tar_path, cwd)
+            try:
+                # Create tar.gz of current directory
+                cwd = os.getcwd()
+                dir_name = os.path.basename(cwd)
+                tar_filename = f"{dir_name}.tar.gz"
+                tar_path = os.path.join(cwd, tar_filename)
 
-                    # Call GetEvaluatorUploadEndpoint
+                tar_size = self._create_tar_gz_with_ignores(tar_path, cwd)
 
-                    upload_endpoint_url = f"{self.api_base}/v1/{evaluator_name}:getUploadEndpoint"
-                    upload_payload = {"name": evaluator_name, "filename_to_size": {tar_filename: tar_size}}
+                # Call GetEvaluatorUploadEndpoint
+                upload_endpoint_url = f"{self.api_base}/v1/{evaluator_name}:getUploadEndpoint"
+                upload_payload = {"name": evaluator_name, "filename_to_size": {tar_filename: tar_size}}
 
-                    logger.info(f"Requesting upload endpoint for {tar_filename}")
-                    upload_response = requests.post(upload_endpoint_url, json=upload_payload, headers=headers)
+                logger.info(f"Requesting upload endpoint for {tar_filename}")
+                upload_response = requests.post(upload_endpoint_url, json=upload_payload, headers=headers)
+                upload_response.raise_for_status()
 
-                    upload_response.raise_for_status()
+                # Check for signed URLs
+                upload_response_data = upload_response.json()
+                signed_urls = upload_response_data.get("filenameToSignedUrls", {})
 
-                    signed_urls = upload_response.json().get("filenameToSignedUrls", {})
-                    signed_url = signed_urls.get(tar_filename)
+                if not signed_urls:
+                    raise ValueError(f"GetUploadEndpoint returned no signed URLs. Response: {upload_response_data}")
 
-                    if signed_url:
-                        logger.info(f"Uploading {tar_filename} to GCS...")
+                signed_url = signed_urls.get(tar_filename)
 
-                        file_size = os.path.getsize(tar_path)
+                if not signed_url:
+                    raise ValueError(
+                        f"No signed URL received for {tar_filename}. Available files: {list(signed_urls.keys())}"
+                    )
 
-                        # Retry configuration
-                        max_retries = 3
-                        retry_delay = 2  # seconds
+                # Upload to GCS
+                logger.info(f"Uploading {tar_filename} to GCS...")
 
-                        for attempt in range(max_retries):
-                            try:
-                                with open(tar_path, "rb") as f:
-                                    # Create request exactly like Golang
-                                    req = requests.Request(
-                                        "PUT",
-                                        signed_url,
-                                        data=f,
-                                        headers={
-                                            "Content-Type": "application/octet-stream",
-                                            "X-Goog-Content-Length-Range": f"{file_size},{file_size}",
-                                        },
-                                    )
-                                    prepared = req.prepare()
+                file_size = os.path.getsize(tar_path)
 
-                                    # Don't let requests add extra headers
-                                    session = requests.Session()
-                                    gcs_response = session.send(prepared, timeout=600)
-                                    gcs_response.raise_for_status()
+                # Retry configuration
+                max_retries = 3
+                retry_delay = 2  # seconds
 
-                                logger.info(f"Successfully uploaded {tar_filename}")
-                                break  # Success, exit retry loop
+                for attempt in range(max_retries):
+                    try:
+                        with open(tar_path, "rb") as f:
+                            # Create request exactly like Golang
+                            req = requests.Request(
+                                "PUT",
+                                signed_url,
+                                data=f,
+                                headers={
+                                    "Content-Type": "application/octet-stream",
+                                    "X-Goog-Content-Length-Range": f"{file_size},{file_size}",
+                                },
+                            )
+                            prepared = req.prepare()
 
-                            except (requests.exceptions.RequestException, IOError) as e:
-                                if attempt < max_retries - 1:
-                                    # Check if it's a retryable error
-                                    is_retryable = False
-                                    if isinstance(e, requests.exceptions.RequestException):
-                                        if hasattr(e, "response") and e.response is not None:
-                                            # Retry on 5xx errors or 408 (timeout)
-                                            is_retryable = (
-                                                e.response.status_code >= 500 or e.response.status_code == 408
-                                            )
-                                        else:
-                                            # Network errors (no response) are retryable
-                                            is_retryable = True
-                                    else:
-                                        # IOError is retryable
-                                        is_retryable = True
+                            # Don't let requests add extra headers
+                            session = requests.Session()
+                            gcs_response = session.send(prepared, timeout=600)
+                            gcs_response.raise_for_status()
 
-                                    if is_retryable:
-                                        wait_time = retry_delay * (2**attempt)  # Exponential backoff
-                                        logger.warning(
-                                            f"Upload attempt {attempt + 1}/{max_retries} failed: {e}. "
-                                            f"Retrying in {wait_time}s..."
-                                        )
-                                        time.sleep(wait_time)
-                                    else:
-                                        # Non-retryable error, raise immediately
-                                        raise
+                        logger.info(f"Successfully uploaded {tar_filename}")
+                        break  # Success, exit retry loop
+
+                    except (requests.exceptions.RequestException, IOError) as e:
+                        if attempt < max_retries - 1:
+                            # Check if it's a retryable error
+                            is_retryable = False
+                            if isinstance(e, requests.exceptions.RequestException):
+                                if hasattr(e, "response") and e.response is not None:
+                                    # Retry on 5xx errors or 408 (timeout)
+                                    is_retryable = e.response.status_code >= 500 or e.response.status_code == 408
                                 else:
-                                    # Last attempt failed
-                                    logger.error(f"Upload failed after {max_retries} attempts")
-                                    raise
+                                    # Network errors (no response) are retryable
+                                    is_retryable = True
+                            else:
+                                # IOError is retryable
+                                is_retryable = True
 
-                        # Step 3: Validate upload
-                        validate_url = f"{self.api_base}/v1/{evaluator_name}:validateUpload"
-                        validate_payload = {"name": evaluator_name}
-                        validate_response = requests.post(validate_url, json=validate_payload, headers=headers)
-                        validate_response.raise_for_status()
+                            if is_retryable:
+                                wait_time = retry_delay * (2**attempt)  # Exponential backoff
+                                logger.warning(
+                                    f"Upload attempt {attempt + 1}/{max_retries} failed: {e}. "
+                                    f"Retrying in {wait_time}s..."
+                                )
+                                time.sleep(wait_time)
+                            else:
+                                # Non-retryable error, raise immediately
+                                raise
+                        else:
+                            # Last attempt failed
+                            logger.error(f"Upload failed after {max_retries} attempts")
+                            raise
 
-                        logger.info("Upload validated successfully")
+                # Step 3: Validate upload
+                validate_url = f"{self.api_base}/v1/{evaluator_name}:validateUpload"
+                validate_payload = {"name": evaluator_name}
+                validate_response = requests.post(validate_url, json=validate_payload, headers=headers)
+                validate_response.raise_for_status()
 
-                    # Clean up tar file
-                    if os.path.exists(tar_path):
-                        os.remove(tar_path)
+                validate_data = validate_response.json()
 
-                except Exception as upload_error:
-                    logger.warning(f"Code upload failed (evaluator created but code not uploaded): {upload_error}")
-                    # Don't fail - evaluator is created, just code upload failed
+                logger.info("Upload validated successfully")
+
+                # Clean up tar file
+                if os.path.exists(tar_path):
+                    os.remove(tar_path)
+
+            except Exception as upload_error:
+                logger.warning(f"Code upload failed (evaluator created but code not uploaded): {upload_error}")
+                # Don't fail - evaluator is created, just code upload failed
 
             return result  # Return after attempting upload
         except Exception as e:
