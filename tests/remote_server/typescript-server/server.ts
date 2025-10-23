@@ -14,6 +14,7 @@ import {
   InitRequest,
   createLangfuseConfigTags,
 } from "eval-protocol";
+import { FireworksTracingHttpHandler } from "./fireworksTracingHttpHandler.js";
 
 // In-memory storage for rollout states
 interface RolloutState {
@@ -168,6 +169,14 @@ async function simulateRolloutExecution(
     rolloutState.completed_turns = 1;
 
     console.log(`Rollout ${rollout_id} completed successfully`);
+
+    // Emit Fireworks structured log indicating completion
+    const handler = new FireworksTracingHttpHandler();
+    await handler.emit({
+      initRequest,
+      message: `Rollout ${rollout_id} completed`,
+      status: { code: 100, message: "Rollout finished" },
+    });
   } catch (error) {
     console.error(`Error in rollout execution for ${rollout_id}:`, error);
 
@@ -175,6 +184,14 @@ async function simulateRolloutExecution(
     rolloutState.ended_at = new Date().toISOString();
     rolloutState.error =
       error instanceof Error ? error.message : "Unknown error";
+
+    // Emit Fireworks structured log indicating error
+    const handler = new FireworksTracingHttpHandler();
+    await handler.emit({
+      initRequest,
+      message: `Error in rollout ${rollout_id}: ${error instanceof Error ? error.message : String(error)}`,
+      status: { code: 13, message: error instanceof Error ? error.message : "Internal error" },
+    });
   }
 }
 

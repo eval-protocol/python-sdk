@@ -4,6 +4,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ES2020"],
+    "types": [],
     "outDir": "./dist",
     "rootDir": "./",
     "strict": true,
