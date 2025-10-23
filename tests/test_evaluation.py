@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -30,6 +31,9 @@ def evaluate(messages, original_messages=None, tools=None, **kwargs):
     }
 """
         )
+    # Create requirements.txt (required for upload)
+    with open(os.path.join(tmp_dir, "requirements.txt"), "w") as f:
+        f.write("eval-protocol>=0.1.0\n")
     return tmp_dir
 
 
@@ -84,8 +88,7 @@ def test_evaluator_load_metric_folder():
         assert "test_metric/main.py" in evaluator.code_files
         assert "evaluate" in evaluator.code_files["test_metric/main.py"]
     finally:
-        os.unlink(os.path.join(tmp_dir, "main.py"))
-        os.rmdir(tmp_dir)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def test_evaluator_load_multi_metrics_folder():
@@ -97,8 +100,7 @@ def test_evaluator_load_multi_metrics_folder():
         assert "main.py" in evaluator.code_files
         assert "evaluate" in evaluator.code_files["main.py"]
     finally:
-        os.unlink(os.path.join(tmp_dir, "main.py"))
-        os.rmdir(tmp_dir)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def test_evaluator_update_evaluate_signature():
@@ -228,8 +230,7 @@ def test_evaluator_preview(mock_requests_post, monkeypatch):
         assert hasattr(preview_result.results[0], "per_metric_evals")  # Attribute name in Python object
         assert "test_metric" in preview_result.results[0].per_metric_evals
     finally:
-        os.unlink(os.path.join(tmp_dir, "main.py"))
-        os.rmdir(tmp_dir)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         os.unlink(sample_file)
 
 
@@ -325,8 +326,7 @@ def test_preview_evaluation_helper(mock_requests_post, monkeypatch):
         assert len(preview_result.results) == 2
         assert preview_result.results[0].score == 0.65
     finally:
-        os.unlink(os.path.join(tmp_dir, "main.py"))
-        os.rmdir(tmp_dir)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         os.unlink(sample_file)
 
 
@@ -335,6 +335,8 @@ def test_create_evaluation_helper(monkeypatch):
     monkeypatch.setenv("FIREWORKS_API_KEY", "test_api_key")
     monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "test_account")
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+
+    original_cwd = os.getcwd()
 
     class MockResponse:
         def __init__(self, json_data, status_code=200):
@@ -349,46 +351,81 @@ def test_create_evaluation_helper(monkeypatch):
             if self.status_code != 200:
                 raise Exception("API Error")
 
-    def mock_post(*args, **kwargs):
-        payload = kwargs.get("json", {})
-        assert "evaluator" in payload
-        assert "evaluatorId" in payload
-        evaluator_data = payload["evaluator"]
-        assert "criteria" in evaluator_data
-        criteria = evaluator_data["criteria"]
-        assert len(criteria) > 0
-        criterion = criteria[0]
-        assert criterion["type"] == "CODE_SNIPPETS"
-        assert "codeSnippets" in criterion
-        assert "fileContents" in criterion["codeSnippets"]
-        assert "main.py" in criterion["codeSnippets"]["fileContents"]
+    create_called = False
+    upload_endpoint_called = False
+    validate_called = False
 
-        return MockResponse(
-            {
-                "evaluator": {
+    def mock_post(*args, **kwargs):
+        nonlocal create_called, upload_endpoint_called, validate_called
+        url = args[0]
+        payload = kwargs.get("json", {})
+
+        # Handle different endpoints in the upload flow
+        if "getUploadEndpoint" in url:
+            upload_endpoint_called = True
+            # Dynamically create signed URLs for whatever filenames are requested
+            filename_to_size = payload.get("filename_to_size", {})
+            signed_urls = {}
+            for filename in filename_to_size.keys():
+                signed_urls[filename] = f"https://storage.googleapis.com/test-bucket/{filename}?signed=true"
+            return MockResponse({"filenameToSignedUrls": signed_urls})
+        elif "validateUpload" in url:
+            validate_called = True
+            return MockResponse({"success": True, "valid": True})
+        else:
+            # Create evaluator endpoint
+            create_called = True
+            assert "evaluator" in payload
+            assert "evaluatorId" in payload
+            evaluator_data = payload["evaluator"]
+            assert "criteria" in evaluator_data
+            criteria = evaluator_data["criteria"]
+            assert len(criteria) > 0
+            criterion = criteria[0]
+            assert criterion["type"] == "CODE_SNIPPETS"
+            # Code is now uploaded as tar.gz, not in criteria
+
+            return MockResponse(
+                {
                     "name": "accounts/test_account/evaluators/test-eval",
                     "displayName": "Test Evaluator",
                     "description": "Test description",
                     "multiMetrics": False,
-                },
-                "evaluatorId": "test-eval",
-            }
-        )
+                }
+            )
+
+    # Mock GCS upload
+    from unittest.mock import MagicMock
+
+    mock_session = MagicMock()
+    mock_gcs_response = MagicMock()
+    mock_gcs_response.status_code = 200
+    mock_gcs_response.raise_for_status = MagicMock()
+    mock_session.send.return_value = mock_gcs_response
 
     monkeypatch.setattr("requests.post", mock_post)
+    monkeypatch.setattr("requests.Session", lambda: mock_session)
 
     try:
+        os.chdir(tmp_dir)
         api_response = create_evaluation(
             evaluator_id="test-eval",
             metric_folders=[f"test_metric={tmp_dir}"],
             display_name="Test Evaluator",
             description="Test description",
         )
-        assert "evaluator" in api_response
-        created_evaluator_data = api_response["evaluator"]
-        assert created_evaluator_data["name"] == "accounts/test_account/evaluators/test-eval"
-        assert created_evaluator_data["displayName"] == "Test Evaluator"
-        assert created_evaluator_data["description"] == "Test description"
+
+        # Verify response
+        assert api_response["name"] == "accounts/test_account/evaluators/test-eval"
+        assert api_response["displayName"] == "Test Evaluator"
+        assert api_response["description"] == "Test description"
+
+        # Verify full upload flow was executed
+        assert create_called, "Create endpoint should be called"
+        assert upload_endpoint_called, "GetUploadEndpoint should be called"
+        assert validate_called, "ValidateUpload should be called"
+        assert mock_session.send.called, "GCS upload should happen"
+
     finally:
-        os.unlink(os.path.join(tmp_dir, "main.py"))
-        os.rmdir(tmp_dir)
+        os.chdir(original_cwd)
+        shutil.rmtree(tmp_dir, ignore_errors=True)

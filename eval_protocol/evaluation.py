@@ -580,12 +580,11 @@ class Evaluator:
     @staticmethod
     def _ensure_requirements_present(source_dir: str) -> None:
         req_path = os.path.join(source_dir, "requirements.txt")
-        pyproj_path = os.path.join(source_dir, "pyproject.toml")
-        if not (os.path.isfile(req_path) or os.path.isfile(pyproj_path)):
-            logger.error("Missing requirements.txt or pyproject.toml in upload directory: %s", source_dir)
+        if not os.path.isfile(req_path):
+            logger.error("Missing requirements.txt in upload directory: %s", source_dir)
             raise ValueError(
-                "Upload requires either requirements.txt or pyproject.toml in the project root. "
-                "Please add one and re-run ep upload."
+                "Upload requires requirements.txt in the project root. "
+                "Please add requirements.txt and re-run ep upload."
             )
 
     @staticmethod
