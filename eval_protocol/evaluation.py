@@ -388,7 +388,7 @@ class Evaluator:
         }
 
         api_base = os.environ.get("FIREWORKS_API_BASE", "https://api.fireworks.ai")
-        print("show payload", payload)
+
         if "dev.api.fireworks.ai" in api_base and account_id == "fireworks":
             account_id = "pyroworks-dev"
 
@@ -662,8 +662,6 @@ class Evaluator:
         payload_rollup_settings = {"skipRollup": True}
         parent = f"accounts/{account_id}"
 
-        version_str = None
-
         try:
             version_str = get_pep440_version()
         except Exception:
@@ -676,7 +674,6 @@ class Evaluator:
                 "description": self.description,
                 "multiMetrics": payload_multi_metrics,
                 "commitHash": version_str,
-                # "rewardFunctionMode": self.reward_function_mode,  # How input is processed by user func
                 "criteria": self._build_minimal_criteria(),
                 "requirements": "",
                 "rollupSettings": payload_rollup_settings,
@@ -711,15 +708,14 @@ class Evaluator:
 
         try:
             if force:
-                base_url_2 = f"{self.api_base}/v1/{parent}/evaluators"
-                check_url = f"{base_url_2}/{evaluator_id}"
+                check_url = f"{self.api_base}/v1/{parent}/evaluators/{evaluator_id}"
                 try:
-                    logger.info(f"check_url: {check_url}, headers: {headers}")
+                    logger.info(f"Checking if evaluator exists: {check_url}")
                     check_response = requests.get(check_url, headers=headers)
 
                     if check_response.status_code == 200:
                         logger.info(f"Evaluator '{evaluator_id}' already exists, deleting and recreating...")
-                        delete_url = f"{base_url_2}/{evaluator_id}"
+                        delete_url = f"{self.api_base}/v1/{parent}/evaluators/{evaluator_id}"
                         try:
                             delete_response = requests.delete(delete_url, headers=headers)
                             if delete_response.status_code < 400:
@@ -730,15 +726,13 @@ class Evaluator:
                                 )
                         except Exception as e_del:
                             logger.warning(f"Error deleting evaluator: {str(e_del)}")
-                        logger.info(f"base_url: {base_url_2}, payload_data: {payload_data}, headers: {headers}")
                         response = requests.post(base_url, json=payload_data, headers=headers)
                     else:
-                        print(f"base_url: {base_url_2}, payload_data: {payload_data}, headers: {headers}")
                         response = requests.post(base_url, json=payload_data, headers=headers)
                 except requests.exceptions.RequestException:
-                    response = requests.post(base_url_2, json=payload_data, headers=headers)
+                    response = requests.post(base_url, json=payload_data, headers=headers)
             else:
-                logger.info(f"check_url: {base_url}, headers: {headers}, payload_data: {payload_data}")
+                logger.info(f"Creating evaluator at: {base_url}")
                 response = requests.post(base_url, json=payload_data, headers=headers)
 
             response.raise_for_status()
@@ -776,25 +770,64 @@ class Evaluator:
 
                         file_size = os.path.getsize(tar_path)
 
-                        with open(tar_path, "rb") as f:
-                            # Create request exactly like Golang
-                            req = requests.Request(
-                                "PUT",
-                                signed_url,
-                                data=f,
-                                headers={
-                                    "Content-Type": "application/octet-stream",
-                                    "X-Goog-Content-Length-Range": f"{file_size},{file_size}",
-                                },
-                            )
-                            prepared = req.prepare()
+                        # Retry configuration
+                        max_retries = 3
+                        retry_delay = 2  # seconds
 
-                            # Don't let requests add extra headers
-                            session = requests.Session()
-                            gcs_response = session.send(prepared, timeout=600)
-                            gcs_response.raise_for_status()
+                        for attempt in range(max_retries):
+                            try:
+                                with open(tar_path, "rb") as f:
+                                    # Create request exactly like Golang
+                                    req = requests.Request(
+                                        "PUT",
+                                        signed_url,
+                                        data=f,
+                                        headers={
+                                            "Content-Type": "application/octet-stream",
+                                            "X-Goog-Content-Length-Range": f"{file_size},{file_size}",
+                                        },
+                                    )
+                                    prepared = req.prepare()
 
-                        logger.info(f"Successfully uploaded {tar_filename}")
+                                    # Don't let requests add extra headers
+                                    session = requests.Session()
+                                    gcs_response = session.send(prepared, timeout=600)
+                                    gcs_response.raise_for_status()
+
+                                logger.info(f"Successfully uploaded {tar_filename}")
+                                break  # Success, exit retry loop
+
+                            except (requests.exceptions.RequestException, IOError) as e:
+                                if attempt < max_retries - 1:
+                                    # Check if it's a retryable error
+                                    is_retryable = False
+                                    if isinstance(e, requests.exceptions.RequestException):
+                                        if hasattr(e, "response") and e.response is not None:
+                                            # Retry on 5xx errors or 408 (timeout)
+                                            is_retryable = (
+                                                e.response.status_code >= 500 or e.response.status_code == 408
+                                            )
+                                        else:
+                                            # Network errors (no response) are retryable
+                                            is_retryable = True
+                                    else:
+                                        # IOError is retryable
+                                        is_retryable = True
+
+                                    if is_retryable:
+                                        wait_time = retry_delay * (2**attempt)  # Exponential backoff
+                                        logger.warning(
+                                            f"Upload attempt {attempt + 1}/{max_retries} failed: {e}. "
+                                            f"Retrying in {wait_time}s..."
+                                        )
+                                        time.sleep(wait_time)
+                                    else:
+                                        # Non-retryable error, raise immediately
+                                        raise
+                                else:
+                                    # Last attempt failed
+                                    logger.error(f"Upload failed after {max_retries} attempts")
+                                    raise
 
                         # Step 3: Validate upload
                         validate_url = f"{self.api_base}/v1/{evaluator_name}:validateUpload"
@@ -812,7 +845,6 @@ class Evaluator:
                     logger.warning(f"Code upload failed (evaluator created but code not uploaded): {upload_error}")
                     # Don't fail - evaluator is created, just code upload failed
 
-            # return result  # OLD: Direct return
             return result  # Return after attempting upload
         except Exception as e:
             logger.error(f"Error creating evaluator: {str(e)}")
