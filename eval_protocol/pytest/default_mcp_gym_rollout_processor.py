@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import List, Optional
 
 import eval_protocol as ep
+from eval_protocol.mcp.execution.manager import ExecutionManager
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
-from eval_protocol.mcp.execution.manager import ExecutionManager
 
 
 class MCPServerManager:
@@ -181,8 +181,8 @@ class MCPServerManager:
     def _register_cleanup_handlers(cls):
         """Register cleanup handlers - called only once"""
         atexit.register(cls._cleanup_all_servers)
-        signal.signal(signal.SIGINT, cls._signal_handler)  # Ctrl+C
-        signal.signal(signal.SIGTERM, cls._signal_handler)  # Termination signal
+        # signal.signal(signal.SIGINT, cls._signal_handler)  # Ctrl+C
+        # signal.signal(signal.SIGTERM, cls._signal_handler)  # Termination signal
 
     def __enter__(self):
         """Context manager entry"""
