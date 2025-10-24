@@ -148,7 +148,7 @@ def create_rows_from_indices(count: int, **metadata) -> List[EvaluationRow]:
     """
     rows = []
     for idx in range(count):
-        row_metadata = {"row_id": str(idx), **metadata}
+        row_metadata = {**metadata, "row_id": str(idx)}
         rows.append(
             EvaluationRow(
                 messages=[],
