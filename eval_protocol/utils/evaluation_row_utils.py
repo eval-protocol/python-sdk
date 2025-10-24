@@ -9,6 +9,7 @@ evaluation pipeline.
 from typing import List
 
 from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import InputMetadata
 
 
 def serialize_message(msg: Message) -> str:
@@ -134,3 +135,24 @@ def assistant_to_ground_truth(data: List[EvaluationRow]) -> List[EvaluationRow]:
         )
 
     return processed_rows
+
+
+def create_rows_from_indices(count: int, **metadata) -> List[EvaluationRow]:
+    """Create evaluation rows with sequential row_ids.
+    Useful for remote processors where the server determines content based on row_id.
+    Args:
+        count: Number of rows to create
+        **metadata: Additional metadata to include in each row
+    Returns:
+        List of EvaluationRows with row_id set to "0", "1", "2", ...
+    """
+    rows = []
+    for idx in range(count):
+        row_metadata = {"row_id": str(idx), **metadata}
+        rows.append(
+            EvaluationRow(
+                messages=[],
+                input_metadata=InputMetadata(**row_metadata),
+            )
+        )
+    return rows
