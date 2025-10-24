@@ -1,7 +1,6 @@
 import asyncio
 import atexit
 import os
-import signal
 import socket
 import subprocess
 import time
