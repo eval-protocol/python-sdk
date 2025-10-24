@@ -21,7 +21,8 @@ import platform
 import re
 import resource
 import shlex  # Added for robust splitting of arguments
-import signal
+
+# import signal
 import subprocess
 import sys
 import tempfile
