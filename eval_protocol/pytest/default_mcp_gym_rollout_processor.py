@@ -225,6 +225,7 @@ class MCPGymRolloutProcessor(RolloutProcessor):
                 model_id = str(
                     (config.completion_params.get("model") if config.completion_params else None) or "gpt-4o-mini"
                 )
+                print("model_id from eval_protocol: ", model_id)
                 temperature = config.completion_params.get("temperature", 0.0)
                 max_tokens = config.completion_params.get("max_tokens", 4096)
 
