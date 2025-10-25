@@ -28,7 +28,6 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
     httpx.TimeoutException,
     httpx.NetworkError,
     httpx.RemoteProtocolError,
-
     litellm.exceptions.RateLimitError,
     litellm.exceptions.InternalServerError,
     litellm.exceptions.Timeout,
@@ -36,6 +35,7 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
     litellm.exceptions.BadRequestError,
     litellm.exceptions.ServiceUnavailableError,
 }
+
 
 @dataclass
 class BackoffConfig:
