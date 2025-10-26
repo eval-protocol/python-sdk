@@ -142,6 +142,12 @@ langgraph_tools = [
     "langchain-fireworks>=0.3.0",
 ]
 
+proxy = [
+    "redis>=5.0.0",
+    "langfuse>=2.0.0",
+    "uuid6>=2025.0.0",
+]
+
 [project.scripts]
 fireworks-reward = "eval_protocol.cli:main"
 eval-protocol = "eval_protocol.cli:main"

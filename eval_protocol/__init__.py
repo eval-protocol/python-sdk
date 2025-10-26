@@ -81,9 +81,16 @@ except ImportError:
 try:
     from .proxy import create_app, AuthProvider, AccountInfo
 except ImportError:
-    create_app = None
-    AuthProvider = None
-    AccountInfo = None
+
+    def _proxy_import_error(*args, **kwargs):
+        raise ImportError(
+            "Proxy functionality requires additional dependencies. "
+            "Please install with: pip install eval-protocol[proxy]"
+        )
+
+    create_app = _proxy_import_error
+    AuthProvider = _proxy_import_error
+    AccountInfo = _proxy_import_error
 
 
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
