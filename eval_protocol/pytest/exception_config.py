@@ -8,7 +8,7 @@ from typing import Callable, Set, Type, Union
 
 import backoff
 
-
+import litellm
 import requests
 import httpx
 
@@ -28,6 +28,12 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
     httpx.TimeoutException,
     httpx.NetworkError,
     httpx.RemoteProtocolError,
+    litellm.exceptions.RateLimitError,
+    litellm.exceptions.InternalServerError,
+    litellm.exceptions.Timeout,
+    litellm.exceptions.NotFoundError,
+    litellm.exceptions.BadRequestError,  # remove this once we have a long term solution
+    litellm.exceptions.ServiceUnavailableError,
 }
 
 

@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -28,6 +29,9 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs): # Changed origi
     }
 """
         )
+    # Create requirements.txt (required for upload)
+    with open(os.path.join(tmp_dir, "requirements.txt"), "w") as f:
+        f.write("eval-protocol>=0.1.0\n")
     return tmp_dir
 
 
@@ -73,6 +77,40 @@ def mock_env_variables(monkeypatch):
 
 
 @pytest.fixture
+def mock_requests_get():
+    """Mock requests.get for force flow check"""
+    with patch("requests.get") as mock_get:
+        mock_get.return_value.status_code = 404  # Evaluator doesn't exist
+        mock_get.return_value.raise_for_status = MagicMock()
+        yield mock_get
+
+
+@pytest.fixture
+def mock_requests_delete():
+    """Mock requests.delete for force flow"""
+    with patch("requests.delete") as mock_delete:
+        mock_delete.return_value.status_code = 200
+        mock_delete.return_value.raise_for_status = MagicMock()
+        yield mock_delete
+
+
+@pytest.fixture
+def mock_gcs_upload():
+    """Mock the GCS upload via requests.Session"""
+    with patch("requests.Session") as mock_session_class:
+        mock_session = MagicMock()
+        mock_session_class.return_value = mock_session
+
+        # Mock successful GCS upload
+        mock_gcs_response = MagicMock()
+        mock_gcs_response.status_code = 200
+        mock_gcs_response.raise_for_status = MagicMock()
+        mock_session.send.return_value = mock_gcs_response
+
+        yield mock_session
+
+
+@pytest.fixture
 def mock_requests_post():
     with patch("requests.post") as mock_post:
         default_response = {
@@ -97,12 +135,23 @@ def mock_requests_post():
                 },
             ],
         }
+        validate_response = {"success": True, "valid": True}
 
         def side_effect(*args, **kwargs):
             url = args[0]
+            payload = kwargs.get("json", {})
             response = mock_post.return_value
             if "previewEvaluator" in url:
                 response.json.return_value = preview_response
+            elif "getUploadEndpoint" in url:
+                # Dynamically create signed URLs for whatever filenames are requested
+                filename_to_size = payload.get("filename_to_size", {})
+                signed_urls = {}
+                for filename in filename_to_size.keys():
+                    signed_urls[filename] = f"https://storage.googleapis.com/test-bucket/{filename}?signed=true"
+                response.json.return_value = {"filenameToSignedUrls": signed_urls}
+            elif "validateUpload" in url:
+                response.json.return_value = validate_response
             else:
                 response.json.return_value = default_response
             return response
@@ -110,13 +159,16 @@ def mock_requests_post():
         mock_post.side_effect = side_effect
         mock_post.return_value.status_code = 200
         mock_post.return_value.json.return_value = default_response
+        mock_post.return_value.raise_for_status = MagicMock()
         yield mock_post
 
 
-def test_integration_single_metric(mock_env_variables, mock_requests_post):
+def test_integration_single_metric(mock_env_variables, mock_requests_post, mock_gcs_upload):
     tmp_dir = create_test_folder()
     sample_file = create_sample_file()
+    original_cwd = os.getcwd()
     try:
+        os.chdir(tmp_dir)
         preview_result = preview_evaluation(
             metric_folders=[f"test_metric={tmp_dir}"],
             sample_file=sample_file,
@@ -132,29 +184,51 @@ def test_integration_single_metric(mock_env_variables, mock_requests_post):
         )
         assert evaluator["name"] == "accounts/test_account/evaluators/test-eval"
         assert evaluator["displayName"] == "Test Evaluator"
-        assert mock_requests_post.call_count >= 1
-        args_call, kwargs_call = mock_requests_post.call_args_list[-1]
-        url = args_call[0]
-        payload = kwargs_call.get("json")
-        assert "api.fireworks.ai/v1/accounts/test_account/evaluators" in url
-        if "evaluator" in payload:  # Dev API
-            assert "evaluatorId" in payload and payload["evaluatorId"] == "test-eval"
-            assert "criteria" in payload["evaluator"] and len(payload["evaluator"]["criteria"]) > 0
-            assert payload["evaluator"]["criteria"][0]["type"] == "CODE_SNIPPETS"
-        else:  # Prod API
-            assert "evaluationId" in payload and payload["evaluationId"] == "test-eval"
-            assert "assertions" in payload["evaluation"] and len(payload["evaluation"]["assertions"]) > 0
-            assert payload["evaluation"]["assertions"][0]["assertionType"] == "CODE"
+
+        # Verify all API calls in the new upload flow
+        post_calls = [call[0][0] for call in mock_requests_post.call_args_list]
+
+        # 1. Create evaluator call (V2 endpoint)
+        assert any("evaluatorsV2" in url for url in post_calls), "Should call V2 create endpoint"
+
+        # 2. Get upload endpoint call
+        assert any("getUploadEndpoint" in url for url in post_calls), "Should call getUploadEndpoint"
+
+        # 3. Validate upload call
+        assert any("validateUpload" in url for url in post_calls), "Should call validateUpload"
+
+        # 4. Verify GCS upload happened
+        assert mock_gcs_upload.send.called, "Should upload tar.gz to GCS"
+        gcs_request = mock_gcs_upload.send.call_args[0][0]
+        assert gcs_request.method == "PUT", "GCS upload should use PUT"
+        assert "storage.googleapis.com" in gcs_request.url, "Should upload to GCS"
+
+        # Verify create payload structure
+        create_call_payload = None
+        for call in mock_requests_post.call_args_list:
+            url = call[0][0]
+            if "evaluatorsV2" in url:
+                create_call_payload = call[1].get("json")
+                break
+
+        assert create_call_payload is not None, "Should have create payload"
+        assert "evaluator" in create_call_payload
+        assert "evaluatorId" in create_call_payload and create_call_payload["evaluatorId"] == "test-eval"
+        assert "criteria" in create_call_payload["evaluator"]
+        assert len(create_call_payload["evaluator"]["criteria"]) > 0
+        assert create_call_payload["evaluator"]["criteria"][0]["type"] == "CODE_SNIPPETS"
     finally:
-        os.unlink(os.path.join(tmp_dir, "main.py"))
-        os.rmdir(tmp_dir)
+        os.chdir(original_cwd)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         os.unlink(sample_file)
 
 
-def test_integration_multi_metrics(mock_env_variables, mock_requests_post):
+def test_integration_multi_metrics(mock_env_variables, mock_requests_post, mock_gcs_upload):
     tmp_dir = create_test_folder()
     sample_file = create_sample_file()
+    original_cwd = os.getcwd()
     try:
+        os.chdir(tmp_dir)
         preview_result = preview_evaluation(multi_metrics=True, folder=tmp_dir, sample_file=sample_file, max_samples=2)
         assert preview_result.total_samples == 2
         assert len(preview_result.results) == 2
@@ -175,17 +249,33 @@ def test_integration_multi_metrics(mock_env_variables, mock_requests_post):
             description="Test multi-metrics evaluator",
         )
         assert evaluator["name"] == "accounts/test_account/evaluators/test-eval"
-        assert mock_requests_post.call_count >= 1
-        args_call, kwargs_call = mock_requests_post.call_args_list[-1]
-        payload = kwargs_call.get("json")
-        if "evaluator" in payload:  # Dev API
-            assert payload["evaluatorId"] == "multi-metrics-eval"
-            assert payload["evaluator"]["multiMetrics"] is True
-        else:  # Prod API
-            assert payload["evaluationId"] == "multi-metrics-eval"
+
+        # Verify all API calls in the new upload flow
+        post_calls = [call[0][0] for call in mock_requests_post.call_args_list]
+        assert any("evaluatorsV2" in url for url in post_calls), "Should call V2 create endpoint"
+        assert any("getUploadEndpoint" in url for url in post_calls), "Should call getUploadEndpoint"
+        assert any("validateUpload" in url for url in post_calls), "Should call validateUpload"
+
+        # Verify GCS upload happened
+        assert mock_gcs_upload.send.called, "Should upload tar.gz to GCS"
+
+        # Verify create payload uses V2 format
+        create_call_payload = None
+        for call in mock_requests_post.call_args_list:
+            url = call[0][0]
+            if "evaluatorsV2" in url:
+                create_call_payload = call[1].get("json")
+                break
+
+        assert create_call_payload is not None
+        assert "evaluator" in create_call_payload
+        assert create_call_payload["evaluatorId"] == "multi-metrics-eval"
+        assert create_call_payload["evaluator"]["multiMetrics"] is True
     finally:
-        os.unlink(os.path.join(tmp_dir, "main.py"))
-        os.rmdir(tmp_dir)
+        import shutil
+
+        os.chdir(original_cwd)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         os.unlink(sample_file)
 
 
@@ -197,7 +287,9 @@ def test_integration_cli_commands(mock_sys_exit, mock_env_variables, mock_reques
 
     tmp_dir = create_test_folder()
     sample_file = create_sample_file()
+    original_cwd = os.getcwd()
     try:
+        os.chdir(tmp_dir)
         # Test preview command
         with patch("eval_protocol.cli_commands.preview.preview_evaluation") as mock_preview_eval_func:
             mock_preview_result = MagicMock()
@@ -266,6 +358,8 @@ def test_integration_cli_commands(mock_sys_exit, mock_env_variables, mock_reques
                 huggingface_response_key="response",
             )
     finally:
-        os.unlink(os.path.join(tmp_dir, "main.py"))
-        os.rmdir(tmp_dir)
+        os.chdir(original_cwd)
+        import shutil
+
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         os.unlink(sample_file)

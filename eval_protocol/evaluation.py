@@ -22,6 +22,8 @@ from eval_protocol.auth import (
 )
 from eval_protocol.typed_interface import EvaluationMode
 
+from eval_protocol.get_pep440_version import get_pep440_version
+
 logger = logging.getLogger(__name__)
 
 # Flag to track if the preview API was successfully used
@@ -395,7 +397,7 @@ class Evaluator:
         }
 
         api_base = os.environ.get("FIREWORKS_API_BASE", "https://api.fireworks.ai")
-        print("show payload", payload)
+
         if "dev.api.fireworks.ai" in api_base and account_id == "fireworks":
             account_id = "pyroworks-dev"
 
@@ -518,6 +520,135 @@ class Evaluator:
         preview_result.total_runtime_ms = max(1, int((end_time - start_time) * 1000))
         return preview_result
 
+    def _build_minimal_criteria(self) -> List[Dict[str, str]]:
+        """Build minimal criteria (name, type, description) without code snippets."""
+
+        # Remote URL mode
+        if self.remote_url:
+            return [
+                {
+                    "name": "remote_eval_proxy",
+                    "type": "CODE_SNIPPETS",
+                    "description": f"Proxies evaluation to remote URL: {self.remote_url}",
+                }
+            ]
+
+        # TS mode (direct code snippet)
+        elif self.ts_mode_config:
+            criterion_name = self.ts_mode_config.get("criterion_name", "default_code_criterion")
+            description = self.ts_mode_config.get("description", "Python code execution")
+            return [
+                {
+                    "name": criterion_name,
+                    "type": "CODE_SNIPPETS",
+                    "description": description,
+                }
+            ]
+
+        # Multi-metrics mode
+        elif self.multi_metrics:
+            return [
+                {
+                    "name": "eval",
+                    "type": "CODE_SNIPPETS",
+                    "description": self.description or "Multi-metric evaluation",
+                }
+            ]
+
+        # Single metric folders
+        else:
+            criteria = []
+            for metric_name in self.metric_folders:
+                criteria.append(
+                    {
+                        "name": metric_name,
+                        "type": "CODE_SNIPPETS",
+                        "description": self.description or f"Evaluation metric: {metric_name}",
+                    }
+                )
+            return criteria
+
+    @staticmethod
+    def _parse_ignore_file(ignore_path: str) -> List[str]:
+        """Parse .gitignore or .dockerignore and return patterns."""
+        patterns = []
+        if not os.path.exists(ignore_path):
+            return patterns
+
+        try:
+            with open(ignore_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        patterns.append(line)
+        except Exception:
+            pass
+
+        return patterns
+
+    @staticmethod
+    def _ensure_requirements_present(source_dir: str) -> None:
+        req_path = os.path.join(source_dir, "requirements.txt")
+        if not os.path.isfile(req_path):
+            logger.error("Missing requirements.txt in upload directory: %s", source_dir)
+            raise ValueError(
+                "Upload requires requirements.txt in the project root. "
+                "Please add requirements.txt and re-run ep upload."
+            )
+
+    @staticmethod
+    def _should_ignore(path: str, ignore_patterns: List[str]) -> bool:
+        """Check if path matches any ignore pattern."""
+        from pathlib import Path
+        import fnmatch
+
+        default_ignores = [".git", "__pycache__", "*.pyc", ".venv", "venv", "node_modules", "*.egg-info"]
+        all_patterns = default_ignores + ignore_patterns
+
+        path_obj = Path(path)
+        for pattern in all_patterns:
+            if pattern.endswith("/"):
+                if path_obj.is_dir() and fnmatch.fnmatch(path_obj.name, pattern.rstrip("/")):
+                    return True
+            elif fnmatch.fnmatch(path_obj.name, pattern) or fnmatch.fnmatch(str(path_obj), pattern):
+                return True
+
+        return False
+
+    @staticmethod
+    def _create_tar_gz_with_ignores(output_path: str, source_dir: str) -> int:
+        """Create tar.gz of source_dir with parent directory included."""
+        import tarfile
+        from pathlib import Path
+
+        source_path = Path(source_dir)
+        gitignore_patterns = Evaluator._parse_ignore_file(str(source_path / ".gitignore"))
+        dockerignore_patterns = Evaluator._parse_ignore_file(str(source_path / ".dockerignore"))
+        all_ignore_patterns = gitignore_patterns + dockerignore_patterns
+
+        logger.info(f"Creating tar.gz with {len(all_ignore_patterns)} ignore patterns")
+
+        # Get directory name for the archive root
+        dir_name = os.path.basename(source_dir)
+        parent_dir = os.path.dirname(source_dir)
+
+        with tarfile.open(output_path, "w:gz") as tar:
+            for root, dirs, files in os.walk(source_dir):
+                dirs[:] = [d for d in dirs if not Evaluator._should_ignore(os.path.join(root, d), all_ignore_patterns)]
+
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    if Evaluator._should_ignore(file_path, all_ignore_patterns):
+                        continue
+
+                    # Include parent directory in archive path
+                    rel_path = os.path.relpath(file_path, parent_dir)  # Relative to parent
+                    tar.add(file_path, arcname=rel_path)  # Keeps "python-sdk/..." structure
+
+        size_bytes = os.path.getsize(output_path)
+        logger.info(f"Created {output_path} ({size_bytes:,} bytes)")
+        return size_bytes
+
     def create(self, evaluator_id, display_name=None, description=None, force=False):
         if not self.remote_url and not self.ts_mode_config and not self.code_files:
             raise ValueError("No code files loaded. Load metric folder(s) or provide ts_mode_config/remote_url first.")
@@ -537,14 +668,21 @@ class Evaluator:
         # Keep multiMetrics/rollupSettings for backward compatibility with tests
         payload_multi_metrics = True
         payload_rollup_settings = {"skipRollup": True}
+        parent = f"accounts/{account_id}"
+
+        try:
+            version_str = get_pep440_version()
+        except Exception:
+            version_str = None
 
         payload_data = {
+            "parent": parent,
             "evaluator": {
                 "displayName": self.display_name,
                 "description": self.description,
                 "multiMetrics": payload_multi_metrics,
-                # "rewardFunctionMode": self.reward_function_mode,  # How input is processed by user func
-                "criteria": self._construct_criteria(criteria_data={}),
+                "commitHash": version_str,
+                "criteria": self._build_minimal_criteria(),
                 "requirements": "",
                 "rollupSettings": payload_rollup_settings,
             },
@@ -566,21 +704,26 @@ class Evaluator:
         if "dev.api.fireworks.ai" in self.api_base and account_id == "fireworks":
             account_id = "pyroworks-dev"
 
-        base_url = f"{self.api_base}/v1/accounts/{account_id}/evaluators"
+        base_url = f"{self.api_base}/v1/{parent}/evaluatorsV2"
         headers = {
             "Authorization": f"Bearer {auth_token}",
             "Content-Type": "application/json",
         }
+
+        self._ensure_requirements_present(os.getcwd())
+
         logger.info(f"Creating evaluator '{evaluator_id}' for account '{account_id}'...")
 
         try:
             if force:
-                check_url = f"{base_url}/{evaluator_id}"
+                check_url = f"{self.api_base}/v1/{parent}/evaluators/{evaluator_id}"
                 try:
+                    logger.info(f"Checking if evaluator exists: {check_url}")
                     check_response = requests.get(check_url, headers=headers)
+
                     if check_response.status_code == 200:
                         logger.info(f"Evaluator '{evaluator_id}' already exists, deleting and recreating...")
-                        delete_url = f"{base_url}/{evaluator_id}"
+                        delete_url = f"{self.api_base}/v1/{parent}/evaluators/{evaluator_id}"
                         try:
                             delete_response = requests.delete(delete_url, headers=headers)
                             if delete_response.status_code < 400:
@@ -597,12 +740,134 @@ class Evaluator:
                 except requests.exceptions.RequestException:
                     response = requests.post(base_url, json=payload_data, headers=headers)
             else:
+                logger.info(f"Creating evaluator at: {base_url}")
                 response = requests.post(base_url, json=payload_data, headers=headers)
 
             response.raise_for_status()
             result = response.json()
             logger.info(f"Successfully created evaluator '{evaluator_id}'")
-            return result
+
+            # Upload code as tar.gz to GCS
+            evaluator_name = result.get("name")  # e.g., "accounts/pyroworks/evaluators/test-123"
+
+            if not evaluator_name:
+                raise ValueError(
+                    "Create evaluator response missing 'name' field. "
+                    f"Cannot proceed with code upload. Response: {result}"
+                )
+
+            try:
+                # Create tar.gz of current directory
+                cwd = os.getcwd()
+                dir_name = os.path.basename(cwd)
+                tar_filename = f"{dir_name}.tar.gz"
+                tar_path = os.path.join(cwd, tar_filename)
+
+                tar_size = self._create_tar_gz_with_ignores(tar_path, cwd)
+
+                # Call GetEvaluatorUploadEndpoint
+                upload_endpoint_url = f"{self.api_base}/v1/{evaluator_name}:getUploadEndpoint"
+                upload_payload = {"name": evaluator_name, "filename_to_size": {tar_filename: tar_size}}
+
+                logger.info(f"Requesting upload endpoint for {tar_filename}")
+                upload_response = requests.post(upload_endpoint_url, json=upload_payload, headers=headers)
+                upload_response.raise_for_status()
+
+                # Check for signed URLs
+                upload_response_data = upload_response.json()
+                signed_urls = upload_response_data.get("filenameToSignedUrls", {})
+
+                if not signed_urls:
+                    raise ValueError(f"GetUploadEndpoint returned no signed URLs. Response: {upload_response_data}")
+
+                signed_url = signed_urls.get(tar_filename)
+
+                if not signed_url:
+                    raise ValueError(
+                        f"No signed URL received for {tar_filename}. Available files: {list(signed_urls.keys())}"
+                    )
+
+                # Upload to GCS
+                logger.info(f"Uploading {tar_filename} to GCS...")
+
+                file_size = os.path.getsize(tar_path)
+
+                # Retry configuration
+                max_retries = 3
+                retry_delay = 2  # seconds
+
+                for attempt in range(max_retries):
+                    try:
+                        with open(tar_path, "rb") as f:
+                            # Create request exactly like Golang
+                            req = requests.Request(
+                                "PUT",
+                                signed_url,
+                                data=f,
+                                headers={
+                                    "Content-Type": "application/octet-stream",
+                                    "X-Goog-Content-Length-Range": f"{file_size},{file_size}",
+                                },
+                            )
+                            prepared = req.prepare()
+
+                            # Don't let requests add extra headers
+                            session = requests.Session()
+                            gcs_response = session.send(prepared, timeout=600)
+                            gcs_response.raise_for_status()
+
+                        logger.info(f"Successfully uploaded {tar_filename}")
+                        break  # Success, exit retry loop
+
+                    except (requests.exceptions.RequestException, IOError) as e:
+                        if attempt < max_retries - 1:
+                            # Check if it's a retryable error
+                            is_retryable = False
+                            if isinstance(e, requests.exceptions.RequestException):
+                                if hasattr(e, "response") and e.response is not None:
+                                    # Retry on 5xx errors or 408 (timeout)
+                                    is_retryable = e.response.status_code >= 500 or e.response.status_code == 408
+                                else:
+                                    # Network errors (no response) are retryable
+                                    is_retryable = True
+                            else:
+                                # IOError is retryable
+                                is_retryable = True
+
+                            if is_retryable:
+                                wait_time = retry_delay * (2**attempt)  # Exponential backoff
+                                logger.warning(
+                                    f"Upload attempt {attempt + 1}/{max_retries} failed: {e}. "
+                                    f"Retrying in {wait_time}s..."
+                                )
+                                time.sleep(wait_time)
+                            else:
+                                # Non-retryable error, raise immediately
+                                raise
+                        else:
+                            # Last attempt failed
+                            logger.error(f"Upload failed after {max_retries} attempts")
+                            raise
+
+                # Step 3: Validate upload
+                validate_url = f"{self.api_base}/v1/{evaluator_name}:validateUpload"
+                validate_payload = {"name": evaluator_name}
+                validate_response = requests.post(validate_url, json=validate_payload, headers=headers)
+                validate_response.raise_for_status()
+
+                validate_data = validate_response.json()
+
+                logger.info("Upload validated successfully")
+
+                # Clean up tar file
+                if os.path.exists(tar_path):
+                    os.remove(tar_path)
+
+            except Exception as upload_error:
+                logger.warning(f"Code upload failed (evaluator created but code not uploaded): {upload_error}")
+                # Don't fail - evaluator is created, just code upload failed
+
+            return result  # Return after attempting upload
         except Exception as e:
             logger.error(f"Error creating evaluator: {str(e)}")
             if isinstance(e, requests.exceptions.HTTPError) and hasattr(e, "response"):

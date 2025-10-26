@@ -91,11 +91,49 @@ def mock_create_api():
             "description": "Evaluates responses based on word count",
         }
 
+        def side_effect(*args, **kwargs):
+            url = args[0]
+            payload = kwargs.get("json", {})
+            response = mock_post.return_value
+
+            if "getUploadEndpoint" in url:
+                # Return signed URL for upload
+                filename_to_size = payload.get("filename_to_size", {})
+                signed_urls = {}
+                for filename in filename_to_size.keys():
+                    signed_urls[filename] = f"https://storage.googleapis.com/test-bucket/{filename}?signed=true"
+                response.json.return_value = {"filenameToSignedUrls": signed_urls}
+            elif "validateUpload" in url:
+                response.json.return_value = {"success": True, "valid": True}
+            else:
+                response.json.return_value = create_response
+
+            response.status_code = 200
+            return response
+
+        mock_post.side_effect = side_effect
         mock_post.return_value = MagicMock()
         mock_post.return_value.status_code = 200
         mock_post.return_value.json.return_value = create_response
+        mock_post.return_value.raise_for_status = MagicMock()
 
         yield mock_post
+
+
+@pytest.fixture
+def mock_gcs_upload():
+    """Mock the GCS upload via requests.Session"""
+    with patch("requests.Session") as mock_session_class:
+        mock_session = MagicMock()
+        mock_session_class.return_value = mock_session
+
+        # Mock successful GCS upload
+        mock_gcs_response = MagicMock()
+        mock_gcs_response.status_code = 200
+        mock_gcs_response.raise_for_status = MagicMock()
+        mock_session.send.return_value = mock_gcs_response
+
+        yield mock_session
 
 
 @pytest.fixture
@@ -255,7 +293,7 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs):
         assert "word_count" in result.results[0].per_metric_evals
 
 
-def test_create_evaluation(mock_env_variables, mock_create_api, monkeypatch):
+def test_create_evaluation(mock_env_variables, mock_create_api, mock_gcs_upload, monkeypatch):
     """Test the create_evaluation function in isolation"""
     from eval_protocol.evaluation import create_evaluation
 
@@ -285,22 +323,33 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs):
 """
             )
 
-        # Call create_evaluation
-        result = create_evaluation(
-            evaluator_id="word-count-eval",
-            metric_folders=[f"word_count={os.path.join(tmp_dir, 'word_count')}"],
-            display_name="Word Count Evaluator",
-            description="Evaluates responses based on word count",
-            force=True,
-        )
+        # Create requirements.txt
+        with open(os.path.join(tmp_dir, "requirements.txt"), "w") as f:
+            f.write("eval-protocol>=0.1.0\n")
 
-        # Verify results
-        assert result["name"] == "accounts/test_account/evaluators/word-count-eval"
-        assert result["displayName"] == "Word Count Evaluator"
-        assert result["description"] == "Evaluates responses based on word count"
+        # Change to temp directory
+        original_cwd = os.getcwd()
+        os.chdir(tmp_dir)
+
+        try:
+            # Call create_evaluation
+            result = create_evaluation(
+                evaluator_id="word-count-eval",
+                metric_folders=[f"word_count={os.path.join(tmp_dir, 'word_count')}"],
+                display_name="Word Count Evaluator",
+                description="Evaluates responses based on word count",
+                force=True,
+            )
+
+            # Verify results
+            assert result["name"] == "accounts/test_account/evaluators/word-count-eval"
+            assert result["displayName"] == "Word Count Evaluator"
+            assert result["description"] == "Evaluates responses based on word count"
+        finally:
+            os.chdir(original_cwd)
 
 
-def test_preview_then_create(monkeypatch, mock_env_variables, mock_preview_api, mock_create_api):
+def test_preview_then_create(monkeypatch, mock_env_variables, mock_preview_api, mock_create_api, mock_gcs_upload):
     """Test the full example flow (simulated)"""
     # Patch input to always return 'y'
     monkeypatch.setattr("builtins.input", lambda _: "y")
@@ -329,6 +378,10 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs):
     }
 """
             )
+
+        # Create requirements.txt
+        with open(os.path.join(tmp_dir, "requirements.txt"), "w") as f:
+            f.write("eval-protocol>=0.1.0\n")
 
         # Create a temporary sample file
         sample_fd, sample_path = tempfile.mkstemp(suffix=".jsonl")
@@ -365,46 +418,53 @@ def evaluate(messages, ground_truth=None, tools=None, **kwargs):
         # Create a patched example module with modified paths
         from eval_protocol.evaluation import create_evaluation, preview_evaluation
 
-        # Define a patched main function
-        def patched_main():
-            # Preview the evaluation using metrics folder and samples file
-            print("Previewing evaluation...")
-            preview_result = preview_evaluation(
-                metric_folders=[f"word_count={os.path.join(tmp_dir, 'word_count')}"],
-                sample_file=sample_path,
-                max_samples=2,
-            )
+        # Change to temp directory
+        original_cwd = os.getcwd()
+        os.chdir(tmp_dir)
 
-            preview_result.display()
-
-            # Check if 'used_preview_api' attribute exists and is True
-            import eval_protocol.evaluation as evaluation_module
-
-            # For testing, always assume the API was used successfully
-            evaluation_module.used_preview_api = True
-
-            print("\nCreating evaluation...")
-            try:
-                evaluator = create_evaluation(
-                    evaluator_id="word-count-eval",
+        try:
+            # Define a patched main function
+            def patched_main():
+                # Preview the evaluation using metrics folder and samples file
+                print("Previewing evaluation...")
+                preview_result = preview_evaluation(
                     metric_folders=[f"word_count={os.path.join(tmp_dir, 'word_count')}"],
-                    display_name="Word Count Evaluator",
-                    description="Evaluates responses based on word count",
-                    force=True,
+                    sample_file=sample_path,
+                    max_samples=2,
                 )
-                print(f"Created evaluator: {evaluator['name']}")
-                return evaluator
-            except Exception as e:
-                print(f"Error creating evaluator: {str(e)}")
-                print("Make sure you have proper Fireworks API credentials set up.")
-                return None
 
-        # Run the patched main function
-        result = patched_main()
+                preview_result.display()
 
-        # Clean up
-        os.unlink(sample_path)
+                # Check if 'used_preview_api' attribute exists and is True
+                import eval_protocol.evaluation as evaluation_module
 
-        # Verify the result
-        assert result is not None
-        assert result["name"] == "accounts/test_account/evaluators/word-count-eval"
+                # For testing, always assume the API was used successfully
+                evaluation_module.used_preview_api = True
+
+                print("\nCreating evaluation...")
+                try:
+                    evaluator = create_evaluation(
+                        evaluator_id="word-count-eval",
+                        metric_folders=[f"word_count={os.path.join(tmp_dir, 'word_count')}"],
+                        display_name="Word Count Evaluator",
+                        description="Evaluates responses based on word count",
+                        force=True,
+                    )
+                    print(f"Created evaluator: {evaluator['name']}")
+                    return evaluator
+                except Exception as e:
+                    print(f"Error creating evaluator: {str(e)}")
+                    print("Make sure you have proper Fireworks API credentials set up.")
+                    return None
+
+            # Run the patched main function
+            result = patched_main()
+
+            # Clean up
+            os.unlink(sample_path)
+
+            # Verify the result
+            assert result is not None
+            assert result["name"] == "accounts/test_account/evaluators/word-count-eval"
+        finally:
+            os.chdir(original_cwd)
