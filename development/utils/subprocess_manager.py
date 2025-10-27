@@ -2,8 +2,7 @@ import json
 import os
 import re  # Added for Serveo URL parsing
 import shutil  # Added for checking ssh availability
-
-# import signal
+import signal
 import subprocess
 import time
 from typing import IO, Any, Dict, List, Optional  # Added IO, Any, List, Dict, Optional

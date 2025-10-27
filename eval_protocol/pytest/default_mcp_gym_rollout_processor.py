@@ -1,8 +1,10 @@
 import asyncio
 import atexit
 import os
+import signal
 import socket
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import List, Optional
@@ -180,8 +182,9 @@ class MCPServerManager:
     def _register_cleanup_handlers(cls):
         """Register cleanup handlers - called only once"""
         atexit.register(cls._cleanup_all_servers)
-        # signal.signal(signal.SIGINT, cls._signal_handler)  # Ctrl+C
-        # signal.signal(signal.SIGTERM, cls._signal_handler)  # Termination signal
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGINT, cls._signal_handler)  # Ctrl+C
+            signal.signal(signal.SIGTERM, cls._signal_handler)  # Termination signal
 
     def __enter__(self):
         """Context manager entry"""

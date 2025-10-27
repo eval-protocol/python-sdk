@@ -23,7 +23,7 @@ import platform
 import re  # Added for re.search
 
 # to run the solution files we're using a timing based approach
-# import signal
+import signal
 import sys
 import textwrap  # Added for dedenting model output
 import traceback
