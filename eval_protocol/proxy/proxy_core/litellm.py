@@ -108,10 +108,6 @@ async def handle_chat_completion(
         # Forward to LiteLLM
         litellm_url = f"{config.litellm_url}/chat/completions"
 
-        print("litellm_url: ", litellm_url)
-        print("data: ", data)
-        print("headers: ", headers)
-
         response = await client.post(
             litellm_url,
             json=data,  # httpx will serialize and set correct Content-Length
