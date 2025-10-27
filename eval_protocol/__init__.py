@@ -79,18 +79,28 @@ except ImportError:
     WeaveAdapter = None
 
 try:
-    from .proxy import create_app, AuthProvider, AccountInfo
+    from .proxy import create_app, AuthProvider, AccountInfo  # pyright: ignore[reportAssignmentType]
 except ImportError:
 
-    def _proxy_import_error(*args, **kwargs):
+    def create_app(*args, **kwargs):
         raise ImportError(
             "Proxy functionality requires additional dependencies. "
             "Please install with: pip install eval-protocol[proxy]"
         )
 
-    create_app = _proxy_import_error
-    AuthProvider = _proxy_import_error
-    AccountInfo = _proxy_import_error
+    class AuthProvider:
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "Proxy functionality requires additional dependencies. "
+                "Please install with: pip install eval-protocol[proxy]"
+            )
+
+    class AccountInfo:
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "Proxy functionality requires additional dependencies. "
+                "Please install with: pip install eval-protocol[proxy]"
+            )
 
 
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
