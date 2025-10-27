@@ -239,10 +239,7 @@ class MCPGymRolloutProcessor(RolloutProcessor):
                     "Cannot retry without existing server/environments. Call with start_server=True first."
                 )
 
-
-        model_id = str(
-            (config.completion_params.get("model") if config.completion_params else None) or "gpt-4o-mini"
-        )
+        model_id = str((config.completion_params.get("model") if config.completion_params else None) or "gpt-4o-mini")
         temperature = config.completion_params.get("temperature", 0.0)
         max_tokens = config.completion_params.get("max_tokens", 4096)
 
