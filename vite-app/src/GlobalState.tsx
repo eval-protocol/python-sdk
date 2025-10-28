@@ -268,7 +268,6 @@ export class GlobalState {
 
   // Apply query params to global configuration
   applyQueryParams(queryParams: Record<string, string>) {
-    debugger;
     const partialConfig = queryParamsToPartialConfig(queryParams);
 
     // Apply each section of the partial config
