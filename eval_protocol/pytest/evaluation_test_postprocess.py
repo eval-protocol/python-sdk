@@ -91,7 +91,8 @@ def postprocess(
                     result.evaluation_result.standard_error = standard_error
                 if result.evaluation_result.is_score_valid is False:
                     if result.eval_metadata is not None:
-                        result.eval_metadata.status = Status.score_invalid()
+                        if not result.eval_metadata.status or not result.eval_metadata.status.is_error():
+                            result.eval_metadata.status = Status.score_invalid()
             result.execution_metadata.experiment_duration_seconds = experiment_duration_seconds
             active_logger.log(result)
 
