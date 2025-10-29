@@ -1,19 +1,34 @@
 import re
 from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult, Message
 from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
+import os
+from eval_protocol.data_loader.jsonl_data_loader import EvaluationRowJsonlDataLoader
 from typing import List, Dict, Any, Optional
 
 
 def extract_answer_digits(ground_truth: str) -> Optional[str]:
     """
-    Extract the digits from the answer string.
+    Extract the first sequence of digits within <answer>...</answer> tags.
+
+    Returns None if tags are missing or no digits are found.
     """
-    answer_string = ground_truth.split("<answer>")[1].split("</answer>")[0]
-    return re.search(r"(\d+)", answer_string).group(1) if answer_string else None
+    if not ground_truth:
+        return None
+
+    match = re.search(r"<answer>(.*?)</answer>", ground_truth, flags=re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+
+    answer_string = match.group(1)
+    digits_match = re.search(r"(\d+)", answer_string)
+    return digits_match.group(1) if digits_match else None
+
+
+JSONL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../development/gsm8k_sample.jsonl"))
 
 
 @evaluation_test(
-    input_dataset=["development/gsm8k_sample.jsonl"],
+    data_loaders=EvaluationRowJsonlDataLoader(jsonl_path=JSONL_PATH),
     completion_params=[{"temperature": 0.0, "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     max_dataset_rows=5,
     passed_threshold=0.0,
