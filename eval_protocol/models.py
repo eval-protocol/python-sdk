@@ -207,10 +207,11 @@ class Status(BaseModel):
                 # Dynamically import and raise the exception
                 exception_class = cls._import_exception_class(exception_type)
                 if exception_class:
-                    logger.info(f"Re-raising {exception_type} from status details")
+                    logger.info(f"Found exception class: {exception_class}")
                     # Try different constructor patterns
                     exception_to_raise = cls._create_exception_instance(exception_class, exception_message)
                     if exception_to_raise:
+                        logger.info(f"Re-raising {exception_type} from status details")
                         raise exception_to_raise
                     else:
                         logger.debug(f"Could not create instance of {exception_type}")
