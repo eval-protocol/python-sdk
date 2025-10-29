@@ -13,6 +13,7 @@ import requests
 import httpx
 import openai
 
+
 # Default exceptions that should be retried with backoff
 DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
     # Standard library exceptions
@@ -29,12 +30,15 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
     httpx.TimeoutException,
     httpx.NetworkError,
     httpx.RemoteProtocolError,
+    # LiteLLM library exceptions
     litellm.exceptions.RateLimitError,
     litellm.exceptions.InternalServerError,
     litellm.exceptions.Timeout,
     litellm.exceptions.NotFoundError,
     litellm.exceptions.BadRequestError,  # remove this once we have a long term solution
     litellm.exceptions.ServiceUnavailableError,
+    litellm.exceptions.APIError,
+    # OpenAI library exceptions
     openai.NotFoundError,
     openai.BadRequestError,  # remove this once we have a long term solution
 }

@@ -21,6 +21,16 @@ logger = logging.getLogger(__name__)
 class SingleTurnRolloutProcessor(RolloutProcessor):
     """Single turn rollout processor for direct LLM calls."""
 
+    def __init__(self, *, drop_trailing_assistant_messages: bool = True) -> None:
+        """
+        Args:
+            drop_trailing_assistant_messages: When True (default), strip any trailing
+                assistant messages from the input conversation before calling the model.
+                This helps when datasets include previous assistant turns and you want
+                the model to answer the latest user query.
+        """
+        self.drop_trailing_assistant_messages = drop_trailing_assistant_messages
+
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Generate single turn rollout tasks and return them for external handling."""
         # Do not modify global LiteLLM cache. Disable caching per-request instead.
@@ -32,7 +42,13 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             if len(row.messages) == 0:
                 raise ValueError("Messages is empty. Please provide a non-empty dataset")
 
-            messages_payload = [message.model_dump() for message in row.messages]
+            # Optionally drop trailing assistant messages for single-turn prompts
+            messages_for_request: List[Message] = list(row.messages)
+            if self.drop_trailing_assistant_messages:
+                while messages_for_request and messages_for_request[-1].role == "assistant":
+                    messages_for_request.pop()
+
+            messages_payload = [message.model_dump() for message in messages_for_request]
 
             request_params = {"messages": messages_payload, **config.completion_params}
             # Ensure caching is disabled only for this request (review feedback)
@@ -114,7 +130,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                         except Exception:
                             pass
 
-            messages = list(row.messages) + [
+            messages = list(messages_for_request) + [
                 Message(
                     role="assistant",
                     content=assistant_content,
