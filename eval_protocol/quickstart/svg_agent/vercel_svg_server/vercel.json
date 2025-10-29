@@ -1,3 +1,5 @@
 {
-  "redirects": [{ "source": "/init", "destination": "/api/init" }]
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/init" }
+  ]
 }
