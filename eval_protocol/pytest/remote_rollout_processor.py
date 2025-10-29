@@ -166,6 +166,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         f"Found Fireworks log for rollout {row.execution_metadata.rollout_id} with status code {status_code}"
                     )
 
+                    Status.raise_from_status_details(status_details)
+
                     row.rollout_status = Status(
                         code=Status.Code(status_code),
                         message=status_message,

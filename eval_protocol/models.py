@@ -1,4 +1,6 @@
 import os
+import logging
+import importlib
 from datetime import datetime
 from enum import Enum
 from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Union
@@ -17,6 +19,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from eval_protocol.get_pep440_version import get_pep440_version
 from eval_protocol.human_id import generate_id
 from eval_protocol.types import TerminationReason
+
+
+logger = logging.getLogger(__name__)
 
 
 class ErrorInfo(BaseModel):
@@ -162,6 +167,134 @@ class Status(BaseModel):
         if extra_info:
             details.append(ErrorInfo.extra_info(extra_info).to_aip193_format())
         return cls.error(error_message, details)
+
+    @classmethod
+    def rollout_error_from_exception(
+        cls, exception: Exception, extra_info: Optional[Dict[str, Any]] = None
+    ) -> "Status":
+        """
+        Create a status indicating the rollout failed with an exception.
+        Simple approach that stores exception info directly in details.
+        """
+        details = []
+
+        details.append(
+            {
+                "exception_type": f"{type(exception).__module__}.{type(exception).__name__}",
+                "exception_message": str(exception),
+            }
+        )
+
+        if extra_info:
+            details.append({"extra_info": extra_info})
+
+        return cls(code=cls.Code.INTERNAL, message=str(exception), details=details)
+
+    @classmethod
+    def raise_from_status_details(cls, status_details: List[Dict[str, Any]]) -> bool:
+        """
+        Try to raise original exception from simple status details using dynamic imports.
+        """
+
+        for detail in status_details:
+            # Look for simple exception info
+            if "exception_type" in detail and "exception_message" in detail:
+                exception_type = detail["exception_type"]
+                exception_message = detail["exception_message"]
+
+                logger.info(f"Found exception info: {exception_type}")
+
+                # Dynamically import and raise the exception
+                exception_class = cls._import_exception_class(exception_type)
+                if exception_class:
+                    logger.info(f"Re-raising {exception_type} from status details")
+                    # Try different constructor patterns
+                    exception_to_raise = cls._create_exception_instance(exception_class, exception_message)
+                    if exception_to_raise:
+                        raise exception_to_raise
+                    else:
+                        logger.debug(f"Could not create instance of {exception_type}")
+                        continue
+                else:
+                    logger.debug(f"Could not import exception type: {exception_type}")
+                    continue
+
+        return False
+
+    @classmethod
+    def _create_exception_instance(cls, exception_class: type, message: str) -> Optional[Exception]:
+        """
+        Try to create an exception instance using different constructor patterns.
+
+        Args:
+            exception_class: The exception class to instantiate
+            message: The error message
+
+        Returns:
+            Exception instance if successful, None otherwise
+        """
+        # Common constructor patterns to try
+        patterns = [
+            # Pattern 1: Just message
+            lambda: exception_class(message),
+            # Pattern 2: Message as named parameter
+            lambda: exception_class(message=message),
+            # Pattern 3: Message + common litellm parameters
+            # NOTE: we are losing some diagnostic information here by not passing the model and llm_provider. We could try to capture full exception state in rollout_error_from_exception.
+            lambda: exception_class(message, model="unknown", llm_provider="unknown"),
+            lambda: exception_class(message=message, model="unknown", llm_provider="unknown"),
+            # Pattern 4: No arguments (fallback)
+            lambda: exception_class(),
+        ]
+
+        for i, pattern in enumerate(patterns):
+            try:
+                instance = pattern()
+                logger.debug(f"Successfully created {exception_class.__name__} using pattern {i + 1}")
+                return instance
+            except (TypeError, ValueError) as e:
+                logger.debug(f"Pattern {i + 1} failed for {exception_class.__name__}: {e}")
+                continue
+
+        logger.debug(f"All constructor patterns failed for {exception_class.__name__}")
+        return None
+
+    @classmethod
+    def _import_exception_class(cls, exception_type: str) -> Optional[type]:
+        """
+        Dynamically import an exception class from a string.
+
+        Args:
+            exception_type: Exception type string like "litellm.exceptions.NotFoundError",
+                           "openai.BadRequestError", "requests.exceptions.ConnectionError", etc.
+
+        Returns:
+            The exception class if found, None otherwise
+        """
+        try:
+            # Require fully qualified names (no automatic prefixing)
+            if "." not in exception_type:
+                logging.getLogger(__name__).debug(f"Exception type must be fully qualified: {exception_type}")
+                return None
+
+            # Parse module and class name
+            module_name, class_name = exception_type.rsplit(".", 1)
+
+            # Import the module
+            module = importlib.import_module(module_name)
+
+            # Get the exception class
+            exception_class = getattr(module, class_name, None)
+
+            # Verify it's actually an exception class
+            if exception_class and issubclass(exception_class, BaseException):
+                return exception_class
+
+            return None
+
+        except (ImportError, AttributeError, ValueError) as e:
+            logging.getLogger(__name__).debug(f"Could not import exception class {exception_type}: {e}")
+            return None
 
     @classmethod
     def error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
