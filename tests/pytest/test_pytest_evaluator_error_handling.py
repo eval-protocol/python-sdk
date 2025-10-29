@@ -83,7 +83,7 @@ class TestPointwiseEvaluatorErrorHandling:
         assert row.evaluation_result is not None
         assert row.evaluation_result.score == 0.0
         assert row.evaluation_result.is_score_valid is False
-        assert "Error during evaluation: ValueError: Test error in evaluation function" in row.evaluation_result.reason
+        assert "Error during evaluation: ValueError: Test error in evaluation function" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
 
         # Check eval_metadata.status was set to score_invalid (due to is_score_valid=False in postprocess)
         assert row.eval_metadata is not None
@@ -120,7 +120,7 @@ class TestPointwiseEvaluatorErrorHandling:
 
         # Check error type is included in reason
         assert row.evaluation_result is not None
-        assert "RuntimeError" in row.evaluation_result.reason
+        assert "RuntimeError" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
         # Status will be score_invalid (not error) due to postprocess override
         assert row.eval_metadata is not None
         assert row.eval_metadata.status is not None
@@ -155,7 +155,7 @@ class TestPointwiseEvaluatorErrorHandling:
             assert row.evaluation_result is not None
             assert row.evaluation_result.score == 0.0
             assert row.evaluation_result.is_score_valid is False
-            assert "ValueError" in row.evaluation_result.reason
+            assert "ValueError" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
             # Status will be score_invalid due to postprocess
             assert row.eval_metadata is not None
             assert row.eval_metadata.status is not None
@@ -194,8 +194,8 @@ class TestPointwiseEvaluatorErrorHandling:
         row = list(rollouts.values())[0]
 
         assert row.evaluation_result is not None
-        assert "CustomEvaluationError" in row.evaluation_result.reason
-        assert "Custom error with details" in row.evaluation_result.reason
+        assert "CustomEvaluationError" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
+        assert "Custom error with details" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
         # Status will be score_invalid due to postprocess
         assert row.eval_metadata is not None
         assert row.eval_metadata.status is not None
@@ -229,7 +229,7 @@ class TestPointwiseEvaluatorErrorHandling:
         row = list(rollouts.values())[0]
 
         assert row.evaluation_result is not None
-        assert "Line 1\nLine 2\nLine 3" in row.evaluation_result.reason
+        assert "Line 1\nLine 2\nLine 3" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
 
 
 class TestGroupwiseEvaluatorErrorHandling:
@@ -277,7 +277,7 @@ class TestGroupwiseEvaluatorErrorHandling:
                 assert row.evaluation_result.is_score_valid is False
                 assert (
                     "Error during evaluation: ValueError: Test error in groupwise evaluation"
-                    in row.evaluation_result.reason
+                    in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
                 )
 
                 # Status will be score_invalid due to postprocess
@@ -320,7 +320,7 @@ class TestGroupwiseEvaluatorErrorHandling:
 
         for row in rollouts.values():
             if row.evaluation_result is not None:
-                assert "RuntimeError" in row.evaluation_result.reason
+                assert "RuntimeError" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
                 # Status will be score_invalid due to postprocess
                 assert row.eval_metadata is not None
                 assert row.eval_metadata.status is not None
@@ -425,7 +425,9 @@ class TestEvaluatorErrorHandlingEdgeCases:
         row = list(rollouts.values())[0]
 
         assert row.evaluation_result is not None
-        assert "ValueError" in row.evaluation_result.reason  # Should at least have the exception type
+        assert (
+            "ValueError" in row.evaluation_result.reason
+        )  # Should at least have the exception type  # pyright: ignore[reportOperatorIssue]
 
 
 class TestEvaluatorErrorHandlingWithInputRows:
@@ -464,7 +466,7 @@ class TestEvaluatorErrorHandlingWithInputRows:
         assert row.evaluation_result is not None
         assert row.evaluation_result.score == 0.0
         assert row.evaluation_result.is_score_valid is False
-        assert "ValueError" in row.evaluation_result.reason
+        assert "ValueError" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
         # Status will be score_invalid due to postprocess
         assert row.eval_metadata is not None
         assert row.eval_metadata.status is not None
@@ -534,9 +536,10 @@ class TestEvaluatorErrorHandlingStatusCodes:
         # Verify reason format in evaluation_result: "Error during evaluation: ExceptionType: message"
         assert row.evaluation_result is not None
         reason = row.evaluation_result.reason
+        assert reason is not None
         assert reason.startswith("Error during evaluation: ")
-        assert "KeyError" in reason
-        assert "missing_key" in reason
+        assert "KeyError" in reason  # pyright: ignore[reportOperatorIssue]
+        assert "missing_key" in reason  # pyright: ignore[reportOperatorIssue]
 
         # Status will be score_invalid, not containing the error details
         assert row.eval_metadata is not None
