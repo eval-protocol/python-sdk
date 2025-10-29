@@ -371,7 +371,7 @@ def evaluation_test(
                             row.input_metadata.session_data = {}
                         row.input_metadata.session_data["mode"] = mode
                         # Initialize eval_metadata for each row
-                        row.eval_metadata = eval_metadata
+                        row.eval_metadata = eval_metadata.model_copy(deep=True)
                         row.execution_metadata.experiment_id = experiment_id
                         row.execution_metadata.invocation_id = invocation_id
 
@@ -443,6 +443,10 @@ def evaluation_test(
                                             is_score_valid=False,
                                             reason=f"Error during evaluation: {type(e).__name__}: {e}",
                                         )
+                                        if result.eval_metadata is not None:
+                                            result.eval_metadata.status = Status.error(
+                                                f"Error during evaluation: {type(e).__name__}: {e}",
+                                            )
                                 if not isinstance(result, EvaluationRow):
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
@@ -477,7 +481,11 @@ def evaluation_test(
                                             score=0.0,
                                             is_score_valid=False,
                                             reason=f"Error during evaluation: {type(e).__name__}: {e}",
-                                        )
+                                            )
+                                            if row.eval_metadata is not None:
+                                                row.eval_metadata.status = Status.error(
+                                                    f"Error during evaluation: {type(e).__name__}: {e}",
+                                                )
                                 if not isinstance(results, list):
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
