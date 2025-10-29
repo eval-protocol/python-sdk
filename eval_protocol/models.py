@@ -214,10 +214,10 @@ class Status(BaseModel):
                         logger.info(f"Re-raising {exception_type} from status details")
                         raise exception_to_raise
                     else:
-                        logger.debug(f"Could not create instance of {exception_type}")
+                        logger.info(f"Could not create instance of {exception_type}")
                         continue
                 else:
-                    logger.debug(f"Could not import exception type: {exception_type}")
+                    logger.info(f"Could not import exception type: {exception_type}")
                     continue
 
         return False
@@ -244,7 +244,9 @@ class Status(BaseModel):
             # NOTE: we are losing some diagnostic information here by not passing the model and llm_provider. We could try to capture full exception state in rollout_error_from_exception.
             lambda: exception_class(message, model="unknown", llm_provider="unknown"),
             lambda: exception_class(message=message, model="unknown", llm_provider="unknown"),
-            # Pattern 4: No arguments (fallback)
+            # Pattern 5: OpenAI exceptions - create mock response object
+            lambda: cls._create_openai_exception(exception_class, message),
+            # Pattern 7: No arguments (fallback)
             lambda: exception_class(),
         ]
 
@@ -259,6 +261,36 @@ class Status(BaseModel):
 
         logger.debug(f"All constructor patterns failed for {exception_class.__name__}")
         return None
+
+    @classmethod
+    def _create_openai_exception(cls, exception_class: type, message: str) -> Optional[Exception]:
+        """
+        Create OpenAI exception with a mock response object.
+
+        OpenAI exceptions require httpx.Response objects which are complex to create,
+        so we create a minimal mock that satisfies the basic requirements.
+        """
+        try:
+            import httpx
+
+            # Create a minimal mock response object
+            class MockRequest:
+                def __init__(self):
+                    self.method = "POST"
+                    self.url = "https://api.openai.com/v1/chat/completions"
+
+            class MockResponse:
+                def __init__(self):
+                    self.status_code = 404
+                    self.headers = {"x-request-id": "mock-request-id"}
+                    self.request = MockRequest()
+
+            mock_response = MockResponse()
+            return exception_class(message, response=mock_response, body=None)
+
+        except Exception as e:
+            logging.getLogger(__name__).debug(f"Failed to create OpenAI exception with mock response: {e}")
+            return None
 
     @classmethod
     def _import_exception_class(cls, exception_type: str) -> Optional[type]:
