@@ -478,9 +478,9 @@ def evaluation_test(
                                         results = rows
                                         for row in results:
                                             row.evaluation_result = EvaluateResult(
-                                            score=0.0,
-                                            is_score_valid=False,
-                                            reason=f"Error during evaluation: {type(e).__name__}: {e}",
+                                                score=0.0,
+                                                is_score_valid=False,
+                                                reason=f"Error during evaluation: {type(e).__name__}: {e}",
                                             )
                                             if row.eval_metadata is not None:
                                                 row.eval_metadata.status = Status.error(

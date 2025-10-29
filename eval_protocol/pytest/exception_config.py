@@ -35,7 +35,7 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
     litellm.exceptions.NotFoundError,
     litellm.exceptions.BadRequestError,  # remove this once we have a long term solution
     litellm.exceptions.ServiceUnavailableError,
-    litellm.exceptions.APIError
+    litellm.exceptions.APIError,
 }
 
 
