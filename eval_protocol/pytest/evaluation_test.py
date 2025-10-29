@@ -602,7 +602,8 @@ def evaluation_test(
                                     r.eval_metadata.status = Status.error(
                                         r.rollout_status.message, r.rollout_status.details
                                     )
-                                else:
+                                elif not (r.eval_metadata.status and r.eval_metadata.status.code != Status.Code.RUNNING):
+                                    # if the eval_metadata status code has not been set to something else, consider it as finished
                                     r.eval_metadata.status = Status.eval_finished()
                             # Optional debug print for assistant/tool sequence
                             if os.getenv("EP_DEBUG_SERIALIZATION", "0").strip() == "1":
