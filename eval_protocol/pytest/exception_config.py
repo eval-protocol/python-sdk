@@ -11,6 +11,7 @@ import backoff
 import litellm
 import requests
 import httpx
+import openai
 
 # Default exceptions that should be retried with backoff
 DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
@@ -34,6 +35,8 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
     litellm.exceptions.NotFoundError,
     litellm.exceptions.BadRequestError,  # remove this once we have a long term solution
     litellm.exceptions.ServiceUnavailableError,
+    openai.NotFoundError,
+    openai.BadRequestError,  # remove this once we have a long term solution
 }
 
 
