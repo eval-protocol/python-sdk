@@ -309,6 +309,11 @@ class Status(BaseModel):
         """Create a status indicating the rollout failed with an internal error."""
         return cls.internal_error(error_message, cls._build_details_with_extra_info(extra_info))
 
+    @classmethod
+    def internal_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating an internal error occurred."""
+        return cls(code=cls.Code.INTERNAL, message=error_message, details=details or [])
+
     # For backwards compatibility
     @classmethod
     def rollout_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
@@ -316,8 +321,8 @@ class Status(BaseModel):
         return cls.internal_error(error_message, cls._build_details_with_extra_info(extra_info))
 
     @classmethod
-    def internal_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
-        """Create a status indicating an internal error occurred."""
+    def error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating an error occurred."""
         return cls(code=cls.Code.INTERNAL, message=error_message, details=details or [])
 
     # UNAVAILABLE = 14

@@ -398,7 +398,7 @@ async def rollout_processor_with_retry(
                 else:
                     # Non-retryable exception - fail immediately
                     logging.error(f"❌ Rollout failed (non-retryable error encountered): {repr(e)}")
-                    row.rollout_status = Status.rollout_error(repr(e))
+                    row.rollout_status = Status.rollout_error(str(e))
                     return row
 
         async def execute_row_with_backoff_and_log(
