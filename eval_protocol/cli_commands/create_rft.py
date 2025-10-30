@@ -379,6 +379,7 @@ def create_rft_command(args) -> int:
         "trainingConfig": training_config,
         "inferenceParameters": inference_params or None,
         "wandbConfig": wandb_config,
+        "chunkSize": getattr(args, "chunk_size", None),
         "outputStats": None,
         "outputMetrics": None,
         "mcpServer": None,

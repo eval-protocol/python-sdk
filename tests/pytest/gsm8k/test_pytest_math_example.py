@@ -4,6 +4,9 @@ from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 import os
 from eval_protocol.data_loader.jsonl_data_loader import EvaluationRowJsonlDataLoader
 from typing import List, Dict, Any, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def extract_answer_digits(ground_truth: str) -> Optional[str]:
@@ -54,6 +57,7 @@ def test_math_dataset(row: EvaluationRow, **kwargs) -> EvaluationRow:
         EvaluationRow with the evaluation result
     """
     #### Get predicted answer value
+    logger.info(f"I am beginning to execute GSM8k rollout: {row.execution_metadata.rollout_id}")
     prediction = extract_answer_digits(str(row.messages[2].content))
     gt = extract_answer_digits(str(row.ground_truth))
 
@@ -77,5 +81,6 @@ def test_math_dataset(row: EvaluationRow, **kwargs) -> EvaluationRow:
         is_score_valid=True,  # Optional: Whether the score is valid, true by default
         reason=reason,  # Optional: The reason for the score
     )
+    logger.info(f"I am done executing GSM8k rollout: {row.execution_metadata.rollout_id}")
     row.evaluation_result = evaluation_result
     return row
