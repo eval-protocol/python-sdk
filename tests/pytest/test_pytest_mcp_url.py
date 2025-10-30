@@ -20,10 +20,9 @@ from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
             ]
         ]
     ],
-    rollout_processor=AgentRolloutProcessor(),
+    rollout_processor=AgentRolloutProcessor(mcp_config_path="tests/pytest/mcp_configurations/docs_mcp_config.json"),
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}],
     mode="pointwise",
-    mcp_config_path="tests/pytest/mcp_configurations/docs_mcp_config.json",
 )
 def test_pytest_mcp_url(row: EvaluationRow) -> EvaluationRow:
     """Run math evaluation on sample dataset using pytest interface."""

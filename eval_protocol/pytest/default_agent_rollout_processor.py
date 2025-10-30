@@ -234,10 +234,21 @@ class Agent:
 class AgentRolloutProcessor(RolloutProcessor):
     """Agent rollout processor for tool-calling agents."""
 
+    def __init__(self, mcp_config_path: Optional[str] = None):
+        """Initialize the agent rollout processor.
+        
+        Args:
+            mcp_config_path: Path to MCP configuration file. If provided, this takes
+                           precedence over config.mcp_config_path in __call__.
+        """
+        self.mcp_config_path = mcp_config_path
+
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Create agent rollout tasks and return them for external handling."""
 
         semaphore = config.semaphore
+        # Use instance mcp_config_path if provided, otherwise fall back to config
+        mcp_config_path = self.mcp_config_path if self.mcp_config_path is not None else config.mcp_config_path
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with agent rollout."""
@@ -246,7 +257,7 @@ class AgentRolloutProcessor(RolloutProcessor):
             agent = Agent(
                 model=row.input_metadata.completion_params["model"],
                 row=row,
-                config_path=config.mcp_config_path,
+                config_path=mcp_config_path,
                 logger=config.logger,
             )
             try:
