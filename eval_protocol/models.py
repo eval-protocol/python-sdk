@@ -21,9 +21,6 @@ from eval_protocol.human_id import generate_id
 from eval_protocol.types import TerminationReason
 
 
-logger = logging.getLogger(__name__)
-
-
 class ErrorInfo(BaseModel):
     """
     AIP-193 ErrorInfo model for structured error details.
