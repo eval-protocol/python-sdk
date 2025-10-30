@@ -151,14 +151,14 @@ def update_row_with_remote_trace(
     output_rows: List[EvaluationRow] = [r for result in results for r in result.rows]
 
     if len(output_rows) == 0:  # Fallback to original row if no remote data found
-        row.rollout_status = Status(code=Status.Code.NOT_FOUND, message="No remote data found for rollout")
+        row.rollout_status = Status.rollout_not_found_error("No remote data found for rollout")
         return None
     elif len(output_rows) == 1:  # Return the remote row
         remote_row = output_rows[0]
 
         # if the remote_row has the same number of messages as the original row, something went wrong
         if len(remote_row.messages) == len(row.messages):
-            row.rollout_status = Status.rollout_error(
+            row.rollout_status = Status.rollout_internal_error(
                 "Rollout finished with the same number of messages as the original row"
             )
             return None

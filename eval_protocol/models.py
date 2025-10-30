@@ -136,6 +136,13 @@ class Status(BaseModel):
         """Create a status indicating the evaluation finished."""
         return cls(code=cls.Code.FINISHED, message="Evaluation finished", details=[])
 
+    @staticmethod
+    def _build_details_with_extra_info(extra_info: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Helper to build details list from extra_info."""
+        if extra_info:
+            return [ErrorInfo.extra_info(extra_info).to_aip193_format()]
+        return []
+
     @classmethod
     def aborted(cls, message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
         """Create a status indicating the evaluation was aborted."""
@@ -160,179 +167,190 @@ class Status(BaseModel):
         """Create a status indicating the rollout finished."""
         return cls(code=cls.Code.FINISHED, message=message, details=details or [])
 
+    # Error methods organized by Status.Code enum values (1-16)
+
+    # CANCELLED = 1
     @classmethod
-    def rollout_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
-        """Create a status indicating the rollout failed with an error."""
-        details = []
-        if extra_info:
-            details.append(ErrorInfo.extra_info(extra_info).to_aip193_format())
-        return cls.error(error_message, details)
+    def rollout_cancelled_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout was cancelled."""
+        return cls.cancelled_error(error_message, cls._build_details_with_extra_info(extra_info))
 
     @classmethod
-    def rollout_error_from_exception(
-        cls, exception: Exception, extra_info: Optional[Dict[str, Any]] = None
+    def cancelled_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating the operation was cancelled."""
+        return cls(code=cls.Code.CANCELLED, message=error_message, details=details or [])
+
+    # UNKNOWN = 2
+    @classmethod
+    def rollout_unknown_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout failed with an unknown error."""
+        return cls.unknown_error(error_message, cls._build_details_with_extra_info(extra_info))
+
+    @classmethod
+    def unknown_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating an unknown error occurred."""
+        return cls(code=cls.Code.UNKNOWN, message=error_message, details=details or [])
+
+    # INVALID_ARGUMENT = 3
+    @classmethod
+    def rollout_invalid_argument_error(
+        cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None
     ) -> "Status":
-        """
-        Create a status indicating the rollout failed with an exception.
-        Simple approach that stores exception info directly in details.
-        """
-        details = []
-
-        details.append(
-            {
-                "exception_type": f"{type(exception).__module__}.{type(exception).__name__}",
-                "exception_message": str(exception),
-            }
-        )
-
-        if extra_info:
-            details.append({"extra_info": extra_info})
-
-        return cls(code=cls.Code.INTERNAL, message=str(exception), details=details)
+        """Create a status indicating the rollout failed with an invalid argument error."""
+        return cls.invalid_argument_error(error_message, cls._build_details_with_extra_info(extra_info))
 
     @classmethod
-    def raise_from_status_details(cls, status_details: List[Dict[str, Any]]) -> bool:
-        """
-        Try to raise original exception from simple status details using dynamic imports.
-        """
+    def invalid_argument_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating an invalid argument error occurred."""
+        return cls(code=cls.Code.INVALID_ARGUMENT, message=error_message, details=details or [])
 
-        for detail in status_details:
-            # Look for simple exception info
-            if "exception_type" in detail and "exception_message" in detail:
-                exception_type = detail["exception_type"]
-                exception_message = detail["exception_message"]
-
-                logger.info(f"Found exception info: {exception_type}")
-
-                # Dynamically import and raise the exception
-                exception_class = cls._import_exception_class(exception_type)
-                if exception_class:
-                    logger.info(f"Found exception class: {exception_class}")
-                    # Try different constructor patterns
-                    exception_to_raise = cls._create_exception_instance(exception_class, exception_message)
-                    if exception_to_raise:
-                        logger.info(f"Re-raising {exception_type} from status details")
-                        raise exception_to_raise
-                    else:
-                        logger.info(f"Could not create instance of {exception_type}")
-                        continue
-                else:
-                    logger.info(f"Could not import exception type: {exception_type}")
-                    continue
-
-        return False
+    # DEADLINE_EXCEEDED = 4
+    @classmethod
+    def rollout_deadline_exceeded_error(
+        cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None
+    ) -> "Status":
+        """Create a status indicating the rollout failed with a deadline exceeded error."""
+        return cls.deadline_exceeded_error(error_message, cls._build_details_with_extra_info(extra_info))
 
     @classmethod
-    def _create_exception_instance(cls, exception_class: type, message: str) -> Optional[Exception]:
-        """
-        Try to create an exception instance using different constructor patterns.
+    def deadline_exceeded_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating a deadline exceeded error occurred."""
+        return cls(code=cls.Code.DEADLINE_EXCEEDED, message=error_message, details=details or [])
 
-        Args:
-            exception_class: The exception class to instantiate
-            message: The error message
-
-        Returns:
-            Exception instance if successful, None otherwise
-        """
-        # Common constructor patterns to try
-        patterns = [
-            # Pattern 1: Just message
-            lambda: exception_class(message),
-            # Pattern 2: Message as named parameter
-            lambda: exception_class(message=message),
-            # Pattern 3: Message + common litellm parameters
-            # NOTE: we are losing some diagnostic information here by not passing the model and llm_provider. We could try to capture full exception state in rollout_error_from_exception.
-            lambda: exception_class(message, model="unknown", llm_provider="unknown"),
-            lambda: exception_class(message=message, model="unknown", llm_provider="unknown"),
-            # Pattern 5: OpenAI exceptions - create mock response object
-            lambda: cls._create_openai_exception(exception_class, message),
-            # Pattern 7: No arguments (fallback)
-            lambda: exception_class(),
-        ]
-
-        for i, pattern in enumerate(patterns):
-            try:
-                instance = pattern()
-                logger.debug(f"Successfully created {exception_class.__name__} using pattern {i + 1}")
-                return instance
-            except (TypeError, ValueError) as e:
-                logger.debug(f"Pattern {i + 1} failed for {exception_class.__name__}: {e}")
-                continue
-
-        logger.debug(f"All constructor patterns failed for {exception_class.__name__}")
-        return None
+    # NOT_FOUND = 5
+    @classmethod
+    def rollout_not_found_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout failed with a not found error."""
+        return cls.not_found_error(error_message, cls._build_details_with_extra_info(extra_info))
 
     @classmethod
-    def _create_openai_exception(cls, exception_class: type, message: str) -> Optional[Exception]:
-        """
-        Create OpenAI exception with a mock response object.
+    def not_found_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating a not found error occurred."""
+        return cls(code=cls.Code.NOT_FOUND, message=error_message, details=details or [])
 
-        OpenAI exceptions require httpx.Response objects which are complex to create,
-        so we create a minimal mock that satisfies the basic requirements.
-        """
-        try:
-            import httpx
-
-            # Create a minimal mock response object
-            class MockRequest:
-                def __init__(self):
-                    self.method = "POST"
-                    self.url = "https://api.openai.com/v1/chat/completions"
-
-            class MockResponse:
-                def __init__(self):
-                    self.status_code = 404
-                    self.headers = {"x-request-id": "mock-request-id"}
-                    self.request = MockRequest()
-
-            mock_response = MockResponse()
-            return exception_class(message, response=mock_response, body=None)
-
-        except Exception as e:
-            logging.getLogger(__name__).debug(f"Failed to create OpenAI exception with mock response: {e}")
-            return None
+    # ALREADY_EXISTS = 6
+    @classmethod
+    def rollout_already_exists_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout failed with an already exists error."""
+        return cls.already_exists_error(error_message, cls._build_details_with_extra_info(extra_info))
 
     @classmethod
-    def _import_exception_class(cls, exception_type: str) -> Optional[type]:
-        """
-        Dynamically import an exception class from a string.
+    def already_exists_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating an already exists error occurred."""
+        return cls(code=cls.Code.ALREADY_EXISTS, message=error_message, details=details or [])
 
-        Args:
-            exception_type: Exception type string like "litellm.exceptions.NotFoundError",
-                           "openai.BadRequestError", "requests.exceptions.ConnectionError", etc.
-
-        Returns:
-            The exception class if found, None otherwise
-        """
-        try:
-            # Require fully qualified names (no automatic prefixing)
-            if "." not in exception_type:
-                logging.getLogger(__name__).debug(f"Exception type must be fully qualified: {exception_type}")
-                return None
-
-            # Parse module and class name
-            module_name, class_name = exception_type.rsplit(".", 1)
-
-            # Import the module
-            module = importlib.import_module(module_name)
-
-            # Get the exception class
-            exception_class = getattr(module, class_name, None)
-
-            # Verify it's actually an exception class
-            if exception_class and issubclass(exception_class, BaseException):
-                return exception_class
-
-            return None
-
-        except (ImportError, AttributeError, ValueError) as e:
-            logging.getLogger(__name__).debug(f"Could not import exception class {exception_type}: {e}")
-            return None
+    # PERMISSION_DENIED = 7
+    @classmethod
+    def rollout_permission_denied_error(
+        cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None
+    ) -> "Status":
+        """Create a status indicating the rollout failed with a permission denied error."""
+        return cls.permission_denied_error(error_message, cls._build_details_with_extra_info(extra_info))
 
     @classmethod
-    def error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
-        """Create a status indicating the rollout failed with an error."""
+    def permission_denied_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating a permission denied error occurred."""
+        return cls(code=cls.Code.PERMISSION_DENIED, message=error_message, details=details or [])
+
+    # RESOURCE_EXHAUSTED = 8
+    @classmethod
+    def rollout_resource_exhausted_error(
+        cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None
+    ) -> "Status":
+        """Create a status indicating the rollout failed with a resource exhausted error."""
+        return cls.resource_exhausted_error(error_message, cls._build_details_with_extra_info(extra_info))
+
+    @classmethod
+    def resource_exhausted_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating a resource exhausted error occurred."""
+        return cls(code=cls.Code.RESOURCE_EXHAUSTED, message=error_message, details=details or [])
+
+    # FAILED_PRECONDITION = 9
+    @classmethod
+    def rollout_failed_precondition_error(
+        cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None
+    ) -> "Status":
+        """Create a status indicating the rollout failed with a failed precondition error."""
+        return cls.failed_precondition_error(error_message, cls._build_details_with_extra_info(extra_info))
+
+    @classmethod
+    def failed_precondition_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating a failed precondition error occurred."""
+        return cls(code=cls.Code.FAILED_PRECONDITION, message=error_message, details=details or [])
+
+    # ABORTED = 10
+    @classmethod
+    def rollout_aborted_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout was aborted."""
+        return cls.aborted(error_message, cls._build_details_with_extra_info(extra_info))
+
+    # OUT_OF_RANGE = 11
+    @classmethod
+    def rollout_out_of_range_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout failed with an out of range error."""
+        return cls.out_of_range_error(error_message, cls._build_details_with_extra_info(extra_info))
+
+    @classmethod
+    def out_of_range_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating an out of range error occurred."""
+        return cls(code=cls.Code.OUT_OF_RANGE, message=error_message, details=details or [])
+
+    # UNIMPLEMENTED = 12
+    @classmethod
+    def rollout_unimplemented_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout failed with an unimplemented error."""
+        return cls.unimplemented_error(error_message, cls._build_details_with_extra_info(extra_info))
+
+    @classmethod
+    def unimplemented_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating an unimplemented error occurred."""
+        return cls(code=cls.Code.UNIMPLEMENTED, message=error_message, details=details or [])
+
+    # INTERNAL = 13
+    @classmethod
+    def rollout_internal_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout failed with an internal error."""
+        return cls.internal_error(error_message, cls._build_details_with_extra_info(extra_info))
+
+    @classmethod
+    def internal_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating an internal error occurred."""
         return cls(code=cls.Code.INTERNAL, message=error_message, details=details or [])
+
+    # UNAVAILABLE = 14
+    @classmethod
+    def rollout_unavailable_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout failed with an unavailable error."""
+        return cls.unavailable_error(error_message, cls._build_details_with_extra_info(extra_info))
+
+    @classmethod
+    def unavailable_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating an unavailable error occurred."""
+        return cls(code=cls.Code.UNAVAILABLE, message=error_message, details=details or [])
+
+    # DATA_LOSS = 15
+    @classmethod
+    def rollout_data_loss_error(cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None) -> "Status":
+        """Create a status indicating the rollout failed with a data loss error."""
+        return cls.data_loss_error(error_message, cls._build_details_with_extra_info(extra_info))
+
+    @classmethod
+    def data_loss_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating a data loss error occurred."""
+        return cls(code=cls.Code.DATA_LOSS, message=error_message, details=details or [])
+
+    # UNAUTHENTICATED = 16
+    @classmethod
+    def rollout_unauthenticated_error(
+        cls, error_message: str, extra_info: Optional[Dict[str, Any]] = None
+    ) -> "Status":
+        """Create a status indicating the rollout failed with an unauthenticated error."""
+        return cls.unauthenticated_error(error_message, cls._build_details_with_extra_info(extra_info))
+
+    @classmethod
+    def unauthenticated_error(cls, error_message: str, details: Optional[List[Dict[str, Any]]] = None) -> "Status":
+        """Create a status indicating an unauthenticated error occurred."""
+        return cls(code=cls.Code.UNAUTHENTICATED, message=error_message, details=details or [])
 
     @classmethod
     def score_invalid(
