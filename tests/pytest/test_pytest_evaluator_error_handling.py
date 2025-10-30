@@ -85,11 +85,14 @@ class TestPointwiseEvaluatorErrorHandling:
         assert row.evaluation_result.is_score_valid is False
         assert "Error during evaluation: ValueError: Test error in evaluation function" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
 
-        # Check eval_metadata.status was set to score_invalid (due to is_score_valid=False in postprocess)
+        # Check eval_metadata.status was set to error and is preserved (not overridden by postprocess)
         assert row.eval_metadata is not None
         assert row.eval_metadata.status is not None
-        assert row.eval_metadata.status.is_score_invalid()
-        assert row.eval_metadata.status.message == "Score is invalid"
+        assert row.eval_metadata.status.is_error()
+        assert (
+            "Error during evaluation: ValueError: Test error in evaluation function"
+            in row.eval_metadata.status.message
+        )
 
     async def test_pointwise_evaluation_runtime_error(self):
         """Test that RuntimeError in evaluation function is properly caught and handled."""
@@ -121,10 +124,10 @@ class TestPointwiseEvaluatorErrorHandling:
         # Check error type is included in reason
         assert row.evaluation_result is not None
         assert "RuntimeError" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
-        # Status will be score_invalid (not error) due to postprocess override
+        # Status will be error and preserved (not overridden by postprocess)
         assert row.eval_metadata is not None
         assert row.eval_metadata.status is not None
-        assert row.eval_metadata.status.is_score_invalid()
+        assert row.eval_metadata.status.is_error()
 
     async def test_pointwise_evaluation_multiple_runs_with_errors(self):
         """Test that errors are handled consistently across multiple runs."""
@@ -156,10 +159,10 @@ class TestPointwiseEvaluatorErrorHandling:
             assert row.evaluation_result.score == 0.0
             assert row.evaluation_result.is_score_valid is False
             assert "ValueError" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
-            # Status will be score_invalid due to postprocess
+            # Status will be error and preserved
             assert row.eval_metadata is not None
             assert row.eval_metadata.status is not None
-            assert row.eval_metadata.status.is_score_invalid()
+            assert row.eval_metadata.status.is_error()
 
     async def test_pointwise_evaluation_custom_exception(self):
         """Test handling of custom exception types."""
@@ -196,10 +199,10 @@ class TestPointwiseEvaluatorErrorHandling:
         assert row.evaluation_result is not None
         assert "CustomEvaluationError" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
         assert "Custom error with details" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
-        # Status will be score_invalid due to postprocess
+        # Status will be error and preserved
         assert row.eval_metadata is not None
         assert row.eval_metadata.status is not None
-        assert row.eval_metadata.status.is_score_invalid()
+        assert row.eval_metadata.status.is_error()
 
     async def test_pointwise_evaluation_error_with_multiline_message(self):
         """Test handling of errors with multiline error messages."""
@@ -280,10 +283,10 @@ class TestGroupwiseEvaluatorErrorHandling:
                     in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
                 )
 
-                # Status will be score_invalid due to postprocess
+                # Status will be error and preserved
                 assert row.eval_metadata is not None
                 assert row.eval_metadata.status is not None
-                assert row.eval_metadata.status.is_score_invalid()
+                assert row.eval_metadata.status.is_error()
 
     async def test_groupwise_evaluation_runtime_error(self):
         """Test that RuntimeError in groupwise evaluation function is properly caught and handled."""
@@ -321,10 +324,10 @@ class TestGroupwiseEvaluatorErrorHandling:
         for row in rollouts.values():
             if row.evaluation_result is not None:
                 assert "RuntimeError" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
-                # Status will be score_invalid due to postprocess
+                # Status will be error and preserved
                 assert row.eval_metadata is not None
                 assert row.eval_metadata.status is not None
-                assert row.eval_metadata.status.is_score_invalid()
+                assert row.eval_metadata.status.is_error()
 
 
 class TestEvaluatorErrorHandlingEdgeCases:
@@ -467,17 +470,17 @@ class TestEvaluatorErrorHandlingWithInputRows:
         assert row.evaluation_result.score == 0.0
         assert row.evaluation_result.is_score_valid is False
         assert "ValueError" in row.evaluation_result.reason  # pyright: ignore[reportOperatorIssue]
-        # Status will be score_invalid due to postprocess
+        # Status will be error and preserved
         assert row.eval_metadata is not None
         assert row.eval_metadata.status is not None
-        assert row.eval_metadata.status.is_score_invalid()
+        assert row.eval_metadata.status.is_error()
 
 
 class TestEvaluatorErrorHandlingStatusCodes:
     """Test that Status codes are correctly set for different error scenarios."""
 
-    async def test_error_status_uses_score_invalid_code(self):
-        """Test that error status uses Status.Code.SCORE_INVALID due to postprocess."""
+    async def test_error_status_uses_internal_code(self):
+        """Test that error status uses Status.Code.INTERNAL and is preserved."""
         from eval_protocol.pytest.evaluation_test import evaluation_test
 
         input_messages = [
@@ -502,10 +505,11 @@ class TestEvaluatorErrorHandlingStatusCodes:
         assert len(rollouts) == 1
         row = list(rollouts.values())[0]
 
-        # Verify status code is SCORE_INVALID (102) after postprocess
+        # Verify status code is INTERNAL (13) and preserved (not overridden by postprocess)
         assert row.eval_metadata is not None
         assert row.eval_metadata.status is not None
-        assert row.eval_metadata.status.code == Status.Code.SCORE_INVALID
+        assert row.eval_metadata.status.code == Status.Code.INTERNAL
+        assert row.eval_metadata.status.is_error()
 
     async def test_evaluation_result_reason_format(self):
         """Test that evaluation_result.reason contains the error details."""
@@ -541,7 +545,8 @@ class TestEvaluatorErrorHandlingStatusCodes:
         assert "KeyError" in reason  # pyright: ignore[reportOperatorIssue]
         assert "missing_key" in reason  # pyright: ignore[reportOperatorIssue]
 
-        # Status will be score_invalid, not containing the error details
+        # Status will be error and preserved
         assert row.eval_metadata is not None
         assert row.eval_metadata.status is not None
-        assert row.eval_metadata.status.is_score_invalid()
+        assert row.eval_metadata.status.is_error()
+        assert "KeyError" in row.eval_metadata.status.message
