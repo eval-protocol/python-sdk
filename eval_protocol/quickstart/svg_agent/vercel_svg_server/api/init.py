@@ -12,6 +12,7 @@ import sys
 import asyncio
 from flask import Flask, request, jsonify
 from openai import OpenAI
+import openai
 from dotenv import load_dotenv
 
 from eval_protocol import Status, InitRequest, FireworksTracingHttpHandler, RolloutIdFilter
@@ -49,56 +50,80 @@ root_logger.addHandler(FireworksTracingHttpHandler())
 app = Flask(__name__)
 
 
-async def execute_rollout_background(req, api_key):
+async def execute_rollout_background(req: InitRequest, api_key: str):
     """Execute the OpenAI completion in background and log results"""
     # Attach rollout_id filter to logger
     logger = logging.getLogger(f"{__name__}.{req.metadata.rollout_id}")
     logger.addFilter(RolloutIdFilter(req.metadata.rollout_id))
 
+    model = req.completion_params.get("model")
+    # Uncomment if you need to strip fireworks_ai/ prefix
+    # if model and isinstance(model, str) and model.startswith("fireworks_ai/"):
+    #     model = model[len("fireworks_ai/"):]
+
+    # Prepare completion arguments
+    completion_kwargs = {
+        "messages": req.messages,
+        # "messages": [{"role": "user", "content": "Hello, how are you?"}],
+        "model": model,
+        "temperature": req.completion_params.get("temperature"),
+        "max_tokens": req.completion_params.get("max_tokens"),
+    }
+
+    # Add tools if present
+    if req.tools:
+        completion_kwargs["tools"] = req.tools
+
+    logger.info(
+        f"DEBUG: {req.model_base_url}, COMPLETION_KWARGS: {completion_kwargs}, API_KEY: {api_key}, MODEL: {model}"
+    )
+
+    # Create AsyncOpenAI client
+    # client = AsyncOpenAI(base_url=req.model_base_url, api_key=api_key)
+    client = OpenAI(base_url=req.model_base_url, api_key=api_key)
+
+    logger.info(f"Sending completion request to model {model}")
+
+    # Make the async model call with timeout
+    import time
+
+    logger.info(f"timing start: {time.time()}")
+
     try:
-        model = req.completion_params.get("model")
-        # Uncomment if you need to strip fireworks_ai/ prefix
-        # if model and isinstance(model, str) and model.startswith("fireworks_ai/"):
-        #     model = model[len("fireworks_ai/"):]
-
-        # Prepare completion arguments
-        completion_kwargs = {
-            "messages": req.messages,
-            # "messages": [{"role": "user", "content": "Hello, how are you?"}],
-            "model": model,
-            "temperature": req.completion_params.get("temperature"),
-            "max_tokens": req.completion_params.get("max_tokens"),
-        }
-
-        # Add tools if present
-        if req.tools:
-            completion_kwargs["tools"] = req.tools
-
-        logger.info(
-            f"DEBUG: {req.model_base_url}, COMPLETION_KWARGS: {completion_kwargs}, API_KEY: {api_key}, MODEL: {model}"
-        )
-
-        # Create AsyncOpenAI client
-        # client = AsyncOpenAI(base_url=req.model_base_url, api_key=api_key)
-        client = OpenAI(base_url=req.model_base_url, api_key=api_key)
-
-        logger.info(f"Sending completion request to model {model}")
-
-        # Make the async model call with timeout
-        import time
-
-        logger.info(f"timing start: {time.time()}")
         completion = client.chat.completions.create(**completion_kwargs)
-        logger.info(f"Completed response: {completion}")
-        logger.info(f"timing end: {time.time()}")
-        # Log successful completion - THIS IS WHAT RemoteRolloutProcessor POLLS FOR
-        logger.info(f"Rollout {req.metadata.rollout_id} completed", extra={"status": Status.rollout_finished()})
-
-    except Exception as e:
-        # Log error with structured status - THIS IS WHAT RemoteRolloutProcessor POLLS FOR
+    except (
+        openai.AuthenticationError,
+        openai.PermissionDeniedError,
+    ) as e:
+        # These errors should be logged and will be retried by RemoteRolloutProcessor
         logger.error(
-            f"Rollout {req.metadata.rollout_id} failed: {e}", extra={"status": Status.rollout_error_from_exception(e)}
+            f"Rollout {req.metadata.rollout_id} failed: {e}",
+            extra={"status": Status.rollout_permission_denied_error(str(e))},
         )
+        return
+    except openai.NotFoundError as e:
+        logger.error(
+            f"Rollout {req.metadata.rollout_id} failed: {e}", extra={"status": Status.rollout_not_found_error(str(e))}
+        )
+        return
+    except openai.RateLimitError as e:
+        logger.error(
+            f"Rollout {req.metadata.rollout_id} failed: {e}",
+            extra={"status": Status.rollout_resource_exhausted_error(str(e))},
+        )
+        return
+    except Exception as e:
+        # Non-OpenAI errors (shouldn't normally happen but catch anyway)
+        logger.error(
+            f"Rollout {req.metadata.rollout_id} failed with unexpected error: {e}",
+            extra={"status": Status.rollout_internal_error(str(e))},
+        )
+        return
+
+    logger.info(f"Completed response: {completion}")
+    logger.info(f"timing end: {time.time()}")
+    # Log successful completion - THIS IS WHAT RemoteRolloutProcessor POLLS FOR
+    logger.info(f"Rollout {req.metadata.rollout_id} completed", extra={"status": Status.rollout_finished()})
 
 
 @app.route("/init", methods=["POST"])
@@ -114,7 +139,7 @@ async def init():
         # Validate required fields
         if not req.messages:
             error_msg = "messages is required"
-            logger.error(error_msg, extra={"status": Status.rollout_error(error_msg)})
+            logger.error(error_msg, extra={"status": Status.rollout_internal_error(error_msg)})
             return jsonify({"error": error_msg}), 400
 
         # Get API key (prefer request api_key, fallback to environment)
@@ -126,7 +151,7 @@ async def init():
             api_key = os.environ.get("FIREWORKS_API_KEY")
         else:
             error_msg = "API key not provided in request or environment variable"
-            logger.error(error_msg, extra={"status": Status.rollout_error(error_msg)})
+            logger.error(error_msg, extra={"status": Status.rollout_internal_error(error_msg)})
             return jsonify({"error": error_msg}), 401
 
         # 🔥 FIRE: Return immediately with acceptance (within 30s requirement)
@@ -137,7 +162,7 @@ async def init():
         }
 
         # Fire and forget: Execute rollout asynchronously
-        asyncio.create_task(execute_rollout_background(req, api_key))
+        asyncio.create_task(execute_rollout_background(req, api_key or ""))
 
         return jsonify(response_data), 200
 
