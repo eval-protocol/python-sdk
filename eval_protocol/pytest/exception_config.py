@@ -33,6 +33,7 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
     litellm.exceptions.InternalServerError,
     litellm.exceptions.Timeout,
     litellm.exceptions.NotFoundError,
+    litellm.exceptions.BadRequestError,
     litellm.exceptions.ServiceUnavailableError,
     litellm.exceptions.APIError,
 }
