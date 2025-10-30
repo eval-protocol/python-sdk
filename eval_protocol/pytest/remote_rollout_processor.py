@@ -94,7 +94,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
             def _post_init() -> None:
                 url = f"{remote_base_url}/init"
                 try:
-                    r = requests.post(url, json=init_payload.model_dump(), timeout=30)
+                    r = requests.post(url, json=init_payload.model_dump(), timeout=300)
                     r.raise_for_status()
                 except requests.exceptions.Timeout:
                     raise TimeoutError(
@@ -133,9 +133,9 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     # For all other exceptions, raise them
                     raise
 
-                # Search Fireworks tracing logs for completion
-                completed_logs = self._tracing_adapter.search_logs(
-                    tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
+                # Search Fireworks tracing logs for completion (run in thread to avoid blocking event loop)
+                completed_logs = await asyncio.to_thread(
+                    self._tracing_adapter.search_logs, tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
                 )
                 # Filter for logs that actually have status information
                 status_logs = []
