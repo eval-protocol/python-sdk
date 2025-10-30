@@ -161,8 +161,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         f"Found Fireworks log for rollout {row.execution_metadata.rollout_id} with status code {status_code}"
                     )
 
-                    # Create and raise exception if appropriate
-                    exception = exception_for_status_code(status_code)
+                    # Create and raise exception if appropriate, preserving original message
+                    exception = exception_for_status_code(status_code, status_message)
                     if exception is not None:
                         raise exception
 

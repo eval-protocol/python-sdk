@@ -348,3 +348,24 @@ def test_integration_with_retry_logic():
         assert exception_class in DEFAULT_RETRYABLE_EXCEPTIONS, (
             f"{exception_class.__name__} should be in DEFAULT_RETRYABLE_EXCEPTIONS for retry support"
         )
+
+
+def test_exception_message_preservation():
+    """Test that error messages are properly preserved in exceptions."""
+    test_cases = [
+        (13, "test error", InternalError),
+        (5, "Model xyz not found", NotFoundError),
+        (7, "Invalid API key", PermissionDeniedError),
+    ]
+
+    for status_code, message, expected_exception_class in test_cases:
+        # Test with message
+        exception = exception_for_status_code(status_code, message)
+        assert exception is not None
+        assert isinstance(exception, expected_exception_class)
+        assert str(exception) == message, f"Exception should preserve message '{message}'"
+
+        # Test without message (should still work)
+        exception_no_msg = exception_for_status_code(status_code)
+        assert exception_no_msg is not None
+        assert isinstance(exception_no_msg, expected_exception_class)

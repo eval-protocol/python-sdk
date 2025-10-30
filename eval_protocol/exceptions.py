@@ -160,12 +160,13 @@ STATUS_CODE_TO_EXCEPTION = {
 }
 
 
-def exception_for_status_code(code: int) -> Optional[EvalProtocolError]:
+def exception_for_status_code(code: int, message: str = "") -> Optional[EvalProtocolError]:
     """
     Create an exception instance for a given status code.
 
     Args:
         code: Status code from Status.Code enum
+        message: Optional error message to include in the exception
 
     Returns:
         Exception instance or None if code is OK (0)
@@ -173,4 +174,4 @@ def exception_for_status_code(code: int) -> Optional[EvalProtocolError]:
     exception_class = STATUS_CODE_TO_EXCEPTION.get(code)
     if exception_class is None:
         return None
-    return exception_class()
+    return exception_class(message) if message else exception_class()
