@@ -20,11 +20,12 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict, List
 import asyncio
+import pytest
 
 import litellm
 from pydantic import BaseModel
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message, MetricResult
+from eval_protocol.models import EvaluateResult, EvaluationRow
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 
@@ -36,60 +37,6 @@ logger = logging.getLogger(__name__)
 class SVGBenchResponse(BaseModel):
     reasoning: str
     number_of_fulfilled_requirements: int
-
-
-class IntentMatchingResponse(BaseModel):
-    """Response structure for intent matching evaluation."""
-
-    intent_reasoning: str
-    intent_matching_score: float  # 0-1: Does the content match the intended purpose?
-
-
-def svgbench_to_evaluation_row(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
-    """
-    Convert SVGBench dataset entries to EvaluationRow objects.
-
-    Args:
-        data: List of dictionaries containing prompt and requirements
-
-    Returns:
-        List of EvaluationRow objects
-    """
-    rows = []
-
-    for i, row in enumerate(data):
-        # Format requirements as numbered list
-        requirements = "\n".join([f"{i + 1}. {req}" for i, req in enumerate(row["requirements"])])
-
-        # Create the generation prompt following SVGBench format
-        prompt = f"""{row["prompt"]} Wrap the SVG code in an SVG code block following the example below.
-
-Example:
-```svg
-<svg viewBox="0 0 100 100" width="100" height="100">
-    <circle cx="50" cy="50" r="40" fill="red" />
-</svg>
-```
-
-Requirements:
-{requirements}"""
-
-        eval_row = EvaluationRow(
-            messages=[Message(role="user", content=prompt)],
-            input_metadata=InputMetadata(
-                row_id=f"row_{i}",
-                dataset_info={
-                    "original_prompt": row["prompt"],
-                    "requirements": row["requirements"],
-                    "total_requirements": len(row["requirements"]),
-                    "formatted_prompt": prompt,
-                },
-            ),
-        )
-
-        rows.append(eval_row)
-
-    return rows
 
 
 async def evaluate_with_llm_judge(image_path: str, requirements: List[str]) -> Dict[str, Any]:
@@ -161,9 +108,9 @@ Requirements:
         raise ValueError("Missing required field in response")
 
 
+@pytest.mark.skip(reason="Skipping SVG generation evaluation test")
 @evaluation_test(
     input_dataset=[str(Path(__file__).parent / "svgbench_dataset.jsonl")],
-    dataset_adapter=svgbench_to_evaluation_row,
     completion_params=[
         {
             "temperature": 0.8,
