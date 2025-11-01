@@ -38,6 +38,7 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
     litellm.exceptions.NotFoundError,
     litellm.exceptions.ServiceUnavailableError,
     litellm.exceptions.APIError,
+    litellm.exceptions.BadRequestError,
     # Eval Protocol exceptions
     eval_protocol.exceptions.UnknownError,
     eval_protocol.exceptions.DeadlineExceededError,
