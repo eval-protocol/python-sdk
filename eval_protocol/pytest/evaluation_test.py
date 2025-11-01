@@ -19,6 +19,7 @@ from eval_protocol.models import (
     EvaluationRow,
     EvaluationThreshold,
     EvaluationThresholdDict,
+    EvaluateResult,
     Status,
 )
 from eval_protocol.pytest.dual_mode_wrapper import create_dual_mode_wrapper
@@ -370,7 +371,7 @@ def evaluation_test(
                             row.input_metadata.session_data = {}
                         row.input_metadata.session_data["mode"] = mode
                         # Initialize eval_metadata for each row
-                        row.eval_metadata = eval_metadata
+                        row.eval_metadata = eval_metadata.model_copy(deep=True)
                         row.execution_metadata.experiment_id = experiment_id
                         row.execution_metadata.invocation_id = invocation_id
 
@@ -429,11 +430,23 @@ def evaluation_test(
                                     experiment_id=experiment_id,
                                     run_id=run_id,
                                 ):
-                                    result = await execute_pytest(
-                                        test_func,
-                                        processed_row=row,
-                                        evaluation_test_kwargs=evaluation_test_kwargs,
-                                    )
+                                    try:
+                                        result = await execute_pytest(
+                                            test_func,
+                                            processed_row=row,
+                                            evaluation_test_kwargs=evaluation_test_kwargs,
+                                        )
+                                    except Exception as e:
+                                        result = row
+                                        result.evaluation_result = EvaluateResult(
+                                            score=0.0,
+                                            is_score_valid=False,
+                                            reason=f"Error during evaluation: {type(e).__name__}: {e}",
+                                        )
+                                        if result.eval_metadata is not None:
+                                            result.eval_metadata.status = Status.error(
+                                                f"Error during evaluation: {type(e).__name__}: {e}",
+                                            )
                                 if not isinstance(result, EvaluationRow):
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
@@ -455,11 +468,24 @@ def evaluation_test(
                                     run_id=run_id,
                                     rollout_ids=group_rollout_ids or None,
                                 ):
-                                    results = await execute_pytest(
-                                        test_func,
-                                        processed_dataset=rows,
-                                        evaluation_test_kwargs=evaluation_test_kwargs,
-                                    )
+                                    try:
+                                        results = await execute_pytest(
+                                            test_func,
+                                            processed_dataset=rows,
+                                            evaluation_test_kwargs=evaluation_test_kwargs,
+                                        )
+                                    except Exception as e:
+                                        results = rows
+                                        for row in results:
+                                            row.evaluation_result = EvaluateResult(
+                                                score=0.0,
+                                                is_score_valid=False,
+                                                reason=f"Error during evaluation: {type(e).__name__}: {e}",
+                                            )
+                                            if row.eval_metadata is not None:
+                                                row.eval_metadata.status = Status.error(
+                                                    f"Error during evaluation: {type(e).__name__}: {e}",
+                                                )
                                 if not isinstance(results, list):
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
@@ -576,7 +602,10 @@ def evaluation_test(
                                     r.eval_metadata.status = Status.error(
                                         r.rollout_status.message, r.rollout_status.details
                                     )
-                                else:
+                                elif not (
+                                    r.eval_metadata.status and r.eval_metadata.status.code != Status.Code.RUNNING
+                                ):
+                                    # if the eval_metadata status code has not been set to something else, consider it as finished
                                     r.eval_metadata.status = Status.eval_finished()
                             # Optional debug print for assistant/tool sequence
                             if os.getenv("EP_DEBUG_SERIALIZATION", "0").strip() == "1":

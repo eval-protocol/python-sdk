@@ -602,7 +602,47 @@ class Evaluator:
         from pathlib import Path
         import fnmatch
 
-        default_ignores = [".git", "__pycache__", "*.pyc", ".venv", "venv", "node_modules", "*.egg-info"]
+        default_ignores = [
+            ".git",
+            ".github",
+            "__pycache__",
+            "*.pyc",
+            "*.pyo",
+            "*.pyd",
+            ".venv",
+            "venv",
+            ".tox",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
+            ".ipynb_checkpoints",
+            ".idea",
+            ".vscode",
+            ".cache",
+            "node_modules",
+            "vendor",
+            "dist",
+            "build",
+            "*.egg-info",
+            "*.egg",
+            "*.whl",
+            "*.tar.gz",
+            "*.zip",
+            "*.log",
+            "*.tmp",
+            "*.swp",
+            ".DS_Store",
+            "coverage",
+            "htmlcov",
+            ".coverage",
+            "coverage.xml",
+            ".env",
+            ".env.*",
+            "*.so",
+            "*.dylib",
+            ".pytest_cache/",
+            "env/",
+        ]
         all_patterns = default_ignores + ignore_patterns
 
         path_obj = Path(path)

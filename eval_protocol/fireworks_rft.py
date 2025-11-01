@@ -18,12 +18,20 @@ def _map_api_host_to_app_host(api_base: str) -> str:
         from urllib.parse import urlparse
 
         parsed = urlparse(api_base)
-        host = parsed.netloc or parsed.path
+        host = (parsed.netloc or parsed.path).lower()
+        scheme = parsed.scheme or "https"
+
+        # Explicit mappings first
         if host.startswith("dev.api.fireworks.ai"):
-            return f"{parsed.scheme or 'https'}://dev.fireworks.ai"
+            return f"{scheme}://dev.fireworks.ai"
+        if host == "staging.api.fireworks.ai" or host == "api.fireworks.ai":
+            return f"{scheme}://app.fireworks.ai"
+
+        # Generic mapping: api.<...> → app.<...>
         if host.startswith("api."):
-            return f"{parsed.scheme or 'https'}://{host.replace('api.', 'app.', 1)}"
-        return f"{parsed.scheme or 'https'}://{host}"
+            return f"{scheme}://{host.replace('api.', 'app.', 1)}"
+
+        return f"{scheme}://{host}"
     except Exception:
         return "https://app.fireworks.ai"
 
