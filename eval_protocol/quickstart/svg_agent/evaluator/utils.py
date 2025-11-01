@@ -97,8 +97,6 @@ def render_svg_to_png(svg_code: str, output_path: str) -> bool:
         </body>
         </html>
         """
-        logger.info(f"Render start: {time.time()}")
-
         # Setup Chrome options with device emulation for exact dimensions
         chrome_options = Options()
         chrome_options.add_argument("--headless")
@@ -132,8 +130,6 @@ def render_svg_to_png(svg_code: str, output_path: str) -> bool:
             body.screenshot(output_path)
 
             driver.quit()
-            logger.info(f"Render end: {time.time()}")
-
             return True
 
         finally:
