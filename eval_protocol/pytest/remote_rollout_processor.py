@@ -98,7 +98,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     r.raise_for_status()
                 except requests.exceptions.Timeout:
                     raise TimeoutError(
-                        f"The /init endpoint tried {url} with {init_payload.model_dump()} but timed out after 30 seconds."
+                        f"The /init endpoint tried {url} with {init_payload.model_dump()} but timed out after 300 seconds."
                     )
 
             await asyncio.to_thread(_post_init)
