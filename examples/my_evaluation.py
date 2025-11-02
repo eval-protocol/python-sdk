@@ -15,7 +15,7 @@ from eval_protocol.pytest import evaluation_test
 # Function also doesn't start with 'test_', but will be auto-registered
 @evaluation_test(
     input_rows=[[
-        EvaluationRow(messages=[{"role": "user", "content": "Custom evaluation"}])
+        EvaluationRow(messages=[{"role": "user", "content": "Custom evaluation"}])  # pyright: ignore[reportArgumentType]
     ]]
 )
 async def custom_evaluation(row: EvaluationRow) -> EvaluationRow:
