@@ -72,7 +72,12 @@ def create_dual_mode_wrapper(  # pyright: ignore[reportUnknownParameterType]
     }
 
     # Copy all attributes from the pytest wrapper to our dual mode wrapper
-
     functools.update_wrapper(dual_mode_wrapper, pytest_wrapper)  # pyright: ignore[reportUnknownArgumentType]
+    
+    # Ensure the wrapper name starts with 'test_' for pytest discovery
+    # This handles cases where the original function name doesn't start with 'test_'
+    original_name = test_func.__name__
+    if not original_name.startswith('test_'):
+        dual_mode_wrapper.__name__ = f'test_{original_name}'
 
     return dual_mode_wrapper  # pyright: ignore[reportUnknownVariableType]

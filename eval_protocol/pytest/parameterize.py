@@ -399,6 +399,7 @@ def create_dynamically_parameterized_wrapper(
     1. Preserves the original function's metadata using functools.wraps
     2. Creates a new function signature with the specified parameter names that maps to pytest.mark.parametrize decorator
     3. Returns a callable that can be used with pytest.mark.parametrize
+    4. Ensures the wrapper name starts with 'test_' for pytest discovery
 
     The function signature is dynamically created to match the parameter names expected by
     pytest.mark.parametrize, ensuring that pytest can properly map the test parameters
@@ -420,5 +421,10 @@ def create_dynamically_parameterized_wrapper(
 
     parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in test_param_names]
     wrapper.__signature__ = inspect.Signature(parameters)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    # Ensure wrapper name starts with 'test_' for pytest discovery
+    original_name = test_func.__name__
+    if not original_name.startswith('test_'):
+        wrapper.__name__ = f'test_{original_name}'
 
     return wrapper  # pyright: ignore[reportUnknownVariableType, reportReturnType]

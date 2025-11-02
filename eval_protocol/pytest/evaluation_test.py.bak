@@ -211,6 +211,9 @@ def evaluation_test(
     def decorator(
         test_func: TestFunction,
     ) -> TestFunction:
+        # Validate test function and file naming for pytest discovery
+        _validate_pytest_discovery(test_func)
+        
         sig = inspect.signature(test_func)
         validate_signature(sig, mode, completion_params)
 
@@ -708,20 +711,6 @@ def evaluation_test(
         dual_mode_wrapper = create_dual_mode_wrapper(
             test_func, mode, max_concurrent_rollouts, max_concurrent_evaluations, pytest_wrapper
         )
-        
-        # Auto-register the test function in the caller's namespace with 'test_' prefix
-        # This ensures pytest can discover it even if the original function name doesn't start with 'test_'
-        original_name = test_func.__name__
-        if not original_name.startswith('test_'):
-            # Get the caller's global namespace (where the decorated function is defined)
-            import sys
-            frame = sys._getframe(1)
-            caller_globals = frame.f_globals
-            
-            # Register the wrapper with a 'test_' prefix in the caller's namespace
-            test_name = f'test_{original_name}'
-            if test_name not in caller_globals:
-                caller_globals[test_name] = dual_mode_wrapper
 
         return dual_mode_wrapper  # pyright: ignore[reportReturnType, reportUnknownVariableType]
 

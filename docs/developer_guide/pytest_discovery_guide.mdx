@@ -1,0 +1,320 @@
+---
+title: "Pytest Discovery Guide"
+description: "Understanding how pytest discovers your evaluation tests and best practices"
+---
+
+# Pytest Discovery Guide
+
+## Overview
+
+Pytest uses strict naming conventions to automatically discover test files and functions. The `@evaluation_test` decorator now includes built-in validation to help ensure your tests can be discovered by pytest.
+
+## Pytest Discovery Rules
+
+### 1. Test File Naming
+
+Pytest will only discover test files that match these patterns:
+
+✅ **Correct naming:**
+- `test_*.py` (e.g., `test_evaluation.py`, `test_my_model.py`)
+- `*_test.py` (e.g., `evaluation_test.py`, `my_model_test.py`)
+
+❌ **Incorrect naming:**
+- `evaluation.py`
+- `my_eval.py`
+- `check_model.py`
+
+### 2. Test Function Naming
+
+Test functions must start with `test_`:
+
+✅ **Correct naming:**
+```python
+@evaluation_test(...)
+async def test_math_evaluation(row: EvaluationRow) -> EvaluationRow:
+    ...
+
+@evaluation_test(...)
+def test_my_model(row: EvaluationRow) -> EvaluationRow:
+    ...
+```
+
+❌ **Incorrect naming:**
+```python
+@evaluation_test(...)
+async def math_evaluation(row: EvaluationRow) -> EvaluationRow:
+    ...
+
+@evaluation_test(...)
+def my_model(row: EvaluationRow) -> EvaluationRow:
+    ...
+```
+
+### 3. Test Class Naming (Optional)
+
+If you organize tests in classes, they must start with `Test`:
+
+✅ **Correct naming:**
+```python
+class TestMathEvaluation:
+    @evaluation_test(...)
+    async def test_addition(self, row: EvaluationRow) -> EvaluationRow:
+        ...
+```
+
+❌ **Incorrect naming:**
+```python
+class MathEvaluation:  # Missing 'Test' prefix
+    @evaluation_test(...)
+    async def test_addition(self, row: EvaluationRow) -> EvaluationRow:
+        ...
+```
+
+## New Validation Features
+
+The `@evaluation_test` decorator now automatically validates naming conventions and provides helpful warnings:
+
+### Feature 1: Function Name Validation
+
+If your function name doesn't start with `test_`, you'll see a warning:
+
+```python
+@evaluation_test(
+    input_messages=[[{"role": "user", "content": "Hello"}]]
+)
+async def my_evaluation(row: EvaluationRow) -> EvaluationRow:  # ⚠️ Warning!
+    row.evaluation_result = EvaluateResult(score=1.0)
+    return row
+```
+
+**Warning message:**
+```
+======================================================================
+PYTEST DISCOVERY WARNING
+======================================================================
+Function 'my_evaluation' does not start with 'test_'.
+Pytest will NOT discover this test automatically.
+
+To fix this:
+  1. Rename your function to 'test_my_evaluation', OR
+  2. Run pytest with explicit path: pytest path/to/file.py::my_evaluation
+
+Recommended: Rename to 'test_my_evaluation'
+======================================================================
+```
+
+### Feature 2: Automatic Name Correction
+
+Even if your function name is incorrect, the decorator will automatically create a wrapper with the correct name:
+
+```python
+# Original function: my_evaluation
+# Wrapper name: test_my_evaluation (automatically corrected)
+```
+
+This means pytest can still discover your test, but you'll receive a warning to fix the naming.
+
+### Feature 3: File Name Validation
+
+If your test file doesn't follow pytest naming conventions:
+
+```
+======================================================================
+PYTEST DISCOVERY WARNING
+======================================================================
+File 'evaluation.py' does not follow pytest naming convention.
+Pytest expects test files to be named 'test_*.py' or '*_test.py'.
+
+Current file: /path/to/evaluation.py
+
+To fix this:
+  1. Rename your file to follow the pattern, OR
+  2. Configure pytest to discover files with your naming pattern
+     in pytest.ini or pyproject.toml
+
+Example pytest.ini configuration:
+  [pytest]
+  python_files = test_*.py *_test.py your_pattern_*.py
+======================================================================
+```
+
+## Running Tests
+
+### Automatic Discovery
+
+When your tests follow naming conventions, pytest will discover them automatically:
+
+```bash
+# Run all tests in the project
+pytest
+
+# Run all tests in a directory
+pytest tests/
+
+# Run all tests in a file
+pytest test_evaluation.py
+```
+
+### Explicit Test Selection
+
+You can always run tests explicitly, even with incorrect naming:
+
+```bash
+# Run a specific test by name
+pytest test_evaluation.py::test_math_evaluation
+
+# Run tests matching a pattern
+pytest -k "math"
+
+# Run tests with a specific marker
+pytest -m "slow"
+```
+
+## Best Practices
+
+### 1. Use Descriptive Names
+
+Your test names should clearly describe what they're testing:
+
+```python
+# Good
+@evaluation_test(...)
+async def test_math_accuracy_on_gsm8k(row: EvaluationRow) -> EvaluationRow:
+    ...
+
+# Less descriptive
+@evaluation_test(...)
+async def test_eval(row: EvaluationRow) -> EvaluationRow:
+    ...
+```
+
+### 2. Organize by Feature
+
+Group related tests in the same file:
+
+```python
+# test_math_evaluation.py
+@evaluation_test(...)
+async def test_addition_accuracy(row: EvaluationRow) -> EvaluationRow:
+    ...
+
+@evaluation_test(...)
+async def test_multiplication_accuracy(row: EvaluationRow) -> EvaluationRow:
+    ...
+
+@evaluation_test(...)
+async def test_word_problem_solving(row: EvaluationRow) -> EvaluationRow:
+    ...
+```
+
+### 3. Use Classes for Organization
+
+For complex test suites, organize tests in classes:
+
+```python
+class TestMathEvaluation:
+    @evaluation_test(...)
+    async def test_basic_arithmetic(self, row: EvaluationRow) -> EvaluationRow:
+        ...
+    
+    @evaluation_test(...)
+    async def test_advanced_math(self, row: EvaluationRow) -> EvaluationRow:
+        ...
+
+class TestCodingEvaluation:
+    @evaluation_test(...)
+    async def test_python_generation(self, row: EvaluationRow) -> EvaluationRow:
+        ...
+```
+
+### 4. Configure pytest.ini
+
+For consistent behavior across your team, create a `pytest.ini` file:
+
+```ini
+[pytest]
+# File discovery patterns
+python_files = test_*.py *_test.py
+
+# Function discovery patterns
+python_functions = test_*
+
+# Class discovery patterns
+python_classes = Test*
+
+# Minimum Python version
+minversion = 7.0
+
+# Show test output
+addopts = -v --tb=short
+```
+
+## Custom Configuration
+
+If you need to use custom naming patterns, configure pytest:
+
+```ini
+# pytest.ini
+[pytest]
+python_files = test_*.py *_test.py eval_*.py
+python_functions = test_* check_*
+```
+
+Or in `pyproject.toml`:
+
+```toml
+[tool.pytest.ini_options]
+python_files = ["test_*.py", "*_test.py", "eval_*.py"]
+python_functions = ["test_*", "check_*"]
+```
+
+## Troubleshooting
+
+### Tests Not Being Discovered
+
+1. **Check file name**: Does it match `test_*.py` or `*_test.py`?
+2. **Check function name**: Does it start with `test_`?
+3. **Check location**: Is the file in a directory pytest is scanning?
+4. **Check syntax**: Are there syntax errors preventing import?
+
+### Debugging Discovery
+
+Use pytest's collection-only mode to see what tests pytest would run:
+
+```bash
+# Show all tests that would be collected
+pytest --collect-only
+
+# Show why tests aren't being collected
+pytest --collect-only -v
+```
+
+### Force Discovery
+
+If you can't rename your tests, use explicit paths:
+
+```bash
+# Run a specific test by full path
+pytest path/to/file.py::my_evaluation
+
+# Use pytest's -k option to filter by name
+pytest -k "evaluation"
+```
+
+## Summary
+
+The `@evaluation_test` decorator now helps ensure your tests can be discovered by:
+
+1. ✅ Validating function names start with `test_`
+2. ✅ Validating file names follow pytest conventions
+3. ✅ Automatically correcting wrapper names for discovery
+4. ✅ Providing clear, actionable warning messages
+
+Follow these conventions and your tests will be automatically discovered by pytest! 🎉
+
+## Related Documentation
+
+- [Pytest Discovery Documentation](https://docs.pytest.org/en/stable/goodpractices.html#test-discovery)
+- [Evaluation Test API Reference](/docs/api_reference/evaluation_test.mdx)
+- [Testing Best Practices](/docs/developer_guide/testing_best_practices.mdx)
+
