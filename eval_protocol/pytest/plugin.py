@@ -25,6 +25,15 @@ import pytest
 def pytest_addoption(parser) -> None:
     group = parser.getgroup("eval-protocol")
     group.addoption(
+        "--ep-discover-all",
+        action="store_true",
+        default=False,
+        help=(
+            "Discover @evaluation_test in all Python files, not just test_*.py files. "
+            "This allows you to use any file naming convention."
+        ),
+    )
+    group.addoption(
         "--ep-max-rows",
         action="store",
         default=None,
@@ -212,6 +221,11 @@ def _build_passed_threshold_env(success: Optional[float], se: Optional[float]) -
 
 
 def pytest_configure(config) -> None:
+    # Enable discovery of @evaluation_test in all Python files if --ep-discover-all is set
+    if config.getoption("--ep-discover-all", default=False):
+        # Modify pytest configuration to discover all .py files
+        config.option.python_files = ["*.py"]
+    
     # Quiet LiteLLM INFO spam early in pytest session unless user set a level
     try:
         if os.environ.get("LITELLM_LOG") is None:
