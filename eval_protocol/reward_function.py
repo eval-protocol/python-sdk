@@ -9,7 +9,6 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast
 
 import requests
 
-from .common_utils import get_user_agent
 from .models import EvaluateResult, MetricResult
 from .typed_interface import reward_function
 
@@ -212,7 +211,6 @@ class RewardFunction:
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}" if api_key else "",
-                "User-Agent": get_user_agent(),
             }
 
             try:
