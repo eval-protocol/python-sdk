@@ -11,6 +11,7 @@ from eval_protocol.auth import (
     get_fireworks_api_base,
     get_fireworks_api_key,
 )
+from eval_protocol.common_utils import get_user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,7 @@ def create_or_update_fireworks_secret(
     headers = {
         "Authorization": f"Bearer {resolved_api_key}",
         "Content-Type": "application/json",
+        "User-Agent": get_user_agent(),
     }
 
     # The secret_id for GET/PATCH/DELETE operations is the key_name.
@@ -217,7 +219,7 @@ def get_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for getting secret.")
         return None
 
-    headers = {"Authorization": f"Bearer {resolved_api_key}"}
+    headers = {"Authorization": f"Bearer {resolved_api_key}", "User-Agent": get_user_agent()}
     resource_id = _normalize_secret_resource_id(key_name)
     url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
 
@@ -254,7 +256,7 @@ def delete_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for deleting secret.")
         return False
 
-    headers = {"Authorization": f"Bearer {resolved_api_key}"}
+    headers = {"Authorization": f"Bearer {resolved_api_key}", "User-Agent": get_user_agent()}
     resource_id = _normalize_secret_resource_id(key_name)
     url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
 

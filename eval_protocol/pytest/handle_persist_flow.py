@@ -7,6 +7,7 @@ import pathlib
 import re
 from typing import Any
 
+from eval_protocol.common_utils import get_user_agent
 from eval_protocol.directory_utils import find_eval_protocol_dir
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest.store_experiment_link import store_experiment_link
@@ -127,7 +128,11 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                         )
                         continue
 
-                    headers = {"Authorization": f"Bearer {fireworks_api_key}", "Content-Type": "application/json"}
+                    headers = {
+                        "Authorization": f"Bearer {fireworks_api_key}",
+                        "Content-Type": "application/json",
+                        "User-Agent": get_user_agent(),
+                    }
 
                     # Make dataset first
                     dataset_url = f"https://api.fireworks.ai/v1/accounts/{fireworks_account_id}/datasets"
@@ -160,7 +165,7 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                     upload_url = (
                         f"https://api.fireworks.ai/v1/accounts/{fireworks_account_id}/datasets/{dataset_id}:upload"
                     )
-                    upload_headers = {"Authorization": f"Bearer {fireworks_api_key}"}
+                    upload_headers = {"Authorization": f"Bearer {fireworks_api_key}", "User-Agent": get_user_agent()}
 
                     with open(exp_file, "rb") as f:
                         files = {"file": f}

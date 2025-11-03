@@ -6,6 +6,8 @@ from typing import Optional, Any, Dict, List, cast
 
 import requests
 
+from ..common_utils import get_user_agent
+
 
 class FireworksTracingHttpHandler(logging.Handler):
     """Logging handler that posts structured logs to tracing.fireworks gateway /logs endpoint."""
@@ -22,7 +24,10 @@ class FireworksTracingHttpHandler(logging.Handler):
         api_key = os.environ.get("FIREWORKS_API_KEY")
         if api_key:
             try:
-                self._session.headers.update({"Authorization": f"Bearer {api_key}"})
+                self._session.headers.update({
+                    "Authorization": f"Bearer {api_key}",
+                    "User-Agent": get_user_agent(),
+                })
             except Exception:
                 pass
 

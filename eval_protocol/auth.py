@@ -6,6 +6,8 @@ from typing import Dict, Optional  # Added Dict
 
 import requests
 
+from .common_utils import get_user_agent
+
 logger = logging.getLogger(__name__)
 
 # Default locations (used for tests and as fallback). Actual resolution is dynamic via _get_auth_ini_file().
@@ -243,7 +245,7 @@ def verify_api_key_and_get_account_id(
             return None
         resolved_base = api_base or get_fireworks_api_base()
         url = f"{resolved_base.rstrip('/')}/verifyApiKey"
-        headers = {"Authorization": f"Bearer {resolved_key}"}
+        headers = {"Authorization": f"Bearer {resolved_key}", "User-Agent": get_user_agent()}
         resp = requests.get(url, headers=headers, timeout=10)
         if resp.status_code != 200:
             logger.debug("verifyApiKey returned status %s", resp.status_code)

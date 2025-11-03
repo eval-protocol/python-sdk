@@ -20,6 +20,7 @@ from eval_protocol.auth import (
     get_fireworks_api_key,
     verify_api_key_and_get_account_id,
 )
+from eval_protocol.common_utils import get_user_agent
 from eval_protocol.typed_interface import EvaluationMode
 
 from eval_protocol.get_pep440_version import get_pep440_version
@@ -405,6 +406,7 @@ class Evaluator:
         headers = {
             "Authorization": f"Bearer {auth_token}",
             "Content-Type": "application/json",
+            "User-Agent": get_user_agent(),
         }
         logger.info(f"Previewing evaluator using API endpoint: {url} with account: {account_id}")
         logger.debug(f"Preview API Request URL: {url}")
@@ -748,6 +750,7 @@ class Evaluator:
         headers = {
             "Authorization": f"Bearer {auth_token}",
             "Content-Type": "application/json",
+            "User-Agent": get_user_agent(),
         }
 
         self._ensure_requirements_present(os.getcwd())
