@@ -1119,6 +1119,7 @@ class MCPConfigurationServerUrl(BaseModel):
     """Represents a Remote MCP configuration server."""
 
     url: str  # url to the MCP server
+    authorization: Optional[str] = None
 
 
 class MCPMultiClientConfiguration(BaseModel):
