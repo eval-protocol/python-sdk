@@ -800,11 +800,11 @@ class Evaluator:
                 tar_size = self._create_tar_gz_with_ignores(tar_path, cwd)
 
                 # Call GetEvaluatorUploadEndpoint
-                upload_endpoint_url = f"{self.api_base}/v1/{evaluator_name}:getUploadEndpoint"
+                upload_endpoint_path = f"v1/{evaluator_name}:getUploadEndpoint"
                 upload_payload = {"name": evaluator_name, "filename_to_size": {tar_filename: tar_size}}
 
                 logger.info(f"Requesting upload endpoint for {tar_filename}")
-                upload_response = client.post(upload_endpoint_url, json=upload_payload)
+                upload_response = client.post(upload_endpoint_path, json=upload_payload)
                 upload_response.raise_for_status()
 
                 # Check for signed URLs
@@ -884,9 +884,9 @@ class Evaluator:
                             raise
 
                 # Step 3: Validate upload
-                validate_url = f"{self.api_base}/v1/{evaluator_name}:validateUpload"
+                validate_path = f"v1/{evaluator_name}:validateUpload"
                 validate_payload = {"name": evaluator_name}
-                validate_response = client.post(validate_url, json=validate_payload)
+                validate_response = client.post(validate_path, json=validate_payload)
                 validate_response.raise_for_status()
 
                 validate_data = validate_response.json()
