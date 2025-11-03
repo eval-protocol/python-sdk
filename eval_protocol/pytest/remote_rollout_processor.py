@@ -123,7 +123,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 except requests.exceptions.HTTPError as e:
                     if e.response is not None and e.response.status_code == 404:
                         # 404 means server doesn't implement /status endpoint, stop polling
-                        logger.info(
+                        logger.debug(
                             f"Server doesn't implement /status endpoint (404), stopping status polling for rollout {row.execution_metadata.rollout_id}"
                         )
                         continue_polling_status = False
