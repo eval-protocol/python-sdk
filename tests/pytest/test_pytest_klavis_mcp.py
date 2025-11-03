@@ -27,9 +27,7 @@ from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
 def test_pytest_klavis_mcp(row: EvaluationRow) -> EvaluationRow:
     # filter for all tool calls
     tool_calls = [msg for msg in row.messages if msg.role == "tool"]
-
     if len(tool_calls) == 0:
-        logger.warning("No tool calls made - returning score 0")
         row.evaluation_result = EvaluateResult(
             score=0,
             reason="No tool calls made",
