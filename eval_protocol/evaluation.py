@@ -20,7 +20,7 @@ from eval_protocol.auth import (
     get_fireworks_api_key,
     verify_api_key_and_get_account_id,
 )
-from eval_protocol.common_utils import get_user_agent
+from eval_protocol.fireworks_api_client import FireworksAPIClient
 from eval_protocol.typed_interface import EvaluationMode
 
 from eval_protocol.get_pep440_version import get_pep440_version
@@ -402,20 +402,15 @@ class Evaluator:
         if "dev.api.fireworks.ai" in api_base and account_id == "fireworks":
             account_id = "pyroworks-dev"
 
-        url = f"{api_base}/v1/accounts/{account_id}/evaluators:previewEvaluator"
-        headers = {
-            "Authorization": f"Bearer {auth_token}",
-            "Content-Type": "application/json",
-            "User-Agent": get_user_agent(),
-        }
-        logger.info(f"Previewing evaluator using API endpoint: {url} with account: {account_id}")
-        logger.debug(f"Preview API Request URL: {url}")
-        logger.debug(f"Preview API Request Headers: {json.dumps(headers, indent=2)}")
+        client = FireworksAPIClient(api_key=auth_token, api_base=api_base)
+        path = f"v1/accounts/{account_id}/evaluators:previewEvaluator"
+        
+        logger.info(f"Previewing evaluator using API endpoint: {api_base}/{path} with account: {account_id}")
         logger.debug(f"Preview API Request Payload: {json.dumps(payload, indent=2)}")
 
         global used_preview_api
         try:
-            response = requests.post(url, json=payload, headers=headers)
+            response = client.post(path, json=payload)
             response.raise_for_status()
             result = response.json()
             used_preview_api = True
@@ -746,12 +741,8 @@ class Evaluator:
         if "dev.api.fireworks.ai" in self.api_base and account_id == "fireworks":
             account_id = "pyroworks-dev"
 
-        base_url = f"{self.api_base}/v1/{parent}/evaluatorsV2"
-        headers = {
-            "Authorization": f"Bearer {auth_token}",
-            "Content-Type": "application/json",
-            "User-Agent": get_user_agent(),
-        }
+        client = FireworksAPIClient(api_key=auth_token, api_base=self.api_base)
+        path = f"v1/{parent}/evaluatorsV2"
 
         self._ensure_requirements_present(os.getcwd())
 
@@ -813,7 +804,7 @@ class Evaluator:
                 upload_payload = {"name": evaluator_name, "filename_to_size": {tar_filename: tar_size}}
 
                 logger.info(f"Requesting upload endpoint for {tar_filename}")
-                upload_response = requests.post(upload_endpoint_url, json=upload_payload, headers=headers)
+                upload_response = client.post(upload_endpoint_url, json=upload_payload)
                 upload_response.raise_for_status()
 
                 # Check for signed URLs
@@ -895,7 +886,7 @@ class Evaluator:
                 # Step 3: Validate upload
                 validate_url = f"{self.api_base}/v1/{evaluator_name}:validateUpload"
                 validate_payload = {"name": evaluator_name}
-                validate_response = requests.post(validate_url, json=validate_payload, headers=headers)
+                validate_response = client.post(validate_url, json=validate_payload)
                 validate_response.raise_for_status()
 
                 validate_data = validate_response.json()
