@@ -404,7 +404,7 @@ class Evaluator:
 
         client = FireworksAPIClient(api_key=auth_token, api_base=api_base)
         path = f"v1/accounts/{account_id}/evaluators:previewEvaluator"
-        
+
         logger.info(f"Previewing evaluator using API endpoint: {api_base}/{path} with account: {account_id}")
         logger.debug(f"Preview API Request Payload: {json.dumps(payload, indent=2)}")
 
@@ -750,16 +750,16 @@ class Evaluator:
 
         try:
             if force:
-                check_url = f"{self.api_base}/v1/{parent}/evaluators/{evaluator_id}"
+                check_path = f"v1/{parent}/evaluators/{evaluator_id}"
                 try:
-                    logger.info(f"Checking if evaluator exists: {check_url}")
-                    check_response = requests.get(check_url, headers=headers)
+                    logger.info(f"Checking if evaluator exists: {self.api_base}/{check_path}")
+                    check_response = client.get(check_path)
 
                     if check_response.status_code == 200:
                         logger.info(f"Evaluator '{evaluator_id}' already exists, deleting and recreating...")
-                        delete_url = f"{self.api_base}/v1/{parent}/evaluators/{evaluator_id}"
+                        delete_path = f"v1/{parent}/evaluators/{evaluator_id}"
                         try:
-                            delete_response = requests.delete(delete_url, headers=headers)
+                            delete_response = client.delete(delete_path)
                             if delete_response.status_code < 400:
                                 logger.info(f"Successfully deleted evaluator '{evaluator_id}'")
                             else:
@@ -768,14 +768,14 @@ class Evaluator:
                                 )
                         except Exception as e_del:
                             logger.warning(f"Error deleting evaluator: {str(e_del)}")
-                        response = requests.post(base_url, json=payload_data, headers=headers)
+                        response = client.post(path, json=payload_data)
                     else:
-                        response = requests.post(base_url, json=payload_data, headers=headers)
+                        response = client.post(path, json=payload_data)
                 except requests.exceptions.RequestException:
-                    response = requests.post(base_url, json=payload_data, headers=headers)
+                    response = client.post(path, json=payload_data)
             else:
-                logger.info(f"Creating evaluator at: {base_url}")
-                response = requests.post(base_url, json=payload_data, headers=headers)
+                logger.info(f"Creating evaluator at: {self.api_base}/{path}")
+                response = client.post(path, json=payload_data)
 
             response.raise_for_status()
             result = response.json()
