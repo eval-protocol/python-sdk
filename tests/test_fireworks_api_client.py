@@ -415,23 +415,19 @@ class TestFireworksAPIClientPathHandling:
 
                 mock_post.reset_mock()
 
-    def test_full_url_passed_by_mistake_detected(self):
-        """Test that accidentally passing a full URL instead of relative path is detected.
+    def test_full_url_passed_by_mistake_raises_error(self):
+        """Test that accidentally passing a full URL instead of relative path raises ValueError.
 
-        This test documents the bug pattern: if a full URL like '{api_base}/v1/path'
-        is passed instead of a relative path like 'v1/path', it will result in a
-        malformed URL like '{api_base}/{api_base}/v1/path'.
-
-        This test verifies that our code correctly handles relative paths (which prevents
-        the bug), and documents what would happen if the bug occurred.
+        This test verifies that our code correctly catches the bug early by raising an error
+        when an absolute URL is passed instead of a relative path.
         """
         api_base = "https://api.fireworks.ai"
         client = FireworksAPIClient(api_key="test_key", api_base=api_base)
 
+        # CORRECT: Relative path (what we should use) - should work fine
         mock_response = MagicMock()
         mock_response.status_code = 200
 
-        # CORRECT: Relative path (what we should use)
         with patch.object(client._session, "post", return_value=mock_response) as mock_post:
             correct_relative_path = "v1/test-evaluator:getUploadEndpoint"
             client.post(correct_relative_path, json={})
@@ -441,27 +437,45 @@ class TestFireworksAPIClientPathHandling:
             expected_correct_url = f"{api_base}/{correct_relative_path}"
             assert correct_url == expected_correct_url
 
-        # INCORRECT: Full URL (this would cause the bug - but we're not actually testing this,
-        # just documenting that our current implementation would create a malformed URL)
-        # If someone accidentally did: client.post(f"{api_base}/v1/path", ...)
-        # The result would be: f"{api_base}/{api_base}/v1/path" which is wrong.
-        # Our tests above ensure we use relative paths, preventing this bug.
-        mock_post.reset_mock()
-        with patch.object(client._session, "post", return_value=mock_response) as mock_post:
-            # Simulating what WOULD happen if buggy code passed full URL
-            buggy_full_url = f"{api_base}/v1/test-evaluator:getUploadEndpoint"
-            client.post(buggy_full_url, json={})
+        # INCORRECT: Full URL should raise ValueError
+        full_url_with_http = "https://api.fireworks.ai/v1/test-evaluator:getUploadEndpoint"
+        with pytest.raises(ValueError, match="Absolute URL detected"):
+            client.post(full_url_with_http, json={})
 
-            call_args = mock_post.call_args
-            buggy_url = call_args[0][0]
-            # This shows what the buggy URL would look like
-            buggy_expected = f"{api_base}/{buggy_full_url}"
+        full_url_with_http_scheme = "http://api.fireworks.ai/v1/test-evaluator:getUploadEndpoint"
+        with pytest.raises(ValueError, match="Absolute URL detected"):
+            client.post(full_url_with_http_scheme, json={})
 
-            # This assertion documents the bug pattern - the URL would be malformed
-            assert buggy_url == buggy_expected
-            assert buggy_url.startswith(f"{api_base}/{api_base}"), (
-                "This documents the bug: passing full URL creates double-prefix. Always use relative paths!"
-            )
+        # Test that error message is helpful
+        with pytest.raises(ValueError) as exc_info:
+            client.post(full_url_with_http, json={})
+        error_msg = str(exc_info.value)
+        assert "Absolute URL detected" in error_msg
+        assert full_url_with_http in error_msg
+        assert "relative paths only" in error_msg
+        assert api_base in error_msg  # Should mention api_base in the help message
+
+    def test_all_methods_reject_absolute_urls(self):
+        """Test that all HTTP methods reject absolute URLs."""
+        api_base = "https://api.fireworks.ai"
+        client = FireworksAPIClient(api_key="test_key", api_base=api_base)
+
+        absolute_url = f"{api_base}/v1/test/path"
+
+        methods = [
+            ("get", lambda url: client.get(url)),
+            ("post", lambda url: client.post(url, json={})),
+            ("put", lambda url: client.put(url, json={})),
+            ("patch", lambda url: client.patch(url, json={})),
+            ("delete", lambda url: client.delete(url)),
+        ]
+
+        for method_name, method_call in methods:
+            with pytest.raises(ValueError, match="Absolute URL detected") as exc_info:
+                method_call(absolute_url)
+            error_msg = str(exc_info.value)
+            assert "Absolute URL detected" in error_msg, f"{method_name.upper()} should reject absolute URL"
+            assert absolute_url in error_msg
 
 
 if __name__ == "__main__":
