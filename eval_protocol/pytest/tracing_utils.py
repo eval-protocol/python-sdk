@@ -101,11 +101,14 @@ def build_init_request(
     completion_params_base_url: Optional[str] = completion_params_dict.get("base_url")
 
     # Strip non-OpenAI fields from messages
-    allowed_message_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
+    # Use dump_mdoel_for_chat_completion_request() to automatically exclude unsupported fields (weight, control_plane_step, reasoning_content)
     clean_messages = []
     for m in row.messages:
         md: Dict[str, Any]
-        if hasattr(m, "model_dump"):
+        if hasattr(m, "dump_mdoel_for_chat_completion_request"):
+            # Use the Message method that automatically filters unsupported fields
+            md = m.dump_mdoel_for_chat_completion_request()
+        elif hasattr(m, "model_dump"):
             md = m.model_dump()
         elif isinstance(m, dict):
             md = m
@@ -118,6 +121,8 @@ def build_init_request(
                 "tool_call_id": getattr(m, "tool_call_id", None),
                 "name": getattr(m, "name", None),
             }
+        # Additional filtering to ensure only allowed fields are kept (already handled by dump_mdoel_for_chat_completion_request for Message objects)
+        allowed_message_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
         clean_messages.append({k: v for k, v in md.items() if k in allowed_message_fields and v is not None})
 
     # Build final model base URL with tracing metadata
@@ -151,14 +156,14 @@ def update_row_with_remote_trace(
     output_rows: List[EvaluationRow] = [r for result in results for r in result.rows]
 
     if len(output_rows) == 0:  # Fallback to original row if no remote data found
-        row.rollout_status = Status(code=Status.Code.NOT_FOUND, message="No remote data found for rollout")
+        row.rollout_status = Status.rollout_not_found_error("No remote data found for rollout")
         return None
     elif len(output_rows) == 1:  # Return the remote row
         remote_row = output_rows[0]
 
         # if the remote_row has the same number of messages as the original row, something went wrong
         if len(remote_row.messages) == len(row.messages):
-            row.rollout_status = Status.rollout_error(
+            row.rollout_status = Status.rollout_internal_error(
                 "Rollout finished with the same number of messages as the original row"
             )
             return None

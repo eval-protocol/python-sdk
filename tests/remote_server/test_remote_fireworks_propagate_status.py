@@ -1,15 +1,4 @@
-# MANUAL SERVER STARTUP REQUIRED:
-#
-# For Python server testing, start:
-# python -m tests.remote_server.remote_server (runs on http://127.0.0.1:3000)
-#
-# For TypeScript server testing, start:
-# cd tests/remote_server/typescript-server
-# npm install
-# npm start
-#
-# The TypeScript server should be running on http://127.0.0.1:3000
-# You only need to start one of the servers!
+# AUTO SERVER STARTUP: Server is automatically started and stopped by the test
 
 import subprocess
 import socket

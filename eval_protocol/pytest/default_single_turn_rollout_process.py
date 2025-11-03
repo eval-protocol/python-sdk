@@ -48,7 +48,9 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 while messages_for_request and messages_for_request[-1].role == "assistant":
                     messages_for_request.pop()
 
-            messages_payload = [message.model_dump() for message in messages_for_request]
+            # Filter out fields that are not supported by OpenAI/LiteLLM APIs (e.g., weight, control_plane_step, reasoning_content)
+            # Use the Message class method that excludes unsupported fields
+            messages_payload = [message.dump_mdoel_for_chat_completion_request() for message in messages_for_request]
 
             request_params = {"messages": messages_payload, **config.completion_params}
             # Ensure caching is disabled only for this request (review feedback)

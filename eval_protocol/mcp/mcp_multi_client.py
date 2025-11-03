@@ -70,6 +70,38 @@ class MCPMultiClient:
                 f"Please set these variables in your environment or .env file."
             )
 
+    def _process_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
+        """Process headers by substituting environment variables.
+
+        Supports environment variable substitution in the format:
+        - ${ENV_VAR} or $ENV_VAR for environment variables
+        - Raw strings are passed through unchanged
+
+        Example:
+            {"Authorization": "Bearer ${API_KEY}"}
+            -> {"Authorization": "Bearer abc123"} (if API_KEY=abc123)
+        """
+        import re
+
+        processed_headers = {}
+        for key, value in headers.items():
+            # Match ${VAR} or $VAR patterns
+            def replace_env_var(match):
+                var_name = match.group(1) or match.group(2)
+                env_value = os.environ.get(var_name)
+                if env_value is None:
+                    raise ValueError(
+                        f"Environment variable '{var_name}' referenced in header '{key}' "
+                        f"is not set. Please set it in your environment or .env file."
+                    )
+                return env_value
+
+            # Replace ${VAR} or $VAR with environment variable value
+            processed_value = re.sub(r"\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)", replace_env_var, value)
+            processed_headers[key] = processed_value
+
+        return processed_headers
+
     async def connect_to_servers(self):
         """Connect to all configured MCP servers"""
         if not self.config.mcpServers:
@@ -111,8 +143,17 @@ class MCPMultiClient:
             if not url:
                 raise ValueError(f"Server '{server_name}' must have a 'url' specified")
 
-            # Connect using streamable HTTP client - manage resources manually
-            http_transport = await self.exit_stack.enter_async_context(streamablehttp_client(url))
+            # Build headers only from the authorization field (Responses-style)
+            processed_headers: Dict[str, str] = {}
+            auth_token = getattr(server_config, "authorization", None)
+            if auth_token:
+                # Support env substitution in the authorization value as well
+                processed_headers = self._process_headers({"Authorization": auth_token})
+
+            # Connect using streamable HTTP client with auth headers
+            http_transport = await self.exit_stack.enter_async_context(
+                streamablehttp_client(url, headers=processed_headers)
+            )
             read_stream, write_stream, get_session_id = http_transport
             session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
         else:

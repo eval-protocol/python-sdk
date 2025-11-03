@@ -2,7 +2,6 @@ import re
 from eval_protocol.models import EvaluateResult, EvaluationRow, MetricResult, Message
 from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 import os
-from eval_protocol.data_loader.jsonl_data_loader import EvaluationRowJsonlDataLoader
 from typing import List, Dict, Any, Optional
 import logging
 
@@ -31,7 +30,7 @@ JSONL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../d
 
 
 @evaluation_test(
-    data_loaders=EvaluationRowJsonlDataLoader(jsonl_path=JSONL_PATH),
+    input_dataset=[JSONL_PATH],
     completion_params=[{"temperature": 0.0, "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     max_dataset_rows=5,
     passed_threshold=0.0,

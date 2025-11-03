@@ -110,6 +110,7 @@ jobs:
             --ignore=tests/remote_server/test_remote_fireworks_propagate_status.py \
             --ignore=tests/logging/test_elasticsearch_direct_http_handler.py \
             --ignore=eval_protocol/benchmarks/ \
+            --ignore=eval_protocol/quickstart/ \
             --cov=eval_protocol --cov-append --cov-report=xml --cov-report=term-missing -v --durations=10
 
       - name: Store coverage file

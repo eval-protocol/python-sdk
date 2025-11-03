@@ -12,6 +12,8 @@ import litellm
 import requests
 import httpx
 
+import eval_protocol.exceptions
+
 
 # Default exceptions that should be retried with backoff
 DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
@@ -29,13 +31,22 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
     httpx.TimeoutException,
     httpx.NetworkError,
     httpx.RemoteProtocolError,
+    # LiteLLM library exceptions
     litellm.exceptions.RateLimitError,
     litellm.exceptions.InternalServerError,
     litellm.exceptions.Timeout,
     litellm.exceptions.NotFoundError,
-    litellm.exceptions.BadRequestError,
     litellm.exceptions.ServiceUnavailableError,
     litellm.exceptions.APIError,
+    litellm.exceptions.BadRequestError,
+    # Eval Protocol exceptions
+    eval_protocol.exceptions.UnknownError,
+    eval_protocol.exceptions.DeadlineExceededError,
+    eval_protocol.exceptions.NotFoundError,
+    eval_protocol.exceptions.PermissionDeniedError,
+    eval_protocol.exceptions.UnavailableError,
+    eval_protocol.exceptions.UnauthenticatedError,
+    eval_protocol.exceptions.ResourceExhaustedError,
 }
 
 

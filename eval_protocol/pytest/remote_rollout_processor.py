@@ -10,6 +10,7 @@ from eval_protocol.types.remote_rollout_processor import (
     DataLoaderConfig,
 )
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
+from eval_protocol.exceptions import exception_for_status_code
 
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
@@ -93,17 +94,11 @@ class RemoteRolloutProcessor(RolloutProcessor):
             def _post_init() -> None:
                 url = f"{remote_base_url}/init"
                 try:
-                    r = requests.post(url, json=init_payload.model_dump(), timeout=30)
+                    r = requests.post(url, json=init_payload.model_dump(), timeout=300)
                     r.raise_for_status()
                 except requests.exceptions.Timeout:
                     raise TimeoutError(
-                        "The /init endpoint timed out after 30 seconds. "
-                        "CRITICAL: The /init endpoint must return immediately (within 30s) and NOT block on rollout execution. "
-                        "Your remote server should:\n"
-                        "1. Accept the /init request and return a 200 response immediately\n"
-                        "2. Process the actual rollout asynchronously in the background\n"
-                        "3. Use the /status endpoint to report progress\n"
-                        "For Python/Node.js: Start a separate process per rollout to avoid blocking the /init response."
+                        f"The /init endpoint tried {url} with {init_payload.model_dump()} but timed out after 300 seconds."
                     )
 
             await asyncio.to_thread(_post_init)
@@ -138,9 +133,9 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     # For all other exceptions, raise them
                     raise
 
-                # Search Fireworks tracing logs for completion
-                completed_logs = self._tracing_adapter.search_logs(
-                    tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
+                # Search Fireworks tracing logs for completion (run in thread to avoid blocking event loop)
+                completed_logs = await asyncio.to_thread(
+                    self._tracing_adapter.search_logs, tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
                 )
                 # Filter for logs that actually have status information
                 status_logs = []
@@ -166,6 +161,11 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         f"Found Fireworks log for rollout {row.execution_metadata.rollout_id} with status code {status_code}"
                     )
 
+                    # Create and raise exception if appropriate, preserving original message
+                    exception = exception_for_status_code(status_code, status_message)
+                    if exception is not None:
+                        raise exception
+
                     row.rollout_status = Status(
                         code=Status.Code(status_code),
                         message=status_message,
@@ -181,7 +181,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     f"Loop completed without breaking for {row.execution_metadata.rollout_id}, which means we timed out"
                 )
                 # Loop completed without breaking, which means we timed out
-                row.rollout_status = Status.rollout_error(
+                row.rollout_status = Status.rollout_deadline_exceeded_error(
                     f"Rollout {row.execution_metadata.rollout_id} timed out after {timeout_seconds} seconds"
                 )
 
