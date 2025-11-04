@@ -355,6 +355,10 @@ def parse_args(args=None):
         action="store_true",
         help="Non-interactive: upload all discovered evaluation tests",
     )
+    upload_parser.add_argument(
+        "--env-file",
+        help="Path to .env file containing secrets to upload (default: .env in current directory)",
+    )
 
     # Create command group
     create_parser = subparsers.add_parser(
