@@ -11,7 +11,7 @@ from eval_protocol.auth import (
     get_fireworks_api_base,
     get_fireworks_api_key,
 )
-from eval_protocol.fireworks_api_client import FireworksAPIClient
+from eval_protocol.common_utils import get_user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,11 @@ def create_or_update_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for creating/updating secret.")
         return False
 
-    client = FireworksAPIClient(api_key=resolved_api_key, api_base=resolved_api_base)
+    headers = {
+        "Authorization": f"Bearer {resolved_api_key}",
+        "Content-Type": "application/json",
+        "User-Agent": get_user_agent(),
+    }
 
     # The secret_id for GET/PATCH/DELETE operations is the key_name.
     # The 'name' field in the gatewaySecret model for POST/PATCH is a bit ambiguous.
@@ -107,7 +111,8 @@ def create_or_update_fireworks_secret(
     resource_id = _normalize_secret_resource_id(key_name)
     secret_exists = False
     try:
-        response = client.get(f"v1/accounts/{resolved_account_id}/secrets/{resource_id}", timeout=10)
+        url = f"{resolved_api_base}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
+        response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             secret_exists = True
             logger.info(f"Secret '{key_name}' already exists. Will attempt to update.")
@@ -142,8 +147,8 @@ def create_or_update_fireworks_secret(
         payload = {"keyName": payload_key_name, "value": secret_value}
         try:
             logger.debug(f"PATCH payload for '{key_name}': {payload}")
-            response = client.patch(f"v1/accounts/{resolved_account_id}/secrets/{resource_id}", 
-                                   json=payload, timeout=30)
+            url = f"{resolved_api_base}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
+            response = requests.patch(url, json=payload, headers=headers, timeout=30)
             response.raise_for_status()
             logger.info(f"Successfully updated secret '{key_name}' on Fireworks platform.")
             return True
@@ -179,8 +184,8 @@ def create_or_update_fireworks_secret(
         }
         try:
             logger.debug(f"POST payload for '{key_name}': {payload}")
-            response = client.post(f"v1/accounts/{resolved_account_id}/secrets", 
-                                  json=payload, timeout=30)
+            url = f"{resolved_api_base}/v1/accounts/{resolved_account_id}/secrets"
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
             response.raise_for_status()
             logger.info(
                 f"Successfully created secret '{key_name}' on Fireworks platform. Full name: {response.json().get('name')}"
@@ -214,11 +219,15 @@ def get_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for getting secret.")
         return None
 
-    client = FireworksAPIClient(api_key=resolved_api_key, api_base=resolved_api_base)
+    headers = {
+        "Authorization": f"Bearer {resolved_api_key}",
+        "User-Agent": get_user_agent(),
+    }
     resource_id = _normalize_secret_resource_id(key_name)
 
     try:
-        response = client.get(f"v1/accounts/{resolved_account_id}/secrets/{resource_id}", timeout=10)
+        url = f"{resolved_api_base}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
+        response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             logger.info(f"Successfully retrieved secret '{key_name}'.")
             return response.json()
@@ -250,11 +259,15 @@ def delete_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for deleting secret.")
         return False
 
-    client = FireworksAPIClient(api_key=resolved_api_key, api_base=resolved_api_base)
+    headers = {
+        "Authorization": f"Bearer {resolved_api_key}",
+        "User-Agent": get_user_agent(),
+    }
     resource_id = _normalize_secret_resource_id(key_name)
 
     try:
-        response = client.delete(f"v1/accounts/{resolved_account_id}/secrets/{resource_id}", timeout=30)
+        url = f"{resolved_api_base}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
+        response = requests.delete(url, headers=headers, timeout=30)
         if response.status_code == 200 or response.status_code == 204:  # 204 No Content is also success for DELETE
             logger.info(f"Successfully deleted secret '{key_name}'.")
             return True

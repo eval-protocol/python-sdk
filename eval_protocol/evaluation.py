@@ -20,7 +20,7 @@ from eval_protocol.auth import (
     get_fireworks_api_key,
     verify_api_key_and_get_account_id,
 )
-from eval_protocol.fireworks_api_client import FireworksAPIClient
+from eval_protocol.common_utils import get_user_agent
 from eval_protocol.typed_interface import EvaluationMode
 
 from eval_protocol.get_pep440_version import get_pep440_version
@@ -402,15 +402,20 @@ class Evaluator:
         if "dev.api.fireworks.ai" in api_base and account_id == "fireworks":
             account_id = "pyroworks-dev"
 
-        client = FireworksAPIClient(api_key=auth_token, api_base=api_base)
-        path = f"v1/accounts/{account_id}/evaluators:previewEvaluator"
-
-        logger.info(f"Previewing evaluator using API endpoint: {api_base}/{path} with account: {account_id}")
+        url = f"{api_base}/v1/accounts/{account_id}/evaluators:previewEvaluator"
+        headers = {
+            "Authorization": f"Bearer {auth_token}",
+            "Content-Type": "application/json",
+            "User-Agent": get_user_agent(),
+        }
+        logger.info(f"Previewing evaluator using API endpoint: {url} with account: {account_id}")
+        logger.debug(f"Preview API Request URL: {url}")
+        logger.debug(f"Preview API Request Headers: {json.dumps(headers, indent=2)}")
         logger.debug(f"Preview API Request Payload: {json.dumps(payload, indent=2)}")
 
         global used_preview_api
         try:
-            response = client.post(path, json=payload)
+            response = requests.post(url, json=payload, headers=headers)
             response.raise_for_status()
             result = response.json()
             used_preview_api = True
@@ -741,8 +746,12 @@ class Evaluator:
         if "dev.api.fireworks.ai" in self.api_base and account_id == "fireworks":
             account_id = "pyroworks-dev"
 
-        client = FireworksAPIClient(api_key=auth_token, api_base=self.api_base)
-        path = f"v1/{parent}/evaluatorsV2"
+        base_url = f"{self.api_base}/v1/{parent}/evaluatorsV2"
+        headers = {
+            "Authorization": f"Bearer {auth_token}",
+            "Content-Type": "application/json",
+            "User-Agent": get_user_agent(),
+        }
 
         self._ensure_requirements_present(os.getcwd())
 
@@ -750,16 +759,16 @@ class Evaluator:
 
         try:
             if force:
-                check_path = f"v1/{parent}/evaluators/{evaluator_id}"
+                check_url = f"{self.api_base}/v1/{parent}/evaluators/{evaluator_id}"
                 try:
-                    logger.info(f"Checking if evaluator exists: {self.api_base}/{check_path}")
-                    check_response = client.get(check_path)
+                    logger.info(f"Checking if evaluator exists: {check_url}")
+                    check_response = requests.get(check_url, headers=headers)
 
                     if check_response.status_code == 200:
                         logger.info(f"Evaluator '{evaluator_id}' already exists, deleting and recreating...")
-                        delete_path = f"v1/{parent}/evaluators/{evaluator_id}"
+                        delete_url = f"{self.api_base}/v1/{parent}/evaluators/{evaluator_id}"
                         try:
-                            delete_response = client.delete(delete_path)
+                            delete_response = requests.delete(delete_url, headers=headers)
                             if delete_response.status_code < 400:
                                 logger.info(f"Successfully deleted evaluator '{evaluator_id}'")
                             else:
@@ -768,14 +777,14 @@ class Evaluator:
                                 )
                         except Exception as e_del:
                             logger.warning(f"Error deleting evaluator: {str(e_del)}")
-                        response = client.post(path, json=payload_data)
+                        response = requests.post(base_url, json=payload_data, headers=headers)
                     else:
-                        response = client.post(path, json=payload_data)
+                        response = requests.post(base_url, json=payload_data, headers=headers)
                 except requests.exceptions.RequestException:
-                    response = client.post(path, json=payload_data)
+                    response = requests.post(base_url, json=payload_data, headers=headers)
             else:
-                logger.info(f"Creating evaluator at: {self.api_base}/{path}")
-                response = client.post(path, json=payload_data)
+                logger.info(f"Creating evaluator at: {base_url}")
+                response = requests.post(base_url, json=payload_data, headers=headers)
 
             response.raise_for_status()
             result = response.json()
@@ -800,11 +809,11 @@ class Evaluator:
                 tar_size = self._create_tar_gz_with_ignores(tar_path, cwd)
 
                 # Call GetEvaluatorUploadEndpoint
-                upload_endpoint_path = f"v1/{evaluator_name}:getUploadEndpoint"
+                upload_endpoint_url = f"{self.api_base}/v1/{evaluator_name}:getUploadEndpoint"
                 upload_payload = {"name": evaluator_name, "filename_to_size": {tar_filename: tar_size}}
 
                 logger.info(f"Requesting upload endpoint for {tar_filename}")
-                upload_response = client.post(upload_endpoint_path, json=upload_payload)
+                upload_response = requests.post(upload_endpoint_url, json=upload_payload, headers=headers)
                 upload_response.raise_for_status()
 
                 # Check for signed URLs
@@ -884,9 +893,9 @@ class Evaluator:
                             raise
 
                 # Step 3: Validate upload
-                validate_path = f"v1/{evaluator_name}:validateUpload"
+                validate_url = f"{self.api_base}/v1/{evaluator_name}:validateUpload"
                 validate_payload = {"name": evaluator_name}
-                validate_response = client.post(validate_path, json=validate_payload)
+                validate_response = requests.post(validate_url, json=validate_payload, headers=headers)
                 validate_response.raise_for_status()
 
                 validate_data = validate_response.json()

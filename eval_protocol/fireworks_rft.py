@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, Iterable, Optional, Tuple
 import requests
 
 from .auth import get_fireworks_account_id, get_fireworks_api_base, get_fireworks_api_key
-from .fireworks_api_client import FireworksAPIClient
+from .common_utils import get_user_agent
 
 
 def _map_api_host_to_app_host(api_base: str) -> str:
@@ -158,14 +158,18 @@ def create_dataset_from_jsonl(
     display_name: Optional[str],
     jsonl_path: str,
 ) -> Tuple[str, Dict[str, Any]]:
-    client = FireworksAPIClient(api_key=api_key, api_base=api_base)
-    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "User-Agent": get_user_agent(),
+    }
     # Count examples quickly
     example_count = 0
     with open(jsonl_path, "r", encoding="utf-8") as f:
         for _ in f:
             example_count += 1
-    
+
+    dataset_url = f"{api_base.rstrip('/')}/v1/accounts/{account_id}/datasets"
     payload = {
         "dataset": {
             "displayName": display_name or dataset_id,
@@ -175,15 +179,19 @@ def create_dataset_from_jsonl(
         },
         "datasetId": dataset_id,
     }
-    resp = client.post(f"v1/accounts/{account_id}/datasets", json=payload, timeout=60)
+    resp = requests.post(dataset_url, json=payload, headers=headers, timeout=60)
     if resp.status_code not in (200, 201):
         raise RuntimeError(f"Dataset creation failed: {resp.status_code} {resp.text}")
     ds = resp.json()
 
+    upload_url = f"{api_base.rstrip('/')}/v1/accounts/{account_id}/datasets/{dataset_id}:upload"
     with open(jsonl_path, "rb") as f:
         files = {"file": f}
-        up_resp = client.post(f"v1/accounts/{account_id}/datasets/{dataset_id}:upload", 
-                             files=files, timeout=600)
+        up_headers = {
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": get_user_agent(),
+        }
+        up_resp = requests.post(upload_url, files=files, headers=up_headers, timeout=600)
     if up_resp.status_code not in (200, 201):
         raise RuntimeError(f"Dataset upload failed: {up_resp.status_code} {up_resp.text}")
     return dataset_id, ds
@@ -195,10 +203,14 @@ def create_reinforcement_fine_tuning_job(
     api_base: str,
     body: Dict[str, Any],
 ) -> Dict[str, Any]:
-    client = FireworksAPIClient(api_key=api_key, api_base=api_base)
-    resp = client.post(f"v1/accounts/{account_id}/reinforcementFineTuningJobs", 
-                      json=body, timeout=60,
-                      headers={"Accept": "application/json"})
+    url = f"{api_base.rstrip('/')}/v1/accounts/{account_id}/reinforcementFineTuningJobs"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": get_user_agent(),
+    }
+    resp = requests.post(url, json=body, headers=headers, timeout=60)
     if resp.status_code not in (200, 201):
         raise RuntimeError(f"RFT job creation failed: {resp.status_code} {resp.text}")
     return resp.json()
