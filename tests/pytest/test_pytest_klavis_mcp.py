@@ -36,7 +36,7 @@ async def test_pytest_klavis_mcp(row: EvaluationRow) -> EvaluationRow:
                 },
                 {
                     "role": "user",
-                    "content": "Final model output: {row.messages[-1].content}\nGround truth: {ground_truth}",
+                    "content": f"Final model output: {row.messages[-1].content}\nGround truth: {ground_truth}",
                 },
             ],
             response_format={
