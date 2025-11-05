@@ -179,7 +179,11 @@ def evaluation_test(
         completion_params = [None]
     else:
         completion_params_provided = True
-    if rollout_processor is None:
+
+    # Override rollout processor if flag is set
+    if os.environ.get("EP_USE_NO_OP_ROLLOUT_PROCESSOR") == "1":
+        rollout_processor = NoOpRolloutProcessor()
+    elif rollout_processor is None:
         rollout_processor = NoOpRolloutProcessor()
 
     active_logger: DatasetLogger = logger if logger else default_logger
