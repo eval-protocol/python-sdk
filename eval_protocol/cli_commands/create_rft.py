@@ -331,6 +331,7 @@ def create_rft_command(args) -> int:
     evaluator_id: Optional[str] = getattr(args, "evaluator_id", None)
     non_interactive: bool = bool(getattr(args, "yes", False))
     dry_run: bool = bool(getattr(args, "dry_run", False))
+    force: bool = bool(getattr(args, "force", False))
 
     api_key = get_fireworks_api_key()
     if not api_key:
@@ -390,10 +391,14 @@ def create_rft_command(args) -> int:
             id=evaluator_id,
             display_name=None,
             description=None,
-            force=False,
+            force=force,  # Pass through the --force flag
             yes=True,
             env_file=None,  # Add the new env_file parameter
         )
+
+        if force:
+            print(f"🔄 Force flag enabled - will overwrite existing evaluator '{evaluator_id}'")
+
         rc = upload_command(upload_args)
         if rc == 0:
             print(f"✓ Uploaded/ensured evaluator: {evaluator_id}")
