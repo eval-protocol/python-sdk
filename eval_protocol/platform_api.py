@@ -11,6 +11,7 @@ from eval_protocol.auth import (
     get_fireworks_api_base,
     get_fireworks_api_key,
 )
+from eval_protocol.common_utils import get_user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,7 @@ def create_or_update_fireworks_secret(
     headers = {
         "Authorization": f"Bearer {resolved_api_key}",
         "Content-Type": "application/json",
+        "User-Agent": get_user_agent(),
     }
 
     # The secret_id for GET/PATCH/DELETE operations is the key_name.
@@ -107,10 +109,10 @@ def create_or_update_fireworks_secret(
 
     # Check if secret exists using GET (path uses normalized resource id)
     resource_id = _normalize_secret_resource_id(key_name)
-    get_url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
     secret_exists = False
     try:
-        response = requests.get(get_url, headers=headers, timeout=10)
+        url = f"{resolved_api_base}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
+        response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             secret_exists = True
             logger.info(f"Secret '{key_name}' already exists. Will attempt to update.")
@@ -131,7 +133,6 @@ def create_or_update_fireworks_secret(
 
     if secret_exists:
         # Update existing secret (PATCH)
-        patch_url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
         # Body for PATCH requires 'keyName' and 'value'.
         # Transform key_name for payload: uppercase and underscores
         payload_key_name = key_name.upper().replace("-", "_")
@@ -146,7 +147,8 @@ def create_or_update_fireworks_secret(
         payload = {"keyName": payload_key_name, "value": secret_value}
         try:
             logger.debug(f"PATCH payload for '{key_name}': {payload}")
-            response = requests.patch(patch_url, headers=headers, json=payload, timeout=30)
+            url = f"{resolved_api_base}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
+            response = requests.patch(url, json=payload, headers=headers, timeout=30)
             response.raise_for_status()
             logger.info(f"Successfully updated secret '{key_name}' on Fireworks platform.")
             return True
@@ -158,7 +160,6 @@ def create_or_update_fireworks_secret(
             return False
     else:
         # Create new secret (POST)
-        post_url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets"
         # Body for POST is gatewaySecret. 'name' field in payload is the resource path.
         # Let's assume for POST, the 'name' in payload can be omitted or is the key_name.
         # The API should ideally use 'keyName' from URL or a specific 'secretId' in payload for creation if 'name' is server-assigned.
@@ -183,7 +184,8 @@ def create_or_update_fireworks_secret(
         }
         try:
             logger.debug(f"POST payload for '{key_name}': {payload}")
-            response = requests.post(post_url, headers=headers, json=payload, timeout=30)
+            url = f"{resolved_api_base}/v1/accounts/{resolved_account_id}/secrets"
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
             response.raise_for_status()
             logger.info(
                 f"Successfully created secret '{key_name}' on Fireworks platform. Full name: {response.json().get('name')}"
@@ -217,11 +219,14 @@ def get_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for getting secret.")
         return None
 
-    headers = {"Authorization": f"Bearer {resolved_api_key}"}
+    headers = {
+        "Authorization": f"Bearer {resolved_api_key}",
+        "User-Agent": get_user_agent(),
+    }
     resource_id = _normalize_secret_resource_id(key_name)
-    url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
 
     try:
+        url = f"{resolved_api_base}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             logger.info(f"Successfully retrieved secret '{key_name}'.")
@@ -254,11 +259,14 @@ def delete_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for deleting secret.")
         return False
 
-    headers = {"Authorization": f"Bearer {resolved_api_key}"}
+    headers = {
+        "Authorization": f"Bearer {resolved_api_key}",
+        "User-Agent": get_user_agent(),
+    }
     resource_id = _normalize_secret_resource_id(key_name)
-    url = f"{resolved_api_base.rstrip('/')}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
 
     try:
+        url = f"{resolved_api_base}/v1/accounts/{resolved_account_id}/secrets/{resource_id}"
         response = requests.delete(url, headers=headers, timeout=30)
         if response.status_code == 200 or response.status_code == 204:  # 204 No Content is also success for DELETE
             logger.info(f"Successfully deleted secret '{key_name}'.")

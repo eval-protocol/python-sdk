@@ -1,41 +1,54 @@
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
+from openai import AsyncOpenAI
+import json
+from pydantic import BaseModel
+import logging
+
+logger = logging.getLogger(__name__)
+import os
+
+
+class ResponseFormat(BaseModel):
+    score: float
 
 
 @evaluation_test(
-    input_messages=[
-        [
-            [
-                Message(
-                    role="system",
-                    content=(
-                        "You are a helpful assistant that can answer questions about Gmail. You have access to tools to help you find information.\n"
-                    ),
-                ),
-                Message(
-                    role="user",
-                    content=("Find the first 5 emails title in my inbox."),
-                ),
-            ]
-        ]
-    ],
+    input_dataset=["tests/pytest/datasets/gmail_inbox.jsonl"],
     rollout_processor=AgentRolloutProcessor(),
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}],
     mode="pointwise",
     mcp_config_path="tests/pytest/mcp_configurations/klavis_strata_mcp.json",
 )
-def test_pytest_klavis_mcp(row: EvaluationRow) -> EvaluationRow:
-    # filter for all tool calls
-    tool_calls = [msg for msg in row.messages if msg.role == "tool"]
-    if len(tool_calls) == 0:
-        row.evaluation_result = EvaluateResult(
-            score=0,
-            reason="No tool calls made",
-        )
-        return row
+async def test_pytest_klavis_mcp(row: EvaluationRow) -> EvaluationRow:
+    ground_truth = row.ground_truth
+    # check if the final messages contains the ground truth
 
-    row.evaluation_result = EvaluateResult(
-        score=1,
-        reason="At least one tool call was made",
-    )
+    async with AsyncOpenAI(
+        api_key=os.environ["FIREWORKS_API_KEY"], base_url="https://api.fireworks.ai/inference/v1"
+    ) as client:
+        response = await client.chat.completions.create(
+            model="accounts/fireworks/models/kimi-k2-instruct-0905",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are judging the output of the model versus the ground truth. Return score = 1 if the output contains the ground truth, 0 otherwise.",
+                },
+                {
+                    "role": "user",
+                    "content": f"Final model output: {row.messages[-1].content}\nGround truth: {ground_truth}",
+                },
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {"name": "ResponseFormat", "schema": ResponseFormat.model_json_schema()},
+            },
+        )
+        response_text = response.choices[0].message.content
+        logger.info("response_text: %s", response_text)
+        score = json.loads(response_text or "{}")["score"]
+        row.evaluation_result = EvaluateResult(
+            score=score,
+            reason=response_text,
+        )
     return row

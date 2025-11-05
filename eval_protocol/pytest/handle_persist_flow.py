@@ -7,9 +7,11 @@ import pathlib
 import re
 from typing import Any
 
+from eval_protocol.common_utils import get_user_agent
 from eval_protocol.directory_utils import find_eval_protocol_dir
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest.store_experiment_link import store_experiment_link
+
 import requests
 
 
@@ -127,10 +129,14 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                         )
                         continue
 
-                    headers = {"Authorization": f"Bearer {fireworks_api_key}", "Content-Type": "application/json"}
+                    api_base = "https://api.fireworks.ai"
+                    headers = {
+                        "Authorization": f"Bearer {fireworks_api_key}",
+                        "Content-Type": "application/json",
+                        "User-Agent": get_user_agent(),
+                    }
 
                     # Make dataset first
-                    dataset_url = f"https://api.fireworks.ai/v1/accounts/{fireworks_account_id}/datasets"
 
                     dataset_payload = {  # pyright: ignore[reportUnknownVariableType]
                         "dataset": {
@@ -142,6 +148,7 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                         "datasetId": dataset_name,
                     }
 
+                    dataset_url = f"{api_base}/v1/accounts/{fireworks_account_id}/datasets"
                     dataset_response = requests.post(dataset_url, json=dataset_payload, headers=headers)  # pyright: ignore[reportUnknownArgumentType]
 
                     # Skip if dataset creation failed
@@ -157,13 +164,13 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                     dataset_id = dataset_data.get("datasetId", dataset_name)  # pyright: ignore[reportAny]
 
                     # Upload the JSONL file content
-                    upload_url = (
-                        f"https://api.fireworks.ai/v1/accounts/{fireworks_account_id}/datasets/{dataset_id}:upload"
-                    )
-                    upload_headers = {"Authorization": f"Bearer {fireworks_api_key}"}
-
+                    upload_url = f"{api_base}/v1/accounts/{fireworks_account_id}/datasets/{dataset_id}:upload"
                     with open(exp_file, "rb") as f:
                         files = {"file": f}
+                        upload_headers = {
+                            "Authorization": f"Bearer {fireworks_api_key}",
+                            "User-Agent": get_user_agent(),
+                        }
                         upload_response = requests.post(upload_url, files=files, headers=upload_headers)
 
                     # Skip if upload failed
@@ -176,7 +183,6 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                         continue
 
                     # Create evaluation job (optional - don't skip experiment if this fails)
-                    eval_job_url = f"https://api.fireworks.ai/v1/accounts/{fireworks_account_id}/evaluationJobs"
                     # Truncate job ID to fit 63 character limit
                     job_id_base = f"{dataset_name}-job"
                     if len(job_id_base) > 63:
@@ -194,6 +200,7 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                         },
                     }
 
+                    eval_job_url = f"{api_base}/v1/accounts/{fireworks_account_id}/evaluationJobs"
                     eval_response = requests.post(eval_job_url, json=eval_job_payload, headers=headers)
 
                     if eval_response.status_code in [200, 201]:

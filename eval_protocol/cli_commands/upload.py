@@ -9,7 +9,7 @@ import runpy
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Dict, Iterable
 
 import pytest
 from eval_protocol.auth import (
@@ -551,6 +551,35 @@ def _prompt_select(tests: list[DiscoveredTest], non_interactive: bool) -> list[D
     return _prompt_select_interactive(tests)
 
 
+def _load_secrets_from_env_file(env_file_path: str) -> Dict[str, str]:
+    """
+    Load secrets from a .env file that should be uploaded to Fireworks.
+
+    Returns a dictionary of secret key-value pairs that contain 'API_KEY' in the name.
+    """
+    if not os.path.exists(env_file_path):
+        return {}
+
+    # Load the .env file into a temporary environment
+    env_vars = {}
+    with open(env_file_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")  # Remove quotes
+                env_vars[key] = value
+
+    # Filter for secrets that look like API keys
+    secrets = {}
+    for key, value in env_vars.items():
+        if "API_KEY" in key.upper() and value:
+            secrets[key] = value
+
+    return secrets
+
+
 def upload_command(args: argparse.Namespace) -> int:
     root = os.path.abspath(getattr(args, "path", "."))
     entries_arg = getattr(args, "entry", None)
@@ -585,11 +614,27 @@ def upload_command(args: argparse.Namespace) -> int:
     display_name = getattr(args, "display_name", None)
     description = getattr(args, "description", None)
     force = bool(getattr(args, "force", False))
+    env_file = getattr(args, "env_file", None)
 
-    # Ensure FIREWORKS_API_KEY is available to the remote by storing it as a Fireworks secret
+    # Load secrets from .env file and ensure they're available on Fireworks
     try:
         fw_account_id = get_fireworks_account_id()
+
+        # Determine .env file path
+        if env_file:
+            env_file_path = env_file
+        else:
+            env_file_path = os.path.join(root, ".env")
+
+        # Load secrets from .env file
+        secrets_from_file = _load_secrets_from_env_file(env_file_path)
+        secrets_from_env_file = secrets_from_file.copy()  # Track what came from .env file
+
+        # Also ensure FIREWORKS_API_KEY from environment is included
         fw_api_key_value = get_fireworks_api_key()
+        if fw_api_key_value:
+            secrets_from_file["FIREWORKS_API_KEY"] = fw_api_key_value
+
         if not fw_account_id and fw_api_key_value:
             # Attempt to verify and resolve account id from server headers
             resolved = verify_api_key_and_get_account_id(api_key=fw_api_key_value, api_base=get_fireworks_api_base())
@@ -598,21 +643,27 @@ def upload_command(args: argparse.Namespace) -> int:
                 # Propagate to environment so downstream calls use it if needed
                 os.environ["FIREWORKS_ACCOUNT_ID"] = fw_account_id
                 print(f"Resolved FIREWORKS_ACCOUNT_ID via API verification: {fw_account_id}")
-        if fw_account_id and fw_api_key_value:
-            print("Ensuring FIREWORKS_API_KEY is registered as a secret on Fireworks for rollout...")
-            if create_or_update_fireworks_secret(
-                account_id=fw_account_id,
-                key_name="FIREWORKS_API_KEY",
-                secret_value=fw_api_key_value,
-            ):
-                print("✓ FIREWORKS_API_KEY secret created/updated on Fireworks.")
-            else:
-                print("Warning: Failed to create/update FIREWORKS_API_KEY secret on Fireworks.")
+
+        if fw_account_id and secrets_from_file:
+            print(f"Found {len(secrets_from_file)} API keys to upload as Fireworks secrets...")
+            if secrets_from_env_file and os.path.exists(env_file_path):
+                print(f"Loading secrets from: {env_file_path}")
+
+            for secret_name, secret_value in secrets_from_file.items():
+                print(f"Ensuring {secret_name} is registered as a secret on Fireworks for rollout...")
+                if create_or_update_fireworks_secret(
+                    account_id=fw_account_id,
+                    key_name=secret_name,
+                    secret_value=secret_value,
+                ):
+                    print(f"✓ {secret_name} secret created/updated on Fireworks.")
+                else:
+                    print(f"Warning: Failed to create/update {secret_name} secret on Fireworks.")
         else:
             if not fw_account_id:
-                print("Warning: FIREWORKS_ACCOUNT_ID not found; cannot register FIREWORKS_API_KEY secret.")
-            if not fw_api_key_value:
-                print("Warning: FIREWORKS_API_KEY not found locally; cannot register secret.")
+                print("Warning: FIREWORKS_ACCOUNT_ID not found; cannot register secrets.")
+            if not secrets_from_file:
+                print("Warning: No API keys found in environment or .env file; no secrets to register.")
     except Exception as e:
         print(f"Warning: Skipped Fireworks secret registration due to error: {e}")
 

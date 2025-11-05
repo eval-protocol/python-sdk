@@ -355,6 +355,10 @@ def parse_args(args=None):
         action="store_true",
         help="Non-interactive: upload all discovered evaluation tests",
     )
+    upload_parser.add_argument(
+        "--env-file",
+        help="Path to .env file containing secrets to upload (default: .env in current directory)",
+    )
 
     # Create command group
     create_parser = subparsers.add_parser(
@@ -421,6 +425,7 @@ def parse_args(args=None):
     rft_parser.add_argument("--rft-job-id", help="Specify an explicit RFT job id")
     rft_parser.add_argument("--yes", "-y", action="store_true", help="Non-interactive mode")
     rft_parser.add_argument("--dry-run", action="store_true", help="Print planned REST calls without sending")
+    rft_parser.add_argument("--force", action="store_true", help="Overwrite existing evaluator with the same ID")
 
     # Run command (for Hydra-based evaluations)
     # This subparser intentionally defines no arguments itself.

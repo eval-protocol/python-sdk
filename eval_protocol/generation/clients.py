@@ -13,6 +13,8 @@ import aiohttp
 from omegaconf import DictConfig
 from pydantic import BaseModel  # Added for new models
 
+from ..common_utils import get_user_agent
+
 logger = logging.getLogger(__name__)
 
 
@@ -101,6 +103,7 @@ class FireworksModelClient(ModelClient):
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "User-Agent": get_user_agent(),
         }
 
         debug_payload_log = json.loads(json.dumps(payload))

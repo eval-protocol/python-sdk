@@ -5,6 +5,23 @@ from typing import Any, Dict, List
 import requests
 
 
+def get_user_agent() -> str:
+    """
+    Returns the user-agent string for eval-protocol CLI requests.
+
+    Format: eval-protocol-cli/{version}
+
+    Returns:
+        User-agent string identifying the eval-protocol CLI and version.
+    """
+    try:
+        from . import __version__
+
+        return f"eval-protocol/{__version__}"
+    except Exception:
+        return "eval-protocol/unknown"
+
+
 def load_jsonl(file_path: str) -> List[Dict[str, Any]]:
     """
     Reads a JSONL file where each line is a valid JSON object and returns a list of these objects.

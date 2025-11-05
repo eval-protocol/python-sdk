@@ -242,9 +242,16 @@ def verify_api_key_and_get_account_id(
         if not resolved_key:
             return None
         resolved_base = api_base or get_fireworks_api_base()
+
+        from .common_utils import get_user_agent
+
         url = f"{resolved_base.rstrip('/')}/verifyApiKey"
-        headers = {"Authorization": f"Bearer {resolved_key}"}
+        headers = {
+            "Authorization": f"Bearer {resolved_key}",
+            "User-Agent": get_user_agent(),
+        }
         resp = requests.get(url, headers=headers, timeout=10)
+
         if resp.status_code != 200:
             logger.debug("verifyApiKey returned status %s", resp.status_code)
             return None

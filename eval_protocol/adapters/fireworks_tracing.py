@@ -273,7 +273,12 @@ class FireworksTracingAdapter(BaseAdapter):
         if not tags:
             raise ValueError("At least one tag is required to fetch logs")
 
-        headers = {"Authorization": f"Bearer {os.environ.get('FIREWORKS_API_KEY')}"}
+        from ..common_utils import get_user_agent
+
+        headers = {
+            "Authorization": f"Bearer {os.environ.get('FIREWORKS_API_KEY')}",
+            "User-Agent": get_user_agent(),
+        }
         params: Dict[str, Any] = {"tags": tags, "limit": limit, "hours_back": hours_back, "program": "eval_protocol"}
 
         # Try /logs first, fall back to /v1/logs if not found
@@ -398,7 +403,12 @@ class FireworksTracingAdapter(BaseAdapter):
         else:
             url = f"{self.base_url}/v1/traces/pointwise"
 
-        headers = {"Authorization": f"Bearer {os.environ.get('FIREWORKS_API_KEY')}"}
+        from ..common_utils import get_user_agent
+
+        headers = {
+            "Authorization": f"Bearer {os.environ.get('FIREWORKS_API_KEY')}",
+            "User-Agent": get_user_agent(),
+        }
 
         result = None
         try:
