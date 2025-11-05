@@ -267,7 +267,7 @@ def _auto_select_evaluator_id(cwd: str) -> Optional[str]:
 
 
 def _poll_evaluator_status(
-    evaluator_resource_name: str, api_key: str, api_base: str, timeout_minutes: int = 5
+    evaluator_resource_name: str, api_key: str, api_base: str, timeout_minutes: int = 10
 ) -> bool:
     """
     Poll evaluator status until it becomes ACTIVE or times out.
@@ -406,7 +406,7 @@ def create_rft_command(args) -> int:
             # Poll for evaluator status
             print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
             is_active = _poll_evaluator_status(
-                evaluator_resource_name=evaluator_resource_name, api_key=api_key, api_base=api_base, timeout_minutes=5
+                evaluator_resource_name=evaluator_resource_name, api_key=api_key, api_base=api_base, timeout_minutes=10
             )
 
             if not is_active:
