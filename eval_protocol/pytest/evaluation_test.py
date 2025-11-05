@@ -712,8 +712,6 @@ def evaluation_test(
             "mode": mode,
         }
 
-        print(f"ep_params: {ep_params}")
-
         # Create the dual mode wrapper
         dual_mode_wrapper = create_dual_mode_wrapper(
             test_func, mode, max_concurrent_rollouts, max_concurrent_evaluations, pytest_wrapper
