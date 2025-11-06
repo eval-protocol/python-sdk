@@ -29,10 +29,19 @@ def init_external_logging_from_env() -> None:
     Environment variables:
       - FW_TRACING_GATEWAY_BASE_URL: enable Fireworks tracing handler when set
       - EP_ELASTICSEARCH_URL, EP_ELASTICSEARCH_API_KEY, EP_ELASTICSEARCH_INDEX: enable ES when all set
+      - EP_LOGGING_RAISE_EXCEPTIONS: if set to "false" or "0", disable logging exceptions (default: True)
     """
     global _INITIALIZED
     if _INITIALIZED:
         return
+
+    # Configure logging.raiseExceptions based on environment variable
+    # If set to "false" or "0", logging errors will be silently ignored
+    raise_exceptions_env = _get_env("EP_LOGGING_RAISE_EXCEPTIONS")
+    if raise_exceptions_env is not None:
+        logging.raiseExceptions = raise_exceptions_env.lower() in ("true", "1", "no")
+    else:
+        logging.raiseExceptions = False
 
     root_logger = logging.getLogger()
 
