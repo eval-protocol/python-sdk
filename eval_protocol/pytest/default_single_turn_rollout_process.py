@@ -96,6 +96,8 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             assert isinstance(response, ModelResponse), "Response should be ModelResponse"
             assert isinstance(response.choices[0], Choices), "Response choice should be a Choices"
 
+            finish_reason = getattr(response.choices[0], "finish_reason", None)
+
             assistant_content = response.choices[0].message.content or ""
             tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
 
@@ -137,6 +139,11 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                     tool_calls=converted_tool_calls,
                 )
             ]
+
+            row.execution_metadata.finish_reason = str(finish_reason) if finish_reason is not None else None
+            row.execution_metadata.tool_call_count = (
+                len(converted_tool_calls) if converted_tool_calls is not None else 0
+            )
             row.execution_metadata.usage = (
                 CompletionUsage(  # Note: LiteLLM sets usage dynamically via setattr(), not as a typed field
                     prompt_tokens=response.usage.prompt_tokens,  # pyright: ignore[reportAttributeAccessIssue]

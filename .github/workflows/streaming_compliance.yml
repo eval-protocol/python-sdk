@@ -1,0 +1,117 @@
+name: Streaming Compliance Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Model id"
+        required: true
+        default: "fireworks_ai/accounts/fireworks/models/glm-4p6"
+      max_tokens:
+        description: "Override max_tokens (integer)"
+        required: false
+        default: ""
+      reasoning_effort:
+        description: "Reasoning effort (low|medium|high|none)"
+        required: false
+        default: ""
+      max_rows:
+        description: "Max rows for smoke vs full run (integer or 'all')"
+        required: false
+        default: ""
+      temperature:
+        description: "Temperature (float)"
+        required: false
+        default: ""
+      stream:
+        description: "Enable streaming (true or empty)"
+        required: false
+        default: "true"
+      max_concurrency:
+        description: "Max concurrency (integer)"
+        required: false
+        default: ""
+      num_runs:
+        description: "Number of runs (integer)"
+        required: false
+        default: ""
+      max_retry:
+        description: "Max retry (integer)"
+        required: false
+        default: ""
+      success_threshold:
+        description: "Minimum test score needed to pass (float)"
+        required: false
+        default: ""
+
+jobs:
+  streaming-compliance:
+    runs-on: 8-core-32gb-ubuntu
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup uv and .venv
+        run: |
+          python -m pip install --upgrade pip
+          pip install uv
+          uv venv
+          . .venv/bin/activate
+          uv pip install --upgrade pip
+
+      - name: Install python-sdk package
+        run: |
+          . .venv/bin/activate
+          uv pip install .
+
+      - name: Run streaming compliance benchmark (pytest)
+        env:
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          FIREWORKS_ACCOUNT_ID: ${{ vars.FIREWORKS_ACCOUNT_ID }}
+        run: |
+          . .venv/bin/activate
+          mkdir -p artifacts
+
+          MODEL="${{ github.event.inputs.model }}"
+          MAX_TOKENS="${{ github.event.inputs.max_tokens }}"
+          REASONING="${{ github.event.inputs.reasoning_effort }}"
+          MAX_ROWS="${{ github.event.inputs.max_rows }}"
+          TEMPERATURE="${{ github.event.inputs.temperature }}"
+          STREAM="${{ github.event.inputs.stream }}"
+          NUM_RUNS="${{ github.event.inputs.num_runs }}"
+          MAX_CONC="${{ github.event.inputs.max_concurrency }}"
+          MAX_RETRY="${{ github.event.inputs.max_retry }}"
+          SUCCESS_THRESHOLD="${{ github.event.inputs.success_threshold }}"
+
+          echo "Running streaming compliance with reasoning_effort=${REASONING:-<default>} max_rows=${MAX_ROWS:-<default>} model=${MODEL:-<default>} max_tokens=${MAX_TOKENS:-<default>} temperature=${TEMPERATURE:-<default>} stream=${STREAM:-<default>} num_runs=${NUM_RUNS:-<default>} max_concurrency=${MAX_CONC:-<default>} max_retry=${MAX_RETRY:-<default>} success_threshold=${SUCCESS_THRESHOLD:-<default>}"
+
+          PYTEST_TARGET=eval_protocol.benchmarks.test_glm_streaming_compliance
+          PYTEST_ARGS="--pyargs $PYTEST_TARGET -q -s --ep-print-summary --ep-summary-json artifacts/streaming_compliance.json"
+          [ -n "$MAX_ROWS" ] && PYTEST_ARGS="$PYTEST_ARGS --ep-max-rows=$MAX_ROWS"
+          [ -n "$REASONING" ] && PYTEST_ARGS="$PYTEST_ARGS --ep-reasoning-effort=$REASONING"
+          [ -n "$MODEL" ] && PYTEST_ARGS="$PYTEST_ARGS --ep-input-param model=$MODEL"
+          [ -n "$MAX_TOKENS" ] && PYTEST_ARGS="$PYTEST_ARGS --ep-input-param max_tokens=$MAX_TOKENS"
+          [ -n "$TEMPERATURE" ] && PYTEST_ARGS="$PYTEST_ARGS --ep-input-param temperature=$TEMPERATURE"
+          [ -n "$STREAM" ] && PYTEST_ARGS="$PYTEST_ARGS --ep-input-param stream=$STREAM"
+          [ -n "$NUM_RUNS" ] && PYTEST_ARGS="$PYTEST_ARGS --ep-num-runs=$NUM_RUNS"
+          [ -n "$MAX_CONC" ] && PYTEST_ARGS="$PYTEST_ARGS --ep-max-concurrent-rollouts=$MAX_CONC"
+          [ -n "$MAX_RETRY" ] && PYTEST_ARGS="$PYTEST_ARGS --ep-max-retry=$MAX_RETRY"
+          [ -n "$SUCCESS_THRESHOLD" ] && PYTEST_ARGS="$PYTEST_ARGS --ep-success-threshold=$SUCCESS_THRESHOLD"
+          echo "Running: pytest $PYTEST_ARGS"
+          pytest $PYTEST_ARGS
+
+      - name: Upload JSON artifact(s)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: streaming_compliance_json
+          path: artifacts/*.json
+          if-no-files-found: warn
+          retention-days: 14

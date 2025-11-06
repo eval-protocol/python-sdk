@@ -776,6 +776,16 @@ class ExecutionMetadata(BaseModel):
         description="Processing duration in seconds for an entire experiment. Note that includes time it took for retries.",
     )
 
+    finish_reason: Optional[str] = Field(
+        default=None,
+        description="finish_reason reported by the completion response for this row.",
+    )
+
+    tool_call_count: Optional[int] = Field(
+        default=None,
+        description="Number of tool calls returned in the assistant message for this row.",
+    )
+
 
 class EvaluationRow(BaseModel):
     """
