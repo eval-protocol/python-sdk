@@ -76,6 +76,7 @@ jobs:
         env:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           FIREWORKS_ACCOUNT_ID: ${{ vars.FIREWORKS_ACCOUNT_ID }}
+          EP_DISABLE_DATASET_LOGGER: "1"
         run: |
           . .venv/bin/activate
           mkdir -p artifacts
