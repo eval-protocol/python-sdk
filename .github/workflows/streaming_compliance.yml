@@ -47,7 +47,7 @@ on:
 
 jobs:
   streaming-compliance:
-    runs-on: 8-core-32gb-ubuntu
+    runs-on: ubuntu-latest
     timeout-minutes: 180
 
     steps:
