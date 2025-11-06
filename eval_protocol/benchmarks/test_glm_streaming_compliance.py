@@ -1,7 +1,5 @@
 """Benchmarks for GLM streaming regressions (structured output + tool calls)."""
 
-from __future__ import annotations
-
 import json
 from typing import Any
 
@@ -145,6 +143,17 @@ TOOL_CALL_ROW.input_metadata.dataset_info = {
 def test_glm_streaming_structured_output(row: EvaluationRow) -> EvaluationRow:
     """Ensure structured output arrives in assistant content when streaming."""
 
+    import os
+
+    print(
+        "DEBUG completion params",
+        os.environ.get("EP_COMPLETION_PARAMS_JSON"),
+        "key len",
+        len(os.environ.get("FIREWORKS_API_KEY", "")),
+        "acct",
+        os.environ.get("FIREWORKS_ACCOUNT_ID"),
+    )
+
     assistant_msg = row.last_assistant_message()
     if assistant_msg is None:
         row.evaluation_result = EvaluateResult(
@@ -247,6 +256,17 @@ def test_glm_streaming_structured_output(row: EvaluationRow) -> EvaluationRow:
 )
 def test_glm_streaming_tool_call(row: EvaluationRow) -> EvaluationRow:
     """Ensure streaming tool calls settle with finish_reason=tool_calls and a single call."""
+
+    import os
+
+    print(
+        "DEBUG completion params",
+        os.environ.get("EP_COMPLETION_PARAMS_JSON"),
+        "key len",
+        len(os.environ.get("FIREWORKS_API_KEY", "")),
+        "acct",
+        os.environ.get("FIREWORKS_ACCOUNT_ID"),
+    )
 
     assistant_msg = row.last_assistant_message()
     if assistant_msg is None:

@@ -98,8 +98,12 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
             finish_reason = getattr(response.choices[0], "finish_reason", None)
 
-            assistant_content = response.choices[0].message.content or ""
-            tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
+            assistant_message = response.choices[0].message
+            assistant_content = assistant_message.content or ""
+            reasoning_content = getattr(assistant_message, "reasoning_content", None)
+            if reasoning_content is None:
+                reasoning_content = getattr(assistant_message, "reasoning", None)
+            tool_calls = assistant_message.tool_calls if assistant_message.tool_calls else None
 
             converted_tool_calls = None
             if tool_calls:
@@ -136,6 +140,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 Message(
                     role="assistant",
                     content=assistant_content,
+                    reasoning_content=reasoning_content,
                     tool_calls=converted_tool_calls,
                 )
             ]

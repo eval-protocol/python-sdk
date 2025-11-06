@@ -1,6 +1,7 @@
 name: Streaming Compliance Benchmark
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       model:
