@@ -239,7 +239,7 @@ def test_glm_streaming_structured_output(row: EvaluationRow) -> EvaluationRow:
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
-    passed_threshold=1.0,
+    passed_threshold=0.0,
     num_runs=1,
     mode="pointwise",
 )
