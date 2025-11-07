@@ -444,7 +444,7 @@ def evaluation_test(
                                         raise
                                     except Exception as e:
                                         # Default: capture non-assert exceptions unless explicitly disabled
-                                        if os.getenv("EP_CAPTURE_EVAL_EXCEPTIONS", "1").strip() == "1":
+                                        if os.getenv("EP_CAPTURE_EVAL_EXCEPTIONS", "false").strip() == "false":
                                             result = row
                                             result.evaluation_result = EvaluateResult(
                                                 score=0.0,
@@ -488,7 +488,7 @@ def evaluation_test(
                                         raise
                                     except Exception as e:
                                         # Default: capture non-assert exceptions unless explicitly disabled
-                                        if os.getenv("EP_CAPTURE_EVAL_EXCEPTIONS", "1").strip() == "1":
+                                        if os.getenv("EP_CAPTURE_EVAL_EXCEPTIONS", "false").strip() == "false":
                                             results = rows
                                             for row in results:
                                                 row.evaluation_result = EvaluateResult(
@@ -624,7 +624,7 @@ def evaluation_test(
                                     # if the eval_metadata status code has not been set to something else, consider it as finished
                                     r.eval_metadata.status = Status.eval_finished()
                             # Optional debug print for assistant/tool sequence
-                            if os.getenv("EP_DEBUG_SERIALIZATION", "0").strip() == "1":
+                            if os.getenv("EP_DEBUG_SERIALIZATION", "false").strip() == "false":
                                 try:
                                     preview = [
                                         {
