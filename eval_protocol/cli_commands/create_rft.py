@@ -488,16 +488,21 @@ def create_rft_command(args) -> int:
 
     # Build training config/body
     # Exactly one of base-model or warm-start-from must be provided
-    base_model = getattr(args, "base_model", None)
-    warm_start_from = getattr(args, "warm_start_from", None)
-    if (base_model is None and warm_start_from is None) or (base_model is not None and warm_start_from is not None):
+    base_model_raw = getattr(args, "base_model", None)
+    warm_start_from_raw = getattr(args, "warm_start_from", None)
+    # Treat empty/whitespace strings as not provided
+    base_model = base_model_raw.strip() if isinstance(base_model_raw, str) else base_model_raw
+    warm_start_from = warm_start_from_raw.strip() if isinstance(warm_start_from_raw, str) else warm_start_from_raw
+    has_base_model = bool(base_model)
+    has_warm_start = bool(warm_start_from)
+    if (not has_base_model and not has_warm_start) or (has_base_model and has_warm_start):
         print("Error: exactly one of --base-model or --warm-start-from must be specified.")
         return 1
 
     training_config: Dict[str, Any] = {}
-    if base_model is not None:
+    if has_base_model:
         training_config["baseModel"] = base_model
-    if warm_start_from is not None:
+    if has_warm_start:
         training_config["warmStartFrom"] = warm_start_from
 
     # Optional hyperparameters
