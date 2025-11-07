@@ -257,6 +257,17 @@ def test_glm_streaming_tool_call(row: EvaluationRow) -> EvaluationRow:
         return row
 
     tool_calls = assistant_msg.tool_calls or []
+    tool_calls_for_metrics: list[Any] = []
+    for tc in tool_calls:
+        if hasattr(tc, "model_dump"):
+            try:
+                tool_calls_for_metrics.append(tc.model_dump(exclude_none=True))
+            except Exception:
+                tool_calls_for_metrics.append(str(tc))
+        elif isinstance(tc, dict):
+            tool_calls_for_metrics.append(tc)
+        else:
+            tool_calls_for_metrics.append(str(tc))
     finish_reason = row.execution_metadata.finish_reason
     tool_call_count = row.execution_metadata.tool_call_count
 
@@ -298,7 +309,7 @@ def test_glm_streaming_tool_call(row: EvaluationRow) -> EvaluationRow:
             score=1.0 if exactly_one_tool_call else 0.0,
             is_score_valid=has_tool_call,
             reason=("Exactly one tool call" if exactly_one_tool_call else "Unexpected number of tool calls"),
-            data={"tool_calls": tool_calls},
+            data={"tool_calls": tool_calls_for_metrics},
         ),
         "finish_reason_tool_calls": MetricResult(
             score=1.0 if finish_reason_tool_calls else 0.0,
