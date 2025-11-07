@@ -592,11 +592,30 @@ def evaluation_test(
                                 run_id=run_id,
                                 rollout_ids=group_rollout_ids or None,
                             ):
-                                results = await execute_pytest(
-                                    test_func,
-                                    processed_dataset=input_dataset,
-                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
-                                )
+                                try:
+                                    results = await execute_pytest(
+                                        test_func,
+                                        processed_dataset=input_dataset,
+                                        evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                    )
+                                except AssertionError:
+                                    raise
+                                except Exception as e:
+                                    # Default: capture non-assert exceptions unless explicitly disabled
+                                    if os.getenv("EP_CAPTURE_EVAL_EXCEPTIONS", "false").strip() == "false":
+                                        results = input_dataset
+                                        for row in results:
+                                            row.evaluation_result = EvaluateResult(
+                                                score=0.0,
+                                                is_score_valid=False,
+                                                reason=f"Error during evaluation: {type(e).__name__}: {e}",
+                                            )
+                                            if row.eval_metadata is not None:
+                                                row.eval_metadata.status = Status.error(
+                                                    f"Error during evaluation: {type(e).__name__}: {e}",
+                                                )
+                                    else:
+                                        raise
                             if (
                                 results is None
                                 or not isinstance(results, list)
@@ -624,7 +643,7 @@ def evaluation_test(
                                     # if the eval_metadata status code has not been set to something else, consider it as finished
                                     r.eval_metadata.status = Status.eval_finished()
                             # Optional debug print for assistant/tool sequence
-                            if os.getenv("EP_DEBUG_SERIALIZATION", "false").strip() == "false":
+                            if os.getenv("EP_DEBUG_SERIALIZATION", "0").strip() == "1":
                                 try:
                                     preview = [
                                         {
