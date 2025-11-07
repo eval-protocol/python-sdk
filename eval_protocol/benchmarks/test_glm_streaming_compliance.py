@@ -336,9 +336,4 @@ def test_glm_streaming_tool_call(row: EvaluationRow) -> EvaluationRow:
         ),
         metrics=metrics,
     )
-    try:
-        row.model_dump(exclude_none=True, mode="json")
-    except Exception as exc:  # pragma: no cover - debug helper
-        print("DEBUG model_dump failure", exc, row.messages)
-
     return row
