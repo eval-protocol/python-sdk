@@ -24,7 +24,7 @@ from eval_protocol.models import (
 )
 from eval_protocol.pytest.dual_mode_wrapper import create_dual_mode_wrapper
 from eval_protocol.pytest.evaluation_test_postprocess import postprocess
-from eval_protocol.pytest.execution import execute_pytest
+from eval_protocol.pytest.execution import execute_pytest, execute_pytest_with_exception_handling
 from eval_protocol.pytest.generate_parameter_combinations import (
     ParameterizedTestKwargs,
     generate_parameter_combinations,
@@ -434,29 +434,11 @@ def evaluation_test(
                                     experiment_id=experiment_id,
                                     run_id=run_id,
                                 ):
-                                    try:
-                                        result = await execute_pytest(
-                                            test_func,
-                                            processed_row=row,
-                                            evaluation_test_kwargs=evaluation_test_kwargs,
-                                        )
-                                    except AssertionError:
-                                        raise
-                                    except Exception as e:
-                                        # Default: capture non-assert exceptions unless explicitly disabled
-                                        if os.getenv("EP_RAISE_EVAL_EXCEPTIONS", "false").strip() == "false":
-                                            result = row
-                                            result.evaluation_result = EvaluateResult(
-                                                score=0.0,
-                                                is_score_valid=False,
-                                                reason=f"Error during evaluation: {type(e).__name__}: {e}",
-                                            )
-                                            if result.eval_metadata is not None:
-                                                result.eval_metadata.status = Status.error(
-                                                    f"Error during evaluation: {type(e).__name__}: {e}",
-                                                )
-                                        else:
-                                            raise
+                                    result = await execute_pytest_with_exception_handling(
+                                        test_func=test_func,
+                                        evaluation_test_kwargs=evaluation_test_kwargs,
+                                        processed_row=row,
+                                    )
                                 if not isinstance(result, EvaluationRow):
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
@@ -478,30 +460,11 @@ def evaluation_test(
                                     run_id=run_id,
                                     rollout_ids=group_rollout_ids or None,
                                 ):
-                                    try:
-                                        results = await execute_pytest(
-                                            test_func,
-                                            processed_dataset=rows,
-                                            evaluation_test_kwargs=evaluation_test_kwargs,
-                                        )
-                                    except AssertionError:
-                                        raise
-                                    except Exception as e:
-                                        # Default: capture non-assert exceptions unless explicitly disabled
-                                        if os.getenv("EP_RAISE_EVAL_EXCEPTIONS", "false").strip() == "false":
-                                            results = rows
-                                            for row in results:
-                                                row.evaluation_result = EvaluateResult(
-                                                    score=0.0,
-                                                    is_score_valid=False,
-                                                    reason=f"Error during evaluation: {type(e).__name__}: {e}",
-                                                )
-                                                if row.eval_metadata is not None:
-                                                    row.eval_metadata.status = Status.error(
-                                                        f"Error during evaluation: {type(e).__name__}: {e}",
-                                                    )
-                                        else:
-                                            raise
+                                    results = await execute_pytest_with_exception_handling(
+                                        test_func=test_func,
+                                        evaluation_test_kwargs=evaluation_test_kwargs,
+                                        processed_dataset=rows,
+                                    )
                                 if not isinstance(results, list):
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
@@ -592,30 +555,11 @@ def evaluation_test(
                                 run_id=run_id,
                                 rollout_ids=group_rollout_ids or None,
                             ):
-                                try:
-                                    results = await execute_pytest(
-                                        test_func,
-                                        processed_dataset=input_dataset,
-                                        evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
-                                    )
-                                except AssertionError:
-                                    raise
-                                except Exception as e:
-                                    # Default: capture non-assert exceptions unless explicitly disabled
-                                    if os.getenv("EP_RAISE_EVAL_EXCEPTIONS", "false").strip() == "false":
-                                        results = input_dataset
-                                        for row in results:
-                                            row.evaluation_result = EvaluateResult(
-                                                score=0.0,
-                                                is_score_valid=False,
-                                                reason=f"Error during evaluation: {type(e).__name__}: {e}",
-                                            )
-                                            if row.eval_metadata is not None:
-                                                row.eval_metadata.status = Status.error(
-                                                    f"Error during evaluation: {type(e).__name__}: {e}",
-                                                )
-                                    else:
-                                        raise
+                                results = await execute_pytest_with_exception_handling(
+                                    test_func=test_func,
+                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                    processed_dataset=input_dataset,
+                                )
                             if (
                                 results is None
                                 or not isinstance(results, list)
