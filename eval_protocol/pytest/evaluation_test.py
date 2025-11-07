@@ -436,17 +436,23 @@ def evaluation_test(
                                             processed_row=row,
                                             evaluation_test_kwargs=evaluation_test_kwargs,
                                         )
+                                    except AssertionError:
+                                        raise
                                     except Exception as e:
-                                        result = row
-                                        result.evaluation_result = EvaluateResult(
-                                            score=0.0,
-                                            is_score_valid=False,
-                                            reason=f"Error during evaluation: {type(e).__name__}: {e}",
-                                        )
-                                        if result.eval_metadata is not None:
-                                            result.eval_metadata.status = Status.error(
-                                                f"Error during evaluation: {type(e).__name__}: {e}",
+                                        # Default: capture non-assert exceptions unless explicitly disabled
+                                        if os.getenv("EP_CAPTURE_EVAL_EXCEPTIONS", "1").strip() == "1":
+                                            result = row
+                                            result.evaluation_result = EvaluateResult(
+                                                score=0.0,
+                                                is_score_valid=False,
+                                                reason=f"Error during evaluation: {type(e).__name__}: {e}",
                                             )
+                                            if result.eval_metadata is not None:
+                                                result.eval_metadata.status = Status.error(
+                                                    f"Error during evaluation: {type(e).__name__}: {e}",
+                                                )
+                                        else:
+                                            raise
                                 if not isinstance(result, EvaluationRow):
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
@@ -474,18 +480,24 @@ def evaluation_test(
                                             processed_dataset=rows,
                                             evaluation_test_kwargs=evaluation_test_kwargs,
                                         )
+                                    except AssertionError:
+                                        raise
                                     except Exception as e:
-                                        results = rows
-                                        for row in results:
-                                            row.evaluation_result = EvaluateResult(
-                                                score=0.0,
-                                                is_score_valid=False,
-                                                reason=f"Error during evaluation: {type(e).__name__}: {e}",
-                                            )
-                                            if row.eval_metadata is not None:
-                                                row.eval_metadata.status = Status.error(
-                                                    f"Error during evaluation: {type(e).__name__}: {e}",
+                                        # Default: capture non-assert exceptions unless explicitly disabled
+                                        if os.getenv("EP_CAPTURE_EVAL_EXCEPTIONS", "1").strip() == "1":
+                                            results = rows
+                                            for row in results:
+                                                row.evaluation_result = EvaluateResult(
+                                                    score=0.0,
+                                                    is_score_valid=False,
+                                                    reason=f"Error during evaluation: {type(e).__name__}: {e}",
                                                 )
+                                                if row.eval_metadata is not None:
+                                                    row.eval_metadata.status = Status.error(
+                                                        f"Error during evaluation: {type(e).__name__}: {e}",
+                                                    )
+                                        else:
+                                            raise
                                 if not isinstance(results, list):
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
