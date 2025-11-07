@@ -134,6 +134,14 @@ def pytest_addoption(parser) -> None:
         help=("If set, use this base URL for remote rollout processing. Example: http://localhost:8000"),
     )
     group.addoption(
+        "--ep-no-op-rollout-processor",
+        action="store_true",
+        default=False,
+        help=(
+            "Override the rollout processor to use NoOpRolloutProcessor, which passes input dataset through unchanged."
+        ),
+    )
+    group.addoption(
         "--ep-output-dir",
         default=None,
         help=("If set, save evaluation results to this directory in jsonl format."),
@@ -266,6 +274,9 @@ def pytest_configure(config) -> None:
     if config.getoption("--ep-output-dir"):
         # set this to save eval results to the target dir in jsonl format
         os.environ["EP_OUTPUT_DIR"] = config.getoption("--ep-output-dir")
+
+    if config.getoption("--ep-no-op-rollout-processor"):
+        os.environ["EP_USE_NO_OP_ROLLOUT_PROCESSOR"] = "1"
 
     if config.getoption("--ep-no-upload"):
         os.environ["EP_NO_UPLOAD"] = "1"

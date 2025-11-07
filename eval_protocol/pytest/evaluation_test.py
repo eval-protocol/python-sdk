@@ -179,7 +179,11 @@ def evaluation_test(
         completion_params = [None]
     else:
         completion_params_provided = True
-    if rollout_processor is None:
+
+    # Override rollout processor if flag is set
+    if os.environ.get("EP_USE_NO_OP_ROLLOUT_PROCESSOR") == "1":
+        rollout_processor = NoOpRolloutProcessor()
+    elif rollout_processor is None:
         rollout_processor = NoOpRolloutProcessor()
 
     active_logger: DatasetLogger = logger if logger else default_logger
@@ -728,6 +732,11 @@ def evaluation_test(
         dual_mode_wrapper = create_dual_mode_wrapper(
             test_func, mode, max_concurrent_rollouts, max_concurrent_evaluations, pytest_wrapper
         )
+
+        # Make this pytest discoverable regardless of pytest configuration. So
+        # you can name your eval whatever you want, as long as it's decorated
+        # with @evaluation_test.
+        dual_mode_wrapper.__test__ = True
 
         setattr(dual_mode_wrapper, "__ep_params__", ep_params)
         return dual_mode_wrapper  # pyright: ignore[reportReturnType, reportUnknownVariableType]
