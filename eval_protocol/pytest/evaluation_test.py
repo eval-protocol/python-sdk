@@ -444,7 +444,7 @@ def evaluation_test(
                                         raise
                                     except Exception as e:
                                         # Default: capture non-assert exceptions unless explicitly disabled
-                                        if os.getenv("EP_CAPTURE_EVAL_EXCEPTIONS", "false").strip() == "false":
+                                        if os.getenv("EP_RAISE_EVAL_EXCEPTIONS", "false").strip() == "false":
                                             result = row
                                             result.evaluation_result = EvaluateResult(
                                                 score=0.0,
@@ -488,7 +488,7 @@ def evaluation_test(
                                         raise
                                     except Exception as e:
                                         # Default: capture non-assert exceptions unless explicitly disabled
-                                        if os.getenv("EP_CAPTURE_EVAL_EXCEPTIONS", "false").strip() == "false":
+                                        if os.getenv("EP_RAISE_EVAL_EXCEPTIONS", "false").strip() == "false":
                                             results = rows
                                             for row in results:
                                                 row.evaluation_result = EvaluateResult(
@@ -602,7 +602,7 @@ def evaluation_test(
                                     raise
                                 except Exception as e:
                                     # Default: capture non-assert exceptions unless explicitly disabled
-                                    if os.getenv("EP_CAPTURE_EVAL_EXCEPTIONS", "false").strip() == "false":
+                                    if os.getenv("EP_RAISE_EVAL_EXCEPTIONS", "false").strip() == "false":
                                         results = input_dataset
                                         for row in results:
                                             row.evaluation_result = EvaluateResult(
