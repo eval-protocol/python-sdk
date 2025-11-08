@@ -200,7 +200,18 @@ def get_fireworks_account_id() -> Optional[str]:
         if account_id_from_file:
             return account_id_from_file
 
-    logger.debug("Fireworks Account ID not found in environment variables or auth.ini.")
+    # 3) Fallback: if API key is present, attempt to resolve via verifyApiKey
+    try:
+        api_key_for_verify = get_fireworks_api_key()
+        if api_key_for_verify:
+            resolved = verify_api_key_and_get_account_id(api_key=api_key_for_verify, api_base=get_fireworks_api_base())
+            if resolved:
+                logger.debug("Using FIREWORKS_ACCOUNT_ID resolved via verifyApiKey: %s", resolved)
+                return resolved
+    except Exception as e:
+        logger.debug("Failed to resolve FIREWORKS_ACCOUNT_ID via verifyApiKey: %s", e)
+
+    logger.debug("Fireworks Account ID not found in environment variables, auth.ini, or via verifyApiKey.")
     return None
 
 
