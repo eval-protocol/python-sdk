@@ -513,15 +513,15 @@ def create_rft_command(args) -> int:
                             rel = abs_path
                         selected_entry = f"{rel}::{func_name}"
                         break
-                # If still unresolved and multiple tests exist, fail fast to avoid uploading unintended evaluators
-                if selected_entry is None:
-                    print(
-                        f"Error: Multiple evaluation tests found, and the selected evaluator_id {evaluator_id} does not match any discovered test.\n"
-                        "       Please re-run specifying the evaluator id.\n"
-                        "       Hints:\n"
-                        "         - eval-protocol create rft --evaluator-id <existing-evaluator-id>\n"
-                    )
-                    return 1
+            # If still unresolved and multiple tests exist, fail fast to avoid uploading unintended evaluators
+            if selected_entry is None and len(tests) > 1:
+                print(
+                    f"Error: Multiple evaluation tests found, and the selected evaluator_id {evaluator_id} does not match any discovered test.\n"
+                    "       Please re-run specifying the evaluator id.\n"
+                    "       Hints:\n"
+                    "         - eval-protocol create rft --evaluator-id <existing-evaluator-id>\n"
+                )
+                return 1
 
             upload_args = argparse.Namespace(
                 path=project_root,
