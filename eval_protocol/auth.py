@@ -177,6 +177,7 @@ def get_fireworks_account_id() -> Optional[str]:
     The Account ID is sourced in the following order:
     1. FIREWORKS_ACCOUNT_ID environment variable.
     2. 'account_id' from the [fireworks] section of ~/.fireworks/auth.ini.
+    3. If an API key is available (env or auth.ini), resolve via verifyApiKey.
 
     Returns:
         The Account ID if found, otherwise None.
@@ -200,11 +201,9 @@ def get_fireworks_account_id() -> Optional[str]:
         if account_id_from_file:
             return account_id_from_file
 
-    # 3) Fallback: if API key is present, attempt to resolve via verifyApiKey
+    # 3) Fallback: if API key is present, attempt to resolve via verifyApiKey (env or auth.ini)
     try:
-        # IMPORTANT: Only consider API key from environment here to avoid re-reading files
-        # which can cause duplicate Path.exists/_parse_simple_auth_file calls in tests and runtime.
-        api_key_for_verify = os.environ.get("FIREWORKS_API_KEY")
+        api_key_for_verify = get_fireworks_api_key()
         if api_key_for_verify:
             resolved = verify_api_key_and_get_account_id(api_key=api_key_for_verify, api_base=get_fireworks_api_base())
             if resolved:
