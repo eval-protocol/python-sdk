@@ -23,6 +23,87 @@ from ..fireworks_rft import (
 from .upload import _discover_tests, _normalize_evaluator_id, _resolve_entry_to_qual_and_source
 
 
+def _last_evaluator_paths(cwd: str) -> list[str]:
+    return [
+        os.path.join(cwd, ".eval_protocol", "last_evaluator.json"),
+        os.path.expanduser(os.path.join("~", ".eval_protocol", "last_evaluator.json")),
+    ]
+
+
+def _load_last_evaluator(cwd: str) -> Optional[str]:
+    import json
+
+    for p in _last_evaluator_paths(cwd):
+        try:
+            if os.path.isfile(p):
+                with open(p, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict) and data.get("evaluator_id"):
+                    return str(data["evaluator_id"])
+        except Exception:
+            # ignore and continue
+            pass
+    return None
+
+
+def _save_last_evaluator(cwd: str, evaluator_id: str) -> None:
+    import json
+
+    base = os.path.join(cwd, ".eval_protocol")
+    try:
+        os.makedirs(base, exist_ok=True)
+        with open(os.path.join(base, "last_evaluator.json"), "w", encoding="utf-8") as f:
+            json.dump({"evaluator_id": evaluator_id, "ts": time.time()}, f)
+    except Exception:
+        # best-effort only
+        pass
+
+
+def _gather_evaluator_traces(cwd: str) -> list[dict]:
+    roots = [
+        os.path.join(cwd, ".eval_protocol", "evaluators"),
+        os.path.expanduser(os.path.join("~", ".eval_protocol", "evaluators")),
+    ]
+    records: list[dict] = []
+    for root in roots:
+        if os.path.isdir(root):
+            for name in os.listdir(root):
+                if name.endswith(".json"):
+                    full = os.path.join(root, name)
+                    try:
+                        mtime = os.path.getmtime(full)
+                    except Exception:
+                        mtime = 0.0
+                    records.append({"id": name[:-5], "path": full, "mtime": mtime})
+    # dedupe by id keeping most recent mtime
+    dedup: dict[str, dict] = {}
+    for rec in records:
+        cur = dedup.get(rec["id"])
+        if not cur or rec["mtime"] > cur["mtime"]:
+            dedup[rec["id"]] = rec
+    return list(dedup.values())
+
+
+def _prompt_select_evaluator(candidates: list[dict]) -> Optional[str]:
+    print("\nMultiple evaluators detected. Select one:")
+    ordered = sorted(candidates, key=lambda x: -x["mtime"])
+    for i, c in enumerate(ordered, start=1):
+        print(f"  {i}) {c['id']}  (from {c['path']})")
+    try:
+        choice = input("Enter a number (or press Enter to cancel): ").strip()
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        return None
+    if not choice or not choice.isdigit():
+        return None
+    n = int(choice)
+    if 1 <= n <= len(ordered):
+        sel = ordered[n - 1]["id"]
+        print(f"✓ Using evaluator: {sel}")
+        return sel
+    return None
+
+
 def _ensure_account_id() -> Optional[str]:
     account_id = get_fireworks_account_id()
     api_key = get_fireworks_api_key()
@@ -248,14 +329,27 @@ def _build_trimmed_dataset_id(evaluator_id: str) -> str:
     return f"{base}{suffix}"
 
 
-def _auto_select_evaluator_id(cwd: str) -> Optional[str]:
-    # Try local traces
-    traces_dir = os.path.join(cwd, ".eval_protocol", "evaluators")
-    if os.path.isdir(traces_dir):
-        candidates = [f[:-5] for f in os.listdir(traces_dir) if f.endswith(".json")]
-        if len(candidates) == 1:
-            return candidates[0]
-    # Fall back to discovering a single evaluation_test
+def _auto_select_evaluator_id(cwd: str, *, non_interactive: bool = False) -> Optional[str]:
+    # 1) Use last used pointer if available
+    last = _load_last_evaluator(cwd)
+    if last:
+        return last
+
+    # 2) Look for evaluator traces in project and home
+    traces = _gather_evaluator_traces(cwd)
+    if len(traces) == 1:
+        return traces[0]["id"]
+    if len(traces) > 1:
+        if non_interactive:
+            sel = sorted(traces, key=lambda x: -x["mtime"])[0]["id"]
+            print(f"⚠️  Multiple evaluators found; using most recent: {sel}. Override with --evaluator-id.")
+            return sel
+        chosen = _prompt_select_evaluator(traces)
+        if chosen:
+            return chosen
+        return None
+
+    # 3) Fall back to discovering a single evaluation_test
     tests = _discover_tests(cwd)
     if len(tests) == 1:
         qualname, source_file_path = tests[0].qualname, tests[0].file_path
@@ -348,10 +442,12 @@ def create_rft_command(args) -> int:
     # Resolve evaluator id if omitted
     project_root = os.getcwd()
     if not evaluator_id:
-        evaluator_id = _auto_select_evaluator_id(project_root)
+        evaluator_id = _auto_select_evaluator_id(project_root, non_interactive=non_interactive)
         if not evaluator_id:
             print("Error: Could not infer evaluator id. Provide --evaluator-id or run 'eval-protocol upload' first.")
             return 1
+    # Persist last selected/used evaluator for next runs
+    _save_last_evaluator(project_root, evaluator_id)
 
     # Resolve evaluator resource name to fully-qualified format required by API
     evaluator_resource_name = f"accounts/{account_id}/evaluators/{evaluator_id}"
