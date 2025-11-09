@@ -446,9 +446,6 @@ def create_rft_command(args) -> int:
         if not evaluator_id:
             print("Error: Could not infer evaluator id. Provide --evaluator-id or run 'eval-protocol upload' first.")
             return 1
-    # Persist last selected/used evaluator for next runs
-    _save_last_evaluator(project_root, evaluator_id)
-
     # Resolve evaluator resource name to fully-qualified format required by API
     evaluator_resource_name = f"accounts/{account_id}/evaluators/{evaluator_id}"
 
@@ -515,6 +512,9 @@ def create_rft_command(args) -> int:
                 print(f"📊 Please check the evaluator status at: {dashboard_url}")
                 print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
                 return 1
+            else:
+                # Only persist last-used evaluator after successful ensure + ACTIVE
+                _save_last_evaluator(project_root, evaluator_id)
         else:
             print("Warning: Evaluator upload did not complete successfully; proceeding to RFT creation.")
     except Exception as e:
