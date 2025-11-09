@@ -57,8 +57,6 @@ def _parse_simple_auth_file(file_path: Path) -> Dict[str, str]:
     Strips whitespace and basic quotes from values.
     """
     creds = {}
-    if not file_path.exists():
-        return creds
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             for line in f:
