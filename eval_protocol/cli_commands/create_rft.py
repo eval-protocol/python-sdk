@@ -321,6 +321,8 @@ def _build_trimmed_dataset_id(evaluator_id: str) -> str:
         if not base:
             base = "dataset"
     # Ensure first char is a letter
+    if not base:
+        base = "dataset"
     if not base[0].isalpha():
         base = f"eval-{base}"
         if len(base) > max_base_len:
@@ -449,76 +451,122 @@ def create_rft_command(args) -> int:
     # Resolve evaluator resource name to fully-qualified format required by API
     evaluator_resource_name = f"accounts/{account_id}/evaluators/{evaluator_id}"
 
+    # Optional short-circuit: if evaluator already exists and not forcing, skip upload path
+    skip_upload = False
+    if not force:
+        try:
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": get_user_agent(),
+            }
+            resp = requests.get(f"{api_base}/v1/{evaluator_resource_name}", headers=headers, timeout=10)
+            if resp.ok:
+                state = resp.json().get("state", "STATE_UNSPECIFIED")
+                print(f"✓ Evaluator exists (state: {state}). Skipping upload (use --force to overwrite).")
+                # Poll for ACTIVE before proceeding
+                print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
+                if not _poll_evaluator_status(
+                    evaluator_resource_name=evaluator_resource_name,
+                    api_key=api_key,
+                    api_base=api_base,
+                    timeout_minutes=10,
+                ):
+                    app_base = _map_api_host_to_app_host(api_base)
+                    evaluator_slug = _extract_terminal_segment(evaluator_id)
+                    dashboard_url = f"{app_base}/dashboard/evaluators/{evaluator_slug}"
+                    print("\n❌ Evaluator is not ready within the timeout period.")
+                    print(f"📊 Please check the evaluator status at: {dashboard_url}")
+                    print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
+                    return 1
+                _save_last_evaluator(project_root, evaluator_id)
+                skip_upload = True
+        except requests.exceptions.RequestException:
+            pass
+
     # Ensure evaluator exists by invoking the upload flow programmatically
-    try:
-        from .upload import upload_command
+    if not skip_upload:
+        try:
+            from .upload import upload_command
 
-        tests = _discover_tests(project_root)
-        selected_entry: Optional[str] = None
-        if len(tests) == 1:
-            func_name = tests[0].qualname.split(".")[-1]
-            abs_path = os.path.abspath(tests[0].file_path)
-            try:
-                rel = os.path.relpath(abs_path, project_root)
-            except Exception:
-                rel = abs_path
-            selected_entry = f"{rel}::{func_name}"
-        else:
-            # Try to match evaluator_id to a discovered test's normalized ID
-            for t in tests:
-                func_name = t.qualname.split(".")[-1]
-                source_file_name = os.path.splitext(os.path.basename(t.file_path))[0]
-                candidate = _normalize_evaluator_id(f"{source_file_name}-{func_name}")
-                if candidate == evaluator_id:
-                    abs_path = os.path.abspath(t.file_path)
-                    try:
-                        rel = os.path.relpath(abs_path, project_root)
-                    except Exception:
-                        rel = abs_path
-                    selected_entry = f"{rel}::{func_name}"
-                    break
+            tests = _discover_tests(project_root)
+            selected_entry: Optional[str] = None
+            if len(tests) == 1:
+                func_name = tests[0].qualname.split(".")[-1]
+                abs_path = os.path.abspath(tests[0].file_path)
+                try:
+                    rel = os.path.relpath(abs_path, project_root)
+                except Exception:
+                    rel = abs_path
+                selected_entry = f"{rel}::{func_name}"
+            else:
+                # Try to match evaluator_id to a discovered test's normalized ID
+                for t in tests:
+                    func_name = t.qualname.split(".")[-1]
+                    source_file_name = os.path.splitext(os.path.basename(t.file_path))[0]
+                    candidate = _normalize_evaluator_id(f"{source_file_name}-{func_name}")
+                    if candidate == evaluator_id:
+                        abs_path = os.path.abspath(t.file_path)
+                        try:
+                            rel = os.path.relpath(abs_path, project_root)
+                        except Exception:
+                            rel = abs_path
+                        selected_entry = f"{rel}::{func_name}"
+                        break
+                # If still unresolved and multiple tests exist, fail fast to avoid uploading unintended evaluators
+                if selected_entry is None:
+                    print(
+                        f"Error: Multiple evaluation tests found, and the selected evaluator_id {evaluator_id} does not match any discovered test.\n"
+                        "       Please re-run specifying the evaluator id.\n"
+                        "       Hints:\n"
+                        "         - eval-protocol create rft --evaluator-id <existing-evaluator-id>\n"
+                    )
+                    return 1
 
-        upload_args = argparse.Namespace(
-            path=project_root,
-            entry=selected_entry,
-            id=evaluator_id,
-            display_name=None,
-            description=None,
-            force=force,  # Pass through the --force flag
-            yes=True,
-            env_file=None,  # Add the new env_file parameter
-        )
-
-        if force:
-            print(f"🔄 Force flag enabled - will overwrite existing evaluator '{evaluator_id}'")
-
-        rc = upload_command(upload_args)
-        if rc == 0:
-            print(f"✓ Uploaded/ensured evaluator: {evaluator_id}")
-
-            # Poll for evaluator status
-            print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
-            is_active = _poll_evaluator_status(
-                evaluator_resource_name=evaluator_resource_name, api_key=api_key, api_base=api_base, timeout_minutes=10
+            upload_args = argparse.Namespace(
+                path=project_root,
+                entry=selected_entry,
+                id=evaluator_id,
+                display_name=None,
+                description=None,
+                force=force,  # Pass through the --force flag
+                yes=True,
+                env_file=None,  # Add the new env_file parameter
             )
 
-            if not is_active:
-                # Print helpful message with dashboard link
-                app_base = _map_api_host_to_app_host(api_base)
-                evaluator_slug = _extract_terminal_segment(evaluator_id)
-                dashboard_url = f"{app_base}/dashboard/evaluators/{evaluator_slug}"
+            if force:
+                print(f"🔄 Force flag enabled - will overwrite existing evaluator '{evaluator_id}'")
 
-                print("\n❌ Evaluator is not ready within the timeout period.")
-                print(f"📊 Please check the evaluator status at: {dashboard_url}")
-                print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
-                return 1
+            rc = upload_command(upload_args)
+            if rc == 0:
+                print(f"✓ Uploaded/ensured evaluator: {evaluator_id}")
+
+                # Poll for evaluator status
+                print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
+                is_active = _poll_evaluator_status(
+                    evaluator_resource_name=evaluator_resource_name,
+                    api_key=api_key,
+                    api_base=api_base,
+                    timeout_minutes=10,
+                )
+
+                if not is_active:
+                    # Print helpful message with dashboard link
+                    app_base = _map_api_host_to_app_host(api_base)
+                    evaluator_slug = _extract_terminal_segment(evaluator_id)
+                    dashboard_url = f"{app_base}/dashboard/evaluators/{evaluator_slug}"
+
+                    print("\n❌ Evaluator is not ready within the timeout period.")
+                    print(f"📊 Please check the evaluator status at: {dashboard_url}")
+                    print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
+                    return 1
+                else:
+                    # Only persist last-used evaluator after successful ensure + ACTIVE
+                    _save_last_evaluator(project_root, evaluator_id)
             else:
-                # Only persist last-used evaluator after successful ensure + ACTIVE
-                _save_last_evaluator(project_root, evaluator_id)
-        else:
-            print("Warning: Evaluator upload did not complete successfully; proceeding to RFT creation.")
-    except Exception as e:
-        print(f"Warning: Failed to upload evaluator automatically: {e}")
+                print("Warning: Evaluator upload did not complete successfully; proceeding to RFT creation.")
+        except Exception as e:
+            print(f"Warning: Failed to upload evaluator automatically: {e}")
 
     # Determine dataset id and materialization path
     dataset_id = getattr(args, "dataset_id", None)
