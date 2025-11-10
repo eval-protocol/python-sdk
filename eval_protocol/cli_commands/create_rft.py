@@ -251,6 +251,37 @@ def _build_trimmed_dataset_id(evaluator_id: str) -> str:
     return f"{base}{suffix}"
 
 
+def _resolve_selected_test(
+    project_root: str,
+    evaluator_id: Optional[str],
+    selected_tests: Optional[list] = None,
+) -> tuple[Optional[str], Optional[str]]:
+    """
+    Resolve a single test's source file path and function name to use downstream.
+    Priority:
+      1) If selected_tests provided and length == 1, use it.
+      2) Else discover tests; if exactly one test, use it.
+      3) Else, if evaluator_id provided, match by normalized '<file-stem>-<func-name>'.
+    Returns: (file_path, func_name) or (None, None) if unresolved.
+    """
+    try:
+        tests = selected_tests if selected_tests is not None else _discover_tests(project_root)
+        if not tests:
+            return None, None
+        if len(tests) == 1:
+            return tests[0].file_path, tests[0].qualname.split(".")[-1]
+        if evaluator_id:
+            for t in tests:
+                func_name = t.qualname.split(".")[-1]
+                source_file_name = os.path.splitext(os.path.basename(t.file_path))[0]
+                candidate = _normalize_evaluator_id(f"{source_file_name}-{func_name}")
+                if candidate == evaluator_id:
+                    return t.file_path, func_name
+        return None, None
+    except Exception:
+        return None, None
+
+
 def _poll_evaluator_status(
     evaluator_resource_name: str, api_key: str, api_base: str, timeout_minutes: int = 10
 ) -> bool:
@@ -354,12 +385,15 @@ def create_rft_command(args) -> int:
         if len(selected_tests) != 1:
             print("Error: Please select exactly one evaluation test for 'create rft'.")
             return 1
+        # Derive evaluator_id from user's single selection
         chosen = selected_tests[0]
         func_name = chosen.qualname.split(".")[-1]
         source_file_name = os.path.splitext(os.path.basename(chosen.file_path))[0]
         evaluator_id = _normalize_evaluator_id(f"{source_file_name}-{func_name}")
-        selected_test_file_path = chosen.file_path
-        selected_test_func_name = func_name
+        # Resolve selected test once for downstream
+        selected_test_file_path, selected_test_func_name = _resolve_selected_test(
+            project_root, evaluator_id, selected_tests=selected_tests
+        )
     # Resolve evaluator resource name to fully-qualified format required by API
     evaluator_resource_name = f"accounts/{account_id}/evaluators/{evaluator_id}"
 
@@ -392,6 +426,11 @@ def create_rft_command(args) -> int:
                     print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
                     return 1
                 skip_upload = True
+                # Populate selected test info for dataset inference later
+                st_path, st_func = _resolve_selected_test(project_root, evaluator_id)
+                if st_path and st_func:
+                    selected_test_file_path = st_path
+                    selected_test_func_name = st_func
         except requests.exceptions.RequestException:
             pass
 
@@ -402,32 +441,16 @@ def create_rft_command(args) -> int:
 
             tests = _discover_tests(project_root)
             selected_entry: Optional[str] = None
-            if len(tests) == 1:
-                func_name = tests[0].qualname.split(".")[-1]
-                abs_path = os.path.abspath(tests[0].file_path)
+            st_path, st_func = _resolve_selected_test(project_root, evaluator_id, selected_tests=tests)
+            if st_path and st_func:
+                abs_path = os.path.abspath(st_path)
                 try:
                     rel = os.path.relpath(abs_path, project_root)
                 except Exception:
                     rel = abs_path
-                selected_entry = f"{rel}::{func_name}"
-                selected_test_file_path = tests[0].file_path
-                selected_test_func_name = func_name
-            else:
-                # Try to match evaluator_id to a discovered test's normalized ID
-                for t in tests:
-                    func_name = t.qualname.split(".")[-1]
-                    source_file_name = os.path.splitext(os.path.basename(t.file_path))[0]
-                    candidate = _normalize_evaluator_id(f"{source_file_name}-{func_name}")
-                    if candidate == evaluator_id:
-                        abs_path = os.path.abspath(t.file_path)
-                        try:
-                            rel = os.path.relpath(abs_path, project_root)
-                        except Exception:
-                            rel = abs_path
-                        selected_entry = f"{rel}::{func_name}"
-                        selected_test_file_path = t.file_path
-                        selected_test_func_name = func_name
-                        break
+                selected_entry = f"{rel}::{st_func}"
+                selected_test_file_path = st_path
+                selected_test_func_name = st_func
             # If still unresolved and multiple tests exist, fail fast to avoid uploading unintended evaluators
             if selected_entry is None and len(tests) > 1:
                 print(

@@ -615,3 +615,96 @@ def test_create_rft_uses_input_dataset_jsonl_when_available(tmp_path, monkeypatc
     assert captured["dataset_id"] is not None
     assert captured["dataset_id"].startswith("test-input-ds-test-input-ds-dataset-")
     assert captured["jsonl_path"] == str(id_jsonl)
+
+
+def test_create_rft_quiet_existing_evaluator_infers_dataset_from_matching_test(tmp_path, monkeypatch):
+    # Setup project with multiple tests; evaluator exists (skip upload)
+    project = tmp_path / "proj"
+    project.mkdir()
+    monkeypatch.chdir(project)
+
+    # Env
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw_dummy")
+    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "acct123")
+    monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+
+    # Two tests discovered
+    f1 = project / "evals" / "alpha.py"
+    f2 = project / "evals" / "beta.py"
+    f1.parent.mkdir(parents=True, exist_ok=True)
+    f1.write_text("# alpha", encoding="utf-8")
+    f2.write_text("# beta", encoding="utf-8")
+    d1 = SimpleNamespace(qualname="alpha.test_one", file_path=str(f1))
+    d2 = SimpleNamespace(qualname="beta.test_two", file_path=str(f2))
+    monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [d1, d2])
+
+    # Evaluator exists and is ACTIVE (skip upload)
+    class _Resp:
+        ok = True
+
+        def json(self):
+            return {"state": "ACTIVE"}
+
+        def raise_for_status(self):
+            return None
+
+    monkeypatch.setattr(cr.requests, "get", lambda *a, **k: _Resp())
+    monkeypatch.setattr(cr, "_poll_evaluator_status", lambda **kwargs: True)
+
+    # We will provide JSONL via input_dataset extractor for matching test (beta.test_two)
+    jsonl_path = project / "data.jsonl"
+    jsonl_path.write_text('{"c":3}\n', encoding="utf-8")
+
+    # Stub extractors: only the matching test name should matter; our implementation calls extractor with file+func
+    def _extract_input_jsonl(file_path, func_name):
+        # Simulate returning JSONL regardless; dataset inference uses the selected test determined by evaluator_id
+        return str(jsonl_path)
+
+    monkeypatch.setattr(cr, "_extract_jsonl_from_dataloader", lambda f, fn: None)
+    monkeypatch.setattr(cr, "_extract_jsonl_from_input_dataset", _extract_input_jsonl)
+    monkeypatch.setattr(cr, "detect_dataset_builder", lambda metric_dir: None)
+
+    captured = {"dataset_id": None, "jsonl_path": None}
+
+    def _fake_create_dataset_from_jsonl(account_id, api_key, api_base, dataset_id, display_name, jsonl_path):
+        captured["dataset_id"] = dataset_id
+        captured["jsonl_path"] = jsonl_path
+        return dataset_id, {"name": f"accounts/{account_id}/datasets/{dataset_id}", "state": "UPLOADING"}
+
+    monkeypatch.setattr(cr, "create_dataset_from_jsonl", _fake_create_dataset_from_jsonl)
+    monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
+
+    import argparse
+
+    # Provide evaluator_id that matches beta.test_two
+    eval_id = cr._normalize_evaluator_id("beta-test_two")
+    args = argparse.Namespace(
+        evaluator_id=eval_id,
+        yes=True,
+        dry_run=False,
+        force=False,
+        env_file=None,
+        dataset_id=None,
+        dataset_jsonl=None,
+        dataset_display_name=None,
+        dataset_builder=None,
+        base_model=None,
+        warm_start_from="accounts/acct123/models/ft-abc123",
+        output_model=None,
+        n=None,
+        max_tokens=None,
+        learning_rate=None,
+        batch_size=None,
+        epochs=None,
+        lora_rank=None,
+        max_context_length=None,
+        chunk_size=None,
+        eval_auto_carveout=None,
+    )
+
+    rc = cr.create_rft_command(args)
+    assert rc == 0
+    assert captured["dataset_id"] is not None
+    # Ensure the dataset id is based on evaluator_id
+    assert captured["dataset_id"].startswith(f"{eval_id}-dataset-")
+    assert captured["jsonl_path"] == str(jsonl_path)
