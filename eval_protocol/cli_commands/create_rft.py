@@ -20,7 +20,7 @@ from ..fireworks_rft import (
     create_dataset_from_jsonl,
     create_reinforcement_fine_tuning_job,
 )
-from .upload import _discover_tests, _normalize_evaluator_id, _resolve_entry_to_qual_and_source
+from .upload import _discover_tests, _normalize_evaluator_id, _prompt_select
 
 
 def _ensure_account_id() -> Optional[str]:
@@ -331,7 +331,6 @@ def create_rft_command(args) -> int:
 
     # Resolve evaluator id/entry if omitted (reuse upload's selector flow)
     project_root = os.getcwd()
-    preselected_entry: Optional[str] = None
     if not evaluator_id:
         print("Scanning for evaluation tests...")
         tests = _discover_tests(project_root)
@@ -341,9 +340,7 @@ def create_rft_command(args) -> int:
             return 1
         # Always interactive selection here (no implicit quiet unless --evaluator-id was provided)
         try:
-            from .upload import _prompt_select  # reuse the same selector UX as 'upload'
-
-            selected_tests = _prompt_select(tests, non_interactive=False)
+            selected_tests = _prompt_select(tests, non_interactive=non_interactive)
         except Exception:
             print("Error: Failed to open selector UI. Please pass --evaluator-id or --entry explicitly.")
             return 1
@@ -355,12 +352,6 @@ def create_rft_command(args) -> int:
             return 1
         chosen = selected_tests[0]
         func_name = chosen.qualname.split(".")[-1]
-        abs_path = os.path.abspath(chosen.file_path)
-        try:
-            rel = os.path.relpath(abs_path, project_root)
-        except Exception:
-            rel = abs_path
-        preselected_entry = f"{rel}::{func_name}"
         source_file_name = os.path.splitext(os.path.basename(chosen.file_path))[0]
         evaluator_id = _normalize_evaluator_id(f"{source_file_name}-{func_name}")
     # Resolve evaluator resource name to fully-qualified format required by API
