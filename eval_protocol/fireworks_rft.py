@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple
 
@@ -224,7 +225,8 @@ def build_default_dataset_id(evaluator_id: str) -> str:
 
 def build_default_output_model(evaluator_id: str) -> str:
     base = evaluator_id.lower().replace("_", "-")
-    return f"{base}-rft"
+    uuid_suffix = str(uuid.uuid4())[:4]
+    return f"{base}-rft-{uuid_suffix}"
 
 
 __all__ = [
