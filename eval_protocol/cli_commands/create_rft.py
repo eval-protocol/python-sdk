@@ -20,6 +20,7 @@ from ..fireworks_rft import (
     create_dataset_from_jsonl,
     create_reinforcement_fine_tuning_job,
 )
+from ..fireworks_rft import detect_dataset_builder, materialize_dataset_via_builder
 from .upload import _discover_tests, _normalize_evaluator_id, _prompt_select
 
 
@@ -316,6 +317,9 @@ def create_rft_command(args) -> int:
     non_interactive: bool = bool(getattr(args, "yes", False))
     dry_run: bool = bool(getattr(args, "dry_run", False))
     force: bool = bool(getattr(args, "force", False))
+    # Track the specifically chosen test (if any) to aid dataset inference later
+    selected_test_file_path: Optional[str] = None
+    selected_test_func_name: Optional[str] = None
 
     api_key = get_fireworks_api_key()
     if not api_key:
@@ -354,6 +358,8 @@ def create_rft_command(args) -> int:
         func_name = chosen.qualname.split(".")[-1]
         source_file_name = os.path.splitext(os.path.basename(chosen.file_path))[0]
         evaluator_id = _normalize_evaluator_id(f"{source_file_name}-{func_name}")
+        selected_test_file_path = chosen.file_path
+        selected_test_func_name = func_name
     # Resolve evaluator resource name to fully-qualified format required by API
     evaluator_resource_name = f"accounts/{account_id}/evaluators/{evaluator_id}"
 
@@ -404,6 +410,8 @@ def create_rft_command(args) -> int:
                 except Exception:
                     rel = abs_path
                 selected_entry = f"{rel}::{func_name}"
+                selected_test_file_path = tests[0].file_path
+                selected_test_func_name = func_name
             else:
                 # Try to match evaluator_id to a discovered test's normalized ID
                 for t in tests:
@@ -417,6 +425,8 @@ def create_rft_command(args) -> int:
                         except Exception:
                             rel = abs_path
                         selected_entry = f"{rel}::{func_name}"
+                        selected_test_file_path = t.file_path
+                        selected_test_func_name = func_name
                         break
             # If still unresolved and multiple tests exist, fail fast to avoid uploading unintended evaluators
             if selected_entry is None and len(tests) > 1:
@@ -480,30 +490,48 @@ def create_rft_command(args) -> int:
     dataset_builder = getattr(args, "dataset_builder", None)  # accepted but unused in simplified flow
 
     if not dataset_id:
-        # Prefer explicit --dataset-jsonl, else attempt to extract from data loader or input_dataset of the single discovered test
+        # Prefer explicit --dataset-jsonl, else attempt to extract from the selected test's data loader or input_dataset.
         if not dataset_jsonl:
-            tests = _discover_tests(project_root)
-            if len(tests) == 1:
-                func_name = tests[0].qualname.split(".")[-1]
-                # Try data_loaders first (existing behavior)
-                dataset_jsonl = _extract_jsonl_from_dataloader(tests[0].file_path, func_name)
+            # Use specifically selected test if available; else only infer when exactly one test exists
+            test_file_for_infer = None
+            func_for_infer = None
+            if selected_test_file_path and selected_test_func_name:
+                test_file_for_infer = selected_test_file_path
+                func_for_infer = selected_test_func_name
+            else:
+                tests = _discover_tests(project_root)
+                if len(tests) == 1:
+                    test_file_for_infer = tests[0].file_path
+                    func_for_infer = tests[0].qualname.split(".")[-1]
+            if test_file_for_infer and func_for_infer:
+                # Try data_loaders first
+                dataset_jsonl = _extract_jsonl_from_dataloader(test_file_for_infer, func_for_infer)
                 if dataset_jsonl:
-                    # Display relative path for readability
                     try:
                         rel = os.path.relpath(dataset_jsonl, project_root)
                     except Exception:
                         rel = dataset_jsonl
                     print(f"✓ Using JSONL from data loader: {rel}")
-                else:
+                if not dataset_jsonl:
                     # Fall back to input_dataset (dataset_path)
-                    dataset_jsonl = _extract_jsonl_from_input_dataset(tests[0].file_path, func_name)
+                    dataset_jsonl = _extract_jsonl_from_input_dataset(test_file_for_infer, func_for_infer)
                     if dataset_jsonl:
-                        # Display relative path for readability
                         try:
                             rel = os.path.relpath(dataset_jsonl, project_root)
                         except Exception:
                             rel = dataset_jsonl
                         print(f"✓ Using JSONL from input_dataset: {rel}")
+                if not dataset_jsonl:
+                    # Last resort: attempt to detect and run a dataset builder in the test's directory
+                    metric_dir = os.path.dirname(test_file_for_infer)
+                    builder_spec = detect_dataset_builder(metric_dir)
+                    if builder_spec:
+                        try:
+                            tmp_jsonl, count = materialize_dataset_via_builder(builder_spec)
+                            dataset_jsonl = tmp_jsonl
+                            print(f"✓ Materialized {count} rows via dataset builder: {builder_spec}")
+                        except Exception as e:
+                            print(f"Warning: dataset builder failed: {e}")
         if not dataset_jsonl:
             print(
                 "Error: Could not determine dataset. Provide --dataset-id or --dataset-jsonl, or ensure a JSONL-based data loader or input_dataset is used in your single discovered test."

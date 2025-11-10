@@ -386,3 +386,232 @@ def test_create_rft_quiet_new_evaluator_ambiguous_without_entry_errors(tmp_path,
 
     rc = cr.create_rft_command(args)
     assert rc == 1
+
+
+def test_create_rft_fallback_to_dataset_builder(tmp_path, monkeypatch):
+    # Setup project
+    project = tmp_path / "proj"
+    project.mkdir()
+    monkeypatch.chdir(project)
+
+    # Single discovered test without data_loaders or input_dataset
+    test_file = project / "metric" / "test_builder.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("# builder case", encoding="utf-8")
+    single_disc = SimpleNamespace(qualname="metric.test_builder", file_path=str(test_file))
+    monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [single_disc])
+
+    # Environment
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw_dummy")
+    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "acct123")
+    monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+
+    # Stub selector, upload, and polling
+    import eval_protocol.cli_commands.upload as upload_mod
+
+    monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
+    monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
+    monkeypatch.setattr(cr, "_poll_evaluator_status", lambda **kwargs: True)
+
+    # Dataset builder fallback
+    out_jsonl = project / "metric" / "builder_out.jsonl"
+    out_jsonl.write_text('{"row":1}\n{"row":2}\n', encoding="utf-8")
+
+    monkeypatch.setattr(cr, "detect_dataset_builder", lambda metric_dir: "builder.py::build_training_dataset")
+    monkeypatch.setattr(cr, "materialize_dataset_via_builder", lambda spec: (str(out_jsonl), 2))
+
+    # Capture dataset creation args
+    captured = {"dataset_id": None, "jsonl_path": None}
+
+    def _fake_create_dataset_from_jsonl(account_id, api_key, api_base, dataset_id, display_name, jsonl_path):
+        captured["dataset_id"] = dataset_id
+        captured["jsonl_path"] = jsonl_path
+        return dataset_id, {"name": f"accounts/{account_id}/datasets/{dataset_id}", "state": "UPLOADING"}
+
+    monkeypatch.setattr(cr, "create_dataset_from_jsonl", _fake_create_dataset_from_jsonl)
+    monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
+
+    # Run without dataset inputs so builder path is used
+    import argparse
+
+    args = argparse.Namespace(
+        evaluator_id=None,
+        yes=True,
+        dry_run=False,
+        force=False,
+        env_file=None,
+        dataset_id=None,
+        dataset_jsonl=None,
+        dataset_display_name=None,
+        dataset_builder=None,
+        base_model=None,
+        warm_start_from="accounts/acct123/models/ft-abc123",
+        output_model=None,
+        n=None,
+        max_tokens=None,
+        learning_rate=None,
+        batch_size=None,
+        epochs=None,
+        lora_rank=None,
+        max_context_length=None,
+        chunk_size=None,
+        eval_auto_carveout=None,
+    )
+
+    rc = cr.create_rft_command(args)
+    assert rc == 0
+    # Evaluator id derived from test_builder -> "test-builder-test-builder"
+    assert captured["dataset_id"] is not None
+    assert captured["dataset_id"].startswith("test-builder-test-builder-dataset-")
+    # Ensure we used the materialized JSONL
+    assert captured["jsonl_path"] == str(out_jsonl)
+
+
+def test_create_rft_uses_dataloader_jsonl_when_available(tmp_path, monkeypatch):
+    # Setup project
+    project = tmp_path / "proj"
+    project.mkdir()
+    monkeypatch.chdir(project)
+
+    # Single discovered test
+    test_file = project / "metric" / "test_loader.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("# loader case", encoding="utf-8")
+    single_disc = SimpleNamespace(qualname="metric.test_loader", file_path=str(test_file))
+    monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [single_disc])
+
+    # Environment
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw_dummy")
+    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "acct123")
+    monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+
+    # Stub selector, upload, and polling
+    import eval_protocol.cli_commands.upload as upload_mod
+
+    monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
+    monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
+    monkeypatch.setattr(cr, "_poll_evaluator_status", lambda **kwargs: True)
+
+    # Provide JSONL via dataloader extractor
+    dl_jsonl = project / "metric" / "loader_out.jsonl"
+    dl_jsonl.write_text('{"a":1}\n', encoding="utf-8")
+    monkeypatch.setattr(cr, "_extract_jsonl_from_dataloader", lambda f, fn: str(dl_jsonl))
+    monkeypatch.setattr(cr, "_extract_jsonl_from_input_dataset", lambda f, fn: None)
+    monkeypatch.setattr(cr, "detect_dataset_builder", lambda metric_dir: None)
+
+    captured = {"dataset_id": None, "jsonl_path": None}
+
+    def _fake_create_dataset_from_jsonl(account_id, api_key, api_base, dataset_id, display_name, jsonl_path):
+        captured["dataset_id"] = dataset_id
+        captured["jsonl_path"] = jsonl_path
+        return dataset_id, {"name": f"accounts/{account_id}/datasets/{dataset_id}", "state": "UPLOADING"}
+
+    monkeypatch.setattr(cr, "create_dataset_from_jsonl", _fake_create_dataset_from_jsonl)
+    monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
+
+    import argparse
+
+    args = argparse.Namespace(
+        evaluator_id=None,
+        yes=True,
+        dry_run=False,
+        force=False,
+        env_file=None,
+        dataset_id=None,
+        dataset_jsonl=None,
+        dataset_display_name=None,
+        dataset_builder=None,
+        base_model=None,
+        warm_start_from="accounts/acct123/models/ft-abc123",
+        output_model=None,
+        n=None,
+        max_tokens=None,
+        learning_rate=None,
+        batch_size=None,
+        epochs=None,
+        lora_rank=None,
+        max_context_length=None,
+        chunk_size=None,
+        eval_auto_carveout=None,
+    )
+
+    rc = cr.create_rft_command(args)
+    assert rc == 0
+    assert captured["dataset_id"] is not None
+    assert captured["dataset_id"].startswith("test-loader-test-loader-dataset-")
+    assert captured["jsonl_path"] == str(dl_jsonl)
+
+
+def test_create_rft_uses_input_dataset_jsonl_when_available(tmp_path, monkeypatch):
+    # Setup project
+    project = tmp_path / "proj"
+    project.mkdir()
+    monkeypatch.chdir(project)
+
+    # Single discovered test
+    test_file = project / "metric" / "test_input_ds.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("# input_dataset case", encoding="utf-8")
+    single_disc = SimpleNamespace(qualname="metric.test_input_ds", file_path=str(test_file))
+    monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [single_disc])
+
+    # Environment
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw_dummy")
+    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "acct123")
+    monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+
+    # Stub selector, upload, and polling
+    import eval_protocol.cli_commands.upload as upload_mod
+
+    monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
+    monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
+    monkeypatch.setattr(cr, "_poll_evaluator_status", lambda **kwargs: True)
+
+    # Provide JSONL via input_dataset extractor
+    id_jsonl = project / "metric" / "input_ds_out.jsonl"
+    id_jsonl.write_text('{"b":2}\n', encoding="utf-8")
+    monkeypatch.setattr(cr, "_extract_jsonl_from_dataloader", lambda f, fn: None)
+    monkeypatch.setattr(cr, "_extract_jsonl_from_input_dataset", lambda f, fn: str(id_jsonl))
+    monkeypatch.setattr(cr, "detect_dataset_builder", lambda metric_dir: None)
+
+    captured = {"dataset_id": None, "jsonl_path": None}
+
+    def _fake_create_dataset_from_jsonl(account_id, api_key, api_base, dataset_id, display_name, jsonl_path):
+        captured["dataset_id"] = dataset_id
+        captured["jsonl_path"] = jsonl_path
+        return dataset_id, {"name": f"accounts/{account_id}/datasets/{dataset_id}", "state": "UPLOADING"}
+
+    monkeypatch.setattr(cr, "create_dataset_from_jsonl", _fake_create_dataset_from_jsonl)
+    monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
+
+    import argparse
+
+    args = argparse.Namespace(
+        evaluator_id=None,
+        yes=True,
+        dry_run=False,
+        force=False,
+        env_file=None,
+        dataset_id=None,
+        dataset_jsonl=None,
+        dataset_display_name=None,
+        dataset_builder=None,
+        base_model=None,
+        warm_start_from="accounts/acct123/models/ft-abc123",
+        output_model=None,
+        n=None,
+        max_tokens=None,
+        learning_rate=None,
+        batch_size=None,
+        epochs=None,
+        lora_rank=None,
+        max_context_length=None,
+        chunk_size=None,
+        eval_auto_carveout=None,
+    )
+
+    rc = cr.create_rft_command(args)
+    assert rc == 0
+    assert captured["dataset_id"] is not None
+    assert captured["dataset_id"].startswith("test-input-ds-test-input-ds-dataset-")
+    assert captured["jsonl_path"] == str(id_jsonl)
