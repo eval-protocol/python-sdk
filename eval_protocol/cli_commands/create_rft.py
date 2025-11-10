@@ -383,7 +383,23 @@ def create_rft_command(args) -> int:
             print("No tests selected.")
             return 1
         if len(selected_tests) != 1:
-            print("Error: Please select exactly one evaluation test for 'create rft'.")
+            if non_interactive and len(selected_tests) > 1:
+                print("Error: Multiple evaluation tests found in --yes (non-interactive) mode.")
+                print("       Please pass --evaluator-id or --entry to disambiguate.")
+                try:
+                    # Offer candidate evaluator ids for convenience
+                    tests = _discover_tests(project_root)
+                    if tests:
+                        print("       Candidate evaluator ids:")
+                        for t in tests:
+                            func = t.qualname.split(".")[-1]
+                            stem = os.path.splitext(os.path.basename(t.file_path))[0]
+                            cand = _normalize_evaluator_id(f"{stem}-{func}")
+                            print(f"         - {cand}")
+                except Exception:
+                    pass
+            else:
+                print("Error: Please select exactly one evaluation test for 'create rft'.")
             return 1
         # Derive evaluator_id from user's single selection
         chosen = selected_tests[0]
