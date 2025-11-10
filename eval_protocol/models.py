@@ -14,6 +14,7 @@ from openai.types.chat.chat_completion_message import (
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall,
 )
+from openai.types.chat import ChatCompletionContentPartImageParam
 from pydantic import BaseModel, ConfigDict, Field
 
 from eval_protocol.get_pep440_version import get_pep440_version
@@ -462,9 +463,9 @@ class Message(BaseModel):
     """Chat message model with trajectory evaluation support."""
 
     role: str  # assistant, user, system, tool
-    content: Optional[Union[str, List[ChatCompletionContentPartTextParam]]] = Field(
-        default="", description="The content of the message."
-    )
+    content: Optional[
+        Union[str, List[Union[ChatCompletionContentPartTextParam, ChatCompletionContentPartImageParam]]]
+    ] = Field(default="", description="The content of the message.")
     reasoning_content: Optional[str] = Field(
         default=None, description="Optional hidden chain-of-thought or reasoning content."
     )
