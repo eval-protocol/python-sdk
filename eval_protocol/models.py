@@ -1,7 +1,7 @@
 import os
 import logging
 import importlib
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Union
 
@@ -825,7 +825,10 @@ class EvaluationRow(BaseModel):
         description="Metadata about the execution of the evaluation.",
     )
 
-    created_at: datetime = Field(default_factory=datetime.now, description="The timestamp when the row was created.")
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="The timestamp when the row was created (UTC).",
+    )
 
     eval_metadata: Optional[EvalMetadata] = Field(
         default=None, description="Metadata about the evaluation that was run."
