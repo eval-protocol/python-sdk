@@ -437,7 +437,7 @@ def _prompt_select_interactive(tests: list[DiscoveredTest]) -> list[DiscoveredTe
         # Check if only one test - auto-select it
         if len(tests) == 1:
             print(f"\nFound 1 test: {_format_test_choice(tests[0], 1)}")
-            confirm = questionary.confirm("Upload this test?", default=True, style=custom_style).ask()
+            confirm = questionary.confirm("Select this test?", default=True, style=custom_style).ask()
             if confirm:
                 return tests
             else:
@@ -500,7 +500,7 @@ def _prompt_select_fallback(tests: list[DiscoveredTest]) -> list[DiscoveredTest]
 
     print("=" * 80)
     try:
-        choice = input("Enter the number to upload: ").strip()
+        choice = input("Enter the number to select: ").strip()
     except KeyboardInterrupt:
         print("\n\nUpload cancelled.")
         return []

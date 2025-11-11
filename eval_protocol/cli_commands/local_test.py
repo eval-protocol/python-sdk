@@ -50,13 +50,19 @@ def _run_pytest_in_docker(project_root: str, image_tag: str, pytest_target: str)
         "--rm",
         "-v",
         f"{project_root}:{workdir}",
+        "-e",
+        f"EVAL_PROTOCOL_DIR={workdir}/.eval_protocol",
         "-w",
         workdir,
-        image_tag,
-        "pytest",
-        pytest_target,
-        "-vs",
     ]
+    # Try to match host user to avoid permission problems on mounted volume
+    try:
+        uid = os.getuid()  # type: ignore[attr-defined]
+        gid = os.getgid()  # type: ignore[attr-defined]
+        cmd += ["--user", f"{uid}:{gid}"]
+    except Exception:
+        pass
+    cmd += [image_tag, "pytest", pytest_target, "-vs"]
     print("Running in Docker:", " ".join(cmd))
     try:
         proc = subprocess.run(cmd)
@@ -123,6 +129,11 @@ def local_test_command(args: argparse.Namespace) -> int:
         print("Hint: use --ignore-docker to bypass Docker.")
         return 1
     if len(dockerfiles) == 1:
+        # Ensure shared logs directory exists on host so container writes are visible to host ep logs
+        try:
+            os.makedirs(os.path.join(project_root, ".eval_protocol"), exist_ok=True)
+        except Exception:
+            pass
         image_tag = "ep-evaluator:local"
         ok = _build_docker_image(dockerfiles[0], image_tag)
         if not ok:
