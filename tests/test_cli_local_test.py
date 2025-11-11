@@ -222,3 +222,36 @@ def test_local_test_passes_docker_run_extra(tmp_path, monkeypatch):
         "--cpus=2",
         "--add-host=host.docker.internal:host-gateway",
     ]
+
+
+def test_local_test_normalizes_entry_with_selector(tmp_path, monkeypatch):
+    project = tmp_path / "proj"
+    project.mkdir()
+    monkeypatch.chdir(project)
+
+    # Create a dummy test file
+    test_file = project / "metric" / "test_sel_abs.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_dummy():\n    assert True\n", encoding="utf-8")
+
+    abs_entry = f"{str(test_file)}::test_dummy"
+
+    from eval_protocol.cli_commands import local_test as lt
+
+    # Avoid Docker path
+    monkeypatch.setattr(lt, "_find_dockerfiles", lambda root: [])
+
+    captured = {"target": ""}
+
+    def _fake_host(target: str) -> int:
+        captured["target"] = target
+        return 0
+
+    monkeypatch.setattr(lt, "_run_pytest_host", _fake_host)
+
+    args = SimpleNamespace(entry=abs_entry, ignore_docker=False, yes=True)
+    rc = lt.local_test_command(args)  # pyright: ignore[reportArgumentType]
+    assert rc == 0
+    # Expect project-relative path plus selector
+    rel = os.path.relpath(str(test_file), str(project))
+    assert captured["target"] == f"{rel}::test_dummy"

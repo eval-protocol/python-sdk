@@ -95,11 +95,16 @@ def local_test_command(args: argparse.Namespace) -> int:
     entry = getattr(args, "entry", None)
     if entry:
         if "::" in entry:
-            file_part = entry.split("::", 1)[0]
+            file_part, func_part = entry.split("::", 1)
             file_path = (
                 file_part if os.path.isabs(file_part) else os.path.abspath(os.path.join(project_root, file_part))
             )
-            pytest_target = entry
+            # Convert to project-relative like the non-:: path
+            try:
+                rel = os.path.relpath(file_path, project_root)
+            except Exception:
+                rel = file_path
+            pytest_target = f"{rel}::{func_part}"
         else:
             file_path = entry if os.path.isabs(entry) else os.path.abspath(os.path.join(project_root, entry))
             # Use path relative to project_root when possible
