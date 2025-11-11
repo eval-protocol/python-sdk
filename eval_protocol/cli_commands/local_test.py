@@ -51,6 +51,8 @@ def _run_pytest_in_docker(project_root: str, image_tag: str, pytest_target: str)
         "-v",
         f"{project_root}:{workdir}",
         "-e",
+        f"HOME={workdir}",
+        "-e",
         f"EVAL_PROTOCOL_DIR={workdir}/.eval_protocol",
         "-w",
         workdir,
