@@ -43,6 +43,13 @@ def _build_docker_image(dockerfile_path: str, image_tag: str) -> bool:
 
 def _run_pytest_in_docker(project_root: str, image_tag: str, pytest_target: str) -> int:
     workdir = "/workspace"
+    # Host HOME logs directory to map into container
+    host_home = os.path.expanduser("~")
+    host_logs_dir = os.path.join(host_home, ".eval_protocol")
+    try:
+        os.makedirs(host_logs_dir, exist_ok=True)
+    except Exception:
+        pass
     # Mount read-only is safer; but tests may write artifacts. Use read-write.
     cmd = [
         "docker",
@@ -50,10 +57,12 @@ def _run_pytest_in_docker(project_root: str, image_tag: str, pytest_target: str)
         "--rm",
         "-v",
         f"{project_root}:{workdir}",
+        "-v",
+        f"{host_logs_dir}:/container_home/.eval_protocol",
         "-e",
-        f"HOME={workdir}",
+        "HOME=/container_home",
         "-e",
-        f"EVAL_PROTOCOL_DIR={workdir}/.eval_protocol",
+        "EVAL_PROTOCOL_DIR=/container_home/.eval_protocol",
         "-w",
         workdir,
     ]
@@ -131,9 +140,9 @@ def local_test_command(args: argparse.Namespace) -> int:
         print("Hint: use --ignore-docker to bypass Docker.")
         return 1
     if len(dockerfiles) == 1:
-        # Ensure shared logs directory exists on host so container writes are visible to host ep logs
+        # Ensure host home logs directory exists so container writes are visible to host ep logs
         try:
-            os.makedirs(os.path.join(project_root, ".eval_protocol"), exist_ok=True)
+            os.makedirs(os.path.join(os.path.expanduser("~"), ".eval_protocol"), exist_ok=True)
         except Exception:
             pass
         image_tag = "ep-evaluator:local"
