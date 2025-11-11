@@ -24,12 +24,16 @@ def _run_pytest_host(pytest_target: str) -> int:
     return proc.returncode
 
 
-def _build_docker_image(dockerfile_path: str, image_tag: str) -> bool:
+def _build_docker_image(dockerfile_path: str, image_tag: str, platform: str | None = None) -> bool:
     context_dir = os.path.dirname(dockerfile_path)
     print(f"Building Docker image '{image_tag}' from {dockerfile_path} ...")
     try:
+        cmd = ["docker", "build"]
+        if platform:
+            cmd += ["--platform", platform]
+        cmd += ["-t", image_tag, "-f", dockerfile_path, context_dir]
         proc = subprocess.run(
-            ["docker", "build", "-t", image_tag, "-f", dockerfile_path, context_dir],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -41,7 +45,7 @@ def _build_docker_image(dockerfile_path: str, image_tag: str) -> bool:
         return False
 
 
-def _run_pytest_in_docker(project_root: str, image_tag: str, pytest_target: str) -> int:
+def _run_pytest_in_docker(project_root: str, image_tag: str, pytest_target: str, platform: str | None = None) -> int:
     workdir = "/workspace"
     # Mount read-only is safer; but tests may write artifacts. Use read-write.
     cmd = [
@@ -57,6 +61,8 @@ def _run_pytest_in_docker(project_root: str, image_tag: str, pytest_target: str)
         "-w",
         workdir,
     ]
+    if platform:
+        cmd += ["--platform", platform]
     # Try to match host user to avoid permission problems on mounted volume
     try:
         uid = os.getuid()  # type: ignore[attr-defined]
@@ -136,15 +142,19 @@ def local_test_command(args: argparse.Namespace) -> int:
             os.makedirs(os.path.join(project_root, ".eval_protocol"), exist_ok=True)
         except Exception:
             pass
+        # Choose platform to emulate Linux host (default to amd64 on macOS, override with EP_DOCKER_PLATFORM)
+        selected_platform = os.environ.get("EP_DOCKER_PLATFORM")
+        if not selected_platform and sys.platform == "darwin":
+            selected_platform = "linux/amd64"
         image_tag = "ep-evaluator:local"
-        ok = _build_docker_image(dockerfiles[0], image_tag)
+        ok = _build_docker_image(dockerfiles[0], image_tag, platform=selected_platform)
         if not ok:
             print("Docker build failed. See logs above.")
             return 1
         if not pytest_target:
             print("Error: Failed to resolve a pytest target to run.")
             return 1
-        return _run_pytest_in_docker(project_root, image_tag, pytest_target)
+        return _run_pytest_in_docker(project_root, image_tag, pytest_target, platform=selected_platform)
 
     # No Dockerfile: run on host
     if not pytest_target:

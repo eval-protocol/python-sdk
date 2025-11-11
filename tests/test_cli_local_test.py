@@ -95,11 +95,11 @@ def test_local_test_builds_and_runs_in_docker(tmp_path, monkeypatch):
     from eval_protocol.cli_commands import local_test as lt
 
     monkeypatch.setattr(lt, "_find_dockerfiles", lambda root: [str(project / "Dockerfile")])
-    monkeypatch.setattr(lt, "_build_docker_image", lambda dockerfile, tag: True)
+    monkeypatch.setattr(lt, "_build_docker_image", lambda dockerfile, tag, platform=None: True)
 
     captured = {"target": "", "image": ""}
 
-    def _fake_run_docker(root: str, image_tag: str, pytest_target: str) -> int:
+    def _fake_run_docker(root: str, image_tag: str, pytest_target: str, platform=None) -> int:
         captured["target"] = pytest_target
         captured["image"] = image_tag
         return 0
