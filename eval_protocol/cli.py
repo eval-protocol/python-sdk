@@ -447,6 +447,16 @@ def parse_args(args=None):
         action="store_true",
         help="Non-interactive: if multiple tests exist and no --entry, fails with guidance",
     )
+    local_test_parser.add_argument(
+        "--docker-build-extra",
+        default="",
+        help="Extra flags to pass to 'docker build' (quoted string, e.g. \"--no-cache --pull --progress=plain\")",
+    )
+    local_test_parser.add_argument(
+        "--docker-run-extra",
+        default="",
+        help="Extra flags to pass to 'docker run' (quoted string, e.g. \"--env-file .env --memory=8g\")",
+    )
 
     # Run command (for Hydra-based evaluations)
     # This subparser intentionally defines no arguments itself.

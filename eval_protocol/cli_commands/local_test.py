@@ -2,6 +2,7 @@ import argparse
 import os
 import subprocess
 import sys
+import shlex
 from typing import List
 
 from .upload import _discover_tests, _prompt_select
@@ -24,16 +25,15 @@ def _run_pytest_host(pytest_target: str) -> int:
     return proc.returncode
 
 
-def _build_docker_image(dockerfile_path: str, image_tag: str) -> bool:
+def _build_docker_image(dockerfile_path: str, image_tag: str, build_extras: List[str] | None = None) -> bool:
     context_dir = os.path.dirname(dockerfile_path)
     print(f"Building Docker image '{image_tag}' from {dockerfile_path} ...")
     try:
-        proc = subprocess.run(
-            ["docker", "build", "-t", image_tag, "-f", dockerfile_path, context_dir],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
+        base_cmd = ["docker", "build"]
+        if build_extras:
+            base_cmd += build_extras
+        base_cmd += ["-t", image_tag, "-f", dockerfile_path, context_dir]
+        proc = subprocess.run(base_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         print(proc.stdout)
         return proc.returncode == 0
     except FileNotFoundError:
@@ -41,7 +41,9 @@ def _build_docker_image(dockerfile_path: str, image_tag: str) -> bool:
         return False
 
 
-def _run_pytest_in_docker(project_root: str, image_tag: str, pytest_target: str) -> int:
+def _run_pytest_in_docker(
+    project_root: str, image_tag: str, pytest_target: str, run_extras: List[str] | None = None
+) -> int:
     workdir = "/workspace"
     # Host HOME logs directory to map into container
     host_home = os.path.expanduser("~")
@@ -73,6 +75,8 @@ def _run_pytest_in_docker(project_root: str, image_tag: str, pytest_target: str)
         cmd += ["--user", f"{uid}:{gid}"]
     except Exception:
         pass
+    if run_extras:
+        cmd += run_extras
     cmd += [image_tag, "pytest", pytest_target, "-vs"]
     print("Running in Docker:", " ".join(cmd))
     try:
@@ -126,6 +130,10 @@ def local_test_command(args: argparse.Namespace) -> int:
         pytest_target = rel
 
     ignore_docker = bool(getattr(args, "ignore_docker", False))
+    build_extras_str = getattr(args, "docker_build_extra", "") or ""
+    run_extras_str = getattr(args, "docker_run_extra", "") or ""
+    build_extras = shlex.split(build_extras_str) if build_extras_str else []
+    run_extras = shlex.split(run_extras_str) if run_extras_str else []
     if ignore_docker:
         if not pytest_target:
             print("Error: Failed to resolve a pytest target to run.")
@@ -146,14 +154,14 @@ def local_test_command(args: argparse.Namespace) -> int:
         except Exception:
             pass
         image_tag = "ep-evaluator:local"
-        ok = _build_docker_image(dockerfiles[0], image_tag)
+        ok = _build_docker_image(dockerfiles[0], image_tag, build_extras=build_extras)
         if not ok:
             print("Docker build failed. See logs above.")
             return 1
         if not pytest_target:
             print("Error: Failed to resolve a pytest target to run.")
             return 1
-        return _run_pytest_in_docker(project_root, image_tag, pytest_target)
+        return _run_pytest_in_docker(project_root, image_tag, pytest_target, run_extras=run_extras)
 
     # No Dockerfile: run on host
     if not pytest_target:
