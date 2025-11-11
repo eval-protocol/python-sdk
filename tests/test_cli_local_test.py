@@ -123,12 +123,11 @@ def test_local_test_selector_single_test(tmp_path, monkeypatch):
     test_file.write_text("def test_dummy():\n    assert True\n", encoding="utf-8")
 
     from eval_protocol.cli_commands import local_test as lt
-    from eval_protocol.cli_commands import upload as up
 
     # No entry; force discover + selector
     disc = SimpleNamespace(qualname="metric.test_sel", file_path=str(test_file))
     monkeypatch.setattr(lt, "_discover_tests", lambda root: [disc])
-    monkeypatch.setattr(up, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
+    monkeypatch.setattr(lt, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(lt, "_find_dockerfiles", lambda root: [])
 
     called = {"host": False}
