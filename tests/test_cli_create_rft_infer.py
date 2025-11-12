@@ -723,7 +723,7 @@ def test_create_rft_uses_input_dataset_jsonl_when_available(tmp_path, monkeypatc
     import argparse
 
     args = argparse.Namespace(
-        evaluator_id=None,
+        evaluator=None,
         yes=True,
         dry_run=False,
         force=False,
@@ -950,3 +950,89 @@ def test_cli_full_command_style_evaluator_and_dataset_flags(monkeypatch):
     # Job id sent as query param
     assert captured["url"] is not None and "reinforcementFineTuningJobId=custom-job-123" in captured["url"]
     assert "jobId" not in body
+
+
+def test_create_rft_prefers_explicit_dataset_jsonl_over_input_dataset(tmp_path, monkeypatch):
+    # Setup project
+    project = tmp_path / "proj"
+    project.mkdir()
+    monkeypatch.chdir(project)
+
+    # Environment
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw_dummy")
+    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "acct123")
+    monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+
+    # Single discovered test
+    test_file = project / "metric" / "test_pref.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("# prefer explicit dataset_jsonl", encoding="utf-8")
+    single_disc = SimpleNamespace(qualname="metric.test_pref", file_path=str(test_file))
+    monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [single_disc])
+
+    # Stub selector, upload, and polling
+    import eval_protocol.cli_commands.upload as upload_mod
+
+    monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
+    monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
+    monkeypatch.setattr(cr, "_poll_evaluator_status", lambda **kwargs: True)
+
+    # Prepare two JSONL paths: one explicit via --dataset-jsonl and one inferable via input_dataset
+    explicit_jsonl = project / "metric" / "explicit.jsonl"
+    explicit_jsonl.write_text('{"row":"explicit"}\n', encoding="utf-8")
+    inferred_jsonl = project / "metric" / "inferred.jsonl"
+    inferred_jsonl.write_text('{"row":"inferred"}\n', encoding="utf-8")
+
+    # If inference were to happen, return inferred path — but explicit should win
+    monkeypatch.setattr(cr, "_extract_jsonl_from_dataloader", lambda f, fn: None)
+    calls = {"input_dataset": 0}
+
+    def _extract_input_dataset(file_path, func_name):
+        calls["input_dataset"] += 1
+        return str(inferred_jsonl)
+
+    monkeypatch.setattr(cr, "_extract_jsonl_from_input_dataset", _extract_input_dataset)
+    monkeypatch.setattr(cr, "detect_dataset_builder", lambda metric_dir: None)
+
+    captured = {"jsonl_path": None}
+
+    def _fake_create_dataset_from_jsonl(account_id, api_key, api_base, dataset_id, display_name, jsonl_path):
+        captured["jsonl_path"] = jsonl_path
+        return dataset_id, {"name": f"accounts/{account_id}/datasets/{dataset_id}", "state": "UPLOADING"}
+
+    monkeypatch.setattr(cr, "create_dataset_from_jsonl", _fake_create_dataset_from_jsonl)
+    monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
+
+    import argparse
+
+    args = argparse.Namespace(
+        evaluator=None,
+        yes=True,
+        dry_run=False,
+        force=False,
+        env_file=None,
+        dataset=None,
+        dataset_jsonl=str(explicit_jsonl),
+        dataset_display_name=None,
+        dataset_builder=None,
+        base_model=None,
+        warm_start_from="accounts/acct123/models/ft-abc123",
+        output_model=None,
+        n=None,
+        max_tokens=None,
+        learning_rate=None,
+        batch_size=None,
+        epochs=None,
+        lora_rank=None,
+        max_context_length=None,
+        chunk_size=None,
+        eval_auto_carveout=None,
+    )
+
+    rc = cr.create_rft_command(args)
+    assert rc == 0
+    # Ensure the explicitly provided JSONL file is used, not the inferred one
+    assert captured["jsonl_path"] == str(explicit_jsonl)
+    assert captured["jsonl_path"] != str(inferred_jsonl)
+    # And because --dataset-jsonl was provided, we should never call the input_dataset extractor
+    assert calls["input_dataset"] == 0
