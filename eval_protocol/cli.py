@@ -429,7 +429,7 @@ def parse_args(args=None):
     rft_parser.add_argument("--wandb-run-id")
     rft_parser.add_argument("--wandb-api-key")
     # Misc
-    rft_parser.add_argument("--rft-job-id", help="Specify an explicit RFT job id")
+    rft_parser.add_argument("--job-id", help="Specify an explicit RFT job id")
     rft_parser.add_argument("--yes", "-y", action="store_true", help="Non-interactive mode")
     rft_parser.add_argument("--dry-run", action="store_true", help="Print planned REST calls without sending")
     rft_parser.add_argument("--force", action="store_true", help="Overwrite existing evaluator with the same ID")

@@ -8,6 +8,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple
+from urllib.parse import urlencode
 
 import requests
 
@@ -186,6 +187,14 @@ def create_reinforcement_fine_tuning_job(
     body: Dict[str, Any],
 ) -> Dict[str, Any]:
     url = f"{api_base.rstrip('/')}/v1/accounts/{account_id}/reinforcementFineTuningJobs"
+    # Move optional jobId from body to query parameter if provided
+    job_id = body.get("jobId")
+    if isinstance(job_id, str):
+        job_id = job_id.strip()
+    if job_id:
+        # Remove from body and append as query param
+        body.pop("jobId", None)
+        url = f"{url}?{urlencode({'reinforcementFineTuningJobId': job_id})}"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",

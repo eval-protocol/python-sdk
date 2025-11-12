@@ -105,7 +105,7 @@ def test_create_rft_passes_all_flags_into_request_body(tmp_path, monkeypatch):
         wandb_run_id="run123",
         wandb_api_key="key123",
         # Unused in body but accepted by parser
-        rft_job_id=None,
+        job_id=None,
         display_name=None,
     )
 
@@ -139,7 +139,7 @@ def test_create_rft_passes_all_flags_into_request_body(tmp_path, monkeypatch):
     assert abs(ip["topP"] - 0.95) < 1e-12
     assert ip["topK"] == 50
     assert ip["maxTokens"] == 4096
-    assert ip["responseCandidatesCount"] == 6
+    assert ip["n"] == 6
     assert ip["extraBody"] == '{"foo":"bar"}'
 
     # W&B mapping
@@ -866,14 +866,23 @@ def test_cli_full_command_style_evaluator_and_dataset_flags(monkeypatch):
 
     monkeypatch.setattr(cr.requests, "get", lambda *a, **k: _Resp())
 
-    # Capture body
-    captured = {"body": None}
+    # Capture URL and JSON via fireworks layer
+    import eval_protocol.fireworks_rft as fr
 
-    def _fake_create_job(account_id, api_key, api_base, body):
-        captured["body"] = body
-        return {"name": f"accounts/{account_id}/reinforcementFineTuningJobs/xyz"}
+    captured = {"url": None, "json": None}
 
-    monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", _fake_create_job)
+    class _RespPost:
+        status_code = 200
+
+        def json(self):
+            return {"name": "accounts/pyroworks-dev/reinforcementFineTuningJobs/xyz"}
+
+    def _fake_post(url, json=None, headers=None, timeout=None):
+        captured["url"] = url
+        captured["json"] = json
+        return _RespPost()
+
+    monkeypatch.setattr(fr.requests, "post", _fake_post)
 
     # Build args via CLI parser to validate flag names
     from eval_protocol.cli import parse_args
@@ -905,6 +914,8 @@ def test_cli_full_command_style_evaluator_and_dataset_flags(monkeypatch):
         "0.00003",
         "--lora-rank",
         "16",
+        "--job-id",
+        "custom-job-123",
         "--yes",
     ]
     args, _ = parse_args(argv)
@@ -912,8 +923,8 @@ def test_cli_full_command_style_evaluator_and_dataset_flags(monkeypatch):
     # Execute command
     rc = cr.create_rft_command(args)
     assert rc == 0
-    assert captured["body"] is not None
-    body = captured["body"]
+    assert captured["json"] is not None
+    body = captured["json"]
 
     # Evaluator and dataset resources
     assert body["evaluator"] == "accounts/pyroworks-dev/evaluators/test-livesvgbench-test-svg-combined-evaluation1"
@@ -931,8 +942,11 @@ def test_cli_full_command_style_evaluator_and_dataset_flags(monkeypatch):
 
     # Inference params mapping
     ip = body["inferenceParameters"]
-    assert ip["responseCandidatesCount"] == 4
+    assert ip["n"] == 4
     assert ip["maxTokens"] == 32768
 
     # Other top-level
     assert body["chunkSize"] == 50
+    # Job id sent as query param
+    assert captured["url"] is not None and "reinforcementFineTuningJobId=custom-job-123" in captured["url"]
+    assert "jobId" not in body
