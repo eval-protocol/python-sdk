@@ -683,10 +683,20 @@ def evaluation_test(
         )
         pytest_wrapper = pytest.mark.asyncio(pytest_wrapper)
 
+        ep_params: dict[str, Any] = {
+            "rollout_processor": rollout_processor,
+            "server_script_path": server_script_path,
+            "mcp_config_path": mcp_config_path,
+            "rollout_processor_kwargs": rollout_processor_kwargs,
+            "mode": mode,
+        }
+
         # Create the dual mode wrapper
         dual_mode_wrapper = create_dual_mode_wrapper(
             test_func, mode, max_concurrent_rollouts, max_concurrent_evaluations, pytest_wrapper
         )
+
+        setattr(dual_mode_wrapper, "__ep_params__", ep_params)
 
         # Make this pytest discoverable regardless of pytest configuration. So
         # you can name your eval whatever you want, as long as it's decorated

@@ -13,7 +13,7 @@ import eval_protocol as ep
 from eval_protocol.mcp.execution.manager import ExecutionManager
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
-from eval_protocol.pytest.types import RolloutProcessorConfig
+from eval_protocol.pytest.types import RolloutProcessorConfig, ServerMode
 
 
 class MCPServerManager:
@@ -207,37 +207,78 @@ class MCPGymRolloutProcessor(RolloutProcessor):
     using the eval_protocol framework with proper cleanup handling.
     """
 
+    # Shared server state for "shared" mode
+    _shared_server_lock = threading.Lock()
+    _shared_server: Optional[MCPServerManager] = None
+    _shared_server_started: bool = False
+
     def __init__(self):
-        self.server = None
+        # Instance-level server handle (used in "per_run" mode)
+        self.server: Optional[MCPServerManager] = None
         self.policy = None
+        # Track which mode this instance last used ("per_run" or "shared")
+        self.server_mode: ServerMode = "per_run"
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Process evaluation rows with MCP gym environments."""
-        start_server = config.kwargs.get("start_server", True) if config.kwargs else True
+        server_kwargs = dict(config.kwargs or {})
+        start_server = bool(server_kwargs.pop("start_server", True))
+        server_mode: ServerMode = server_kwargs.pop("server_mode", "per_run")
+        port = int(server_kwargs.pop("port", 9700))
 
-        if start_server:
-            # Create fresh MCP server and environments for this run
-            if config.server_script_path is None:
-                raise ValueError("server_script_path is required for MCPGymRolloutProcessor")
+        self.server_mode = server_mode
 
-            self.server = MCPServerManager(config.server_script_path, port=9700, **(config.kwargs or {}))
+        if server_mode == "shared":
+            # Shared, class-level server used across calls
+            if start_server and not MCPGymRolloutProcessor._shared_server_started:
+                with MCPGymRolloutProcessor._shared_server_lock:
+                    if not MCPGymRolloutProcessor._shared_server_started:
+                        if config.server_script_path is None:
+                            raise ValueError("server_script_path is required for MCPGymRolloutProcessor")
 
-            try:
-                self.server.start()
+                        shared_server = MCPServerManager(config.server_script_path, port=port, **server_kwargs)
 
-            except Exception as e:
-                if self.server:
-                    self.server.stop()
-                self.server = None
-                self.policy = None
-                raise e
+                        try:
+                            shared_server.start()
+                        except Exception as e:
+                            shared_server.stop()
+                            raise e
+
+                        MCPGymRolloutProcessor._shared_server = shared_server
+                        MCPGymRolloutProcessor._shared_server_started = True
+
+            if MCPGymRolloutProcessor._shared_server is None:
+                raise RuntimeError(
+                    "Shared MCP server not started. Call with server_mode='shared' and start_server=True first."
+                )
+            # Bind this instance to the shared server for this call
+            self.server = MCPGymRolloutProcessor._shared_server
 
         else:
-            # Reuse existing MCP environments for retry
-            if not self.server:
-                raise RuntimeError(
-                    "Cannot retry without existing server/environments. Call with start_server=True first."
-                )
+            # Default "per_run" behavior: fresh server per call, reused only for retries
+            if start_server:
+                # Create fresh MCP server and environments for this run
+                if config.server_script_path is None:
+                    raise ValueError("server_script_path is required for MCPGymRolloutProcessor")
+
+                self.server = MCPServerManager(config.server_script_path, port=port, **server_kwargs)
+
+                try:
+                    self.server.start()
+
+                except Exception as e:
+                    if self.server:
+                        self.server.stop()
+                    self.server = None
+                    self.policy = None
+                    raise e
+
+            else:
+                # Reuse existing MCP environments for retry (per_run mode)
+                if not self.server:
+                    raise RuntimeError(
+                        "Cannot retry without existing server/environments. Call with start_server=True first."
+                    )
 
         model_id = str((config.completion_params.get("model") if config.completion_params else None) or "gpt-4o-mini")
         temperature = config.completion_params.get("temperature", 0.0)
@@ -260,7 +301,7 @@ class MCPGymRolloutProcessor(RolloutProcessor):
         )
         # Create MCP environments directly from evaluation_rows
         envs = ep.make(
-            "http://localhost:9700/mcp/",
+            f"http://localhost:{port}/mcp/",
             evaluation_rows=rows,
             model_id=self.policy.model_id,
         )
@@ -278,6 +319,13 @@ class MCPGymRolloutProcessor(RolloutProcessor):
 
     def cleanup(self) -> None:
         """Cleanup MCP server and environments."""
+        # For shared mode, don't stop the shared server here; rely on global cleanup
+        # (atexit or an explicit class-level shutdown) so multiple users can share it.
+        if self.server_mode == "shared":
+            self.policy = None
+            return
+
+        # Per-run mode: stop this instance's server
         if self.server:
             self.server.stop()
             self.server = None

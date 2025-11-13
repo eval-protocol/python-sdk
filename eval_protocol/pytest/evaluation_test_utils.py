@@ -4,7 +4,7 @@ import os
 import re
 import sys
 from dataclasses import replace
-from typing import Any, Literal, Callable, AsyncGenerator
+from typing import Any, Literal, Callable, AsyncGenerator, Optional
 
 from litellm.cost_calculator import cost_per_token
 from tqdm import tqdm
@@ -22,8 +22,10 @@ from eval_protocol.models import (
 from eval_protocol.data_loader import DynamicDataLoader
 from eval_protocol.data_loader.models import EvaluationDataLoader
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
+from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 from eval_protocol.pytest.types import (
     RolloutProcessorConfig,
+    ServerMode,
 )
 from eval_protocol.pytest.exception_config import get_default_exception_handler_config
 
@@ -529,4 +531,64 @@ def add_cost_metrics(row: EvaluationRow) -> None:
         input_cost=input_cost,
         output_cost=output_cost,
         total_cost_dollar=total_cost,
+    )
+
+
+def build_rollout_processor_config(
+    rollout_processor: RolloutProcessor,
+    model: str,
+    semaphore: asyncio.Semaphore,
+    temperature: float = 0.0,
+    max_tokens: int = 4096,
+    steps: int = 30,
+    mcp_config_path: str = "",
+    server_script_path: Optional[str] = None,
+    rollout_processor_kwargs: Optional[dict[str, Any]] = None,
+    start_server: bool = True,
+    server_mode: Optional[ServerMode] = None,
+) -> RolloutProcessorConfig:
+    """Build rollout processor config with appropriate parameters for different processor types.
+
+    Args:
+        rollout_processor: The rollout processor instance
+        model: Model name/path for completion_params
+        semaphore: Semaphore for concurrency control
+        temperature: Temperature for completion_params
+        max_tokens: Max tokens for completion_params
+        steps: Number of rollout steps
+        mcp_config_path: Path to MCP config file
+        server_script_path: Path to server script (required for MCPGymRolloutProcessor)
+        rollout_processor_kwargs: Additional kwargs to pass to rollout processor
+        start_server: Whether to start server (for MCPGymRolloutProcessor)
+        server_mode: Optional server lifecycle mode ("per_run" or "shared") for MCPGymRolloutProcessor
+
+    Returns:
+        RolloutProcessorConfig: Configured rollout processor config
+    """
+    rollout_processor_kwargs = rollout_processor_kwargs or {}
+
+    completion_params = {"model": model, "temperature": temperature, "max_tokens": max_tokens}
+
+    if isinstance(rollout_processor, MCPGymRolloutProcessor):
+        base_kwargs = {**(rollout_processor_kwargs or {}), "start_server": start_server}
+        if server_mode is not None and "server_mode" not in base_kwargs:
+            base_kwargs["server_mode"] = server_mode
+
+        return RolloutProcessorConfig(
+            completion_params=completion_params,
+            mcp_config_path=mcp_config_path,
+            steps=steps,
+            semaphore=semaphore,
+            server_script_path=server_script_path,
+            kwargs=base_kwargs,
+        )
+
+    # RemoteRolloutProcessor, SingleTurnRolloutProcessor, AgentRolloutProcessor, etc.
+    return RolloutProcessorConfig(
+        completion_params=completion_params,
+        mcp_config_path=mcp_config_path,
+        steps=steps,
+        semaphore=semaphore,
+        server_script_path=None,
+        kwargs=rollout_processor_kwargs,
     )
