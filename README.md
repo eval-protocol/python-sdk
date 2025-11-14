@@ -1,110 +1,34 @@
-# Eval Protocol (EP)
+# Eval Protocol
 
 [![PyPI - Version](https://img.shields.io/pypi/v/eval-protocol)](https://pypi.org/project/eval-protocol/)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/eval-protocol/python-sdk)
 
-**Stop guessing which AI model to use. Build a data-driven model leaderboard.**
+**Eval Protocol (EP) is an open solution for doing reinforcement learning fine-tuning on existing agents — across any language, container, or framework.**
 
-With hundreds of models and configs, you need objective data to choose the right one for your use case. EP helps you evaluate real traces, compare models, and visualize results locally.
+![Eval Protocol overview](./docs/intro.png)
 
-## 🚀 Features
+Most teams already have complex agents running in production — often across remote services with heavy dependencies, Docker containers, or TypeScript backends deployed on Vercel. When they try to train or fine-tune these agents with reinforcement learning, connecting them to a trainer quickly becomes painful.
 
-- **Pytest authoring**: `@evaluation_test` decorator to configure evaluations
-- **Robust rollouts**: Handles flaky LLM APIs and parallel execution
-- **Integrations**: Works with Langfuse, LangSmith, Braintrust, Responses API
-- **Agent support**: LangGraph and Pydantic AI
-- **MCP RL envs**: Build reinforcement learning environments with MCP
-- **Built-in benchmarks**: AIME, tau-bench
-- **LLM judge**: Stack-rank models using pairwise Arena-Hard-Auto
-- **Local UI**: Pivot/table views for real-time analysis
+Eval Protocol makes this possible in two ways:
 
-## ⚡ Quickstart (no labels needed)
+1. **Expose your agent through a simple API**
+   Wrap your existing agent (Python, TypeScript, Docker, etc.) in a simple HTTP service using EP’s rollout interface. EP handles the rollout orchestration, metadata passing, and trace storage automatically.
+2. **Connect with any trainer**
+   Once your agent speaks the EP standard, it can be fine-tuned or evaluated with any supported trainer — Fireworks RFT, TRL, Unsloth, or your own — with no environment rewrites.
 
-Install with your tracing platform extras and set API keys:
+The result: RL that works out-of-the-box for existing production agents.
 
-```bash
-pip install 'eval-protocol[langfuse]'
+## Who This Is For
 
-# Model API keys (set what you need)
-export OPENAI_API_KEY=...
-export FIREWORKS_API_KEY=...
-export GEMINI_API_KEY=...
+- **Applied AI teams** adding RL to existing production agents.
+- **Research engineers** experimenting with fine-tuning complex, multi-turn or tool-using agents.
+- **MLOps teams** building reproducible, language-agnostic rollout pipelines.
 
-# Platform keys
-export LANGFUSE_PUBLIC_KEY=...
-export LANGFUSE_SECRET_KEY=...
-export LANGFUSE_HOST=https://your-deployment.com  # optional
-```
+## Quickstart
 
-Minimal evaluation using the built-in AHA judge:
+- See the Quickstart repository: [eval-protocol/quickstart](https://github.com/eval-protocol/quickstart/tree/main)
 
-```python
-from datetime import datetime
-import pytest
-
-from eval_protocol import (
-    evaluation_test,
-    aha_judge,
-    EvaluationRow,
-    SingleTurnRolloutProcessor,
-    DynamicDataLoader,
-    create_langfuse_adapter,
-)
-
-
-def langfuse_data_generator() -> list[EvaluationRow]:
-    adapter = create_langfuse_adapter()
-    return adapter.get_evaluation_rows(
-        to_timestamp=datetime.utcnow(),
-        limit=20,
-        sample_size=5,
-    )
-
-
-@pytest.mark.parametrize(
-    "completion_params",
-    [
-        {"model": "openai/gpt-4.1"},
-        {"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"},
-    ],
-)
-@evaluation_test(
-    data_loaders=DynamicDataLoader(generators=[langfuse_data_generator]),
-    rollout_processor=SingleTurnRolloutProcessor(),
-)
-async def test_llm_judge(row: EvaluationRow) -> EvaluationRow:
-    return await aha_judge(row)
-```
-
-Run it:
-
-```bash
-pytest -q -s
-```
-
-The pytest output includes local links for a leaderboard and row-level traces (pivot/table) at `http://localhost:8000`.
-
-## Installation
-
-This library requires Python >= 3.10.
-
-### pip
-
-```bash
-pip install eval-protocol
-```
-
-### uv (recommended)
-
-```bash
-# Install uv (if needed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Add to your project
-uv add eval-protocol
-```
-
-## 📚 Resources
+## Resources
 
 - **[Documentation](https://evalprotocol.io)** – Guides and API reference
 - **[Discord](https://discord.com/channels/1137072072808472616/1400975572405850155)** – Community

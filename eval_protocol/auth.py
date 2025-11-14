@@ -136,6 +136,56 @@ def _get_credential_from_config_file(key_name: str) -> Optional[str]:
     return None
 
 
+def _get_credentials_from_config_file() -> Dict[str, Optional[str]]:
+    """
+    Retrieve both api_key and account_id from auth.ini with a single read/parse.
+    Tries simple parsing first for both keys, then falls back to configparser for any missing ones.
+    Returns a dict with up to two keys: 'api_key' and 'account_id'.
+    """
+    results: Dict[str, Optional[str]] = {}
+    auth_ini_path = _get_auth_ini_file()
+    if not auth_ini_path.exists():
+        return results
+
+    # 1) Simple key=value parsing
+    try:
+        simple_creds = _parse_simple_auth_file(auth_ini_path)
+        if "api_key" in simple_creds and simple_creds["api_key"]:
+            results["api_key"] = simple_creds["api_key"]
+        if "account_id" in simple_creds and simple_creds["account_id"]:
+            results["account_id"] = simple_creds["account_id"]
+        if "api_key" in results and "account_id" in results:
+            return results
+    except Exception as e:
+        logger.warning("Error during simple parsing of %s: %s", str(auth_ini_path), e)
+
+    # 2) ConfigParser for any missing keys
+    try:
+        config = configparser.ConfigParser()
+        config.read(auth_ini_path)
+        for key_name in ("api_key", "account_id"):
+            if key_name in results and results[key_name]:
+                continue
+            if "fireworks" in config and config.has_option("fireworks", key_name):
+                value_from_file = config.get("fireworks", key_name)
+                if value_from_file:
+                    results[key_name] = value_from_file
+                    continue
+            if config.has_option(config.default_section, key_name):
+                value_from_default = config.get(config.default_section, key_name)
+                if value_from_default:
+                    results[key_name] = value_from_default
+    except configparser.MissingSectionHeaderError:
+        # Purely key=value file without section headers; simple parsing should have handled it already.
+        logger.debug("%s has no section headers; falling back to simple parsing results.", str(auth_ini_path))
+    except configparser.Error as e_config:
+        logger.warning("Configparser error reading %s: %s", str(auth_ini_path), e_config)
+    except Exception as e_general:
+        logger.warning("Unexpected error reading %s: %s", str(auth_ini_path), e_general)
+
+    return results
+
+
 def get_fireworks_api_key() -> Optional[str]:
     """
     Retrieves the Fireworks API key.
@@ -177,13 +227,15 @@ def get_fireworks_account_id() -> Optional[str]:
     The Account ID is sourced in the following order:
     1. FIREWORKS_ACCOUNT_ID environment variable.
     2. 'account_id' from the [fireworks] section of ~/.fireworks/auth.ini.
+    3. If an API key is available (env or auth.ini), resolve via verifyApiKey.
 
     Returns:
         The Account ID if found, otherwise None.
     """
     # If a profile is active, prefer profile file first, then env
     if _is_profile_active():
-        account_id_from_file = _get_credential_from_config_file("account_id")
+        creds = _get_credentials_from_config_file()
+        account_id_from_file = creds.get("account_id")
         if account_id_from_file:
             return account_id_from_file
         account_id = os.environ.get("FIREWORKS_ACCOUNT_ID")
@@ -196,11 +248,24 @@ def get_fireworks_account_id() -> Optional[str]:
         if account_id:
             logger.debug("Using FIREWORKS_ACCOUNT_ID from environment variable.")
             return account_id
-        account_id_from_file = _get_credential_from_config_file("account_id")
+        creds = _get_credentials_from_config_file()
+        account_id_from_file = creds.get("account_id")
         if account_id_from_file:
             return account_id_from_file
 
-    logger.debug("Fireworks Account ID not found in environment variables or auth.ini.")
+    # 3) Fallback: if API key is present, attempt to resolve via verifyApiKey (env or auth.ini)
+    try:
+        # Intentionally use get_fireworks_api_key to centralize precedence (env vs file)
+        api_key_for_verify = get_fireworks_api_key()
+        if api_key_for_verify:
+            resolved = verify_api_key_and_get_account_id(api_key=api_key_for_verify, api_base=get_fireworks_api_base())
+            if resolved:
+                logger.debug("Using FIREWORKS_ACCOUNT_ID resolved via verifyApiKey: %s", resolved)
+                return resolved
+    except Exception as e:
+        logger.debug("Failed to resolve FIREWORKS_ACCOUNT_ID via verifyApiKey: %s", e)
+
+    logger.debug("Fireworks Account ID not found in environment variables, auth.ini, or via verifyApiKey.")
     return None
 
 

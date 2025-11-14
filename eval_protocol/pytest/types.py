@@ -27,6 +27,12 @@ EvaluationTestMode = Literal["pointwise", "groupwise", "all"]
 "all": applies test function to the whole dataset.
 """
 
+ServerMode = Literal["per_run", "shared"]
+"""
+"per_run": start a new MCP server for each eval run / training step, only reuse the same server only for retries within that run.
+"shared": start a single MCP server the first time it's needed, then reuse that same server across multiple eval runs / training steps.
+"""
+
 """
 Test function types
 """

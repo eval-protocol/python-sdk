@@ -25,6 +25,15 @@ from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProc
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 
 
+@pytest.fixture(autouse=True)
+def _force_catch_eval_exceptions(monkeypatch: pytest.MonkeyPatch):
+    """
+    These tests validate the behavior when evaluation exceptions are caught and converted
+    into evaluation_result/status fields. Ensure the env var is set to disable raising.
+    """
+    monkeypatch.setenv("EP_RAISE_EVAL_EXCEPTIONS", "false")
+
+
 class TrackingLogger(DatasetLogger):
     """Custom logger that tracks all logged rows for testing."""
 

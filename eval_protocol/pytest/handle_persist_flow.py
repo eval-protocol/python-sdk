@@ -11,6 +11,12 @@ from eval_protocol.common_utils import get_user_agent
 from eval_protocol.directory_utils import find_eval_protocol_dir
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest.store_experiment_link import store_experiment_link
+from eval_protocol.auth import (
+    get_fireworks_api_key,
+    get_fireworks_account_id,
+    verify_api_key_and_get_account_id,
+    get_fireworks_api_base,
+)
 
 import requests
 
@@ -90,22 +96,16 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                     if not should_upload:
                         continue
 
-                    def get_auth_value(key: str) -> str | None:
-                        """Get auth value from config file or environment."""
+                    # Resolve credentials using centralized auth helpers with verification fallback
+                    fireworks_api_key = get_fireworks_api_key()
+                    fireworks_account_id = get_fireworks_account_id()
+                    if not fireworks_account_id and fireworks_api_key:
                         try:
-                            config_path = Path.home() / ".fireworks" / "auth.ini"
-                            if config_path.exists():
-                                config = configparser.ConfigParser()  # noqa: F821
-                                config.read(config_path)
-                                for section in ["DEFAULT", "auth"]:
-                                    if config.has_section(section) and config.has_option(section, key):
-                                        return config.get(section, key)
+                            fireworks_account_id = verify_api_key_and_get_account_id(
+                                api_key=fireworks_api_key, api_base=get_fireworks_api_base()
+                            )
                         except Exception:
-                            pass
-                        return os.getenv(key)
-
-                    fireworks_api_key = get_auth_value("FIREWORKS_API_KEY")
-                    fireworks_account_id = get_auth_value("FIREWORKS_ACCOUNT_ID")
+                            fireworks_account_id = None
 
                     if not fireworks_api_key and not fireworks_account_id:
                         store_experiment_link(
@@ -129,7 +129,7 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                         )
                         continue
 
-                    api_base = "https://api.fireworks.ai"
+                    api_base = get_fireworks_api_base()
                     headers = {
                         "Authorization": f"Bearer {fireworks_api_key}",
                         "Content-Type": "application/json",

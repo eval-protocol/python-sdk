@@ -371,13 +371,13 @@ def parse_args(args=None):
         help="Create a Reinforcement Fine-tuning Job on Fireworks",
     )
     rft_parser.add_argument(
-        "--evaluator-id",
-        help="Evaluator ID used during upload; if omitted, derive from local traces or a single discovered test",
+        "--evaluator",
+        help="Evaluator ID or fully-qualified resource (accounts/{acct}/evaluators/{id}); if omitted, derive from local tests",
     )
     # Dataset options
     rft_parser.add_argument(
-        "--dataset-id",
-        help="Use existing Fireworks dataset id (skip local materialization)",
+        "--dataset",
+        help="Use existing dataset (ID or resource 'accounts/{acct}/datasets/{id}') to skip local materialization",
     )
     rft_parser.add_argument(
         "--dataset-jsonl",
@@ -395,11 +395,13 @@ def parse_args(args=None):
     rft_parser.add_argument("--base-model", help="Base model resource id")
     rft_parser.add_argument("--warm-start-from", help="Addon model to warm start from")
     rft_parser.add_argument("--output-model", help="Output model id (defaults from evaluator)")
-    rft_parser.add_argument("--epochs", type=int, default=8)
+    rft_parser.add_argument("--epochs", type=int, default=1)
     rft_parser.add_argument("--batch-size", type=int, default=128000)
     rft_parser.add_argument("--learning-rate", type=float, default=3e-5)
     rft_parser.add_argument("--max-context-length", type=int, default=65536)
     rft_parser.add_argument("--lora-rank", type=int, default=16)
+    rft_parser.add_argument("--gradient-accumulation-steps", type=int, help="Number of gradient accumulation steps")
+    rft_parser.add_argument("--learning-rate-warmup-steps", type=int, help="Number of LR warmup steps")
     rft_parser.add_argument("--accelerator-count", type=int, default=1)
     rft_parser.add_argument("--region", help="Fireworks region enum value")
     rft_parser.add_argument("--display-name", help="RFT job display name")
@@ -407,14 +409,19 @@ def parse_args(args=None):
     rft_parser.add_argument("--eval-auto-carveout", dest="eval_auto_carveout", action="store_true", default=True)
     rft_parser.add_argument("--no-eval-auto-carveout", dest="eval_auto_carveout", action="store_false")
     # Rollout chunking
-    rft_parser.add_argument("--chunk-size", type=int, default=10, help="Data chunk size for rollout batching")
+    rft_parser.add_argument("--chunk-size", type=int, default=100, help="Data chunk size for rollout batching")
     # Inference params
     rft_parser.add_argument("--temperature", type=float)
     rft_parser.add_argument("--top-p", type=float)
     rft_parser.add_argument("--top-k", type=int)
-    rft_parser.add_argument("--max-tokens", type=int, default=32768)
-    rft_parser.add_argument("--n", type=int, default=8)
-    rft_parser.add_argument("--inference-extra-body", help="JSON string for extra inference params")
+    rft_parser.add_argument("--max-output-tokens", type=int, default=32768)
+    rft_parser.add_argument("--response-candidates-count", type=int, default=8)
+    rft_parser.add_argument("--extra-body", help="JSON string for extra inference params")
+    # MCP server (optional)
+    rft_parser.add_argument(
+        "--mcp-server",
+        help="The MCP server resource name to use for the reinforcement fine-tuning job.",
+    )
     # Wandb
     rft_parser.add_argument("--wandb-enabled", action="store_true")
     rft_parser.add_argument("--wandb-project")
@@ -422,10 +429,41 @@ def parse_args(args=None):
     rft_parser.add_argument("--wandb-run-id")
     rft_parser.add_argument("--wandb-api-key")
     # Misc
-    rft_parser.add_argument("--rft-job-id", help="Specify an explicit RFT job id")
+    rft_parser.add_argument("--job-id", help="Specify an explicit RFT job id")
     rft_parser.add_argument("--yes", "-y", action="store_true", help="Non-interactive mode")
     rft_parser.add_argument("--dry-run", action="store_true", help="Print planned REST calls without sending")
     rft_parser.add_argument("--force", action="store_true", help="Overwrite existing evaluator with the same ID")
+
+    # Local test command
+    local_test_parser = subparsers.add_parser(
+        "local-test",
+        help="Select an evaluation test and run it locally. If a Dockerfile exists, build and run via Docker; otherwise run on host.",
+    )
+    local_test_parser.add_argument(
+        "--entry",
+        help="Entrypoint to run (path::function or path). If not provided, a selector will be shown (unless --yes).",
+    )
+    local_test_parser.add_argument(
+        "--ignore-docker",
+        action="store_true",
+        help="Ignore Dockerfile even if present; run pytest on host",
+    )
+    local_test_parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Non-interactive: if multiple tests exist and no --entry, fails with guidance",
+    )
+    local_test_parser.add_argument(
+        "--docker-build-extra",
+        default="",
+        help="Extra flags to pass to 'docker build' (quoted string, e.g. \"--no-cache --pull --progress=plain\")",
+    )
+    local_test_parser.add_argument(
+        "--docker-run-extra",
+        default="",
+        help="Extra flags to pass to 'docker run' (quoted string, e.g. \"--env-file .env --memory=8g\")",
+    )
 
     # Run command (for Hydra-based evaluations)
     # This subparser intentionally defines no arguments itself.
@@ -559,6 +597,10 @@ def main():
             return create_rft_command(args)
         print("Error: missing subcommand for 'create'. Try: eval-protocol create rft")
         return 1
+    elif args.command == "local-test":
+        from .cli_commands.local_test import local_test_command
+
+        return local_test_command(args)
     elif args.command == "run":
         # For the 'run' command, Hydra takes over argument parsing.
 
