@@ -5,8 +5,10 @@ import os
 import sys
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple
+from urllib.parse import urlencode
 
 import requests
 
@@ -35,25 +37,6 @@ def _map_api_host_to_app_host(api_base: str) -> str:
         return f"{scheme}://{host}"
     except Exception:
         return "https://app.fireworks.ai"
-
-
-def load_evaluator_trace(project_root: str, evaluator_id: str) -> Optional[Dict[str, Any]]:
-    trace_path = Path(project_root) / ".eval_protocol" / "evaluators" / f"{evaluator_id}.json"
-    if not trace_path.exists():
-        return None
-    try:
-        with open(trace_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return None
-
-
-def save_evaluator_trace(project_root: str, evaluator_id: str, trace: Dict[str, Any]) -> None:
-    base_dir = Path(project_root) / ".eval_protocol" / "evaluators"
-    base_dir.mkdir(parents=True, exist_ok=True)
-    trace_path = base_dir / f"{evaluator_id}.json"
-    with open(trace_path, "w", encoding="utf-8") as f:
-        json.dump(trace, f, indent=2, ensure_ascii=False)
 
 
 def detect_dataset_builder(metric_dir: str) -> Optional[str]:
@@ -204,6 +187,14 @@ def create_reinforcement_fine_tuning_job(
     body: Dict[str, Any],
 ) -> Dict[str, Any]:
     url = f"{api_base.rstrip('/')}/v1/accounts/{account_id}/reinforcementFineTuningJobs"
+    # Move optional jobId from body to query parameter if provided
+    job_id = body.get("jobId")
+    if isinstance(job_id, str):
+        job_id = job_id.strip()
+    if job_id:
+        # Remove from body and append as query param
+        body.pop("jobId", None)
+        url = f"{url}?{urlencode({'reinforcementFineTuningJobId': job_id})}"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -224,12 +215,11 @@ def build_default_dataset_id(evaluator_id: str) -> str:
 
 def build_default_output_model(evaluator_id: str) -> str:
     base = evaluator_id.lower().replace("_", "-")
-    return f"{base}-rft"
+    uuid_suffix = str(uuid.uuid4())[:4]
+    return f"{base}-rft-{uuid_suffix}"
 
 
 __all__ = [
-    "load_evaluator_trace",
-    "save_evaluator_trace",
     "detect_dataset_builder",
     "materialize_dataset_via_builder",
     "create_dataset_from_jsonl",

@@ -595,7 +595,9 @@ class Evaluator:
             logger.error("Missing requirements.txt in upload directory: %s", source_dir)
             raise ValueError(
                 "Upload requires requirements.txt in the project root. "
-                "Please add requirements.txt and re-run ep upload."
+                "Create a requirements.txt (it can be empty) and rerun 'eval-protocol upload' "
+                "or 'eval-protocol create rft'. If you're running in a notebook (e.g., Colab), "
+                f"create the file in your working directory (e.g., {source_dir}/requirements.txt)."
             )
 
     @staticmethod

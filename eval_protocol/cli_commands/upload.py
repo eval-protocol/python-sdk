@@ -21,7 +21,6 @@ from eval_protocol.auth import (
 from eval_protocol.platform_api import create_or_update_fireworks_secret
 
 from eval_protocol.evaluation import create_evaluation
-from eval_protocol.fireworks_rft import save_evaluator_trace, detect_dataset_builder
 
 
 @dataclass
@@ -438,55 +437,31 @@ def _prompt_select_interactive(tests: list[DiscoveredTest]) -> list[DiscoveredTe
         # Check if only one test - auto-select it
         if len(tests) == 1:
             print(f"\nFound 1 test: {_format_test_choice(tests[0], 1)}")
-            confirm = questionary.confirm("Upload this test?", default=True, style=custom_style).ask()
+            confirm = questionary.confirm("Select this test?", default=True, style=custom_style).ask()
             if confirm:
                 return tests
             else:
                 return []
 
-        # Enter-only selection UX with optional multi-select via repeat
-        remaining_indices = list(range(len(tests)))
-        selected_indices: list[int] = []
-
+        # Single-select UX
         print("\n")
-        print("Tip: Use ↑/↓ arrows to navigate and press ENTER to select.")
-        print("     After selecting one, you can choose to add more.\n")
+        print("Tip: Use ↑/↓ arrows to navigate and press ENTER to select.\n")
 
-        while remaining_indices:
-            # Build choices from remaining
-            choices = []
-            for idx, test_idx in enumerate(remaining_indices, 1):
-                t = tests[test_idx]
-                choice_text = _format_test_choice(t, idx)
-                choices.append({"name": choice_text, "value": test_idx})
+        choices = []
+        for idx, t in enumerate(tests, 1):
+            choice_text = _format_test_choice(t, idx)
+            choices.append({"name": choice_text, "value": idx - 1})
 
-            selected = questionary.select(
-                "Select an evaluation test to upload:", choices=choices, style=custom_style
-            ).ask()
+        selected = questionary.select(
+            "Select an evaluation test to upload:", choices=choices, style=custom_style
+        ).ask()
 
-            if selected is None:  # Ctrl+C
-                print("\nUpload cancelled.")
-                return []
-
-            if isinstance(selected, int):
-                selected_indices.append(selected)
-                # Remove from remaining
-                if selected in remaining_indices:
-                    remaining_indices.remove(selected)
-
-                # Ask whether to add another (ENTER to finish)
-                add_more = questionary.confirm("Add another?", default=False, style=custom_style).ask()
-                if not add_more:
-                    break
-            else:
-                break
-
-        if not selected_indices:
-            print("\n⚠️  No tests were selected.")
+        if selected is None:  # Ctrl+C
+            print("\nUpload cancelled.")
             return []
 
-        print(f"\n✓ Selected {len(selected_indices)} test(s)")
-        return [tests[i] for i in selected_indices]
+        print("\n✓ Selected 1 test")
+        return [tests[selected]]
 
     except ImportError:
         # Fallback to simpler implementation
@@ -525,22 +500,19 @@ def _prompt_select_fallback(tests: list[DiscoveredTest]) -> list[DiscoveredTest]
 
     print("=" * 80)
     try:
-        choice = input("Enter numbers to upload (comma or space-separated), or 'all': ").strip()
+        choice = input("Enter the number to select: ").strip()
     except KeyboardInterrupt:
         print("\n\nUpload cancelled.")
         return []
 
-    if choice.lower() in ("all", "a", "*"):
-        return tests
-
-    indices: list[int] = []
-    for token in re.split(r"[\s,]+", choice):
-        if token.isdigit():
-            n = int(token)
-            if 1 <= n <= len(tests):
-                indices.append(n - 1)
-    indices = sorted(set(indices))
-    return [tests[i] for i in indices]
+    if not choice.isdigit():
+        print("\n⚠️  Invalid selection.")
+        return []
+    n = int(choice)
+    if not (1 <= n <= len(tests)):
+        print("\n⚠️  Selection out of range.")
+        return []
+    return [tests[n - 1]]
 
 
 def _prompt_select(tests: list[DiscoveredTest], non_interactive: bool) -> list[DiscoveredTest]:
@@ -578,6 +550,23 @@ def _load_secrets_from_env_file(env_file_path: str) -> Dict[str, str]:
             secrets[key] = value
 
     return secrets
+
+
+def _mask_secret_value(value: str) -> str:
+    """
+    Return a masked representation of a secret showing only a small prefix/suffix.
+    Example: fw_3Z*******Xgnk
+    """
+    try:
+        if not isinstance(value, str) or not value:
+            return "<empty>"
+        prefix_len = 6
+        suffix_len = 4
+        if len(value) <= prefix_len + suffix_len:
+            return value[0] + "***" + value[-1]
+        return f"{value[:prefix_len]}***{value[-suffix_len:]}"
+    except Exception:
+        return "<masked>"
 
 
 def upload_command(args: argparse.Namespace) -> int:
@@ -630,9 +619,9 @@ def upload_command(args: argparse.Namespace) -> int:
         secrets_from_file = _load_secrets_from_env_file(env_file_path)
         secrets_from_env_file = secrets_from_file.copy()  # Track what came from .env file
 
-        # Also ensure FIREWORKS_API_KEY from environment is included
+        # Also consider FIREWORKS_API_KEY from environment, but prefer .env value
         fw_api_key_value = get_fireworks_api_key()
-        if fw_api_key_value:
+        if fw_api_key_value and "FIREWORKS_API_KEY" not in secrets_from_file:
             secrets_from_file["FIREWORKS_API_KEY"] = fw_api_key_value
 
         if not fw_account_id and fw_api_key_value:
@@ -650,7 +639,11 @@ def upload_command(args: argparse.Namespace) -> int:
                 print(f"Loading secrets from: {env_file_path}")
 
             for secret_name, secret_value in secrets_from_file.items():
-                print(f"Ensuring {secret_name} is registered as a secret on Fireworks for rollout...")
+                source = ".env" if secret_name in secrets_from_env_file else "environment"
+                print(
+                    f"Ensuring {secret_name} is registered as a secret on Fireworks for rollout... "
+                    f"({source}: {_mask_secret_value(secret_value)})"
+                )
                 if create_or_update_fireworks_secret(
                     account_id=fw_account_id,
                     key_name=secret_name,
@@ -717,23 +710,6 @@ def upload_command(args: argparse.Namespace) -> int:
                 entry_point=entry_point,
             )
             name = result.get("name", evaluator_id) if isinstance(result, dict) else evaluator_id
-
-            # Persist local evaluator trace for later `create rft`
-            try:
-                metric_dir = os.path.dirname(source_file_path) if source_file_path else root
-                builder_spec = detect_dataset_builder(metric_dir) or None
-                trace_payload = {
-                    "evaluator_id": evaluator_id,
-                    "evaluator_resource_name": name,
-                    "entry_point": entry_point,
-                    "metric_dir": metric_dir,
-                    "project_root": root,
-                    "dataset_builder": builder_spec,
-                }
-                save_evaluator_trace(project_root=root, evaluator_id=evaluator_id, trace=trace_payload)
-            except Exception:
-                # Non-fatal; continue
-                pass
 
             # Print success message with Fireworks dashboard link
             print(f"\n✅ Successfully uploaded evaluator: {evaluator_id}")

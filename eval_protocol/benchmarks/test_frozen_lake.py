@@ -46,7 +46,7 @@ def frozen_lake_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluation
     num_runs=1,
     max_concurrent_rollouts=3,
     mode="pointwise",
-    server_script_path="examples/frozen_lake_mcp/server.py",
+    server_script_path="eval_protocol/mcp_servers/frozen_lake/server.py",
 )
 def test_frozen_lake_evaluation(row: EvaluationRow) -> EvaluationRow:
     """

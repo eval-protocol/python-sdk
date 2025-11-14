@@ -343,16 +343,15 @@ def _print_experiment_links(session):
         if EXPERIMENT_LINKS_STASH_KEY is not None and EXPERIMENT_LINKS_STASH_KEY in session.stash:
             links = session.stash[EXPERIMENT_LINKS_STASH_KEY]
 
-        if links:
+        # Only print when there is at least one successful link.
+        # Suppress the entire section if all links are failures (noise).
+        if any(link.get("status") == "success" for link in links):
             print("\n" + "=" * 80, file=sys.__stderr__)
             print("🔥 FIREWORKS EXPERIMENT LINKS", file=sys.__stderr__)
             print("=" * 80, file=sys.__stderr__)
 
             for link in links:
-                if link["status"] == "success":
-                    print(f"🔗 Experiment {link['experiment_id']}: {link['job_link']}", file=sys.__stderr__)
-                else:
-                    print(f"❌ Experiment {link['experiment_id']}: {link['job_link']}", file=sys.__stderr__)
+                print(f"Experiment {link['experiment_id']}: {link['job_link']}", file=sys.__stderr__)
 
             print("=" * 80, file=sys.__stderr__)
             return True
