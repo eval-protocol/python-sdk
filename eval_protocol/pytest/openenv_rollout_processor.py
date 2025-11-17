@@ -24,9 +24,8 @@ from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
-from eval_protocol.pytest.integrations.openenv_trl import resolve_fireworks_model as _resolve_fw_model
-
-logger = logging.getLogger(__name__)
+ 
+ logger = logging.getLogger(__name__)
 
 
 class OpenEnvRolloutProcessor(RolloutProcessor):
@@ -80,6 +79,7 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
         miniwob_url: Optional[str] = None,
         docker_image: str = "browsergym-env:latest",
         env_base_url: Optional[str] = None,
+        hub_repo_id: Optional[str] = None,
         request_timeout_s: float = 15.0,
         default_headers: Optional[Dict[str, str]] = None,
         provider: Any | None = None,
@@ -125,6 +125,7 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
         self._miniwob_url = miniwob_url
         self._docker_image = docker_image
         self._env_base_url = env_base_url
+        self._hub_repo_id = hub_repo_id
         self._request_timeout_s = request_timeout_s
         self._default_headers = default_headers
         self._provider = provider
@@ -154,24 +155,67 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
             start_time = time.perf_counter()
             
             # Create environment
+            try:
+                print("[OpenEnvRolloutProcessor] Creating environment via env_factory() ...")
+            except Exception:
+                pass
             env = self.env_factory()
+            try:
+                print("[OpenEnvRolloutProcessor] Environment client created.")
+            except Exception:
+                pass
             
             try:
                 # Get model config
                 raw_model = config.completion_params.get("model", "gpt-4o-mini")
-                model = _resolve_fw_model(raw_model)
+                model = raw_model
                 temperature = config.completion_params.get("temperature", 0.0)
                 max_tokens = config.completion_params.get("max_tokens", 100)
+                # Optional: direct routing or provider overrides (e.g., base_url, api_key, top_p, stop, etc.)
+                base_url = config.completion_params.get("base_url")
+                # Forward any extra completion params to LiteLLMPolicy (they will be sent per-request)
+                extra_params: Dict[str, Any] = dict(config.completion_params or {})
+                for _k in ("model", "temperature", "max_tokens", "base_url"):
+                    try:
+                        extra_params.pop(_k, None)
+                    except Exception:
+                        pass
+                try:
+                    print(f"[OpenEnvRolloutProcessor] Model='{model}' temp={temperature} max_tokens={max_tokens} base_url={base_url or '(default)'}")
+                except Exception:
+                    pass
                 
                 # Create policy for generation
                 policy = LiteLLMPolicy(
                     model_id=model,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    base_url=base_url,
+                    **extra_params,
                 )
                 
-                # Reset environment
-                result = env.reset()
+                # Reset environment with simple transient-error retries
+                reset_attempts = 3
+                reset_delay = 1.0
+                last_exc = None
+                try:
+                    print("[OpenEnvRolloutProcessor] Resetting environment ...")
+                except Exception:
+                    pass
+                for i in range(reset_attempts):
+                    try:
+                        result = env.reset()
+                        try:
+                            print(f"[OpenEnvRolloutProcessor] reset() succeeded on attempt {i + 1}")
+                        except Exception:
+                            pass
+                        break
+                    except Exception as e:
+                        last_exc = e
+                        if i == reset_attempts - 1:
+                            raise
+                        time.sleep(reset_delay)
+                        reset_delay *= 2.0
                 observation = result.observation
                 
                 
@@ -201,6 +245,10 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                 for step in range(max_steps):
                     if result.done:
                         logger.info(f"Episode done after {step} steps")
+                        try:
+                            print(f"[OpenEnvRolloutProcessor] Episode already done at step {step}")
+                        except Exception:
+                            pass
                         break
                     
                     # Build user message content via user-provided prompt_builder
@@ -209,6 +257,10 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                     except Exception as e:
                         logger.error(f"prompt_builder failed: {e}", exc_info=True)
                         user_content = str(observation)
+                    try:
+                        print(f"[OpenEnvRolloutProcessor] Step {step + 1}: built user prompt (len={len(str(user_content))})")
+                    except Exception:
+                        pass
                     
                     messages.append(Message(role="user", content=user_content))
                     # Optional tracing
@@ -226,6 +278,10 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                             pass
                     
                     # Call model to generate action (LiteLLM handles multimodal!)
+                    try:
+                        print(f"[OpenEnvRolloutProcessor] Calling model (messages={len(messages)}) ...")
+                    except Exception:
+                        pass
                     response = await policy._make_llm_call(
                         messages=[msg.model_dump() for msg in messages],
                         tools=None,  # No tools - just text generation
@@ -238,17 +294,40 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                     
                     # Extract assistant message and parse into Action object
                     assistant_message = response["choices"][0]["message"]["content"]
+                    try:
+                        preview = assistant_message if isinstance(assistant_message, str) else str(assistant_message)
+                        print(f"[OpenEnvRolloutProcessor] Model output (first 120): '{preview[:120] if preview else ''}'")
+                    except Exception:
+                        pass
                     action = self.action_parser(assistant_message)
+                    try:
+                        label = getattr(action, "action_str", None)
+                        print(f"[OpenEnvRolloutProcessor] Parsed action='{(label or str(action))[:120]}'")
+                    except Exception:
+                        pass
                     
                     # Add assistant message (original content)
                     messages.append(Message(role="assistant", content=assistant_message))
                     
-                    # Execute action in environment (OpenEnv standard interface!)
-                    result = env.step(action)
+                    # Execute action in environment (OpenEnv standard interface!) with transient-error retries
+                    step_attempts = 2
+                    step_delay = 0.5
+                    for si in range(step_attempts):
+                        try:
+                            result = env.step(action)
+                            break
+                        except Exception as se:
+                            if si == step_attempts - 1:
+                                raise
+                            time.sleep(step_delay)
                     
                     # Collect reward (OpenEnv standard: result.reward)
                     reward = float(result.reward or 0.0)
                     step_rewards.append(reward)
+                    try:
+                        print(f"[OpenEnvRolloutProcessor] Step {step + 1}: reward={reward} done={result.done}")
+                    except Exception:
+                        pass
                     _action_label = getattr(action, "action_str", None)
                     if not _action_label:
                         try:
@@ -291,6 +370,7 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                 try:
                     sentinel = "__ep_step_rewards__:" + json.dumps(step_rewards)
                     messages.append(Message(role="system", content=sentinel))
+                    print(f"[OpenEnvRolloutProcessor] Total reward={sum(step_rewards):.2f} steps={len(step_rewards)}")
                 except Exception:
                     pass
                 
@@ -310,11 +390,17 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                 
             except Exception as e:
                 logger.error(f"Error in rollout: {e}", exc_info=True)
+                try:
+                    print(f"[OpenEnvRolloutProcessor][ERROR] {type(e).__name__}: {e}")
+                except Exception:
+                    pass
                 raise
             finally:
                 # Cleanup environment
                 try:
+                    print("[OpenEnvRolloutProcessor] Closing environment client ...")
                     env.close()
+                    print("[OpenEnvRolloutProcessor] Environment closed.")
                 except:
                     pass
         
@@ -355,6 +441,10 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
         if self._env_client_cls is not None:
             def _generic_factory():
                 if self._env_base_url:
+                    try:
+                        print(f"[OpenEnvRolloutProcessor] Using env_client_cls base_url={self._env_base_url}")
+                    except Exception:
+                        pass
                     return self._env_client_cls(  # type: ignore[call-arg]
                         base_url=self._env_base_url,
                         request_timeout_s=self._request_timeout_s,
@@ -365,11 +455,26 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                     docker_kwargs["env_vars"] = {k: str(v) for k, v in self._env_vars.items()}
                 if self._docker_port is not None:
                     docker_kwargs["port"] = int(self._docker_port)
-                return self._env_client_cls.from_docker_image(  # type: ignore[attr-defined]
-                    self._docker_image,
-                    provider=self._provider,
-                    **docker_kwargs,
-                )
+                if self._hub_repo_id:
+                    try:
+                        print(f"[OpenEnvRolloutProcessor] Launching from_hub repo_id='{self._hub_repo_id}' ...")
+                    except Exception:
+                        pass
+                    return self._env_client_cls.from_hub(  # type: ignore[attr-defined]
+                        self._hub_repo_id,
+                        provider=self._provider,
+                        **docker_kwargs,
+                    )
+                else:
+                    try:
+                        print(f"[OpenEnvRolloutProcessor] Launching from_docker_image image='{self._docker_image}' ...")
+                    except Exception:
+                        pass
+                    return self._env_client_cls.from_docker_image(  # type: ignore[attr-defined]
+                        self._docker_image,
+                        provider=self._provider,
+                        **docker_kwargs,
+                    )
             return _generic_factory
 
         # Fallback: try BrowserGymEnv if available
@@ -402,6 +507,10 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
 
         def _browsergym_factory():
             if self._env_base_url:
+                try:
+                    print(f"[OpenEnvRolloutProcessor] Using BrowserGymEnv base_url={self._env_base_url}")
+                except Exception:
+                    pass
                 return BrowserGymEnv(
                     base_url=self._env_base_url,
                     request_timeout_s=self._request_timeout_s,
@@ -414,14 +523,33 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                 self._env_create_idx = idx + 1
                 group = idx // max(1, self._num_generations)
                 selected_task = self._tasks[group % len(self._tasks)]
+            try:
+                print(f"[OpenEnvRolloutProcessor] Selected task='{selected_task or '(default)'}'")
+            except Exception:
+                pass
             env_vars_final = _make_env_vars(selected_task)
             docker_kwargs: Dict[str, Any] = {"env_vars": env_vars_final}
             if self._docker_port is not None:
                 docker_kwargs["port"] = int(self._docker_port)
-            return BrowserGymEnv.from_docker_image(
-                self._docker_image,
-                provider=self._provider,
-                **docker_kwargs,
-            )
+            if self._hub_repo_id:
+                try:
+                    print(f"[OpenEnvRolloutProcessor] BrowserGymEnv.from_hub repo_id='{self._hub_repo_id}'")
+                except Exception:
+                    pass
+                return BrowserGymEnv.from_hub(
+                    self._hub_repo_id,
+                    provider=self._provider,
+                    **docker_kwargs,
+                )
+            else:
+                try:
+                    print(f"[OpenEnvRolloutProcessor] BrowserGymEnv.from_docker_image image='{self._docker_image}'")
+                except Exception:
+                    pass
+                return BrowserGymEnv.from_docker_image(
+                    self._docker_image,
+                    provider=self._provider,
+                    **docker_kwargs,
+                )
 
         return _browsergym_factory
