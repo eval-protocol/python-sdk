@@ -410,7 +410,7 @@ async def test_quickstart_eval(row: EvaluationRow) -> EvaluationRow:
 
     test_project_dir, test_file_path = create_test_project_with_evaluation_test(
         test_content,
-        "quickstart.py",  # Non test_* filename
+        "ep_upload_non_test_prefixed_eval.py",  # Non test_* filename
     )
 
     original_cwd = os.getcwd()
@@ -423,7 +423,8 @@ async def test_quickstart_eval(row: EvaluationRow) -> EvaluationRow:
 
         assert len(discovered_tests) == 1
         assert "test_quickstart_eval" in discovered_tests[0].qualname
-        assert "quickstart.py" in discovered_tests[0].file_path
+        # Verify we discovered a non-test-prefixed file (our unique filename)
+        assert "ep_upload_non_test_prefixed_eval.py" in discovered_tests[0].file_path
 
     finally:
         os.chdir(original_cwd)

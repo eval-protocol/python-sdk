@@ -186,30 +186,14 @@ def _discover_tests(root: str) -> list[DiscoveredTest]:
     ]
 
     try:
-        # Run pytest collection with output captured so we can surface errors in CI
+        # Suppress pytest output
         import io
         import contextlib
 
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-            exit_code = pytest.main(args, plugins=[plugin])
-
-        if exit_code != 0:
-            # In CI this helps diagnose why discovery returned an empty list
-            sys.stderr.write(f"[ep upload] pytest collection failed with exit code {exit_code} for root {abs_root}\n")
-            out = stdout.getvalue()
-            err = stderr.getvalue()
-            if out:
-                sys.stderr.write("[ep upload] pytest collection stdout:\n")
-                sys.stderr.write(out + "\n")
-            if err:
-                sys.stderr.write("[ep upload] pytest collection stderr:\n")
-                sys.stderr.write(err + "\n")
-            return []
-    except Exception as e:
-        # Log the exception instead of silently swallowing it
-        sys.stderr.write(f"[ep upload] pytest collection raised an exception for root {abs_root}: {e!r}\n")
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            pytest.main(args, plugins=[plugin])
+    except Exception:
+        # If pytest collection fails, fall back to empty list
         return []
 
     # Process collected items
