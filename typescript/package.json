@@ -10,20 +10,23 @@
     }
   },
   "files": ["dist"],
-  "version": "0.1.8",
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
+  "version": "0.1.10",
   "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
+    "typescript": "^5",
     "@vercel/functions": "^1.4.0",
     "@vercel/node": "^3.0.21",
-    "openai": "^4.104.0",
+    "openai": "^4.104.0"
+  },
+  "dependencies": {
     "winston": "^3.11.0",
     "winston-transport": "^4.6.0",
     "logform": "^2.6.0",
     "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@vercel/functions": "^1.4.0",
+    "@vercel/node": "^3.0.21",
+    "openai": "^4.104.0"
   }
 }
