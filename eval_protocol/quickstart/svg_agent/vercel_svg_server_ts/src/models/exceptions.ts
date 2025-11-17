@@ -116,8 +116,10 @@ export class UnauthenticatedError extends EvalProtocolError {
   }
 }
 
+type EvalProtocolErrorConstructor = new (message?: string) => EvalProtocolError;
+
 // Mapping from status codes to exception classes
-const STATUS_CODE_TO_EXCEPTION = new Map<StatusCode, typeof EvalProtocolError | null>([
+const STATUS_CODE_TO_EXCEPTION = new Map<StatusCode, EvalProtocolErrorConstructor | null>([
   [StatusCode.OK, null],
   [StatusCode.CANCELLED, CancelledError],
   [StatusCode.UNKNOWN, UnknownError],
@@ -148,7 +150,7 @@ export function exceptionForStatusCode(code: StatusCode, message: string = ''): 
   if (!exceptionClass) {
     return null;
   }
-  return new exceptionClass(message, code);
+  return new exceptionClass(message);
 }
 
 /**

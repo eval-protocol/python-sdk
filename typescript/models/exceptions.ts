@@ -103,11 +103,13 @@ export class DataLossError extends EvalProtocolError {
 
 export class UnauthenticatedError extends EvalProtocolError {
   constructor(message: string = '') {
-  super(message, StatusCode.UNAUTHENTICATED);
+    super(message, StatusCode.UNAUTHENTICATED);
   }
 }
 
-const STATUS_CODE_TO_EXCEPTION = new Map<StatusCode, typeof EvalProtocolError | null>([
+type EvalProtocolErrorConstructor = new (message?: string) => EvalProtocolError;
+
+const STATUS_CODE_TO_EXCEPTION = new Map<StatusCode, EvalProtocolErrorConstructor | null>([
   [StatusCode.OK, null],
   [StatusCode.CANCELLED, CancelledError],
   [StatusCode.UNKNOWN, UnknownError],
@@ -135,7 +137,7 @@ export function exceptionForStatusCode(code: StatusCode, message: string = ''): 
   if (!exceptionClass) {
     return null;
   }
-  return new exceptionClass(message, code);
+  return new exceptionClass(message);
 }
 
 export function mapOpenAIErrorToStatus(error: any): Status {
