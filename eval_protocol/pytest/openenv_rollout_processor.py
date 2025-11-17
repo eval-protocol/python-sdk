@@ -432,7 +432,6 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
         Preference order:
           1) Use provided env_factory
           2) Use generic env_client_cls
-          3) Fallback to BrowserGymEnv (if importable)
         """
         if self._provided_env_factory is not None:
             return self._provided_env_factory
@@ -477,79 +476,8 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                     )
             return _generic_factory
 
-        # Fallback: try BrowserGymEnv if available
-        try:
-            from envs.browsergym_env import BrowserGymEnv  # type: ignore
-        except Exception as _e:
-            raise RuntimeError(
-                "No env_factory nor env_client_cls provided, and default BrowserGymEnv not available. "
-                "Provide env_client_cls/env_factory or install the BrowserGym client."
-            ) from _e
-
-        def _make_env_vars(selected_task: Optional[str]) -> Dict[str, str]:
-            vars_default: Dict[str, str] = {
-                "BROWSERGYM_BENCHMARK": str(self._benchmark),
-                "BROWSERGYM_HEADLESS": "true" if self._headless else "false",
-                "BROWSERGYM_VIEWPORT_WIDTH": str(self._viewport_width),
-                "BROWSERGYM_VIEWPORT_HEIGHT": str(self._viewport_height),
-                "BROWSERGYM_TIMEOUT": str(int(self._timeout_ms)),
-                "BROWSERGYM_OBS_AXTREE": "1",
-                "BROWSERGYM_OBS_PRUNED_HTML": "1",
-                "BROWSERGYM_RETURN_INFO": "1",
-            }
-            if selected_task:
-                vars_default["BROWSERGYM_TASK_NAME"] = str(selected_task)
-            if self._miniwob_url:
-                vars_default["MINIWOB_URL"] = str(self._miniwob_url)
-            if self._env_vars:
-                vars_default.update({k: str(v) for k, v in self._env_vars.items()})
-            return vars_default
-
-        def _browsergym_factory():
-            if self._env_base_url:
-                try:
-                    print(f"[OpenEnvRolloutProcessor] Using BrowserGymEnv base_url={self._env_base_url}")
-                except Exception:
-                    pass
-                return BrowserGymEnv(
-                    base_url=self._env_base_url,
-                    request_timeout_s=self._request_timeout_s,
-                    default_headers=self._default_headers,
-                )
-            # Rotate tasks per num_generations group to mimic GRPO grouping
-            selected_task = None
-            if self._tasks:
-                idx = self._env_create_idx
-                self._env_create_idx = idx + 1
-                group = idx // max(1, self._num_generations)
-                selected_task = self._tasks[group % len(self._tasks)]
-            try:
-                print(f"[OpenEnvRolloutProcessor] Selected task='{selected_task or '(default)'}'")
-            except Exception:
-                pass
-            env_vars_final = _make_env_vars(selected_task)
-            docker_kwargs: Dict[str, Any] = {"env_vars": env_vars_final}
-            if self._docker_port is not None:
-                docker_kwargs["port"] = int(self._docker_port)
-            if self._hub_repo_id:
-                try:
-                    print(f"[OpenEnvRolloutProcessor] BrowserGymEnv.from_hub repo_id='{self._hub_repo_id}'")
-                except Exception:
-                    pass
-                return BrowserGymEnv.from_hub(
-                    self._hub_repo_id,
-                    provider=self._provider,
-                    **docker_kwargs,
-                )
-            else:
-                try:
-                    print(f"[OpenEnvRolloutProcessor] BrowserGymEnv.from_docker_image image='{self._docker_image}'")
-                except Exception:
-                    pass
-                return BrowserGymEnv.from_docker_image(
-                    self._docker_image,
-                    provider=self._provider,
-                    **docker_kwargs,
-                )
-
-        return _browsergym_factory
+        # No fallback: require an env_factory or env_client_cls
+        raise RuntimeError(
+            "OpenEnvRolloutProcessor requires either env_factory or env_client_cls. "
+            "Provide one of these to construct the environment."
+        )
