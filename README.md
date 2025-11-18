@@ -5,7 +5,7 @@
 
 **Eval Protocol (EP) is an open solution for doing reinforcement learning fine-tuning on existing agents — across any language, container, or framework.**
 
-![Eval Protocol overview](./docs/intro.png)
+![Eval Protocol overview](https://github.com/eval-protocol/python-sdk/raw/main/docs/intro.png)
 
 Most teams already have complex agents running in production — often across remote services with heavy dependencies, Docker containers, or TypeScript backends deployed on Vercel. When they try to train or fine-tune these agents with reinforcement learning, connecting them to a trainer quickly becomes painful.
 

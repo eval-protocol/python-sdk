@@ -1,16 +1,32 @@
 {
   "name": "eval-protocol",
-  "module": "index.ts",
   "type": "module",
-  "version": "0.1.4",
-  "devDependencies": {
-    "@types/bun": "latest",
-    "openai": "^5.23.0"
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
+  "files": ["dist"],
+  "version": "0.1.10",
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5",
+    "@vercel/functions": "^1.4.0",
+    "@vercel/node": "^3.0.21",
+    "openai": "^4.104.0"
   },
   "dependencies": {
-    "zod": "^4.1.11"
+    "winston": "^3.11.0",
+    "winston-transport": "^4.6.0",
+    "logform": "^2.6.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@vercel/functions": "^1.4.0",
+    "@vercel/node": "^3.0.21",
+    "openai": "^4.104.0"
   }
 }

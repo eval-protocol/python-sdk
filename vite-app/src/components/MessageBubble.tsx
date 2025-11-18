@@ -6,6 +6,9 @@ import { Tooltip } from "./Tooltip";
 export const MessageBubble = ({ message }: { message: Message }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [toolCallCopySuccess, setToolCallCopySuccess] = useState<
+    Record<number, boolean>
+  >({});
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const isTool = message.role === "tool";
@@ -19,7 +22,7 @@ export const MessageBubble = ({ message }: { message: Message }) => {
       return message.content;
     } else if (Array.isArray(message.content)) {
       return message.content
-        .map((part, i) =>
+        .map((part) =>
           part.type === "text" ? part.text : JSON.stringify(part)
         )
         .join("");
@@ -29,6 +32,7 @@ export const MessageBubble = ({ message }: { message: Message }) => {
   };
 
   const messageContent = getMessageContent();
+  const hasMessageContent = messageContent.trim().length > 0;
   const isLongMessage = messageContent.length > 200; // Threshold for considering a message "long"
   const displayContent =
     isLongMessage && !isExpanded
@@ -42,6 +46,22 @@ export const MessageBubble = ({ message }: { message: Message }) => {
       setTimeout(() => setCopySuccess(false), 2000);
     } catch (err) {
       console.error("Failed to copy message:", err);
+    }
+  };
+
+  const handleToolCallCopy = async (index: number, argumentsText: string) => {
+    try {
+      await navigator.clipboard.writeText(argumentsText);
+      setToolCallCopySuccess((prev) => ({ ...prev, [index]: true }));
+      setTimeout(() => {
+        setToolCallCopySuccess((prev) => {
+          const newState = { ...prev };
+          delete newState[index];
+          return newState;
+        });
+      }, 2000);
+    } catch (err) {
+      console.error("Failed to copy tool call:", err);
     }
   };
 
@@ -59,31 +79,37 @@ export const MessageBubble = ({ message }: { message: Message }) => {
         }`}
       >
         {/* Copy button positioned in top-right corner */}
-        <div className="absolute top-1 right-1">
-          <Tooltip
-            content={copySuccess ? "Copied!" : "Copy message to clipboard"}
-            position="top"
-          >
-            <Button
-              onClick={handleCopy}
-              size="sm"
-              variant="secondary"
-              className={`p-0.5 h-5 text-[10px] opacity-60 hover:opacity-100 transition-opacity cursor-pointer ${
-                isUser
-                  ? "text-blue-600 hover:bg-blue-100"
-                  : isSystem
-                  ? "text-gray-600 hover:bg-gray-100"
-                  : isTool
-                  ? "text-green-600 hover:bg-green-100"
-                  : "text-yellow-600 hover:bg-yellow-100"
-              }`}
+        {hasMessageContent && (
+          <div className="absolute top-1 right-1">
+            <Tooltip
+              content={copySuccess ? "Copied!" : "Copy message to clipboard"}
+              position="top"
             >
-              Copy
-            </Button>
-          </Tooltip>
-        </div>
+              <Button
+                onClick={handleCopy}
+                size="sm"
+                variant="secondary"
+                className={`p-0.5 h-5 text-[10px] opacity-60 hover:opacity-100 transition-opacity cursor-pointer ${
+                  isUser
+                    ? "text-blue-600 hover:bg-blue-100"
+                    : isSystem
+                    ? "text-gray-600 hover:bg-gray-100"
+                    : isTool
+                    ? "text-green-600 hover:bg-green-100"
+                    : "text-yellow-600 hover:bg-yellow-100"
+                }`}
+              >
+                Copy
+              </Button>
+            </Tooltip>
+          </div>
+        )}
 
-        <div className="font-semibold text-xs mb-0.5 capitalize pr-8">
+        <div
+          className={`font-semibold text-xs mb-0.5 capitalize ${
+            hasMessageContent ? "pr-8" : ""
+          }`}
+        >
           {message.role}
         </div>
         <div className="whitespace-pre-wrap break-words overflow-hidden text-xs">
@@ -106,13 +132,35 @@ export const MessageBubble = ({ message }: { message: Message }) => {
           </button>
         )}
         {reasoning && reasoning.trim().length > 0 && (
-          <div className={`mt-2 pt-1 border-t ${isTool ? "border-green-200" : "border-yellow-200"}`}>
-            <div className={`font-semibold text-xs mb-0.5 ${isTool ? "text-green-700" : "text-yellow-700"}`}>
+          <div
+            className={`mt-2 pt-1 border-t ${
+              isTool ? "border-green-200" : "border-yellow-200"
+            }`}
+          >
+            <div
+              className={`font-semibold text-xs mb-0.5 ${
+                isTool ? "text-green-700" : "text-yellow-700"
+              }`}
+            >
               Thinking:
             </div>
             <details className="mb-1">
-              <summary className={`cursor-pointer text-xs ${isTool ? "text-green-700" : "text-yellow-700"}`}>Show reasoning</summary>
-              <pre className={`mt-1 p-1 border rounded text-xs whitespace-pre-wrap break-words ${isTool ? "bg-green-100 border-green-200 text-green-800" : "bg-yellow-100 border-yellow-200 text-yellow-800"}`}>{reasoning}</pre>
+              <summary
+                className={`cursor-pointer text-xs ${
+                  isTool ? "text-green-700" : "text-yellow-700"
+                }`}
+              >
+                Show reasoning
+              </summary>
+              <pre
+                className={`mt-1 p-1 border rounded text-xs whitespace-pre-wrap break-words ${
+                  isTool
+                    ? "bg-green-100 border-green-200 text-green-800"
+                    : "bg-yellow-100 border-yellow-200 text-yellow-800"
+                }`}
+              >
+                {reasoning}
+              </pre>
             </details>
           </div>
         )}
@@ -129,31 +177,63 @@ export const MessageBubble = ({ message }: { message: Message }) => {
             >
               Tool Calls:
             </div>
-            {message.tool_calls.map((call, i) => (
-              <div
-                key={i}
-                className={`mb-1 p-1 border rounded text-xs ${
-                  isTool
-                    ? "bg-green-100 border-green-200"
-                    : "bg-yellow-100 border-yellow-200"
-                }`}
-              >
+            {message.tool_calls.map((call, i) => {
+              const hasToolCallArguments =
+                call.function.arguments.trim().length > 0;
+              return (
                 <div
-                  className={`font-semibold mb-0.5 text-xs ${
-                    isTool ? "text-green-800" : "text-yellow-800"
+                  key={i}
+                  className={`mb-1 p-1 border rounded text-xs relative ${
+                    isTool
+                      ? "bg-green-100 border-green-200"
+                      : "bg-yellow-100 border-yellow-200"
                   }`}
                 >
-                  {call.function.name}
+                  {/* Copy button for tool call arguments */}
+                  {hasToolCallArguments && (
+                    <div className="absolute top-1 right-1">
+                      <Tooltip
+                        content={
+                          toolCallCopySuccess[i]
+                            ? "Copied!"
+                            : "Copy tool call arguments"
+                        }
+                        position="top"
+                      >
+                        <Button
+                          onClick={() =>
+                            handleToolCallCopy(i, call.function.arguments)
+                          }
+                          size="sm"
+                          variant="secondary"
+                          className={`p-0.5 h-5 text-[10px] opacity-60 hover:opacity-100 transition-opacity cursor-pointer ${
+                            isTool
+                              ? "text-green-600 hover:bg-green-200"
+                              : "text-yellow-600 hover:bg-yellow-200"
+                          }`}
+                        >
+                          Copy
+                        </Button>
+                      </Tooltip>
+                    </div>
+                  )}
+                  <div
+                    className={`font-semibold mb-0.5 text-xs ${
+                      hasToolCallArguments ? "pr-8" : ""
+                    } ${isTool ? "text-green-800" : "text-yellow-800"}`}
+                  >
+                    {call.function.name}
+                  </div>
+                  <div
+                    className={`font-mono text-xs break-all overflow-hidden ${
+                      isTool ? "text-green-700" : "text-yellow-700"
+                    }`}
+                  >
+                    {call.function.arguments}
+                  </div>
                 </div>
-                <div
-                  className={`font-mono text-xs break-all overflow-hidden ${
-                    isTool ? "text-green-700" : "text-yellow-700"
-                  }`}
-                >
-                  {call.function.arguments}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         {hasFunctionCall && message.function_call && (
@@ -170,16 +250,46 @@ export const MessageBubble = ({ message }: { message: Message }) => {
               Function Call:
             </div>
             <div
-              className={`p-1 border rounded text-xs ${
+              className={`p-1 border rounded text-xs relative ${
                 isTool
                   ? "bg-green-100 border-green-200"
                   : "bg-yellow-100 border-yellow-200"
               }`}
             >
+              {/* Copy button for function call arguments */}
+              {message.function_call.arguments.trim().length > 0 && (
+                <div className="absolute top-1 right-1">
+                  <Tooltip
+                    content={
+                      toolCallCopySuccess[-1]
+                        ? "Copied!"
+                        : "Copy function call arguments"
+                    }
+                    position="top"
+                  >
+                    <Button
+                      onClick={() =>
+                        handleToolCallCopy(-1, message.function_call!.arguments)
+                      }
+                      size="sm"
+                      variant="secondary"
+                      className={`p-0.5 h-5 text-[10px] opacity-60 hover:opacity-100 transition-opacity cursor-pointer ${
+                        isTool
+                          ? "text-green-600 hover:bg-green-200"
+                          : "text-yellow-600 hover:bg-yellow-200"
+                      }`}
+                    >
+                      Copy
+                    </Button>
+                  </Tooltip>
+                </div>
+              )}
               <div
                 className={`font-semibold mb-0.5 text-xs ${
-                  isTool ? "text-green-800" : "text-yellow-800"
-                }`}
+                  message.function_call.arguments.trim().length > 0
+                    ? "pr-8"
+                    : ""
+                } ${isTool ? "text-green-800" : "text-yellow-800"}`}
               >
                 {message.function_call.name}
               </div>
