@@ -2,7 +2,7 @@ from typing import List
 
 import eval_protocol.dataset_logger as dataset_logger
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
-from eval_protocol.models import EvaluationRow
+from eval_protocol.models import EvaluationRow, EvaluateResult
 from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
 from tests.pytest.test_markdown_highlighting import markdown_dataset_to_evaluation_row
 
@@ -37,6 +37,7 @@ async def test_evaluation_test_decorator(monkeypatch):
         logger=logger,
     )
     def eval_fn(row: EvaluationRow) -> EvaluationRow:
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
     dataset_paths = [
@@ -83,6 +84,7 @@ async def test_evaluation_test_decorator_ids_single(monkeypatch):
         unique_rollout_ids.add(row.execution_metadata.rollout_id)
         unique_invocation_ids.add(row.execution_metadata.invocation_id)
         unique_row_ids.add(row.input_metadata.row_id)
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
     dataset_paths = [

@@ -1,7 +1,7 @@
 import asyncio
 
 from eval_protocol.pytest import evaluation_test
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 
 
 @evaluation_test(
@@ -22,6 +22,8 @@ from eval_protocol.models import EvaluationRow, Message
 )
 def test_pytest_async(rows: list[EvaluationRow]) -> list[EvaluationRow]:
     """Run math evaluation on sample dataset using pytest interface."""
+    for row in rows:
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return rows
 
 

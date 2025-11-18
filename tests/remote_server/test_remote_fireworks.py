@@ -119,7 +119,7 @@ async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> Evaluat
     - trigger remote rollout via RemoteRolloutProcessor (calls init/status)
     - fetch traces from Langfuse via Fireworks tracing proxy filtered by metadata via output_data_loader; FAIL if none found
     """
-    row.evaluation_result = EvaluateResult(score=0.0, reason="Test reason")
+    row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
 
     assert row.messages[0].content == "What is the capital of France?", "Row should have correct message content"
     assert len(row.messages) > 1, "Row should have a response. If this fails, we fellback to the original row."

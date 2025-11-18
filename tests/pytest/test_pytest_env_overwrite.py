@@ -1,7 +1,7 @@
 import atexit
 import shutil
 import tempfile
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
 from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
@@ -23,6 +23,7 @@ with mock.patch.dict(os.environ, {"EP_INVOCATION_ID": "test-invocation-123"}):
         """Run math evaluation on sample dataset using pytest interface."""
         assert row.messages[0].content == "What is the capital of France?"
         assert row.execution_metadata.invocation_id == "test-invocation-123"
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
 
@@ -38,6 +39,7 @@ with mock.patch.dict(os.environ, {"EP_COMPLETION_PARAMS": '[{"model": "gpt-40"}]
         """Run math evaluation on sample dataset using pytest interface."""
         assert row.messages[0].content == "What is 5 * 6?"
         assert row.input_metadata.completion_params["model"] == "gpt-40"
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
 
@@ -60,6 +62,7 @@ with mock.patch.dict(os.environ, {"EP_JSONL_PATH": input_path}):
     )
     def test_input_override(row: EvaluationRow) -> EvaluationRow:
         assert row.messages[0].content == "What is 10 / 2?"
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
 
@@ -79,6 +82,7 @@ with mock.patch.dict(os.environ, {"EP_USE_NO_OP_ROLLOUT_PROCESSOR": "1"}):
         # Verify that no actual model call was made (NoOpRolloutProcessor doesn't modify messages)
         assert len(row.messages) == 1
         assert row.messages[0].role == "user"
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
     @evaluation_test(
@@ -96,6 +100,7 @@ with mock.patch.dict(os.environ, {"EP_USE_NO_OP_ROLLOUT_PROCESSOR": "1"}):
         assert row.messages[0].role == "user"
         # Verify the original message content is preserved (no assistant response added)
         assert row.messages[0].content == "Test override"
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
     @evaluation_test(
@@ -115,6 +120,7 @@ with mock.patch.dict(os.environ, {"EP_USE_NO_OP_ROLLOUT_PROCESSOR": "1"}):
         # Verify rows pass through unchanged
         assert len(row.messages) == 1
         assert row.messages[0].role == "user"
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
 

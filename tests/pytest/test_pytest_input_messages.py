@@ -1,7 +1,7 @@
 from typing import List
 
 import pytest
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 
 
@@ -19,4 +19,6 @@ from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 )
 def test_input_messages_in_decorator(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     """Run math evaluation on sample dataset using pytest interface."""
+    for row in rows:
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return rows

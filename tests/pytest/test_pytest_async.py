@@ -1,6 +1,6 @@
 import pytest
 
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 
 
@@ -20,6 +20,8 @@ from eval_protocol.pytest import evaluation_test
 )
 async def test_pytest_async(rows: list[EvaluationRow]) -> list[EvaluationRow]:
     """Run math evaluation on sample dataset using pytest interface."""
+    for row in rows:
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return rows
 
 
@@ -36,6 +38,7 @@ async def test_pytest_async(rows: list[EvaluationRow]) -> list[EvaluationRow]:
 )
 async def test_pytest_async_pointwise(row: EvaluationRow) -> EvaluationRow:
     """Run pointwise evaluation on sample dataset using pytest interface."""
+    row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return row
 
 
