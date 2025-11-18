@@ -10,7 +10,7 @@ We:
 
 from typing import Any
 
-from eval_protocol.integrations.openai_rft.adapter import build_python_grader_from_evaluation_test
+from eval_protocol.integrations.openai_rft import build_python_grader_from_evaluation_test
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor

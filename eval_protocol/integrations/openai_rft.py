@@ -16,24 +16,30 @@ def build_python_grader_from_evaluation_test(test_fn) -> dict:
     Return an OpenAI Python grader spec from an Eval Protocol-style evaluation function.
 
     Assumptions:
-    - `test_fn` is the *core* evaluation function (not the @evaluation_test wrapper),
-      or an @evaluation_test-decorated function that carries _origin_func.
-      It should have a signature like:
+    - `test_fn` is either:
+        * the core evaluation function, or
+        * an @evaluation_test-decorated function that carries `_origin_func`.
+      Its effective signature looks like:
 
           def my_eval(row, **kwargs) -> EvaluateResult | float | EvaluationRow
 
-    - The function only relies on attributes that we provide on `EvaluationRowLike`
-      (you can extend that class as needed).
+    - The function treats `row` as an `EvaluationRow` and only relies on attributes
+      we provide in the duck-typed stand-in:
+        * row.ground_truth
+        * row.messages
+        * row.item (raw item dict)
+        * row.sample (raw sample dict)
 
-    - We map OpenAI's (sample, item) to a duck‑typed `row`:
-        - item["reference_answer"]      -> row.ground_truth
-        - sample["output_text"]         -> appended as an assistant message
-        - raw dicts available as row.item / row.sample
+    - We map OpenAI's (sample, item) into that duck-typed `EvaluationRow` as follows:
+        * item["reference_answer"]      -> row.ground_truth
+        * item["messages"] (if present) -> row.messages (normalized to Message-like objects)
+        * sample["output_text"]         -> appended as the last assistant message in row.messages
+        * the original dicts are also available via row.item / row.sample
 
     - The function returns either:
-        - a numeric score, or
-        - an object/dict with a `score` field, or
-        - an EvaluationRow/EvaluateResult-like object with `.evaluation_result.score`.
+        * a numeric score, or
+        * an object/dict with a `score` field, or
+        * an EvaluationRow/EvaluateResult-like object with `.evaluation_result.score`.
     """
 
     # If the user passed an @evaluation_test wrapper, try to recover the original function
