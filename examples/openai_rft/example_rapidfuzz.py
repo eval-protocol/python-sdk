@@ -58,6 +58,3 @@ def rapidfuzz_eval(row: EvaluationRow, **kwargs: Any) -> EvaluationRow:
     )
     row.evaluation_result = EvaluateResult(score=score)
     return row
-
-
-RAPIDFUZZ_PYTHON_GRADER_SPEC: dict = build_python_grader_from_evaluation_test(rapidfuzz_eval)
