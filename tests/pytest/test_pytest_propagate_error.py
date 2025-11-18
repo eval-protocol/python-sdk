@@ -1,5 +1,5 @@
 from typing_extensions import override
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest.default_agent_rollout_processor import AgentRolloutProcessor
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 
@@ -56,6 +56,9 @@ async def test_pytest_propagate_error():
         logger=logger,
     )
     def eval_fn(row: EvaluationRow) -> EvaluationRow:
+        # Attach a dummy evaluation_result so the invariant is satisfied;
+        # this test only cares that eval_metadata.status reflects rollout errors.
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
     # Manually invoke all parameter combinations within a single test

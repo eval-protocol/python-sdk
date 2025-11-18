@@ -26,7 +26,7 @@ async def test_ensure_logging(monkeypatch):
     with patch(
         "eval_protocol.dataset_logger.sqlite_dataset_logger_adapter.SqliteEvaluationRowStore", return_value=mock_store
     ):
-        from eval_protocol.models import EvaluationRow
+        from eval_protocol.models import EvaluationRow, EvaluateResult
         from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
         from eval_protocol.pytest.evaluation_test import evaluation_test
         from tests.pytest.test_markdown_highlighting import markdown_dataset_to_evaluation_row
@@ -44,6 +44,9 @@ async def test_ensure_logging(monkeypatch):
             # Don't pass logger parameter - let it use the default_logger (which we've replaced)
         )
         def eval_fn(row: EvaluationRow) -> EvaluationRow:
+            # This test is only about logging behavior; attach a dummy evaluation_result
+            # so that evaluation_test's invariant about evaluation_result is satisfied.
+            row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
             return row
 
         await eval_fn(

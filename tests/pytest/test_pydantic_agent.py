@@ -2,7 +2,7 @@ from pydantic_ai.agent import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 import pytest
 
-from eval_protocol.models import EvaluationRow, Message, Status
+from eval_protocol.models import EvaluationRow, Message, Status, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 
 from eval_protocol.pytest.default_pydantic_ai_rollout_processor import PydanticAgentRolloutProcessor
@@ -28,4 +28,5 @@ async def test_pydantic_agent(row: EvaluationRow) -> EvaluationRow:
     Super simple hello world test for Pydantic AI.
     """
     assert row.rollout_status.code == Status.Code.FINISHED
+    row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return row
