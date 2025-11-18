@@ -1,7 +1,7 @@
 import types
 from typing import Any, Dict, Callable
 
-from eval_protocol.integrations.openai_rft.adapter import build_python_grader_from_evaluation_test
+from eval_protocol.integrations.openai_rft import build_python_grader_from_evaluation_test
 from eval_protocol.models import EvaluationRow
 
 
