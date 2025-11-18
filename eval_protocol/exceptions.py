@@ -134,6 +134,12 @@ class ScoreInvalidError(EvalProtocolError):
     status_code = 102
 
 
+class ResponseQualityError(EvalProtocolError):
+    """Response quality check failed (Status.Code.RESPONSE_QUALITY_ERROR = 103)"""
+
+    status_code = 103
+
+
 # Convenience mapping from status codes to exception classes
 # Only actual error conditions should raise exceptions
 STATUS_CODE_TO_EXCEPTION = {
@@ -157,6 +163,7 @@ STATUS_CODE_TO_EXCEPTION = {
     100: None,  # FINISHED - success, no exception
     101: None,  # RUNNING - in progress, no exception
     102: None,  # SCORE_INVALID - success, no exception
+    103: ResponseQualityError,  # RESPONSE_QUALITY_ERROR - quality check failed
 }
 
 

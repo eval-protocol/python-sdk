@@ -117,6 +117,7 @@ class Status(BaseModel):
         FINISHED = 100
         RUNNING = 101
         SCORE_INVALID = 102
+        RESPONSE_QUALITY_ERROR = 103
 
     @classmethod
     def rollout_running(cls) -> "Status":
@@ -366,6 +367,13 @@ class Status(BaseModel):
     ) -> "Status":
         """Create a status indicating the score is invalid."""
         return cls(code=cls.Code.SCORE_INVALID, message=message, details=details or [])
+
+    @classmethod
+    def response_quality_error(
+        cls, message: str = "Response quality check failed", details: Optional[List[Dict[str, Any]]] = None
+    ) -> "Status":
+        """Create a status indicating the response quality check failed."""
+        return cls(code=cls.Code.RESPONSE_QUALITY_ERROR, message=message, details=details or [])
 
     def is_running(self) -> bool:
         """Check if the status indicates the rollout is running."""
