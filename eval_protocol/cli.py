@@ -402,7 +402,7 @@ def parse_args(args=None):
     rft_parser.add_argument("--lora-rank", type=int, default=16)
     rft_parser.add_argument("--gradient-accumulation-steps", type=int, help="Number of gradient accumulation steps")
     rft_parser.add_argument("--learning-rate-warmup-steps", type=int, help="Number of LR warmup steps")
-    rft_parser.add_argument("--accelerator-count", type=int, default=1)
+    rft_parser.add_argument("--accelerator-count", type=int)
     rft_parser.add_argument("--region", help="Fireworks region enum value")
     rft_parser.add_argument("--display-name", help="RFT job display name")
     rft_parser.add_argument("--evaluation-dataset", help="Optional separate eval dataset id")
