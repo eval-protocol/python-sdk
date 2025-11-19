@@ -2,11 +2,11 @@ from typing import Any, Dict, List
 import os
 import re
 
+
 from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.openenv_rollout_processor import OpenEnvRolloutProcessor
 import pytest
-import os
 
 # Skip these integration-heavy tests on CI runners by default
 pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skip OpenEnv integration tests on CI")
@@ -45,14 +45,21 @@ def action_parser(response_text: str):
 
 try:
     from envs.echo_env import EchoEnv  # type: ignore
+
     _HAS_ECHO = True
 except Exception:
     _HAS_ECHO = False
 
 
+# Inline test data
+ECHO_INLINE_DATA: List[Dict[str, Any]] = [
+    {"id": "echo-1", "prompt": "hello"},
+    {"id": "echo-2", "prompt": "test message"},
+]
+
+
 @evaluation_test(  # type: ignore[misc]
-    input_dataset=["tests/pytest/data/echo_dataset.jsonl"],
-    dataset_adapter=echo_dataset_to_rows,
+    input_rows=[echo_dataset_to_rows(ECHO_INLINE_DATA)],
     completion_params=[
         {
             "temperature": 0.0,
@@ -93,8 +100,13 @@ def test_openenv_echo_hub(row: EvaluationRow) -> EvaluationRow:
         # Preferred path: system sentinel "__ep_step_rewards__"
         step_rewards: List[float] = []
         for msg in row.messages or []:
-            if msg.role == "system" and isinstance(msg.content, str) and msg.content.startswith("__ep_step_rewards__:"):
+            if (
+                msg.role == "system"
+                and isinstance(msg.content, str)
+                and msg.content.startswith("__ep_step_rewards__:")
+            ):
                 import json as _json
+
                 payload = msg.content.split(":", 1)[1]
                 step_rewards = _json.loads(payload) or []
                 break
@@ -105,5 +117,3 @@ def test_openenv_echo_hub(row: EvaluationRow) -> EvaluationRow:
     score = max(0.0, min(1.0, total_reward))
     row.evaluation_result = EvaluateResult(score=score, reason=f"Echo total reward={total_reward:.2f}")
     return row
-
-

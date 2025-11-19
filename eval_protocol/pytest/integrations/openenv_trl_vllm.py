@@ -131,11 +131,15 @@ def create_openenv_vllm_rollout_func(
             flush=True,
         )
 
+        # Import default logger for local tracing
+        from eval_protocol.dataset_logger import default_logger
+
         config = RolloutProcessorConfig(
             completion_params=base_params,
             mcp_config_path="",
             semaphore=asyncio.Semaphore(max_concurrency),
             steps=max_steps,
+            logger=default_logger,
         )
 
         # 3) Execute rollouts with VLLMPolicy
