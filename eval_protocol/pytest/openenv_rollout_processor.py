@@ -15,6 +15,7 @@ This processor just calls env.reset(), env.step(), env.state() - that's it!
 import asyncio
 import logging
 import time
+from itertools import count
 from typing import List, Any, Dict, Callable, Generic, TypeVar, Optional, Type
 import json
 
@@ -142,7 +143,9 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
         self._viewport_height = viewport_height
         self._timeout_ms = timeout_ms
         self._num_generations = max(1, int(num_generations)) if num_generations else 1
-        self._env_create_idx: int = 0
+        # Counter used for task rotation when creating environments. Uses
+        # itertools.count to avoid race conditions across concurrent rollouts.
+        self._env_create_counter = count()
 
         if self._tasks and not self._task_var:
             raise ValueError("task_var must be provided when tasks are configured.")
@@ -411,7 +414,9 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                 )
                 row.execution_metadata.duration_seconds = time.perf_counter() - start_time
 
-                # Store rewards for TRL reward functions
+                # Store per-step rewards in a sentinel system message so
+                # evaluation tests and downstream integrations can reconstruct
+                # episode rewards.
                 sentinel = "__ep_step_rewards__:" + json.dumps(step_rewards)
                 messages.append(Message(role="system", content=sentinel))
 
@@ -469,7 +474,6 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                     env.close()
                     logger.debug("[OpenEnvRolloutProcessor] Environment closed successfully")
                 except Exception as close_err:
-                    print(f"[OpenEnvRolloutProcessor] Warning: Error closing environment: {close_err}", flush=True)
                     logger.warning(
                         "[OpenEnvRolloutProcessor] Error closing environment: %s",
                         close_err,
@@ -534,8 +538,9 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                 # Select task for this env instance (if provided), grouped by num_generations
                 selected_task: Optional[str] = None
                 if self._tasks:
-                    idx = self._env_create_idx
-                    self._env_create_idx = idx + 1
+                    # Use a monotonic counter so concurrent environment creation
+                    # does not reuse the same index across rollouts.
+                    idx = next(self._env_create_counter)
                     group = idx // max(1, self._num_generations)
                     selected_task = self._tasks[group % len(self._tasks)]
                     if not self._task_var:

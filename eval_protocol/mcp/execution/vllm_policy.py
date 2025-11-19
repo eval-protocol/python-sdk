@@ -1,11 +1,18 @@
 """
-VLLMPolicy - Policy for TRL's VLLMClient
+VLLMPolicy - Policy for TRL's VLLMClient or colocated vLLM LLM.
 
-Simple policy that calls TRL's vllm_client directly instead of going through LiteLLM.
-Works with `trl vllm-serve` endpoints.
+Thin adapter that turns Eval Protocol-style message lists into a single prompt,
+then calls either:
+
+- TRL's VLLMClient (server mode), or
+- a colocated vLLM LLM instance (SamplingParams mode).
 """
 
+import logging
 from typing import Any, Dict, List, Optional
+
+
+logger = logging.getLogger(__name__)
 
 
 class VLLMPolicy:
@@ -52,7 +59,7 @@ class VLLMPolicy:
         tools: Optional[List] = None,
     ) -> Dict[str, Any]:
         """
-        Make LLM call using TRL's VLLMClient.
+        Make LLM call using TRL's VLLMClient or a colocated vLLM LLM.
 
         Args:
             messages: List of message dicts with 'role' and 'content'
@@ -70,29 +77,29 @@ class VLLMPolicy:
                     add_generation_prompt=True,
                     tokenize=False,
                 )
-                print("\n[VLLMPolicy] ===== CHAT TEMPLATE APPLIED =====", flush=True)
-                print(f"[VLLMPolicy] Input messages ({len(messages)} messages):", flush=True)
-                for i, msg in enumerate(messages):
-                    content_preview = str(msg.get("content", ""))[:100]
-                    print(f"  [{i}] {msg.get('role', '?')}: {content_preview}...", flush=True)
-                print(f"[VLLMPolicy] Formatted prompt (length={len(prompt_text)}):", flush=True)
-                print("[VLLMPolicy] Prompt preview (last 500 chars):", flush=True)
-                print(f"{prompt_text[-500:]}", flush=True)
-                print("[VLLMPolicy] ===================================", flush=True)
+                logger.debug(
+                    "[VLLMPolicy] Chat template applied for %d messages (prompt length=%d)",
+                    len(messages),
+                    len(prompt_text),
+                )
             except Exception as e:
-                print(f"[VLLMPolicy] Warning: Failed to apply chat template: {e}", flush=True)
-                # Fallback: simple concatenation
-                prompt_text = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
+                logger.warning(
+                    "[VLLMPolicy] Failed to apply chat template: %s",
+                    e,
+                    exc_info=True,
+                )
+                # Fallback: simple concatenation (defensive .get access)
+                prompt_text = "\n".join(f"{m.get('role', '?')}: {m.get('content', '')}" for m in messages)
         else:
             # No tokenizer: simple concatenation
-            prompt_text = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
+            prompt_text = "\n".join(f"{m.get('role', '?')}: {m.get('content', '')}" for m in messages)
 
         # Check if vllm_client is VLLMClient (server mode) or LLM (colocate mode)
         is_llm_object = hasattr(self.vllm_client, "llm_engine")  # LLM has llm_engine
 
         if is_llm_object:
             # Colocate mode: use SamplingParams
-            print("[VLLMPolicy] Using vLLM LLM (colocate mode) with SamplingParams", flush=True)
+            logger.debug("[VLLMPolicy] Using vLLM LLM (colocate mode) with SamplingParams")
             from vllm import SamplingParams
 
             sampling_params = SamplingParams(
@@ -103,7 +110,7 @@ class VLLMPolicy:
                 n=1,
             )
 
-            print("[VLLMPolicy] Calling LLM.generate()...", flush=True)
+            logger.debug("[VLLMPolicy] Calling LLM.generate()")
             outputs = self.vllm_client.generate([prompt_text], sampling_params=sampling_params, use_tqdm=False)
 
             # Extract from vLLM output format
@@ -116,7 +123,7 @@ class VLLMPolicy:
             }
         else:
             # Server mode: use VLLMClient with kwargs
-            print("[VLLMPolicy] Using VLLMClient (server mode)", flush=True)
+            logger.debug("[VLLMPolicy] Using VLLMClient (server mode)")
             vllm_params = {
                 "temperature": self.temperature,
                 "max_tokens": self.max_tokens,
@@ -126,7 +133,7 @@ class VLLMPolicy:
             }
             vllm_params.update(self.kwargs)
 
-            print("[VLLMPolicy] Calling vllm_client.generate()...", flush=True)
+            logger.debug("[VLLMPolicy] Calling vllm_client.generate()")
             response = self.vllm_client.generate(
                 prompts=[prompt_text],
                 **vllm_params,
@@ -140,16 +147,18 @@ class VLLMPolicy:
         if self.tokenizer is not None:
             try:
                 completion_text = self.tokenizer.decode(completion_ids, skip_special_tokens=True)
-                print("\n[VLLMPolicy] ===== GENERATION RESULT =====", flush=True)
-                print(f"[VLLMPolicy] Prompt tokens: {len(prompt_ids)}", flush=True)
-                print(f"[VLLMPolicy] Completion tokens: {len(completion_ids)}", flush=True)
-                print(f"[VLLMPolicy] FULL decoded completion ({len(completion_text)} chars):", flush=True)
-                print("───────────────────────────────────────", flush=True)
-                print(f"{completion_text}", flush=True)
-                print("───────────────────────────────────────", flush=True)
-                print("[VLLMPolicy] ==============================", flush=True)
+                logger.debug(
+                    "[VLLMPolicy] Generation result: prompt_tokens=%d, completion_tokens=%d, completion_chars=%d",
+                    len(prompt_ids),
+                    len(completion_ids),
+                    len(completion_text),
+                )
             except Exception as e:
-                print(f"[VLLMPolicy] Warning: Failed to decode completion: {e}", flush=True)
+                logger.warning(
+                    "[VLLMPolicy] Failed to decode completion: %s",
+                    e,
+                    exc_info=True,
+                )
                 completion_text = f"<decoded_error:{len(completion_ids)}_tokens>"
         else:
             # Fallback: just indicate number of tokens

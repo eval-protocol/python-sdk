@@ -134,34 +134,18 @@ def create_openenv_vllm_rollout_func(
         # 1) Build evaluation rows with rollout_id for logging
         import uuid
 
-        # Generate unique IDs for this batch
-        def _gen_id():
-            import random
-
-            words = [
-                "quick",
-                "lazy",
-                "happy",
-                "bright",
-                "calm",
-                "bold",
-                "wise",
-                "kind",
-            ]
-            return f"{random.choice(words)}-{random.choice(words)}-{random.randint(10, 99)}"
-
         evaluation_rows: List[EvaluationRow] = []
         for prompt_idx, prompt in enumerate(prompts):
             # One evaluation row per incoming prompt. GRPOTrainer will handle
             # grouping by `num_generations` at the trainer level; the custom
             # rollout_func must return one set of tokens per prompt.
             rollout_id = f"openenv_vllm_{uuid.uuid4().hex[:12]}"
-            row_id = _gen_id()
 
             row = EvaluationRow(
                 messages=[Message(role="user", content=prompt)],
                 input_metadata=InputMetadata(
-                    row_id=row_id,  # Required for ep logs UI!
+                    # Let Eval Protocol generate a stable row_id from content.
+                    row_id=None,
                     completion_params={},
                 ),
             )
