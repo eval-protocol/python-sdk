@@ -2,7 +2,7 @@
   "mcpServers": {
     "klavis-strata": {
       "url": "https://strata.klavis.ai/mcp/",
-      "authorization": "Bearer ${KLAVIS_API_KEY}"
+      "authorization": "Bearer ${KLAVIS_AUTH_TOKEN}"
     }
   }
 }
