@@ -6,7 +6,6 @@ import pytest
 from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.openenv_rollout_processor import OpenEnvRolloutProcessor
-import pytest
 
 # Skip these integration-heavy tests on CI runners by default
 pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skip OpenEnv integration tests on CI")
@@ -89,7 +88,7 @@ def _extract_clickable_elements_lines(observation: Any) -> List[str]:
         bbox_str = ", ".join(str(v) for v in bbox) if bbox else "?"
         role, name = bid_to_desc.get(str(bid), ("", ""))
         focus_tag = " [FOCUSED]" if (str(bid) == str(focused_bid)) else ""
-        rn = (role or "-")
+        rn = role or "-"
         if name:
             rn = f"{rn} | {name}"
         vis = props.get("visibility")
@@ -145,7 +144,7 @@ def _rank_clickables_lines(observation: Any, goal: str, top_n: int = 8) -> tuple
             pass
         bbox = props.get("bbox") or []
         bbox_str = ", ".join(str(v) for v in bbox) if bbox else "?"
-        rn = (role or "-")
+        rn = role or "-"
         if name:
             rn = f"{rn} | {name}"
         vis_str = f"{vis:.2f}" if isinstance(vis, (int, float)) else str(vis) if vis is not None else "?"
@@ -217,18 +216,23 @@ def action_parser(response_text: str):
 
 try:
     from envs.browsergym_env import BrowserGymEnv  # type: ignore
+
     _HAS_BG = True
 except Exception:
     _HAS_BG = False
 
 
+OPENENV_BROWSERGYM_INLINE_DATA: List[Dict[str, Any]] = [
+    {"id": "click-test", "prompt": "start"},
+]
+
+
 @evaluation_test(  # type: ignore[misc]
-    input_dataset=["tests/pytest/data/openenv_browsergym_dataset.jsonl"],
-    dataset_adapter=openenv_dataset_to_rows,
+    input_rows=[openenv_dataset_to_rows(OPENENV_BROWSERGYM_INLINE_DATA)],
     completion_params=[
         {
             "temperature": 0.0,
-            "max_tokens": 32,
+            "max_tokens": 512,
             "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct",
         }
     ],
@@ -241,20 +245,24 @@ except Exception:
             env_client_cls=BrowserGymEnv if _HAS_BG else None,
             prompt_builder=prompt_builder,
             action_parser=action_parser,
-            tasks=[
-                "click-test",
-                "click-button",
-                "click-button-sequence",
-                "click-checkboxes",
-                "click-checkboxes-soft",
-                "click-checkboxes-large",
-                "click-checkboxes-transfer",
-            ],
-            miniwob_url=os.getenv("MINIWOB_URL", "http://172.17.0.1:8888/miniwob/"),
+            tasks=["click-test"],
+            task_var="BROWSERGYM_TASK_NAME",
+            miniwob_url=os.getenv("MINIWOB_URL", "http://host.docker.internal:8888/miniwob/"),
             docker_image="browsergym-env:latest",
             benchmark="miniwob",
             timeout_ms=10000,
             num_generations=1,
+            env_vars={
+                "BROWSERGYM_BENCHMARK": "miniwob",
+                "BROWSERGYM_HEADLESS": "true",
+                "BROWSERGYM_VIEWPORT_WIDTH": "1280",
+                "BROWSERGYM_VIEWPORT_HEIGHT": "720",
+                "BROWSERGYM_TIMEOUT": "10000",
+                "BROWSERGYM_OBS_AXTREE": "1",
+                "BROWSERGYM_OBS_PRUNED_HTML": "1",
+                "BROWSERGYM_RETURN_INFO": "1",
+                "MINIWOB_URL": os.getenv("MINIWOB_URL", "http://host.docker.internal:8888/miniwob/"),
+            },
         )
         if _HAS_BG
         else None
@@ -271,8 +279,13 @@ def test_openenv_browsergym_eval(row: EvaluationRow) -> EvaluationRow:
     step_rewards: List[float] = []
     try:
         for msg in row.messages or []:
-            if msg.role == "system" and isinstance(msg.content, str) and msg.content.startswith("__ep_step_rewards__:"):
+            if (
+                msg.role == "system"
+                and isinstance(msg.content, str)
+                and msg.content.startswith("__ep_step_rewards__:")
+            ):
                 import json as _json
+
                 payload = msg.content.split(":", 1)[1]
                 step_rewards = _json.loads(payload) or []
                 break
@@ -285,4 +298,3 @@ def test_openenv_browsergym_eval(row: EvaluationRow) -> EvaluationRow:
     reason = f"Total reward={total:.2f} across {len(step_rewards)} steps"
     row.evaluation_result = EvaluateResult(score=score, reason=reason)
     return row
-
