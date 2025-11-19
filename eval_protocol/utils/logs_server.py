@@ -64,7 +64,25 @@ class WebSocketManager:
 
         logger.debug("[WEBSOCKET_CONNECT] Reading logs for initialization")
         logs = default_logger.read()
+        init_limit_str = os.environ.get("EP_LOGS_INIT_LIMIT", "1000")
+        try:
+            init_limit = max(1, int(init_limit_str))
+        except Exception:
+            init_limit = 1000
+        if len(logs) > init_limit:
+            # logs are ordered by updated_at DESC from sqlite read(); keep the newest entries
+            logs = logs[:init_limit]
+            logger.debug(f"[WEBSOCKET_CONNECT] Found many logs, truncating to newest {init_limit} entries for init")
         logger.debug(f"[WEBSOCKET_CONNECT] Found {len(logs)} logs to send")
+        try:
+            # Print a small sample of rollout_ids being sent on init for debugging
+            sample_ids = []
+            for row in logs[-5:]:
+                rid = getattr(getattr(row, "execution_metadata", None), "rollout_id", "unknown")
+                sample_ids.append(str(rid))
+            logger.debug(f"[WEBSOCKET_CONNECT] Init sample rollout_ids (tail): {sample_ids}")
+        except Exception:
+            pass
 
         data = {
             "type": "initialize_logs",
@@ -104,6 +122,16 @@ class WebSocketManager:
             logger.debug(
                 f"[WEBSOCKET_BROADCAST] Successfully serialized message (length: {len(json_message)}) for rollout_id: {rollout_id}"
             )
+            try:
+                # Extra debug: how many messages and last message summary
+                msgs = getattr(row, "messages", None) or []
+                last_role = getattr(msgs[-1], "role", None) if msgs else None
+                last_len = len(str(getattr(msgs[-1], "content", ""))) if msgs else 0
+                logger.debug(
+                    f"[WEBSOCKET_BROADCAST] rollout_id={rollout_id} messages={len(msgs)} last_role={last_role} last_content_len={last_len}"
+                )
+            except Exception:
+                pass
 
             # Queue the message for broadcasting in the main event loop
             logger.debug(f"[WEBSOCKET_BROADCAST] Queuing message for broadcast for rollout_id: {rollout_id}")
