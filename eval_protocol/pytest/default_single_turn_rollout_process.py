@@ -97,10 +97,13 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             assert isinstance(response, ModelResponse), "Response should be ModelResponse"
             assert isinstance(response.choices[0], Choices), "Response choice should be a Choices"
 
+            assistant_message = response.choices[0].message
             finish_reason = getattr(response.choices[0], "finish_reason", None)
 
-            assistant_message = response.choices[0].message
+            # Extract content
             assistant_content = assistant_message.content or ""
+
+            # Extract reasoning content (if present)
             reasoning_content = getattr(assistant_message, "reasoning_content", None)
             if reasoning_content is None:
                 reasoning_content = getattr(assistant_message, "reasoning", None)
@@ -109,6 +112,8 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                     reasoning_content = json.dumps(reasoning_content)
                 except Exception:
                     reasoning_content = str(reasoning_content)
+
+            # Extract tool calls
             tool_calls = assistant_message.tool_calls if assistant_message.tool_calls else None
 
             converted_tool_calls = None
