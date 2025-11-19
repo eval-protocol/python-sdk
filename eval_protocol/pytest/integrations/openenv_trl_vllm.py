@@ -14,12 +14,17 @@ environments, wired into GRPO via a custom ``rollout_func``.
 from __future__ import annotations
 
 import asyncio
-import sys
-from typing import Any, Callable, Dict, List, Optional, Type
+import importlib
+import inspect
+import logging
+from typing import Any, Callable, Dict, List, Optional, Type, cast
 
-from eval_protocol.models import EvaluationRow, InputMetadata, Message
+from eval_protocol.models import EvalMetadata, EvaluationRow, InputMetadata, Message
 from eval_protocol.pytest.openenv_rollout_processor import OpenEnvRolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_openenv_vllm_rollout_func(
@@ -35,6 +40,7 @@ def create_openenv_vllm_rollout_func(
     processor_cls: Optional[Type[Any]] = OpenEnvRolloutProcessor,
     processor_kwargs: Optional[Dict[str, Any]] = None,
     # Environment configuration
+    env_path: Optional[str] = None,
     env_client_cls: Optional[Type[Any]] = None,
     tasks: List[str] | None = None,
     task_var: Optional[str] = None,
@@ -55,26 +61,18 @@ def create_openenv_vllm_rollout_func(
     """
     Build a TRL-compatible ``rollout_func`` using vLLM inference with OpenEnv.
 
-    High-level:
-    - ``GRPOTrainer`` calls the returned ``rollout_func(prompts, trainer)``
-    - For each prompt, we create ``num_generations`` evaluation rows
-    - ``OpenEnvRolloutProcessor`` runs BrowserGym-style episodes via Docker
-    - ``VLLMPolicy`` formats messages with the chat template and calls TRL's
-      vLLM server using ``trainer.vllm_client``
-    - We accumulate tokens across all turns of an episode and sum rewards,
-      returning Wordle-style GRPO data.
-
-    The environment side is configured via ``env_client_cls`` and the BrowserGym
-    parameters (``tasks``, ``miniwob_url``, ``docker_image``, etc.).
+    ``GRPOTrainer`` calls the returned ``rollout_func(prompts, trainer)``.
+    For each prompt we run one OpenEnv episode using ``OpenEnvRolloutProcessor``
+    and return Wordle-style GRPO data (2D token lists + 1D rewards).
     """
-    print(f"\n{'=' * 80}", flush=True)
-    print("[openenv_trl_vllm] create_openenv_vllm_rollout_func() CALLED", flush=True)
-    print(f"  vllm_base_url: {vllm_base_url}", flush=True)
-    print(f"  vllm_model: {vllm_model}", flush=True)
-    print(f"  tasks: {tasks}", flush=True)
-    print(f"  max_steps: {max_steps}", flush=True)
-    print(f"{'=' * 80}", flush=True)
-    sys.stdout.flush()
+    logger.info("create_openenv_vllm_rollout_func called")
+    logger.debug(
+        "vllm_base_url=%s, vllm_model=%s, tasks=%s, max_steps=%s",
+        vllm_base_url,
+        vllm_model,
+        tasks,
+        max_steps,
+    )
 
     # Import VLLMPolicy
     from eval_protocol.mcp.execution.vllm_policy import VLLMPolicy
@@ -86,28 +84,107 @@ def create_openenv_vllm_rollout_func(
 
     def rollout_func(prompts: List[str], trainer) -> Dict[str, List]:
         """Execute rollouts via OpenEnv + vLLM and return GRPO-compatible results."""
-        print("\n[OpenEnvVLLM] rollout_func called", flush=True)
+        logger.info("OpenEnv vLLM rollout_func called")
 
         # Extract args from trainer
         args = trainer.args
         processing_class = trainer.processing_class
 
         num_generations = getattr(args, "num_generations", 8)
-        print(
-            f"[OpenEnvVLLM] Received {len(prompts)} prompts, {num_generations} generations each",
-            flush=True,
+        eval_name = env_path or "openenv_browsergym_vllm_training"
+        logger.info(
+            "[OpenEnvVLLM] Received %d prompts (trainer.num_generations=%s)",
+            len(prompts),
+            num_generations,
         )
+        logger.debug("[OpenEnvVLLM] Total rollouts to execute: %d", len(prompts))
 
-        # 1) Build evaluation rows
+        # Optionally load rollout processor + eval function hints from an
+        # @evaluation_test via env_path
+        ep_rollout_processor = None
+        ep_rollout_processor_kwargs: Dict[str, Any] = {}
+        ep_mcp_config_path = ""
+        ep_eval_func = None
+
+        if env_path:
+            logger.info("[OpenEnvVLLM] Loading evaluation test from env_path='%s'", env_path)
+            try:
+                module = importlib.import_module(env_path)
+            except Exception as e:
+                raise ImportError(f"Failed to import env module '{env_path}': {e}") from e
+
+            candidate_tests = [
+                obj for _, obj in inspect.getmembers(module) if callable(obj) and hasattr(obj, "__ep_params__")
+            ]
+            if not candidate_tests:
+                raise ValueError(f"No @evaluation_test functions found in '{env_path}'.")
+
+            eval_func = candidate_tests[0]
+            ep_eval_func = eval_func  # used later after rollouts complete
+            ep_params: Dict[str, Any] = getattr(eval_func, "__ep_params__", {})
+            ep_rollout_processor = ep_params.get("rollout_processor")
+            ep_rollout_processor_kwargs = ep_params.get("rollout_processor_kwargs") or {}
+            ep_mcp_config_path = ep_params.get("mcp_config_path") or ""
+            logger.info(
+                "[OpenEnvVLLM] Loaded eval test '%s' with rollout_processor=%s",
+                getattr(eval_func, "__name__", str(eval_func)),
+                type(ep_rollout_processor).__name__,
+            )
+
+        # 1) Build evaluation rows with rollout_id for logging
+        import uuid
+
+        # Generate unique IDs for this batch
+        def _gen_id():
+            import random
+
+            words = [
+                "quick",
+                "lazy",
+                "happy",
+                "bright",
+                "calm",
+                "bold",
+                "wise",
+                "kind",
+            ]
+            return f"{random.choice(words)}-{random.choice(words)}-{random.randint(10, 99)}"
+
         evaluation_rows: List[EvaluationRow] = []
-        for prompt in prompts:
-            for gen_idx in range(num_generations):
-                row = EvaluationRow(
-                    messages=[Message(role="user", content=prompt)],
-                    input_metadata=InputMetadata(completion_params={}),
-                )
-                row.input_metadata.generation_idx = gen_idx  # type: ignore[attr-defined]
-                evaluation_rows.append(row)
+        for prompt_idx, prompt in enumerate(prompts):
+            # One evaluation row per incoming prompt. GRPOTrainer will handle
+            # grouping by `num_generations` at the trainer level; the custom
+            # rollout_func must return one set of tokens per prompt.
+            rollout_id = f"openenv_vllm_{uuid.uuid4().hex[:12]}"
+            row_id = _gen_id()
+
+            row = EvaluationRow(
+                messages=[Message(role="user", content=prompt)],
+                input_metadata=InputMetadata(
+                    row_id=row_id,  # Required for ep logs UI!
+                    completion_params={},
+                ),
+            )
+            row.execution_metadata.rollout_id = rollout_id  # Required for ep logs!
+
+            # Minimal eval_metadata so ep logs can group/display properly
+            row.eval_metadata = EvalMetadata(
+                name=eval_name,
+                description=None,
+                version="v1",
+                status=None,
+                num_runs=1,
+                aggregation_method="mean",
+                passed_threshold=None,
+                passed=None,
+            )
+
+            evaluation_rows.append(row)
+
+        logger.debug(
+            "[OpenEnvVLLM] Created %d evaluation rows with rollout_ids and row_ids",
+            len(evaluation_rows),
+        )
 
         # 2) Build processor config with VLLMPolicy
         # We'll pass trainer.vllm_client to VLLMPolicy
@@ -119,16 +196,18 @@ def create_openenv_vllm_rollout_func(
         if completion_params:
             base_params.update(completion_params)
 
-        print(
-            f"[OpenEnvVLLM] Temperature={base_params['temperature']}, max_tokens={base_params['max_tokens']}",
-            flush=True,
+        logger.debug(
+            "[OpenEnvVLLM] Temperature=%s, max_tokens=%s",
+            base_params["temperature"],
+            base_params["max_tokens"],
         )
-        print("[OpenEnvVLLM] Using TRL VLLMClient from trainer", flush=True)
+        logger.debug("[OpenEnvVLLM] Using TRL VLLMClient from trainer")
 
         max_concurrency = concurrency if concurrency is not None else getattr(args, "per_device_train_batch_size", 1)
-        print(
-            f"[OpenEnvVLLM] Max concurrency={max_concurrency}, max_steps={max_steps}",
-            flush=True,
+        logger.debug(
+            "[OpenEnvVLLM] Max concurrency=%s, max_steps=%s",
+            max_concurrency,
+            max_steps,
         )
 
         # Import default logger for local tracing
@@ -136,24 +215,34 @@ def create_openenv_vllm_rollout_func(
 
         config = RolloutProcessorConfig(
             completion_params=base_params,
-            mcp_config_path="",
+            mcp_config_path=ep_mcp_config_path or "",
             semaphore=asyncio.Semaphore(max_concurrency),
             steps=max_steps,
             logger=default_logger,
+            kwargs=ep_rollout_processor_kwargs,
         )
 
         # 3) Execute rollouts with VLLMPolicy
-        print(
-            f"[OpenEnvVLLM] Instantiating processor: "
-            f"{processor_cls.__name__ if processor_cls else 'OpenEnvRolloutProcessor'}",
-            flush=True,
+        logger.debug(
+            "[OpenEnvVLLM] Instantiating processor: %s",
+            processor_cls.__name__ if processor_cls else "OpenEnvRolloutProcessor",
         )
 
-        # Create policy factory that uses trainer's vllm_client
+        # Create policy factory that uses trainer's vllm_client or llm
         def vllm_policy_factory(model, temperature, max_tokens, base_url=None, **kwargs):
-            """Factory that creates VLLMPolicy using trainer's vllm_client."""
+            """Factory that creates VLLMPolicy using trainer's vllm_client or llm."""
+            logger.debug(
+                "[VLLMPolicyFactory] Creating VLLMPolicy with temp=%s, max_tokens=%s",
+                temperature,
+                max_tokens,
+            )
+            # Check for vllm_client (server mode) or llm (colocate mode)
+            vllm_client = getattr(trainer, "vllm_client", None) or getattr(trainer, "llm", None)
+            if vllm_client is None:
+                raise RuntimeError("Trainer has neither vllm_client (server mode) nor llm (colocate mode)")
+
             return VLLMPolicy(
-                vllm_client=trainer.vllm_client,  # Use trainer's vLLM client!
+                vllm_client=vllm_client,  # Use trainer's vLLM client!
                 tokenizer=processing_class,  # Pass tokenizer for decoding
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -164,6 +253,48 @@ def create_openenv_vllm_rollout_func(
 
         Processor = processor_cls or OpenEnvRolloutProcessor
         _kwargs: Dict[str, Any] = dict(processor_kwargs or {})
+
+        # If env_path was provided and we found an OpenEnvRolloutProcessor in the
+        # evaluation test, seed processor kwargs from it so users can reuse the
+        # same environment configuration for training.
+        if env_path and isinstance(ep_rollout_processor, OpenEnvRolloutProcessor):
+            logger.debug(
+                "[OpenEnvVLLM] Seeding processor kwargs from evaluation_test rollout_processor",
+            )
+            _kwargs.setdefault("env_factory", getattr(ep_rollout_processor, "_provided_env_factory", None))
+            _kwargs.setdefault("env_client_cls", getattr(ep_rollout_processor, "_env_client_cls", None))
+            _kwargs.setdefault("tasks", getattr(ep_rollout_processor, "_tasks", None))
+            _kwargs.setdefault("task_var", getattr(ep_rollout_processor, "_task_var", None))
+            _kwargs.setdefault("miniwob_url", getattr(ep_rollout_processor, "_miniwob_url", None))
+            _kwargs.setdefault("docker_image", getattr(ep_rollout_processor, "_docker_image", None))
+            _kwargs.setdefault("env_base_url", getattr(ep_rollout_processor, "_env_base_url", None))
+            _kwargs.setdefault(
+                "request_timeout_s",
+                getattr(ep_rollout_processor, "_request_timeout_s", None),
+            )
+            _kwargs.setdefault(
+                "default_headers",
+                getattr(ep_rollout_processor, "_default_headers", None),
+            )
+            _kwargs.setdefault("provider", getattr(ep_rollout_processor, "_provider", None))
+            _kwargs.setdefault("docker_port", getattr(ep_rollout_processor, "_docker_port", None))
+            _kwargs.setdefault("env_vars", getattr(ep_rollout_processor, "_env_vars", None))
+            _kwargs.setdefault("benchmark", getattr(ep_rollout_processor, "_benchmark", None))
+            _kwargs.setdefault("headless", getattr(ep_rollout_processor, "_headless", None))
+            _kwargs.setdefault(
+                "viewport_width",
+                getattr(ep_rollout_processor, "_viewport_width", None),
+            )
+            _kwargs.setdefault(
+                "viewport_height",
+                getattr(ep_rollout_processor, "_viewport_height", None),
+            )
+            _kwargs.setdefault("timeout_ms", getattr(ep_rollout_processor, "_timeout_ms", None))
+            _kwargs.setdefault(
+                "num_generations",
+                getattr(ep_rollout_processor, "_num_generations", None),
+            )
+
         _kwargs.setdefault("env_factory", env_factory)
         _kwargs.setdefault("prompt_builder", prompt_builder)
         _kwargs.setdefault("action_parser", action_parser)
@@ -179,9 +310,10 @@ def create_openenv_vllm_rollout_func(
             offset = task_cycle_index % len(tasks)
             rotated_tasks = tasks[offset:] + tasks[:offset]
             task_cycle_index = (task_cycle_index + 1) % len(tasks)
-            print(
-                f"[OpenEnvVLLM] Task rotation offset={offset}, rotated={rotated_tasks}",
-                flush=True,
+            logger.debug(
+                "[OpenEnvVLLM] Task rotation offset=%s, rotated=%s",
+                offset,
+                rotated_tasks,
             )
         _kwargs.setdefault("tasks", rotated_tasks)
         _kwargs.setdefault("task_var", task_var)
@@ -202,58 +334,82 @@ def create_openenv_vllm_rollout_func(
         _kwargs.setdefault("num_generations", num_generations)
 
         processor = Processor(**_kwargs)
-        print("[OpenEnvVLLM] Processor instantiated successfully", flush=True)
+        logger.debug("[OpenEnvVLLM] Processor instantiated successfully")
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
 
-            async def _run_all():
-                tasks_list = processor(evaluation_rows, config)
-                return await asyncio.gather(*tasks_list)
+            async def _run_all() -> List[EvaluationRow]:
+                tasks_list: List[asyncio.Task[EvaluationRow]] = processor(evaluation_rows, config)
+                rows: List[EvaluationRow] = await asyncio.gather(*tasks_list)
 
-            completed_rows = loop.run_until_complete(_run_all())
-            print(
-                f"[OpenEnvVLLM] All rollouts completed: {len(completed_rows)} results",
-                flush=True,
+                # Optionally run the @evaluation_test function on each row to
+                # populate evaluation_result (score/metrics) so the same
+                # reward logic can be reused across trainers.
+                if env_path and ep_eval_func is not None:
+                    if inspect.iscoroutinefunction(ep_eval_func):
+                        eval_tasks = [ep_eval_func(row) for row in rows]
+                        rows = cast(List[EvaluationRow], await asyncio.gather(*eval_tasks))
+                    else:
+                        rows = cast(List[EvaluationRow], [ep_eval_func(row) for row in rows])
+                    logger.info(
+                        "[OpenEnvVLLM] Applied eval function to %d rows from env_path='%s'",
+                        len(rows),
+                        env_path,
+                    )
+
+                return rows
+
+            completed_rows: List[EvaluationRow] = loop.run_until_complete(_run_all())
+            logger.info(
+                "[OpenEnvVLLM] All rollouts completed: %d results",
+                len(completed_rows),
             )
         finally:
             loop.close()
 
-        # 4) Convert to Wordle-style format (no splitting)
-        # Each completed_row is one rollout with multiple turns
-        # We .extend() tokens across turns, then .append() per rollout
-        print(
-            f"[OpenEnvVLLM] Converting {len(completed_rows)} rollouts to TRL format",
-            flush=True,
+        # 4) Convert completed rows to TRL format (one episode per row)
+        logger.info(
+            "[OpenEnvVLLM] Converting %d completed rollouts to TRL format",
+            len(completed_rows),
         )
 
         tokenizer = getattr(processing_class, "tokenizer", None) or processing_class
-        encode_fn = getattr(tokenizer, "encode", None)
 
         episode_prompt_ids: List[List[int]] = []
         episode_completion_ids: List[List[int]] = []
         episode_logprobs: List[List[float]] = []
         step_rewards_all: List[List[float]] = []
+        eval_scores: List[float] = []
 
         for idx, row in enumerate(completed_rows):
-            # Accumulate tokens across all turns in this rollout
-            prompt_ids: List[int] = []  # .extend() for each turn
-            completion_ids: List[int] = []  # .extend() for each turn
-            logprobs: List[float] = []  # .extend() for each turn
+            logger.debug(
+                "[OpenEnvVLLM] Processing rollout %d/%d: %d messages",
+                idx + 1,
+                len(completed_rows),
+                len(row.messages),
+            )
+
+            # Prefer raw token IDs stored by the rollout processor in
+            # execution_metadata.extra to avoid any re-encoding.
+            prompt_ids: List[int] = []
+            completion_ids: List[int] = []
+            logprobs: List[float] = []  # We don't currently track per-token logprobs
             rewards: List[float] = []
 
-            # Go through all messages and accumulate tokens
+            try:
+                extra = getattr(row.execution_metadata, "extra", None)
+                if isinstance(extra, dict):
+                    prompt_ids = list(extra.get("prompt_ids", []) or [])
+                    completion_ids = list(extra.get("completion_ids", []) or [])
+            except Exception:
+                prompt_ids = []
+                completion_ids = []
+
+            # Extract step rewards from the sentinel system message
             for msg in row.messages:
-                if msg.role == "user":
-                    tokens = encode_fn(msg.content or "") if encode_fn else []
-                    prompt_ids.extend(tokens)  # Accumulate user tokens
-                elif msg.role == "assistant":
-                    tokens = encode_fn(msg.content or "") if encode_fn else []
-                    completion_ids.extend(tokens)  # Accumulate assistant tokens
-                    logprobs.extend([0.0] * len(tokens))  # Placeholder logprobs
-                elif msg.role == "system":
-                    # Extract step rewards
+                if msg.role == "system":
                     try:
                         content = msg.content or ""
                         if isinstance(content, str) and content.startswith("__ep_step_rewards__:"):
@@ -264,44 +420,81 @@ def create_openenv_vllm_rollout_func(
                     except Exception:
                         pass
 
-            # Fallback for rewards (if extra field exists via model_config extra="allow")
-            if not rewards:
-                try:
-                    extra = getattr(row.execution_metadata, "extra", None)
-                    if isinstance(extra, dict):
-                        rewards = extra.get("step_rewards", []) or []
-                except Exception:
-                    pass
-
             # Append accumulated tokens for this episode
             episode_prompt_ids.append(prompt_ids if prompt_ids else [0])
             episode_completion_ids.append(completion_ids if completion_ids else [0])
             episode_logprobs.append(logprobs if logprobs else [0.0])
             step_rewards_all.append(rewards if rewards else [0.0])
 
+            # Also capture evaluation_result.score if the evaluation_test
+            # populated it, so downstream trainers can reuse the exact same
+            # scoring logic as the eval harness.
+            score_val = 0.0
+            try:
+                if getattr(row, "evaluation_result", None) is not None:
+                    score_attr = getattr(row.evaluation_result, "score", None)
+                    if score_attr is not None:
+                        score_val = float(score_attr)
+            except Exception:
+                score_val = 0.0
+            eval_scores.append(score_val)
+
+            ep_reward = sum(rewards) if rewards else 0.0
+            logger.debug(
+                "[OpenEnvVLLM] Episode %d: prompt_tokens=%d, completion_tokens=%d, reward=%.3f",
+                idx + 1,
+                len(prompt_ids),
+                len(completion_ids),
+                ep_reward,
+            )
+
         total_reward = sum(sum(r) for r in step_rewards_all)
         avg_reward = total_reward / len(step_rewards_all) if step_rewards_all else 0.0
-        print(
-            f"[OpenEnvVLLM] Total reward={total_reward:.2f}, Avg reward={avg_reward:.2f}",
-            flush=True,
+        logger.info(
+            "[OpenEnvVLLM] ✅ All rollouts complete | total_reward=%.2f, avg_reward=%.2f",
+            total_reward,
+            avg_reward,
         )
-        print(f"[OpenEnvVLLM] Returning {len(episode_prompt_ids)} episodes", flush=True)
-        sys.stdout.flush()
+        logger.info(
+            "[OpenEnvVLLM] Returning %d episodes to GRPO",
+            len(episode_prompt_ids),
+        )
 
         # Return in Wordle format
         # Tokens: 2D arrays (accumulate across turns, one list per episode)
         # Rewards: 1D arrays (one scalar per episode)
         total_rewards = [sum(r) for r in step_rewards_all]  # Sum step rewards per episode
 
-        print(f"[OpenEnvVLLM] Episode rewards: {total_rewards}", flush=True)
+        logger.debug("[OpenEnvVLLM] Episode rewards: %s", total_rewards)
+
+        # Validate token IDs before returning (sanity check only)
+        vocab_size = len(tokenizer) if hasattr(tokenizer, "__len__") else 200000
+        logger.debug("[OpenEnvVLLM] Validating token IDs (vocab_size=%s)...", vocab_size)
+        for i, (pids, cids) in enumerate(zip(episode_prompt_ids, episode_completion_ids)):
+            max_p = max(pids) if pids else 0
+            max_c = max(cids) if cids else 0
+            if max_p >= vocab_size or max_c >= vocab_size:
+                logger.warning(
+                    "[OpenEnvVLLM] Episode %d: INVALID TOKEN IDS (max_prompt_id=%s, max_completion_id=%s)",
+                    i,
+                    max_p,
+                    max_c,
+                )
+            logger.debug(
+                "[OpenEnvVLLM] Episode %d: prompt_len=%d, completion_len=%d, max_p_id=%d, max_c_id=%d",
+                i,
+                len(pids),
+                len(cids),
+                max_p,
+                max_c,
+            )
 
         return {
             "prompt_ids": episode_prompt_ids,  # List[List[int]] - tokens per episode
             "completion_ids": episode_completion_ids,  # List[List[int]] - tokens per episode
             "logprobs": episode_logprobs,  # List[List[float]] - logprobs per episode
-            "step_rewards": total_rewards,  # List[float] - total reward per episode (1D!)
+            "eval_score": eval_scores,
         }
 
-    print(f"[openenv_trl_vllm] Returning rollout_func (type={type(rollout_func)})", flush=True)
-    sys.stdout.flush()
+    logger.debug("[openenv_trl_vllm] Returning rollout_func (type=%s)", type(rollout_func))
     return rollout_func

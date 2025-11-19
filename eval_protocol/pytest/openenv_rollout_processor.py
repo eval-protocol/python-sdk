@@ -255,6 +255,9 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                 }
                 step_rewards = []
                 history: List[str] = []
+                # Accumulate token IDs across all turns for training integrations
+                all_prompt_ids: List[int] = []
+                all_completion_ids: List[int] = []
 
                 logger.info("[OpenEnvRolloutProcessor] Starting agent loop (max %d steps)", max_steps)
 
@@ -295,7 +298,7 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                         except Exception:
                             pass
 
-                    # Call model to generate action (LiteLLM handles multimodal!)
+                    # Call model to generate action (LiteLLM or custom policy)
                     logger.debug("[OpenEnvRolloutProcessor] Calling LLM (messages=%d)", len(messages))
                     response = await policy._make_llm_call(
                         messages=[msg.model_dump() for msg in messages],
@@ -328,6 +331,15 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
 
                     # Add assistant message (original content)
                     messages.append(Message(role="assistant", content=assistant_message))
+
+                    # Accumulate token IDs from this turn for downstream training
+                    if "prompt_ids" in response and "completion_ids" in response:
+                        try:
+                            all_prompt_ids.extend(response["prompt_ids"])
+                            all_completion_ids.extend(response["completion_ids"])
+                        except Exception:
+                            # Best-effort only; don't break rollouts if tokens are malformed
+                            pass
 
                     # Execute action in environment (OpenEnv standard interface!) with transient-error retries
                     logger.debug("[OpenEnvRolloutProcessor] Executing action in environment")
@@ -399,9 +411,24 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                 )
                 row.execution_metadata.duration_seconds = time.perf_counter() - start_time
 
-                # Store rewards for TRL reward functions via a system message sentinel
+                # Store rewards for TRL reward functions
                 sentinel = "__ep_step_rewards__:" + json.dumps(step_rewards)
                 messages.append(Message(role="system", content=sentinel))
+
+                # Attach accumulated token IDs to execution_metadata.extra for
+                # training integrations (e.g., TRL GRPO) instead of encoding
+                # them into synthetic system messages.
+                if all_prompt_ids or all_completion_ids:
+                    try:
+                        extra = getattr(row.execution_metadata, "extra", None)
+                        if not isinstance(extra, dict):
+                            extra = {}
+                        extra["prompt_ids"] = list(all_prompt_ids)
+                        extra["completion_ids"] = list(all_completion_ids)
+                        row.execution_metadata.extra = extra  # type: ignore[attr-defined]
+                    except Exception:
+                        # Non-fatal: training integrations can fall back if tokens are missing
+                        pass
 
                 total_reward = sum(step_rewards)
                 logger.info("[OpenEnvRolloutProcessor] ✅ ROLLOUT COMPLETE")
@@ -442,6 +469,7 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                     env.close()
                     logger.debug("[OpenEnvRolloutProcessor] Environment closed successfully")
                 except Exception as close_err:
+                    print(f"[OpenEnvRolloutProcessor] Warning: Error closing environment: {close_err}", flush=True)
                     logger.warning(
                         "[OpenEnvRolloutProcessor] Error closing environment: %s",
                         close_err,
