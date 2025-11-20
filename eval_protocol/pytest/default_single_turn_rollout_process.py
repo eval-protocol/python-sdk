@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import time
@@ -98,8 +99,24 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             assert isinstance(response, ModelResponse), "Response should be ModelResponse"
             assert isinstance(response.choices[0], Choices), "Response choice should be a Choices"
 
-            assistant_content = response.choices[0].message.content or ""
-            tool_calls = response.choices[0].message.tool_calls if response.choices[0].message.tool_calls else None
+            assistant_message = response.choices[0].message
+            finish_reason = getattr(response.choices[0], "finish_reason", None)
+
+            # Extract content
+            assistant_content = assistant_message.content or ""
+
+            # Extract reasoning content (if present)
+            reasoning_content = getattr(assistant_message, "reasoning_content", None)
+            if reasoning_content is None:
+                reasoning_content = getattr(assistant_message, "reasoning", None)
+            if reasoning_content is not None and not isinstance(reasoning_content, str):
+                try:
+                    reasoning_content = json.dumps(reasoning_content)
+                except Exception:
+                    reasoning_content = str(reasoning_content)
+
+            # Extract tool calls
+            tool_calls = assistant_message.tool_calls if assistant_message.tool_calls else None
 
             converted_tool_calls = None
             if tool_calls:
@@ -136,9 +153,15 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 Message(
                     role="assistant",
                     content=assistant_content,
+                    reasoning_content=reasoning_content,
                     tool_calls=converted_tool_calls,
                 )
             ]
+
+            row.execution_metadata.finish_reason = str(finish_reason) if finish_reason is not None else None
+            row.execution_metadata.tool_call_count = (
+                len(converted_tool_calls) if converted_tool_calls is not None else 0
+            )
             row.execution_metadata.usage = (
                 CompletionUsage(  # Note: LiteLLM sets usage dynamically via setattr(), not as a typed field
                     prompt_tokens=response.usage.prompt_tokens,  # pyright: ignore[reportAttributeAccessIssue]

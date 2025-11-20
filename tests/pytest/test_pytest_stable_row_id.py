@@ -1,6 +1,6 @@
 from typing import List
 
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
 from tests.pytest.test_markdown_highlighting import markdown_dataset_to_evaluation_row
 
@@ -30,6 +30,7 @@ async def test_evaluation_test_decorator_ids_single():
     )
     def eval_fn(row: EvaluationRow) -> EvaluationRow:
         row_ids.add(row.input_metadata.row_id)
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
     # Manually invoke all parameter combinations within a single test
@@ -81,6 +82,7 @@ async def test_evaluation_test_generated_row_ids_without_dataset_keys():
         assert row.input_metadata is not None
         assert row.input_metadata.row_id is not None and isinstance(row.input_metadata.row_id, str)
         row_ids.add(row.input_metadata.row_id)
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
     # Single invocation (one dataset, one param set) with multiple runs

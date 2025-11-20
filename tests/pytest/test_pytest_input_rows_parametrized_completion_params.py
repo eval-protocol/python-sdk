@@ -1,4 +1,4 @@
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 
 
@@ -18,4 +18,5 @@ def test_pytest_input_rows_parametrized_completion_params(row: EvaluationRow, **
         else:
             assert "gpt-4" in seen_models
     seen_models.add(model)
+    row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return row

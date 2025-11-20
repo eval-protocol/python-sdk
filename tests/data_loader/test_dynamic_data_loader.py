@@ -1,5 +1,5 @@
 from eval_protocol.data_loader import DynamicDataLoader
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 
 
@@ -27,6 +27,7 @@ def test_dynamic_data_loader(row: EvaluationRow) -> EvaluationRow:
         == "Factory function that generates evaluation rows dynamically."
     )
     assert row.input_metadata.dataset_info.get("data_loader_preprocessed") is False
+    row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return row
 
 
@@ -45,6 +46,7 @@ def test_dynamic_data_loader_lambda(row: EvaluationRow) -> EvaluationRow:
     assert row.input_metadata.dataset_info.get("data_loader_num_rows_after_preprocessing") == 1
     assert row.input_metadata.dataset_info.get("data_loader_type") == "DynamicDataLoader"
     assert row.input_metadata.dataset_info.get("data_loader_preprocessed") is False
+    row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return row
 
 
@@ -72,4 +74,5 @@ def test_dynamic_data_loader_max_dataset_rows(row: EvaluationRow) -> EvaluationR
     assert row.input_metadata.dataset_info.get("data_loader_type") == "DynamicDataLoader"
     assert row.input_metadata.dataset_info.get("data_loader_preprocessed") is False
 
+    row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return row

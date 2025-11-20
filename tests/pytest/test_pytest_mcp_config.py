@@ -87,6 +87,9 @@ async def test_pytest_tools_are_added_to_row():
         logger=logger,
     )
     def eval_fn(row: EvaluationRow) -> EvaluationRow:
+        # Attach a dummy evaluation_result so the invariant is satisfied;
+        # this test only cares about tools being added to the row.
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
         return row
 
     await eval_fn(input_messages=input_messages, completion_params=completion_params_list[0])  # pyright: ignore[reportCallIssue]

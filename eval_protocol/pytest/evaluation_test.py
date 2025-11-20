@@ -620,7 +620,13 @@ def evaluation_test(
 
                     experiment_duration_seconds = time.perf_counter() - experiment_start_time
 
-                    # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them
+                    if not all(r.evaluation_result is not None for run_results in all_results for r in run_results):
+                        raise AssertionError(
+                            "Some EvaluationRow instances are missing evaluation_result. "
+                            "Your @evaluation_test function must set `row.evaluation_result`"
+                        )
+
+                    # for groupwise mode, the result contains eval output from multiple completion_params, we need to differentiate them
                     # rollout_id is used to differentiate the result from different completion_params
                     if mode == "groupwise":
                         results_by_group = [
