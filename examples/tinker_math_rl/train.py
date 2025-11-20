@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 import os
 import sys
@@ -6,6 +7,7 @@ from functools import partial
 from typing import Literal, Any, Optional
 
 import chz
+import datetime
 
 # Add tinker-cookbook to path if not installed
 # Assuming the directory structure:
@@ -153,7 +155,7 @@ async def cli_main(cli_config: CLIConfig):
     # Need to wrap in a factory as expected by Config.evaluator_builders
     def create_eval_protocol_evaluator():
         return EvalProtocolEvaluator(
-            rows=eval_rows,
+            rows=copy.deepcopy(eval_rows),
             eval_func=test_gsm8k_tinker,
             rollout_processor_cls=TinkerRolloutProcessor,
             model_name=cli_config.model_name,
@@ -203,7 +205,5 @@ async def cli_main(cli_config: CLIConfig):
 
 
 if __name__ == "__main__":
-    from datetime import datetime
-
     cli_config = chz.entrypoint(CLIConfig)
     asyncio.run(cli_main(cli_config))

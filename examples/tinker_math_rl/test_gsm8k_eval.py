@@ -27,7 +27,7 @@ gsm8k_input_rows = get_gsm8k_input_rows(limit=10)
 
 
 @evaluation_test(
-    input_rows=[gsm8k_input_rows],
+    input_rows=gsm8k_input_rows,
     completion_params=[
         {
             "max_tokens": 512,
@@ -48,7 +48,9 @@ def test_gsm8k_tinker(row: EvaluationRow) -> EvaluationRow:
     else:
         model_response = assistant_msgs[-1].content
         # The content might be a list of content parts, handle that
-        if not isinstance(model_response, str):
+        if model_response is None:
+            model_response = ""
+        elif not isinstance(model_response, str):
             # Simple join for now if it's a list
             model_response = "".join([p.text for p in model_response if hasattr(p, "text")])
 
