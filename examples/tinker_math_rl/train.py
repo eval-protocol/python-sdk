@@ -7,7 +7,7 @@ from functools import partial
 from typing import Literal, Any, Optional
 
 import chz
-import datetime
+from datetime import datetime
 
 # Add tinker-cookbook to path if not installed
 # Assuming the directory structure:
