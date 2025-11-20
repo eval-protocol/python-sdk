@@ -17,7 +17,6 @@ import logging
 import time
 from itertools import count
 from typing import List, Any, Dict, Callable, Generic, TypeVar, Optional, Type
-import json
 
 from openai.types import CompletionUsage
 
@@ -414,26 +413,22 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                 )
                 row.execution_metadata.duration_seconds = time.perf_counter() - start_time
 
-                # Store per-step rewards in a sentinel system message so
-                # evaluation tests and downstream integrations can reconstruct
-                # episode rewards.
-                sentinel = "__ep_step_rewards__:" + json.dumps(step_rewards)
-                messages.append(Message(role="system", content=sentinel))
-
-                # Attach accumulated token IDs to execution_metadata.extra for
-                # training integrations (e.g., TRL GRPO) instead of encoding
-                # them into synthetic system messages.
-                if all_prompt_ids or all_completion_ids:
-                    try:
-                        extra = getattr(row.execution_metadata, "extra", None)
-                        if not isinstance(extra, dict):
-                            extra = {}
+                # Attach per-step rewards and accumulated token IDs to
+                # execution_metadata.extra for downstream integrations
+                # (for example, TRL GRPO) instead of encoding them into
+                # synthetic system messages.
+                try:
+                    extra = getattr(row.execution_metadata, "extra", None)
+                    if not isinstance(extra, dict):
+                        extra = {}
+                    extra["step_rewards"] = list(step_rewards)
+                    if all_prompt_ids or all_completion_ids:
                         extra["prompt_ids"] = list(all_prompt_ids)
                         extra["completion_ids"] = list(all_completion_ids)
-                        row.execution_metadata.extra = extra  # type: ignore[attr-defined]
-                    except Exception:
-                        # Non-fatal: training integrations can fall back if tokens are missing
-                        pass
+                    row.execution_metadata.extra = extra  # type: ignore[attr-defined]
+                except Exception:
+                    # Non-fatal: callers can fall back if metadata is missing
+                    pass
 
                 total_reward = sum(step_rewards)
                 logger.info("[OpenEnvRolloutProcessor] ✅ ROLLOUT COMPLETE")

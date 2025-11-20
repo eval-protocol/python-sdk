@@ -144,25 +144,19 @@ def test_openenv_textarena_docker(row: EvaluationRow) -> EvaluationRow:
     # Extract step rewards and compute score
     total_reward = 0.0
     try:
+        extra = getattr(row.execution_metadata, "extra", None)
         step_rewards: List[float] = []
-        for msg in row.messages or []:
-            if (
-                msg.role == "system"
-                and isinstance(msg.content, str)
-                and msg.content.startswith("__ep_step_rewards__:")
-            ):
-                import json
-
-                payload = msg.content.split(":", 1)[1]
-                step_rewards = json.loads(payload) or []
-                break
+        if isinstance(extra, dict):
+            raw = extra.get("step_rewards") or []
+            step_rewards = [float(r) for r in raw]
         total_reward = float(sum(step_rewards)) if step_rewards else 0.0
     except Exception:
         total_reward = 0.0
 
     score = max(0.0, min(1.0, total_reward))
+    steps = len(step_rewards) if "step_rewards" in locals() else 0
     row.evaluation_result = EvaluateResult(
         score=score,
-        reason=f"TextArena total reward={total_reward:.2f} over {len(step_rewards) if 'step_rewards' in locals() else 0} steps",
+        reason=f"TextArena total reward={total_reward:.2f} over {steps} steps",
     )
     return row

@@ -387,22 +387,11 @@ def create_openenv_vllm_rollout_func(
                 if isinstance(extra, dict):
                     prompt_ids = list(extra.get("prompt_ids", []) or [])
                     completion_ids = list(extra.get("completion_ids", []) or [])
+                    rewards = [float(r) for r in (extra.get("step_rewards", []) or [])]
             except Exception:
                 prompt_ids = []
                 completion_ids = []
-
-            # Extract step rewards from the sentinel system message
-            for msg in row.messages:
-                if msg.role == "system":
-                    try:
-                        content = msg.content or ""
-                        if isinstance(content, str) and content.startswith("__ep_step_rewards__:"):
-                            import json
-
-                            payload = content.split(":", 1)[1]
-                            rewards = json.loads(payload) or []
-                    except Exception:
-                        pass
+                rewards = []
 
             # Append accumulated tokens for this episode
             episode_prompt_ids.append(prompt_ids if prompt_ids else [0])

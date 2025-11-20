@@ -8,6 +8,14 @@ from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.openenv_rollout_processor import OpenEnvRolloutProcessor
 import pytest
 
+try:
+    # Preferred import when using the monolithic `openenv` package
+    from openenv.envs.echo_env import EchoEnv  # type: ignore
+
+    _HAS_ECHO = True
+except Exception:
+    _HAS_ECHO = False
+
 # Skip these integration-heavy tests on CI runners by default
 pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skip OpenEnv integration tests on CI")
 
@@ -35,20 +43,20 @@ def action_parser(response_text: str):
     Convert raw model response to EchoAction.
     """
     try:
-        from envs.echo_env import EchoAction  # type: ignore
+        from openenv.envs.echo_env import EchoAction  # type: ignore
     except Exception:
-        pytest.skip("OpenEnv (envs.echo_env) is not installed; skipping Echo hub test.")
+        pytest.skip("OpenEnv (openenv.envs.echo_env) is not installed; skipping Echo hub test.")
         raise
     text = response_text.strip() if isinstance(response_text, str) else ""
     return EchoAction(message=text or "hello")
 
 
-try:
-    from envs.echo_env import EchoEnv  # type: ignore
+# try:
+#     from envs.echo_env import EchoEnv  # type: ignore
 
-    _HAS_ECHO = True
-except Exception:
-    _HAS_ECHO = False
+#     _HAS_ECHO = True
+# except Exception:
+#     _HAS_ECHO = False
 
 
 # Inline test data
@@ -93,23 +101,15 @@ def test_openenv_echo_hub(row: EvaluationRow) -> EvaluationRow:
     Extracts env rewards (from rollout policy extras) and sets evaluation_result.
     """
     if not _HAS_ECHO:
-        pytest.skip("OpenEnv (envs.echo_env) is not installed; skipping Echo hub test.")
-    # Try to read rewards/usage left in execution metadata extra or system messages.
+        pytest.skip("OpenEnv (openenv.envs.echo_env) is not installed; skipping Echo hub test.")
+    # Try to read rewards/usage left in execution metadata extra.
     total_reward = 0.0
     try:
-        # Preferred path: system sentinel "__ep_step_rewards__"
+        extra = getattr(row.execution_metadata, "extra", None)
         step_rewards: List[float] = []
-        for msg in row.messages or []:
-            if (
-                msg.role == "system"
-                and isinstance(msg.content, str)
-                and msg.content.startswith("__ep_step_rewards__:")
-            ):
-                import json as _json
-
-                payload = msg.content.split(":", 1)[1]
-                step_rewards = _json.loads(payload) or []
-                break
+        if isinstance(extra, dict):
+            raw = extra.get("step_rewards") or []
+            step_rewards = [float(r) for r in raw]
         total_reward = float(sum(step_rewards)) if step_rewards else 0.0
     except Exception:
         total_reward = 0.0

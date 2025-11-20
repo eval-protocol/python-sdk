@@ -275,20 +275,13 @@ def test_openenv_browsergym_eval(row: EvaluationRow) -> EvaluationRow:
     """
     if not _HAS_BG:
         pytest.skip("OpenEnv (envs.browsergym_env) is not installed; skipping BrowserGym test.")
-    # Extract step rewards from the sentinel system message injected by the rollout processor
+    # Extract step rewards from execution metadata (set by OpenEnvRolloutProcessor)
     step_rewards: List[float] = []
     try:
-        for msg in row.messages or []:
-            if (
-                msg.role == "system"
-                and isinstance(msg.content, str)
-                and msg.content.startswith("__ep_step_rewards__:")
-            ):
-                import json as _json
-
-                payload = msg.content.split(":", 1)[1]
-                step_rewards = _json.loads(payload) or []
-                break
+        extra = getattr(row.execution_metadata, "extra", None)
+        if isinstance(extra, dict):
+            raw = extra.get("step_rewards") or []
+            step_rewards = [float(r) for r in raw]
     except Exception:
         step_rewards = []
 
