@@ -782,6 +782,8 @@ class ExecutionMetadata(BaseModel):
     extra: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Arbitrary execution metadata for integrations (step rewards, token IDs, debug info, etc.).",
+    )
+
     finish_reason: Optional[str] = Field(
         default=None,
         description="finish_reason reported by the completion response for this row.",
