@@ -8,13 +8,10 @@ from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.openenv_rollout_processor import OpenEnvRolloutProcessor
 import pytest
 
-try:
-    # Preferred import when using the monolithic `openenv` package
-    from openenv.envs.echo_env import EchoEnv  # type: ignore
 
-    _HAS_ECHO = True
-except Exception:
-    _HAS_ECHO = False
+# Preferred import when using the monolithic `openenv` package
+from envs.echo_env import EchoEnv  # type: ignore
+
 
 # Skip these integration-heavy tests on CI runners by default
 pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skip OpenEnv integration tests on CI")
@@ -43,7 +40,7 @@ def action_parser(response_text: str):
     Convert raw model response to EchoAction.
     """
     try:
-        from openenv.envs.echo_env import EchoAction  # type: ignore
+        from envs.echo_env import EchoAction  # type: ignore
     except Exception:
         pytest.skip("OpenEnv (openenv.envs.echo_env) is not installed; skipping Echo hub test.")
         raise
@@ -91,8 +88,6 @@ ECHO_INLINE_DATA: List[Dict[str, Any]] = [
             timeout_ms=5000,
             num_generations=1,
         )
-        if _HAS_ECHO
-        else None
     ),
 )
 def test_openenv_echo_hub(row: EvaluationRow) -> EvaluationRow:
@@ -100,8 +95,7 @@ def test_openenv_echo_hub(row: EvaluationRow) -> EvaluationRow:
     Smoke test for Echo env via Hugging Face Hub (registry.hf.space/openenv-echo-env).
     Extracts env rewards (from rollout policy extras) and sets evaluation_result.
     """
-    if not _HAS_ECHO:
-        pytest.skip("OpenEnv (openenv.envs.echo_env) is not installed; skipping Echo hub test.")
+
     # Try to read rewards/usage left in execution metadata extra.
     total_reward = 0.0
     try:
@@ -110,6 +104,7 @@ def test_openenv_echo_hub(row: EvaluationRow) -> EvaluationRow:
         if isinstance(extra, dict):
             raw = extra.get("step_rewards") or []
             step_rewards = [float(r) for r in raw]
+            print(f"Step rewards: {step_rewards}")
         total_reward = float(sum(step_rewards)) if step_rewards else 0.0
     except Exception:
         total_reward = 0.0

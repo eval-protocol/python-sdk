@@ -776,6 +776,14 @@ class ExecutionMetadata(BaseModel):
         description="Processing duration in seconds for an entire experiment. Note that includes time it took for retries.",
     )
 
+    # Generic bag for integration-specific metadata.
+    # Examples:
+    # - OpenEnvRolloutProcessor: per-step rewards, token IDs for GRPO / TRL
+    extra: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Arbitrary execution metadata for integrations (step rewards, token IDs, debug info, etc.).",
+    )
+
 
 class EvaluationRow(BaseModel):
     """
