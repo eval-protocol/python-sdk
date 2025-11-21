@@ -8,19 +8,8 @@ from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.openenv_rollout_processor import OpenEnvRolloutProcessor
 import pytest
 
-
-# Skip these integration-heavy tests on CI runners by default
-pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skip OpenEnv integration tests on CI")
-
-# Try to import, but skip if not available
-try:
-    from envs.echo_env import EchoEnv  # type: ignore
-
-    _HAS_ECHO = True
-except ImportError:
-    _HAS_ECHO = False
-    EchoEnv = None  # type: ignore
-    pytest.skip("OpenEnv echo_env not installed", allow_module_level=True)
+# Import OpenEnv Echo environment
+from envs.echo_env import EchoEnv, EchoAction  # type: ignore
 
 
 def echo_dataset_to_rows(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
@@ -45,21 +34,8 @@ def action_parser(response_text: str):
     """
     Convert raw model response to EchoAction.
     """
-    try:
-        from envs.echo_env import EchoAction  # type: ignore
-    except Exception:
-        pytest.skip("OpenEnv (openenv.envs.echo_env) is not installed; skipping Echo hub test.")
-        raise
     text = response_text.strip() if isinstance(response_text, str) else ""
     return EchoAction(message=text or "hello")
-
-
-# try:
-#     from envs.echo_env import EchoEnv  # type: ignore
-
-#     _HAS_ECHO = True
-# except Exception:
-#     _HAS_ECHO = False
 
 
 # Inline test data
@@ -82,20 +58,16 @@ ECHO_INLINE_DATA: List[Dict[str, Any]] = [
     num_runs=1,
     max_concurrent_rollouts=2,
     mode="pointwise",
-    rollout_processor=(
-        OpenEnvRolloutProcessor(
-            # Use HF Hub to launch the environment container automatically
-            env_client_cls=EchoEnv if _HAS_ECHO else None,  # type: ignore
-            hub_repo_id=os.getenv("OPENENV_ECHO_REPO", "openenv/echo-env"),
-            # Simple prompt+parser above
-            prompt_builder=prompt_builder,
-            action_parser=action_parser,
-            # Keep defaults for timeouts/viewport/etc. (not relevant for echo)
-            timeout_ms=5000,
-            num_generations=1,
-        )
-        if _HAS_ECHO
-        else None
+    rollout_processor=OpenEnvRolloutProcessor(
+        # Use HF Hub to launch the environment container automatically
+        env_client_cls=EchoEnv,
+        hub_repo_id=os.getenv("OPENENV_ECHO_REPO", "openenv/echo-env"),
+        # Simple prompt+parser above
+        prompt_builder=prompt_builder,
+        action_parser=action_parser,
+        # Keep defaults for timeouts/viewport/etc. (not relevant for echo)
+        timeout_ms=5000,
+        num_generations=1,
     ),
 )
 def test_openenv_echo_hub(row: EvaluationRow) -> EvaluationRow:
