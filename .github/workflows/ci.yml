@@ -82,6 +82,12 @@ jobs:
       - name: Install tau2 for testing
         run: uv pip install git+https://github.com/sierra-research/tau2-bench.git@main
 
+      - name: Install OpenEnv for integration tests
+        run: |
+          # Install OpenEnv core and echo environment
+          uv pip install "openenv-core"
+          uv pip install "openenv-echo-env @ git+https://github.com/meta-pytorch/OpenEnv.git#subdirectory=src/envs/echo_env"
+
       - name: Run Core Tests with pytest-xdist
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -109,6 +115,9 @@ jobs:
             --ignore=tests/remote_server/test_remote_fireworks.py \
             --ignore=tests/remote_server/test_remote_fireworks_propagate_status.py \
             --ignore=tests/logging/test_elasticsearch_direct_http_handler.py \
+            --ignore=tests/pytest/test_openenv_browsergym_basic.py \
+            --ignore=tests/pytest/test_openenv_browsergym_eval.py \
+            --ignore=tests/pytest/test_openenv_textarena_docker.py \
             --ignore=eval_protocol/benchmarks/ \
             --ignore=eval_protocol/quickstart/ \
             --cov=eval_protocol --cov-append --cov-report=xml --cov-report=term-missing -v --durations=10
