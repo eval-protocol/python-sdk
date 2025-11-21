@@ -10,6 +10,12 @@ from eval_protocol.pytest.openenv_rollout_processor import OpenEnvRolloutProcess
 # Skip these integration-heavy tests on CI runners by default
 pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skip OpenEnv integration tests on CI")
 
+# Skip if OpenEnv not installed
+try:
+    from envs.browsergym_env import BrowserGymEnv, BrowserGymAction  # type: ignore
+except ImportError:
+    pytest.skip("OpenEnv browsergym_env not installed", allow_module_level=True)
+
 
 def openenv_dataset_to_rows(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
     """

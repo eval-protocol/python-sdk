@@ -12,6 +12,12 @@ from eval_protocol.pytest.openenv_rollout_processor import OpenEnvRolloutProcess
 # Skip these integration-heavy tests on CI runners by default
 pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skip OpenEnv integration tests on CI")
 
+# Skip if OpenEnv not installed
+try:
+    from envs.browsergym_env import BrowserGymEnv, BrowserGymAction  # type: ignore
+except ImportError:
+    pytest.skip("OpenEnv browsergym_env not installed", allow_module_level=True)
+
 
 @pytest.mark.integration
 def test_openenv_browsergym_basic():
@@ -43,8 +49,6 @@ def test_openenv_browsergym_basic():
 
     # Construct the processor with a trivial action_parser; the model output will still be generated
     # but we parse to a safe noop action to minimize flakiness for the environment step.
-    from envs.browsergym_env import BrowserGymAction, BrowserGymEnv  # type: ignore
-
     processor = OpenEnvRolloutProcessor(
         env_factory=None,
         prompt_builder=lambda obs, step, history: "Do nothing",

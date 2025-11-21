@@ -9,12 +9,18 @@ from eval_protocol.pytest.openenv_rollout_processor import OpenEnvRolloutProcess
 import pytest
 
 
-# Preferred import when using the monolithic `openenv` package
-from envs.echo_env import EchoEnv  # type: ignore
-
-
 # Skip these integration-heavy tests on CI runners by default
 pytestmark = pytest.mark.skipif(os.getenv("CI") == "true", reason="Skip OpenEnv integration tests on CI")
+
+# Try to import, but skip if not available
+try:
+    from envs.echo_env import EchoEnv  # type: ignore
+
+    _HAS_ECHO = True
+except ImportError:
+    _HAS_ECHO = False
+    EchoEnv = None  # type: ignore
+    pytest.skip("OpenEnv echo_env not installed", allow_module_level=True)
 
 
 def echo_dataset_to_rows(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
@@ -79,7 +85,7 @@ ECHO_INLINE_DATA: List[Dict[str, Any]] = [
     rollout_processor=(
         OpenEnvRolloutProcessor(
             # Use HF Hub to launch the environment container automatically
-            env_client_cls=EchoEnv,  # type: ignore
+            env_client_cls=EchoEnv if _HAS_ECHO else None,  # type: ignore
             hub_repo_id=os.getenv("OPENENV_ECHO_REPO", "openenv/echo-env"),
             # Simple prompt+parser above
             prompt_builder=prompt_builder,
@@ -88,6 +94,8 @@ ECHO_INLINE_DATA: List[Dict[str, Any]] = [
             timeout_ms=5000,
             num_generations=1,
         )
+        if _HAS_ECHO
+        else None
     ),
 )
 def test_openenv_echo_hub(row: EvaluationRow) -> EvaluationRow:
