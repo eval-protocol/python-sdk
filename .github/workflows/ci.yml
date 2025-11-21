@@ -86,7 +86,7 @@ jobs:
         run: |
           # Install OpenEnv core and echo environment
           uv pip install "openenv-core"
-          uv pip install "openenv-echo-env @ git+https://github.com/meta-pytorch/OpenEnv.git#subdirectory=src/envs/echo_env"
+          uv pip install "openenv @ git+https://github.com/meta-pytorch/OpenEnv.git"
 
       - name: Run Core Tests with pytest-xdist
         env:
