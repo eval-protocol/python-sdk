@@ -56,6 +56,10 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             request_params = {"messages": messages_payload, **config.completion_params}
             # Ensure caching is disabled only for this request (review feedback)
             request_params["cache"] = {"no-cache": True}
+
+            api_base = os.getenv("EP_LLM_API_BASE") or os.getenv("EP_LLM_BASE_URL")
+            if api_base and "api_base" not in request_params:
+                request_params["api_base"] = api_base
             # Single-level reasoning effort: expect `reasoning_effort` only
             effort_val = None
 
