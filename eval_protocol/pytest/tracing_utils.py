@@ -171,7 +171,14 @@ def update_row_with_remote_trace(
         row.messages = remote_row.messages
         row.tools = remote_row.tools
         row.input_metadata.session_data = remote_row.input_metadata.session_data
-        row.input_metadata.dataset_info = remote_row.input_metadata.dataset_info
+        remote_info = remote_row.input_metadata.dataset_info or {}
+        if row.input_metadata.dataset_info is None:
+            row.input_metadata.dataset_info = dict(remote_info)
+        else:
+            for k, v in remote_info.items():
+                if k not in row.input_metadata.dataset_info:
+                    row.input_metadata.dataset_info[k] = v
+
         row.execution_metadata = remote_row.execution_metadata
         return None
     else:
