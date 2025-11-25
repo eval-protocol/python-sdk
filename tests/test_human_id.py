@@ -7,14 +7,14 @@ from eval_protocol.human_id import generate_id, num_combinations
 def test_generate_id_basic_format():
     """Test that generate_id produces the expected adjective-noun-NN format"""
     id_str = generate_id(index=0)
-    # Should match pattern: adjective-noun-NN where NN is 00-99
-    assert re.match(r"^[a-z]+-[a-z]+-\d{2}$", id_str)
+    # Should match pattern: adjective-noun-NNNNNN where NNNNNN is 000000-999999
+    assert re.match(r"^[a-z]+-[a-z]+-\d{6}$", id_str)
 
     # Test a few specific indices to ensure deterministic behavior
-    assert generate_id(index=0) == "other-time-00"
-    assert generate_id(index=1) == "other-time-01"
-    assert generate_id(index=99) == "other-time-99"
-    assert generate_id(index=100) == "other-year-00"
+    assert generate_id(index=0) == "other-time-000000"
+    assert generate_id(index=1) == "other-time-000001"
+    assert generate_id(index=99) == "other-time-000099"
+    assert generate_id(index=100) == "other-time-000100"
 
 
 def test_generate_id_index_mapping():
@@ -22,20 +22,20 @@ def test_generate_id_index_mapping():
     # Test number cycling (0-99)
     for i in range(100):
         id_str = generate_id(index=i)
-        expected_num = f"{i:02d}"
+        expected_num = f"{i:06d}"
         assert id_str.endswith(f"-{expected_num}")
         assert id_str.startswith("other-time-")
 
-    # Test noun advancement after 100 numbers
-    id_100 = generate_id(index=100)
-    assert id_100.startswith("other-year-00")
+    # Test noun advancement after 1000000 numbers
+    id_1000000 = generate_id(index=1000000)
+    assert id_1000000.startswith("other-year-000000")
 
-    # Test adjective advancement (after all nouns * 100)
+    # Test adjective advancement (after all nouns * 1000000)
     # This will depend on dictionary size, so let's test the pattern
     from eval_protocol.human_id import dictionary
 
     nouns_count = len(dictionary.nouns)
-    adjective_boundary = nouns_count * 100
+    adjective_boundary = nouns_count * 1000000
 
     id_at_boundary = generate_id(index=adjective_boundary)
     # Should have advanced to the next adjective
@@ -68,7 +68,7 @@ def test_generate_id_seed_stability():
     # Without index, default produces separator '-' and at least 3 components
     c = generate_id()
 
-    assert re.match(r"^[a-z]+-[a-z]+-\d{2}$", c)
+    assert re.match(r"^[a-z]+-[a-z]+-\d{6}$", c)
 
 
 def test_generate_id_seed_with_index():
@@ -83,12 +83,12 @@ def test_generate_id_seed_with_index():
     assert x != y
 
     # All should follow the correct format
-    assert re.match(r"^[a-z]+-[a-z]+-\d{2}$", x)
-    assert re.match(r"^[a-z]+-[a-z]+-\d{2}$", y)
+    assert re.match(r"^[a-z]+-[a-z]+-\d{6}$", x)
+    assert re.match(r"^[a-z]+-[a-z]+-\d{6}$", y)
 
 
 def test_generate_id_random_format():
     """Test that random generation (no index) produces correct format"""
     for _ in range(10):
         id_str = generate_id()
-        assert re.match(r"^[a-z]+-[a-z]+-\d{2}$", id_str)
+        assert re.match(r"^[a-z]+-[a-z]+-\d{6}$", id_str)

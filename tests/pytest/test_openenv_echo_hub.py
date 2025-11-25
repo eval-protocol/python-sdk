@@ -10,7 +10,13 @@ import pytest
 
 
 # Preferred import when using the monolithic `openenv` package
-from envs.echo_env import EchoEnv  # type: ignore
+# Preferred import when using the monolithic `openenv` package
+try:
+    from envs.echo_env import EchoEnv  # type: ignore
+except ImportError:
+    # Define dummy class to satisfy OpenEnvRolloutProcessor validation during collection
+    class EchoEnv:  # type: ignore
+        pass
 
 
 # Skip these integration-heavy tests on CI runners by default
