@@ -40,7 +40,7 @@ def rft_test_harness(tmp_path, monkeypatch):
     monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
     monkeypatch.setattr(cr, "_poll_evaluator_status", lambda **kwargs: True)
-    monkeypatch.setattr(cr, "_ensure_evaluator_active", lambda *a, **k: True)
+    monkeypatch.setattr(cr, "_upload_and_ensure_evaluator", lambda *a, **k: True)
 
     return project
 
@@ -82,6 +82,25 @@ def test_create_rft_passes_all_flags_into_request_body(rft_test_harness, monkeyp
 
     monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", _fake_create_job)
 
+    # Stub validation helpers: dataset always valid; capture evaluator validation flags
+    monkeypatch.setattr(cr, "_validate_dataset", lambda dataset_jsonl: True)
+    flag_calls = {"ignore_docker": None, "docker_build_extra": None, "docker_run_extra": None}
+
+    def _fake_validate_evaluator_locally(
+        project_root,
+        selected_test_file,
+        selected_test_func,
+        ignore_docker,
+        docker_build_extra,
+        docker_run_extra,
+    ):
+        flag_calls["ignore_docker"] = ignore_docker
+        flag_calls["docker_build_extra"] = docker_build_extra
+        flag_calls["docker_run_extra"] = docker_run_extra
+        return True
+
+    monkeypatch.setattr(cr, "_validate_evaluator_locally", _fake_validate_evaluator_locally)
+
     args = argparse.Namespace(
         # Evaluator and dataset
         evaluator="my-evaluator",
@@ -94,7 +113,7 @@ def test_create_rft_passes_all_flags_into_request_body(rft_test_harness, monkeyp
         dry_run=False,
         force=False,
         env_file=None,
-        skip_validation=True,
+        skip_validation=False,
         ignore_docker=False,
         docker_build_extra="--build-extra FLAG",
         docker_run_extra="--run-extra FLAG",
@@ -176,6 +195,11 @@ def test_create_rft_passes_all_flags_into_request_body(rft_test_harness, monkeyp
     # The validation / docker flags should not appear in the request body
     for k in ("skip_validation", "ignore_docker", "docker_build_extra", "docker_run_extra"):
         assert k not in body
+
+    # But they should be propagated into local evaluator validation
+    assert flag_calls["ignore_docker"] is False
+    assert flag_calls["docker_build_extra"] == "--build-extra FLAG"
+    assert flag_calls["docker_run_extra"] == "--run-extra FLAG"
 
 
 def test_create_rft_evaluator_validation_fails(rft_test_harness, monkeypatch):

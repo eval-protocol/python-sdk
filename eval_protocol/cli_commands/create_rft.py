@@ -363,18 +363,21 @@ def _resolve_evaluator(
     return evaluator_id, evaluator_resource_name, selected_test_file_path, selected_test_func_name
 
 
-def _resolve_and_prepare_dataset(
+def _resolve_dataset(
     project_root: str,
     account_id: str,
-    api_key: str,
-    api_base: str,
     evaluator_id: str,
     args: argparse.Namespace,
     selected_test_file_path: Optional[str],
     selected_test_func_name: Optional[str],
-    dry_run: bool,
 ) -> tuple[Optional[str], Optional[str], Optional[str]]:
-    """Resolve dataset id/resource and ensure dataset exists if using JSONL."""
+    """Resolve dataset source without performing any uploads.
+
+    Returns a tuple of:
+      - dataset_id: existing dataset id when using --dataset or fully-qualified dataset resource
+      - dataset_resource: fully-qualified dataset resource for existing datasets; None for JSONL sources
+      - dataset_jsonl: local JSONL path when using --dataset-jsonl or inferred sources; None for id-only datasets
+    """
     dataset_id = getattr(args, "dataset", None)
     dataset_jsonl = getattr(args, "dataset_jsonl", None)
     dataset_display_name = getattr(args, "dataset_display_name", None)
@@ -432,40 +435,72 @@ def _resolve_and_prepare_dataset(
             )
             return None, None, None
 
-        inferred_dataset_id = _build_trimmed_dataset_id(evaluator_id)
-        if dry_run:
-            print("--dry-run: would create dataset and upload JSONL")
-            dataset_id = inferred_dataset_id
-        else:
-            try:
-                # Resolve dataset_jsonl path relative to CWD if needed
-                jsonl_path_for_upload = (
-                    dataset_jsonl
-                    if os.path.isabs(dataset_jsonl)
-                    else os.path.abspath(os.path.join(project_root, dataset_jsonl))
-                )
-                dataset_id, _ = create_dataset_from_jsonl(
-                    account_id=account_id,
-                    api_key=api_key,
-                    api_base=api_base,
-                    dataset_id=inferred_dataset_id,
-                    display_name=dataset_display_name or inferred_dataset_id,
-                    jsonl_path=jsonl_path_for_upload,
-                )
-                print(f"✓ Created and uploaded dataset: {dataset_id}")
-            except Exception as e:
-                print(f"Error creating/uploading dataset: {e}")
-                return None, None, None
+    # Build dataset resource for existing datasets; JSONL-based datasets will be uploaded later.
+    dataset_resource = None
+    if dataset_id:
+        dataset_resource = dataset_resource_override or f"accounts/{account_id}/datasets/{dataset_id}"
 
-    if not dataset_id:
-        return None, None, None
-
-    # Build dataset resource (prefer override when provided)
-    dataset_resource = dataset_resource_override or f"accounts/{account_id}/datasets/{dataset_id}"
     return dataset_id, dataset_resource, dataset_jsonl
 
 
-def _ensure_evaluator_active(
+def _upload_dataset(
+    project_root: str,
+    account_id: str,
+    api_key: str,
+    api_base: str,
+    evaluator_id: str,
+    dataset_id: Optional[str],
+    dataset_resource: Optional[str],
+    dataset_jsonl: Optional[str],
+    args: argparse.Namespace,
+    dry_run: bool,
+) -> tuple[Optional[str], Optional[str]]:
+    """Create/upload the dataset when using a local JSONL source.
+
+    For existing datasets (--dataset or fully-qualified ids), this is a no-op that
+    simply ensures dataset_id and dataset_resource are populated.
+    """
+    # Existing dataset case: nothing to upload
+    if not dataset_jsonl:
+        if not dataset_id:
+            return None, None
+        if not dataset_resource:
+            dataset_resource = f"accounts/{account_id}/datasets/{dataset_id}"
+        return dataset_id, dataset_resource
+
+    # JSONL-based dataset: upload or simulate upload
+    inferred_dataset_id = _build_trimmed_dataset_id(evaluator_id)
+    dataset_display_name = getattr(args, "dataset_display_name", None) or inferred_dataset_id
+
+    # Resolve dataset_jsonl path relative to CWD if needed
+    jsonl_path_for_upload = (
+        dataset_jsonl if os.path.isabs(dataset_jsonl) else os.path.abspath(os.path.join(project_root, dataset_jsonl))
+    )
+
+    if dry_run:
+        print("--dry-run: would create dataset and upload JSONL")
+        dataset_id = inferred_dataset_id
+        dataset_resource = f"accounts/{account_id}/datasets/{dataset_id}"
+        return dataset_id, dataset_resource
+
+    try:
+        dataset_id, _ = create_dataset_from_jsonl(
+            account_id=account_id,
+            api_key=api_key,
+            api_base=api_base,
+            dataset_id=inferred_dataset_id,
+            display_name=dataset_display_name,
+            jsonl_path=jsonl_path_for_upload,
+        )
+        print(f"✓ Created and uploaded dataset: {dataset_id}")
+        dataset_resource = f"accounts/{account_id}/datasets/{dataset_id}"
+        return dataset_id, dataset_resource
+    except Exception as e:
+        print(f"Error creating/uploading dataset: {e}")
+        return None, None
+
+
+def _upload_and_ensure_evaluator(
     project_root: str,
     evaluator_id: str,
     evaluator_resource_name: str,
@@ -726,19 +761,17 @@ def create_rft_command(args) -> int:
     if not evaluator_id or not evaluator_resource_name:
         return 1
 
-    # 2) Resolve dataset (id/resource) and underlying JSONL (if any)
-    dataset_id, dataset_resource, dataset_jsonl = _resolve_and_prepare_dataset(
+    # 2) Resolve dataset source (id or JSONL path)
+    dataset_id, dataset_resource, dataset_jsonl = _resolve_dataset(
         project_root=project_root,
         account_id=account_id,
-        api_key=api_key,
-        api_base=api_base,
         evaluator_id=evaluator_id,
         args=args,
         selected_test_file_path=selected_test_file_path,
         selected_test_func_name=selected_test_func_name,
-        dry_run=dry_run,
     )
-    if not dataset_id or not dataset_resource:
+    # Require either an existing dataset id or a JSONL source to materialize from
+    if dataset_jsonl is None and not dataset_id:
         return 1
 
     # 3) Optional local validation
@@ -758,8 +791,24 @@ def create_rft_command(args) -> int:
         ):
             return 1
 
-    # 4) Ensure evaluator exists and is ACTIVE (upload + poll if needed)
-    if not _ensure_evaluator_active(
+    # 4) Upload dataset when using JSONL sources (no-op for existing datasets)
+    dataset_id, dataset_resource = _upload_dataset(
+        project_root=project_root,
+        account_id=account_id,
+        api_key=api_key,
+        api_base=api_base,
+        evaluator_id=evaluator_id,
+        dataset_id=dataset_id,
+        dataset_resource=dataset_resource,
+        dataset_jsonl=dataset_jsonl,
+        args=args,
+        dry_run=dry_run,
+    )
+    if not dataset_id or not dataset_resource:
+        return 1
+
+    # 5) Ensure evaluator exists and is ACTIVE (upload + poll if needed)
+    if not _upload_and_ensure_evaluator(
         project_root=project_root,
         evaluator_id=evaluator_id,
         evaluator_resource_name=evaluator_resource_name,
@@ -769,7 +818,7 @@ def create_rft_command(args) -> int:
     ):
         return 1
 
-    # 5) Create the RFT job
+    # 6) Create the RFT job
     return _create_rft_job(
         account_id=account_id,
         api_key=api_key,
