@@ -366,7 +366,6 @@ def _resolve_evaluator(
 def _resolve_dataset(
     project_root: str,
     account_id: str,
-    evaluator_id: str,
     args: argparse.Namespace,
     selected_test_file_path: Optional[str],
     selected_test_func_name: Optional[str],
@@ -380,8 +379,14 @@ def _resolve_dataset(
     """
     dataset_id = getattr(args, "dataset", None)
     dataset_jsonl = getattr(args, "dataset_jsonl", None)
-    dataset_display_name = getattr(args, "dataset_display_name", None)
     dataset_resource_override: Optional[str] = None
+
+    if dataset_id and dataset_jsonl:
+        print(
+            "Error: --dataset and --dataset-jsonl cannot be used together.\n"
+            "       Use --dataset to reference an existing dataset, or --dataset-jsonl to create a new one from JSONL."
+        )
+        return None, None, None
 
     if isinstance(dataset_id, str) and dataset_id.startswith("accounts/"):
         # Caller passed a fully-qualified dataset; capture it for body and keep only terminal id for printing
@@ -765,7 +770,6 @@ def create_rft_command(args) -> int:
     dataset_id, dataset_resource, dataset_jsonl = _resolve_dataset(
         project_root=project_root,
         account_id=account_id,
-        evaluator_id=evaluator_id,
         args=args,
         selected_test_file_path=selected_test_file_path,
         selected_test_func_name=selected_test_func_name,
