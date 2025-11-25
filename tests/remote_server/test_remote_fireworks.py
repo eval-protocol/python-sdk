@@ -94,7 +94,16 @@ def fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
 
 
 def rows() -> List[EvaluationRow]:
+    """Generate local rows with rich input_metadata to verify it survives remote traces."""
+    base_dataset_info = {
+        "requirements": ["Answer with the capital city of France."],
+        "total_requirements": 1,
+        "original_prompt": "What is the capital of France?",
+    }
+
     row = EvaluationRow(messages=[Message(role="user", content="What is the capital of France?")])
+    row.input_metadata.dataset_info = dict(base_dataset_info)
+
     return [row, row, row]
 
 
@@ -127,6 +136,17 @@ async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> Evaluat
     assert row.execution_metadata.rollout_id in ROLLOUT_IDS, (
         f"Row rollout_id {row.execution_metadata.rollout_id} should be in tracked rollout_ids: {ROLLOUT_IDS}"
     )
+    assert row.input_metadata.completion_params["model"] == "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"
     assert row.input_metadata.completion_params["temperature"] == 0.5, "Row should have temperature at top level"
+
+    assert row.input_metadata.row_id is not None
+
+    assert row.input_metadata.dataset_info is not None
+    assert row.input_metadata.dataset_info["requirements"] == ["Answer with the capital city of France."]
+    assert row.input_metadata.dataset_info["total_requirements"] == 1
+    assert row.input_metadata.dataset_info["original_prompt"] == "What is the capital of France?"
+
+    assert "data_loader_type" in row.input_metadata.dataset_info
+    assert "data_loader_num_rows" in row.input_metadata.dataset_info
 
     return row
