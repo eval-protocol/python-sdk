@@ -170,6 +170,53 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 )
             )
 
+            # Synchronously extract token_ids, routing_matrix, and logprobs from the provider response.
+            try:
+                token_ids = []
+                routing_matrix = []
+                logprobs_obj = getattr(response.choices[0], "logprobs", None)
+
+                if logprobs_obj is not None:
+                    if isinstance(logprobs_obj, dict):
+                        content = logprobs_obj.get("content", [])
+                    else:
+                        content = getattr(logprobs_obj, "content", [])
+
+                    if isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict):
+                                tid = item.get("token_id")
+                                rm = item.get("routing_matrix")
+                            else:
+                                tid = getattr(item, "token_id", None)
+                                rm = getattr(item, "routing_matrix", None)
+
+                            if tid is not None:
+                                token_ids.append(tid)
+                            if rm is not None:
+                                routing_matrix.append(rm)
+
+                        logger.info(
+                            "[SingleTurnRolloutProcessor] Extracted %d token_ids and %d routing_matrix entries from logprobs",
+                            len(token_ids),
+                            len(routing_matrix),
+                        )
+
+                # Store as 1D lists directly for SingleTurn (no step dimension needed)
+                if token_ids or routing_matrix or logprobs_obj is not None:
+                    if not row.execution_metadata.extra:
+                        row.execution_metadata.extra = {}
+                    if token_ids:
+                        row.execution_metadata.extra["token_ids"] = token_ids
+                    if routing_matrix:
+                        row.execution_metadata.extra["routing_matrix"] = routing_matrix
+                    if logprobs_obj is not None:
+                        row.execution_metadata.extra["logprobs"] = logprobs_obj
+            except Exception as e:
+                logger.warning(
+                    "[SingleTurnRolloutProcessor] Failed to extract token_ids/routing_matrix/logprobs: %s", e
+                )
+
             row.messages = messages
 
             row.execution_metadata.duration_seconds = time.perf_counter() - start_time
