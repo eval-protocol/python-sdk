@@ -258,9 +258,11 @@ def evaluation_test(
 
             # Track whether we've opened browser for this invocation
             browser_opened_for_invocation = False
+            # Track whether we've already suggested running `ep logs`
+            ep_logs_prompted = False
 
             async def wrapper_body(**kwargs: Unpack[ParameterizedTestKwargs]) -> None:
-                nonlocal browser_opened_for_invocation
+                nonlocal browser_opened_for_invocation, ep_logs_prompted
 
                 # Initialize external logging sinks (Fireworks/ES) from env (idempotent)
                 init_external_logging_from_env()
@@ -281,6 +283,9 @@ def evaluation_test(
                         table_url = generate_invocation_filter_url(invocation_id, f"{base_url}/table")
                         open_browser_tab(table_url)
                         browser_opened_for_invocation = True
+                    elif not ep_logs_prompted:
+                        print("Tip: Run `ep logs` in another terminal to start the local UI before viewing results.")
+                        ep_logs_prompted = True
 
                 eval_metadata = None
 
