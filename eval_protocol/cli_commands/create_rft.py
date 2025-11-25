@@ -153,7 +153,7 @@ def _extract_jsonl_from_input_dataset(test_file_path: str, test_func_name: str) 
                                 candidate_paths.append(os.path.abspath(os.path.join(os.getcwd(), dataset_path)))
 
                             for candidate in candidate_paths:
-                                if os.path.isfile(candidate) and _validate_dataset_jsonl(candidate):
+                                if os.path.isfile(candidate):
                                     return candidate
         return None
     except Exception:
