@@ -171,6 +171,7 @@ def update_row_with_remote_trace(
         row.messages = remote_row.messages
         row.tools = remote_row.tools
         row.input_metadata.session_data = remote_row.input_metadata.session_data
+        row.input_metadata.dataset_info = remote_row.input_metadata.dataset_info
         row.execution_metadata = remote_row.execution_metadata
         return None
     else:
