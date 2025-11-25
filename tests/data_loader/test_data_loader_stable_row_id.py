@@ -12,7 +12,7 @@ def generator() -> list[EvaluationRow]:
     ),
     mode="all",
 )
-def test_data_loader_stable_row_id(rows: List[EvaluationRow]) -> List[EvaluationRow]:
+def test_data_loader_stable_row_id_with_same_content(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     """Test that the row id is stable even when the data loader is called multiple times."""
     row_ids = set()
     for row in rows:
