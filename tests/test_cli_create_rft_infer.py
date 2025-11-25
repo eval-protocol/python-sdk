@@ -1,12 +1,15 @@
 import json
 import os
-import time
+import argparse
+import requests
 from types import SimpleNamespace
 from unittest.mock import patch
-
 import pytest
 
 from eval_protocol.cli_commands import create_rft as cr
+from eval_protocol.cli_commands import upload as upload_mod
+import eval_protocol.fireworks_rft as fr
+from eval_protocol.cli import parse_args
 
 
 def _write_json(path: str, data: dict) -> None:
@@ -33,9 +36,6 @@ def rft_test_harness(tmp_path, monkeypatch):
     monkeypatch.setenv("FIREWORKS_API_KEY", "fw_dummy")
     monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "acct123")
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
-
-    # Stub selector, upload, polling, and evaluator activation
-    import eval_protocol.cli_commands.upload as upload_mod
 
     monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
@@ -82,8 +82,6 @@ def test_create_rft_passes_all_flags_into_request_body(rft_test_harness, monkeyp
 
     monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", _fake_create_job)
 
-    import argparse
-
     args = argparse.Namespace(
         # Evaluator and dataset
         evaluator="my-evaluator",
@@ -96,6 +94,10 @@ def test_create_rft_passes_all_flags_into_request_body(rft_test_harness, monkeyp
         dry_run=False,
         force=False,
         env_file=None,
+        skip_validation=True,
+        ignore_docker=False,
+        docker_build_extra="--build-extra FLAG",
+        docker_run_extra="--run-extra FLAG",
         # Model selection (exactly one)
         base_model="accounts/fireworks/models/llama-v3p1-8b-instruct",
         warm_start_from=None,
@@ -171,6 +173,229 @@ def test_create_rft_passes_all_flags_into_request_body(rft_test_harness, monkeyp
     assert wb["runId"] == "run123"
     assert wb["apiKey"] == "key123"
 
+    # The validation / docker flags should not appear in the request body
+    for k in ("skip_validation", "ignore_docker", "docker_build_extra", "docker_run_extra"):
+        assert k not in body
+
+
+def test_create_rft_evaluator_validation_fails(rft_test_harness, monkeypatch):
+    project = rft_test_harness
+
+    # Valid dataset JSONL so dataset validation passes; focus on evaluator validation
+    ds_path = project / "dataset_valid.jsonl"
+    ds_path.write_text('{"messages":[{"role":"user","content":"hi"}]}\n', encoding="utf-8")
+
+    # Single discovered test for evaluator resolution
+    test_file = project / "metric" / "test_eval_validation.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("# dummy eval test", encoding="utf-8")
+    single_disc = SimpleNamespace(qualname="metric.test_eval_validation", file_path=str(test_file))
+    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+
+    # Force local evaluator validation to fail
+    calls = {"count": 0, "pytest_target": None}
+
+    def _fake_run_evaluator_test(project_root, pytest_target, ignore_docker, docker_build_extra, docker_run_extra):
+        calls["count"] += 1
+        calls["pytest_target"] = pytest_target
+        return 1  # non-zero exit code => validation failure
+
+    monkeypatch.setattr(cr, "run_evaluator_test", _fake_run_evaluator_test)
+
+    args = argparse.Namespace(
+        evaluator=None,
+        yes=True,
+        dry_run=True,
+        force=False,
+        env_file=None,
+        dataset=None,
+        dataset_jsonl=str(ds_path),
+        dataset_display_name=None,
+        dataset_builder=None,
+        base_model="accounts/fireworks/models/llama-v3p1-8b-instruct",
+        warm_start_from=None,
+        output_model=None,
+        n=None,
+        max_tokens=None,
+        learning_rate=None,
+        batch_size=None,
+        epochs=None,
+        lora_rank=None,
+        max_context_length=None,
+        chunk_size=None,
+        eval_auto_carveout=None,
+        skip_validation=False,
+        ignore_docker=True,
+        docker_build_extra="",
+        docker_run_extra="",
+    )
+
+    rc = cr.create_rft_command(args)
+    assert rc == 1
+    # Evaluator validation should have been invoked once and failed
+    assert calls["count"] == 1
+    assert isinstance(calls["pytest_target"], str)
+    assert "test_eval_validation.py::test_eval_validation" in calls["pytest_target"]
+
+
+def test_create_rft_evaluator_validation_passes(rft_test_harness, monkeypatch):
+    project = rft_test_harness
+
+    # Valid dataset JSONL so dataset validation passes; focus on evaluator validation
+    ds_path = project / "dataset_valid.jsonl"
+    ds_path.write_text('{"messages":[{"role":"user","content":"hi"}]}\n', encoding="utf-8")
+
+    # Single discovered test for evaluator resolution
+    test_file = project / "metric" / "test_eval_ok.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("# dummy ok eval test", encoding="utf-8")
+    single_disc = SimpleNamespace(qualname="metric.test_eval_ok", file_path=str(test_file))
+    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+
+    # Force local evaluator validation to succeed
+    calls = {"count": 0, "pytest_target": None}
+
+    def _fake_run_evaluator_test(project_root, pytest_target, ignore_docker, docker_build_extra, docker_run_extra):
+        calls["count"] += 1
+        calls["pytest_target"] = pytest_target
+        return 0  # success
+
+    monkeypatch.setattr(cr, "run_evaluator_test", _fake_run_evaluator_test)
+
+    args = argparse.Namespace(
+        evaluator=None,
+        yes=True,
+        dry_run=True,
+        force=False,
+        env_file=None,
+        dataset=None,
+        dataset_jsonl=str(ds_path),
+        dataset_display_name=None,
+        dataset_builder=None,
+        base_model="accounts/fireworks/models/llama-v3p1-8b-instruct",
+        warm_start_from=None,
+        output_model=None,
+        n=None,
+        max_tokens=None,
+        learning_rate=None,
+        batch_size=None,
+        epochs=None,
+        lora_rank=None,
+        max_context_length=None,
+        chunk_size=None,
+        eval_auto_carveout=None,
+        skip_validation=False,
+        ignore_docker=True,
+        docker_build_extra="",
+        docker_run_extra="",
+    )
+
+    rc = cr.create_rft_command(args)
+    assert rc == 0
+    # Evaluator validation should have been invoked once and passed
+    assert calls["count"] == 1
+    assert isinstance(calls["pytest_target"], str)
+    assert "test_eval_ok.py::test_eval_ok" in calls["pytest_target"]
+
+
+def test_create_rft_dataset_validation_fails(rft_test_harness, monkeypatch):
+    project = rft_test_harness
+
+    # Invalid dataset JSONL (schema mismatch for EvaluationRow)
+    ds_path = project / "dataset_invalid.jsonl"
+    ds_path.write_text('{"messages": "not-a-list"}\n', encoding="utf-8")
+
+    # Ensure evaluator validation would pass if reached (so failure is from dataset)
+    calls = {"evaluator_validation_calls": 0}
+
+    def _fake_run_evaluator_test(project_root, pytest_target, ignore_docker, docker_build_extra, docker_run_extra):
+        calls["evaluator_validation_calls"] += 1
+        return 0
+
+    monkeypatch.setattr(cr, "run_evaluator_test", _fake_run_evaluator_test)
+
+    args = argparse.Namespace(
+        evaluator="my-evaluator",
+        yes=True,
+        dry_run=True,
+        force=False,
+        env_file=None,
+        dataset=None,
+        dataset_jsonl=str(ds_path),
+        dataset_display_name=None,
+        dataset_builder=None,
+        base_model="accounts/fireworks/models/llama-v3p1-8b-instruct",
+        warm_start_from=None,
+        output_model=None,
+        n=None,
+        max_tokens=None,
+        learning_rate=None,
+        batch_size=None,
+        epochs=None,
+        lora_rank=None,
+        max_context_length=None,
+        chunk_size=None,
+        eval_auto_carveout=None,
+        skip_validation=False,
+        ignore_docker=True,
+        docker_build_extra="",
+        docker_run_extra="",
+    )
+
+    rc = cr.create_rft_command(args)
+    assert rc == 1
+    # Dataset validation should fail before evaluator validation is invoked
+    assert calls["evaluator_validation_calls"] == 0
+
+
+def test_create_rft_dataset_validation_passes(rft_test_harness, monkeypatch):
+    project = rft_test_harness
+
+    # Valid dataset JSONL compatible with EvaluationRow
+    ds_path = project / "dataset_valid_evalrow.jsonl"
+    ds_path.write_text('{"messages":[{"role":"user","content":"hi"}]}\n', encoding="utf-8")
+
+    # Evaluator validation should run and succeed
+    calls = {"evaluator_validation_calls": 0}
+
+    def _fake_run_evaluator_test(project_root, pytest_target, ignore_docker, docker_build_extra, docker_run_extra):
+        calls["evaluator_validation_calls"] += 1
+        return 0
+
+    monkeypatch.setattr(cr, "run_evaluator_test", _fake_run_evaluator_test)
+
+    args = argparse.Namespace(
+        evaluator="my-evaluator",
+        yes=True,
+        dry_run=True,
+        force=False,
+        env_file=None,
+        dataset=None,
+        dataset_jsonl=str(ds_path),
+        dataset_display_name=None,
+        dataset_builder=None,
+        base_model="accounts/fireworks/models/llama-v3p1-8b-instruct",
+        warm_start_from=None,
+        output_model=None,
+        n=None,
+        max_tokens=None,
+        learning_rate=None,
+        batch_size=None,
+        epochs=None,
+        lora_rank=None,
+        max_context_length=None,
+        chunk_size=None,
+        eval_auto_carveout=None,
+        skip_validation=False,
+        ignore_docker=True,
+        docker_build_extra="",
+        docker_run_extra="",
+    )
+
+    rc = cr.create_rft_command(args)
+    assert rc == 0
+    # Dataset validation should pass; evaluator validation may be skipped when no local test is associated
+
 
 def test_create_rft_picks_most_recent_evaluator_and_dataset_id_follows(rft_test_harness, monkeypatch):
     project = rft_test_harness
@@ -179,10 +404,6 @@ def test_create_rft_picks_most_recent_evaluator_and_dataset_id_follows(rft_test_
     ds_path = project / "evaluator" / "dummy_dataset.jsonl"
     ds_path.parent.mkdir(parents=True, exist_ok=True)
     ds_path.write_text('{"input":"x"}\n', encoding="utf-8")
-
-    # Stub out networked/subcommands used by create_rft
-    # Patch selector and upload
-    import eval_protocol.cli_commands.upload as upload_mod
 
     # Simulate exactly one discovered test and selector returning it
     one_file = project / "metric" / "test_single.py"
@@ -272,7 +493,6 @@ def test_create_rft_passes_matching_evaluator_id_and_entry_with_multiple_tests(r
     ds_path.write_text('{"input":"x"}\n', encoding="utf-8")
 
     # Build args: no explicit evaluator id, selector will not be used here; mapping by id
-    import argparse
 
     args = argparse.Namespace(
         evaluator=cr._normalize_evaluator_id("foo_eval-test_bar_evaluation"),
@@ -343,7 +563,6 @@ def test_create_rft_interactive_selector_single_test(rft_test_harness, monkeypat
     monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
 
     # Run without evaluator_id; use --yes so selector returns tests directly (no UI)
-    import argparse
 
     args = argparse.Namespace(
         evaluator=None,
@@ -419,8 +638,6 @@ def test_create_rft_quiet_existing_evaluator_skips_upload(tmp_path, monkeypatch)
     )
     monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
 
-    import argparse
-
     args = argparse.Namespace(
         evaluator="some-eval",
         yes=True,
@@ -463,8 +680,6 @@ def test_create_rft_quiet_new_evaluator_ambiguous_without_entry_errors(tmp_path,
     def _raise(*a, **k):
         raise requests.exceptions.RequestException("nope")
 
-    import requests
-
     monkeypatch.setattr(cr.requests, "get", _raise)
 
     # Two discovered tests (ambiguous)
@@ -475,8 +690,6 @@ def test_create_rft_quiet_new_evaluator_ambiguous_without_entry_errors(tmp_path,
     d1 = SimpleNamespace(qualname="a.test_one", file_path=str(f1))
     d2 = SimpleNamespace(qualname="b.test_two", file_path=str(f2))
     monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [d1, d2])
-
-    import argparse
 
     args = argparse.Namespace(
         evaluator="some-eval",
@@ -539,7 +752,6 @@ def test_create_rft_fallback_to_dataset_builder(rft_test_harness, monkeypatch):
     monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
 
     # Run without dataset inputs so builder path is used
-    import argparse
 
     args = argparse.Namespace(
         evaluator=None,
@@ -602,8 +814,6 @@ def test_create_rft_rejects_dataloader_jsonl(rft_test_harness, monkeypatch):
     monkeypatch.setattr(cr, "create_dataset_from_jsonl", _fake_create_dataset_from_jsonl)
     monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
 
-    import argparse
-
     args = argparse.Namespace(
         evaluator=None,
         yes=True,
@@ -665,8 +875,6 @@ def test_create_rft_uses_input_dataset_jsonl_when_available(rft_test_harness, mo
 
     monkeypatch.setattr(cr, "create_dataset_from_jsonl", _fake_create_dataset_from_jsonl)
     monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
-
-    import argparse
 
     args = argparse.Namespace(
         evaluator=None,
@@ -753,8 +961,6 @@ def test_create_rft_quiet_existing_evaluator_infers_dataset_from_matching_test(r
     monkeypatch.setattr(cr, "create_dataset_from_jsonl", _fake_create_dataset_from_jsonl)
     monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
 
-    import argparse
-
     # Provide evaluator_id that matches beta.test_two
     eval_id = cr._normalize_evaluator_id("beta-test_two")
     # Ensure evaluator_id maps back to the beta test for dataset inference
@@ -817,12 +1023,7 @@ def test_cli_full_command_style_evaluator_and_dataset_flags(monkeypatch):
         def raise_for_status(self):
             return None
 
-    from eval_protocol.cli_commands import create_rft as cr
-
     monkeypatch.setattr(cr.requests, "get", lambda *a, **k: _Resp())
-
-    # Capture URL and JSON via fireworks layer
-    import eval_protocol.fireworks_rft as fr
 
     captured = {"url": None, "json": None}
 
@@ -838,9 +1039,6 @@ def test_cli_full_command_style_evaluator_and_dataset_flags(monkeypatch):
         return _RespPost()
 
     monkeypatch.setattr(fr.requests, "post", _fake_post)
-
-    # Build args via CLI parser to validate flag names
-    from eval_protocol.cli import parse_args
 
     argv = [
         "create",
@@ -919,9 +1117,6 @@ def test_create_rft_prefers_explicit_dataset_jsonl_over_input_dataset(rft_test_h
     # New flow uses _discover_and_select_tests; patch it to return our single test.
     monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
 
-    # Stub selector, upload, and polling
-    import eval_protocol.cli_commands.upload as upload_mod
-
     monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
     monkeypatch.setattr(cr, "_poll_evaluator_status", lambda **kwargs: True)
@@ -951,8 +1146,6 @@ def test_create_rft_prefers_explicit_dataset_jsonl_over_input_dataset(rft_test_h
 
     monkeypatch.setattr(cr, "create_dataset_from_jsonl", _fake_create_dataset_from_jsonl)
     monkeypatch.setattr(cr, "create_reinforcement_fine_tuning_job", lambda *a, **k: {"name": "jobs/123"})
-
-    import argparse
 
     args = argparse.Namespace(
         evaluator=None,
