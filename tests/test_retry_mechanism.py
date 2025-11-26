@@ -266,7 +266,7 @@ def custom_http_giveup(e: Exception) -> bool:
         return True  # Give up immediately on bad requests
     elif isinstance(e, litellm.RateLimitError):
         return False  # Retry rate limits with backoff
-
+    
     return False  # Retry everything else
 
 
@@ -388,7 +388,7 @@ def test_simple_giveup_function(row: EvaluationRow) -> EvaluationRow:
 def test_simple_giveup_verification():
     """Verify that giveup function prevents retries."""
     mock_tracker = shared_processor_simple_giveup.mock_tracker
-
+    
     print("\n🔄 SIMPLE GIVEUP TEST ANALYSIS:")
     print(f"   Batch calls made: {mock_tracker.batch_call.call_count}")
     print(f"   Total row processing calls: {mock_tracker.process_row_call.call_count}")
@@ -443,11 +443,10 @@ shared_processor_response_quality = MockRolloutProcessorResponseQuality()
     mode="pointwise",
     exception_handler_config=ExceptionHandlerConfig(
         backoff_config=BackoffConfig(max_tries=3),
-        # ResponseQualityError should have no backoff by default (set in __post_init__)
     ),
 )
 def test_response_quality_error_retry(row: EvaluationRow) -> EvaluationRow:
-    """Test that ResponseQualityError is retried with no backoff (immediate retry)."""
+    """Test that ResponseQualityError is retried (using default backoff)."""
     print(
         f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.is_finished() else 'FAILURE'})"
     )
@@ -457,7 +456,7 @@ def test_response_quality_error_retry(row: EvaluationRow) -> EvaluationRow:
 
 
 def test_response_quality_error_verification():
-    """Verify that ResponseQualityError is retried with no backoff."""
+    """Verify that ResponseQualityError is retried."""
     mock_tracker = shared_processor_response_quality.mock_tracker
 
     print("\n🔄 RESPONSE QUALITY ERROR TEST ANALYSIS:")
@@ -470,7 +469,7 @@ def test_response_quality_error_verification():
 
     print(f"   Call counts per rollout_id: {dict(call_counts)}")
 
-    # Should have 2 calls: 1 original + 1 retry (no backoff, immediate retry)
+    # Should have 2 calls: 1 original + 1 retry
     # Note: With max_tries=3, it should retry up to 3 times, but our mock succeeds on attempt 2
     assert mock_tracker.process_row_call.call_count == 2, (
         f"Expected 2 calls (1 original + 1 retry), got {mock_tracker.process_row_call.call_count}"
@@ -482,171 +481,5 @@ def test_response_quality_error_verification():
         f"Expected 1 rollout with 2 calls, got {call_count_values}"
     )
 
-    print("✅ ResponseQualityError test passed! Error was retried with no backoff (immediate retry).")
+    print("✅ ResponseQualityError test passed! Error was retried.")
 
-
-# Test 6: Per-exception backoff overrides
-class MockRolloutProcessorBackoffOverride(RolloutProcessor):
-    """Mock processor that raises different exceptions to test backoff overrides"""
-
-    def __init__(self):
-        self.mock_tracker: Mock = Mock()
-
-    @override
-    def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
-        self.mock_tracker.batch_call(len(rows))
-
-        async def process_single_row(row: EvaluationRow) -> EvaluationRow:
-            rollout_id = row.execution_metadata.rollout_id
-            self.mock_tracker.process_row_call(rollout_id)
-
-            # Determine attempt number
-            previous_calls = [
-                call for call in self.mock_tracker.process_row_call.call_args_list if call[0][0] == rollout_id
-            ]
-            attempt_number = len(previous_calls)
-
-            task_content = row.messages[0].content if row.messages else ""
-            
-            # Different exceptions based on content
-            if task_content and "quality" in task_content:
-                # ResponseQualityError - should use no backoff override (immediate retry)
-                if attempt_number == 1:
-                    raise ResponseQualityError("Quality check failed")
-            elif task_content and "connection" in task_content:
-                # ConnectionError - should use default backoff
-                if attempt_number <= 2:  # Fail twice, succeed on third
-                    raise ConnectionError("Connection failed")
-            
-            return row
-
-        tasks = [asyncio.create_task(process_single_row(row)) for row in rows]
-        return tasks
-
-
-shared_processor_backoff_override = MockRolloutProcessorBackoffOverride()
-
-
-@evaluation_test(
-    completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
-    input_messages=[
-        [
-            [Message(role="user", content="Test quality")],  # ResponseQualityError - no backoff
-            [Message(role="user", content="Test connection")],  # ConnectionError - default backoff
-        ]
-    ],
-    rollout_processor=shared_processor_backoff_override,
-    num_runs=1,
-    mode="pointwise",
-    exception_handler_config=ExceptionHandlerConfig(
-        backoff_config=BackoffConfig(max_tries=3, base_delay=0.1, strategy="constant"),
-        exception_backoff_overrides={
-            ResponseQualityError: BackoffConfig(
-                strategy="constant",
-                base_delay=0.0,  # No backoff
-                max_delay=0.0,
-                max_tries=3,
-            ),
-        },
-    ),
-)
-def test_backoff_override(row: EvaluationRow) -> EvaluationRow:
-    """Test that per-exception backoff overrides work correctly."""
-    task_content = row.messages[0].content if row.messages else ""
-    print(
-        f"📊 EVALUATED: {task_content} ({'SUCCESS' if row.rollout_status.is_finished() else 'FAILURE'})"
-    )
-    score = 1.0 if row.rollout_status.is_finished() else 0.0
-    row.evaluation_result = EvaluateResult(score=score)
-    return row
-
-
-def test_backoff_override_verification():
-    """Verify that different backoff decorators are triggered for different exceptions."""
-    # Track which exceptions are passed to backoff.on_exception
-    backoff_calls = []
-    original_on_exception = backoff.on_exception
-    
-    def track_backoff_on_exception(*args, **kwargs):
-        """Track calls to backoff.on_exception to verify different decorators."""
-        # Extract exception types from args (second positional arg is the exception tuple)
-        if len(args) >= 2:
-            exception_types = args[1]
-            # Extract interval/base_delay from kwargs
-            interval = kwargs.get('interval', kwargs.get('base', None))
-            backoff_calls.append({
-                'exceptions': exception_types,
-                'interval': interval,
-            })
-        return original_on_exception(*args, **kwargs)
-    
-    # Re-run the test with backoff tracking
-    with patch('eval_protocol.pytest.exception_config.backoff.on_exception', side_effect=track_backoff_on_exception):
-        # Recreate the config to get a fresh decorator
-        config = ExceptionHandlerConfig(
-            backoff_config=BackoffConfig(max_tries=3, base_delay=0.1, strategy="constant"),
-            exception_backoff_overrides={
-                ResponseQualityError: BackoffConfig(
-                    strategy="constant",
-                    base_delay=0.0,
-                    max_delay=0.0,
-                    max_tries=3,
-                ),
-            },
-        )
-        decorator = config.get_backoff_decorator()
-        
-        # Verify decorator was created
-        assert decorator is not None, "Decorator should be created"
-        
-        # Verify different decorators were created for different exceptions
-        assert len(backoff_calls) >= 2, (
-            f"Expected at least 2 backoff.on_exception calls (one per exception type), got {len(backoff_calls)}"
-        )
-        
-        # Find decorators for ResponseQualityError and ConnectionError
-        quality_decorator = None
-        connection_decorator = None
-        
-        for call in backoff_calls:
-            exceptions = call['exceptions']
-            if ResponseQualityError in exceptions:
-                quality_decorator = call
-            if ConnectionError in exceptions:
-                connection_decorator = call
-        
-        assert quality_decorator is not None, "Should have a decorator for ResponseQualityError"
-        assert connection_decorator is not None, "Should have a decorator for ConnectionError"
-        
-        # Verify different intervals (base_delay) were used
-        assert quality_decorator['interval'] == 0.0, (
-            f"ResponseQualityError decorator should have interval=0.0, got {quality_decorator['interval']}"
-        )
-        assert connection_decorator['interval'] == 0.1, (
-            f"ConnectionError decorator should have interval=0.1, got {connection_decorator['interval']}"
-        )
-        
-        # Verify exception sets are disjoint (no overlap)
-        quality_exceptions = set(quality_decorator['exceptions'])
-        connection_exceptions = set(connection_decorator['exceptions'])
-        assert quality_exceptions.isdisjoint(connection_exceptions), (
-            "Exception sets should be disjoint to prevent double backoff"
-        )
-    
-    # Verify call counts from actual test run
-    mock_tracker = shared_processor_backoff_override.mock_tracker
-    call_args = mock_tracker.process_row_call.call_args_list
-    rollout_ids = [call[0][0] for call in call_args]
-    call_counts = Counter(rollout_ids)
-
-    assert mock_tracker.process_row_call.call_count == 5, (
-        f"Expected 5 calls total (2 for quality + 3 for connection), got {mock_tracker.process_row_call.call_count}"
-    )
-
-    call_count_values = list(call_counts.values())
-    assert call_count_values.count(2) == 1, (
-        f"Expected 1 rollout with 2 calls (ResponseQualityError with no backoff), got {call_count_values}"
-    )
-    assert call_count_values.count(3) == 1, (
-        f"Expected 1 rollout with 3 calls (ConnectionError with backoff), got {call_count_values}"
-    )

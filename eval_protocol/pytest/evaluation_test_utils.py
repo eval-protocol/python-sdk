@@ -374,9 +374,6 @@ async def rollout_processor_with_retry(
                 except ResponseQualityError as quality_error:
                     # Re-raise ResponseQualityError to trigger retry logic
                     raise quality_error
-                except Exception as post_process_error:
-                    # Wrap unexpected post-processor errors in ResponseQualityError
-                    raise ResponseQualityError(f"Post-processor failed: {post_process_error}") from post_process_error
             
             return result
 
@@ -393,8 +390,6 @@ async def rollout_processor_with_retry(
                         config.post_processor.process(result)
                     except ResponseQualityError as quality_error:
                         raise quality_error
-                    except Exception as post_process_error:
-                        raise ResponseQualityError(f"Post-processor failed: {post_process_error}") from post_process_error
 
                 _set_rollout_status_to_finished(result)
 
