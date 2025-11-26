@@ -92,37 +92,30 @@ class BackoffConfig:
 
             return no_op_decorator
 
-        return self._create_single_decorator(exceptions, self)
-    
-    def _create_single_decorator(self, exc_set: Set[Type[Exception]], config: "BackoffConfig"):
-        """Create a single backoff decorator for a set of exceptions."""
-        if not exc_set:
-            return None
-        
-        if config.strategy == "expo":
+        if self.strategy == "expo":
             return backoff.on_exception(
                 backoff.expo,
-                tuple(exc_set),
-                max_tries=config.max_tries,
-                base=config.base_delay,
-                max_value=config.max_delay,
-                factor=config.factor,
-                jitter=config.jitter,
-                giveup=config.giveup_func,
-                raise_on_giveup=config.raise_on_giveup,
+                tuple(exceptions),
+                max_tries=self.max_tries,
+                base=self.base_delay,
+                max_value=self.max_delay,
+                factor=self.factor,
+                jitter=self.jitter,
+                giveup=self.giveup_func,
+                raise_on_giveup=self.raise_on_giveup,
             )
-        elif config.strategy == "constant":
+        elif self.strategy == "constant":
             return backoff.on_exception(
                 backoff.constant,
-                tuple(exc_set),
-                max_tries=config.max_tries,
-                interval=config.base_delay,
-                jitter=config.jitter,
-                giveup=config.giveup_func,
-                raise_on_giveup=config.raise_on_giveup,
+                tuple(exceptions),
+                max_tries=self.max_tries,
+                interval=self.base_delay,
+                jitter=self.jitter,
+                giveup=self.giveup_func,
+                raise_on_giveup=self.raise_on_giveup,
             )
         else:
-            raise ValueError(f"Unknown backoff strategy: {config.strategy}")
+            raise ValueError(f"Unknown backoff strategy: {self.strategy}")
 
 
 @dataclass
