@@ -165,12 +165,8 @@ def local_test_command(args: argparse.Namespace) -> int:
             print("Error: Please select exactly one evaluation test for 'local-test'.")
             return 1
         chosen = selected[0]
-        abs_path = os.path.abspath(chosen.file_path)
-        try:
-            rel = os.path.relpath(abs_path, project_root)
-        except Exception:
-            rel = abs_path
-        pytest_target = rel
+        func_name = chosen.qualname.split(".")[-1]
+        pytest_target = _build_entry_point(project_root, chosen.file_path, func_name)
 
     ignore_docker = bool(getattr(args, "ignore_docker", False))
     build_extras_str = getattr(args, "docker_build_extra", "") or ""
