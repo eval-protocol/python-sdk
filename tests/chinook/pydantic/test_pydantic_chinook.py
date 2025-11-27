@@ -32,7 +32,7 @@ def agent_factory(config: RolloutProcessorConfig) -> Agent:
     "completion_params",
     [
         {
-            "model": "accounts/fireworks/models/kimi-k2-instruct",
+            "model": "accounts/fireworks/models/kimi-k2-instruct-0905",
             "provider": "fireworks",
         },
         {
@@ -82,7 +82,7 @@ async def test_simple_query(row: EvaluationRow) -> EvaluationRow:
         )
     else:
         model = OpenAIChatModel(
-            "accounts/fireworks/models/kimi-k2-instruct",
+            "accounts/fireworks/models/kimi-k2-instruct-0905",
             provider="fireworks",
         )
 
