@@ -233,7 +233,7 @@ OPENENV_BROWSERGYM_INLINE_DATA: List[Dict[str, Any]] = [
         {
             "temperature": 0.0,
             "max_tokens": 512,
-            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct",
+            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905",
         }
     ],
     # Keep concurrency and steps low for a quick health-check

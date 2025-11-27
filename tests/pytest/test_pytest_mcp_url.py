@@ -21,7 +21,7 @@ from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
         ]
     ],
     rollout_processor=AgentRolloutProcessor(),
-    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905"}],
     mode="pointwise",
     mcp_config_path="tests/pytest/mcp_configurations/docs_mcp_config.json",
 )

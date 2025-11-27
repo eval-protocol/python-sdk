@@ -65,7 +65,7 @@ def test_openenv_browsergym_basic():
         "model": os.getenv(
             "OPENENV_TEST_MODEL",
             # Default to a Fireworks public model id used elsewhere in tests; requires FIREWORKS_API_KEY
-            "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct",
+            "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905",
         ),
         "temperature": 0.0,
         "max_tokens": 16,

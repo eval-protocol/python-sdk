@@ -76,7 +76,7 @@ ECHO_INLINE_DATA: List[Dict[str, Any]] = [
             "temperature": 0.0,
             "max_tokens": 16,
             # Any working model with your API key; match other tests' default
-            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct",
+            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905",
         }
     ],
     num_runs=1,
