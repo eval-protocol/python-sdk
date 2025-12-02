@@ -9,6 +9,25 @@ export const ChatCompletionContentPartTextParamSchema = z.object({
     .describe("The type of the content part."),
 });
 
+export const ChatCompletionContentPartImageParamSchema = z.object({
+  type: z
+    .literal("image_url")
+    .default("image_url")
+    .describe("The type of the content part."),
+  image_url: z
+    .object({
+      url: z.string().describe("Image URL or data URI."),
+      detail: z.enum(["auto", "low", "high"]).optional(),
+    })
+    .or(z.record(z.string(), z.any()))
+    .describe("Image descriptor payload."),
+});
+
+export const ChatCompletionContentPartParamSchema = z.union([
+  ChatCompletionContentPartTextParamSchema,
+  ChatCompletionContentPartImageParamSchema,
+]);
+
 export const FunctionCallSchema = z.object({
   name: z.string(),
   arguments: z.string(),
@@ -23,7 +42,7 @@ export const ChatCompletionMessageToolCallSchema = z.object({
 export const MessageSchema = z.object({
   role: z.string().describe("assistant, user, system, tool"),
   content: z
-    .union([z.string(), z.array(ChatCompletionContentPartTextParamSchema)])
+    .union([z.string(), z.array(ChatCompletionContentPartParamSchema)])
     .optional()
     .default("")
     .describe("The content of the message."),
@@ -532,6 +551,12 @@ export const MCPMultiClientConfigurationSchema = z.object({
 // Export TypeScript types derived from the schemas
 export type ChatCompletionContentPartTextParam = z.infer<
   typeof ChatCompletionContentPartTextParamSchema
+>;
+export type ChatCompletionContentPartImageParam = z.infer<
+  typeof ChatCompletionContentPartImageParamSchema
+>;
+export type ChatCompletionContentPartParam = z.infer<
+  typeof ChatCompletionContentPartParamSchema
 >;
 export type Message = z.infer<typeof MessageSchema>;
 export type MetricResult = z.infer<typeof MetricResultSchema>;

@@ -22,9 +22,11 @@ export const MessageBubble = ({ message }: { message: Message }) => {
       return message.content;
     } else if (Array.isArray(message.content)) {
       return message.content
-        .map((part) =>
-          part.type === "text" ? part.text : JSON.stringify(part)
-        )
+        .map((part) => {
+          if (part.type === "text") return part.text;
+          if (part.type === "image_url") return "[Image]";
+          return JSON.stringify(part);
+        })
         .join("");
     } else {
       return JSON.stringify(message.content);
@@ -34,10 +36,59 @@ export const MessageBubble = ({ message }: { message: Message }) => {
   const messageContent = getMessageContent();
   const hasMessageContent = messageContent.trim().length > 0;
   const isLongMessage = messageContent.length > 200; // Threshold for considering a message "long"
-  const displayContent =
-    isLongMessage && !isExpanded
-      ? messageContent.substring(0, 200) + "..."
-      : messageContent;
+
+  const renderContent = () => {
+    if (typeof message.content === "string") {
+      return isLongMessage && !isExpanded
+        ? message.content.substring(0, 200) + "..."
+        : message.content;
+    } else if (Array.isArray(message.content)) {
+      let currentLength = 0;
+      const parts = [];
+      const limit = 200;
+
+      for (let i = 0; i < message.content.length; i++) {
+        const part = message.content[i];
+        
+        if (!isExpanded && currentLength >= limit) {
+          break;
+        }
+
+        if (part.type === "image_url") {
+          parts.push(
+            <div key={i} className="my-2">
+              <img 
+                src={part.image_url.url} 
+                alt="Trace content" 
+                className="max-w-full h-auto rounded border border-gray-200"
+                style={{ maxHeight: '300px' }}
+              />
+            </div>
+          );
+        } else if (part.type === "text") {
+          const text = part.text;
+          if (!isExpanded && currentLength + text.length > limit) {
+            const remaining = limit - currentLength;
+            if (remaining > 0) {
+              parts.push(<span key={i}>{text.substring(0, remaining)}...</span>);
+            }
+            currentLength += text.length;
+            break; 
+          } else {
+            parts.push(<span key={i}>{text}</span>);
+            currentLength += text.length;
+          }
+        } else {
+          const str = JSON.stringify(part);
+          parts.push(<span key={i}>{str}</span>);
+          currentLength += str.length;
+        }
+      }
+      return <div className="flex flex-col">{parts}</div>;
+    } else {
+      return JSON.stringify(message.content);
+    }
+  };
 
   const handleCopy = async () => {
     try {
@@ -113,7 +164,7 @@ export const MessageBubble = ({ message }: { message: Message }) => {
           {message.role}
         </div>
         <div className="whitespace-pre-wrap break-words overflow-hidden text-xs">
-          {displayContent}
+          {renderContent()}
         </div>
         {isLongMessage && (
           <button

@@ -161,20 +161,21 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                     tool_calls=converted_tool_calls,
                 )
             ]
-
-            row.execution_metadata.finish_reason = str(finish_reason) if finish_reason is not None else None
-            row.execution_metadata.tool_call_count = (
-                len(converted_tool_calls) if converted_tool_calls is not None else 0
-            )
-            row.execution_metadata.usage = (
-                CompletionUsage(  # Note: LiteLLM sets usage dynamically via setattr(), not as a typed field
-                    prompt_tokens=response.usage.prompt_tokens,  # pyright: ignore[reportAttributeAccessIssue]
-                    completion_tokens=response.usage.completion_tokens,  # pyright: ignore[reportAttributeAccessIssue]
-                    total_tokens=response.usage.total_tokens,  # pyright: ignore[reportAttributeAccessIssue]
-                )
-            )
-
             row.messages = messages
+
+            usage = getattr(response, "usage", None)
+            if usage is not None:
+                prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+                completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+                total_tokens = getattr(usage, "total_tokens", None)
+                if total_tokens is None:
+                    total_tokens = prompt_tokens + completion_tokens
+
+                row.execution_metadata.usage = CompletionUsage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
 
             row.execution_metadata.duration_seconds = time.perf_counter() - start_time
 

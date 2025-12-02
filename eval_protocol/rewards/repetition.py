@@ -8,16 +8,26 @@ encouraging more diverse and information-rich outputs.
 import re
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
-from ..models import EvaluateResult, Message, MetricResult, ChatCompletionContentPartTextParam
+from ..models import (
+    EvaluateResult,
+    Message,
+    MetricResult,
+    ChatCompletionContentPartParam,
+    ChatCompletionContentPartTextParam,
+)
 
 
-def _to_text(content: Optional[Union[str, List[ChatCompletionContentPartTextParam]]]) -> str:
+def _to_text(content: Optional[Union[str, List[ChatCompletionContentPartParam]]]) -> str:
     if content is None:
         return ""
     if isinstance(content, str):
         return content
     try:
-        return "\n".join(part.text for part in content)
+        texts: List[str] = []
+        for part in content:
+            if isinstance(part, ChatCompletionContentPartTextParam):
+                texts.append(part.text)
+        return "\n".join(texts)
     except Exception:
         return ""
 

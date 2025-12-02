@@ -8,6 +8,7 @@ from eval_protocol.models import (
     EvaluationRow,
     Message,
     MetricResult,
+    ChatCompletionContentPartParam,
     ChatCompletionContentPartTextParam,
 )
 from eval_protocol.pytest.default_single_turn_rollout_process import (
@@ -37,9 +38,11 @@ def _extract_last_boxed_segment(text: str) -> Optional[str]:
     return matches[-1]
 
 
-def _coerce_content_to_str(content: str | list[ChatCompletionContentPartTextParam] | None) -> str:
+def _coerce_content_to_str(content: str | list[ChatCompletionContentPartParam] | None) -> str:
     if isinstance(content, list):
-        return "".join([getattr(p, "text", str(p)) for p in content])
+        return "".join(
+            getattr(p, "text", str(p)) if isinstance(p, ChatCompletionContentPartTextParam) else "" for p in content
+        )
     return str(content or "")
 
 

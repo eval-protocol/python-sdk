@@ -116,3 +116,50 @@ async def test_single_turn_keeps_trailing_assistant_when_disabled(monkeypatch):
     assert [m["role"] for m in sent_msgs] == ["user", "assistant"]
     assert [m.role for m in out.messages] == ["user", "assistant", "assistant"]
     assert out.messages[-1].content == "Hello again"
+
+
+@pytest.mark.asyncio
+async def test_single_turn_handles_missing_usage_block(monkeypatch):
+    row = EvaluationRow(messages=[Message(role="user", content="Describe the picture")])
+
+    import eval_protocol.pytest.default_single_turn_rollout_process as mod
+
+    class StubChoices:
+        pass
+
+    class StubModelResponse:
+        def __init__(self, text: str):
+            self.choices = [StubChoices()]
+            self.choices[0].message = SimpleNamespace(content=text, tool_calls=None)
+            self.usage = None
+
+    async def fake_acompletion(**kwargs):
+        return StubModelResponse(text="It looks like creme brulee")
+
+    class StubLogger:
+        def __init__(self):
+            self.logged = []
+
+        def log(self, row):
+            self.logged.append(row)
+
+        def read(self, rollout_id=None):
+            return list(self.logged)
+
+    stub_logger = StubLogger()
+
+    monkeypatch.setattr(mod, "ModelResponse", StubModelResponse, raising=True)
+    monkeypatch.setattr(mod, "Choices", StubChoices, raising=True)
+    monkeypatch.setattr(mod, "acompletion", fake_acompletion, raising=True)
+    monkeypatch.setattr(mod, "default_logger", stub_logger, raising=False)
+
+    processor = SingleTurnRolloutProcessor()
+    config = _DummyConfig()
+
+    tasks = processor([row], config)
+    out = await tasks[0]
+
+    assert [m.role for m in out.messages] == ["user", "assistant"]
+    assert out.messages[-1].content == "It looks like creme brulee"
+    # Usage should remain unset when the provider omits it
+    assert out.execution_metadata.usage is None

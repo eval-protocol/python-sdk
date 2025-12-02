@@ -9,7 +9,13 @@ are in the expected language.
 import re
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from ..models import EvaluateResult, Message, MetricResult, ChatCompletionContentPartTextParam
+from ..models import (
+    EvaluateResult,
+    Message,
+    MetricResult,
+    ChatCompletionContentPartParam,
+    ChatCompletionContentPartTextParam,
+)
 from ..typed_interface import reward_function
 
 # Dictionary mapping language codes to common words/patterns in that language
@@ -573,13 +579,17 @@ def language_consistency_reward(
             },
         )
 
-    def _to_text(content: Union[str, List[ChatCompletionContentPartTextParam], None]) -> str:
+    def _to_text(content: Union[str, List[ChatCompletionContentPartParam], None]) -> str:
         if content is None:
             return ""
         if isinstance(content, str):
             return content
         try:
-            return "\n".join(part.text for part in content)
+            texts: List[str] = []
+            for part in content:
+                if isinstance(part, ChatCompletionContentPartTextParam):
+                    texts.append(part.text)
+            return "\n".join(texts)
         except Exception:
             return ""
 

@@ -10,10 +10,16 @@ like normalization and LaTeX parsing.
 import re
 from typing import Any, Callable, Dict, List, Optional, Union, cast
 
-from ..models import EvaluateResult, Message, MetricResult, ChatCompletionContentPartTextParam
+from ..models import (
+    EvaluateResult,
+    Message,
+    MetricResult,
+    ChatCompletionContentPartParam,
+    ChatCompletionContentPartTextParam,
+)
 
 
-def _to_text(content: Optional[Union[str, List[ChatCompletionContentPartTextParam]]]) -> str:
+def _to_text(content: Optional[Union[str, List[ChatCompletionContentPartParam]]]) -> str:
     """Coerce Message.content into a plain string for regex and comparisons."""
     if content is None:
         return ""
@@ -21,7 +27,11 @@ def _to_text(content: Optional[Union[str, List[ChatCompletionContentPartTextPara
         return content
     # List[ChatCompletionContentPartTextParam]
     try:
-        return "\n".join(part.text for part in content)
+        texts: List[str] = []
+        for part in content:
+            if isinstance(part, ChatCompletionContentPartTextParam):
+                texts.append(part.text)
+        return "\n".join(texts)
     except Exception:
         return ""
 

@@ -13,7 +13,12 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.mcp.mcp_multi_client import MCPMultiClient
-from eval_protocol.models import EvaluationRow, Message, ChatCompletionContentPartTextParam
+from eval_protocol.models import (
+    EvaluationRow,
+    Message,
+    ChatCompletionContentPartParam,
+    ChatCompletionContentPartTextParam,
+)
 from openai.types import CompletionUsage
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
@@ -98,7 +103,7 @@ class Agent:
         self.messages.append(message)
         self.logger.log(self.evaluation_row)
 
-    async def call_agent(self) -> Optional[Union[str, List[ChatCompletionContentPartTextParam]]]:
+    async def call_agent(self) -> Optional[Union[str, List[ChatCompletionContentPartParam]]]:
         """
         Call the assistant with the user query.
         """
@@ -222,7 +227,7 @@ class Agent:
 
     def _format_tool_message_content(
         self, content: List[TextContent]
-    ) -> Union[str, List[ChatCompletionContentPartTextParam]]:
+    ) -> Union[str, List[ChatCompletionContentPartParam]]:
         """Format tool result content for inclusion in a tool message.
 
         - If a single text item, return plain string per OpenAI semantics.

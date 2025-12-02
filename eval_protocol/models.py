@@ -458,11 +458,46 @@ class ChatCompletionContentPartTextParam(BaseModel):
         return iter(["text", "type"])
 
 
+class ChatCompletionContentPartImageParam(BaseModel):
+    type: Literal["image_url"] = Field("image_url", description="The type of the content part.")
+    image_url: Dict[str, Any] = Field(
+        ..., description="Image descriptor (e.g., {'url': 'data:image/png;base64,...', 'detail': 'high'})."
+    )
+
+    def __getitem__(self, key: str) -> Any:
+        if key == "image_url":
+            return self.image_url
+        if key == "type":
+            return self.type
+        raise KeyError(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def keys(self):
+        return (k for k in ("image_url", "type"))
+
+    def values(self):
+        return (self.image_url, self.type)
+
+    def items(self):
+        return [("image_url", self.image_url), ("type", self.type)]
+
+    def __iter__(self):
+        return iter(["image_url", "type"])
+
+
+ChatCompletionContentPartParam = Union[ChatCompletionContentPartTextParam, ChatCompletionContentPartImageParam]
+
+
 class Message(BaseModel):
     """Chat message model with trajectory evaluation support."""
 
     role: str  # assistant, user, system, tool
-    content: Optional[Union[str, List[ChatCompletionContentPartTextParam]]] = Field(
+    content: Optional[Union[str, List[ChatCompletionContentPartParam]]] = Field(
         default="", description="The content of the message."
     )
     reasoning_content: Optional[str] = Field(

@@ -2,7 +2,13 @@ import json
 import re
 from typing import Any, Dict, List, Optional, Union
 
-from ..models import EvaluateResult, Message, MetricResult, ChatCompletionContentPartTextParam
+from ..models import (
+    EvaluateResult,
+    Message,
+    MetricResult,
+    ChatCompletionContentPartParam,
+    ChatCompletionContentPartTextParam,
+)
 from ..typed_interface import reward_function
 from .function_calling import (
     calculate_jaccard_similarity,
@@ -59,8 +65,10 @@ def json_schema_reward(
                     content_text = last_message.content
                 else:
                     try:
-                        parts: List[ChatCompletionContentPartTextParam] = last_message.content  # type: ignore[assignment]
-                        content_text = "\n".join(getattr(p, "text", "") for p in parts)
+                        parts: List[ChatCompletionContentPartParam] = last_message.content  # type: ignore[assignment]
+                        content_text = "\n".join(
+                            getattr(p, "text", "") for p in parts if isinstance(p, ChatCompletionContentPartTextParam)
+                        )
                     except Exception:
                         content_text = ""
             else:

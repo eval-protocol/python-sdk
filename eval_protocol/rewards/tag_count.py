@@ -8,16 +8,26 @@ specified XML/HTML-like tags in correct quantities.
 import re
 from typing import Any, Dict, List, Set, Union
 
-from ..models import EvaluateResult, Message, MetricResult, ChatCompletionContentPartTextParam
+from ..models import (
+    EvaluateResult,
+    Message,
+    MetricResult,
+    ChatCompletionContentPartParam,
+    ChatCompletionContentPartTextParam,
+)
 
 
-def _to_text(content: Union[str, List[ChatCompletionContentPartTextParam], None]) -> str:
+def _to_text(content: Union[str, List[ChatCompletionContentPartParam], None]) -> str:
     if content is None:
         return ""
     if isinstance(content, str):
         return content
     try:
-        return "\n".join(part.text for part in content)
+        texts: List[str] = []
+        for part in content:
+            if isinstance(part, ChatCompletionContentPartTextParam):
+                texts.append(part.text)
+        return "\n".join(texts)
     except Exception:
         return ""
 
