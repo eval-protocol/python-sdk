@@ -148,6 +148,9 @@ class LiteLLMPolicy(LLMBasePolicy):
         # Standard OpenAI message fields
         allowed_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
 
+        if self._supports_reasoning_details():
+            allowed_fields.add("reasoning_details")
+
         clean_messages = []
         for msg in messages:
             # Only keep allowed fields
@@ -217,31 +220,37 @@ class LiteLLMPolicy(LLMBasePolicy):
                 logger.debug(f"🔄 API call for model: {self.model_id}")
 
             # LiteLLM already returns OpenAI-compatible format
+            message_obj = getattr(response.choices[0], "message", object())
+
+            message_dict: Dict[str, Any] = {
+                "role": getattr(message_obj, "role", "assistant"),
+                "content": getattr(message_obj, "content", None),
+                "tool_calls": (
+                    [
+                        {
+                            "id": getattr(tc, "id", None),
+                            "type": getattr(tc, "type", "function"),
+                            "function": {
+                                "name": getattr(getattr(tc, "function", None), "name", "tool"),
+                                "arguments": getattr(getattr(tc, "function", None), "arguments", "{}"),
+                            },
+                        }
+                        for tc in (getattr(message_obj, "tool_calls", []) or [])
+                    ]
+                    if getattr(message_obj, "tool_calls", None)
+                    else []
+                ),
+            }
+
+            if self._supports_reasoning_details():
+                rd = getattr(message_obj, "reasoning_details", None)
+                if rd is not None:
+                    message_dict["reasoning_details"] = rd
+
             return {
                 "choices": [
                     {
-                        "message": {
-                            "role": getattr(getattr(response.choices[0], "message", object()), "role", "assistant"),
-                            "content": getattr(getattr(response.choices[0], "message", object()), "content", None),
-                            "tool_calls": (
-                                [
-                                    {
-                                        "id": getattr(tc, "id", None),
-                                        "type": getattr(tc, "type", "function"),
-                                        "function": {
-                                            "name": getattr(getattr(tc, "function", None), "name", "tool"),
-                                            "arguments": getattr(getattr(tc, "function", None), "arguments", "{}"),
-                                        },
-                                    }
-                                    for tc in (
-                                        getattr(getattr(response.choices[0], "message", object()), "tool_calls", [])
-                                        or []
-                                    )
-                                ]
-                                if getattr(getattr(response.choices[0], "message", object()), "tool_calls", None)
-                                else []
-                            ),
-                        },
+                        "message": message_dict,
                         "finish_reason": getattr(response.choices[0], "finish_reason", None),
                     }
                 ],
