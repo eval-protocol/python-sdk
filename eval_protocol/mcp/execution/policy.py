@@ -239,9 +239,9 @@ class LiteLLMPolicy(LLMBasePolicy):
                 ),
             }
 
-            provider_specific = getattr(message_obj, "provider_specific_fields", None)
-            if isinstance(provider_specific, dict):
-                for key, value in provider_specific.items():
+            provider_specific_fields = getattr(message_obj, "provider_specific_fields", None)
+            if isinstance(provider_specific_fields, dict):
+                for key, value in provider_specific_fields.items():
                     if value is not None and key not in message_dict:
                         message_dict[key] = value
 

@@ -199,9 +199,8 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         if message.get("tool_calls"):
             assistant_message_for_history["tool_calls"] = message["tool_calls"]
 
-        rd = message.get("reasoning_details", None)
-        if rd is not None:
-            assistant_message_for_history["reasoning_details"] = rd
+        if message.get("reasoning_details"):
+            assistant_message_for_history["reasoning_details"] = message["reasoning_details"]
 
         # Add to actual conversation history
         conversation_history.append(assistant_message_for_history)
