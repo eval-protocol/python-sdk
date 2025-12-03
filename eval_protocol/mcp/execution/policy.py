@@ -222,6 +222,7 @@ class LiteLLMPolicy(LLMBasePolicy):
             message_dict: Dict[str, Any] = {
                 "role": getattr(message_obj, "role", "assistant"),
                 "content": getattr(message_obj, "content", None),
+                "provider_specific_fields": getattr(message_obj, "provider_specific_fields", None),
                 "tool_calls": (
                     [
                         {
@@ -238,12 +239,6 @@ class LiteLLMPolicy(LLMBasePolicy):
                     else []
                 ),
             }
-
-            provider_specific_fields = getattr(message_obj, "provider_specific_fields", None)
-            if isinstance(provider_specific_fields, dict):
-                for key, value in provider_specific_fields.items():
-                    if value is not None and key not in message_dict:
-                        message_dict[key] = value
 
             return {
                 "choices": [

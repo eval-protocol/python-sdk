@@ -199,8 +199,12 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         if message.get("tool_calls"):
             assistant_message_for_history["tool_calls"] = message["tool_calls"]
 
-        if message.get("reasoning_details"):
-            assistant_message_for_history["reasoning_details"] = message["reasoning_details"]
+        # Preserve specific fields from provider_specific_fields if present
+        if message.get("provider_specific_fields"):
+            if message["provider_specific_fields"].get("reasoning_details"):
+                assistant_message_for_history["reasoning_details"] = message["provider_specific_fields"][
+                    "reasoning_details"
+                ]
 
         # Add to actual conversation history
         conversation_history.append(assistant_message_for_history)
