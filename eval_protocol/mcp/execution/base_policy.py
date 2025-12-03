@@ -59,20 +59,6 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
         # Initialize conversation state tracking for proper OpenAI trajectories
         self.initialized = False
 
-    def _supports_reasoning_details(self) -> bool:
-        """
-        Returns True if this policy is configured for a provider/model that expects
-        top-level reasoning_details to be preserved (e.g., Gemini 3 via OpenRouter).
-        """
-        model_id = getattr(self, "model_id", "") or ""
-        base_url = getattr(self, "base_url", "") or ""
-
-        if isinstance(model_id, str) and "openrouter" in model_id:
-            return True
-        if isinstance(base_url, str) and "openrouter.ai" in base_url:
-            return True
-        return False
-
     @abstractmethod
     async def _make_llm_call(self, messages: List[Dict], tools: List[Dict]) -> Dict:
         """
@@ -214,7 +200,7 @@ class LLMBasePolicy(PlaybackPolicyBase, ABC):
             assistant_message_for_history["tool_calls"] = message["tool_calls"]
 
         rd = message.get("reasoning_details", None)
-        if rd is not None and self._supports_reasoning_details():
+        if rd is not None:
             assistant_message_for_history["reasoning_details"] = rd
 
         # Add to actual conversation history

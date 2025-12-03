@@ -146,10 +146,7 @@ class LiteLLMPolicy(LLMBasePolicy):
             Clean messages with only OpenAI API compatible fields
         """
         # Standard OpenAI message fields
-        allowed_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
-
-        if self._supports_reasoning_details():
-            allowed_fields.add("reasoning_details")
+        allowed_fields = {"role", "content", "tool_calls", "tool_call_id", "name", "reasoning_details"}
 
         clean_messages = []
         for msg in messages:
@@ -242,10 +239,9 @@ class LiteLLMPolicy(LLMBasePolicy):
                 ),
             }
 
-            if self._supports_reasoning_details():
-                rd = getattr(message_obj, "reasoning_details", None)
-                if rd is not None:
-                    message_dict["reasoning_details"] = rd
+            rd = getattr(message_obj, "reasoning_details", None)
+            if rd is not None:
+                message_dict["reasoning_details"] = rd
 
             return {
                 "choices": [
