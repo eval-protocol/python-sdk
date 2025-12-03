@@ -12,14 +12,17 @@ import os
 class ResponseFormat(BaseModel):
     score: float
 
-'''
+
+"""
 You should copy https://painted-tennis-ebc.notion.site/MCPMark-Source-Hub-23181626b6d7805fb3a7d59c63033819
 into your Notion for the notion test.
-'''
+"""
+
+
 @evaluation_test(
     input_dataset=["tests/pytest/datasets/klavis_mcp_test.jsonl"],
     rollout_processor=AgentRolloutProcessor(),
-    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-thinking"}],
     mode="pointwise",
     mcp_config_path="tests/pytest/mcp_configurations/klavis_strata_mcp.json",
 )
@@ -31,7 +34,7 @@ async def test_pytest_klavis_mcp(row: EvaluationRow) -> EvaluationRow:
         api_key=os.environ["FIREWORKS_API_KEY"], base_url="https://api.fireworks.ai/inference/v1"
     ) as client:
         response = await client.chat.completions.create(
-            model="accounts/fireworks/models/kimi-k2-instruct-0905",
+            model="accounts/fireworks/models/kimi-k2-thinking",
             messages=[
                 {
                     "role": "system",
@@ -50,6 +53,7 @@ async def test_pytest_klavis_mcp(row: EvaluationRow) -> EvaluationRow:
         response_text = response.choices[0].message.content
         logger.info("response_text: %s", response_text)
         score = json.loads(response_text or "{}")["score"]
+
         row.evaluation_result = EvaluateResult(
             score=score,
             reason=response_text,

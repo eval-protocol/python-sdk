@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "klavis-strata": {
-      "url": "https://strata.klavis.ai/mcp/",
+      "url": "https://gmail-mcp-server.klavis.ai/mcp/?instance_id=74ddb651-9204-480e-9fe4-4a90d9f10c69",
       "authorization": "Bearer ${KLAVIS_AUTH_TOKEN}"
     }
   }
