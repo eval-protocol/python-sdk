@@ -219,31 +219,29 @@ class LiteLLMPolicy(LLMBasePolicy):
             # LiteLLM already returns OpenAI-compatible format
             message_obj = getattr(response.choices[0], "message", object())
 
-            message_dict: Dict[str, Any] = {
-                "role": getattr(message_obj, "role", "assistant"),
-                "content": getattr(message_obj, "content", None),
-                "provider_specific_fields": getattr(message_obj, "provider_specific_fields", None),
-                "tool_calls": (
-                    [
-                        {
-                            "id": getattr(tc, "id", None),
-                            "type": getattr(tc, "type", "function"),
-                            "function": {
-                                "name": getattr(getattr(tc, "function", None), "name", "tool"),
-                                "arguments": getattr(getattr(tc, "function", None), "arguments", "{}"),
-                            },
-                        }
-                        for tc in (getattr(message_obj, "tool_calls", []) or [])
-                    ]
-                    if getattr(message_obj, "tool_calls", None)
-                    else []
-                ),
-            }
-
             return {
                 "choices": [
                     {
-                        "message": message_dict,
+                        "message": {
+                            "role": getattr(message_obj, "role", "assistant"),
+                            "content": getattr(message_obj, "content", None),
+                            "provider_specific_fields": getattr(message_obj, "provider_specific_fields", None),
+                            "tool_calls": (
+                                [
+                                    {
+                                        "id": getattr(tc, "id", None),
+                                        "type": getattr(tc, "type", "function"),
+                                        "function": {
+                                            "name": getattr(getattr(tc, "function", None), "name", "tool"),
+                                            "arguments": getattr(getattr(tc, "function", None), "arguments", "{}"),
+                                        },
+                                    }
+                                    for tc in (getattr(message_obj, "tool_calls", []) or [])
+                                ]
+                                if getattr(message_obj, "tool_calls", None)
+                                else []
+                            ),
+                        },
                         "finish_reason": getattr(response.choices[0], "finish_reason", None),
                     }
                 ],
