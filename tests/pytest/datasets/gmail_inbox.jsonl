@@ -1,1 +1,0 @@
-{"messages": [ { "role": "system", "content": "You are a helpful assistant that can answer questions about Gmail. You have access to tools to help you find information." }, { "role": "user", "content": "Find the first 5 emails title in my inbox." } ], "ground_truth": "The first 5 emails contain meeting between Benny and Zheng"}

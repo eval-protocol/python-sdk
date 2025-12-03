@@ -12,9 +12,12 @@ import os
 class ResponseFormat(BaseModel):
     score: float
 
-
+'''
+You should copy https://painted-tennis-ebc.notion.site/MCPMark-Source-Hub-23181626b6d7805fb3a7d59c63033819
+into your Notion for the notion test.
+'''
 @evaluation_test(
-    input_dataset=["tests/pytest/datasets/gmail_inbox.jsonl"],
+    input_dataset=["tests/pytest/datasets/klavis_mcp_test.jsonl"],
     rollout_processor=AgentRolloutProcessor(),
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905"}],
     mode="pointwise",
