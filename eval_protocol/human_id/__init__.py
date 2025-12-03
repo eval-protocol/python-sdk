@@ -39,22 +39,22 @@ def generate_id(
             adjectives = dictionary.adjectives
             nouns = dictionary.nouns
 
-        # Calculate total combinations: adjectives * nouns * 100 (for 00-99)
-        total = len(adjectives) * len(nouns) * 100
+        # Calculate total combinations: adjectives * nouns * 1000000 (for 000000-999999)
+        total = len(adjectives) * len(nouns) * 1000000
 
         if index >= total:
             raise ValueError(f"index out of range. Received {index}, max allowed is {total - 1}")
 
         # Decompose index into adjective, noun, and number
-        number = index % 100
-        remaining = index // 100
+        number = index % 1000000
+        remaining = index // 1000000
         noun_idx = remaining % len(nouns)
         adj_idx = remaining // len(nouns)
 
         adjective = adjectives[adj_idx]
         noun = nouns[noun_idx]
 
-        return f"{adjective}{separator}{noun}{separator}{number:02d}"
+        return f"{adjective}{separator}{noun}{separator}{number:06d}"
 
     # Random generation
     random_obj = system_random
@@ -63,15 +63,15 @@ def generate_id(
 
     adjective = random_obj.choice(dictionary.adjectives)
     noun = random_obj.choice(dictionary.nouns)
-    number = random_obj.randint(0, 99)
+    number = random_obj.randint(0, 999999)
 
-    return f"{adjective}{separator}{noun}{separator}{number:02d}"
+    return f"{adjective}{separator}{noun}{separator}{number:06d}"
 
 
 def num_combinations() -> int:
     """
     Return the total number of unique IDs possible.
 
-    Format uses adjective-noun-NN, so total = adjectives * nouns * 100.
+    Format uses adjective-noun-NNNNNN, so total = adjectives * nouns * 1000000.
     """
-    return len(dictionary.adjectives) * len(dictionary.nouns) * 100
+    return len(dictionary.adjectives) * len(dictionary.nouns) * 1000000

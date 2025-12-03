@@ -130,6 +130,9 @@ langchain = [
 braintrust = [
     "braintrust[otel]",
 ]
+openenv = [
+    "openenv-core",
+]
 
 # Optional deps for LangGraph example/tests
 langgraph = [

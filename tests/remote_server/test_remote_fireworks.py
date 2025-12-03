@@ -10,7 +10,7 @@ import pytest
 import requests
 
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
@@ -94,7 +94,16 @@ def fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
 
 
 def rows() -> List[EvaluationRow]:
+    """Generate local rows with rich input_metadata to verify it survives remote traces."""
+    base_dataset_info = {
+        "requirements": ["Answer with the capital city of France."],
+        "total_requirements": 1,
+        "original_prompt": "What is the capital of France?",
+    }
+
     row = EvaluationRow(messages=[Message(role="user", content="What is the capital of France?")])
+    row.input_metadata.dataset_info = dict(base_dataset_info)
+
     return [row, row, row]
 
 
@@ -119,12 +128,25 @@ async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> Evaluat
     - trigger remote rollout via RemoteRolloutProcessor (calls init/status)
     - fetch traces from Langfuse via Fireworks tracing proxy filtered by metadata via output_data_loader; FAIL if none found
     """
+    row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
+
     assert row.messages[0].content == "What is the capital of France?", "Row should have correct message content"
     assert len(row.messages) > 1, "Row should have a response. If this fails, we fellback to the original row."
 
     assert row.execution_metadata.rollout_id in ROLLOUT_IDS, (
         f"Row rollout_id {row.execution_metadata.rollout_id} should be in tracked rollout_ids: {ROLLOUT_IDS}"
     )
+    assert row.input_metadata.completion_params["model"] == "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"
     assert row.input_metadata.completion_params["temperature"] == 0.5, "Row should have temperature at top level"
+
+    assert row.input_metadata.row_id is not None
+
+    assert row.input_metadata.dataset_info is not None
+    assert row.input_metadata.dataset_info["requirements"] == ["Answer with the capital city of France."]
+    assert row.input_metadata.dataset_info["total_requirements"] == 1
+    assert row.input_metadata.dataset_info["original_prompt"] == "What is the capital of France?"
+
+    assert "data_loader_type" in row.input_metadata.dataset_info
+    assert "data_loader_num_rows" in row.input_metadata.dataset_info
 
     return row

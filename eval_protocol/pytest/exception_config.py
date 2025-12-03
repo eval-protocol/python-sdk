@@ -4,7 +4,7 @@ Exception handling configuration for rollout processors with backoff retry logic
 
 import os
 from dataclasses import dataclass, field
-from typing import Callable, Set, Type, Union
+from typing import Callable, Dict, Set, Type, Union
 
 import backoff
 
@@ -47,6 +47,7 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
     eval_protocol.exceptions.UnavailableError,
     eval_protocol.exceptions.UnauthenticatedError,
     eval_protocol.exceptions.ResourceExhaustedError,
+    eval_protocol.exceptions.ResponseQualityError,
 }
 
 
@@ -79,7 +80,11 @@ class BackoffConfig:
     giveup_func: Callable[[Exception], bool] = lambda e: False
 
     def get_backoff_decorator(self, exceptions: Set[Type[Exception]]):
-        """Get the appropriate backoff decorator based on configuration."""
+        """Get the appropriate backoff decorator based on configuration.
+        
+        Args:
+            exceptions: Set of exception types to retry
+        """
         if not exceptions:
             # If no exceptions specified, return a no-op decorator
             def no_op_decorator(func):
@@ -136,7 +141,9 @@ class ExceptionHandlerConfig:
 
     def get_backoff_decorator(self):
         """Get the backoff decorator configured for this exception handler."""
-        return self.backoff_config.get_backoff_decorator(self.retryable_exceptions)
+        return self.backoff_config.get_backoff_decorator(
+            self.retryable_exceptions
+        )
 
 
 def get_default_exception_handler_config() -> ExceptionHandlerConfig:

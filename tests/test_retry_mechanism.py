@@ -6,15 +6,18 @@ Simple test to verify the retry mechanism works with evaluation_test.
 # pyright: reportPrivateImportUsage=false
 
 import asyncio
+import backoff
 from collections import Counter
+from typing import Type
 from typing_extensions import override
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest.evaluation_test import evaluation_test
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 from eval_protocol.pytest.exception_config import ExceptionHandlerConfig, BackoffConfig
+from eval_protocol.exceptions import ResponseQualityError
 import litellm
 
 
@@ -263,7 +266,7 @@ def custom_http_giveup(e: Exception) -> bool:
         return True  # Give up immediately on bad requests
     elif isinstance(e, litellm.RateLimitError):
         return False  # Retry rate limits with backoff
-
+    
     return False  # Retry everything else
 
 
@@ -385,7 +388,7 @@ def test_simple_giveup_function(row: EvaluationRow) -> EvaluationRow:
 def test_simple_giveup_verification():
     """Verify that giveup function prevents retries."""
     mock_tracker = shared_processor_simple_giveup.mock_tracker
-
+    
     print("\n🔄 SIMPLE GIVEUP TEST ANALYSIS:")
     print(f"   Batch calls made: {mock_tracker.batch_call.call_count}")
     print(f"   Total row processing calls: {mock_tracker.process_row_call.call_count}")
@@ -397,3 +400,86 @@ def test_simple_giveup_verification():
     )
 
     print("✅ Simple giveup test passed! 4xx error was not retried due to giveup function.")
+
+
+# Test 5: ResponseQualityError with no backoff (immediate retry)
+class MockRolloutProcessorResponseQuality(RolloutProcessor):
+    """Mock processor that raises ResponseQualityError"""
+
+    def __init__(self):
+        self.mock_tracker: Mock = Mock()
+
+    @override
+    def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
+        self.mock_tracker.batch_call(len(rows))
+
+        async def process_single_row(row: EvaluationRow) -> EvaluationRow:
+            self.mock_tracker.process_row_call(row.execution_metadata.rollout_id)
+
+            # Determine attempt number by counting previous calls for this rollout_id
+            previous_calls = [
+                call for call in self.mock_tracker.process_row_call.call_args_list if call[0][0] == row.execution_metadata.rollout_id
+            ]
+            attempt_number = len(previous_calls)
+
+            # Fail on first attempt, succeed on retry
+            if attempt_number == 1:
+                raise ResponseQualityError("Response quality check failed: too repetitive")
+
+            return row
+
+        tasks = [asyncio.create_task(process_single_row(row)) for row in rows]
+        return tasks
+
+
+shared_processor_response_quality = MockRolloutProcessorResponseQuality()
+
+
+@evaluation_test(
+    completion_params=[{"model": "gpt-4o-mini", "temperature": 0}],
+    input_messages=[[[Message(role="user", content="Test quality")]]],
+    rollout_processor=shared_processor_response_quality,
+    num_runs=1,
+    mode="pointwise",
+    exception_handler_config=ExceptionHandlerConfig(
+        backoff_config=BackoffConfig(max_tries=3),
+    ),
+)
+def test_response_quality_error_retry(row: EvaluationRow) -> EvaluationRow:
+    """Test that ResponseQualityError is retried (using default backoff)."""
+    print(
+        f"📊 EVALUATED: {row.execution_metadata.rollout_id} ({'SUCCESS' if row.rollout_status.is_finished() else 'FAILURE'})"
+    )
+    score = 1.0 if row.rollout_status.is_finished() else 0.0
+    row.evaluation_result = EvaluateResult(score=score)
+    return row
+
+
+def test_response_quality_error_verification():
+    """Verify that ResponseQualityError is retried."""
+    mock_tracker = shared_processor_response_quality.mock_tracker
+
+    print("\n🔄 RESPONSE QUALITY ERROR TEST ANALYSIS:")
+    print(f"   Batch calls made: {mock_tracker.batch_call.call_count}")
+    print(f"   Total row processing calls: {mock_tracker.process_row_call.call_count}")
+
+    call_args = mock_tracker.process_row_call.call_args_list
+    rollout_ids = [call[0][0] for call in call_args]
+    call_counts = Counter(rollout_ids)
+
+    print(f"   Call counts per rollout_id: {dict(call_counts)}")
+
+    # Should have 2 calls: 1 original + 1 retry
+    # Note: With max_tries=3, it should retry up to 3 times, but our mock succeeds on attempt 2
+    assert mock_tracker.process_row_call.call_count == 2, (
+        f"Expected 2 calls (1 original + 1 retry), got {mock_tracker.process_row_call.call_count}"
+    )
+
+    # Should have exactly 1 rollout_id called twice
+    call_count_values = list(call_counts.values())
+    assert call_count_values.count(2) == 1, (
+        f"Expected 1 rollout with 2 calls, got {call_count_values}"
+    )
+
+    print("✅ ResponseQualityError test passed! Error was retried.")
+

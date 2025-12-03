@@ -27,7 +27,11 @@ def apps_dataset_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluatio
     input_dataset=["tests/pytest/data/apps_sample_dataset.jsonl"],
     dataset_adapter=apps_dataset_to_evaluation_row,
     completion_params=[
-        {"temperature": 0.0, "max_tokens": 4096, "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}
+        {
+            "temperature": 0.0,
+            "max_tokens": 4096,
+            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905",
+        }
     ],
     passed_threshold=0.33,
     rollout_processor=SingleTurnRolloutProcessor(),

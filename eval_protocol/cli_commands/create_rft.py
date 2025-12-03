@@ -1,99 +1,37 @@
+import argparse
 import json
 import os
 import sys
 import time
-import argparse
 from typing import Any, Dict, Optional
 
 import requests
+from pydantic import ValidationError
 
-from ..auth import (
-    get_fireworks_account_id,
-    get_fireworks_api_base,
-    get_fireworks_api_key,
-    verify_api_key_and_get_account_id,
-)
+from ..auth import get_fireworks_api_base, get_fireworks_api_key
 from ..common_utils import get_user_agent
 from ..fireworks_rft import (
-    _map_api_host_to_app_host,
     build_default_output_model,
     create_dataset_from_jsonl,
     create_reinforcement_fine_tuning_job,
+    detect_dataset_builder,
+    materialize_dataset_via_builder,
 )
-from ..fireworks_rft import detect_dataset_builder, materialize_dataset_via_builder
-from .upload import _discover_tests, _normalize_evaluator_id, _prompt_select
-
-
-def _ensure_account_id() -> Optional[str]:
-    account_id = get_fireworks_account_id()
-    api_key = get_fireworks_api_key()
-    if not account_id and api_key:
-        resolved = verify_api_key_and_get_account_id(api_key=api_key, api_base=get_fireworks_api_base())
-        if resolved:
-            os.environ["FIREWORKS_ACCOUNT_ID"] = resolved
-            return resolved
-    return account_id
-
-
-def _extract_terminal_segment(resource_name: str) -> str:
-    """Return the last path segment if a fully-qualified resource name is provided."""
-    try:
-        return resource_name.strip("/").split("/")[-1]
-    except Exception:
-        return resource_name
-
-
-def _print_links(evaluator_id: str, dataset_id: str, job_name: Optional[str]) -> None:
-    api_base = get_fireworks_api_base()
-    app_base = _map_api_host_to_app_host(api_base)
-    print("\n📊 Dashboard Links:")
-    evaluator_slug = _extract_terminal_segment(evaluator_id)
-    print(f"   Evaluator: {app_base}/dashboard/evaluators/{evaluator_slug}")
-    if dataset_id:
-        print(f"   Dataset:   {app_base}/dashboard/datasets/{dataset_id}")
-    if job_name:
-        # job_name likely like accounts/{account}/reinforcementFineTuningJobs/{id}
-        try:
-            job_id = job_name.strip().split("/")[-1]
-            print(f"   RFT Job:   {app_base}/dashboard/fine-tuning/reinforcement/{job_id}")
-        except Exception:
-            pass
-
-
-def _auto_find_jsonl(cwd: str) -> Optional[str]:
-    """Find a reasonable JSONL dataset file in the current project.
-
-    Priority order:
-    - dataset.jsonl in cwd
-    - data/dataset.jsonl
-    - first *.jsonl under cwd (depth-first, skipping common vendor/venv/build dirs)
-    Returns a RELATIVE path from cwd if possible.
-    """
-    # Direct candidates
-    direct_candidates = [
-        os.path.join(cwd, "dataset.jsonl"),
-        os.path.join(cwd, "data", "dataset.jsonl"),
-    ]
-    for p in direct_candidates:
-        if os.path.isfile(p):
-            try:
-                return os.path.relpath(p, cwd)
-            except Exception:
-                return p
-
-    # Walk and find any .jsonl
-    skip_dirs = {".venv", "venv", "node_modules", "dist", "build", "__pycache__", ".git", "vendor"}
-    for dirpath, dirnames, filenames in os.walk(cwd):
-        # prune
-        dirnames[:] = [d for d in dirnames if d not in skip_dirs and not d.startswith(".")]
-        for name in sorted(filenames):
-            if name.endswith(".jsonl"):
-                candidate = os.path.join(dirpath, name)
-                try:
-                    return os.path.relpath(candidate, cwd)
-                except Exception:
-                    return candidate
-    return None
+from ..models import EvaluationRow
+from .upload import upload_command
+from .utils import (
+    _build_entry_point,
+    _build_trimmed_dataset_id,
+    _build_evaluator_dashboard_url,
+    _discover_and_select_tests,
+    _discover_tests,
+    _ensure_account_id,
+    _extract_terminal_segment,
+    _normalize_evaluator_id,
+    _print_links,
+    _resolve_selected_test,
+)
+from .local_test import run_evaluator_test
 
 
 def _extract_jsonl_from_dataloader(test_file_path: str, test_func_name: str) -> Optional[str]:
@@ -205,81 +143,21 @@ def _extract_jsonl_from_input_dataset(test_file_path: str, test_func_name: str) 
                         if isinstance(dataset_path, (list, tuple)) and len(dataset_path) > 0:
                             dataset_path = dataset_path[0]
                         if isinstance(dataset_path, str) and dataset_path:
+                            candidate_paths = []
                             if os.path.isabs(dataset_path):
-                                return dataset_path
-                            base_dir = os.path.dirname(os.path.abspath(test_file_path))
-                            resolved = os.path.abspath(os.path.join(base_dir, dataset_path))
-                            if os.path.isfile(resolved):
-                                return resolved
-                            # Try resolving from project root if relative to test file doesn't work
-                            if not os.path.isabs(dataset_path):
-                                # Try resolving from current working directory
-                                cwd_path = os.path.abspath(os.path.join(os.getcwd(), dataset_path))
-                                if os.path.isfile(cwd_path):
-                                    return cwd_path
+                                candidate_paths.append(dataset_path)
+                            else:
+                                base_dir = os.path.dirname(os.path.abspath(test_file_path))
+                                candidate_paths.append(os.path.abspath(os.path.join(base_dir, dataset_path)))
+                                # Also try resolving from current working directory
+                                candidate_paths.append(os.path.abspath(os.path.join(os.getcwd(), dataset_path)))
+
+                            for candidate in candidate_paths:
+                                if os.path.isfile(candidate):
+                                    return candidate
         return None
     except Exception:
         return None
-
-
-def _build_trimmed_dataset_id(evaluator_id: str) -> str:
-    """Build a dataset id derived from evaluator_id, trimmed to 63 chars.
-
-    Format: <normalized-base>-dataset-YYYYMMDDHHMMSS, where base is trimmed to fit.
-    """
-    # Normalize base similarly to evaluator id rules
-    from .upload import _normalize_evaluator_id  # local import to avoid cycle at module import time
-
-    base = _normalize_evaluator_id(evaluator_id)
-    suffix = f"-dataset-{time.strftime('%Y%m%d%H%M%S')}"
-    max_total = 63
-    max_base_len = max_total - len(suffix)
-    if max_base_len < 1:
-        max_base_len = 1
-    if len(base) > max_base_len:
-        base = base[:max_base_len].rstrip("-")
-        if not base:
-            base = "dataset"
-    # Ensure first char is a letter
-    if not base:
-        base = "dataset"
-    if not base[0].isalpha():
-        base = f"eval-{base}"
-        if len(base) > max_base_len:
-            base = base[:max_base_len]
-            base = base.rstrip("-") or "dataset"
-    return f"{base}{suffix}"
-
-
-def _resolve_selected_test(
-    project_root: str,
-    evaluator_id: Optional[str],
-    selected_tests: Optional[list] = None,
-) -> tuple[Optional[str], Optional[str]]:
-    """
-    Resolve a single test's source file path and function name to use downstream.
-    Priority:
-      1) If selected_tests provided and length == 1, use it.
-      2) Else discover tests; if exactly one test, use it.
-      3) Else, if evaluator_id provided, match by normalized '<file-stem>-<func-name>'.
-    Returns: (file_path, func_name) or (None, None) if unresolved.
-    """
-    try:
-        tests = selected_tests if selected_tests is not None else _discover_tests(project_root)
-        if not tests:
-            return None, None
-        if len(tests) == 1:
-            return tests[0].file_path, tests[0].qualname.split(".")[-1]
-        if evaluator_id:
-            for t in tests:
-                func_name = t.qualname.split(".")[-1]
-                source_file_name = os.path.splitext(os.path.basename(t.file_path))[0]
-                candidate = _normalize_evaluator_id(f"{source_file_name}-{func_name}")
-                if candidate == evaluator_id:
-                    return t.file_path, func_name
-        return None, None
-    except Exception:
-        return None, None
 
 
 def _poll_evaluator_status(
@@ -343,45 +221,96 @@ def _poll_evaluator_status(
     return False
 
 
-def create_rft_command(args) -> int:
-    evaluator_id: Optional[str] = getattr(args, "evaluator", None)
-    non_interactive: bool = bool(getattr(args, "yes", False))
-    dry_run: bool = bool(getattr(args, "dry_run", False))
-    force: bool = bool(getattr(args, "force", False))
-    # Track the specifically chosen test (if any) to aid dataset inference later
+def _validate_dataset_jsonl(jsonl_path: str, sample_limit: int = 50) -> bool:
+    """Validate that a JSONL file contains rows compatible with EvaluationRow.
+
+    We stream up to `sample_limit` rows, ensuring each is JSON-decodable and can be
+    parsed by the EvaluationRow model. Returns True on success, False on any error.
+    """
+    try:
+        if not os.path.isfile(jsonl_path):
+            print(f"Error: dataset JSONL not found at path: {jsonl_path}")
+            return False
+
+        row_count = 0
+        with open(jsonl_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError as e:
+                    print(f"Error: dataset JSONL contains invalid JSON (line {row_count + 1}): {e}")
+                    return False
+
+                try:
+                    EvaluationRow.model_validate(data)
+                except ValidationError as e:
+                    print(f"Error: dataset JSONL row {row_count + 1} is not a valid EvaluationRow: {e}")
+                    return False
+
+                row_count += 1
+                if row_count >= sample_limit:
+                    break
+
+        if row_count == 0:
+            print(f"Error: dataset JSONL at {jsonl_path} appears to be empty.")
+            return False
+
+        return True
+    except Exception as e:
+        print(f"Error validating dataset JSONL at {jsonl_path}: {e}")
+        return False
+
+
+def _validate_dataset(dataset_jsonl: Optional[str]) -> bool:
+    """Validate dataset JSONL path when available; no-op when using dataset IDs only."""
+    if not dataset_jsonl:
+        return True
+    return _validate_dataset_jsonl(dataset_jsonl)
+
+
+def _validate_evaluator_locally(
+    project_root: str,
+    selected_test_file: Optional[str],
+    selected_test_func: Optional[str],
+    ignore_docker: bool,
+    docker_build_extra: str,
+    docker_run_extra: str,
+) -> bool:
+    """Run pytest locally for the selected evaluation test to validate the evaluator."""
+    if not selected_test_file or not selected_test_func:
+        # No local test associated; skip validation but warn the user.
+        print("Warning: Could not resolve a local evaluation test for this evaluator; skipping local validation.")
+        return True
+
+    pytest_target = _build_entry_point(project_root, selected_test_file, selected_test_func)
+    exit_code = run_evaluator_test(
+        project_root=project_root,
+        pytest_target=pytest_target,
+        ignore_docker=ignore_docker,
+        docker_build_extra=docker_build_extra,
+        docker_run_extra=docker_run_extra,
+    )
+    return exit_code == 0
+
+
+def _resolve_evaluator(
+    project_root: str,
+    evaluator_arg: Optional[str],
+    non_interactive: bool,
+    account_id: str,
+) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+    """Resolve evaluator id/resource and associated local test (file + func)."""
+    evaluator_id = evaluator_arg
     selected_test_file_path: Optional[str] = None
     selected_test_func_name: Optional[str] = None
 
-    api_key = get_fireworks_api_key()
-    if not api_key:
-        print("Error: FIREWORKS_API_KEY not set.")
-        return 1
-
-    account_id = _ensure_account_id()
-    if not account_id:
-        print("Error: FIREWORKS_ACCOUNT_ID not set and could not be resolved.")
-        return 1
-
-    api_base = get_fireworks_api_base()
-
-    # Resolve evaluator id/entry if omitted (reuse upload's selector flow)
-    project_root = os.getcwd()
     if not evaluator_id:
-        print("Scanning for evaluation tests...")
-        tests = _discover_tests(project_root)
-        if not tests:
-            print("No evaluation tests found.")
-            print("\nHint: Make sure your tests use the @evaluation_test decorator.")
-            return 1
-        # Always interactive selection here
-        try:
-            selected_tests = _prompt_select(tests, non_interactive=non_interactive)
-        except Exception:
-            print("Error: Failed to open selector UI. Please pass --evaluator or --entry explicitly.")
-            return 1
+        selected_tests = _discover_and_select_tests(project_root, non_interactive=non_interactive)
         if not selected_tests:
-            print("No tests selected.")
-            return 1
+            return None, None, None, None
         if len(selected_tests) != 1:
             if non_interactive and len(selected_tests) > 1:
                 print("Error: Multiple evaluation tests found in --yes (non-interactive) mode.")
@@ -400,7 +329,8 @@ def create_rft_command(args) -> int:
                     pass
             else:
                 print("Error: Please select exactly one evaluation test for 'create rft'.")
-            return 1
+            return None, None, None, None
+
         # Derive evaluator_id from user's single selection
         chosen = selected_tests[0]
         func_name = chosen.qualname.split(".")[-1]
@@ -410,129 +340,54 @@ def create_rft_command(args) -> int:
         selected_test_file_path, selected_test_func_name = _resolve_selected_test(
             project_root, evaluator_id, selected_tests=selected_tests
         )
+    else:
+        # Caller provided an evaluator id or fully-qualified resource; try to resolve local test
+        short_id = evaluator_id
+        if evaluator_id.startswith("accounts/"):
+            short_id = _extract_terminal_segment(evaluator_id)
+        st_path, st_func = _resolve_selected_test(project_root, short_id)
+        if st_path and st_func:
+            selected_test_file_path = st_path
+            selected_test_func_name = st_func
+        evaluator_id = short_id
+
+    if not evaluator_id:
+        return None, None, None, None
+
     # Resolve evaluator resource name to fully-qualified format required by API.
-    # Allow users to pass either short id or fully-qualified resource.
-    if evaluator_id and evaluator_id.startswith("accounts/"):
-        evaluator_resource_name = evaluator_id
-        evaluator_id = _extract_terminal_segment(evaluator_id)
+    if evaluator_arg and evaluator_arg.startswith("accounts/"):
+        evaluator_resource_name = evaluator_arg
     else:
         evaluator_resource_name = f"accounts/{account_id}/evaluators/{evaluator_id}"
 
-    # Optional short-circuit: if evaluator already exists and not forcing, skip upload path
-    skip_upload = False
-    if not force:
-        try:
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "User-Agent": get_user_agent(),
-            }
-            resp = requests.get(f"{api_base}/v1/{evaluator_resource_name}", headers=headers, timeout=10)
-            if resp.ok:
-                state = resp.json().get("state", "STATE_UNSPECIFIED")
-                print(f"✓ Evaluator exists (state: {state}). Skipping upload (use --force to overwrite).")
-                # Poll for ACTIVE before proceeding
-                print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
-                if not _poll_evaluator_status(
-                    evaluator_resource_name=evaluator_resource_name,
-                    api_key=api_key,
-                    api_base=api_base,
-                    timeout_minutes=10,
-                ):
-                    app_base = _map_api_host_to_app_host(api_base)
-                    evaluator_slug = _extract_terminal_segment(evaluator_id)
-                    dashboard_url = f"{app_base}/dashboard/evaluators/{evaluator_slug}"
-                    print("\n❌ Evaluator is not ready within the timeout period.")
-                    print(f"📊 Please check the evaluator status at: {dashboard_url}")
-                    print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
-                    return 1
-                skip_upload = True
-                # Populate selected test info for dataset inference later
-                st_path, st_func = _resolve_selected_test(project_root, evaluator_id)
-                if st_path and st_func:
-                    selected_test_file_path = st_path
-                    selected_test_func_name = st_func
-        except requests.exceptions.RequestException:
-            pass
+    return evaluator_id, evaluator_resource_name, selected_test_file_path, selected_test_func_name
 
-    # Ensure evaluator exists by invoking the upload flow programmatically
-    if not skip_upload:
-        try:
-            from .upload import upload_command
 
-            tests = _discover_tests(project_root)
-            selected_entry: Optional[str] = None
-            st_path, st_func = _resolve_selected_test(project_root, evaluator_id, selected_tests=tests)
-            if st_path and st_func:
-                abs_path = os.path.abspath(st_path)
-                try:
-                    rel = os.path.relpath(abs_path, project_root)
-                except Exception:
-                    rel = abs_path
-                selected_entry = f"{rel}::{st_func}"
-                selected_test_file_path = st_path
-                selected_test_func_name = st_func
-            # If still unresolved and multiple tests exist, fail fast to avoid uploading unintended evaluators
-            if selected_entry is None and len(tests) > 1:
-                print(
-                    f"Error: Multiple evaluation tests found, and the selected evaluator {evaluator_id} does not match any discovered test.\n"
-                    "       Please re-run specifying the evaluator.\n"
-                    "       Hints:\n"
-                    "         - eval-protocol create rft --evaluator <existing-evaluator-id>\n"
-                )
-                return 1
+def _resolve_dataset(
+    project_root: str,
+    account_id: str,
+    args: argparse.Namespace,
+    selected_test_file_path: Optional[str],
+    selected_test_func_name: Optional[str],
+) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Resolve dataset source without performing any uploads.
 
-            upload_args = argparse.Namespace(
-                path=project_root,
-                entry=selected_entry,
-                id=evaluator_id,
-                display_name=None,
-                description=None,
-                force=force,  # Pass through the --force flag
-                yes=True,
-                env_file=None,  # Add the new env_file parameter
-            )
-
-            if force:
-                print(f"🔄 Force flag enabled - will overwrite existing evaluator '{evaluator_id}'")
-
-            rc = upload_command(upload_args)
-            if rc == 0:
-                print(f"✓ Uploaded/ensured evaluator: {evaluator_id}")
-
-                # Poll for evaluator status
-                print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
-                is_active = _poll_evaluator_status(
-                    evaluator_resource_name=evaluator_resource_name,
-                    api_key=api_key,
-                    api_base=api_base,
-                    timeout_minutes=10,
-                )
-
-                if not is_active:
-                    # Print helpful message with dashboard link
-                    app_base = _map_api_host_to_app_host(api_base)
-                    evaluator_slug = _extract_terminal_segment(evaluator_id)
-                    dashboard_url = f"{app_base}/dashboard/evaluators/{evaluator_slug}"
-
-                    print("\n❌ Evaluator is not ready within the timeout period.")
-                    print(f"📊 Please check the evaluator status at: {dashboard_url}")
-                    print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
-                    return 1
-                else:
-                    # Evaluator ACTIVE; proceed
-                    pass
-            else:
-                print("Warning: Evaluator upload did not complete successfully; proceeding to RFT creation.")
-        except Exception as e:
-            print(f"Warning: Failed to upload evaluator automatically: {e}")
-
-    # Determine dataset id and materialization path
+    Returns a tuple of:
+      - dataset_id: existing dataset id when using --dataset or fully-qualified dataset resource
+      - dataset_resource: fully-qualified dataset resource for existing datasets; None for JSONL sources
+      - dataset_jsonl: local JSONL path when using --dataset-jsonl or inferred sources; None for id-only datasets
+    """
     dataset_id = getattr(args, "dataset", None)
     dataset_jsonl = getattr(args, "dataset_jsonl", None)
-    dataset_display_name = getattr(args, "dataset_display_name", None)
-    dataset_builder = getattr(args, "dataset_builder", None)  # accepted but unused in simplified flow
     dataset_resource_override: Optional[str] = None
+
+    if dataset_id and dataset_jsonl:
+        print(
+            "Error: --dataset and --dataset-jsonl cannot be used together.\n"
+            "       Use --dataset to reference an existing dataset, or --dataset-jsonl to create a new one from JSONL."
+        )
+        return None, None, None
+
     if isinstance(dataset_id, str) and dataset_id.startswith("accounts/"):
         # Caller passed a fully-qualified dataset; capture it for body and keep only terminal id for printing
         dataset_resource_override = dataset_id
@@ -553,23 +408,21 @@ def create_rft_command(args) -> int:
                     test_file_for_infer = tests[0].file_path
                     func_for_infer = tests[0].qualname.split(".")[-1]
             if test_file_for_infer and func_for_infer:
-                # Try data_loaders first
+                # Block using data loaders as a dataset source
                 dataset_jsonl = _extract_jsonl_from_dataloader(test_file_for_infer, func_for_infer)
+                if dataset_jsonl:
+                    print(
+                        "Error: Evaluation tests that use 'data_loaders' to provide a dataset JSONL are not supported for 'create rft'.\n"
+                        "       Please switch to a JSONL-based dataset via input_dataset arg in @evaluation_test decorator."
+                    )
+                    return None, None, None
+                dataset_jsonl = _extract_jsonl_from_input_dataset(test_file_for_infer, func_for_infer)
                 if dataset_jsonl:
                     try:
                         rel = os.path.relpath(dataset_jsonl, project_root)
                     except Exception:
                         rel = dataset_jsonl
-                    print(f"✓ Using JSONL from data loader: {rel}")
-                if not dataset_jsonl:
-                    # Fall back to input_dataset (dataset_path)
-                    dataset_jsonl = _extract_jsonl_from_input_dataset(test_file_for_infer, func_for_infer)
-                    if dataset_jsonl:
-                        try:
-                            rel = os.path.relpath(dataset_jsonl, project_root)
-                        except Exception:
-                            rel = dataset_jsonl
-                        print(f"✓ Using JSONL from input_dataset: {rel}")
+                    print(f"✓ Using JSONL from input_dataset: {rel}")
                 if not dataset_jsonl:
                     # Last resort: attempt to detect and run a dataset builder in the test's directory
                     metric_dir = os.path.dirname(test_file_for_infer)
@@ -585,33 +438,182 @@ def create_rft_command(args) -> int:
             print(
                 "Error: Could not determine dataset. Provide --dataset or --dataset-jsonl, or ensure a JSONL-based data loader or input_dataset is used in your single discovered test."
             )
-            return 1
+            return None, None, None
 
-        inferred_dataset_id = _build_trimmed_dataset_id(evaluator_id)
-        if dry_run:
-            print("--dry-run: would create dataset and upload JSONL")
-            dataset_id = inferred_dataset_id
-        else:
-            try:
-                # Resolve dataset_jsonl path relative to CWD if needed
-                jsonl_path_for_upload = (
-                    dataset_jsonl
-                    if os.path.isabs(dataset_jsonl)
-                    else os.path.abspath(os.path.join(project_root, dataset_jsonl))
-                )
-                dataset_id, _ = create_dataset_from_jsonl(
-                    account_id=account_id,
+    # Build dataset resource for existing datasets; JSONL-based datasets will be uploaded later.
+    dataset_resource = None
+    if dataset_id:
+        dataset_resource = dataset_resource_override or f"accounts/{account_id}/datasets/{dataset_id}"
+
+    return dataset_id, dataset_resource, dataset_jsonl
+
+
+def _upload_dataset(
+    project_root: str,
+    account_id: str,
+    api_key: str,
+    api_base: str,
+    evaluator_id: str,
+    dataset_id: Optional[str],
+    dataset_resource: Optional[str],
+    dataset_jsonl: Optional[str],
+    args: argparse.Namespace,
+    dry_run: bool,
+) -> tuple[Optional[str], Optional[str]]:
+    """Create/upload the dataset when using a local JSONL source.
+
+    For existing datasets (--dataset or fully-qualified ids), this is a no-op that
+    simply ensures dataset_id and dataset_resource are populated.
+    """
+    # Existing dataset case: nothing to upload
+    if not dataset_jsonl:
+        if not dataset_id:
+            return None, None
+        if not dataset_resource:
+            dataset_resource = f"accounts/{account_id}/datasets/{dataset_id}"
+        return dataset_id, dataset_resource
+
+    # JSONL-based dataset: upload or simulate upload
+    inferred_dataset_id = _build_trimmed_dataset_id(evaluator_id)
+    dataset_display_name = getattr(args, "dataset_display_name", None) or inferred_dataset_id
+
+    # Resolve dataset_jsonl path relative to CWD if needed
+    jsonl_path_for_upload = (
+        dataset_jsonl if os.path.isabs(dataset_jsonl) else os.path.abspath(os.path.join(project_root, dataset_jsonl))
+    )
+
+    if dry_run:
+        print("--dry-run: would create dataset and upload JSONL")
+        dataset_id = inferred_dataset_id
+        dataset_resource = f"accounts/{account_id}/datasets/{dataset_id}"
+        return dataset_id, dataset_resource
+
+    try:
+        dataset_id, _ = create_dataset_from_jsonl(
+            account_id=account_id,
+            api_key=api_key,
+            api_base=api_base,
+            dataset_id=inferred_dataset_id,
+            display_name=dataset_display_name,
+            jsonl_path=jsonl_path_for_upload,
+        )
+        print(f"✓ Created and uploaded dataset: {dataset_id}")
+        dataset_resource = f"accounts/{account_id}/datasets/{dataset_id}"
+        return dataset_id, dataset_resource
+    except Exception as e:
+        print(f"Error creating/uploading dataset: {e}")
+        return None, None
+
+
+def _upload_and_ensure_evaluator(
+    project_root: str,
+    evaluator_id: str,
+    evaluator_resource_name: str,
+    api_key: str,
+    api_base: str,
+    force: bool,
+) -> bool:
+    """Ensure the evaluator exists and is ACTIVE, uploading it if needed."""
+    # Optional short-circuit: if evaluator already exists and not forcing, skip upload path
+    if not force:
+        try:
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": get_user_agent(),
+            }
+            resp = requests.get(f"{api_base}/v1/{evaluator_resource_name}", headers=headers, timeout=10)
+            if resp.ok:
+                state = resp.json().get("state", "STATE_UNSPECIFIED")
+                print(f"✓ Evaluator exists (state: {state}). Skipping upload (use --force to overwrite).")
+                # Poll for ACTIVE before proceeding
+                print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
+                if not _poll_evaluator_status(
+                    evaluator_resource_name=evaluator_resource_name,
                     api_key=api_key,
                     api_base=api_base,
-                    dataset_id=inferred_dataset_id,
-                    display_name=dataset_display_name or inferred_dataset_id,
-                    jsonl_path=jsonl_path_for_upload,
-                )
-                print(f"✓ Created and uploaded dataset: {dataset_id}")
-            except Exception as e:
-                print(f"Error creating/uploading dataset: {e}")
-                return 1
+                    timeout_minutes=10,
+                ):
+                    dashboard_url = _build_evaluator_dashboard_url(evaluator_id)
+                    print("\n❌ Evaluator is not ready within the timeout period.")
+                    print(f"📊 Please check the evaluator status at: {dashboard_url}")
+                    print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
+                    return False
+                return True
+        except requests.exceptions.RequestException:
+            pass
 
+    # Ensure evaluator exists by invoking the upload flow programmatically
+    try:
+        tests = _discover_tests(project_root)
+        selected_entry: Optional[str] = None
+        st_path, st_func = _resolve_selected_test(project_root, evaluator_id, selected_tests=tests)
+        if st_path and st_func:
+            selected_entry = _build_entry_point(project_root, st_path, st_func)
+        # If still unresolved and multiple tests exist, fail fast to avoid uploading unintended evaluators
+        if selected_entry is None and len(tests) > 1:
+            print(
+                f"Error: Multiple evaluation tests found, and the selected evaluator {evaluator_id} does not match any discovered test.\n"
+                "       Please re-run specifying the evaluator.\n"
+                "       Hints:\n"
+                "         - eval-protocol create rft --evaluator <existing-evaluator-id>\n"
+            )
+            return False
+
+        upload_args = argparse.Namespace(
+            path=project_root,
+            entry=selected_entry,
+            id=evaluator_id,
+            display_name=None,
+            description=None,
+            force=force,  # Pass through the --force flag
+            yes=True,
+            env_file=None,  # Add the new env_file parameter
+        )
+
+        if force:
+            print(f"🔄 Force flag enabled - will overwrite existing evaluator '{evaluator_id}'")
+
+        rc = upload_command(upload_args)
+        if rc == 0:
+            print(f"✓ Uploaded/ensured evaluator: {evaluator_id}")
+
+            # Poll for evaluator status
+            print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
+            is_active = _poll_evaluator_status(
+                evaluator_resource_name=evaluator_resource_name,
+                api_key=api_key,
+                api_base=api_base,
+                timeout_minutes=10,
+            )
+
+            if not is_active:
+                dashboard_url = _build_evaluator_dashboard_url(evaluator_id)
+                print("\n❌ Evaluator is not ready within the timeout period.")
+                print(f"📊 Please check the evaluator status at: {dashboard_url}")
+                print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
+                return False
+            return True
+        else:
+            print("Warning: Evaluator upload did not complete successfully; proceeding to RFT creation.")
+            return False
+    except Exception as e:
+        print(f"Warning: Failed to upload evaluator automatically: {e}")
+        return False
+
+
+def _create_rft_job(
+    account_id: str,
+    api_key: str,
+    api_base: str,
+    evaluator_id: str,
+    evaluator_resource_name: str,
+    dataset_id: str,
+    dataset_resource: str,
+    args: argparse.Namespace,
+    dry_run: bool,
+) -> int:
+    """Build and submit the RFT job request."""
     # Build training config/body
     # Exactly one of base-model or warm-start-from must be provided
     base_model_raw = getattr(args, "base_model", None)
@@ -682,9 +684,6 @@ def create_rft_command(args) -> int:
             "runId": getattr(args, "wandb_run_id", None),
         }
 
-    # Build dataset resource (prefer override when provided)
-    dataset_resource = dataset_resource_override or f"accounts/{account_id}/datasets/{dataset_id}"
-
     body: Dict[str, Any] = {
         "displayName": getattr(args, "display_name", None),
         "dataset": dataset_resource,
@@ -732,3 +731,106 @@ def create_rft_command(args) -> int:
     except Exception as e:
         print(f"Error creating RFT job: {e}")
         return 1
+
+
+def create_rft_command(args) -> int:
+    # Pre-flight: resolve auth and environment
+    api_key = get_fireworks_api_key()
+    if not api_key:
+        print("Error: FIREWORKS_API_KEY not set.")
+        return 1
+
+    account_id = _ensure_account_id()
+    if not account_id:
+        print("Error: FIREWORKS_ACCOUNT_ID not set and could not be resolved.")
+        return 1
+
+    api_base = get_fireworks_api_base()
+    project_root = os.getcwd()
+    evaluator_arg: Optional[str] = getattr(args, "evaluator", None)
+    non_interactive: bool = bool(getattr(args, "yes", False))
+    dry_run: bool = bool(getattr(args, "dry_run", False))
+    force: bool = bool(getattr(args, "force", False))
+    skip_validation: bool = bool(getattr(args, "skip_validation", False))
+    ignore_docker: bool = bool(getattr(args, "ignore_docker", False))
+    docker_build_extra: str = getattr(args, "docker_build_extra", "") or ""
+    docker_run_extra: str = getattr(args, "docker_run_extra", "") or ""
+
+    # 1) Resolve evaluator and associated local test
+    (
+        evaluator_id,
+        evaluator_resource_name,
+        selected_test_file_path,
+        selected_test_func_name,
+    ) = _resolve_evaluator(project_root, evaluator_arg, non_interactive, account_id)
+    if not evaluator_id or not evaluator_resource_name:
+        return 1
+
+    # 2) Resolve dataset source (id or JSONL path)
+    dataset_id, dataset_resource, dataset_jsonl = _resolve_dataset(
+        project_root=project_root,
+        account_id=account_id,
+        args=args,
+        selected_test_file_path=selected_test_file_path,
+        selected_test_func_name=selected_test_func_name,
+    )
+    # Require either an existing dataset id or a JSONL source to materialize from
+    if dataset_jsonl is None and not dataset_id:
+        return 1
+
+    # 3) Optional local validation
+    if not skip_validation:
+        # Dataset validation (JSONL must be EvaluationRow-compatible when present)
+        if not _validate_dataset(dataset_jsonl):
+            return 1
+
+        # Evaluator validation (run pytest for the selected test, possibly via Docker)
+        if not _validate_evaluator_locally(
+            project_root=project_root,
+            selected_test_file=selected_test_file_path,
+            selected_test_func=selected_test_func_name,
+            ignore_docker=ignore_docker,
+            docker_build_extra=docker_build_extra,
+            docker_run_extra=docker_run_extra,
+        ):
+            return 1
+
+    # 4) Upload dataset when using JSONL sources (no-op for existing datasets)
+    dataset_id, dataset_resource = _upload_dataset(
+        project_root=project_root,
+        account_id=account_id,
+        api_key=api_key,
+        api_base=api_base,
+        evaluator_id=evaluator_id,
+        dataset_id=dataset_id,
+        dataset_resource=dataset_resource,
+        dataset_jsonl=dataset_jsonl,
+        args=args,
+        dry_run=dry_run,
+    )
+    if not dataset_id or not dataset_resource:
+        return 1
+
+    # 5) Ensure evaluator exists and is ACTIVE (upload + poll if needed)
+    if not _upload_and_ensure_evaluator(
+        project_root=project_root,
+        evaluator_id=evaluator_id,
+        evaluator_resource_name=evaluator_resource_name,
+        api_key=api_key,
+        api_base=api_base,
+        force=force,
+    ):
+        return 1
+
+    # 6) Create the RFT job
+    return _create_rft_job(
+        account_id=account_id,
+        api_key=api_key,
+        api_base=api_base,
+        evaluator_id=evaluator_id,
+        evaluator_resource_name=evaluator_resource_name,
+        dataset_id=dataset_id,
+        dataset_resource=dataset_resource,
+        args=args,
+        dry_run=dry_run,
+    )

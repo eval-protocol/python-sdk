@@ -1,11 +1,11 @@
 import argparse
 import os
+import shlex
 import subprocess
 import sys
-import shlex
 from typing import List
 
-from .upload import _discover_tests, _prompt_select
+from .utils import _build_entry_point, _discover_and_select_tests
 
 
 def _find_dockerfiles(root: str) -> List[str]:
@@ -17,12 +17,6 @@ def _find_dockerfiles(root: str) -> List[str]:
             if name == "Dockerfile":
                 dockerfiles.append(os.path.join(dirpath, name))
     return dockerfiles
-
-
-def _run_pytest_host(pytest_target: str) -> int:
-    print(f"Running locally: pytest {pytest_target} -vs")
-    proc = subprocess.run([sys.executable, "-m", "pytest", pytest_target, "-vs"])
-    return proc.returncode
 
 
 def _build_docker_image(dockerfile_path: str, image_tag: str, build_extras: List[str] | None = None) -> bool:
@@ -39,6 +33,13 @@ def _build_docker_image(dockerfile_path: str, image_tag: str, build_extras: List
     except FileNotFoundError:
         print("Error: docker not found in PATH. Install Docker or use --ignore-docker.")
         return False
+
+
+def _run_pytest_host(pytest_target: str) -> int:
+    """Run pytest against a target on the host and return its exit code."""
+    print(f"Running locally: pytest {pytest_target} -vs")
+    proc = subprocess.run([sys.executable, "-m", "pytest", pytest_target, "-vs"])
+    return proc.returncode
 
 
 def _run_pytest_in_docker(
@@ -87,58 +88,17 @@ def _run_pytest_in_docker(
         return 1
 
 
-def local_test_command(args: argparse.Namespace) -> int:
-    project_root = os.getcwd()
+def run_evaluator_test(
+    project_root: str,
+    pytest_target: str,
+    ignore_docker: bool,
+    docker_build_extra: str = "",
+    docker_run_extra: str = "",
+) -> int:
+    """Run an evaluator test either on host or in Docker, reusing local-test logic."""
+    build_extras = shlex.split(docker_build_extra) if docker_build_extra else []
+    run_extras = shlex.split(docker_run_extra) if docker_run_extra else []
 
-    # Selection and pytest target resolution
-    pytest_target: str = ""
-    entry = getattr(args, "entry", None)
-    if entry:
-        if "::" in entry:
-            file_part, func_part = entry.split("::", 1)
-            file_path = (
-                file_part if os.path.isabs(file_part) else os.path.abspath(os.path.join(project_root, file_part))
-            )
-            # Convert to project-relative like the non-:: path
-            try:
-                rel = os.path.relpath(file_path, project_root)
-            except Exception:
-                rel = file_path
-            pytest_target = f"{rel}::{func_part}"
-        else:
-            file_path = entry if os.path.isabs(entry) else os.path.abspath(os.path.join(project_root, entry))
-            # Use path relative to project_root when possible
-            try:
-                rel = os.path.relpath(file_path, project_root)
-            except Exception:
-                rel = file_path
-            pytest_target = rel
-    else:
-        tests = _discover_tests(project_root)
-        if not tests:
-            print("No evaluation tests found.\nHint: Ensure @evaluation_test is applied.")
-            return 1
-        non_interactive = bool(getattr(args, "yes", False))
-        selected = _prompt_select(tests, non_interactive=non_interactive)
-        if not selected:
-            print("No tests selected.")
-            return 1
-        if len(selected) != 1:
-            print("Error: Please select exactly one evaluation test for 'local-test'.")
-            return 1
-        chosen = selected[0]
-        abs_path = os.path.abspath(chosen.file_path)
-        try:
-            rel = os.path.relpath(abs_path, project_root)
-        except Exception:
-            rel = abs_path
-        pytest_target = rel
-
-    ignore_docker = bool(getattr(args, "ignore_docker", False))
-    build_extras_str = getattr(args, "docker_build_extra", "") or ""
-    run_extras_str = getattr(args, "docker_run_extra", "") or ""
-    build_extras = shlex.split(build_extras_str) if build_extras_str else []
-    run_extras = shlex.split(run_extras_str) if run_extras_str else []
     if ignore_docker:
         if not pytest_target:
             print("Error: Failed to resolve a pytest target to run.")
@@ -147,10 +107,10 @@ def local_test_command(args: argparse.Namespace) -> int:
 
     dockerfiles = _find_dockerfiles(project_root)
     if len(dockerfiles) > 1:
-        print("Error: Multiple Dockerfiles found. Only one Dockerfile is allowed for local-test.")
+        print("Error: Multiple Dockerfiles found. Only one Dockerfile is allowed for evaluator validation/local-test.")
         for df in dockerfiles:
             print(f" - {df}")
-        print("Hint: use --ignore-docker to bypass Docker.")
+        print("Hint: or use --ignore-docker to bypass Docker and use local pytest.")
         return 1
     if len(dockerfiles) == 1:
         # Ensure host home logs directory exists so container writes are visible to host ep logs
@@ -173,3 +133,48 @@ def local_test_command(args: argparse.Namespace) -> int:
         print("Error: Failed to resolve a pytest target to run.")
         return 1
     return _run_pytest_host(pytest_target)
+
+
+def local_test_command(args: argparse.Namespace) -> int:
+    project_root = os.getcwd()
+
+    # Selection and pytest target resolution
+    pytest_target: str = ""
+    entry = getattr(args, "entry", None)
+    if entry:
+        if "::" in entry:
+            file_part, func_part = entry.split("::", 1)
+            file_path = (
+                file_part if os.path.isabs(file_part) else os.path.abspath(os.path.join(project_root, file_part))
+            )
+            pytest_target = _build_entry_point(project_root, file_path, func_part)
+        else:
+            file_path = entry if os.path.isabs(entry) else os.path.abspath(os.path.join(project_root, entry))
+            # Use path relative to project_root when possible
+            try:
+                rel = os.path.relpath(file_path, project_root)
+            except Exception:
+                rel = file_path
+            pytest_target = rel
+    else:
+        non_interactive = bool(getattr(args, "yes", False))
+        selected = _discover_and_select_tests(project_root, non_interactive=non_interactive)
+        if not selected:
+            return 1
+        if len(selected) != 1:
+            print("Error: Please select exactly one evaluation test for 'local-test'.")
+            return 1
+        chosen = selected[0]
+        func_name = chosen.qualname.split(".")[-1]
+        pytest_target = _build_entry_point(project_root, chosen.file_path, func_name)
+
+    ignore_docker = bool(getattr(args, "ignore_docker", False))
+    build_extras_str = getattr(args, "docker_build_extra", "") or ""
+    run_extras_str = getattr(args, "docker_run_extra", "") or ""
+    return run_evaluator_test(
+        project_root,
+        pytest_target,
+        ignore_docker=ignore_docker,
+        docker_build_extra=build_extras_str,
+        docker_run_extra=run_extras_str,
+    )

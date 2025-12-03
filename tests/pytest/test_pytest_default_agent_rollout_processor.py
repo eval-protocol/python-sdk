@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List
 
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
 
 
@@ -19,9 +19,11 @@ from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
         ]
     ],
     rollout_processor=AgentRolloutProcessor(),
-    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct"}],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905"}],
     mode="all",
 )
 def test_pytest_default_agent_rollout_processor(rows: List[EvaluationRow]) -> List[EvaluationRow]:
     """Run math evaluation on sample dataset using pytest interface."""
+    for row in rows:
+        row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return rows

@@ -11,6 +11,7 @@ from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 
 from ..models import CompletionParams, EvaluationRow, Message
 from .exception_config import ExceptionHandlerConfig
+from .rollout_result_post_processor import RolloutResultPostProcessor
 
 ModelParam = str  # gpt-4o, gpt-4o-mini, accounts/fireworks/models/llama-3.1-8b-instruct
 DatasetPathParam = str
@@ -75,3 +76,4 @@ class RolloutProcessorConfig:
         default_factory=dict
     )  # any additional kwargs to pass to the rollout processor
     exception_handler_config: ExceptionHandlerConfig | None = None  # configuration for exception handling with backoff
+    post_processor: RolloutResultPostProcessor | None = None  # optional post-processor for quality checks

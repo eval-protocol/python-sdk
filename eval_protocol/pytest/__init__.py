@@ -8,6 +8,7 @@ from .github_action_rollout_processor import GithubActionRolloutProcessor
 from .evaluation_test import evaluation_test
 from .exception_config import ExceptionHandlerConfig, BackoffConfig, get_default_exception_handler_config
 from .rollout_processor import RolloutProcessor
+from .rollout_result_post_processor import RolloutResultPostProcessor, NoOpRolloutResultPostProcessor
 from .types import RolloutProcessorConfig
 
 # Conditional import for optional dependencies
@@ -42,6 +43,8 @@ __all__ = [
     "ExceptionHandlerConfig",
     "BackoffConfig",
     "get_default_exception_handler_config",
+    "RolloutResultPostProcessor",
+    "NoOpRolloutResultPostProcessor",
 ]
 
 # Only add to __all__ if available

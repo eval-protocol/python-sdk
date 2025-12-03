@@ -10,7 +10,7 @@ to agent based on key.
 from pydantic_ai.models.openai import OpenAIChatModel
 import pytest
 
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 from pydantic_ai import Agent
 
@@ -82,4 +82,5 @@ async def test_pydantic_multi_agent(row: EvaluationRow) -> EvaluationRow:
     """
     Super simple hello world test for Pydantic AI.
     """
+    row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return row

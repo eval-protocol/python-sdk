@@ -126,8 +126,7 @@ def test_local_test_selector_single_test(tmp_path, monkeypatch):
 
     # No entry; force discover + selector
     disc = SimpleNamespace(qualname="metric.test_sel", file_path=str(test_file))
-    monkeypatch.setattr(lt, "_discover_tests", lambda root: [disc])
-    monkeypatch.setattr(lt, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
+    monkeypatch.setattr(lt, "_discover_and_select_tests", lambda cwd, non_interactive=False: [disc])
     monkeypatch.setattr(lt, "_find_dockerfiles", lambda root: [])
 
     called = {"host": False}

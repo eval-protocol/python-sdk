@@ -76,6 +76,12 @@ async def _fetch_trace_list_with_retry(
 ) -> Any:
     """Fetch trace list with rate limit retry logic."""
     list_retries = 0
+    rollout_id: Optional[str] = None
+    if tags:
+        for t in tags:
+            if isinstance(t, str) and t.startswith("rollout_id:"):
+                rollout_id = t.split(":", 1)[1] if ":" in t else t
+                break
     while list_retries < max_retries:
         try:
             traces = langfuse_client.api.trace.list(
@@ -101,22 +107,34 @@ async def _fetch_trace_list_with_retry(
             return traces
         except Exception as e:
             list_retries += 1
-            if list_retries < max_retries and ("429" in str(e) or "Empty results" in str(e)):
-                sleep_time = 2**list_retries  # Exponential backoff for rate limits
+            is_rate_limit_or_empty = "429" in str(e) or "Empty results" in str(e)
+            is_timeout = "timed out" in str(e) or "Read timed out" in str(e)
+
+            if list_retries < max_retries and (is_rate_limit_or_empty or is_timeout):
+                sleep_time = 2**list_retries
                 logger.warning(
-                    "Retrying trace.list in %ds (attempt %d/%d): %s", sleep_time, list_retries, max_retries, str(e)
+                    "Retrying trace.list in %ds (attempt %d/%d): %s",
+                    sleep_time,
+                    list_retries,
+                    max_retries,
+                    str(e),
                 )
                 await asyncio.sleep(sleep_time)
             elif list_retries == max_retries:
                 # Return 404 if we've retried max_retries
                 # TODO: write some tests around proxy exception handling
-                logger.error("Failed to fetch trace list after %d retries: %s", max_retries, e)
+                logger.error(
+                    "Failed to fetch trace list after %d retries (rollout_id=%s): %s",
+                    max_retries,
+                    rollout_id,
+                    e,
+                )
                 raise HTTPException(
                     status_code=404, detail=f"Failed to fetch traces after {max_retries} retries: {str(e)}"
                 )
             else:
                 # Catch all other exceptions
-                logger.error("Failed to fetch trace list: %s", e)
+                logger.error("Failed to fetch trace list (rollout_id=%s): %s", rollout_id, e)
                 raise HTTPException(status_code=500, detail=f"Failed to fetch traces: {str(e)}")
 
 

@@ -34,6 +34,7 @@ from eval_protocol.pytest.validate_signature import validate_signature
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
 from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
+from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
 from eval_protocol.pytest.exception_config import ExceptionHandlerConfig
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import (
@@ -172,7 +173,7 @@ def evaluation_test(
             If not provided, a default configuration will be used with common retryable exceptions.
     """
     # Default to [None] when completion_params is not provided
-    # This allows evaluation-only tests (e.g., using NoOpRolloutProcessor)
+    # This allows evaluation-only tests (e.g., using NoOpRolloutProcessor or SingleTurnRolloutProcessor)
     # to work without requiring model generation parameters
     if completion_params is None:
         completion_params_provided = False
@@ -184,7 +185,7 @@ def evaluation_test(
     if os.environ.get("EP_USE_NO_OP_ROLLOUT_PROCESSOR") == "1":
         rollout_processor = NoOpRolloutProcessor()
     elif rollout_processor is None:
-        rollout_processor = NoOpRolloutProcessor()
+        rollout_processor = SingleTurnRolloutProcessor()
 
     active_logger: DatasetLogger = logger if logger else default_logger
 
@@ -257,9 +258,11 @@ def evaluation_test(
 
             # Track whether we've opened browser for this invocation
             browser_opened_for_invocation = False
+            # Track whether we've already suggested running `ep logs`
+            ep_logs_prompted = False
 
             async def wrapper_body(**kwargs: Unpack[ParameterizedTestKwargs]) -> None:
-                nonlocal browser_opened_for_invocation
+                nonlocal browser_opened_for_invocation, ep_logs_prompted
 
                 # Initialize external logging sinks (Fireworks/ES) from env (idempotent)
                 init_external_logging_from_env()
@@ -280,6 +283,9 @@ def evaluation_test(
                         table_url = generate_invocation_filter_url(invocation_id, f"{base_url}/table")
                         open_browser_tab(table_url)
                         browser_opened_for_invocation = True
+                    elif not ep_logs_prompted:
+                        print("Tip: Run `ep logs` in another terminal to start the local UI before viewing results.")
+                        ep_logs_prompted = True
 
                 eval_metadata = None
 
@@ -620,7 +626,13 @@ def evaluation_test(
 
                     experiment_duration_seconds = time.perf_counter() - experiment_start_time
 
-                    # for groupwise mode, the result contains eval otuput from multiple completion_params, we need to differentiate them
+                    if not all(r.evaluation_result is not None for run_results in all_results for r in run_results):
+                        raise AssertionError(
+                            "Some EvaluationRow instances are missing evaluation_result. "
+                            "Your @evaluation_test function must set `row.evaluation_result`"
+                        )
+
+                    # for groupwise mode, the result contains eval output from multiple completion_params, we need to differentiate them
                     # rollout_id is used to differentiate the result from different completion_params
                     if mode == "groupwise":
                         results_by_group = [

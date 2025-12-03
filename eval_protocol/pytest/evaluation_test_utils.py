@@ -28,6 +28,7 @@ from eval_protocol.pytest.types import (
     ServerMode,
 )
 from eval_protocol.pytest.exception_config import get_default_exception_handler_config
+from eval_protocol.exceptions import ResponseQualityError
 
 import logging
 import json
@@ -363,7 +364,18 @@ async def rollout_processor_with_retry(
             """Execute rollout for a single row with backoff retry."""
             retry_config = replace(config, kwargs={**(config.kwargs or {}), "start_server": False})
             retry_tasks = rollout_processor([row], retry_config)
-            return await retry_tasks[0]
+            result = await retry_tasks[0]
+            
+            # Apply post-processing quality checks if configured
+            # This must be inside the retry function so ResponseQualityError can trigger retries
+            if config.post_processor is not None:
+                try:
+                    config.post_processor.process(result)
+                except ResponseQualityError as quality_error:
+                    # Re-raise ResponseQualityError to trigger retry logic
+                    raise quality_error
+            
+            return result
 
         async def execute_row_with_backoff(task: asyncio.Task[EvaluationRow], row: EvaluationRow) -> EvaluationRow:
             """Execute a single row task with backoff retry."""
@@ -371,6 +383,13 @@ async def rollout_processor_with_retry(
             try:
                 # Try original task first
                 result = await task  # pyright: ignore[reportUnknownVariableType]
+
+                # Apply post-processing quality checks if configured
+                if config.post_processor is not None:
+                    try:
+                        config.post_processor.process(result)
+                    except ResponseQualityError as quality_error:
+                        raise quality_error
 
                 _set_rollout_status_to_finished(result)
 
@@ -384,9 +403,9 @@ async def rollout_processor_with_retry(
 
                 if is_retryable and not should_giveup:
                     # Use shared backoff function for retryable exceptions
+                    # Note: post-processing is handled inside execute_row_with_backoff_retry
                     try:
                         result = await execute_row_with_backoff_retry(row)
-
                         _set_rollout_status_to_finished(result)
 
                         return result

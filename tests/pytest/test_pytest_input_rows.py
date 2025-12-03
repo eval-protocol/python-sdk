@@ -1,4 +1,4 @@
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
 
@@ -12,4 +12,5 @@ from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProc
 def test_input_messages_in_decorator(row: EvaluationRow) -> EvaluationRow:
     """Run math evaluation on sample dataset using pytest interface."""
     assert row.messages[0].content == "What is the capital of France?"
+    row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
     return row

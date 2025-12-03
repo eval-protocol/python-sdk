@@ -117,6 +117,7 @@ class Status(BaseModel):
         FINISHED = 100
         RUNNING = 101
         SCORE_INVALID = 102
+        RESPONSE_QUALITY_ERROR = 103
 
     @classmethod
     def rollout_running(cls) -> "Status":
@@ -366,6 +367,13 @@ class Status(BaseModel):
     ) -> "Status":
         """Create a status indicating the score is invalid."""
         return cls(code=cls.Code.SCORE_INVALID, message=message, details=details or [])
+
+    @classmethod
+    def response_quality_error(
+        cls, message: str = "Response quality check failed", details: Optional[List[Dict[str, Any]]] = None
+    ) -> "Status":
+        """Create a status indicating the response quality check failed."""
+        return cls(code=cls.Code.RESPONSE_QUALITY_ERROR, message=message, details=details or [])
 
     def is_running(self) -> bool:
         """Check if the status indicates the rollout is running."""
@@ -774,6 +782,24 @@ class ExecutionMetadata(BaseModel):
     experiment_duration_seconds: Optional[float] = Field(
         default=None,
         description="Processing duration in seconds for an entire experiment. Note that includes time it took for retries.",
+    )
+
+    # Generic bag for integration-specific metadata.
+    # Examples:
+    # - OpenEnvRolloutProcessor: per-step rewards, token IDs for GRPO / TRL
+    extra: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Arbitrary execution metadata for integrations (step rewards, token IDs, debug info, etc.).",
+    )
+
+    finish_reason: Optional[str] = Field(
+        default=None,
+        description="finish_reason reported by the completion response for this row.",
+    )
+
+    tool_call_count: Optional[int] = Field(
+        default=None,
+        description="Number of tool calls returned in the assistant message for this row.",
     )
 
 

@@ -111,7 +111,7 @@ class EvaluationDataLoader(ABC):
 
     def _apply_metadata(self, result: DataLoaderResult, original_count: int, processed_count: int) -> None:
         """Apply metadata to all rows in the result."""
-        for row in result.rows:
+        for idx, row in enumerate(result.rows):
             if row.input_metadata.dataset_info is None:
                 row.input_metadata.dataset_info = {}
 
@@ -126,3 +126,4 @@ class EvaluationDataLoader(ABC):
             # Apply row counts
             row.input_metadata.dataset_info["data_loader_num_rows"] = original_count
             row.input_metadata.dataset_info["data_loader_num_rows_after_preprocessing"] = processed_count
+            row.input_metadata.dataset_info["data_loader_row_idx"] = idx

@@ -402,7 +402,7 @@ def parse_args(args=None):
     rft_parser.add_argument("--lora-rank", type=int, default=16)
     rft_parser.add_argument("--gradient-accumulation-steps", type=int, help="Number of gradient accumulation steps")
     rft_parser.add_argument("--learning-rate-warmup-steps", type=int, help="Number of LR warmup steps")
-    rft_parser.add_argument("--accelerator-count", type=int, default=1)
+    rft_parser.add_argument("--accelerator-count", type=int)
     rft_parser.add_argument("--region", help="Fireworks region enum value")
     rft_parser.add_argument("--display-name", help="RFT job display name")
     rft_parser.add_argument("--evaluation-dataset", help="Optional separate eval dataset id")
@@ -433,6 +433,26 @@ def parse_args(args=None):
     rft_parser.add_argument("--yes", "-y", action="store_true", help="Non-interactive mode")
     rft_parser.add_argument("--dry-run", action="store_true", help="Print planned REST calls without sending")
     rft_parser.add_argument("--force", action="store_true", help="Overwrite existing evaluator with the same ID")
+    rft_parser.add_argument(
+        "--skip-validation",
+        action="store_true",
+        help="Skip local dataset and evaluator validation before creating the RFT job",
+    )
+    rft_parser.add_argument(
+        "--ignore-docker",
+        action="store_true",
+        help="Ignore Dockerfile even if present; run pytest on host during evaluator validation",
+    )
+    rft_parser.add_argument(
+        "--docker-build-extra",
+        default="",
+        help="Extra flags to pass to 'docker build' when validating evaluator (quoted string, e.g. \"--no-cache --pull --progress=plain\")",
+    )
+    rft_parser.add_argument(
+        "--docker-run-extra",
+        default="",
+        help="Extra flags to pass to 'docker run' when validating evaluator (quoted string, e.g. \"--env-file .env --memory=8g\")",
+    )
 
     # Local test command
     local_test_parser = subparsers.add_parser(

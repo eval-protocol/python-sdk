@@ -35,6 +35,7 @@ from eval_protocol.exceptions import (
     RolloutFinishedError,
     RolloutRunningError,
     ScoreInvalidError,
+    ResponseQualityError,
 )
 
 
@@ -71,6 +72,7 @@ def test_error_status_codes_raise_exceptions():
         (14, UnavailableError, "UNAVAILABLE"),
         (15, DataLossError, "DATA_LOSS"),
         (16, UnauthenticatedError, "UNAUTHENTICATED"),
+        (103, ResponseQualityError, "RESPONSE_QUALITY_ERROR"),
     ]
 
     for code, expected_exception_class, name in error_test_cases:
@@ -105,6 +107,7 @@ def test_status_code_mapping_completeness():
         100,
         101,
         102,  # Custom EP codes
+        103,  # ResponseQualityError
     ]
 
     for code in expected_codes:
@@ -113,7 +116,7 @@ def test_status_code_mapping_completeness():
 
 def test_invalid_status_codes():
     """Test behavior with invalid/unknown status codes."""
-    invalid_codes = [-1, 17, 99, 103, 999]
+    invalid_codes = [-1, 17, 99, 104, 999]
 
     for code in invalid_codes:
         exception = exception_for_status_code(code)
@@ -181,6 +184,7 @@ def test_status_code_enum_consistency():
         Status.Code.FINISHED: None,
         Status.Code.RUNNING: None,
         Status.Code.SCORE_INVALID: None,
+        Status.Code.RESPONSE_QUALITY_ERROR: ResponseQualityError,
     }
 
     for status_code_enum, expected_exception_class in status_code_mapping.items():
@@ -219,6 +223,7 @@ def test_exception_inheritance():
         RolloutFinishedError,
         RolloutRunningError,
         ScoreInvalidError,
+        ResponseQualityError,
     ]
 
     for exception_class in exception_classes:
@@ -273,6 +278,12 @@ def test_real_world_usage_scenarios():
             "should_raise": True,
             "expected_exception": UnavailableError,
         },
+        {
+            "status_code": 103,
+            "description": "Response quality check failed",
+            "should_raise": True,
+            "expected_exception": ResponseQualityError,
+        },
     ]
 
     for scenario in scenarios:
@@ -320,6 +331,7 @@ def test_exception_status_code_attributes():
         (RolloutFinishedError, 100),
         (RolloutRunningError, 101),
         (ScoreInvalidError, 102),
+        (ResponseQualityError, 103),
     ]
 
     for exception_class, expected_code in expected_mappings:
@@ -342,6 +354,7 @@ def test_integration_with_retry_logic():
         UnavailableError,
         UnauthenticatedError,
         ResourceExhaustedError,
+        ResponseQualityError,
     ]
 
     for exception_class in our_error_exceptions:
@@ -356,6 +369,7 @@ def test_exception_message_preservation():
         (13, "test error", InternalError),
         (5, "Model xyz not found", NotFoundError),
         (7, "Invalid API key", PermissionDeniedError),
+        (103, "Quality check failed: response too repetitive", ResponseQualityError),
     ]
 
     for status_code, message, expected_exception_class in test_cases:

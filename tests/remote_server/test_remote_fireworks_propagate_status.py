@@ -9,7 +9,7 @@ import pytest
 import requests
 
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
-from eval_protocol.models import EvaluationRow, Message, Status
+from eval_protocol.models import EvaluationRow, Message, Status, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
@@ -96,6 +96,8 @@ def rows() -> List[EvaluationRow]:
     ),
 )
 async def test_remote_rollout_and_fetch_fireworks_propagate_status(row: EvaluationRow) -> EvaluationRow:
+    row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
+
     assert row.rollout_status.code == Status.Code.INTERNAL
     assert row.rollout_status.message == "test error"
     return row
