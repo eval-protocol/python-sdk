@@ -239,9 +239,11 @@ class LiteLLMPolicy(LLMBasePolicy):
                 ),
             }
 
-            rd = getattr(message_obj, "reasoning_details", None)
-            if rd is not None:
-                message_dict["reasoning_details"] = rd
+            provider_specific = getattr(message_obj, "provider_specific_fields", None)
+            if isinstance(provider_specific, dict):
+                for key, value in provider_specific.items():
+                    if value is not None and key not in message_dict:
+                        message_dict[key] = value
 
             return {
                 "choices": [
