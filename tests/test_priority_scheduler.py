@@ -279,4 +279,54 @@ async def test_worker_scaling(
     
     assert worker_start_count == expected_workers
 
+@pytest.mark.asyncio
+async def test_groupwise_mode(
+    mock_logger, mock_eval_executor, base_config
+):
+    """
+    Test that groupwise mode collects all runs before evaluating.
+    """
+    dataset = [create_mock_row("row-0")]
+    num_runs = 4
+    micro_batch_size = 2
+    
+    # We expect 2 batches of 2 runs each.
+    # Batch 1 (Runs 0,1): Should buffer and update history, NOT call eval.
+    # Batch 2 (Runs 2,3): Should buffer, update history, AND call eval with all 4 runs.
+    
+    eval_calls = []
+    
+    async def mock_eval(rows):
+        eval_calls.append(rows)
+        return rows # Pass through
+
+    async def mock_rollout_gen(processor, rows, config, run_idx):
+        for row in rows:
+            yield row
+
+    mock_eval_executor.side_effect = mock_eval
+    
+    with patch('eval_protocol.pytest.priority_scheduler.rollout_processor_with_retry', side_effect=mock_rollout_gen):
+        processor_instance = MagicMock()
+        
+        scheduler = PriorityRolloutScheduler(
+            rollout_processor=processor_instance,
+            max_concurrent_rollouts=1,
+            active_logger=mock_logger,
+            eval_executor=mock_eval_executor,
+            mode="groupwise"
+        )
+        
+        results = await scheduler.run(dataset, num_runs, micro_batch_size, base_config)
+        
+        # Verify evaluation was called EXACTLY ONCE
+        assert len(eval_calls) == 1, f"Expected 1 eval call, got {len(eval_calls)}"
+        
+        # Verify it was called with ALL 4 rows
+        evaluated_rows = eval_calls[0]
+        assert len(evaluated_rows) == 4, f"Expected 4 rows in group eval, got {len(evaluated_rows)}"
+        
+        # Verify results contains all 4 rows
+        assert len(results) == 4
+
 

@@ -44,15 +44,17 @@ class PriorityRolloutScheduler:
         max_concurrent_rollouts: int,
         active_logger: DatasetLogger,
         eval_executor: Callable[[Union[EvaluationRow, List[EvaluationRow]]], Awaitable[Union[EvaluationRow, List[EvaluationRow]]]], # Callback to run evaluation
-        mini_batch_data_buffer: Optional[MiniBatchDataBuffer] = None,
+        output_buffer: Optional[MiniBatchDataBuffer] = None,
         max_concurrent_evaluations: Optional[int] = None,
+        mode: str = "pointwise",
     ):
         self.rollout_processor = rollout_processor
         self.max_concurrent_rollouts = max_concurrent_rollouts
         self.max_concurrent_evaluations = max_concurrent_evaluations
         self.active_logger = active_logger
         self.eval_executor = eval_executor
-        self.mini_batch_data_buffer = mini_batch_data_buffer
+        self.output_buffer = output_buffer 
+        self.mode = mode
         
         # Priority Queue: Stores RolloutTask
         self.queue: asyncio.PriorityQueue[RolloutTask] = asyncio.PriorityQueue()
@@ -61,6 +63,10 @@ class PriorityRolloutScheduler:
         self.rollout_sem = asyncio.Semaphore(max_concurrent_rollouts)
         self.eval_sem = asyncio.Semaphore(max_concurrent_evaluations) if max_concurrent_evaluations else None
         
+        # Results storage
+        self.results: List[EvaluationRow] = [] # for backward compatibility reason, we save all results here to return
+        self.groups_buffer: Dict[int, List[EvaluationRow]] = defaultdict(list) # buffer for group results. only flush to output buffer when a whole group is ready
+
         self.num_runs = 0
         self.micro_batch_size = 0
 
@@ -155,24 +161,85 @@ class PriorityRolloutScheduler:
         # 3. Evaluate and Collect History
         current_batch_history_updates = []
         
-        async def _run_eval():
-            for res in batch_results:
-                # Run Evaluation
-                eval_res = await self.eval_executor(res)
+        if self.mode == "groupwise":
+            # Collect all results from this batch
+             for res in batch_results:
+                self.groupwise_buffer[task.row_index].append(res)
                 
-                # Depending on the execution mode, eval_executor might return a single row or a list
-                # For pointwise, it's a single row. For groupwise, it's a list.
-                # Since PriorityScheduler processes a batch of single-turn rollouts, we expect single rows back
-                # But to be safe and type-correct, we handle both.
-                
-                if isinstance(eval_res, list):
-                    # Should not happen in pointwise mode which is typically used with this scheduler
-                    # But if it does, we process each result
-                    for r in eval_res:
+                # Update history from rollout result (assuming eval doesn't change content needed for history)
+                last_msg = res.last_assistant_message()
+                if last_msg and last_msg.content:
+                    content = last_msg.content
+                    if isinstance(content, list):
+                        text_parts = [p["text"] for p in content if p["type"] == "text"]
+                        current_batch_history_updates.append("".join(text_parts))
+                    else:
+                        current_batch_history_updates.append(str(content))
+                else:
+                    current_batch_history_updates.append("")
+            
+             # Check if this is the last batch for this sample
+             last_run_idx = task.run_indices[-1]
+             if last_run_idx + 1 >= self.num_runs:
+                 # Last batch: Execute Groupwise Evaluation
+                 full_group = self.groupwise_buffer[task.row_index]
+                 
+                 async def _run_group_eval():
+                     eval_res = await self.eval_executor(full_group)
+                     # Handle result (could be list or single row wrapping list?)
+                     # Usually groupwise returns list of scored rows
+                     if isinstance(eval_res, list):
+                         self.results.extend(eval_res)
+                         if self.mini_batch_data_buffer:
+                             # Push the whole group at once if possible, or iterate
+                             for r in eval_res:
+                                 await self.mini_batch_data_buffer.add_result(r)
+                     else:
+                         self.results.append(eval_res)
+                         if self.mini_batch_data_buffer:
+                             await self.mini_batch_data_buffer.add_result(eval_res)
+                 
+                 if self.eval_sem:
+                    async with self.eval_sem:
+                        await _run_group_eval()
+                 else:
+                    await _run_group_eval()
+                 
+                 # Clear buffer to free memory
+                 del self.groupwise_buffer[task.row_index]
+
+        else:
+            # Pointwise: Process each result individually
+            async def _run_eval():
+                for res in batch_results:
+                    # Run Evaluation
+                    eval_res = await self.eval_executor(res)
+                    
+                    if isinstance(eval_res, list):
+                        # Should not happen in pointwise mode which is typically used with this scheduler
+                        # But if it does, we process each result
+                        self.results.extend(eval_res)
+                        for r in eval_res:
+                            if self.mini_batch_data_buffer:
+                                await self.mini_batch_data_buffer.add_result(r)
+                            
+                            last_msg = r.last_assistant_message()
+                            if last_msg and last_msg.content:
+                                content = last_msg.content
+                                if isinstance(content, list):
+                                    text_parts = [p["text"] for p in content if p["type"] == "text"]
+                                    current_batch_history_updates.append("".join(text_parts))
+                                else:
+                                    current_batch_history_updates.append(str(content))
+                            else:
+                                current_batch_history_updates.append("")
+                    else:
+                        self.results.append(eval_res)
                         if self.mini_batch_data_buffer:
-                            await self.mini_batch_data_buffer.add_result(r)
-                        
-                        last_msg = r.last_assistant_message()
+                            await self.mini_batch_data_buffer.add_result(eval_res)
+
+                        # Extract prediction for history
+                        last_msg = eval_res.last_assistant_message()
                         if last_msg and last_msg.content:
                             content = last_msg.content
                             if isinstance(content, list):
@@ -181,28 +248,13 @@ class PriorityRolloutScheduler:
                             else:
                                 current_batch_history_updates.append(str(content))
                         else:
-                            current_batch_history_updates.append("")
-                else:
-                    if self.mini_batch_data_buffer:
-                        await self.mini_batch_data_buffer.add_result(eval_res)
+                            current_batch_history_updates.append("") # Empty string for failed turns
 
-                    # Extract prediction for history
-                    last_msg = eval_res.last_assistant_message()
-                    if last_msg and last_msg.content:
-                        content = last_msg.content
-                        if isinstance(content, list):
-                            text_parts = [p["text"] for p in content if p["type"] == "text"]
-                            current_batch_history_updates.append("".join(text_parts))
-                        else:
-                            current_batch_history_updates.append(str(content))
-                    else:
-                        current_batch_history_updates.append("") # Empty string for failed turns
-
-        if self.eval_sem:
-            async with self.eval_sem:
+            if self.eval_sem:
+                async with self.eval_sem:
+                    await _run_eval()
+            else:
                 await _run_eval()
-        else:
-            await _run_eval()
 
         # 4. Schedule Next Micro-batch (High Priority)
         last_run_idx = task.run_indices[-1]
@@ -248,12 +300,11 @@ class PriorityRolloutScheduler:
         for w in workers:
             w.cancel()
         
-        # Ensure cancellation is complete
         if workers:
             await asyncio.gather(*workers, return_exceptions=True)
             
-        # Return empty dict as we rely on side effects (streaming buffer)
-        return {}
+        # Return collected results
+        return self.results
 
 async def execute_priority_rollouts(
     dataset: List[EvaluationRow],
