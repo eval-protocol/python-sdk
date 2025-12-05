@@ -70,7 +70,7 @@ from eval_protocol.utils.show_results_url import store_local_ui_results_url, gen
 from eval_protocol.log_utils.init import init_external_logging_from_env
 from eval_protocol.log_utils.rollout_context import rollout_logging_context
 from eval_protocol.utils.browser_utils import is_logs_server_running, open_browser_tab
-from eval_protocol.pytest.buffer import MiniBatchDataBuffer
+from eval_protocol.pytest.buffer import MicroBatchDataBuffer
 from ..common_utils import load_jsonl
 
 
@@ -411,17 +411,16 @@ def evaluation_test(
                     )
 
                     if use_priority_scheduler:
-                        print("Using priority scheduler")
-                        minibatch_output_size = os.environ.get("EP_MINI_BATCH_OUTPUT_SIZE", None)
+                        microbatch_output_size = os.environ.get("EP_MICRO_BATCH_OUTPUT_SIZE", None)
                         output_dir = os.environ.get("EP_OUTPUT_DIR", None)
-                        if minibatch_output_size and output_dir:
-                            output_buffer = MiniBatchDataBuffer(num_runs=num_runs, minibatch_size=int(minibatch_output_size), output_path_template=os.path.join(output_dir, "buffer_{index}.jsonl"))
+                        if microbatch_output_size and output_dir:
+                            output_buffer = MicroBatchDataBuffer(num_runs=num_runs, batch_size=int(microbatch_output_size), output_path_template=os.path.join(output_dir, "buffer_{index}.jsonl"))
                         else:
                             output_buffer = None
+                        
                         priority_results = await execute_priority_rollouts(
                             dataset=data,
                             num_runs=num_runs,
-                            micro_batch_size=int(os.environ.get("EP_MICRO_BATCH_SIZE", "1")),
                             rollout_processor=rollout_processor,
                             config=config,
                             max_concurrent_rollouts=max_concurrent_rollouts,
@@ -429,7 +428,7 @@ def evaluation_test(
                             eval_executor=test_func,
                             max_concurrent_evaluations=max_concurrent_evaluations,
                             mode=mode,
-                            mini_batch_data_buffer=output_buffer,
+                            micro_batch_data_buffer=output_buffer,
                             evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
                         )
                         

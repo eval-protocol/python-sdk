@@ -8,7 +8,7 @@ from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.pytest.types import RolloutProcessorConfig, TestFunction
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.evaluation_test_utils import rollout_processor_with_retry, add_cost_metrics
-from eval_protocol.pytest.buffer import MiniBatchDataBuffer
+from eval_protocol.pytest.buffer import MicroBatchDataBuffer
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.human_id import generate_id
 from eval_protocol.log_utils.rollout_context import rollout_logging_context
@@ -49,10 +49,10 @@ class PriorityRolloutScheduler:
         active_logger: DatasetLogger,
         max_concurrent_evaluations: int,
         eval_executor: TestFunction, # Callback to run evaluation
-        output_buffer: Optional[MiniBatchDataBuffer] = None,
+        output_buffer: Optional[MicroBatchDataBuffer] = None,
         rollout_n: int = 0,
         mode: str = "pointwise",
-        in_group_microbatch_size: int = 0, # for one sample, how many runs to execute at the same time
+        in_group_minibatch_size: int = 0, # for one sample, how many runs to execute at the same time
         evaluation_test_kwargs: Dict[str, Any] = {},
     ):
         self.rollout_processor = rollout_processor
@@ -77,7 +77,7 @@ class PriorityRolloutScheduler:
         self.background_tasks = set() # run evaluations in the background asynchronously
         
         self.rollout_n = rollout_n
-        self.in_group_microbatch_size = in_group_microbatch_size if in_group_microbatch_size > 0 else rollout_n
+        self.in_group_minibatch_size = in_group_minibatch_size if in_group_minibatch_size > 0 else rollout_n
         self.evaluation_test_kwargs = evaluation_test_kwargs
 
     async def schedule_dataset(
@@ -91,7 +91,7 @@ class PriorityRolloutScheduler:
         for i, row in enumerate(dataset):
             # Calculate ranges for the first in-group minibatch
             batch_start = 0
-            batch_end = min(self.in_group_microbatch_size, self.rollout_n)
+            batch_end = min(self.in_group_minibatch_size, self.rollout_n)
             run_indices = list(range(batch_start, batch_end))
             
             # Initial priority: Low (1), ordered by dataset index
@@ -243,7 +243,7 @@ class PriorityRolloutScheduler:
         next_start = last_run_idx + 1
         
         if next_start < self.rollout_n:
-            next_end = min(next_start + self.in_group_microbatch_size, self.rollout_n)
+            next_end = min(next_start + self.in_group_minibatch_size, self.rollout_n)
             next_indices = list(range(next_start, next_end))
             new_history = task.history + current_batch_history_updates
             
@@ -327,7 +327,6 @@ class PriorityRolloutScheduler:
 async def execute_priority_rollouts(
     dataset: List[EvaluationRow],
     num_runs: int,
-    micro_batch_size: int,
     rollout_processor: RolloutProcessor,
     config: RolloutProcessorConfig,
     max_concurrent_rollouts: int,
@@ -335,7 +334,7 @@ async def execute_priority_rollouts(
     eval_executor: TestFunction,
     max_concurrent_evaluations: int = 96,
     mode: str = "pointwise",
-    mini_batch_data_buffer: Optional[MiniBatchDataBuffer] = None,
+    micro_batch_data_buffer: Optional[MicroBatchDataBuffer] = None,
     evaluation_test_kwargs: Dict[str, Any] = {},
 ):
     scheduler = PriorityRolloutScheduler(
@@ -343,11 +342,11 @@ async def execute_priority_rollouts(
         max_concurrent_rollouts=max_concurrent_rollouts,
         active_logger=active_logger,
         eval_executor=eval_executor,
-        output_buffer=mini_batch_data_buffer,
+        output_buffer=micro_batch_data_buffer,
         max_concurrent_evaluations=max_concurrent_evaluations,
         rollout_n=num_runs,
         mode=mode,
-        in_group_microbatch_size=micro_batch_size,
+        in_group_minibatch_size=(num_runs // 2),
         evaluation_test_kwargs=evaluation_test_kwargs,
     )
     return await scheduler.run(dataset, num_runs, micro_batch_size, config)

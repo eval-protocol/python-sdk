@@ -5,14 +5,14 @@ from typing import List, Dict
 
 from eval_protocol.models import EvaluationRow
 
-class MiniBatchDataBuffer:
+class MicroBatchDataBuffer:
     """
     Buffers evaluation results and writes them to disk in minibatches.
     Waits for all runs of a sample to complete before considering it ready and flush to disk.
     """
-    def __init__(self, num_runs: int, minibatch_size: int, output_path_template: str):
+    def __init__(self, num_runs: int, batch_size: int, output_path_template: str):
         self.num_runs = num_runs
-        self.minibatch_size = minibatch_size
+        self.batch_size = batch_size
         self.output_path_template = output_path_template
         self.pending_samples: Dict[str, List[EvaluationRow]] = defaultdict(list)  # row_id -> list[EvaluationRow]
         self.completed_samples_buffer: List[List[EvaluationRow]] = []  # List[List[EvaluationRow]]
@@ -37,7 +37,7 @@ class MiniBatchDataBuffer:
                 completed_rows = self.pending_samples.pop(row_id)
                 self.completed_samples_buffer.append(completed_rows)
                 
-                if len(self.completed_samples_buffer) >= self.minibatch_size:
+                if len(self.completed_samples_buffer) >= self.batch_size:
                     await self._flush_unsafe()
 
     async def _flush_unsafe(self):
