@@ -438,6 +438,17 @@ def evaluation_test(
                                 all_results[run_idx].append(res)
                             
                             processed_rows_in_run.append(res)
+                            postprocess(
+                                all_results,
+                                aggregation_method,
+                                passed_threshold,
+                                active_logger,
+                                mode,
+                                completion_params,  # pyright: ignore[reportArgumentType]
+                                test_func.__name__,
+                                num_runs,
+                                time.perf_counter() - experiment_start_time,
+                            )
 
                     else:
                         async def execute_run(run_idx: int, config: RolloutProcessorConfig):

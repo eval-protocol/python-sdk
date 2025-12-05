@@ -2,7 +2,6 @@ from eval_protocol.pytest import evaluation_test, SingleTurnRolloutProcessor
 from eval_protocol.models import EvaluationRow, Message, EvaluateResult, InputMetadata
 from typing import List
 
-
 @evaluation_test(
     completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"}],
     input_rows=[
