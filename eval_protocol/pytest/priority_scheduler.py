@@ -294,9 +294,8 @@ class PriorityRolloutScheduler:
                 pass
         self.active_logger.log(res)
 
-    async def run(self, dataset: List[EvaluationRow], num_runs: int, micro_batch_size: int, base_config: RolloutProcessorConfig):
+    async def run(self, dataset: List[EvaluationRow], num_runs: int, base_config: RolloutProcessorConfig):
         self.num_runs = num_runs
-        self.micro_batch_size = micro_batch_size
         
         # 1. Schedule initial tasks
         await self.schedule_dataset(dataset, base_config)
@@ -349,4 +348,4 @@ async def execute_priority_rollouts(
         in_group_minibatch_size=(num_runs // 2),
         evaluation_test_kwargs=evaluation_test_kwargs,
     )
-    return await scheduler.run(dataset, num_runs, micro_batch_size, config)
+    return await scheduler.run(dataset, num_runs, config)

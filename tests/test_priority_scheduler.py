@@ -76,10 +76,10 @@ async def test_scheduler_basic_execution(
             eval_executor=mock_eval,
             max_concurrent_evaluations=2,
             rollout_n=num_runs,
-            in_group_microbatch_size=micro_batch_size
+            in_group_minibatch_size=micro_batch_size
         )
         
-        results = await scheduler.run(dataset, num_runs, micro_batch_size, base_config)
+        results = await scheduler.run(dataset, num_runs, base_config)
         
         assert len(results) == 5 * num_runs
         for res in results:
@@ -151,10 +151,10 @@ async def test_concurrency_control(
             eval_executor=mock_eval,
             max_concurrent_evaluations=max_evals,
             rollout_n=num_runs,
-            in_group_microbatch_size=micro_batch_size
+            in_group_minibatch_size=micro_batch_size
         )
         
-        await scheduler.run(dataset, num_runs, micro_batch_size, base_config)
+        await scheduler.run(dataset, num_runs, base_config)
         
         # Verify limits were respected
         assert max_active_rollouts_seen <= max_rollouts, f"Rollout concurrency exceeded: {max_active_rollouts_seen} > {max_rollouts}"
@@ -196,10 +196,10 @@ async def test_priority_scheduling(
             eval_executor=mock_eval,
             max_concurrent_evaluations=1,
             rollout_n=num_runs,
-            in_group_microbatch_size=micro_batch_size
+            in_group_minibatch_size=micro_batch_size
         )
         
-        await scheduler.run(dataset, num_runs, micro_batch_size, base_config)
+        await scheduler.run(dataset, num_runs, base_config)
         
         # Expected order: row-0_run_0, row-0_run_1, row-1_run_0, row-1_run_1
         # Note: Since row-0_run_0 finishes, it schedules row-0_run_1 with HIGH priority (0).
@@ -262,10 +262,10 @@ async def test_worker_scaling(
         eval_executor=mock_eval_executor,
         max_concurrent_evaluations=max_evals,
         rollout_n=1,
-        in_group_microbatch_size=1
+        in_group_minibatch_size=1
     )
     
-    await scheduler.run(dataset, 1, 1, base_config)
+    await scheduler.run(dataset, 1, base_config)
     
     assert worker_start_count == expected_workers
 
@@ -305,10 +305,10 @@ async def test_groupwise_mode(
             max_concurrent_evaluations=1,
             mode="groupwise",
             rollout_n=num_runs,
-            in_group_microbatch_size=micro_batch_size
+            in_group_minibatch_size=micro_batch_size
         )
         
-        results = await scheduler.run(dataset, num_runs, micro_batch_size, base_config)
+        results = await scheduler.run(dataset, num_runs, base_config)
         
         # Verify evaluation was called EXACTLY ONCE
     assert len(eval_calls) == 1, f"Expected 1 eval call, got {len(eval_calls)}"
