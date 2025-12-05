@@ -26,6 +26,7 @@ from eval_protocol.models import (
 from eval_protocol.pytest.dual_mode_wrapper import create_dual_mode_wrapper
 from eval_protocol.pytest.evaluation_test_postprocess import postprocess
 from eval_protocol.pytest.execution import execute_pytest, execute_pytest_with_exception_handling
+from eval_protocol.pytest.priority_scheduler import execute_priority_rollouts
 from eval_protocol.pytest.generate_parameter_combinations import (
     ParameterizedTestKwargs,
     generate_parameter_combinations,
@@ -69,7 +70,7 @@ from eval_protocol.utils.show_results_url import store_local_ui_results_url, gen
 from eval_protocol.log_utils.init import init_external_logging_from_env
 from eval_protocol.log_utils.rollout_context import rollout_logging_context
 from eval_protocol.utils.browser_utils import is_logs_server_running, open_browser_tab
-
+from eval_protocol.pytest.buffer import MiniBatchDataBuffer
 from ..common_utils import load_jsonl
 
 
@@ -402,59 +403,192 @@ def evaluation_test(
 
                     rollout_processor.setup()
 
-                    async def execute_run(run_idx: int, config: RolloutProcessorConfig):
-                        nonlocal all_results
+                    use_priority_scheduler = (
+                        (
+                            os.environ.get("EP_USE_PRIORITY_SCHEDULER", "0") == "1"
+                            and not isinstance(rollout_processor, MCPGymRolloutProcessor)
+                        )
+                    )
 
-                        # Regenerate outputs each run by deep-copying the pristine dataset
-                        # so model responses are not reused across runs.
-                        run_id = generate_id()
-                        fresh_dataset = [r.model_copy(deep=True) for r in data]
+                    if use_priority_scheduler:
+                        print("Using priority scheduler")
+                        minibatch_output_size = os.environ.get("EP_MINI_BATCH_OUTPUT_SIZE", None)
+                        output_dir = os.environ.get("EP_OUTPUT_DIR", None)
+                        if minibatch_output_size and output_dir:
+                            output_buffer = MiniBatchDataBuffer(num_runs=num_runs, minibatch_size=int(minibatch_output_size), output_path_template=os.path.join(output_dir, "buffer_{index}.jsonl"))
+                        else:
+                            output_buffer = None
+                        priority_results = await execute_priority_rollouts(
+                            dataset=data,
+                            num_runs=num_runs,
+                            micro_batch_size=int(os.environ.get("EP_MICRO_BATCH_SIZE", "1")),
+                            rollout_processor=rollout_processor,
+                            config=config,
+                            max_concurrent_rollouts=max_concurrent_rollouts,
+                            active_logger=active_logger,
+                            eval_executor=test_func,
+                            max_concurrent_evaluations=max_concurrent_evaluations,
+                            mode=mode,
+                            mini_batch_data_buffer=output_buffer,
+                            evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                        )
+                        
+                        for res in priority_results:
+                            run_idx = (res.execution_metadata.extra or {}).get("run_index", 0)
+                            if run_idx < len(all_results):
+                                all_results[run_idx].append(res)
+                            
+                            processed_rows_in_run.append(res)
 
-                        # apply new run_id to fresh_dataset
-                        for row in fresh_dataset:
-                            row.execution_metadata.run_id = run_id
+                    else:
+                        async def execute_run(run_idx: int, config: RolloutProcessorConfig):
+                            nonlocal all_results
 
-                        # generate new rollout_id for each row
-                        for row in fresh_dataset:
-                            row.execution_metadata.rollout_id = generate_id()
+                            # Regenerate outputs each run by deep-copying the pristine dataset
+                            # so model responses are not reused across runs.
+                            run_id = generate_id()
+                            fresh_dataset = [r.model_copy(deep=True) for r in data]
 
-                        # log the fresh_dataset
-                        for row in fresh_dataset:
-                            active_logger.log(row)
-                            processed_rows_in_run.append(row)
+                            # apply new run_id to fresh_dataset
+                            for row in fresh_dataset:
+                                row.execution_metadata.run_id = run_id
 
-                        # prepare parallel eval helper function
-                        semaphore = asyncio.Semaphore(max_concurrent_evaluations)
+                            # generate new rollout_id for each row
+                            for row in fresh_dataset:
+                                row.execution_metadata.rollout_id = generate_id()
 
-                        async def _execute_pointwise_eval_with_semaphore(
-                            row: EvaluationRow,
-                        ) -> EvaluationRow:
-                            async with semaphore:
-                                evaluation_test_kwargs = kwargs.get("evaluation_test_kwargs") or {}
-                                async with rollout_logging_context(
-                                    row.execution_metadata.rollout_id or "",
-                                    experiment_id=experiment_id,
-                                    run_id=run_id,
+                            # log the fresh_dataset
+                            for row in fresh_dataset:
+                                active_logger.log(row)
+                                processed_rows_in_run.append(row)
+
+                            # prepare parallel eval helper function
+                            semaphore = asyncio.Semaphore(max_concurrent_evaluations)
+
+                            async def _execute_pointwise_eval_with_semaphore(
+                                row: EvaluationRow,
+                            ) -> EvaluationRow:
+                                async with semaphore:
+                                    evaluation_test_kwargs = kwargs.get("evaluation_test_kwargs") or {}
+                                    async with rollout_logging_context(
+                                        row.execution_metadata.rollout_id or "",
+                                        experiment_id=experiment_id,
+                                        run_id=run_id,
+                                    ):
+                                        result = await execute_pytest_with_exception_handling(
+                                            test_func=test_func,
+                                            evaluation_test_kwargs=evaluation_test_kwargs,
+                                            processed_row=row,
+                                        )
+                                    if not isinstance(result, EvaluationRow):
+                                        raise ValueError(
+                                            f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
+                                        )
+                                    return result
+
+                            async def _execute_groupwise_eval_with_semaphore(
+                                rows: list[EvaluationRow],
+                            ) -> list[EvaluationRow]:
+                                async with semaphore:
+                                    evaluation_test_kwargs = kwargs.get("evaluation_test_kwargs") or {}
+                                    primary_rollout_id = rows[0].execution_metadata.rollout_id if rows else None
+                                    group_rollout_ids = [
+                                        r.execution_metadata.rollout_id for r in rows if r.execution_metadata.rollout_id
+                                    ]
+                                    async with rollout_logging_context(
+                                        primary_rollout_id or "",
+                                        experiment_id=experiment_id,
+                                        run_id=run_id,
+                                        rollout_ids=group_rollout_ids or None,
+                                    ):
+                                        results = await execute_pytest_with_exception_handling(
+                                            test_func=test_func,
+                                            evaluation_test_kwargs=evaluation_test_kwargs,
+                                            processed_dataset=rows,
+                                        )
+                                    if not isinstance(results, list):
+                                        raise ValueError(
+                                            f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
+                                        )
+                                    return results
+
+                            if mode == "pointwise":
+                                # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
+                                pointwise_tasks: list[asyncio.Task[EvaluationRow]] = []
+                                # Use wrapper that handles retry logic internally
+                                async for row in rollout_processor_with_retry(
+                                    rollout_processor, fresh_dataset, config, run_idx
                                 ):
-                                    result = await execute_pytest_with_exception_handling(
-                                        test_func=test_func,
-                                        evaluation_test_kwargs=evaluation_test_kwargs,
-                                        processed_row=row,
+                                    pointwise_tasks.append(
+                                        asyncio.create_task(_execute_pointwise_eval_with_semaphore(row=row))
                                     )
-                                if not isinstance(result, EvaluationRow):
-                                    raise ValueError(
-                                        f"Test function {test_func.__name__} did not return an EvaluationRow instance. You must return an EvaluationRow instance from your test function decorated with @evaluation_test."
-                                    )
-                                return result
 
-                        async def _execute_groupwise_eval_with_semaphore(
-                            rows: list[EvaluationRow],
-                        ) -> list[EvaluationRow]:
-                            async with semaphore:
-                                evaluation_test_kwargs = kwargs.get("evaluation_test_kwargs") or {}
-                                primary_rollout_id = rows[0].execution_metadata.rollout_id if rows else None
+                                # Run evaluation tasks with progress bar
+                                results = await run_tasks_with_eval_progress(pointwise_tasks, run_idx)
+
+                                all_results[run_idx] = results
+                            elif mode == "groupwise":
+                                # rollout all the completion_params for the same row at once, and then send the output to the test_func
+                                row_groups = defaultdict(list)  # key: row_id, value: list of rollout_result
+                                tasks: list[asyncio.Task[list[EvaluationRow]]] = []
+                                # completion_groups = []
+                                for idx, cp in enumerate(original_completion_params):
+                                    config = RolloutProcessorConfig(
+                                        completion_params=cp if cp is not None else {},
+                                        mcp_config_path=mcp_config_path or "",
+                                        server_script_path=server_script_path,
+                                        steps=steps,
+                                        logger=active_logger,
+                                        semaphore=shared_semaphore,
+                                        kwargs=rollout_processor_kwargs or {},
+                                    )
+                                    lst = []
+
+                                    async def _collect_result(config, lst):
+                                        result = []
+                                        async for row in rollout_processor_with_retry(
+                                            rollout_processor, lst, config, run_idx
+                                        ):  # pyright: ignore[reportUnknownArgumentType]
+                                            result.append(row)
+                                        return result
+
+                                    for ori_row in fresh_dataset:
+                                        copied_row = ori_row.model_copy(deep=True)
+                                        # overwrite the rollout_id to the index of the completion_params
+                                        copied_row.execution_metadata.rollout_id = (
+                                            str(ori_row.execution_metadata.rollout_id) + "_" + str(idx)
+                                        )
+                                        copied_row.input_metadata.completion_params = cp if cp is not None else {}
+                                        lst.append(copied_row)
+                                    tasks.append(asyncio.create_task(_collect_result(config, lst)))
+                                rollout_results = await asyncio.gather(*tasks)
+                                for result in rollout_results:
+                                    for row in result:
+                                        row_groups[row.input_metadata.row_id].append(row)
+                                tasks = []
+                                for _, rows in row_groups.items():
+                                    tasks.append(asyncio.create_task(_execute_groupwise_eval_with_semaphore(rows=rows)))
+                                results = []
+                                for task in tasks:
+                                    res = await task
+                                    results.extend(res)
+                                all_results[run_idx] = results
+                            else:
+                                # Batch mode: collect all results first, then evaluate (no pipelining)
+                                input_dataset = []
+                                async for row in rollout_processor_with_retry(
+                                    rollout_processor, fresh_dataset, config, run_idx
+                                ):
+                                    input_dataset.append(row)
+                                # NOTE: we will still evaluate errored rows (give users control over this)
+                                # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
+                                primary_rollout_id = (
+                                    input_dataset[0].execution_metadata.rollout_id if input_dataset else None
+                                )
                                 group_rollout_ids = [
-                                    r.execution_metadata.rollout_id for r in rows if r.execution_metadata.rollout_id
+                                    r.execution_metadata.rollout_id
+                                    for r in input_dataset
+                                    if r.execution_metadata.rollout_id
                                 ]
                                 async with rollout_logging_context(
                                     primary_rollout_id or "",
@@ -464,205 +598,113 @@ def evaluation_test(
                                 ):
                                     results = await execute_pytest_with_exception_handling(
                                         test_func=test_func,
-                                        evaluation_test_kwargs=evaluation_test_kwargs,
-                                        processed_dataset=rows,
+                                        evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
+                                        processed_dataset=input_dataset,
                                     )
-                                if not isinstance(results, list):
+                                if (
+                                    results is None
+                                    or not isinstance(results, list)
+                                    or not all(isinstance(r, EvaluationRow) for r in results)
+                                ):
                                     raise ValueError(
                                         f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
                                     )
-                                return results
-
-                        if mode == "pointwise":
-                            # Pointwise mode, rollouts will return as they complete so we can pipeline evaluation_test execution
-                            pointwise_tasks: list[asyncio.Task[EvaluationRow]] = []
-                            # Use wrapper that handles retry logic internally
-                            async for row in rollout_processor_with_retry(
-                                rollout_processor, fresh_dataset, config, run_idx
-                            ):
-                                pointwise_tasks.append(
-                                    asyncio.create_task(_execute_pointwise_eval_with_semaphore(row=row))
-                                )
-
-                            # Run evaluation tasks with progress bar
-                            results = await run_tasks_with_eval_progress(pointwise_tasks, run_idx)
-
-                            all_results[run_idx] = results
-                        elif mode == "groupwise":
-                            # rollout all the completion_params for the same row at once, and then send the output to the test_func
-                            row_groups = defaultdict(list)  # key: row_id, value: list of rollout_result
-                            tasks: list[asyncio.Task[list[EvaluationRow]]] = []
-                            # completion_groups = []
-                            for idx, cp in enumerate(original_completion_params):
-                                config = RolloutProcessorConfig(
-                                    completion_params=cp if cp is not None else {},
-                                    mcp_config_path=mcp_config_path or "",
-                                    server_script_path=server_script_path,
-                                    steps=steps,
-                                    logger=active_logger,
-                                    semaphore=shared_semaphore,
-                                    kwargs=rollout_processor_kwargs or {},
-                                )
-                                lst = []
-
-                                async def _collect_result(config, lst):
-                                    result = []
-                                    async for row in rollout_processor_with_retry(
-                                        rollout_processor, lst, config, run_idx
-                                    ):  # pyright: ignore[reportUnknownArgumentType]
-                                        result.append(row)
-                                    return result
-
-                                for ori_row in fresh_dataset:
-                                    copied_row = ori_row.model_copy(deep=True)
-                                    # overwrite the rollout_id to the index of the completion_params
-                                    copied_row.execution_metadata.rollout_id = (
-                                        str(ori_row.execution_metadata.rollout_id) + "_" + str(idx)
+                                if not results:
+                                    raise ValueError(
+                                        f"Test function {test_func.__name__} returned an empty list. You must return a non-empty list of EvaluationRow instances from your test function decorated with @evaluation_test."
                                     )
-                                    copied_row.input_metadata.completion_params = cp if cp is not None else {}
-                                    lst.append(copied_row)
-                                tasks.append(asyncio.create_task(_collect_result(config, lst)))
-                            rollout_results = await asyncio.gather(*tasks)
-                            for result in rollout_results:
-                                for row in result:
-                                    row_groups[row.input_metadata.row_id].append(row)
-                            tasks = []
-                            for _, rows in row_groups.items():
-                                tasks.append(asyncio.create_task(_execute_groupwise_eval_with_semaphore(rows=rows)))
-                            results = []
-                            for task in tasks:
-                                res = await task
-                                results.extend(res)
-                            all_results[run_idx] = results
+                                all_results[run_idx] = results
+
+                            for r in results:
+                                add_cost_metrics(r)
+                                if r.eval_metadata is not None:
+                                    if r.rollout_status.is_error():
+                                        r.eval_metadata.status = Status.error(
+                                            r.rollout_status.message, r.rollout_status.details
+                                        )
+                                    elif not (
+                                        r.eval_metadata.status and r.eval_metadata.status.code != Status.Code.RUNNING
+                                    ):
+                                        # if the eval_metadata status code has not been set to something else, consider it as finished
+                                        r.eval_metadata.status = Status.eval_finished()
+                                # Optional debug print for assistant/tool sequence
+                                if os.getenv("EP_DEBUG_SERIALIZATION", "0").strip() == "1":
+                                    try:
+                                        preview = [
+                                            {
+                                                "role": m.role,
+                                                "len": len(m.content or "") if isinstance(m.content, str) else None,
+                                                "tool_calls": len(m.tool_calls or [])
+                                                if hasattr(m, "tool_calls") and isinstance(m.tool_calls, list)
+                                                else 0,
+                                                "tool_call_id": getattr(m, "tool_call_id", None),
+                                                "name": getattr(m, "name", None),
+                                            }
+                                            for m in r.messages
+                                        ]
+                                        print("[EP-Log] Row messages:", preview)
+                                    except Exception:
+                                        pass
+                                active_logger.log(r)
+
+                        # if rollout_processor is McpGymRolloutProcessor, we execute runs sequentially since McpGym does not support concurrent runs
+                        # else, we execute runs in parallel
+                        if isinstance(rollout_processor, MCPGymRolloutProcessor):
+                            # For MCPGymRolloutProcessor, create and execute tasks one at a time to avoid port conflicts
+                            for run_idx in range(num_runs):
+                                task = asyncio.create_task(execute_run(run_idx, config))
+                                await task
                         else:
-                            # Batch mode: collect all results first, then evaluate (no pipelining)
-                            input_dataset = []
-                            async for row in rollout_processor_with_retry(
-                                rollout_processor, fresh_dataset, config, run_idx
-                            ):
-                                input_dataset.append(row)
-                            # NOTE: we will still evaluate errored rows (give users control over this)
-                            # i.e., they can choose to give EvaluateResult.score = 0 for errored rows in their test_func
-                            primary_rollout_id = (
-                                input_dataset[0].execution_metadata.rollout_id if input_dataset else None
-                            )
-                            group_rollout_ids = [
-                                r.execution_metadata.rollout_id
-                                for r in input_dataset
-                                if r.execution_metadata.rollout_id
+                            # For other processors, create all tasks at once and run in parallel
+                            # Concurrency is now controlled by the shared semaphore in each rollout processor
+                            await run_tasks_with_run_progress(execute_run, num_runs, config)
+                        
+                        experiment_duration_seconds = time.perf_counter() - experiment_start_time
+                        
+                        # for groupwise mode, the result contains eval output from multiple completion_params, we need to differentiate them
+                        # rollout_id is used to differentiate the result from different completion_params
+                        if mode == "groupwise":
+                            results_by_group = [
+                                [[] for _ in range(num_runs)] for _ in range(len(original_completion_params))
                             ]
-                            async with rollout_logging_context(
-                                primary_rollout_id or "",
-                                experiment_id=experiment_id,
-                                run_id=run_id,
-                                rollout_ids=group_rollout_ids or None,
-                            ):
-                                results = await execute_pytest_with_exception_handling(
-                                    test_func=test_func,
-                                    evaluation_test_kwargs=kwargs.get("evaluation_test_kwargs") or {},
-                                    processed_dataset=input_dataset,
+                            for i_run, result in enumerate(all_results):
+                                for r in result:
+                                    completion_param_idx = int(r.execution_metadata.rollout_id.split("_")[1])  # pyright: ignore[reportOptionalMemberAccess]
+                                    results_by_group[completion_param_idx][i_run].append(r)
+                            for rollout_id, result in enumerate(results_by_group):
+                                postprocess(
+                                    result,
+                                    aggregation_method,
+                                    passed_threshold,
+                                    active_logger,
+                                    mode,
+                                    original_completion_params[rollout_id],  # pyright: ignore[reportArgumentType]
+                                    test_func.__name__,
+                                    num_runs,
+                                    experiment_duration_seconds,
                                 )
-                            if (
-                                results is None
-                                or not isinstance(results, list)
-                                or not all(isinstance(r, EvaluationRow) for r in results)
-                            ):
-                                raise ValueError(
-                                    f"Test function {test_func.__name__} did not return a list of EvaluationRow instances. You must return a list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                                )
-                            if not results:
-                                raise ValueError(
-                                    f"Test function {test_func.__name__} returned an empty list. You must return a non-empty list of EvaluationRow instances from your test function decorated with @evaluation_test."
-                                )
-                            all_results[run_idx] = results
+                        else:
+                            postprocess(
+                                all_results,
+                                aggregation_method,
+                                passed_threshold,
+                                active_logger,
+                                mode,
+                                completion_params,  # pyright: ignore[reportArgumentType]
+                                test_func.__name__,
+                                num_runs,
+                                experiment_duration_seconds,
+                            )
 
-                        for r in results:
-                            add_cost_metrics(r)
-                            if r.eval_metadata is not None:
-                                if r.rollout_status.is_error():
-                                    r.eval_metadata.status = Status.error(
-                                        r.rollout_status.message, r.rollout_status.details
-                                    )
-                                elif not (
-                                    r.eval_metadata.status and r.eval_metadata.status.code != Status.Code.RUNNING
-                                ):
-                                    # if the eval_metadata status code has not been set to something else, consider it as finished
-                                    r.eval_metadata.status = Status.eval_finished()
-                            # Optional debug print for assistant/tool sequence
-                            if os.getenv("EP_DEBUG_SERIALIZATION", "0").strip() == "1":
-                                try:
-                                    preview = [
-                                        {
-                                            "role": m.role,
-                                            "len": len(m.content or "") if isinstance(m.content, str) else None,
-                                            "tool_calls": len(m.tool_calls or [])
-                                            if hasattr(m, "tool_calls") and isinstance(m.tool_calls, list)
-                                            else 0,
-                                            "tool_call_id": getattr(m, "tool_call_id", None),
-                                            "name": getattr(m, "name", None),
-                                        }
-                                        for m in r.messages
-                                    ]
-                                    print("[EP-Log] Row messages:", preview)
-                                except Exception:
-                                    pass
-                            active_logger.log(r)
 
-                    # if rollout_processor is McpGymRolloutProcessor, we execute runs sequentially since McpGym does not support concurrent runs
-                    # else, we execute runs in parallel
-                    if isinstance(rollout_processor, MCPGymRolloutProcessor):
-                        # For MCPGymRolloutProcessor, create and execute tasks one at a time to avoid port conflicts
-                        for run_idx in range(num_runs):
-                            task = asyncio.create_task(execute_run(run_idx, config))
-                            await task
-                    else:
-                        # For other processors, create all tasks at once and run in parallel
-                        # Concurrency is now controlled by the shared semaphore in each rollout processor
-                        await run_tasks_with_run_progress(execute_run, num_runs, config)
-
-                    experiment_duration_seconds = time.perf_counter() - experiment_start_time
-
+                
                     if not all(r.evaluation_result is not None for run_results in all_results for r in run_results):
                         raise AssertionError(
                             "Some EvaluationRow instances are missing evaluation_result. "
                             "Your @evaluation_test function must set `row.evaluation_result`"
                         )
 
-                    # for groupwise mode, the result contains eval output from multiple completion_params, we need to differentiate them
-                    # rollout_id is used to differentiate the result from different completion_params
-                    if mode == "groupwise":
-                        results_by_group = [
-                            [[] for _ in range(num_runs)] for _ in range(len(original_completion_params))
-                        ]
-                        for i_run, result in enumerate(all_results):
-                            for r in result:
-                                completion_param_idx = int(r.execution_metadata.rollout_id.split("_")[1])  # pyright: ignore[reportOptionalMemberAccess]
-                                results_by_group[completion_param_idx][i_run].append(r)
-                        for rollout_id, result in enumerate(results_by_group):
-                            postprocess(
-                                result,
-                                aggregation_method,
-                                passed_threshold,
-                                active_logger,
-                                mode,
-                                original_completion_params[rollout_id],  # pyright: ignore[reportArgumentType]
-                                test_func.__name__,
-                                num_runs,
-                                experiment_duration_seconds,
-                            )
-                    else:
-                        postprocess(
-                            all_results,
-                            aggregation_method,
-                            passed_threshold,
-                            active_logger,
-                            mode,
-                            completion_params,  # pyright: ignore[reportArgumentType]
-                            test_func.__name__,
-                            num_runs,
-                            experiment_duration_seconds,
-                        )
-
+                    
                 except AssertionError:
                     _log_eval_error(
                         Status.eval_finished(),

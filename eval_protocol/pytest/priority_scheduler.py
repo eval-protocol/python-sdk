@@ -5,12 +5,16 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, List, Dict, Optional, Union, Awaitable
 
 from eval_protocol.models import EvaluationRow, Status
-from eval_protocol.pytest.types import RolloutProcessorConfig
+from eval_protocol.pytest.types import RolloutProcessorConfig, TestFunction
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
-from eval_protocol.pytest.evaluation_test_utils import rollout_processor_with_retry
+from eval_protocol.pytest.evaluation_test_utils import rollout_processor_with_retry, add_cost_metrics
 from eval_protocol.pytest.buffer import MiniBatchDataBuffer
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.human_id import generate_id
+from eval_protocol.log_utils.rollout_context import rollout_logging_context
+from eval_protocol.pytest.execution import execute_pytest_with_exception_handling
+
+ENABLE_SPECULATION = os.getenv("ENABLE_SPECULATION", "0").strip() == "1"
 
 @dataclass(order=True)
 class RolloutTask:
@@ -43,17 +47,20 @@ class PriorityRolloutScheduler:
         rollout_processor: RolloutProcessor,
         max_concurrent_rollouts: int,
         active_logger: DatasetLogger,
-        eval_executor: Callable[[Union[EvaluationRow, List[EvaluationRow]]], Awaitable[Union[EvaluationRow, List[EvaluationRow]]]], # Callback to run evaluation
+        max_concurrent_evaluations: int,
+        eval_executor: TestFunction, # Callback to run evaluation
         output_buffer: Optional[MiniBatchDataBuffer] = None,
-        max_concurrent_evaluations: Optional[int] = None,
+        rollout_n: int = 0,
         mode: str = "pointwise",
+        in_group_microbatch_size: int = 0, # for one sample, how many runs to execute at the same time
+        evaluation_test_kwargs: Dict[str, Any] = {},
     ):
         self.rollout_processor = rollout_processor
         self.max_concurrent_rollouts = max_concurrent_rollouts
         self.max_concurrent_evaluations = max_concurrent_evaluations
         self.active_logger = active_logger
         self.eval_executor = eval_executor
-        self.output_buffer = output_buffer 
+        self.output_buffer = output_buffer
         self.mode = mode
         
         # Priority Queue: Stores RolloutTask
@@ -61,14 +68,17 @@ class PriorityRolloutScheduler:
         
         # Concurrency Control
         self.rollout_sem = asyncio.Semaphore(max_concurrent_rollouts)
-        self.eval_sem = asyncio.Semaphore(max_concurrent_evaluations) if max_concurrent_evaluations else None
+        self.eval_sem = asyncio.Semaphore(max_concurrent_evaluations)
         
         # Results storage
         self.results: List[EvaluationRow] = [] # for backward compatibility reason, we save all results here to return
         self.groups_buffer: Dict[int, List[EvaluationRow]] = defaultdict(list) # buffer for group results. only flush to output buffer when a whole group is ready
-
-        self.num_runs = 0
-        self.micro_batch_size = 0
+        
+        self.background_tasks = set() # run evaluations in the background asynchronously
+        
+        self.rollout_n = rollout_n
+        self.in_group_microbatch_size = in_group_microbatch_size if in_group_microbatch_size > 0 else rollout_n
+        self.evaluation_test_kwargs = evaluation_test_kwargs
 
     async def schedule_dataset(
         self,
@@ -79,11 +89,9 @@ class PriorityRolloutScheduler:
         Populates the queue with initial tasks (the first micro-batch for each sample).
         """
         for i, row in enumerate(dataset):
-            # Calculate ranges for the first micro-batch
+            # Calculate ranges for the first in-group minibatch
             batch_start = 0
-            # Ensure micro_batch_size is at least 1 to avoid infinite loop or stuck tasks
-            safe_batch_size = self.micro_batch_size if self.micro_batch_size > 0 else self.num_runs
-            batch_end = min(safe_batch_size, self.num_runs)
+            batch_end = min(self.in_group_microbatch_size, self.rollout_n)
             run_indices = list(range(batch_start, batch_end))
             
             # Initial priority: Low (1), ordered by dataset index
@@ -121,6 +129,48 @@ class PriorityRolloutScheduler:
         """
         Executes a single micro-batch task.
         """
+        async def _run_eval(rows_to_eval: Union[EvaluationRow, List[EvaluationRow]]):
+            """Background evaluation task."""
+            rollout_id = rows_to_eval[0].execution_metadata.rollout_id if isinstance(rows_to_eval, list) else rows_to_eval.execution_metadata.rollout_id
+            experiment_id = rows_to_eval[0].execution_metadata.experiment_id if isinstance(rows_to_eval, list) else rows_to_eval.execution_metadata.experiment_id
+            run_id = rows_to_eval[0].execution_metadata.run_id if isinstance(rows_to_eval, list) else rows_to_eval.execution_metadata.run_id
+            eval_res = None
+            
+            async with self.eval_sem:
+                async with rollout_logging_context(
+                    rollout_id or "",
+                    experiment_id=experiment_id,
+                    run_id=run_id,
+                ):
+                    if isinstance(rows_to_eval, list):
+                        eval_res = await execute_pytest_with_exception_handling(
+                            test_func=self.eval_executor,
+                            evaluation_test_kwargs=self.evaluation_test_kwargs,
+                            processed_dataset=rows_to_eval,
+                        )
+                    else:
+                        eval_res = await execute_pytest_with_exception_handling(
+                            test_func=self.eval_executor,
+                            evaluation_test_kwargs=self.evaluation_test_kwargs,
+                            processed_row=rows_to_eval,
+                        )
+            
+            # push result to the output buffer
+            if self.output_buffer:
+                if isinstance(eval_res, list):
+                    for row in eval_res:
+                        self._post_process_result(row)
+                        await self.output_buffer.add_result(row)
+                else:
+                    self._post_process_result(eval_res)
+                    await self.output_buffer.add_result(eval_res)
+                
+            if isinstance(eval_res, list):
+                self.results.extend(eval_res)
+            else:
+                self.results.append(eval_res)
+            return eval_res
+
         # 1. Prepare Config & Row for this micro-batch
         current_batch_rows = []
         for run_idx in task.run_indices:
@@ -128,10 +178,14 @@ class PriorityRolloutScheduler:
             
             row_copy.execution_metadata.run_id = generate_id()
             row_copy.execution_metadata.rollout_id = generate_id()
+            if row_copy.execution_metadata.extra is None:
+                row_copy.execution_metadata.extra = {}
+            row_copy.execution_metadata.extra["run_index"] = run_idx
             
             # Inject Speculation History
-            if task.history:
+            if ENABLE_SPECULATION and task.history:
                 cp = row_copy.input_metadata.completion_params
+                max_tokens = cp.get("max_tokens", 2048)
                 # Ensure safe dict access
                 if not isinstance(cp, dict): 
                     cp = {}
@@ -139,129 +193,57 @@ class PriorityRolloutScheduler:
                 extra_body = cp.get("extra_body")
                 if extra_body is None or not isinstance(extra_body, dict):
                     extra_body = {}
-                
-                extra_body["prediction"] = task.history
+                # for speculation, see
+                # https://docs.fireworks.ai/guides/predicted-outputs
+                # https://platform.openai.com/docs/guides/predicted-outputs?lang=python
+                extra_body["prediction"] = {"type": "content", "content": " ".join(task.history)[:max_tokens]}
                 cp["extra_body"] = extra_body
                 row_copy.input_metadata.completion_params = cp
             
-            current_batch_rows.append(row_copy)
+            current_batch_rows.append((run_idx, row_copy))
             self.active_logger.log(row_copy)
+        
 
         # 2. Execute Rollout
         batch_results: List[EvaluationRow] = []
-        if task.run_indices:
-            representative_run_idx = task.run_indices[0]
-            
-            async with self.rollout_sem:
+        if current_batch_rows:
+            for idx, row in current_batch_rows:
                 async for result_row in rollout_processor_with_retry(
-                    self.rollout_processor, current_batch_rows, task.config, representative_run_idx
+                    self.rollout_processor, [row], task.config, idx
                 ):
                     batch_results.append(result_row)
+                    # in pointwise, we start evaluation immediately
+                    if self.mode == "pointwise":
+                        t = asyncio.create_task(_run_eval(result_row))
+                        self.background_tasks.add(t)
+                        t.add_done_callback(self.background_tasks.discard)
         
         # 3. Evaluate and Collect History
         current_batch_history_updates = []
-        
-        if self.mode == "groupwise":
-            # Collect all results from this batch
-             for res in batch_results:
-                self.groupwise_buffer[task.row_index].append(res)
-                
-                # Update history from rollout result (assuming eval doesn't change content needed for history)
-                last_msg = res.last_assistant_message()
-                if last_msg and last_msg.content:
-                    content = last_msg.content
-                    if isinstance(content, list):
-                        text_parts = [p["text"] for p in content if p["type"] == "text"]
-                        current_batch_history_updates.append("".join(text_parts))
-                    else:
-                        current_batch_history_updates.append(str(content))
-                else:
-                    current_batch_history_updates.append("")
-            
-             # Check if this is the last batch for this sample
-             last_run_idx = task.run_indices[-1]
-             if last_run_idx + 1 >= self.num_runs:
-                 # Last batch: Execute Groupwise Evaluation
-                 full_group = self.groupwise_buffer[task.row_index]
-                 
-                 async def _run_group_eval():
-                     eval_res = await self.eval_executor(full_group)
-                     # Handle result (could be list or single row wrapping list?)
-                     # Usually groupwise returns list of scored rows
-                     if isinstance(eval_res, list):
-                         self.results.extend(eval_res)
-                         if self.mini_batch_data_buffer:
-                             # Push the whole group at once if possible, or iterate
-                             for r in eval_res:
-                                 await self.mini_batch_data_buffer.add_result(r)
-                     else:
-                         self.results.append(eval_res)
-                         if self.mini_batch_data_buffer:
-                             await self.mini_batch_data_buffer.add_result(eval_res)
-                 
-                 if self.eval_sem:
-                    async with self.eval_sem:
-                        await _run_group_eval()
-                 else:
-                    await _run_group_eval()
-                 
-                 # Clear buffer to free memory
-                 del self.groupwise_buffer[task.row_index]
-
-        else:
-            # Pointwise: Process each result individually
-            async def _run_eval():
-                for res in batch_results:
-                    # Run Evaluation
-                    eval_res = await self.eval_executor(res)
-                    
-                    if isinstance(eval_res, list):
-                        # Should not happen in pointwise mode which is typically used with this scheduler
-                        # But if it does, we process each result
-                        self.results.extend(eval_res)
-                        for r in eval_res:
-                            if self.mini_batch_data_buffer:
-                                await self.mini_batch_data_buffer.add_result(r)
-                            
-                            last_msg = r.last_assistant_message()
-                            if last_msg and last_msg.content:
-                                content = last_msg.content
-                                if isinstance(content, list):
-                                    text_parts = [p["text"] for p in content if p["type"] == "text"]
-                                    current_batch_history_updates.append("".join(text_parts))
-                                else:
-                                    current_batch_history_updates.append(str(content))
-                            else:
-                                current_batch_history_updates.append("")
-                    else:
-                        self.results.append(eval_res)
-                        if self.mini_batch_data_buffer:
-                            await self.mini_batch_data_buffer.add_result(eval_res)
-
-                        # Extract prediction for history
-                        last_msg = eval_res.last_assistant_message()
-                        if last_msg and last_msg.content:
-                            content = last_msg.content
-                            if isinstance(content, list):
-                                text_parts = [p["text"] for p in content if p["type"] == "text"]
-                                current_batch_history_updates.append("".join(text_parts))
-                            else:
-                                current_batch_history_updates.append(str(content))
-                        else:
-                            current_batch_history_updates.append("") # Empty string for failed turns
-
-            if self.eval_sem:
-                async with self.eval_sem:
-                    await _run_eval()
+        # Extract history from rollout results (assuming eval doesn't change content needed for history)
+        for res in batch_results:
+            last_msg = res.last_assistant_message()
+            if last_msg and last_msg.content:
+                content = last_msg.content
+                current_batch_history_updates.append(str(content))
             else:
-                await _run_eval()
+                current_batch_history_updates.append("")
+
+        # in groupwise, we send all rows to evaluator in one go when the whole group is complete
+        if self.mode == "groupwise":
+            self.groups_buffer[task.row_index].extend(batch_results)
+            if len(self.groups_buffer[task.row_index]) >= self.rollout_n: 
+                 full_group = self.groups_buffer.pop(task.row_index)
+                 t = asyncio.create_task(_run_eval(full_group))
+                 self.background_tasks.add(t)
+                 t.add_done_callback(self.background_tasks.discard)
 
         # 4. Schedule Next Micro-batch (High Priority)
-        last_run_idx = task.run_indices[-1]
+        last_run_idx = task.run_indices[-1] if task.run_indices else -1
         next_start = last_run_idx + 1
         
-        if next_start < self.num_runs:
-            next_end = min(next_start + self.micro_batch_size, self.num_runs)
+        if next_start < self.rollout_n:
+            next_end = min(next_start + self.in_group_microbatch_size, self.rollout_n)
             next_indices = list(range(next_start, next_end))
             new_history = task.history + current_batch_history_updates
             
@@ -278,6 +260,40 @@ class PriorityRolloutScheduler:
             )
             self.queue.put_nowait(new_task)
 
+    def _post_process_result(self, res: EvaluationRow):
+        """
+        Process evaluation result: update cost metrics, status, and log.
+        """
+        add_cost_metrics(res)
+        if res.eval_metadata is not None:
+            if res.rollout_status.is_error():
+                res.eval_metadata.status = Status.error(
+                    res.rollout_status.message, res.rollout_status.details
+                )
+            elif not (
+                res.eval_metadata.status and res.eval_metadata.status.code != Status.Code.RUNNING
+            ):
+                res.eval_metadata.status = Status.eval_finished()
+        
+        if os.getenv("EP_DEBUG_SERIALIZATION", "0").strip() == "1":
+            try:
+                preview = [
+                    {
+                        "role": m.role,
+                        "len": len(m.content or "") if isinstance(m.content, str) else None,
+                        "tool_calls": len(m.tool_calls or [])
+                        if hasattr(m, "tool_calls") and isinstance(m.tool_calls, list)
+                        else 0,
+                        "tool_call_id": getattr(m, "tool_call_id", None),
+                        "name": getattr(m, "name", None),
+                    }
+                    for m in res.messages
+                ]
+                print("[EP-Log] Row messages:", preview)
+            except Exception:
+                pass
+        self.active_logger.log(res)
+
     async def run(self, dataset: List[EvaluationRow], num_runs: int, micro_batch_size: int, base_config: RolloutProcessorConfig):
         self.num_runs = num_runs
         self.micro_batch_size = micro_batch_size
@@ -288,13 +304,15 @@ class PriorityRolloutScheduler:
         # 2. Start Workers
         # If we have separate limits, we need enough workers to saturate both stages
         num_workers = self.max_concurrent_rollouts
-        if self.max_concurrent_evaluations:
-            num_workers += self.max_concurrent_evaluations
 
         workers = [asyncio.create_task(self.worker()) for _ in range(num_workers)]
         
         # 3. Wait for completion
         await self.queue.join()
+        
+        # Wait for background evaluations to finish
+        if self.background_tasks:
+            await asyncio.gather(*self.background_tasks, return_exceptions=True)
         
         # 4. Cleanup
         for w in workers:
@@ -314,16 +332,22 @@ async def execute_priority_rollouts(
     config: RolloutProcessorConfig,
     max_concurrent_rollouts: int,
     active_logger: DatasetLogger,
-    eval_executor: Callable[[Union[EvaluationRow, List[EvaluationRow]]], Awaitable[Union[EvaluationRow, List[EvaluationRow]]]],
+    eval_executor: TestFunction,
+    max_concurrent_evaluations: int = 96,
+    mode: str = "pointwise",
     mini_batch_data_buffer: Optional[MiniBatchDataBuffer] = None,
-    max_concurrent_evaluations: Optional[int] = None,
+    evaluation_test_kwargs: Dict[str, Any] = {},
 ):
     scheduler = PriorityRolloutScheduler(
         rollout_processor=rollout_processor,
         max_concurrent_rollouts=max_concurrent_rollouts,
         active_logger=active_logger,
         eval_executor=eval_executor,
-        mini_batch_data_buffer=mini_batch_data_buffer,
-        max_concurrent_evaluations=max_concurrent_evaluations
+        output_buffer=mini_batch_data_buffer,
+        max_concurrent_evaluations=max_concurrent_evaluations,
+        rollout_n=num_runs,
+        mode=mode,
+        in_group_microbatch_size=micro_batch_size,
+        evaluation_test_kwargs=evaluation_test_kwargs,
     )
     return await scheduler.run(dataset, num_runs, micro_batch_size, config)

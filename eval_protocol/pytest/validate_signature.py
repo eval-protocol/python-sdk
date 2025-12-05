@@ -53,8 +53,6 @@ def validate_signature(
         # validate that the function has a return type of List[EvaluationRow]
         if not _is_list_of_evaluation_row(signature.return_annotation):  # pyright: ignore[reportAny]
             raise ValueError("In groupwise mode, your eval function must return a list of EvaluationRow instances")
-        if completion_params is not None and len(completion_params) < 2:
-            raise ValueError("In groupwise mode, you must provide at least 2 completion parameters")
     else:
         # all mode: function should accept input_dataset and model
         if "rows" not in signature.parameters:
