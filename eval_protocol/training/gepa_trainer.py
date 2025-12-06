@@ -11,6 +11,7 @@ from eval_protocol.models import EPParameters, EvaluationRow
 from eval_protocol.pytest.types import TestFunction
 from eval_protocol.training.trainer import Trainer
 from eval_protocol.training.utils import build_ep_parameters_from_test
+from eval_protocol.training.gepa_utils import ep_test_to_gepa_metric
 
 
 class GEPATrainer(Trainer):
@@ -33,11 +34,9 @@ class GEPATrainer(Trainer):
         super().__init__(test_fn)
         self.ep_params: EPParameters = build_ep_parameters_from_test(test_fn)
 
-        self.metric = test_fn  # TODO @derek. need to convert our ep test_fn to a GEPA metric. also need to inject the feedback text.
+        self.metric = ep_test_to_gepa_metric(test_fn)
 
-        self.program = (
-            ...
-        )  # TODO @shreymodi1: converting between a program (dspy.Module) and an @evaluation_test is a bit tricky.
+        self.program = ...  # TODO @shreymodi1: converting between a program (dspy.Module) and rollout processors is a bit tricky. maybe start with single turn
 
         self.train_set, self.val_set, self.test_set = (
             ...,

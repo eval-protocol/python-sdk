@@ -63,6 +63,44 @@ def _normalize_to_int_or_none(s: Optional[str]) -> Optional[int]:
         return None
 
 
+def _build_feedback_text(
+    *,
+    extracted_int: Optional[int],
+    gt_int: Optional[int],
+    is_valid: bool,
+    raw_model_answer: str,
+    ground_truth: Optional[str],
+) -> str:
+    """
+    Build a feedback string similar in spirit to the GEPA `metric_with_feedback`.
+
+    Cases:
+    - Parse failure (model or gold): explain integer formatting and show correct answer.
+    - Correct: "Your answer is correct. The correct answer is '...'."
+    - Incorrect: "Your answer is incorrect. The correct answer is '...'."
+    """
+    correct_answer_display = str(gt_int if gt_int is not None else (ground_truth or ""))
+
+    if not is_valid:
+        # Could not parse either the model answer or the gold answer as an integer.
+        feedback_text = (
+            "The final answer must be a valid integer and nothing else. "
+            f"You responded with '{raw_model_answer}', which couldn't be parsed as a python integer. "
+            "Please ensure your answer is a valid integer without any additional text or formatting."
+        )
+        if correct_answer_display:
+            feedback_text += f" The correct answer is '{correct_answer_display}'."
+        return feedback_text
+
+    if extracted_int == gt_int:
+        return f"Your answer is correct. The correct answer is '{correct_answer_display}'."
+    else:
+        return f"Your answer is incorrect. The correct answer is '{correct_answer_display}'."
+
+    # TODO: our dataset does not contain written solutions, so we cannot provide feedback on the solution. maybe need to add it later.
+    # they're using https://huggingface.co/datasets/AI-MO/aimo-validation-aime
+
+
 def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     converted: List[EvaluationRow] = []
     for r in rows:
@@ -126,9 +164,17 @@ def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
         )
     }
 
+    feedback_text = _build_feedback_text(
+        extracted_int=extracted_int,
+        gt_int=gt_int,
+        is_valid=is_valid,
+        raw_model_answer=content_str,
+        ground_truth=str(row.ground_truth),
+    )
+
     row.evaluation_result = EvaluateResult(
         score=score,
-        reason=("Answer correct" if score == 1.0 else "Answer incorrect"),
+        reason=feedback_text,
         is_score_valid=is_valid,
         metrics=metrics,
     )
