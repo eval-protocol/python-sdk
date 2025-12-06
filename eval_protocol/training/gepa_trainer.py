@@ -9,11 +9,11 @@ from gepa.proposer.reflective_mutation.base import ReflectionComponentSelector
 
 from eval_protocol.models import EPParameters, EvaluationRow
 from eval_protocol.pytest.types import TestFunction
-from eval_protocol.training.gepa_utils import REFLECTION_LM_CONFIGS
+from eval_protocol.training.trainer import Trainer
 from eval_protocol.training.utils import build_ep_parameters_from_test
 
 
-class GEPATrainer:
+class GEPATrainer(Trainer):
     """
     High-level entrypoint for running GEPA-style training against an existing
     `@evaluation_test`-decorated function.
@@ -30,7 +30,7 @@ class GEPATrainer:
         Args:
             test_fn: The `@evaluation_test`-decorated function defining the eval.
         """
-        self.test_fn = test_fn
+        super().__init__(test_fn)
         self.ep_params: EPParameters = build_ep_parameters_from_test(test_fn)
 
         self.metric = (
