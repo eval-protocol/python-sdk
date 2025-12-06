@@ -11,6 +11,7 @@ from eval_protocol.models import (  # Added Message to existing import
     Message,
     MetricResult,
     StepOutput,
+    EPParameters,
 )
 
 
@@ -721,3 +722,34 @@ def test_message_dump_for_chat_completion_request():
     assert "weight" not in dictionary
     assert "reasoning_content" not in dictionary
     assert dictionary["content"] == "Hello, how are you?"
+
+
+def test_ep_parameters_defaults():
+    """EPParameters should have sensible defaults for core fields."""
+    params = EPParameters()
+
+    assert params.completion_params is None
+    assert params.num_runs == 1
+    assert params.disable_browser_open is False
+    assert params.max_concurrent_rollouts == 8
+    assert params.max_concurrent_evaluations == 64
+    assert params.mode == "pointwise"
+    assert params.combine_datasets is True
+
+
+def test_ep_parameters_accepts_arbitrary_types():
+    """EPParameters should allow rich Python types for callable/logger fields."""
+
+    def dummy_preprocess(rows):
+        return rows
+
+    def dummy_adapter(*args, **kwargs):
+        return None
+
+    logger = logging.getLogger("ep-params-test")
+
+    params = EPParameters(dataset_adapter=dummy_adapter, preprocess_fn=dummy_preprocess, logger=logger)
+
+    assert params.dataset_adapter is dummy_adapter
+    assert params.preprocess_fn is dummy_preprocess
+    assert params.logger is logger
