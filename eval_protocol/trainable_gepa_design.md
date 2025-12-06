@@ -1,8 +1,8 @@
-## GEPA-Trainable Interface Design for Eval Protocol
+## GEPA-training Interface Design for Eval Protocol
 
 ### Goals
 
-- **Tunable prompts for existing benchmarks**: Allow benchmarks like `test_aime25.py` and `test_gpqa.py` to expose parts of their configuration (e.g., system prompts) as trainable parameters, without changing their core evaluation logic.
+- **Tunable prompts for existing benchmarks**: Allow benchmarks like `test_aime25.py` and `test_gpqa.py` to expose parts of their configuration (e.g., system prompts) as training parameters, without changing their core evaluation logic.
 - **Tight coupling with `@evaluation_test`**: Reuse the same rollout configuration, datasets, and metrics that are already defined via `evaluation_test`, instead of duplicating that configuration in a separate training API.
 - **GEPA as one optimizer backend**: Provide a clean integration point for GEPA (and potentially other optimizers later) without requiring benchmarks to depend on DSPy or GEPA directly.
 
@@ -14,12 +14,12 @@
     - `@evaluation_test(...)`-decorated function (e.g., `test_aime25_pointwise`) that:
       - Uses `SingleTurnRolloutProcessor` (or another processor).
       - Computes per-row metrics and sets `row.evaluation_result`.
-  - Adds *optional* trainable wiring at the bottom, under `if __name__ == "__main__":`, that:
-    - Imports a trainable/core API from `eval_protocol.trainable`.
+  - Adds *optional* training wiring at the bottom, under `if __name__ == "__main__":`, that:
+    - Imports a training/core API from `eval_protocol.training`.
     - Specifies what is tunable (e.g., the system prompt) and how to adapt rows using a candidate.
     - Invokes a train routine (GEPA-based or otherwise).
 
-- **Trainable core**
+- **training core**
   - Provides a single central abstraction:
     - **`EPParameters`**: Encapsulates everything `evaluation_test` knows about the eval in a structured form:
       - One field for every parameter that `evaluation_test` accepts (dataset sources, adapters, completion params, rollout processor, aggregation, thresholds, etc.), after parsing/env overrides.
@@ -28,8 +28,8 @@
     - Build an `EPParameters` instance by introspecting an `@evaluation_test`-decorated function.
     - Run a single candidate or a batch of candidates through the full rollout + evaluation pipeline, returning aggregate scores (and optionally per-row scores).
 
-- **GEPA adapter (e.g., `eval_protocol/trainable/gepa_adapter.py`)**
-  - Wraps the trainable core and GEPA’s API:
+- **GEPA adapter (e.g., `eval_protocol/training/gepa_adapter.py`)**
+  - Wraps the training core and GEPA’s API:
     - Accepts:
       - An `EPConfig`.
       - A candidate space definition (for now, implicit via `dict[str, str]` keys).
@@ -66,9 +66,9 @@ setattr(dual_mode_wrapper, "__ep_params__", ep_params)
     - Dataset sources (`input_dataset`, `input_rows`, dataloaders, and `dataset_adapter`), after `parse_ep_*` transforms.
     - `aggregation_method`, `num_runs`, `max_dataset_rows`, etc.
     - Rollout and mode information (processor, kwargs, concurrency limits, mode).
-  - The trainable core can then **directly convert `__ep_params__` into an `EPParameters` instance** without maintaining a separate trainable-only config.
+  - The training core can then **directly convert `__ep_params__` into an `EPParameters` instance** without maintaining a separate training-only config.
 
-- Trainable core will expose:
+- training core will expose:
   - A factory like:
 
     ```python
@@ -90,7 +90,7 @@ setattr(dual_mode_wrapper, "__ep_params__", ep_params)
   - Build an `EPParameters` from it.
   - Call into a GEPA-based trainer that uses the `EPParameters`.
 
-### Open Questions
+### TODO for derek to figure out: how to store the changing system prompts.
 
 - **Where tuned prompts live (storage format and location)**:
   - GEPA already supports a `run_dir` for logging and checkpoints.
@@ -102,7 +102,7 @@ setattr(dual_mode_wrapper, "__ep_params__", ep_params)
 
 ### Work Split: Person A vs Person B
 
-#### Person A – Trainable Core & `evaluation_test` Integration
+#### Person A – training Core & `evaluation_test` Integration
 
 - **1. Extend `evaluation_test` metadata (no behavior change)**
   - Populate a single `__ep_config__` dict on the decorated test function that includes:
@@ -114,7 +114,7 @@ setattr(dual_mode_wrapper, "__ep_params__", ep_params)
     - Backwards compatibility for existing tests.
     - Clear typing and docstrings to guide future use.
 
-- **2. Define core trainable abstractions in `eval_protocol/trainable/core.py`**
+- **2. Define core training abstractions in `eval_protocol/training/core.py`**
   - Define:
     - `EPConfig`:
       - A field for every parameter `evaluation_test` accepts (dataset, adapters, completion params, rollout processor, aggregation, thresholds, etc.).
@@ -140,12 +140,12 @@ setattr(dual_mode_wrapper, "__ep_params__", ep_params)
 
 #### Person B – GEPA Adapter & Benchmark Wiring
 
-- **4. Implement GEPA integration in `eval_protocol/trainable/gepa_adapter.py`**
+- **4. Implement GEPA integration in `eval_protocol/training/gepa_adapter.py`**
   - Define a small adapter API, e.g.:
 
 ```python
 class GEPATrainer:
-    def __init__(self, spec: TrainableBenchmarkSpec, inject_fn: InjectFn, ...gepa_config...):
+    def __init__(self, spec: trainingBenchmarkSpec, inject_fn: InjectFn, ...gepa_config...):
         ...
 
     def train(self) -> tuple[Candidate, Any]:
@@ -186,7 +186,7 @@ class GEPATrainer:
     - Add candidate-aware wiring (e.g., via dataset adapters) and an optional `__main__` entrypoint calling the same GEPA trainer.
   - This will validate that:
     - The abstractions generalize across tasks.
-    - No DSPy/GEPA-specific imports leak into benchmark files (other than a small, well-defined trainable API).
+    - No DSPy/GEPA-specific imports leak into benchmark files (other than a small, well-defined training API).
 
 ### Coordination Notes
 
