@@ -33,17 +33,17 @@ class GEPATrainer(Trainer):
         super().__init__(test_fn)
         self.ep_params: EPParameters = build_ep_parameters_from_test(test_fn)
 
-        self.metric = (
-            test_fn  # TODO: need to convert our ep test_fn to a GEPA metric. also need to inject the feedback text.
-        )
+        self.metric = test_fn  # TODO @derek. need to convert our ep test_fn to a GEPA metric. also need to inject the feedback text.
 
-        self.program = ...  # TODO: converting between a program (dspy.Module) and an @evaluation_test is a bit tricky.
+        self.program = (
+            ...
+        )  # TODO @shreymodi1: converting between a program (dspy.Module) and an @evaluation_test is a bit tricky.
 
         self.train_set, self.val_set, self.test_set = (
             ...,
             ...,
             ...,
-        )  # TODO: need to convert our input_dataset to a train set
+        )  # TODO @shreymodi1. need to convert our input_dataset to a train set
 
     def train(
         self,
