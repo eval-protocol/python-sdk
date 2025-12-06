@@ -12,6 +12,8 @@ from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
+from eval_protocol.training import GEPATrainer
+from eval_protocol.training.gepa_utils import build_reflection_lm
 
 SYSTEM_PROMPT = (
     "You are a helpful math assistant. Please reason step by step, and put your final answer within \\boxed{...}."
@@ -131,3 +133,17 @@ def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
         metrics=metrics,
     )
     return row
+
+
+if __name__ == "__main__":
+    trainer = GEPATrainer(test_aime25_pointwise)
+    reflection_lm = build_reflection_lm("gpt-5")
+
+    optimized_program = trainer.train(
+        num_threads=32,
+        track_stats=True,
+        reflection_minibatch_size=3,
+        reflection_lm=reflection_lm,
+    )
+
+    print(trainer.evaluate(optimized_program))

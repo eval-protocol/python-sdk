@@ -47,6 +47,7 @@ dependencies = [
     "deepdiff>=6.0.0",
     "websockets>=15.0.1",
     "fastapi>=0.116.1",
+    "dspy>=3.0.0",
 ]
 
 [project.urls]

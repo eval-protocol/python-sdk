@@ -19,7 +19,7 @@
     - Specifies what is tunable (e.g., the system prompt) and how to adapt rows using a candidate.
     - Invokes a train routine (GEPA-based or otherwise).
 
-- **training core**
+- **Training core**
   - Provides a single central abstraction:
     - **`EPParameters`**: Encapsulates everything `evaluation_test` knows about the eval in a structured form:
       - One field for every parameter that `evaluation_test` accepts (dataset sources, adapters, completion params, rollout processor, aggregation, thresholds, etc.), after parsing/env overrides.
@@ -68,7 +68,7 @@ setattr(dual_mode_wrapper, "__ep_params__", ep_params)
     - Rollout and mode information (processor, kwargs, concurrency limits, mode).
   - The training core can then **directly convert `__ep_params__` into an `EPParameters` instance** without maintaining a separate training-only config.
 
-- training core will expose:
+- Training core will expose:
   - A factory like:
 
     ```python
@@ -199,3 +199,38 @@ class GEPATrainer:
   - After GEPA integration works for AIME:
     - Decide on the canonical way to treat GEPA’s `run_dir` and/or additional artifacts for tuned prompts.
     - Optionally add a small helper that knows how to “run evaluation once with best GEPA candidate” for CI workflows.
+
+
+future:
+
+this is how gepa defines eval:
+
+def metric(
+    gold: Example,
+    pred: Prediction,
+    trace: Optional[DSPyTrace] = None,
+    pred_name: Optional[str] = None,
+    pred_trace: Optional[DSPyTrace] = None,
+) -> float | ScoreWithFeedback:
+    """
+    This function is called with the following arguments:
+    - gold: The gold example.
+    - pred: The predicted output.
+    - trace: Optional. The trace of the program's execution.
+    - pred_name: Optional. The name of the target predictor currently being optimized by GEPA, for which
+        the feedback is being requested.
+    - pred_trace: Optional. The trace of the target predictor's execution GEPA is seeking feedback for.
+
+    Note the `pred_name` and `pred_trace` arguments. During optimization, GEPA will call the metric to obtain
+    feedback for individual predictors being optimized. GEPA provides the name of the predictor in `pred_name`
+    and the sub-trace (of the trace) corresponding to the predictor in `pred_trace`.
+    If available at the predictor level, the metric should return {'score': float, 'feedback': str} corresponding
+    to the predictor.
+    If not available at the predictor level, the metric can also return a text feedback at the program level
+    (using just the gold, pred and trace).
+    If no feedback is returned, GEPA will use a simple text feedback consisting of just the score:
+    f"This trajectory got a score of {score}."
+    """
+    ...
+
+ideally generic way to turn evaluation_test into this.
