@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -67,7 +68,6 @@ class PriorityRolloutScheduler:
         self.queue: asyncio.PriorityQueue[RolloutTask] = asyncio.PriorityQueue()
         
         # Concurrency Control
-        self.rollout_sem = asyncio.Semaphore(max_concurrent_rollouts)
         self.eval_sem = asyncio.Semaphore(max_concurrent_evaluations)
         
         # Results storage
@@ -112,16 +112,13 @@ class PriorityRolloutScheduler:
         Worker loop: fetch task -> execute micro-batch -> schedule next batch (if any).
         """
         while True:
-            try:
-                # Get a task from the priority queue
-                task: RolloutTask = await self.queue.get()
-            except asyncio.QueueEmpty:
-                break
+            # Get a task from the priority queue    
+            task: RolloutTask = await self.queue.get()
 
             try:
                 await self._process_task(task)
             except Exception as e:
-                print(f"Error processing task for row {task.row.input_metadata.row_id}: {e}")
+                logging.error(f"Error processing task for row {task.row.input_metadata.row_id}: {e}", exc_info=True)
             finally:
                 self.queue.task_done()
 
