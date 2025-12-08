@@ -6,6 +6,7 @@ import sys
 import tempfile
 import time
 import uuid
+import hashlib
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple
 from urllib.parse import urlencode
@@ -216,6 +217,24 @@ def build_default_dataset_id(evaluator_id: str) -> str:
 def build_default_output_model(evaluator_id: str) -> str:
     base = evaluator_id.lower().replace("_", "-")
     uuid_suffix = str(uuid.uuid4())[:4]
+    
+    # suffix is "-rft-{4chars}" -> 9 chars
+    suffix_len = 9
+    max_len = 63
+    
+    # Check if we need to truncate
+    if len(base) + suffix_len > max_len:
+        # Calculate hash of the full base to preserve uniqueness
+        hash_digest = hashlib.sha256(base.encode("utf-8")).hexdigest()[:6]
+        # New structure: {truncated_base}-{hash}-{uuid_suffix}
+        # Space needed for "-{hash}" is 1 + 6 = 7
+        hash_part_len = 7
+        
+        allowed_base_len = max_len - suffix_len - hash_part_len
+        truncated_base = base[:allowed_base_len].strip("-")
+        
+        return f"{truncated_base}-{hash_digest}-rft-{uuid_suffix}"
+
     return f"{base}-rft-{uuid_suffix}"
 
 

@@ -702,8 +702,13 @@ def _create_rft_job(
     print(f"Prepared RFT job for evaluator '{evaluator_id}' using dataset '{dataset_id}'")
     if getattr(args, "evaluation_dataset", None):
         body["evaluationDataset"] = args.evaluation_dataset
-    if getattr(args, "output_model", None):
-        body.setdefault("trainingConfig", {})["outputModel"] = f"accounts/{account_id}/models/{args.output_model}"
+    
+    output_model_arg = getattr(args, "output_model", None)
+    if output_model_arg:
+        if len(output_model_arg) > 63:
+            print(f"Error: Output model name '{output_model_arg}' exceeds 63 characters.")
+            return 1
+        body.setdefault("trainingConfig", {})["outputModel"] = f"accounts/{account_id}/models/{output_model_arg}"
     else:
         # Auto-generate output model name if not provided
         auto_output_model = build_default_output_model(evaluator_id)
