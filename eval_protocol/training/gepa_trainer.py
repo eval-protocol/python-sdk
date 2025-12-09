@@ -1,17 +1,27 @@
-from typing import Any, Dict, Literal
+import asyncio
+from typing import Any, Dict, List, Literal
 
 import dspy
 from dspy.clients.lm import LM
-from dspy.primitives import Module
+from dspy.primitives import Module, Example
 from dspy.teleprompt.gepa.gepa import GEPA
 from gepa.core.adapter import ProposalFn
 from gepa.proposer.reflective_mutation.base import ReflectionComponentSelector
 
-from eval_protocol.models import EPParameters, EvaluationRow
-from eval_protocol.pytest.types import TestFunction
+from eval_protocol.models import EPParameters, EvaluationRow, Message
+from eval_protocol.pytest.types import TestFunction, RolloutProcessorConfig
 from eval_protocol.training.trainer import Trainer
 from eval_protocol.training.utils import build_ep_parameters_from_test
-from eval_protocol.training.gepa_utils import ep_test_to_gepa_metric
+from eval_protocol.training.gepa_utils import (
+    ep_test_to_gepa_metric,
+    create_single_turn_program,
+    configure_dspy_lm,
+    extract_system_prompt_from_rows,
+    evaluation_rows_to_dspy_examples,
+    train_val_test_split,
+    DSPyModuleType,
+    DSPyModuleFactory,
+)
 
 
 class GEPATrainer(Trainer):
@@ -19,34 +29,207 @@ class GEPATrainer(Trainer):
     High-level entrypoint for running GEPA-style training against an existing
     `@evaluation_test`-decorated function.
 
-    This class is intentionally minimal for now:
-    - It captures `EPParameters` from the provided test function via
-      `build_ep_parameters_from_test`.
-    - It stores any GEPA-related configuration kwargs for future use.
-    - The actual GEPA optimization loop is left as a TODO.
+    This trainer:
+    1. Extracts configuration from the @evaluation_test decorator
+    2. Creates a DSPy ChainOfThought program (mirrors SingleTurnRolloutProcessor)
+    3. Converts the EP dataset to DSPy format
+    4. Uses EP's test function as the GEPA metric
+    5. Runs GEPA optimization to find the best system prompt
+
+    The optimized system prompt can then be used with EP's rollout processor
+    for final evaluation.
     """
 
-    def __init__(self, test_fn: TestFunction) -> None:
+    def __init__(
+        self,
+        test_fn: TestFunction,
+        *,
+        # Dataset splitting
+        train_ratio: float = 0.8,
+        val_ratio: float = 0.1,
+        seed: int = 42,
+        # DSPy signature configuration
+        input_field: str = "problem",
+        output_field: str = "answer",
+        input_desc: str | None = None,
+        output_desc: str | None = None,
+        # DSPy module configuration
+        module_type: DSPyModuleType | str = DSPyModuleType.CHAIN_OF_THOUGHT,
+        module_factory: DSPyModuleFactory | None = None,
+        # Custom program (overrides automatic creation)
+        program: Module | None = None,
+    ) -> None:
         """
         Args:
             test_fn: The `@evaluation_test`-decorated function defining the eval.
+            train_ratio: Proportion of data for training (default 0.8)
+            val_ratio: Proportion of data for validation (default 0.1)
+            seed: Random seed for dataset splitting
+            input_field: Name of the input field in DSPy signature (default: "problem")
+            output_field: Name of the output field in DSPy signature (default: "answer")
+            input_desc: Optional description for the input field
+            output_desc: Optional description for the output field
+            module_type: Which DSPy module to use:
+                - PREDICT: Simple input → output
+                - CHAIN_OF_THOUGHT: Adds reasoning (default, good for complex tasks)
+                - PROGRAM_OF_THOUGHT: Generates code to solve problems
+            module_factory: Custom factory to create DSPy module. Overrides module_type.
+            program: Pre-built DSPy module. If provided, skips automatic creation.
+
+        Examples:
+            # Default: ChainOfThought for math
+            trainer = GEPATrainer(test_fn)
+
+            # Simple classification
+            trainer = GEPATrainer(
+                test_fn,
+                input_field="text",
+                output_field="label",
+                module_type=DSPyModuleType.PREDICT,
+            )
+
+            # Custom DSPy module
+            my_program = dspy.ChainOfThought(MySignature)
+            trainer = GEPATrainer(test_fn, program=my_program)
         """
         super().__init__(test_fn)
         self.ep_params: EPParameters = build_ep_parameters_from_test(test_fn)
 
+        # Store configuration
+        self._input_field = input_field
+        self._output_field = output_field
+
+        # Configure DSPy to use the same LLM as EP
+        configure_dspy_lm(self.ep_params)
+
+        # Wrap the EP test function as a GEPA metric
         self.metric = ep_test_to_gepa_metric(test_fn)
 
-        self.program = ...  # TODO @shreymodi1: converting between a program (dspy.Module) and rollout processors is a bit tricky. maybe start with single turn
+        # Load and split the dataset
+        self._rows: List[EvaluationRow] = self._load_dataset()
+        train_rows, val_rows, test_rows = train_val_test_split(
+            self._rows,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            seed=seed,
+        )
 
-        self.train_set, self.val_set, self.test_set = (
-            ...,
-            ...,
-            ...,
-        )  # TODO @shreymodi1. need to convert our input_dataset to a train set
+        # Extract the system prompt from the dataset (this is what GEPA will optimize!)
+        self._initial_system_prompt = extract_system_prompt_from_rows(self._rows)
+
+        # Debug: Print initial setup info
+        print("\n" + "=" * 80)
+        print("GEPA TRAINER INITIALIZATION")
+        print("=" * 80)
+        print(f"\n📊 Dataset loaded: {len(self._rows)} total rows")
+        print(f"   - Train: {len(train_rows)} rows")
+        print(f"   - Val: {len(val_rows)} rows")
+        print(f"   - Test: {len(test_rows)} rows")
+        print("\n📝 Initial System Prompt (what GEPA will optimize):")
+        print("-" * 40)
+        print(
+            self._initial_system_prompt[:500] + "..."
+            if self._initial_system_prompt and len(self._initial_system_prompt) > 500
+            else self._initial_system_prompt
+        )
+        print("-" * 40)
+
+        # Create or use provided DSPy program
+        if program is not None:
+            # Use the provided program directly
+            self.program: Module = program
+        else:
+            # Create DSPy program (mirrors SingleTurnRolloutProcessor)
+            # - system_prompt → signature.instructions (GEPA optimizes this!)
+            # - user message → input field
+            # - assistant response → output field
+            self.program = create_single_turn_program(
+                system_prompt=self._initial_system_prompt,
+                input_field=input_field,
+                output_field=output_field,
+                module_type=module_type,
+                input_desc=input_desc,
+                output_desc=output_desc,
+                module_factory=module_factory,
+            )
+
+        # Convert EP rows to DSPy Examples
+        self.train_set: List[Example] = evaluation_rows_to_dspy_examples(train_rows, input_field, output_field)
+        self.val_set: List[Example] = evaluation_rows_to_dspy_examples(val_rows, input_field, output_field)
+        self.test_set: List[Example] = evaluation_rows_to_dspy_examples(test_rows, input_field, output_field)
+
+        # Debug: Print example info
+        print("\n📦 DSPy Examples created:")
+        print(f"   Input field: '{input_field}', Output field: '{output_field}'")
+        if self.train_set:
+            ex = self.train_set[0]
+            print("\n   Sample train example:")
+            print(f"   - {input_field}: {str(getattr(ex, input_field, ''))[:200]}...")
+            print(f"   - {output_field}: {str(getattr(ex, output_field, ''))}")
+        print("=" * 80 + "\n")
+
+    def _load_dataset(self) -> List[EvaluationRow]:
+        """
+        Load the dataset from ep_params.
+
+        Supports:
+        - input_rows: Pre-constructed EvaluationRow objects
+        - input_dataset: Paths to JSONL files (requires dataset_adapter)
+        - input_messages: Raw message lists
+        """
+        ep = self.ep_params
+
+        # Case 1: Pre-constructed rows
+        if ep.input_rows:
+            return list(ep.input_rows)
+
+        # Case 2: Dataset paths with adapter
+        if ep.input_dataset and ep.dataset_adapter:
+            from eval_protocol.common_utils import load_jsonl
+
+            all_data: List[Dict[str, Any]] = []
+            dataset_paths = ep.input_dataset if isinstance(ep.input_dataset, list) else [ep.input_dataset]
+
+            for path in dataset_paths:
+                all_data.extend(load_jsonl(path))
+
+            # Apply max_dataset_rows limit
+            if ep.max_dataset_rows:
+                all_data = all_data[: ep.max_dataset_rows]
+
+            return ep.dataset_adapter(all_data)
+
+        # Case 3: Input messages (convert to rows)
+        if ep.input_messages:
+            from eval_protocol.models import Message
+
+            rows = []
+            for messages in ep.input_messages:
+                rows.append(EvaluationRow(messages=messages))
+            return rows
+
+        raise ValueError(
+            "No dataset found in ep_params. "
+            "Provide input_rows, input_dataset (with dataset_adapter), or input_messages."
+        )
+
+    @property
+    def initial_system_prompt(self) -> str | None:
+        """The original system prompt extracted from the dataset."""
+        return self._initial_system_prompt
+
+    def get_optimized_system_prompt(self, optimized_program: Module) -> str:
+        """
+        Extract the optimized system prompt from a GEPA-optimized program.
+
+        This can be used with EP's rollout processor via system_prompt_override.
+        """
+        # GEPA stores optimized instructions in the signature
+        return optimized_program.predict.signature.instructions
 
     def train(
         self,
-        auto: Literal["light", "medium", "heavy"] | None = None,
+        auto: Literal["light", "medium", "heavy"] | None = "light",
         max_full_evals: int | None = None,
         max_metric_calls: int | None = None,
         reflection_minibatch_size: int = 3,
@@ -68,7 +251,6 @@ class GEPATrainer(Trainer):
         wandb_init_kwargs: dict[str, Any] | None = None,
         track_best_outputs: bool = False,
         warn_on_score_mismatch: bool = True,
-        enable_tool_optimization: bool = False,
         use_mlflow: bool = False,
         seed: int | None = 0,
         gepa_kwargs: dict | None = None,
@@ -99,11 +281,43 @@ class GEPATrainer(Trainer):
             "wandb_init_kwargs": wandb_init_kwargs,
             "track_best_outputs": track_best_outputs,
             "warn_on_score_mismatch": warn_on_score_mismatch,
-            "enable_tool_optimization": enable_tool_optimization,
             "use_mlflow": use_mlflow,
             "seed": seed,
         }
         gepa_args.update(gepa_kwargs or {})
+
+        print("\n" + "=" * 80)
+        print("GEPA TRAINING STARTED")
+        print("=" * 80)
+        print(f"📋 Program type: {type(self.program).__name__}")
+
+        # Get signature - ChainOfThought stores it in .predict.signature
+        sig = None
+        if hasattr(self.program, "signature"):
+            sig = self.program.signature
+        elif hasattr(self.program, "predict") and hasattr(self.program.predict, "signature"):
+            sig = self.program.predict.signature
+
+        if sig:
+            print(f"📋 Signature: {sig}")
+            print("📋 Initial Instructions:")
+            print("-" * 40)
+            print(sig.instructions if sig.instructions else "None")
+            print("-" * 40)
+        else:
+            print("📋 Signature: N/A")
+
+        print(f"📋 Train set size: {len(self.train_set)}")
+        print(f"📋 Val set size: {len(self.val_set)}")
+        print(f"📋 Test set size: {len(self.test_set)}")
+        print(f"📋 GEPA auto mode: {gepa_args.get('auto', 'N/A')}")
+        print(f"📋 Reflection minibatch size: {gepa_args.get('reflection_minibatch_size', 3)}")
+        print("=" * 80 + "\n")
+
+        # Enable verbose logging from DSPy/GEPA
+        import logging
+
+        logging.getLogger("dspy.teleprompt.gepa.gepa").setLevel(logging.INFO)
 
         optimizer = GEPA(
             metric=self.metric,
@@ -116,22 +330,247 @@ class GEPATrainer(Trainer):
             valset=self.val_set,
         )
 
+        print("\n" + "=" * 80)
+        print("GEPA TRAINING COMPLETE")
+        print("=" * 80)
+
+        # Print detailed results if track_stats was enabled
+        if hasattr(optimized_program, "detailed_results"):
+            results = optimized_program.detailed_results
+            print("\n📊 OPTIMIZATION STATS:")
+            print(f"   Total metric calls: {results.total_metric_calls}")
+            print(f"   Full val evals: {results.num_full_val_evals}")
+            print(f"   Best candidate index: {results.best_idx}")
+            print(f"   Best val score: {results.val_aggregate_scores[results.best_idx]:.3f}")
+
+            print("\n📈 ALL CANDIDATE SCORES:")
+            for i, score in enumerate(results.val_aggregate_scores):
+                marker = " 🏆" if i == results.best_idx else ""
+                print(f"   Candidate {i}: {score:.3f}{marker}")
+
+        optimized_instructions = self.get_optimized_system_prompt(optimized_program)
+        print("\n🎯 OPTIMIZED SYSTEM PROMPT:")
+        print("-" * 60)
+        print(optimized_instructions)
+        print("-" * 60)
+
+        # Compare with initial
+        print("\n📝 COMPARISON:")
+        print(f"   Initial prompt length: {len(self._initial_system_prompt or '')} chars")
+        print(f"   Optimized prompt length: {len(optimized_instructions)} chars")
+        if self._initial_system_prompt != optimized_instructions:
+            print("   ✅ Prompt was CHANGED by GEPA")
+        else:
+            print("   ⚠️  Prompt was NOT changed (model may already be optimal or no failures to learn from)")
+
+        print("=" * 80 + "\n")
+
         return optimized_program
 
-    def evaluate(self, optimized_program: Module) -> list[EvaluationRow]:
-        # convert back to EP
+    def evaluate(
+        self,
+        optimized_program: Module,
+        num_threads: int = 32,
+        display_table: bool = True,
+        display_progress: bool = True,
+    ) -> dspy.evaluate.EvaluationResult:
+        """
+        Evaluate the optimized program on the test set using DSPy's Evaluate.
 
-        # and then just run our evaluation_test function on the optimized program.
+        Args:
+            optimized_program: The GEPA-optimized program
+            num_threads: Number of parallel threads for evaluation
+            display_table: Whether to display results table
+            display_progress: Whether to show progress bar
 
-        # OR we can evaluate using dspy.Evaluate
+        Returns:
+            DSPy EvaluationResult with score and per-example results
+        """
+        evaluator = dspy.Evaluate(
+            devset=self.test_set,
+            metric=self.metric,
+            num_threads=num_threads,
+            display_table=display_table,
+            display_progress=display_progress,
+        )
 
-        # evaluate = dspy.Evaluate(
-        #     devset=self.test_set,
-        #     metric=self.metric,
-        #     num_threads=32,
-        #     display_table=True,
-        #     display_progress=True
-        # )
+        return evaluator(optimized_program)
 
-        # return evaluate(self.optimized_program)
-        ...
+    def evaluate_baseline(
+        self,
+        num_threads: int = 32,
+        display_table: bool = True,
+        display_progress: bool = True,
+    ) -> dspy.evaluate.EvaluationResult:
+        """
+        Evaluate the unoptimized baseline program on the test set.
+
+        Useful for comparing before/after GEPA optimization.
+        """
+        return self.evaluate(
+            self.program,
+            num_threads=num_threads,
+            display_table=display_table,
+            display_progress=display_progress,
+        )
+
+    def _inject_system_prompt(self, rows: List[EvaluationRow], new_system_prompt: str) -> List[EvaluationRow]:
+        """
+        Create copies of rows with the system prompt replaced.
+        """
+        modified_rows = []
+        for row in rows:
+            new_row = row.model_copy(deep=True)
+            new_messages = []
+            system_found = False
+            for msg in new_row.messages:
+                if msg.role == "system" and not system_found:
+                    # Replace the first system message
+                    new_messages.append(Message(role="system", content=new_system_prompt))
+                    system_found = True
+                else:
+                    new_messages.append(msg)
+            # If no system message found, prepend one
+            if not system_found:
+                new_messages.insert(0, Message(role="system", content=new_system_prompt))
+            new_row.messages = new_messages
+            modified_rows.append(new_row)
+        return modified_rows
+
+    async def evaluate_with_ep(
+        self,
+        optimized_program: Module,
+        *,
+        use_test_set: bool = True,
+        max_concurrent_rollouts: int = 8,
+    ) -> Dict[str, Any]:
+        """
+        Run final evaluation through the normal EP infrastructure.
+
+        This uses the same LLM proxy (EP_LLM_API_BASE) and tracing as a normal
+        @evaluation_test job.
+
+        Args:
+            optimized_program: The GEPA-optimized program
+            use_test_set: If True, evaluate on test set. If False, use full dataset.
+            max_concurrent_rollouts: Maximum concurrent LLM calls
+
+        Returns:
+            Dict with evaluation results:
+            - 'rows': List of evaluated EvaluationRow objects
+            - 'score': Aggregate score
+            - 'optimized_prompt': The prompt used for evaluation
+        """
+        from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
+        from eval_protocol.pytest.execution import execute_pytest
+        from eval_protocol.logging import default_logger
+
+        # Get optimized system prompt
+        optimized_prompt = self.get_optimized_system_prompt(optimized_program)
+
+        print("\n" + "=" * 80)
+        print("RUNNING EP EVALUATION (with LLM proxy & tracing)")
+        print("=" * 80)
+        print(f"📋 Using optimized prompt ({len(optimized_prompt)} chars)")
+
+        # Get rows to evaluate
+        if use_test_set:
+            # Reconstruct test rows from test_set examples
+            _, _, test_rows = train_val_test_split(
+                self._rows,
+                train_ratio=0.5,  # Match the ratio used in training
+                val_ratio=0.3,
+                seed=42,
+            )
+            rows_to_eval = test_rows
+            print(f"📊 Evaluating on TEST SET: {len(rows_to_eval)} rows")
+        else:
+            rows_to_eval = self._rows
+            print(f"📊 Evaluating on FULL DATASET: {len(rows_to_eval)} rows")
+
+        # Inject optimized system prompt into rows
+        modified_rows = self._inject_system_prompt(rows_to_eval, optimized_prompt)
+
+        # Set up rollout processor config
+        completion_params = self.ep_params.completion_params
+        if isinstance(completion_params, list):
+            completion_params = completion_params[0] if completion_params else {}
+        completion_params = completion_params or {}
+
+        # Create semaphore for concurrency control
+        semaphore = asyncio.Semaphore(max_concurrent_rollouts)
+
+        config = RolloutProcessorConfig(
+            completion_params=completion_params,
+            mcp_config_path="",
+            server_script_path=None,
+            steps=30,
+            logger=default_logger,
+            semaphore=semaphore,
+            kwargs={},
+            exception_handler_config=None,
+        )
+
+        # Run rollouts through EP infrastructure (uses EP_LLM_API_BASE)
+        rollout_processor = SingleTurnRolloutProcessor()
+        rollout_processor.setup()
+
+        print("🚀 Running rollouts through EP infrastructure...")
+        print(f"   Model: {completion_params.get('model', 'N/A')}")
+
+        try:
+            # Execute rollouts
+            tasks = rollout_processor(modified_rows, config)
+            rolled_out_rows = await asyncio.gather(*tasks)
+
+            print(f"✅ Rollouts complete: {len(rolled_out_rows)} rows")
+
+            # Run evaluation function on each row
+            evaluated_rows = []
+            scores = []
+
+            for row in rolled_out_rows:
+                # Call the original test function for evaluation
+                evaluated_row = await execute_pytest(
+                    self.test_fn,
+                    processed_row=row,  # pyright: ignore[reportArgumentType]
+                )
+                evaluated_rows.append(evaluated_row)
+
+                # Extract score - evaluated_row is EvaluationRow from execute_pytest
+                if hasattr(evaluated_row, "evaluation_result") and evaluated_row.evaluation_result:  # pyright: ignore[reportAttributeAccessIssue]
+                    scores.append(evaluated_row.evaluation_result.score)  # pyright: ignore[reportAttributeAccessIssue]
+
+            # Calculate aggregate score
+            avg_score = sum(scores) / len(scores) if scores else 0.0
+
+            print("\n📊 EVALUATION RESULTS:")
+            print(f"   Total rows: {len(evaluated_rows)}")
+            print(f"   Aggregate score: {avg_score:.3f}")
+            print(f"   Passing: {sum(1 for s in scores if s >= 0.5)}/{len(scores)}")
+            print("=" * 80 + "\n")
+
+            return {
+                "rows": evaluated_rows,
+                "score": avg_score,
+                "scores": scores,
+                "optimized_prompt": optimized_prompt,
+            }
+
+        finally:
+            rollout_processor.cleanup()
+
+    def run_ep_evaluation(
+        self,
+        optimized_program: Module,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Synchronous wrapper for evaluate_with_ep.
+
+        Example:
+            trainer = GEPATrainer(test_fn)
+            optimized = trainer.train()
+            results = trainer.run_ep_evaluation(optimized)
+        """
+        return asyncio.run(self.evaluate_with_ep(optimized_program, **kwargs))

@@ -123,15 +123,14 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     completion_params=[
         {
             "max_tokens": 131000,
-            "extra_body": {"reasoning_effort": "low"},
-            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1-terminus",
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=0.8,
     num_runs=8,
-    max_dataset_rows=2,
+    max_dataset_rows=None,  # Use full dataset
     max_concurrent_rollouts=4,
     mode="pointwise",
 )
@@ -182,14 +181,31 @@ def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
 
 
 if __name__ == "__main__":
-    trainer = GEPATrainer(test_aime25_pointwise)
-    reflection_lm = build_reflection_lm("gpt-5")
+    import asyncio
+
+    trainer = GEPATrainer(
+        test_aime25_pointwise,
+        train_ratio=0.5,  # 50% for training (15 problems)
+        val_ratio=0.3,  # 30% for validation (9 problems)
+        # test_ratio = 20% (6 problems) - calculated automatically
+    )
+
+    # Use same Fireworks model for both main and reflection
+    reflection_lm = build_reflection_lm("fireworks_ai/accounts/fireworks/models/deepseek-v3p1-terminus")
 
     optimized_program = trainer.train(
-        num_threads=32,
+        num_threads=4,  # Reduced from 32 to avoid API timeouts
         track_stats=True,
-        reflection_minibatch_size=3,
+        reflection_minibatch_size=5,  # Reduced to limit concurrent requests
         reflection_lm=reflection_lm,
     )
 
+    # Option 1: Quick DSPy evaluation (doesn't use EP infrastructure)
+    print("\n=== DSPy Evaluation ===")
     print(trainer.evaluate(optimized_program))
+
+    # Option 2: Full EP evaluation (uses LLM proxy, Fireworks tracing, etc.)
+    # This goes through the normal @evaluation_test pipeline
+    print("\n=== EP Evaluation (with tracing) ===")
+    results = trainer.run_ep_evaluation(optimized_program)
+    print(f"Final EP Score: {results['score']:.3f}")
