@@ -550,7 +550,7 @@ class MetricResult(BaseModel):
     """
 
     is_score_valid: bool = True
-    score: float = Field(..., ge=0.0, le=1.0)
+    score: float = Field(..., description="The score for this metric.")
     reason: str
     data: Dict[str, Any] = Field(default_factory=dict, description="Optional extra metric data for debugging.")
 
