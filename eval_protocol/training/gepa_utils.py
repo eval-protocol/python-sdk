@@ -199,7 +199,7 @@ def ep_test_to_gepa_metric(
                 # No running loop - safe to use asyncio.run
                 evaluated_row = asyncio.run(result)
         else:
-            evaluated_row = result  # type: ignore[reportAssignmentType]
+            evaluated_row = result  # pyright: ignore[reportAssignmentType]
 
         # TODO: this is problematic. for groupwise, we will have to extend this to handle list[EvaluationRow]
 
