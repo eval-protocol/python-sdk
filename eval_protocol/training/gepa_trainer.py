@@ -153,6 +153,22 @@ class GEPATrainer(Trainer):
                 module_factory=module_factory,
             )
 
+        # Debug: Verify program structure
+        print("\n🔍 DEBUG [GEPATrainer] PROGRAM STRUCTURE:")
+        print(f"   Program type: {type(self.program).__name__}")
+        print(f"   Has .predict: {hasattr(self.program, 'predict')}")
+        if hasattr(self.program, "predict"):
+            print(f"   predict type: {type(self.program.predict).__name__}")
+            print(f"   predict.signature: {self.program.predict.signature}")
+            print(
+                f"   predict.signature.instructions (first 300 chars): {(self.program.predict.signature.instructions or '')[:300]}..."
+            )
+        print(f"   Named predictors: {[name for name, _ in self.program.named_predictors()]}")
+        for name, pred in self.program.named_predictors():
+            print(
+                f"     - '{name}': {pred.signature.instructions[:100] if pred.signature.instructions else 'None'}..."
+            )
+
         # Convert EP rows to DSPy Examples
         self.train_set: List[Example] = evaluation_rows_to_dspy_examples(train_rows, input_field, output_field)
         self.val_set: List[Example] = evaluation_rows_to_dspy_examples(val_rows, input_field, output_field)
@@ -347,6 +363,20 @@ class GEPATrainer(Trainer):
             for i, score in enumerate(results.val_aggregate_scores):
                 marker = " 🏆" if i == results.best_idx else ""
                 print(f"   Candidate {i}: {score:.3f}{marker}")
+
+            # Show all candidate instructions
+            print("\n📝 ALL CANDIDATE INSTRUCTIONS:")
+            if hasattr(results, "candidates") and results.candidates:
+                for i, cand_prog in enumerate(results.candidates):
+                    marker = " 🏆 BEST" if i == results.best_idx else ""
+                    print(f"\n   --- Candidate {i}{marker} (score: {results.val_aggregate_scores[i]:.3f}) ---")
+                    # Get instructions from the candidate program
+                    for name, pred in cand_prog.named_predictors():
+                        instr = pred.signature.instructions or ""
+                        print(f"   Predictor '{name}' instructions (first 500 chars):")
+                        print(f"   {instr[:500]}...")
+                        if len(instr) > 500:
+                            print(f"   ... ({len(instr)} total chars)")
 
         optimized_instructions = self.get_optimized_system_prompt(optimized_program)
         print("\n🎯 OPTIMIZED SYSTEM PROMPT:")

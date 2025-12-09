@@ -110,6 +110,14 @@ def gold_and_pred_to_row(gold: Example, pred: Prediction) -> EvaluationRow:
 
     content = pred.get("answer", "")
 
+    # Debug: print conversion details (only first few)
+    import os
+
+    if os.environ.get("EP_DEBUG_GEPA"):
+        print("\n  [gold_and_pred_to_row] Converting:")
+        print(f"    gold.answer type: {type(gt)}, value preview: {str(gt)[:100]}...")
+        print(f"    pred.answer type: {type(content)}, value preview: {str(content)[:100]}...")
+
     return EvaluationRow(
         messages=[
             Message(role="assistant", content=str(content))
@@ -325,6 +333,14 @@ def create_single_turn_program(
             module_factory=lambda sig: MyCustomModule(sig)
         )
     """
+    print("\n" + "⚙️" * 20)
+    print("DEBUG [create_single_turn_program] CREATING DSPY MODULE")
+    print("⚙️" * 20)
+    print(f"  input_field: '{input_field}'")
+    print(f"  output_field: '{output_field}'")
+    print(f"  module_type: {module_type}")
+    print(f"  system_prompt (first 200 chars): {(system_prompt or '')[:200]}...")
+
     # Create the signature
     sig = create_signature(
         input_field=input_field,
@@ -334,8 +350,12 @@ def create_single_turn_program(
         output_desc=output_desc,
     )
 
+    print(f"\n  Created signature: {sig}")
+    print(f"  Signature instructions (first 200 chars): {(sig.instructions or '')[:200]}...")
+
     # Use custom factory if provided
     if module_factory is not None:
+        print("  Using custom module factory")
         return module_factory(sig)
 
     # Convert string to enum if needed
@@ -344,13 +364,21 @@ def create_single_turn_program(
 
     # Create the appropriate module type
     if module_type == DSPyModuleType.PREDICT:
-        return dspy.Predict(sig)
+        program = dspy.Predict(sig)
     elif module_type == DSPyModuleType.CHAIN_OF_THOUGHT:
-        return dspy.ChainOfThought(sig)
+        program = dspy.ChainOfThought(sig)
     elif module_type == DSPyModuleType.PROGRAM_OF_THOUGHT:
-        return dspy.ProgramOfThought(sig)
+        program = dspy.ProgramOfThought(sig)
     else:
         raise ValueError(f"Unknown module type: {module_type}")
+
+    print(f"\n  Created module: {type(program).__name__}")
+    print(f"  Named predictors: {[name for name, _ in program.named_predictors()]}")
+    for name, pred in program.named_predictors():
+        print(f"    '{name}' signature.instructions (first 200 chars): {(pred.signature.instructions or '')[:200]}...")
+    print("⚙️" * 20 + "\n")
+
+    return program
 
 
 def configure_dspy_lm(ep_params: EPParameters) -> None:
