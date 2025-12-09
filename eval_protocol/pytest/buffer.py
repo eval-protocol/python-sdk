@@ -71,6 +71,12 @@ class MicroBatchDataBuffer:
         Flush any remaining samples in the buffer.
         """
         async with self.lock:
+            # Also flush pending (incomplete) samples to avoid data loss
+            if self.pending_samples:
+                for rows in self.pending_samples.values():
+                    self.completed_samples_buffer.append(rows)
+                self.pending_samples.clear()
+
             if self.completed_samples_buffer:
                 await self._flush_unsafe()
 
