@@ -279,7 +279,13 @@ def _validate_evaluator_locally(
     docker_build_extra: str,
     docker_run_extra: str,
 ) -> bool:
-    """Run pytest locally for the selected evaluation test to validate the evaluator."""
+    """Run pytest locally for the selected evaluation test to validate the evaluator.
+
+    The pytest helpers always enforce a small success threshold (0.01) for
+    evaluation_test-based suites so that an evaluation run where all scores are
+    0.0 will naturally fail with a non-zero pytest exit code, which we then treat
+    as a failed validator.
+    """
     if not selected_test_file or not selected_test_func:
         # No local test associated; skip validation but warn the user.
         print("Warning: Could not resolve a local evaluation test for this evaluator; skipping local validation.")
@@ -702,7 +708,7 @@ def _create_rft_job(
     print(f"Prepared RFT job for evaluator '{evaluator_id}' using dataset '{dataset_id}'")
     if getattr(args, "evaluation_dataset", None):
         body["evaluationDataset"] = args.evaluation_dataset
-    
+
     output_model_arg = getattr(args, "output_model", None)
     if output_model_arg:
         if len(output_model_arg) > 63:

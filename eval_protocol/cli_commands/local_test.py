@@ -38,7 +38,9 @@ def _build_docker_image(dockerfile_path: str, image_tag: str, build_extras: List
 def _run_pytest_host(pytest_target: str) -> int:
     """Run pytest against a target on the host and return its exit code."""
     print(f"Running locally: pytest {pytest_target} -vs")
-    proc = subprocess.run([sys.executable, "-m", "pytest", pytest_target, "-vs"])
+    # Always enforce a small success threshold for evaluation_test-based suites so that runs with all-zero scores fail.
+    cmd = [sys.executable, "-m", "pytest", "--ep-success-threshold", "0.01", pytest_target, "-vs"]
+    proc = subprocess.run(cmd)
     return proc.returncode
 
 
@@ -69,6 +71,22 @@ def _run_pytest_in_docker(
         "-w",
         workdir,
     ]
+
+    # If EP_SUMMARY_JSON is set on the host, mirror it into the container so that
+    # pytest evaluation tests can write summary artifacts that are visible to the
+    # host. We map paths under the host logs directory (~/.eval_protocol) into the
+    # mounted container home directory.
+    host_summary_path = os.environ.get("EP_SUMMARY_JSON")
+    if host_summary_path:
+        try:
+            rel_path = os.path.relpath(host_summary_path, host_logs_dir)
+            # Only forward the variable when the summary path is inside the logs dir.
+            if not rel_path.startswith(os.pardir):
+                container_summary_path = os.path.join("/container_home/.eval_protocol", rel_path)
+                cmd += ["-e", f"EP_SUMMARY_JSON={container_summary_path}"]
+        except Exception:
+            # Best-effort only; do not fail docker execution if we can't map the path.
+            pass
     # Try to match host user to avoid permission problems on mounted volume
     try:
         uid = os.getuid()  # type: ignore[attr-defined]
@@ -78,7 +96,12 @@ def _run_pytest_in_docker(
         pass
     if run_extras:
         cmd += run_extras
-    cmd += [image_tag, "pytest", pytest_target, "-vs"]
+
+    # Build pytest command, always enforcing the same small success threshold as
+    # the host runner so that all-zero score runs fail consistently.
+    pytest_cmd: list[str] = ["pytest", "--ep-success-threshold", "0.01", pytest_target, "-vs"]
+
+    cmd += [image_tag] + pytest_cmd
     print("Running in Docker:", " ".join(cmd))
     try:
         proc = subprocess.run(cmd)
