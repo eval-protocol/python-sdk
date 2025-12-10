@@ -2,7 +2,17 @@
 
 from unittest.mock import Mock, patch
 
-from eval_protocol.models import EvaluationRow, EvaluateResult, EvalMetadata, ExecutionMetadata, InputMetadata, Message
+import pytest
+
+from eval_protocol.models import (
+    EvaluationRow,
+    EvaluateResult,
+    EvalMetadata,
+    EvaluationThreshold,
+    ExecutionMetadata,
+    InputMetadata,
+    Message,
+)
 from eval_protocol.pytest.evaluation_test_postprocess import postprocess
 from eval_protocol.stats.confidence_intervals import compute_fixed_set_mu_ci
 
@@ -205,6 +215,55 @@ class TestPostprocess:
 
         # Should still call logger.log for all rows
         assert mock_logger.log.call_count == 2
+
+    @patch.dict("os.environ", {"EP_NO_UPLOAD": "1"})  # Disable uploads
+    def test_threshold_all_zero_scores_fail(self):
+        """When all scores are 0.0 and threshold.success is 0.01, postprocess should fail."""
+        all_results = [
+            [self.create_test_row(0.0), self.create_test_row(0.0)],
+        ]
+
+        mock_logger = Mock()
+        threshold = EvaluationThreshold(success=0.01, standard_error=None)
+
+        with pytest.raises(AssertionError) as excinfo:
+            postprocess(
+                all_results=all_results,
+                aggregation_method="mean",
+                threshold=threshold,
+                active_logger=mock_logger,
+                mode="pointwise",
+                completion_params={"model": "test-model"},
+                test_func_name="test_threshold_all_zero",
+                num_runs=1,
+                experiment_duration_seconds=10.0,
+            )
+
+        # Sanity check on the assertion message
+        assert "below threshold" in str(excinfo.value)
+
+    @patch.dict("os.environ", {"EP_NO_UPLOAD": "1"})  # Disable uploads
+    def test_threshold_equal_score_passes(self):
+        """When agg_score equals threshold.success (0.01), postprocess should pass."""
+        all_results = [
+            [self.create_test_row(0.01)],
+        ]
+
+        mock_logger = Mock()
+        threshold = EvaluationThreshold(success=0.01, standard_error=None)
+
+        # Should not raise
+        postprocess(
+            all_results=all_results,
+            aggregation_method="mean",
+            threshold=threshold,
+            active_logger=mock_logger,
+            mode="pointwise",
+            completion_params={"model": "test-model"},
+            test_func_name="test_threshold_equal_score",
+            num_runs=1,
+            experiment_duration_seconds=10.0,
+        )
 
 
 class TestBootstrapEquivalence:
