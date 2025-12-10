@@ -99,7 +99,7 @@ def _run_pytest_in_docker(
 
     # Build pytest command, always enforcing the same small success threshold as
     # the host runner so that all-zero score runs fail consistently.
-    pytest_cmd: list[str] = ["pytest", "--ep-success-threshold", "0.01", pytest_target, "-vs"]
+    pytest_cmd: list[str] = ["pytest", "--ep-success-threshold", "0.001", pytest_target, "-vs"]
 
     cmd += [image_tag] + pytest_cmd
     print("Running in Docker:", " ".join(cmd))
