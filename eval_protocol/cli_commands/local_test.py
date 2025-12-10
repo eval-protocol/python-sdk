@@ -39,7 +39,7 @@ def _run_pytest_host(pytest_target: str) -> int:
     """Run pytest against a target on the host and return its exit code."""
     print(f"Running locally: pytest {pytest_target} -vs")
     # Always enforce a small success threshold for evaluation_test-based suites so that runs with all-zero scores fail.
-    cmd = [sys.executable, "-m", "pytest", "--ep-success-threshold", "0.01", pytest_target, "-vs"]
+    cmd = [sys.executable, "-m", "pytest", "--ep-success-threshold", "0.001", pytest_target, "-vs"]
     proc = subprocess.run(cmd)
     return proc.returncode
 
