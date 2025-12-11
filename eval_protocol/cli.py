@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
+import eval_protocol
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,6 +38,7 @@ def parse_args(args=None):
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(description="eval-protocol: Tools for evaluation and reward modeling")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--version", action="version", version=f"eval-protocol {eval_protocol.__version__}")
     parser.add_argument(
         "--profile",
         help="Fireworks profile to use (reads ~/.fireworks/profiles/<name>/auth.ini and settings.ini)",

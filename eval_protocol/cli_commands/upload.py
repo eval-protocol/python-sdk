@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict
 
-from eval_protocol.auth import get_fireworks_api_key
+from eval_protocol.auth import get_fireworks_api_key, get_fireworks_user_info
 from eval_protocol.platform_api import create_or_update_fireworks_secret
 
 from eval_protocol.evaluation import create_evaluation
@@ -14,11 +14,10 @@ from .utils import (
     _build_entry_point,
     _build_evaluator_dashboard_url,
     _discover_and_select_tests,
-    _discover_tests,
     _ensure_account_id,
     _normalize_evaluator_id,
-    _prompt_select,
 )
+import uuid
 
 
 def _to_pyargs_nodeid(file_path: str, func_name: str) -> str | None:
@@ -227,6 +226,16 @@ def upload_command(args: argparse.Namespace) -> int:
         if fw_api_key_value and "FIREWORKS_API_KEY" not in secrets_from_file:
             secrets_from_file["FIREWORKS_API_KEY"] = fw_api_key_value
 
+        # reload the fireworks api key again, either from the .env file or get_fireworks_api_key()
+        # create a personal secret for the fireworks api key to avoid conflicts with other tenants.
+        # when create rft, we will explicitly set whose api key to use.
+        fw_api_key_value = secrets_from_file.get("FIREWORKS_API_KEY", None)
+        if fw_api_key_value:
+            user_info = get_fireworks_user_info(api_key=fw_api_key_value)
+            username = user_info.get("username", f"UNKNOWN_USER_{str(uuid.uuid4())[:5]}")
+            clean_username = re.sub(r"[^a-zA-Z0-9_]", "_", username).upper()
+            personal_fw_secret_name = f"FW_KEY_{clean_username}"
+            secrets_from_file[personal_fw_secret_name] = fw_api_key_value
         if fw_account_id and secrets_from_file:
             print(f"Found {len(secrets_from_file)} API keys to upload as Fireworks secrets...")
             if secrets_from_env_file and os.path.exists(env_file_path):

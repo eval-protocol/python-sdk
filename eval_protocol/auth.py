@@ -287,6 +287,49 @@ def get_fireworks_api_base() -> str:
     return api_base
 
 
+def get_fireworks_user_info(
+    api_key: Optional[str] = None,
+    api_base: Optional[str] = None,
+) -> Dict[str, str]:
+    """
+    Calls the Fireworks API verify endpoint to retrieve user info (username, email, account_id).
+    Returns a dict with keys: 'account_id', 'user_name', 'email'. Values are strings (empty if missing).
+    """
+    try:
+        resolved_key = api_key or get_fireworks_api_key()
+        if not resolved_key:
+            return {}
+        resolved_base = api_base or get_fireworks_api_base()
+
+        from .common_utils import get_user_agent
+
+        url = f"{resolved_base.rstrip('/')}/verifyApiKey"
+        headers = {
+            "Authorization": f"Bearer {resolved_key}",
+            "User-Agent": get_user_agent(),
+        }
+        resp = requests.get(url, headers=headers, timeout=10)
+
+        if resp.status_code != 200:
+            logger.debug("verifyApiKey returned status %s", resp.status_code)
+            return {}
+
+        results = {}
+        # Header keys could vary in case
+        for k, v in resp.headers.items():
+            k_lower = k.lower()
+            if k_lower == "x-fireworks-account-id":
+                results["account_id"] = v.strip()
+            elif k_lower == "x-fireworks-developer-email":
+                results["developer_email"] = v.strip()
+                results["username"] = v.strip().split("@")[0]
+        
+        return results
+    except Exception as e:
+        logger.debug("Failed to get user info via verifyApiKey: %s", e)
+        return {}
+
+
 def verify_api_key_and_get_account_id(
     api_key: Optional[str] = None,
     api_base: Optional[str] = None,
@@ -302,30 +345,5 @@ def verify_api_key_and_get_account_id(
     Returns:
         The resolved account id if verification succeeds and the header is present; otherwise None.
     """
-    try:
-        resolved_key = api_key or get_fireworks_api_key()
-        if not resolved_key:
-            return None
-        resolved_base = api_base or get_fireworks_api_base()
-
-        from .common_utils import get_user_agent
-
-        url = f"{resolved_base.rstrip('/')}/verifyApiKey"
-        headers = {
-            "Authorization": f"Bearer {resolved_key}",
-            "User-Agent": get_user_agent(),
-        }
-        resp = requests.get(url, headers=headers, timeout=10)
-
-        if resp.status_code != 200:
-            logger.debug("verifyApiKey returned status %s", resp.status_code)
-            return None
-        # Header keys could vary in case; requests provides case-insensitive dict
-        account_id = resp.headers.get("x-fireworks-account-id") or resp.headers.get("X-Fireworks-Account-Id")
-        if account_id and account_id.strip():
-            logger.debug("Resolved FIREWORKS_ACCOUNT_ID via verifyApiKey: %s", account_id)
-            return account_id.strip()
-        return None
-    except Exception as e:
-        logger.debug("Failed to verify API key for account id resolution: %s", e)
-        return None
+    info = get_fireworks_user_info(api_key, api_base)
+    return info.get("account_id")
