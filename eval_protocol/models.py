@@ -1195,6 +1195,8 @@ class MCPMultiClientConfiguration(BaseModel):
 class EPParameters(BaseModel):
     """The parameters of an `@evaluation_test`. Used for trainable integrations."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     completion_params: Any = None
     input_messages: Any = None
     input_dataset: Any = None

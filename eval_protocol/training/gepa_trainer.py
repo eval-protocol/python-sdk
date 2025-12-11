@@ -117,23 +117,6 @@ class GEPATrainer(Trainer):
         # Extract the system prompt from the dataset (this is what GEPA will optimize!)
         self._initial_system_prompt = extract_system_prompt_from_rows(self._rows)
 
-        # Debug: Print initial setup info
-        print("\n" + "=" * 80)
-        print("GEPA TRAINER INITIALIZATION")
-        print("=" * 80)
-        print(f"\n📊 Dataset loaded: {len(self._rows)} total rows")
-        print(f"   - Train: {len(train_rows)} rows")
-        print(f"   - Val: {len(val_rows)} rows")
-        print(f"   - Test: {len(test_rows)} rows")
-        print("\n📝 Initial System Prompt (what GEPA will optimize):")
-        print("-" * 40)
-        print(
-            self._initial_system_prompt[:500] + "..."
-            if self._initial_system_prompt and len(self._initial_system_prompt) > 500
-            else self._initial_system_prompt
-        )
-        print("-" * 40)
-
         # Create or use provided DSPy program
         if program is not None:
             # Use the provided program directly
@@ -153,36 +136,10 @@ class GEPATrainer(Trainer):
                 module_factory=module_factory,
             )
 
-        # Debug: Verify program structure
-        print("\n🔍 DEBUG [GEPATrainer] PROGRAM STRUCTURE:")
-        print(f"   Program type: {type(self.program).__name__}")
-        print(f"   Has .predict: {hasattr(self.program, 'predict')}")
-        if hasattr(self.program, "predict"):
-            print(f"   predict type: {type(self.program.predict).__name__}")
-            print(f"   predict.signature: {self.program.predict.signature}")
-            print(
-                f"   predict.signature.instructions (first 300 chars): {(self.program.predict.signature.instructions or '')[:300]}..."
-            )
-        print(f"   Named predictors: {[name for name, _ in self.program.named_predictors()]}")
-        for name, pred in self.program.named_predictors():
-            print(
-                f"     - '{name}': {pred.signature.instructions[:100] if pred.signature.instructions else 'None'}..."
-            )
-
         # Convert EP rows to DSPy Examples
         self.train_set: List[Example] = evaluation_rows_to_dspy_examples(train_rows, input_field, output_field)
         self.val_set: List[Example] = evaluation_rows_to_dspy_examples(val_rows, input_field, output_field)
         self.test_set: List[Example] = evaluation_rows_to_dspy_examples(test_rows, input_field, output_field)
-
-        # Debug: Print example info
-        print("\n📦 DSPy Examples created:")
-        print(f"   Input field: '{input_field}', Output field: '{output_field}'")
-        if self.train_set:
-            ex = self.train_set[0]
-            print("\n   Sample train example:")
-            print(f"   - {input_field}: {str(getattr(ex, input_field, ''))[:200]}...")
-            print(f"   - {output_field}: {str(getattr(ex, output_field, ''))}")
-        print("=" * 80 + "\n")
 
     def _load_dataset(self) -> List[EvaluationRow]:
         """
@@ -241,7 +198,13 @@ class GEPATrainer(Trainer):
         This can be used with EP's rollout processor via system_prompt_override.
         """
         # GEPA stores optimized instructions in the signature
-        return optimized_program.predict.signature.instructions
+        # Handle both PREDICT (has .signature directly) and ChainOfThought (has .predict.signature)
+        if hasattr(optimized_program, "signature"):
+            return optimized_program.signature.instructions  # pyright: ignore[reportAttributeAccessIssue]
+        elif hasattr(optimized_program, "predict") and hasattr(optimized_program.predict, "signature"):  # pyright: ignore[reportAttributeAccessIssue]
+            return optimized_program.predict.signature.instructions  # pyright: ignore[reportAttributeAccessIssue]
+        else:
+            raise ValueError("Could not find signature.instructions on the optimized program")
 
     def train(
         self,
@@ -302,39 +265,6 @@ class GEPATrainer(Trainer):
         }
         gepa_args.update(gepa_kwargs or {})
 
-        print("\n" + "=" * 80)
-        print("GEPA TRAINING STARTED")
-        print("=" * 80)
-        print(f"📋 Program type: {type(self.program).__name__}")
-
-        # Get signature - ChainOfThought stores it in .predict.signature
-        sig = None
-        if hasattr(self.program, "signature"):
-            sig = self.program.signature
-        elif hasattr(self.program, "predict") and hasattr(self.program.predict, "signature"):
-            sig = self.program.predict.signature
-
-        if sig:
-            print(f"📋 Signature: {sig}")
-            print("📋 Initial Instructions:")
-            print("-" * 40)
-            print(sig.instructions if sig.instructions else "None")
-            print("-" * 40)
-        else:
-            print("📋 Signature: N/A")
-
-        print(f"📋 Train set size: {len(self.train_set)}")
-        print(f"📋 Val set size: {len(self.val_set)}")
-        print(f"📋 Test set size: {len(self.test_set)}")
-        print(f"📋 GEPA auto mode: {gepa_args.get('auto', 'N/A')}")
-        print(f"📋 Reflection minibatch size: {gepa_args.get('reflection_minibatch_size', 3)}")
-        print("=" * 80 + "\n")
-
-        # Enable verbose logging from DSPy/GEPA
-        import logging
-
-        logging.getLogger("dspy.teleprompt.gepa.gepa").setLevel(logging.INFO)
-
         optimizer = GEPA(
             metric=self.metric,
             **gepa_args,
@@ -346,55 +276,6 @@ class GEPATrainer(Trainer):
             valset=self.val_set,
         )
 
-        print("\n" + "=" * 80)
-        print("GEPA TRAINING COMPLETE")
-        print("=" * 80)
-
-        # Print detailed results if track_stats was enabled
-        if hasattr(optimized_program, "detailed_results"):
-            results = optimized_program.detailed_results
-            print("\n📊 OPTIMIZATION STATS:")
-            print(f"   Total metric calls: {results.total_metric_calls}")
-            print(f"   Full val evals: {results.num_full_val_evals}")
-            print(f"   Best candidate index: {results.best_idx}")
-            print(f"   Best val score: {results.val_aggregate_scores[results.best_idx]:.3f}")
-
-            print("\n📈 ALL CANDIDATE SCORES:")
-            for i, score in enumerate(results.val_aggregate_scores):
-                marker = " 🏆" if i == results.best_idx else ""
-                print(f"   Candidate {i}: {score:.3f}{marker}")
-
-            # Show all candidate instructions
-            print("\n📝 ALL CANDIDATE INSTRUCTIONS:")
-            if hasattr(results, "candidates") and results.candidates:
-                for i, cand_prog in enumerate(results.candidates):
-                    marker = " 🏆 BEST" if i == results.best_idx else ""
-                    print(f"\n   --- Candidate {i}{marker} (score: {results.val_aggregate_scores[i]:.3f}) ---")
-                    # Get instructions from the candidate program
-                    for name, pred in cand_prog.named_predictors():
-                        instr = pred.signature.instructions or ""
-                        print(f"   Predictor '{name}' instructions (first 500 chars):")
-                        print(f"   {instr[:500]}...")
-                        if len(instr) > 500:
-                            print(f"   ... ({len(instr)} total chars)")
-
-        optimized_instructions = self.get_optimized_system_prompt(optimized_program)
-        print("\n🎯 OPTIMIZED SYSTEM PROMPT:")
-        print("-" * 60)
-        print(optimized_instructions)
-        print("-" * 60)
-
-        # Compare with initial
-        print("\n📝 COMPARISON:")
-        print(f"   Initial prompt length: {len(self._initial_system_prompt or '')} chars")
-        print(f"   Optimized prompt length: {len(optimized_instructions)} chars")
-        if self._initial_system_prompt != optimized_instructions:
-            print("   ✅ Prompt was CHANGED by GEPA")
-        else:
-            print("   ⚠️  Prompt was NOT changed (model may already be optimal or no failures to learn from)")
-
-        print("=" * 80 + "\n")
-
         return optimized_program
 
     def evaluate(
@@ -403,7 +284,7 @@ class GEPATrainer(Trainer):
         num_threads: int = 32,
         display_table: bool = True,
         display_progress: bool = True,
-    ) -> dspy.evaluate.EvaluationResult:
+    ) -> Any:  # Returns dspy.evaluate.EvaluationResult
         """
         Evaluate the optimized program on the test set using DSPy's Evaluate.
 
@@ -431,7 +312,7 @@ class GEPATrainer(Trainer):
         num_threads: int = 32,
         display_table: bool = True,
         display_progress: bool = True,
-    ) -> dspy.evaluate.EvaluationResult:
+    ) -> Any:  # Returns dspy.evaluate.EvaluationResult
         """
         Evaluate the unoptimized baseline program on the test set.
 
@@ -498,11 +379,6 @@ class GEPATrainer(Trainer):
         # Get optimized system prompt
         optimized_prompt = self.get_optimized_system_prompt(optimized_program)
 
-        print("\n" + "=" * 80)
-        print("RUNNING EP EVALUATION (with LLM proxy & tracing)")
-        print("=" * 80)
-        print(f"📋 Using optimized prompt ({len(optimized_prompt)} chars)")
-
         # Get rows to evaluate
         if use_test_set:
             # Reconstruct test rows from test_set examples
@@ -513,10 +389,8 @@ class GEPATrainer(Trainer):
                 seed=42,
             )
             rows_to_eval = test_rows
-            print(f"📊 Evaluating on TEST SET: {len(rows_to_eval)} rows")
         else:
             rows_to_eval = self._rows
-            print(f"📊 Evaluating on FULL DATASET: {len(rows_to_eval)} rows")
 
         # Inject optimized system prompt into rows
         modified_rows = self._inject_system_prompt(rows_to_eval, optimized_prompt)
@@ -545,15 +419,10 @@ class GEPATrainer(Trainer):
         rollout_processor = SingleTurnRolloutProcessor()
         rollout_processor.setup()
 
-        print("🚀 Running rollouts through EP infrastructure...")
-        print(f"   Model: {completion_params.get('model', 'N/A')}")
-
         try:
             # Execute rollouts
             tasks = rollout_processor(modified_rows, config)
             rolled_out_rows = await asyncio.gather(*tasks)
-
-            print(f"✅ Rollouts complete: {len(rolled_out_rows)} rows")
 
             # Run evaluation function on each row
             evaluated_rows = []
@@ -573,12 +442,6 @@ class GEPATrainer(Trainer):
 
             # Calculate aggregate score
             avg_score = sum(scores) / len(scores) if scores else 0.0
-
-            print("\n📊 EVALUATION RESULTS:")
-            print(f"   Total rows: {len(evaluated_rows)}")
-            print(f"   Aggregate score: {avg_score:.3f}")
-            print(f"   Passing: {sum(1 for s in scores if s >= 0.5)}/{len(scores)}")
-            print("=" * 80 + "\n")
 
             return {
                 "rows": evaluated_rows,

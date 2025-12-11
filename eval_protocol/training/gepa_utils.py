@@ -1,4 +1,3 @@
-import os
 from typing import Any, Optional, Tuple
 
 import dspy
@@ -110,14 +109,6 @@ def gold_and_pred_to_row(gold: Example, pred: Prediction) -> EvaluationRow:
 
     content = pred.get("answer", "")
 
-    # Debug: print conversion details (only first few)
-    import os
-
-    if os.environ.get("EP_DEBUG_GEPA"):
-        print("\n  [gold_and_pred_to_row] Converting:")
-        print(f"    gold.answer type: {type(gt)}, value preview: {str(gt)[:100]}...")
-        print(f"    pred.answer type: {type(content)}, value preview: {str(content)[:100]}...")
-
     return EvaluationRow(
         messages=[
             Message(role="assistant", content=str(content))
@@ -160,11 +151,6 @@ def ep_test_to_gepa_metric(
     import asyncio
     import inspect
 
-    # Counter for debugging
-    call_count = [0]
-    DEBUG_METRIC = True  # Set to False to disable metric debug output
-    DEBUG_VERBOSE = True  # Set to True to print ALL calls (can be very verbose!)
-
     def metric(
         gold: Example,
         pred: Prediction,
@@ -172,18 +158,6 @@ def ep_test_to_gepa_metric(
         pred_name: Optional[str] = None,
         pred_trace: Optional[DSPyTrace] = None,
     ) -> ScoreWithFeedback:
-        call_count[0] += 1
-
-        should_print = DEBUG_METRIC and (DEBUG_VERBOSE or call_count[0] <= 3)
-
-        if should_print:
-            print(f"\n🔍 METRIC CALL #{call_count[0]}")
-            print("-" * 40)
-            print(f"   Gold (expected): {gold.get('answer', 'N/A')}")
-            print(f"   Pred (model):    {str(pred.get('answer', 'N/A'))[:200]}")
-            if hasattr(pred, "reasoning") and pred.reasoning:
-                print(f"   Reasoning:       {str(pred.reasoning)[:300]}...")
-
         row = gold_and_pred_to_row(gold, pred)
 
         # Call the test function - handle both sync and async
@@ -212,12 +186,6 @@ def ep_test_to_gepa_metric(
         # TODO: this is problematic. for groupwise, we will have to extend this to handle list[EvaluationRow]
 
         score_result = row_to_prediction(evaluated_row)
-
-        if should_print:
-            print(f"   Score:           {score_result.score}")
-            print(f"   Feedback:        {str(score_result.feedback)[:200]}")
-            print("-" * 40)
-
         return score_result
 
     return metric
@@ -333,14 +301,6 @@ def create_single_turn_program(
             module_factory=lambda sig: MyCustomModule(sig)
         )
     """
-    print("\n" + "⚙️" * 20)
-    print("DEBUG [create_single_turn_program] CREATING DSPY MODULE")
-    print("⚙️" * 20)
-    print(f"  input_field: '{input_field}'")
-    print(f"  output_field: '{output_field}'")
-    print(f"  module_type: {module_type}")
-    print(f"  system_prompt (first 200 chars): {(system_prompt or '')[:200]}...")
-
     # Create the signature
     sig = create_signature(
         input_field=input_field,
@@ -350,12 +310,8 @@ def create_single_turn_program(
         output_desc=output_desc,
     )
 
-    print(f"\n  Created signature: {sig}")
-    print(f"  Signature instructions (first 200 chars): {(sig.instructions or '')[:200]}...")
-
     # Use custom factory if provided
     if module_factory is not None:
-        print("  Using custom module factory")
         return module_factory(sig)
 
     # Convert string to enum if needed
@@ -371,12 +327,6 @@ def create_single_turn_program(
         program = dspy.ProgramOfThought(sig)
     else:
         raise ValueError(f"Unknown module type: {module_type}")
-
-    print(f"\n  Created module: {type(program).__name__}")
-    print(f"  Named predictors: {[name for name, _ in program.named_predictors()]}")
-    for name, pred in program.named_predictors():
-        print(f"    '{name}' signature.instructions (first 200 chars): {(pred.signature.instructions or '')[:200]}...")
-    print("⚙️" * 20 + "\n")
 
     return program
 
