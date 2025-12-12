@@ -4,6 +4,36 @@ from types import SimpleNamespace
 import pytest
 
 
+def test_find_dockerfiles_top_level_only(tmp_path, monkeypatch):
+    # Project root with both top-level and nested Dockerfiles – only top-level should be returned.
+    project = tmp_path / "proj"
+    project.mkdir()
+    top_level = project / "Dockerfile"
+    top_level.write_text("FROM python:3.11-slim\n", encoding="utf-8")
+    nested_dir = project / "nested"
+    nested_dir.mkdir()
+    (nested_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+
+    from eval_protocol.cli_commands import local_test as lt
+
+    dockerfiles = lt._find_dockerfiles(str(project))
+    assert dockerfiles == [str(top_level)]
+
+
+def test_find_dockerfiles_ignores_nested_only(tmp_path, monkeypatch):
+    # Project root without top-level Dockerfile but with nested ones – should return empty.
+    project = tmp_path / "proj"
+    project.mkdir()
+    nested_dir = project / "nested"
+    nested_dir.mkdir()
+    (nested_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+
+    from eval_protocol.cli_commands import local_test as lt
+
+    dockerfiles = lt._find_dockerfiles(str(project))
+    assert dockerfiles == []
+
+
 def test_local_test_runs_host_pytest_with_entry(tmp_path, monkeypatch):
     project = tmp_path / "proj"
     project.mkdir()

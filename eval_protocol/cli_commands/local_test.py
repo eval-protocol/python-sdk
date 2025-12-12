@@ -9,13 +9,11 @@ from .utils import _build_entry_point, _discover_and_select_tests
 
 
 def _find_dockerfiles(root: str) -> List[str]:
-    skip_dirs = {".venv", "venv", "node_modules", "dist", "build", "__pycache__", ".git", "vendor"}
+    """Return Dockerfiles in the project root only (no recursive search)."""
     dockerfiles: List[str] = []
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in skip_dirs and not d.startswith(".")]
-        for name in filenames:
-            if name == "Dockerfile":
-                dockerfiles.append(os.path.join(dirpath, name))
+    root_dockerfile = os.path.join(root, "Dockerfile")
+    if os.path.isfile(root_dockerfile):
+        dockerfiles.append(root_dockerfile)
     return dockerfiles
 
 
