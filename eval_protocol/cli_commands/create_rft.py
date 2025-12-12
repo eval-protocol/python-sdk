@@ -271,6 +271,30 @@ def _validate_dataset(dataset_jsonl: Optional[str]) -> bool:
     return _validate_dataset_jsonl(dataset_jsonl)
 
 
+def _warn_if_large_dataset(dataset_jsonl: Optional[str], row_threshold: int = 200) -> None:
+    """Best-effort warning when local validation will run over a large dataset.
+
+    This is primarily to help users of `ep create rft` understand why local validation
+    might be slow and to point them at --skip-validation when appropriate.
+    """
+    if not dataset_jsonl:
+        return
+    try:
+        # Count non-empty lines in the JSONL; simple full pass for clarity.
+        with open(dataset_jsonl, "r", encoding="utf-8") as f:
+            count = sum(1 for line in f if line.strip())
+        if count > row_threshold:
+            print(
+                f"Warning: Local evaluator validation will run over more than {row_threshold} rows "
+                f"from dataset JSONL at {dataset_jsonl}.\n"
+                "         This may take a while. You can pass --skip-validation to `ep create rft` "
+                "to skip local pytest-based validation if you are confident in your evaluator."
+            )
+    except Exception:
+        # Best-effort hint only; do not block RFT creation if counting fails.
+        return
+
+
 def _validate_evaluator_locally(
     project_root: str,
     selected_test_file: Optional[str],
@@ -791,6 +815,16 @@ def create_rft_command(args) -> int:
 
     # 3) Optional local validation
     if not skip_validation:
+        # Best-effort hint if the JSONL dataset is large; helps users decide to use --skip-validation.
+        if dataset_jsonl:
+            # Resolve dataset_jsonl path relative to CWD if needed (mirror upload logic).
+            jsonl_path_for_warning = (
+                dataset_jsonl
+                if os.path.isabs(dataset_jsonl)
+                else os.path.abspath(os.path.join(project_root, dataset_jsonl))
+            )
+            _warn_if_large_dataset(jsonl_path_for_warning)
+
         # Dataset validation (JSONL must be EvaluationRow-compatible when present)
         if not _validate_dataset(dataset_jsonl):
             return 1

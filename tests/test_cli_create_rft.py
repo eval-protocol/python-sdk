@@ -45,6 +45,31 @@ def rft_test_harness(tmp_path, monkeypatch):
     return project
 
 
+def test_warn_if_large_dataset_silent_for_small(tmp_path, capsys):
+    # Dataset with fewer rows than the threshold should not emit a warning.
+    ds_path = tmp_path / "small.jsonl"
+    ds_path.write_text('{"row":1}\n{"row":2}\n', encoding="utf-8")
+
+    cr._warn_if_large_dataset(str(ds_path), row_threshold=5)
+
+    out, err = capsys.readouterr()
+    assert "Warning: Local evaluator validation will run over more than" not in out
+    assert "Warning: Local evaluator validation will run over more than" not in err
+
+
+def test_warn_if_large_dataset_emits_warning_for_large(tmp_path, capsys):
+    # Dataset with more rows than the threshold should emit a warning.
+    ds_path = tmp_path / "large.jsonl"
+    # 3 non-empty lines, threshold=2 -> should warn
+    ds_path.write_text('{"row":1}\n{"row":2}\n{"row":3}\n', encoding="utf-8")
+
+    cr._warn_if_large_dataset(str(ds_path), row_threshold=2)
+
+    out, err = capsys.readouterr()
+    combined = out + err
+    assert "Warning: Local evaluator validation will run over more than 2 rows" in combined
+
+
 def test_create_rft_passes_all_flags_into_request_body(rft_test_harness, monkeypatch):
     project = rft_test_harness
 
