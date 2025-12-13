@@ -42,6 +42,8 @@ class TinyDBEvaluationRowStore(EvaluationRowStore):
         # tinyrecord doesn't support upsert directly, so we implement it manually
         # within a transaction for atomicity
         with transaction(self._table) as tr:
+            # Clear cache to ensure fresh read in multi-process scenarios
+            self._table.clear_cache()
             # Check if document exists
             existing = self._table.search(condition)
             if existing:
