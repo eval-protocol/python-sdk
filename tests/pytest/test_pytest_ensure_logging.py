@@ -15,17 +15,17 @@ async def test_ensure_logging(monkeypatch):
         monkeypatch.setattr(_dl, "_logger", None, raising=False)
     except Exception:
         pass
-    # Mock the SqliteEvaluationRowStore to track calls
+    # Mock the EvaluationRowStore to track calls
     mock_store = Mock()
     mock_store.upsert_row = Mock()
     mock_store.read_rows = Mock(return_value=[])
     mock_store.db_path = "/tmp/test.db"
 
-    # Mock the SqliteEvaluationRowStore constructor so that when SqliteDatasetLoggerAdapter
-    # creates its store, it gets our mock instead
-    with patch(
-        "eval_protocol.dataset_logger.sqlite_dataset_logger_adapter.SqliteEvaluationRowStore", return_value=mock_store
-    ):
+    # Mock get_evaluation_row_store so that when DatasetLoggerAdapter
+    # creates its store, it gets our mock instead.
+    # We patch at the module level where it's defined, which is where
+    # dataset_logger_adapter imports it from.
+    with patch("eval_protocol.dataset_logger.get_evaluation_row_store", return_value=mock_store):
         from eval_protocol.models import EvaluationRow, EvaluateResult
         from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
         from eval_protocol.pytest.evaluation_test import evaluation_test
@@ -55,7 +55,7 @@ async def test_ensure_logging(monkeypatch):
         )
 
         # Verify that the store's upsert_row method was called
-        assert mock_store.upsert_row.called, "SqliteEvaluationRowStore.upsert_row should have been called"
+        assert mock_store.upsert_row.called, "EvaluationRowStore.upsert_row should have been called"
 
         # Check that it was called multiple times (once for each row)
         call_count = mock_store.upsert_row.call_count
