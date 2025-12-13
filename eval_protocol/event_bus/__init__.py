@@ -1,6 +1,11 @@
 # Global event bus instance - uses SqliteEventBus for cross-process functionality
 from typing import Any, Callable
 from eval_protocol.event_bus.event_bus import EventBus
+from eval_protocol.event_bus.sqlite_event_bus_database import (
+    DatabaseCorruptedError,
+    check_and_repair_database,
+    SQLITE_HARDENED_PRAGMAS,
+)
 
 
 def _get_default_event_bus():

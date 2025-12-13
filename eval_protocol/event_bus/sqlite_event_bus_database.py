@@ -1,19 +1,125 @@
+import os
 import time
 from typing import Any, List
 from uuid import uuid4
 
-from peewee import BooleanField, CharField, DateTimeField, Model, SqliteDatabase
+from peewee import BooleanField, CharField, DatabaseError, DateTimeField, Model, SqliteDatabase
 from playhouse.sqlite_ext import JSONField
 
 from eval_protocol.event_bus.logger import logger
 
 
+# SQLite pragmas for hardened concurrency safety
+SQLITE_HARDENED_PRAGMAS = {
+    "journal_mode": "wal",  # Write-Ahead Logging for concurrent reads/writes
+    "synchronous": "normal",  # Balance between safety and performance
+    "busy_timeout": 30000,  # 30 second timeout for locked database
+    "wal_autocheckpoint": 1000,  # Checkpoint every 1000 pages
+    "cache_size": -64000,  # 64MB cache (negative = KB)
+    "foreign_keys": 1,  # Enable foreign key constraints
+    "temp_store": "memory",  # Store temp tables in memory
+}
+
+
+class DatabaseCorruptedError(Exception):
+    """Raised when the database file is corrupted or not a valid SQLite database."""
+
+    def __init__(self, db_path: str, original_error: Exception):
+        self.db_path = db_path
+        self.original_error = original_error
+        super().__init__(f"Database file is corrupted: {db_path}. Original error: {original_error}")
+
+
+def check_and_repair_database(db_path: str, auto_repair: bool = False) -> bool:
+    """
+    Check if a database file is valid and optionally repair it.
+
+    Args:
+        db_path: Path to the database file
+        auto_repair: If True, automatically delete and recreate corrupted database
+
+    Returns:
+        True if database is valid or was repaired, False otherwise
+
+    Raises:
+        DatabaseCorruptedError: If database is corrupted and auto_repair is False
+    """
+    if not os.path.exists(db_path):
+        return True  # New database, nothing to check
+
+    try:
+        # Try to open the database and run an integrity check
+        test_db = SqliteDatabase(db_path, pragmas={"busy_timeout": 5000})
+        test_db.connect()
+        cursor = test_db.execute_sql("PRAGMA integrity_check")
+        result = cursor.fetchone()
+        test_db.close()
+
+        if result and result[0] == "ok":
+            return True
+        else:
+            logger.warning(f"Database integrity check failed for {db_path}: {result}")
+            if auto_repair:
+                _backup_and_remove_database(db_path)
+                return True
+            raise DatabaseCorruptedError(db_path, Exception(f"Integrity check failed: {result}"))
+
+    except DatabaseError as e:
+        error_str = str(e).lower()
+        if "file is not a database" in error_str or "database disk image is malformed" in error_str:
+            logger.warning(f"Database file is corrupted: {db_path}")
+            if auto_repair:
+                _backup_and_remove_database(db_path)
+                return True
+            raise DatabaseCorruptedError(db_path, e)
+        raise
+    except Exception as e:
+        logger.warning(f"Error checking database {db_path}: {e}")
+        if auto_repair:
+            _backup_and_remove_database(db_path)
+            return True
+        raise DatabaseCorruptedError(db_path, e)
+
+
+def _backup_and_remove_database(db_path: str) -> None:
+    """Backup a corrupted database file and remove it."""
+    backup_path = f"{db_path}.corrupted.{int(time.time())}"
+    try:
+        os.rename(db_path, backup_path)
+        logger.info(f"Backed up corrupted database to: {backup_path}")
+    except OSError as e:
+        logger.warning(f"Failed to backup corrupted database, removing: {e}")
+        try:
+            os.remove(db_path)
+        except OSError:
+            pass
+
+    # Also try to remove WAL and SHM files if they exist
+    for suffix in ["-wal", "-shm"]:
+        wal_file = f"{db_path}{suffix}"
+        if os.path.exists(wal_file):
+            try:
+                os.remove(wal_file)
+            except OSError:
+                pass
+
+
 class SqliteEventBusDatabase:
     """SQLite database for cross-process event communication."""
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, auto_repair: bool = True):
         self._db_path = db_path
-        self._db = SqliteDatabase(db_path)
+
+        # Ensure directory exists
+        db_dir = os.path.dirname(db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+
+        # Check and optionally repair corrupted database
+        check_and_repair_database(db_path, auto_repair=auto_repair)
+
+        # Initialize database with hardened concurrency settings
+        self._db = SqliteDatabase(db_path, pragmas=SQLITE_HARDENED_PRAGMAS)
 
         class BaseModel(Model):
             class Meta:
@@ -29,7 +135,8 @@ class SqliteEventBusDatabase:
 
         self._Event = Event
         self._db.connect()
-        self._db.create_tables([Event])
+        # Use safe=True to avoid errors when tables already exist
+        self._db.create_tables([Event], safe=True)
 
     def publish_event(self, event_type: str, data: Any, process_id: str) -> None:
         """Publish an event to the database."""

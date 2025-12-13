@@ -12,6 +12,21 @@ from typing import Any, Dict, List, Optional
 from ..resource_abc import ForkableResource
 
 
+# SQLite connection settings for hardened concurrency safety
+SQLITE_CONNECTION_TIMEOUT = 30  # 30 seconds
+
+
+def _apply_hardened_pragmas(conn: sqlite3.Connection) -> None:
+    """Apply hardened SQLite pragmas for concurrency safety."""
+    conn.execute("PRAGMA journal_mode=WAL")  # Write-Ahead Logging
+    conn.execute("PRAGMA synchronous=NORMAL")  # Balance safety and performance
+    conn.execute("PRAGMA busy_timeout=30000")  # 30 second timeout
+    conn.execute("PRAGMA wal_autocheckpoint=1000")  # Checkpoint every 1000 pages
+    conn.execute("PRAGMA cache_size=-64000")  # 64MB cache
+    conn.execute("PRAGMA foreign_keys=ON")  # Enable foreign key constraints
+    conn.execute("PRAGMA temp_store=MEMORY")  # Store temp tables in memory
+
+
 class SQLResource(ForkableResource):
     """
     A ForkableResource for managing SQL database states, primarily SQLite.
@@ -19,6 +34,8 @@ class SQLResource(ForkableResource):
     Manages a SQLite database file, allowing it to be initialized with a schema
     and seed data, forked (by copying the DB file), checkpointed (by copying),
     and restored.
+
+    Uses hardened SQLite settings for concurrency safety.
 
     Attributes:
         _config (Dict[str, Any]): Configuration for the resource.
@@ -38,8 +55,14 @@ class SQLResource(ForkableResource):
     def _get_db_connection(self) -> sqlite3.Connection:
         if not self._db_path:
             raise ConnectionError("Database path not set. Call setup() or fork() first.")
-        # Set timeout to prevent indefinite hangs
-        return sqlite3.connect(str(self._db_path), timeout=10)
+        # Set timeout to prevent indefinite hangs with hardened settings
+        conn = sqlite3.connect(
+            str(self._db_path),
+            timeout=SQLITE_CONNECTION_TIMEOUT,
+            isolation_level="DEFERRED",  # Better for concurrent access
+        )
+        _apply_hardened_pragmas(conn)
+        return conn
 
     async def setup(self, config: Dict[str, Any]) -> None:
         """

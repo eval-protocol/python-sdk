@@ -1,9 +1,14 @@
 import os
 from typing import List, Optional
 
-from peewee import CharField, Model, SqliteDatabase
+from peewee import CharField, DatabaseError, Model, SqliteDatabase
 from playhouse.sqlite_ext import JSONField
 
+from eval_protocol.event_bus.sqlite_event_bus_database import (
+    SQLITE_HARDENED_PRAGMAS,
+    DatabaseCorruptedError,
+    check_and_repair_database,
+)
 from eval_protocol.models import EvaluationRow
 
 
@@ -12,12 +17,20 @@ class SqliteEvaluationRowStore:
     Lightweight reusable SQLite store for evaluation rows.
 
     Stores arbitrary row data as JSON keyed by a unique string `rollout_id`.
+    Uses hardened SQLite settings for concurrency safety.
     """
 
-    def __init__(self, db_path: str):
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    def __init__(self, db_path: str, auto_repair: bool = True):
+        db_dir = os.path.dirname(db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
         self._db_path = db_path
-        self._db = SqliteDatabase(self._db_path, pragmas={"journal_mode": "wal"})
+
+        # Check and optionally repair corrupted database
+        check_and_repair_database(db_path, auto_repair=auto_repair)
+
+        # Use hardened pragmas for concurrency safety
+        self._db = SqliteDatabase(self._db_path, pragmas=SQLITE_HARDENED_PRAGMAS)
 
         class BaseModel(Model):
             class Meta:
