@@ -51,8 +51,18 @@ class TinyDBEventBusDatabase(EventBusDatabase):
     def get_unprocessed_events(self, process_id: str) -> List[dict]:
         """Get unprocessed events from other processes."""
         try:
+            # Clear query cache to force fresh read from disk
+            # TinyDB caches query results, so we need to clear cache to see
+            # events written by other processes. The search() method will
+            # automatically call _read_table() on a cache miss.
+            self._table.clear_cache()
+
             Event = Query()
             results = self._table.search((Event.process_id != process_id) & (Event.processed == False))  # noqa: E712
+
+            logger.debug(
+                f"TinyDBEventBusDatabase: Found {len(results)} unprocessed events for process_id: {process_id} in database: {self._db_path}"
+            )
 
             events = []
             # Sort by timestamp
@@ -83,6 +93,9 @@ class TinyDBEventBusDatabase(EventBusDatabase):
     def cleanup_old_events(self, max_age_hours: int = 24) -> None:
         """Clean up old processed events."""
         try:
+            # Reload table from disk to see latest data before cleanup
+            self._table._read_table()
+
             cutoff_time = time.time() - (max_age_hours * 3600)
             Event = Query()
             self._table.remove((Event.processed == True) & (Event.timestamp < cutoff_time))  # noqa: E712

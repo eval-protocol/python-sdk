@@ -35,7 +35,7 @@ def get_event_bus_database(db_path: str) -> EventBusDatabase:
 def _get_default_db_filename() -> str:
     """Get the default database filename based on storage backend."""
     storage_type = os.getenv("EP_STORAGE", "tinydb").lower()
-    return "events.db" if storage_type == "sqlite" else "events.json"
+    return "logs.db" if storage_type == "sqlite" else "logs.json"
 
 
 def _get_default_event_bus():
