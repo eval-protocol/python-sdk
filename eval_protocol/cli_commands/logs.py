@@ -62,7 +62,6 @@ def _is_database_corruption_error(error: Exception) -> tuple[bool, str]:
     corruption_indicators = [
         "file is not a database",
         "database disk image is malformed",
-        "database is locked",
         "unable to open database file",
     ]
 

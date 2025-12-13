@@ -66,19 +66,20 @@ def check_and_repair_database(db_path: str, auto_repair: bool = False) -> bool:
 
     except DatabaseError as e:
         error_str = str(e).lower()
-        if "file is not a database" in error_str or "database disk image is malformed" in error_str:
+        # Only treat specific SQLite corruption errors as corruption
+        corruption_indicators = [
+            "file is not a database",
+            "database disk image is malformed",
+            "file is encrypted or is not a database",
+        ]
+        if any(indicator in error_str for indicator in corruption_indicators):
             logger.warning(f"Database file is corrupted: {db_path}")
             if auto_repair:
                 _backup_and_remove_database(db_path)
                 return True
             raise DatabaseCorruptedError(db_path, e)
+        # For other DatabaseErrors (locks, busy, etc.), re-raise without deleting
         raise
-    except Exception as e:
-        logger.warning(f"Error checking database {db_path}: {e}")
-        if auto_repair:
-            _backup_and_remove_database(db_path)
-            return True
-        raise DatabaseCorruptedError(db_path, e)
 
 
 def _backup_and_remove_database(db_path: str) -> None:

@@ -194,6 +194,63 @@ class TestDatabaseCorruptionDetection:
             assert len(backup_files) == 1
             assert "corrupted" in backup_files[0]
 
+    def test_transient_errors_do_not_delete_database(self):
+        """Test that transient I/O errors (like PermissionError) don't trigger database deletion.
+
+        This is a regression test for a bug where the catch-all Exception handler
+        would delete valid databases on transient errors like PermissionError,
+        OSError, or temporary lock conflicts.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "valid.db")
+
+            # Create a valid database
+            conn = sqlite3.connect(db_path)
+            conn.execute("CREATE TABLE test (id INTEGER PRIMARY KEY, data TEXT)")
+            conn.execute("INSERT INTO test VALUES (1, 'important data')")
+            conn.commit()
+            conn.close()
+
+            # Verify the database is valid first
+            result = check_and_repair_database(db_path)
+            assert result is True
+            assert os.path.exists(db_path)
+
+            # The database should still exist and be valid
+            conn = sqlite3.connect(db_path)
+            cursor = conn.execute("SELECT data FROM test WHERE id=1")
+            row = cursor.fetchone()
+            conn.close()
+            assert row[0] == "important data"
+
+    def test_database_error_without_corruption_indicator_is_not_auto_repaired(self):
+        """Test that DatabaseError without corruption indicators is re-raised, not auto-repaired."""
+        from unittest.mock import patch, MagicMock
+        from peewee import DatabaseError
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "locked.db")
+
+            # Create a valid database first
+            conn = sqlite3.connect(db_path)
+            conn.execute("CREATE TABLE test (id INTEGER)")
+            conn.close()
+
+            # Mock SqliteDatabase to raise a non-corruption DatabaseError (e.g., database locked)
+            with patch("eval_protocol.event_bus.sqlite_event_bus_database.SqliteDatabase") as mock_db_class:
+                mock_db = MagicMock()
+                mock_db_class.return_value = mock_db
+                mock_db.connect.side_effect = DatabaseError("database is locked")
+
+                # Should re-raise the error, not delete the database
+                with pytest.raises(DatabaseError) as exc_info:
+                    check_and_repair_database(db_path, auto_repair=True)
+
+                assert "locked" in str(exc_info.value)
+
+            # Database file should still exist (not deleted)
+            assert os.path.exists(db_path)
+
 
 class TestBackupAndRemoveDatabase:
     """Test the backup and remove database functionality."""
