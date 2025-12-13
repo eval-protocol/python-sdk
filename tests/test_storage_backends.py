@@ -118,6 +118,19 @@ class TestTinyDBEvaluationRowStore:
         rows = store.read_rows()
         assert len(rows) == 0
 
+    def test_delete_row_nonexistent(self, temp_dir: str):
+        """Test deleting a row that doesn't exist returns 0."""
+        db_path = os.path.join(temp_dir, "test.json")
+        store = TinyDBEvaluationRowStore(db_path)
+
+        # Try to delete a row that doesn't exist
+        deleted = store.delete_row("nonexistent-rollout")
+        assert deleted == 0
+
+        # Verify store is still empty
+        rows = store.read_rows()
+        assert len(rows) == 0
+
     def test_delete_all_rows(self, temp_dir: str):
         """Test deleting all rows."""
         db_path = os.path.join(temp_dir, "test.json")
