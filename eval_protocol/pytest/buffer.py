@@ -5,11 +5,13 @@ from typing import List, Dict
 
 from eval_protocol.models import EvaluationRow
 
+
 class MicroBatchDataBuffer:
     """
     Buffers evaluation results and writes them to disk in minibatches.
     Waits for all runs of a sample to complete before considering it ready and flush to disk.
     """
+
     def __init__(self, num_runs: int, batch_size: int, output_path_template: str):
         self.num_runs = num_runs
         self.batch_size = batch_size
@@ -29,14 +31,14 @@ class MicroBatchDataBuffer:
             if not row_id:
                 # Should not happen in valid EP workflow, unique row_id is required to group things together properly
                 return
-            
+
             self.pending_samples[row_id].append(row)
-            
+
             if len(self.pending_samples[row_id]) >= self.num_runs:
                 # Sample completed (all runs finished)
                 completed_rows = self.pending_samples.pop(row_id)
                 self.completed_samples_buffer.append(completed_rows)
-                
+
                 if len(self.completed_samples_buffer) >= self.batch_size:
                     await self._flush_unsafe()
 
@@ -56,13 +58,13 @@ class MicroBatchDataBuffer:
 
         # Ensure directory exists
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-        
+
         # Write flattened rows
         with open(output_path, mode) as f:
             for sample_rows in self.completed_samples_buffer:
                 for row in sample_rows:
                     f.write(row.model_dump_json() + "\n")
-        
+
         self.completed_samples_buffer = []
         self.batch_index += 1
 
@@ -79,4 +81,3 @@ class MicroBatchDataBuffer:
 
             if self.completed_samples_buffer:
                 await self._flush_unsafe()
-

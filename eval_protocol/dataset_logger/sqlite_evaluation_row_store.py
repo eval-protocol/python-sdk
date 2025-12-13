@@ -1,13 +1,18 @@
 import os
 from typing import List, Optional
 
-from peewee import CharField, Model, SqliteDatabase
-from playhouse.sqlite_ext import JSONField
+try:
+    from peewee import CharField, Model, SqliteDatabase
+    from playhouse.sqlite_ext import JSONField
+except ImportError:
+    raise ImportError(
+        "SQLite storage backend requires 'peewee' package. Install it with: pip install eval-protocol[sqlite_storage]"
+    )
 
-from eval_protocol.models import EvaluationRow
+from eval_protocol.dataset_logger.evaluation_row_store import EvaluationRowStore
 
 
-class SqliteEvaluationRowStore:
+class SqliteEvaluationRowStore(EvaluationRowStore):
     """
     Lightweight reusable SQLite store for evaluation rows.
 
@@ -15,7 +20,10 @@ class SqliteEvaluationRowStore:
     """
 
     def __init__(self, db_path: str):
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        # Handle case where db_path might be in the root directory
+        db_dir = os.path.dirname(db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
         self._db_path = db_path
         self._db = SqliteDatabase(self._db_path, pragmas={"journal_mode": "wal"})
 

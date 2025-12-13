@@ -1,12 +1,47 @@
-# Global event bus instance - uses SqliteEventBus for cross-process functionality
+# Global event bus instance - uses configured storage backend for cross-process functionality
+import os
 from typing import Any, Callable
+
 from eval_protocol.event_bus.event_bus import EventBus
+from eval_protocol.event_bus.event_bus_database import EventBusDatabase
+
+
+def get_event_bus_database(db_path: str) -> EventBusDatabase:
+    """
+    Factory to get the configured event bus database backend.
+
+    Uses EP_STORAGE environment variable to select backend:
+    - "tinydb" (default): Uses TinyDB with JSON file storage
+    - "sqlite": Uses SQLite with peewee ORM
+
+    Args:
+        db_path: Path to the database file
+
+    Returns:
+        EventBusDatabase implementation
+    """
+    storage_type = os.getenv("EP_STORAGE", "tinydb").lower()
+
+    if storage_type == "sqlite":
+        from eval_protocol.event_bus.sqlite_event_bus_database import SqliteEventBusDatabase
+
+        return SqliteEventBusDatabase(db_path)
+    else:
+        from eval_protocol.event_bus.tinydb_event_bus_database import TinyDBEventBusDatabase
+
+        return TinyDBEventBusDatabase(db_path)
+
+
+def _get_default_db_filename() -> str:
+    """Get the default database filename based on storage backend."""
+    storage_type = os.getenv("EP_STORAGE", "tinydb").lower()
+    return "events.db" if storage_type == "sqlite" else "events.json"
 
 
 def _get_default_event_bus():
-    from eval_protocol.event_bus.sqlite_event_bus import SqliteEventBus
+    from eval_protocol.event_bus.cross_process_event_bus import CrossProcessEventBus
 
-    return SqliteEventBus()
+    return CrossProcessEventBus()
 
 
 # Lazy property that creates the event bus only when accessed

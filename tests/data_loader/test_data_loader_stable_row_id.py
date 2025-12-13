@@ -3,8 +3,10 @@ from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 from typing import List
 
+
 def generator() -> list[EvaluationRow]:
     return [EvaluationRow(messages=[Message(role="user", content="What is 2 + 2?")]) for _ in range(2)]
+
 
 @evaluation_test(
     data_loaders=DynamicDataLoader(

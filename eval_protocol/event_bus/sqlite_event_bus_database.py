@@ -1,19 +1,31 @@
+import os
 import time
 from typing import Any, List
 from uuid import uuid4
 
-from peewee import BooleanField, CharField, DateTimeField, Model, SqliteDatabase
-from playhouse.sqlite_ext import JSONField
+try:
+    from peewee import BooleanField, CharField, DateTimeField, Model, SqliteDatabase
+    from playhouse.sqlite_ext import JSONField
+except ImportError:
+    raise ImportError(
+        "SQLite storage backend requires 'peewee' package. Install it with: pip install eval-protocol[sqlite_storage]"
+    )
 
+from eval_protocol.event_bus.event_bus_database import EventBusDatabase
 from eval_protocol.event_bus.logger import logger
 
 
-class SqliteEventBusDatabase:
+class SqliteEventBusDatabase(EventBusDatabase):
     """SQLite database for cross-process event communication."""
 
     def __init__(self, db_path: str):
+        # Handle case where db_path might be in the root directory
+        db_dir = os.path.dirname(db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
         self._db_path = db_path
-        self._db = SqliteDatabase(db_path)
+        # Use WAL mode for better concurrent access
+        self._db = SqliteDatabase(db_path, pragmas={"journal_mode": "wal"})
 
         class BaseModel(Model):
             class Meta:

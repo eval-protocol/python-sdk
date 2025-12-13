@@ -12,4 +12,3 @@
 {"messages": [ { "role": "system", "content": "You are a helpful assistant that can answer questions about Outlook Calendar. You have access to Outlook Calendar to help you find information." }, { "role": "user", "content": "How many events do I have during business days of the week of Oct 15 2025?" } ], "ground_truth": "9" }
 {"messages": [ { "role": "system", "content": "You are a helpful assistant that can answer questions about Outlook Calendar. You have access to Outlook Calendar to help you find information." }, { "role": "user", "content": "How many events do I have on next week's Thursday?" } ], "ground_truth": "2" }
 {"messages": [ { "role": "system", "content": "You are a helpful assistant that can answer questions about Outlook Calendar. You have access to Outlook Calendar to help you find information." }, { "role": "user", "content": "How many events do I have on next week's buisiness day?" } ], "ground_truth": "5" }
-

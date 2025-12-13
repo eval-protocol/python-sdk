@@ -1228,7 +1228,6 @@ dependencies = [
     { name = "mcp" },
     { name = "omegaconf" },
     { name = "openai" },
-    { name = "peewee" },
     { name = "psutil" },
     { name = "pydantic" },
     { name = "pytest" },
@@ -1238,6 +1237,7 @@ dependencies = [
     { name = "questionary" },
     { name = "requests" },
     { name = "rich" },
+    { name = "tinydb" },
     { name = "toml" },
     { name = "uvicorn" },
     { name = "websockets" },
@@ -1324,6 +1324,9 @@ proxy = [
 pydantic = [
     { name = "pydantic-ai" },
 ]
+sqlite-storage = [
+    { name = "peewee" },
+]
 supabase = [
     { name = "supabase" },
 ]
@@ -1392,7 +1395,7 @@ requires-dist = [
     { name = "openenv-core", marker = "extra == 'openenv'" },
     { name = "openevals", marker = "extra == 'openevals'", specifier = ">=0.1.0" },
     { name = "pandas", marker = "extra == 'dev'", specifier = ">=1.5.0" },
-    { name = "peewee", specifier = ">=3.18.2" },
+    { name = "peewee", marker = "extra == 'sqlite-storage'", specifier = ">=3.18.2" },
     { name = "peft", marker = "extra == 'trl'", specifier = ">=0.7.0" },
     { name = "pillow", marker = "extra == 'box2d'" },
     { name = "pip", marker = "extra == 'dev'", specifier = ">=25.1.1" },
@@ -1417,6 +1420,7 @@ requires-dist = [
     { name = "supabase", marker = "extra == 'supabase'", specifier = ">=2.18.1" },
     { name = "swig", marker = "extra == 'box2d'" },
     { name = "syrupy", marker = "extra == 'dev'", specifier = ">=4.0.0" },
+    { name = "tinydb", specifier = ">=4.8.0" },
     { name = "toml", specifier = ">=0.10.0" },
     { name = "torch", marker = "extra == 'trl'", specifier = ">=1.9" },
     { name = "transformers", marker = "extra == 'dev'", specifier = ">=4.0.0" },
@@ -1434,7 +1438,7 @@ requires-dist = [
     { name = "websockets", specifier = ">=15.0.1" },
     { name = "werkzeug", marker = "extra == 'dev'", specifier = ">=2.0.0" },
 ]
-provides-extras = ["dev", "trl", "openevals", "fireworks", "box2d", "langfuse", "huggingface", "langsmith", "bigquery", "svgbench", "pydantic", "supabase", "chinook", "langchain", "braintrust", "openenv", "langgraph", "langgraph-tools", "proxy"]
+provides-extras = ["dev", "trl", "openevals", "fireworks", "box2d", "langfuse", "huggingface", "langsmith", "bigquery", "svgbench", "pydantic", "supabase", "chinook", "langchain", "braintrust", "openenv", "sqlite-storage", "langgraph", "langgraph-tools", "proxy"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -6510,6 +6514,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7a/fd/7a5ee21fd08ff70d3d33a5781c255cbe779659bd03278feb98b19ee550f4/tinycss2-1.4.0.tar.gz", hash = "sha256:10c0972f6fc0fbee87c3edb76549357415e94548c1ae10ebccdea16fb404a9b7", size = 87085, upload-time = "2024-10-24T14:58:29.895Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e6/34/ebdc18bae6aa14fbee1a08b63c015c72b64868ff7dae68808ab500c492e2/tinycss2-1.4.0-py3-none-any.whl", hash = "sha256:3a49cf47b7675da0b15d0c6e1df8df4ebd96e9394bb905a5775adb0d884c5289", size = 26610, upload-time = "2024-10-24T14:58:28.029Z" },
+]
+
+[[package]]
+name = "tinydb"
+version = "4.8.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a0/79/4af51e2bb214b6ea58f857c51183d92beba85b23f7ba61c983ab3de56c33/tinydb-4.8.2.tar.gz", hash = "sha256:f7dfc39b8d7fda7a1ca62a8dbb449ffd340a117c1206b68c50b1a481fb95181d", size = 32566, upload-time = "2024-10-12T15:24:01.13Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/78/17/853354204e1ca022d6b7d011ca7f3206c4f8faa3cc743e92609b49c1d83f/tinydb-4.8.2-py3-none-any.whl", hash = "sha256:f97030ee5cbc91eeadd1d7af07ab0e48ceb04aa63d4a983adbaca4cba16e86c3", size = 24888, upload-time = "2024-10-12T15:23:59.833Z" },
 ]
 
 [[package]]

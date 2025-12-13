@@ -54,4 +54,3 @@ class NoOpRolloutResultPostProcessor(RolloutResultPostProcessor):
             result: The EvaluationRow result from the rollout
         """
         pass
-

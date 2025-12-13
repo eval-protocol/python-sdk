@@ -266,7 +266,7 @@ def custom_http_giveup(e: Exception) -> bool:
         return True  # Give up immediately on bad requests
     elif isinstance(e, litellm.RateLimitError):
         return False  # Retry rate limits with backoff
-    
+
     return False  # Retry everything else
 
 
@@ -388,7 +388,7 @@ def test_simple_giveup_function(row: EvaluationRow) -> EvaluationRow:
 def test_simple_giveup_verification():
     """Verify that giveup function prevents retries."""
     mock_tracker = shared_processor_simple_giveup.mock_tracker
-    
+
     print("\n🔄 SIMPLE GIVEUP TEST ANALYSIS:")
     print(f"   Batch calls made: {mock_tracker.batch_call.call_count}")
     print(f"   Total row processing calls: {mock_tracker.process_row_call.call_count}")
@@ -418,7 +418,9 @@ class MockRolloutProcessorResponseQuality(RolloutProcessor):
 
             # Determine attempt number by counting previous calls for this rollout_id
             previous_calls = [
-                call for call in self.mock_tracker.process_row_call.call_args_list if call[0][0] == row.execution_metadata.rollout_id
+                call
+                for call in self.mock_tracker.process_row_call.call_args_list
+                if call[0][0] == row.execution_metadata.rollout_id
             ]
             attempt_number = len(previous_calls)
 
@@ -477,9 +479,6 @@ def test_response_quality_error_verification():
 
     # Should have exactly 1 rollout_id called twice
     call_count_values = list(call_counts.values())
-    assert call_count_values.count(2) == 1, (
-        f"Expected 1 rollout with 2 calls, got {call_count_values}"
-    )
+    assert call_count_values.count(2) == 1, f"Expected 1 rollout with 2 calls, got {call_count_values}"
 
     print("✅ ResponseQualityError test passed! Error was retried.")
-

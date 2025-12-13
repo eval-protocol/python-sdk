@@ -34,7 +34,7 @@ dependencies = [
     "litellm<1.75.0",
     "pytest>=6.0.0",
     "pytest-asyncio>=0.21.0",
-    "peewee>=3.18.2",
+    "tinydb>=4.8.0",
     "backoff>=2.2.0",
     "questionary>=2.0.0",
     # Dependencies for vendored tau2 package
@@ -133,6 +133,9 @@ braintrust = [
 openenv = [
     "openenv-core",
 ]
+sqlite_storage = [
+    "peewee>=3.18.2",
+]
 
 # Optional deps for LangGraph example/tests
 langgraph = [
@@ -217,8 +220,8 @@ combine-as-imports = true
 [tool.pyright]
 typeCheckingMode = "basic"  # Changed from "standard" to reduce memory usage
 pythonVersion = "3.10"
-include = ["eval_protocol"]  # Reduced scope to just the main package
-exclude = ["vite-app", "vendor", "examples", "tests", "development", "local_evals"]
+include = ["eval_protocol", "tests"]
+exclude = ["vite-app", "vendor", "examples", "development", "local_evals"]
 # Ignore diagnostics for vendored generator code
 ignore = ["versioneer.py"]
 reportUnusedCallResult = "none"

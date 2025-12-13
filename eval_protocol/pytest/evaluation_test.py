@@ -408,21 +408,22 @@ def evaluation_test(
 
                     rollout_processor.setup()
 
-                    use_priority_scheduler = (
-                        (
-                            os.environ.get("EP_USE_PRIORITY_SCHEDULER", "0") == "1"
-                            and not isinstance(rollout_processor, MCPGymRolloutProcessor)
-                        )
-                    )
+                    use_priority_scheduler = os.environ.get(
+                        "EP_USE_PRIORITY_SCHEDULER", "0"
+                    ) == "1" and not isinstance(rollout_processor, MCPGymRolloutProcessor)
 
                     if use_priority_scheduler:
                         microbatch_output_size = os.environ.get("EP_MICRO_BATCH_OUTPUT_SIZE", None)
                         output_dir = os.environ.get("EP_OUTPUT_DIR", None)
                         if microbatch_output_size and output_dir:
-                            output_buffer = MicroBatchDataBuffer(num_runs=num_runs, batch_size=int(microbatch_output_size), output_path_template=os.path.join(output_dir, "buffer_{index}.jsonl"))
+                            output_buffer = MicroBatchDataBuffer(
+                                num_runs=num_runs,
+                                batch_size=int(microbatch_output_size),
+                                output_path_template=os.path.join(output_dir, "buffer_{index}.jsonl"),
+                            )
                         else:
                             output_buffer = None
-                        
+
                         try:
                             priority_results = await execute_priority_rollouts(
                                 dataset=data,
@@ -440,12 +441,12 @@ def evaluation_test(
                         finally:
                             if output_buffer:
                                 await output_buffer.close()
-                        
+
                         for res in priority_results:
                             run_idx = (res.execution_metadata.extra or {}).get("run_index", 0)
                             if run_idx < len(all_results):
                                 all_results[run_idx].append(res)
-                            
+
                             processed_rows_in_run.append(res)
 
                         postprocess(
@@ -461,6 +462,7 @@ def evaluation_test(
                         )
 
                     else:
+
                         async def execute_run(run_idx: int, config: RolloutProcessorConfig):
                             nonlocal all_results
 
@@ -513,7 +515,9 @@ def evaluation_test(
                                     evaluation_test_kwargs = kwargs.get("evaluation_test_kwargs") or {}
                                     primary_rollout_id = rows[0].execution_metadata.rollout_id if rows else None
                                     group_rollout_ids = [
-                                        r.execution_metadata.rollout_id for r in rows if r.execution_metadata.rollout_id
+                                        r.execution_metadata.rollout_id
+                                        for r in rows
+                                        if r.execution_metadata.rollout_id
                                     ]
                                     async with rollout_logging_context(
                                         primary_rollout_id or "",
@@ -587,7 +591,9 @@ def evaluation_test(
                                         row_groups[row.input_metadata.row_id].append(row)
                                 tasks = []
                                 for _, rows in row_groups.items():
-                                    tasks.append(asyncio.create_task(_execute_groupwise_eval_with_semaphore(rows=rows)))
+                                    tasks.append(
+                                        asyncio.create_task(_execute_groupwise_eval_with_semaphore(rows=rows))
+                                    )
                                 results = []
                                 for task in tasks:
                                     res = await task
@@ -678,9 +684,9 @@ def evaluation_test(
                             # For other processors, create all tasks at once and run in parallel
                             # Concurrency is now controlled by the shared semaphore in each rollout processor
                             await run_tasks_with_run_progress(execute_run, num_runs, config)
-                        
+
                         experiment_duration_seconds = time.perf_counter() - experiment_start_time
-                        
+
                         # for groupwise mode, the result contains eval output from multiple completion_params, we need to differentiate them
                         # rollout_id is used to differentiate the result from different completion_params
                         if mode == "groupwise":
@@ -716,15 +722,12 @@ def evaluation_test(
                                 experiment_duration_seconds,
                             )
 
-
-                
                     if not all(r.evaluation_result is not None for run_results in all_results for r in run_results):
                         raise AssertionError(
                             "Some EvaluationRow instances are missing evaluation_result. "
                             "Your @evaluation_test function must set `row.evaluation_result`"
                         )
 
-                    
                 except AssertionError:
                     _log_eval_error(
                         Status.eval_finished(),

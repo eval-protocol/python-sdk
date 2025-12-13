@@ -81,7 +81,7 @@ class BackoffConfig:
 
     def get_backoff_decorator(self, exceptions: Set[Type[Exception]]):
         """Get the appropriate backoff decorator based on configuration.
-        
+
         Args:
             exceptions: Set of exception types to retry
         """
@@ -141,9 +141,7 @@ class ExceptionHandlerConfig:
 
     def get_backoff_decorator(self):
         """Get the backoff decorator configured for this exception handler."""
-        return self.backoff_config.get_backoff_decorator(
-            self.retryable_exceptions
-        )
+        return self.backoff_config.get_backoff_decorator(self.retryable_exceptions)
 
 
 def get_default_exception_handler_config() -> ExceptionHandlerConfig:
