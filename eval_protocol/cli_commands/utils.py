@@ -235,7 +235,7 @@ def _prompt_select_interactive(tests: list[DiscoveredTest]) -> list[DiscoveredTe
             [
                 ("qmark", "fg:#673ab7 bold"),
                 ("question", "bold"),
-                ("answer", "fg:#f44336 bold"),
+                ("answer", "fg:#2196f3 bold"),
                 ("pointer", "fg:#673ab7 bold"),
                 ("highlighted", "fg:#673ab7 bold"),
                 ("selected", "fg:#cc5454"),
