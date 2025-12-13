@@ -1,9 +1,22 @@
 import os
 import tempfile
 from unittest.mock import patch
+
 import pytest
 
-from eval_protocol.directory_utils import find_eval_protocol_dir, find_eval_protocol_datasets_dir
+import eval_protocol.directory_utils as dir_utils
+
+
+@pytest.fixture(autouse=True)
+def use_real_directory_utils(restore_original_find_eval_protocol_dir):
+    """
+    Automatically use the real find_eval_protocol_dir for all tests in this module.
+
+    This is necessary because the session-scoped isolated_eval_protocol_dir fixture
+    patches find_eval_protocol_dir globally, but these tests need to test the
+    actual implementation behavior.
+    """
+    yield
 
 
 class TestDirectoryUtils:
@@ -13,7 +26,7 @@ class TestDirectoryUtils:
         """Test that find_eval_protocol_dir always maps to home folder."""
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch.dict(os.environ, {"HOME": temp_dir}):
-                result = find_eval_protocol_dir()
+                result = dir_utils.find_eval_protocol_dir()
                 expected = os.path.expanduser("~/.eval_protocol")
                 assert result == expected
                 assert result.endswith(".eval_protocol")
@@ -29,7 +42,7 @@ class TestDirectoryUtils:
                     os.rmdir(eval_protocol_dir)
 
                 # Call the function
-                result = find_eval_protocol_dir()
+                result = dir_utils.find_eval_protocol_dir()
 
                 # Verify the directory was created
                 assert result == eval_protocol_dir
@@ -40,7 +53,7 @@ class TestDirectoryUtils:
         """Test that find_eval_protocol_dir properly handles tilde expansion."""
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch.dict(os.environ, {"HOME": temp_dir}):
-                result = find_eval_protocol_dir()
+                result = dir_utils.find_eval_protocol_dir()
                 expected = os.path.expanduser("~/.eval_protocol")
                 assert result == expected
                 assert result.startswith(temp_dir)
@@ -49,7 +62,7 @@ class TestDirectoryUtils:
         """Test that find_eval_protocol_datasets_dir also uses home folder."""
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch.dict(os.environ, {"HOME": temp_dir}):
-                result = find_eval_protocol_datasets_dir()
+                result = dir_utils.find_eval_protocol_datasets_dir()
                 expected = os.path.expanduser("~/.eval_protocol/datasets")
                 assert result == expected
                 assert result.endswith(".eval_protocol/datasets")
@@ -69,7 +82,7 @@ class TestDirectoryUtils:
                     os.rmdir(eval_protocol_dir)
 
                 # Call the function
-                result = find_eval_protocol_datasets_dir()
+                result = dir_utils.find_eval_protocol_datasets_dir()
 
                 # Verify both directories were created
                 assert result == datasets_dir
@@ -82,14 +95,14 @@ class TestDirectoryUtils:
         """Test that multiple calls to find_eval_protocol_dir return the same path."""
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch.dict(os.environ, {"HOME": temp_dir}):
-                result1 = find_eval_protocol_dir()
-                result2 = find_eval_protocol_dir()
+                result1 = dir_utils.find_eval_protocol_dir()
+                result2 = dir_utils.find_eval_protocol_dir()
                 assert result1 == result2
 
     def test_find_eval_protocol_datasets_dir_consistency(self):
         """Test that multiple calls to find_eval_protocol_datasets_dir return the same path."""
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch.dict(os.environ, {"HOME": temp_dir}):
-                result1 = find_eval_protocol_datasets_dir()
-                result2 = find_eval_protocol_datasets_dir()
+                result1 = dir_utils.find_eval_protocol_datasets_dir()
+                result2 = dir_utils.find_eval_protocol_datasets_dir()
                 assert result1 == result2

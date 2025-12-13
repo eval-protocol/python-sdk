@@ -1,6 +1,5 @@
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -26,22 +25,25 @@ skip_e2b = pytest.mark.skipif(not _HAS_E2B, reason="E2B not installed")
 # concurrent test workers from corrupting the shared logs.json file.
 # This is especially important in CI where pytest-xdist runs tests in parallel.
 
+# Store the original function before any patching
+import eval_protocol.directory_utils as dir_utils
+
+_original_find_eval_protocol_dir = dir_utils.find_eval_protocol_dir
+
 
 @pytest.fixture(scope="session", autouse=True)
-def isolated_eval_protocol_dir(tmp_path_factory):
+def isolated_eval_protocol_dir(tmp_path_factory, request):
     """
     Create an isolated .eval_protocol directory for the test session.
 
     This prevents concurrent test workers from corrupting the shared
     ~/.eval_protocol/logs.json file when using TinyDB storage.
+
+    Note: Tests in test_directory_utils.py are excluded from this fixture
+    as they need to test the actual find_eval_protocol_dir behavior.
     """
     # Create a unique temp directory for this test session/worker
     isolated_dir = tmp_path_factory.mktemp("eval_protocol")
-
-    # Monkeypatch the find_eval_protocol_dir function to return our isolated dir
-    import eval_protocol.directory_utils as dir_utils
-
-    original_find_eval_protocol_dir = dir_utils.find_eval_protocol_dir
 
     def isolated_find_eval_protocol_dir() -> str:
         os.makedirs(str(isolated_dir), exist_ok=True)
@@ -52,4 +54,18 @@ def isolated_eval_protocol_dir(tmp_path_factory):
     yield isolated_dir
 
     # Restore original function after tests
-    dir_utils.find_eval_protocol_dir = original_find_eval_protocol_dir
+    dir_utils.find_eval_protocol_dir = _original_find_eval_protocol_dir
+
+
+@pytest.fixture
+def restore_original_find_eval_protocol_dir():
+    """
+    Fixture to restore the original find_eval_protocol_dir for tests that
+    need to test the actual implementation (e.g., test_directory_utils.py).
+
+    Use this fixture in tests that need to test the real directory behavior.
+    """
+    # Temporarily restore the original function
+    dir_utils.find_eval_protocol_dir = _original_find_eval_protocol_dir
+    yield _original_find_eval_protocol_dir
+    # The session fixture will clean up when tests complete
