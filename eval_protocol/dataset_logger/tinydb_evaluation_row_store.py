@@ -63,10 +63,17 @@ class TinyDBEvaluationRowStore(EvaluationRowStore):
 
     def delete_row(self, rollout_id: str) -> int:
         Row = Query()
+        condition = Row.execution_metadata.rollout_id == rollout_id
+
         with transaction(self._table) as tr:
-            tr.remove(Row.execution_metadata.rollout_id == rollout_id)
-        # Return count after removal (we don't have access to removed count in transaction)
-        return 1
+            # Clear cache to ensure fresh read in multi-process scenarios
+            self._table.clear_cache()
+            # Check if document exists before removal to get accurate count
+            existing = self._table.search(condition)
+            if existing:
+                tr.remove(condition)
+                return len(existing)
+        return 0
 
     def delete_all_rows(self) -> int:
         count = len(self._table)
