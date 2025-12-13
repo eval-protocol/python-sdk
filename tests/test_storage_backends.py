@@ -282,6 +282,170 @@ class TestFactoryFunctions:
         assert isinstance(db, SqliteEventBusDatabase)
 
 
+class TestCrossProcessCacheInvalidation:
+    """
+    Tests that query cache is properly invalidated when another process modifies the database.
+
+    This simulates cross-process scenarios by creating separate store instances
+    pointing to the same database file. Each instance represents a different "process"
+    that might have cached query results.
+    """
+
+    @pytest.mark.parametrize(
+        "store_class,file_ext",
+        [
+            (TinyDBEvaluationRowStore, ".json"),
+            (SqliteEvaluationRowStore, ".db"),
+        ],
+    )
+    def test_evaluation_row_store_sees_writes_from_other_process(self, temp_dir: str, store_class, file_ext: str):
+        """
+        Ensure a store instance can read fresh data written by another instance.
+
+        This verifies that cached query results don't prevent seeing new data
+        written by a separate process.
+        """
+        db_path = os.path.join(temp_dir, f"test{file_ext}")
+
+        # Simulate two processes with separate store instances
+        process1_store = store_class(db_path)
+        process2_store = store_class(db_path)
+
+        # Process 1 reads initially (may cache empty result)
+        initial_rows = process1_store.read_rows()
+        assert len(initial_rows) == 0
+
+        # Process 2 writes new data
+        data = {
+            "execution_metadata": {"rollout_id": "cross-process-test"},
+            "input_metadata": {"row_id": "row-from-process-2"},
+            "messages": [{"role": "user", "content": "Hello from process 2"}],
+        }
+        process2_store.upsert_row(data)
+
+        # Process 1 should see the new data (cache should be invalidated/bypassed)
+        rows = process1_store.read_rows()
+        assert len(rows) == 1
+        assert rows[0]["execution_metadata"]["rollout_id"] == "cross-process-test"
+        assert rows[0]["input_metadata"]["row_id"] == "row-from-process-2"
+
+    @pytest.mark.parametrize(
+        "store_class,file_ext",
+        [
+            (TinyDBEvaluationRowStore, ".json"),
+            (SqliteEvaluationRowStore, ".db"),
+        ],
+    )
+    def test_evaluation_row_store_sees_updates_from_other_process(self, temp_dir: str, store_class, file_ext: str):
+        """
+        Ensure a store instance sees updates made by another instance.
+
+        This verifies that cached query results are properly invalidated
+        when another process updates existing data.
+        """
+        db_path = os.path.join(temp_dir, f"test{file_ext}")
+
+        # Both processes start with the same initial data
+        process1_store = store_class(db_path)
+        initial_data = {
+            "execution_metadata": {"rollout_id": "shared-rollout"},
+            "input_metadata": {"row_id": "initial-row"},
+            "value": "initial",
+        }
+        process1_store.upsert_row(initial_data)
+
+        # Process 2 opens the same database
+        process2_store = store_class(db_path)
+
+        # Process 1 reads and potentially caches the result
+        rows = process1_store.read_rows(rollout_id="shared-rollout")
+        assert len(rows) == 1
+        assert rows[0]["value"] == "initial"
+
+        # Process 2 updates the data
+        updated_data = {
+            "execution_metadata": {"rollout_id": "shared-rollout"},
+            "input_metadata": {"row_id": "updated-row"},
+            "value": "updated-by-process-2",
+        }
+        process2_store.upsert_row(updated_data)
+
+        # Process 1 should see the updated data
+        rows = process1_store.read_rows(rollout_id="shared-rollout")
+        assert len(rows) == 1
+        assert rows[0]["value"] == "updated-by-process-2"
+        assert rows[0]["input_metadata"]["row_id"] == "updated-row"
+
+    @pytest.mark.parametrize(
+        "db_class,file_ext",
+        [
+            (TinyDBEventBusDatabase, ".json"),
+            (SqliteEventBusDatabase, ".db"),
+        ],
+    )
+    def test_event_bus_database_sees_events_from_other_process(self, temp_dir: str, db_class, file_ext: str):
+        """
+        Ensure an event bus instance can read events published by another instance.
+
+        This verifies that cached query results don't prevent seeing new events
+        written by a separate process.
+        """
+        db_path = os.path.join(temp_dir, f"events{file_ext}")
+
+        # Simulate two processes with separate event bus instances
+        process1_db = db_class(db_path)
+        process2_db = db_class(db_path)
+
+        # Process 1 checks for events initially (may cache empty result)
+        initial_events = process1_db.get_unprocessed_events("process-1")
+        assert len(initial_events) == 0
+
+        # Process 2 publishes an event
+        process2_db.publish_event("test_event", {"key": "value"}, "process-2")
+
+        # Process 1 should see the new event (cache should be invalidated/bypassed)
+        events = process1_db.get_unprocessed_events("process-1")
+        assert len(events) == 1
+        assert events[0]["event_type"] == "test_event"
+        assert events[0]["data"] == {"key": "value"}
+        assert events[0]["process_id"] == "process-2"
+
+    @pytest.mark.parametrize(
+        "db_class,file_ext",
+        [
+            (TinyDBEventBusDatabase, ".json"),
+            (SqliteEventBusDatabase, ".db"),
+        ],
+    )
+    def test_event_bus_database_sees_processed_status_from_other_process(self, temp_dir: str, db_class, file_ext: str):
+        """
+        Ensure an event bus instance sees when another instance marks events as processed.
+
+        This verifies that cached query results are properly invalidated
+        when another process updates event status.
+        """
+        db_path = os.path.join(temp_dir, f"events{file_ext}")
+
+        # Process 1 publishes an event
+        process1_db = db_class(db_path)
+        process1_db.publish_event("test_event", {"key": "value"}, "process-1")
+
+        # Process 2 opens the same database and sees the event
+        process2_db = db_class(db_path)
+        events = process2_db.get_unprocessed_events("process-2")
+        assert len(events) == 1
+
+        # Process 3 opens and marks the event as processed
+        process3_db = db_class(db_path)
+        events = process3_db.get_unprocessed_events("process-3")
+        assert len(events) == 1
+        process3_db.mark_event_processed(events[0]["event_id"])
+
+        # Process 2 should no longer see the event (it's been processed)
+        events = process2_db.get_unprocessed_events("process-2")
+        assert len(events) == 0
+
+
 class TestBackwardsCompatibility:
     """Tests for backwards compatibility aliases."""
 
