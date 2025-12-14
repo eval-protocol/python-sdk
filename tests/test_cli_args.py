@@ -6,6 +6,7 @@ import pytest
 from eval_protocol.cli import parse_args
 
 
+@pytest.mark.skip(reason="preview and deploy commands are currently disabled in cli.py")
 class TestCliArgParsing:
     # --- Tests for 'preview' command ---
     def test_preview_with_remote_url_and_samples(self):

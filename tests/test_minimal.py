@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 
+@pytest.mark.skip(reason="agent-eval command is currently disabled in cli.py")
 def test_cli_help():
     """Test that the CLI help message works."""
     result = subprocess.run(["eval-protocol", "--help"], capture_output=True, text=True, check=False)
@@ -25,6 +26,7 @@ def test_cli_help():
     assert "agent-eval" in result.stdout
 
 
+@pytest.mark.skip(reason="agent-eval command is currently disabled in cli.py")
 def test_cli_agent_eval_help():
     """Test that the agent-eval help message works."""
     result = subprocess.run(

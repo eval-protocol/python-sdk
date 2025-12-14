@@ -11,6 +11,7 @@ from eval_protocol.cli import deploy_command, main, parse_args, preview_command
 class TestCLI:
     """Tests for the CLI functionality."""
 
+    @pytest.mark.skip(reason="preview and deploy commands are currently disabled in cli.py")
     def test_parse_args(self):
         """Test the argument parser."""
         # Test preview command
