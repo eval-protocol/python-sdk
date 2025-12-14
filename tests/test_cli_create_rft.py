@@ -1031,7 +1031,12 @@ def test_create_rft_quiet_existing_evaluator_infers_dataset_from_matching_test(r
     assert captured["jsonl_path"] == str(jsonl_path)
 
 
-def test_cli_full_command_style_evaluator_and_dataset_flags(monkeypatch):
+def test_cli_full_command_style_evaluator_and_dataset_flags(tmp_path, monkeypatch):
+    # Isolate CWD so _discover_tests doesn't run pytest in the real project
+    project = tmp_path / "proj"
+    project.mkdir()
+    monkeypatch.chdir(project)
+
     # Env
     monkeypatch.setenv("FIREWORKS_API_KEY", "fw_dummy")
     monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "pyroworks-dev")
