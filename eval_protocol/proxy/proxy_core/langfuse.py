@@ -76,12 +76,16 @@ async def _fetch_trace_list_with_retry(
 ) -> Any:
     """Fetch trace list with rate limit retry logic."""
     list_retries = 0
-    rollout_id: Optional[str] = None
+    tracking_key: Optional[str] = None  # Could be rollout_id or trail_id
     if tags:
         for t in tags:
-            if isinstance(t, str) and t.startswith("rollout_id:"):
-                rollout_id = t.split(":", 1)[1] if ":" in t else t
-                break
+            if isinstance(t, str):
+                if t.startswith("rollout_id:"):
+                    tracking_key = t.split(":", 1)[1] if ":" in t else t
+                    break
+                elif t.startswith("trail_id:"):
+                    tracking_key = t.split(":", 1)[1] if ":" in t else t
+                    break
     while list_retries < max_retries:
         try:
             traces = langfuse_client.api.trace.list(
@@ -124,9 +128,9 @@ async def _fetch_trace_list_with_retry(
                 # Return 404 if we've retried max_retries
                 # TODO: write some tests around proxy exception handling
                 logger.error(
-                    "Failed to fetch trace list after %d retries (rollout_id=%s): %s",
+                    "Failed to fetch trace list after %d retries (tracking_key=%s): %s",
                     max_retries,
-                    rollout_id,
+                    tracking_key,
                     e,
                 )
                 raise HTTPException(
@@ -134,7 +138,7 @@ async def _fetch_trace_list_with_retry(
                 )
             else:
                 # Catch all other exceptions
-                logger.error("Failed to fetch trace list (rollout_id=%s): %s", rollout_id, e)
+                logger.error("Failed to fetch trace list (tracking_key=%s): %s", tracking_key, e)
                 raise HTTPException(status_code=500, detail=f"Failed to fetch traces: {str(e)}")
 
 
@@ -247,16 +251,16 @@ async def fetch_langfuse_traces(
 
         # Get expected insertion_ids from Redis for completeness checking
         expected_ids: Set[str] = set()
-        if rollout_id:
-            expected_ids = get_insertion_ids(redis_client, rollout_id)
-            logger.info(f"Fetching traces for rollout_id '{rollout_id}', expecting {len(expected_ids)} insertion_ids")
+        if tracking_key:
+            expected_ids = get_insertion_ids(redis_client, tracking_key)
+            logger.info(f"Fetching traces for {tracking_label} '{tracking_key}', expecting {len(expected_ids)} insertion_ids")
             if not expected_ids:
                 logger.warning(
-                    f"No expected insertion_ids found in Redis for rollout '{rollout_id}'. Returning empty traces."
+                    f"No expected insertion_ids found in Redis for {tracking_label} '{tracking_key}'. Returning empty traces."
                 )
                 raise HTTPException(
                     status_code=500,
-                    detail=f"No expected insertion_ids found in Redis for rollout '{rollout_id}'. Returning empty traces.",
+                    detail=f"No expected insertion_ids found in Redis for {tracking_label} '{tracking_key}'. Returning empty traces.",
                 )
 
         # Track all traces we've collected across retry attempts
@@ -265,7 +269,7 @@ async def fetch_langfuse_traces(
         insertion_ids: Set[str] = set()  # Insertion IDs extracted from traces (for completeness check)
 
         for retry in range(max_retries):
-            # On first attempt, use rollout_id tag. On retries, target missing insertion_ids
+            # On first attempt, use tracking tag. On retries, target missing insertion_ids
             if retry == 0:
                 fetch_tags = tags
             else:
@@ -273,7 +277,7 @@ async def fetch_langfuse_traces(
                 missing_ids = expected_ids - insertion_ids
                 fetch_tags = [f"insertion_id:{id}" for id in missing_ids]
                 logger.info(
-                    f"Retry {retry}: Targeting {len(fetch_tags)} missing insertion_ids for rollout '{rollout_id}' (last5): {[id[-5:] for id in sorted(missing_ids)[:10]]}{'...' if len(missing_ids) > 10 else ''}"
+                    f"Retry {retry}: Targeting {len(fetch_tags)} missing insertion_ids for {tracking_label} '{tracking_key}' (last5): {[id[-5:] for id in sorted(missing_ids)[:10]]}{'...' if len(missing_ids) > 10 else ''}"
                 )
 
             current_page = 1
@@ -329,7 +333,7 @@ async def fetch_langfuse_traces(
                             insertion_id = _extract_tag_value(trace_dict.get("tags", []), "insertion_id:")
                             if insertion_id:
                                 insertion_ids.add(insertion_id)
-                                logger.debug(f"Found insertion_id '{insertion_id}' for rollout '{rollout_id}'")
+                                logger.debug(f"Found insertion_id '{insertion_id}' for {tracking_label} '{tracking_key}'")
 
                         except Exception as e:
                             logger.warning("Failed to serialize trace %s: %s", trace_info.id, e)
@@ -349,7 +353,7 @@ async def fetch_langfuse_traces(
             # If we have all expected completions or more, return traces. At least once is ok.
             if expected_ids <= insertion_ids:
                 logger.info(
-                    f"Traces complete for rollout '{rollout_id}': {len(insertion_ids)}/{len(expected_ids)} insertion_ids found, returning {len(all_traces)} traces"
+                    f"Traces complete for {tracking_label} '{tracking_key}': {len(insertion_ids)}/{len(expected_ids)} insertion_ids found, returning {len(all_traces)} traces"
                 )
                 if sample_size is not None and len(all_traces) > sample_size:
                     all_traces = random.sample(all_traces, sample_size)
@@ -366,16 +370,16 @@ async def fetch_langfuse_traces(
                 wait_time = 2**retry
                 still_missing = expected_ids - insertion_ids
                 logger.info(
-                    f"Attempt {retry + 1}/{max_retries}. Found {len(insertion_ids)}/{len(expected_ids)} for rollout '{rollout_id}'. Still missing (last5): {[id[-5:] for id in sorted(still_missing)[:10]]}{'...' if len(still_missing) > 10 else ''}. Waiting {wait_time}s..."
+                    f"Attempt {retry + 1}/{max_retries}. Found {len(insertion_ids)}/{len(expected_ids)} for {tracking_label} '{tracking_key}'. Still missing (last5): {[id[-5:] for id in sorted(still_missing)[:10]]}{'...' if len(still_missing) > 10 else ''}. Waiting {wait_time}s..."
                 )
                 await asyncio.sleep(wait_time)
 
         logger.error(
-            f"Incomplete traces for rollout_id '{rollout_id}': Found {len(insertion_ids)}/{len(expected_ids)} completions."
+            f"Incomplete traces for {tracking_label} '{tracking_key}': Found {len(insertion_ids)}/{len(expected_ids)} completions."
         )
         raise HTTPException(
             status_code=404,
-            detail=f"Incomplete traces for rollout_id '{rollout_id}': Found {len(insertion_ids)}/{len(expected_ids)} completions.",
+            detail=f"Incomplete traces for {tracking_label} '{tracking_key}': Found {len(insertion_ids)}/{len(expected_ids)} completions.",
         )
 
     except ImportError:
@@ -431,8 +435,11 @@ async def pointwise_fetch_langfuse_trace(
             detail=f"Project ID '{project_id}' not found. Available projects: {list(config.langfuse_keys.keys())}",
         )
 
-    # Extract rollout_id from tags for Redis lookup
+    # Extract tracking key (rollout_id or trail_id) from tags for Redis lookup
     rollout_id = _extract_tag_value(tags, "rollout_id:")
+    trail_id = _extract_tag_value(tags, "trail_id:")
+    tracking_key = trail_id if trail_id else rollout_id
+    tracking_label = "trail_id" if trail_id else "rollout_id"
 
     try:
         # Import the Langfuse adapter
@@ -461,23 +468,23 @@ async def pointwise_fetch_langfuse_trace(
 
         # Get insertion_ids from Redis to find the latest one
         expected_ids: Set[str] = set()
-        if rollout_id:
-            expected_ids = get_insertion_ids(redis_client, rollout_id)
+        if tracking_key:
+            expected_ids = get_insertion_ids(redis_client, tracking_key)
             logger.info(
-                f"Pointwise fetch for rollout_id '{rollout_id}', found {len(expected_ids)} insertion_ids in Redis"
+                f"Pointwise fetch for {tracking_label} '{tracking_key}', found {len(expected_ids)} insertion_ids in Redis"
             )
             if not expected_ids:
                 logger.warning(
-                    f"No insertion_ids found in Redis for rollout '{rollout_id}'. Cannot determine latest trace."
+                    f"No insertion_ids found in Redis for {tracking_label} '{tracking_key}'. Cannot determine latest trace."
                 )
                 raise HTTPException(
                     status_code=500,
-                    detail=f"No insertion_ids found in Redis for rollout '{rollout_id}'. Cannot determine latest trace.",
+                    detail=f"No insertion_ids found in Redis for {tracking_label} '{tracking_key}'. Cannot determine latest trace.",
                 )
 
         # Get the latest (last) insertion_id since UUID v7 is time-ordered
         latest_insertion_id = max(expected_ids)  # UUID v7 max = newest
-        logger.info(f"Targeting latest insertion_id: {latest_insertion_id} for rollout '{rollout_id}'")
+        logger.info(f"Targeting latest insertion_id: {latest_insertion_id} for {tracking_label} '{tracking_key}'")
 
         for retry in range(max_retries):
             # Fetch trace list targeting the latest insertion_id
@@ -513,7 +520,7 @@ async def pointwise_fetch_langfuse_trace(
                 if trace_full:
                     trace_dict = _serialize_trace_to_dict(trace_full)
                     logger.info(
-                        f"Successfully fetched latest trace for rollout '{rollout_id}', insertion_id: {latest_insertion_id}"
+                        f"Successfully fetched latest trace for {tracking_label} '{tracking_key}', insertion_id: {latest_insertion_id}"
                     )
                     return LangfuseTracesResponse(
                         project_id=project_id,
@@ -525,17 +532,17 @@ async def pointwise_fetch_langfuse_trace(
             if retry < max_retries - 1:
                 wait_time = 2**retry
                 logger.info(
-                    f"Pointwise fetch attempt {retry + 1}/{max_retries} failed for rollout '{rollout_id}', insertion_id: {latest_insertion_id}. Retrying in {wait_time}s..."
+                    f"Pointwise fetch attempt {retry + 1}/{max_retries} failed for {tracking_label} '{tracking_key}', insertion_id: {latest_insertion_id}. Retrying in {wait_time}s..."
                 )
                 await asyncio.sleep(wait_time)
 
         # After all retries failed
         logger.error(
-            f"Failed to fetch latest trace for rollout '{rollout_id}', insertion_id: {latest_insertion_id} after {max_retries} retries"
+            f"Failed to fetch latest trace for {tracking_label} '{tracking_key}', insertion_id: {latest_insertion_id} after {max_retries} retries"
         )
         raise HTTPException(
             status_code=404,
-            detail=f"Failed to fetch latest trace for rollout '{rollout_id}' after {max_retries} retries",
+            detail=f"Failed to fetch latest trace for {tracking_label} '{tracking_key}' after {max_retries} retries",
         )
 
     except ImportError:

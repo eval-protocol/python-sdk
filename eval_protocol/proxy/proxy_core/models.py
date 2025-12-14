@@ -21,6 +21,9 @@ class ChatParams(BaseModel):
     """Typed container for chat completion URL path parameters."""
 
     project_id: Optional[str] = None
+    # Trail Management System (simpler path)
+    trail_id: Optional[str] = None
+    # Legacy evaluation system (complex path)
     rollout_id: Optional[str] = None
     invocation_id: Optional[str] = None
     experiment_id: Optional[str] = None

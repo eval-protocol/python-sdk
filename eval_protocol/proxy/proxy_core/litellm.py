@@ -36,6 +36,7 @@ async def handle_chat_completion(
         data, params = config.preprocess_chat_request(data, request, params)
 
     project_id = params.project_id
+    trail_id = params.trail_id
     rollout_id = params.rollout_id
     invocation_id = params.invocation_id
     experiment_id = params.experiment_id
@@ -70,8 +71,31 @@ async def handle_chat_completion(
 
     # If metadata IDs are provided, add them as tags
     insertion_id = None
-    if rollout_id is not None:
+    tracking_key = None  # Key for Redis tracking (trail_id or rollout_id)
+
+    if trail_id is not None:
+        # Trail Management System: Simple tagging with just trail_id
         insertion_id = str(uuid7())
+        tracking_key = trail_id
+
+        if "metadata" not in data:
+            data["metadata"] = {}
+        if "tags" not in data["metadata"]:
+            data["metadata"]["tags"] = []
+
+        # Add trail metadata as tags
+        data["metadata"]["tags"].extend(
+            [
+                f"trail_id:{trail_id}",
+                f"insertion_id:{insertion_id}",
+            ]
+        )
+        logger.debug(f"Trail request: trail_id={trail_id}, insertion_id={insertion_id}")
+
+    elif rollout_id is not None:
+        # Legacy evaluation system: Complex tagging with multiple IDs
+        insertion_id = str(uuid7())
+        tracking_key = rollout_id
 
         if "metadata" not in data:
             data["metadata"] = {}
@@ -89,6 +113,7 @@ async def handle_chat_completion(
                 f"row_id:{row_id}",
             ]
         )
+        logger.debug(f"Rollout request: rollout_id={rollout_id}, insertion_id={insertion_id}")
 
     # Add Langfuse configuration
     data["langfuse_public_key"] = config.langfuse_keys[project_id]["public_key"]
@@ -115,8 +140,8 @@ async def handle_chat_completion(
         )
 
         # Register insertion_id in Redis only on successful response
-        if response.status_code == 200 and insertion_id is not None and rollout_id is not None:
-            register_insertion_id(redis_client, rollout_id, insertion_id)
+        if response.status_code == 200 and insertion_id is not None and tracking_key is not None:
+            register_insertion_id(redis_client, tracking_key, insertion_id)
 
         # Return the response
         return Response(

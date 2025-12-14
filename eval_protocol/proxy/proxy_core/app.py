@@ -173,6 +173,39 @@ def create_app(
     # =====================
     # Chat completion routes
     # =====================
+
+    # ============ Trail Management System Routes (New) ============
+    @app.post("/trails/{trail_id}/chat/completions")
+    @app.post("/v1/trails/{trail_id}/chat/completions")
+    @app.post("/trails/{trail_id}/v1/chat/completions")
+    @app.post("/project_id/{project_id}/trails/{trail_id}/chat/completions")
+    @app.post("/v1/project_id/{project_id}/trails/{trail_id}/chat/completions")
+    async def trail_chat_completion(
+        trail_id: str,
+        request: Request,
+        project_id: Optional[str] = None,
+        config: ProxyConfig = Depends(get_config),
+        redis_client: redis.Redis = Depends(get_redis),
+        _: None = Depends(require_auth),
+    ):
+        """
+        Trail Management System endpoint for LLM inference tracking.
+
+        Automatically injects trail_id and insertion_id as Langfuse tags for tracing.
+        All requests under the same trail_id can be queried together for analysis and training.
+        """
+        params = ChatParams(
+            project_id=project_id,
+            trail_id=trail_id,
+        )
+        return await handle_chat_completion(
+            config=config,
+            redis_client=redis_client,
+            request=request,
+            params=params,
+        )
+
+    # ============ Legacy Evaluation System Routes ============
     @app.post(
         "/project_id/{project_id}/rollout_id/{rollout_id}/invocation_id/{invocation_id}/experiment_id/{experiment_id}/run_id/{run_id}/row_id/{row_id}/chat/completions"
     )
@@ -246,6 +279,71 @@ def create_app(
     # ===============
     # Traces routes
     # ===============
+
+    # ============ Trail Traces Routes (New) ============
+    @app.get("/trails/{trail_id}/traces", response_model=LangfuseTracesResponse)
+    @app.get("/v1/trails/{trail_id}/traces", response_model=LangfuseTracesResponse)
+    @app.get("/project_id/{project_id}/trails/{trail_id}/traces", response_model=LangfuseTracesResponse)
+    @app.get("/v1/project_id/{project_id}/trails/{trail_id}/traces", response_model=LangfuseTracesResponse)
+    async def get_trail_traces(
+        trail_id: str,
+        request: Request,
+        params: TracesParams = Depends(get_traces_params),
+        project_id: Optional[str] = None,
+        config: ProxyConfig = Depends(get_config),
+        redis_client: redis.Redis = Depends(get_redis),
+        _: None = Depends(require_auth),
+    ) -> LangfuseTracesResponse:
+        """
+        Fetch all Langfuse traces for a specific trail.
+
+        Waits for all expected insertion_ids to complete before returning traces.
+        """
+        if project_id is not None:
+            params.project_id = project_id
+        # Inject trail_id tag into query parameters
+        if params.tags is None:
+            params.tags = []
+        params.tags.append(f"trail_id:{trail_id}")
+        return await fetch_langfuse_traces(
+            config=config,
+            redis_client=redis_client,
+            request=request,
+            params=params,
+        )
+
+    @app.get("/trails/{trail_id}/traces/pointwise", response_model=LangfuseTracesResponse)
+    @app.get("/v1/trails/{trail_id}/traces/pointwise", response_model=LangfuseTracesResponse)
+    @app.get("/project_id/{project_id}/trails/{trail_id}/traces/pointwise", response_model=LangfuseTracesResponse)
+    @app.get("/v1/project_id/{project_id}/trails/{trail_id}/traces/pointwise", response_model=LangfuseTracesResponse)
+    async def get_trail_pointwise_trace(
+        trail_id: str,
+        request: Request,
+        params: TracesParams = Depends(get_traces_params),
+        project_id: Optional[str] = None,
+        config: ProxyConfig = Depends(get_config),
+        redis_client: redis.Redis = Depends(get_redis),
+        _: None = Depends(require_auth),
+    ) -> LangfuseTracesResponse:
+        """
+        Fetch the latest trace for a trail (UUID7 time-ordered).
+
+        Returns only the most recent trace, useful for real-time monitoring.
+        """
+        if project_id is not None:
+            params.project_id = project_id
+        # Inject trail_id tag into query parameters
+        if params.tags is None:
+            params.tags = []
+        params.tags.append(f"trail_id:{trail_id}")
+        return await pointwise_fetch_langfuse_trace(
+            config=config,
+            redis_client=redis_client,
+            request=request,
+            params=params,
+        )
+
+    # ============ Legacy Traces Routes ============
     @app.get("/traces", response_model=LangfuseTracesResponse)
     @app.get("/v1/traces", response_model=LangfuseTracesResponse)
     @app.get("/project_id/{project_id}/traces", response_model=LangfuseTracesResponse)
