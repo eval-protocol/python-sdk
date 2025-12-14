@@ -52,7 +52,12 @@ async def test_pytest_klavis_mcp(row: EvaluationRow) -> EvaluationRow:
         )
         response_text = response.choices[0].message.content
         logger.info("response_text: %s", response_text)
-        score = json.loads(response_text or "{}")["score"]
+        try:
+            parsed = json.loads(response_text or "{}")
+            score = parsed.get("score", 0.0)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning("Failed to parse response as JSON: %s", response_text)
+            score = 0.0
 
         row.evaluation_result = EvaluateResult(
             score=score,
