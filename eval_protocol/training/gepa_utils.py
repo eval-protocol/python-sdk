@@ -359,7 +359,7 @@ def configure_dspy_lm(ep_params: EPParameters) -> None:
 
     # Handle completion_params being a list (for sweeps) - use the first one
     if isinstance(raw_params, list):
-        completion_params = raw_params[0] if raw_params else {}
+        completion_params = (raw_params[0] if raw_params else None) or {}
     else:
         completion_params = raw_params or {}
 
