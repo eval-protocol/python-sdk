@@ -1205,6 +1205,7 @@ class EPParameters(BaseModel):
     dataset_adapter: Optional[Callable[..., Any]] = None
     rollout_processor: Any = None
     rollout_processor_kwargs: Dict[str, Any] | None = None
+    evaluation_test_kwargs: Any = None
     aggregation_method: Any = Field(default="mean")
     passed_threshold: Any = None
     disable_browser_open: bool = False

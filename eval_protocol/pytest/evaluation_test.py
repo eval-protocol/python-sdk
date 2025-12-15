@@ -706,6 +706,7 @@ def evaluation_test(
             dataset_adapter=dataset_adapter,
             rollout_processor=rollout_processor,
             rollout_processor_kwargs=rollout_processor_kwargs,
+            evaluation_test_kwargs=evaluation_test_kwargs,
             aggregation_method=aggregation_method,
             passed_threshold=passed_threshold,
             disable_browser_open=disable_browser_open,

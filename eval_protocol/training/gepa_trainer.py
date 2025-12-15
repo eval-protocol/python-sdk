@@ -157,14 +157,29 @@ class GEPATrainer(Trainer):
 
         Supports:
         - input_rows: Pre-constructed EvaluationRow objects
+            - Can be List[EvaluationRow] (direct usage)
+            - Or Sequence[list[EvaluationRow]] (parameterized usage)
         - input_dataset: Paths to JSONL files (requires dataset_adapter)
         - input_messages: Raw message lists
+        - data_loaders: EvaluationDataLoader instances
         """
         ep = self.ep_params
 
         # Case 1: Pre-constructed rows
+        # Handle both direct List[EvaluationRow] and parameterized Sequence[list[EvaluationRow]]
         if ep.input_rows:
-            return list(ep.input_rows)
+            rows_input = ep.input_rows
+            # Check if it's a list of EvaluationRows (direct) or list of lists (parameterized)
+            if rows_input and isinstance(rows_input[0], EvaluationRow):
+                # Direct usage: List[EvaluationRow]
+                return list(rows_input)
+            else:
+                # Parameterized usage: Sequence[list[EvaluationRow]]
+                all_rows: List[EvaluationRow] = []
+                for rows_list in rows_input:
+                    if rows_list is not None:
+                        all_rows.extend(rows_list)
+                return all_rows
 
         # Case 2: Dataset paths with adapter
         if ep.input_dataset and ep.dataset_adapter:
@@ -183,17 +198,54 @@ class GEPATrainer(Trainer):
             return ep.dataset_adapter(all_data)
 
         # Case 3: Input messages (convert to rows)
+        # Handle both direct List[List[Message]] and parameterized Sequence[list[list[Message]] | None]
         if ep.input_messages:
-            from eval_protocol.models import Message
+            rows: List[EvaluationRow] = []
+            messages_input = ep.input_messages
+
+            # Check if first element is a Message (direct list of conversations) or a list (parameterized)
+            if messages_input and messages_input[0]:
+                first_elem = messages_input[0]
+                # Check if it's List[Message] (a single conversation) or List[List[Message]]
+                if hasattr(first_elem, "role"):
+                    # It's a Message - so input is a single conversation List[Message]
+                    rows.append(EvaluationRow(messages=list(messages_input)))
+                elif first_elem and hasattr(first_elem[0], "role"):
+                    # It's List[List[Message]] - direct usage with multiple conversations
+                    for messages in messages_input:
+                        if messages:
+                            rows.append(EvaluationRow(messages=messages))
+                else:
+                    # Parameterized usage: Sequence[list[list[Message]] | None]
+                    for messages_list in messages_input:
+                        if messages_list is not None:
+                            for messages in messages_list:
+                                rows.append(EvaluationRow(messages=messages))
+            return rows
+
+        # Case 4: Data loaders
+        if ep.data_loaders:
+            from eval_protocol.data_loader.models import EvaluationDataLoader
 
             rows = []
-            for messages in ep.input_messages:
-                rows.append(EvaluationRow(messages=messages))
+            data_loaders = ep.data_loaders
+            data_loaders_list = (
+                [data_loaders] if isinstance(data_loaders, EvaluationDataLoader) else list(data_loaders)
+            )
+            for data_loader in data_loaders_list:
+                results = data_loader.load()
+                for result in results:
+                    rows.extend(result.rows)
+
+            # Apply max_dataset_rows limit
+            if ep.max_dataset_rows:
+                rows = rows[: ep.max_dataset_rows]
+
             return rows
 
         raise ValueError(
             "No dataset found in ep_params. "
-            "Provide input_rows, input_dataset (with dataset_adapter), or input_messages."
+            "Provide input_rows, input_dataset (with dataset_adapter), input_messages, or data_loaders."
         )
 
     @property
