@@ -12,8 +12,6 @@ from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
 )
 from eval_protocol.pytest.evaluation_test import evaluation_test
-from eval_protocol.training import GEPATrainer
-from eval_protocol.training.gepa_utils import build_reflection_lm
 
 SYSTEM_PROMPT = (
     "You are a helpful math assistant. Please reason step by step, and put your final answer within \\boxed{...}."
@@ -63,44 +61,6 @@ def _normalize_to_int_or_none(s: Optional[str]) -> Optional[int]:
         return None
 
 
-def _build_feedback_text(
-    *,
-    extracted_int: Optional[int],
-    gt_int: Optional[int],
-    is_valid: bool,
-    raw_model_answer: str,
-    ground_truth: Optional[str],
-) -> str:
-    """
-    Build a feedback string similar in spirit to the GEPA `metric_with_feedback`.
-
-    Cases:
-    - Parse failure (model or gold): explain integer formatting and show correct answer.
-    - Correct: "Your answer is correct. The correct answer is '...'."
-    - Incorrect: "Your answer is incorrect. The correct answer is '...'."
-    """
-    correct_answer_display = str(gt_int if gt_int is not None else (ground_truth or ""))
-
-    if not is_valid:
-        # Could not parse either the model answer or the gold answer as an integer.
-        feedback_text = (
-            "The final answer must be a valid integer and nothing else. "
-            f"You responded with '{raw_model_answer}', which couldn't be parsed as a python integer. "
-            "Please ensure your answer is a valid integer without any additional text or formatting."
-        )
-        if correct_answer_display:
-            feedback_text += f" The correct answer is '{correct_answer_display}'."
-        return feedback_text
-
-    if extracted_int == gt_int:
-        return f"Your answer is correct. The correct answer is '{correct_answer_display}'."
-    else:
-        return f"Your answer is incorrect. The correct answer is '{correct_answer_display}'."
-
-    # TODO: our dataset does not contain written solutions, so we cannot provide feedback on the solution. maybe need to add it later.
-    # they're using https://huggingface.co/datasets/AI-MO/aimo-validation-aime
-
-
 def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     converted: List[EvaluationRow] = []
     for r in rows:
@@ -123,14 +83,15 @@ def aime2025_dataset_adapter(rows: List[Dict[str, Any]]) -> List[EvaluationRow]:
     completion_params=[
         {
             "max_tokens": 131000,
-            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1-terminus",
+            "extra_body": {"reasoning_effort": "low"},
+            "model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=0.8,
     num_runs=8,
-    max_dataset_rows=None,  # Use full dataset
+    max_dataset_rows=2,
     max_concurrent_rollouts=4,
     mode="pointwise",
 )
@@ -163,49 +124,10 @@ def test_aime25_pointwise(row: EvaluationRow) -> EvaluationRow:
         )
     }
 
-    feedback_text = _build_feedback_text(
-        extracted_int=extracted_int,
-        gt_int=gt_int,
-        is_valid=is_valid,
-        raw_model_answer=content_str,
-        ground_truth=str(row.ground_truth),
-    )
-
     row.evaluation_result = EvaluateResult(
         score=score,
-        reason=feedback_text,
+        reason=("Answer correct" if score == 1.0 else "Answer incorrect"),
         is_score_valid=is_valid,
         metrics=metrics,
     )
     return row
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    trainer = GEPATrainer(
-        test_aime25_pointwise,
-        train_ratio=0.5,  # 50% for training (15 problems)
-        val_ratio=0.3,  # 30% for validation (9 problems)
-        # test_ratio = 20% (6 problems) - calculated automatically
-    )
-
-    # Use same Fireworks model for both main and reflection
-    reflection_lm = build_reflection_lm("fireworks_ai/accounts/fireworks/models/deepseek-v3p1-terminus")
-
-    optimized_program = trainer.train(
-        num_threads=4,  # Reduced from 32 to avoid API timeouts
-        track_stats=True,
-        reflection_minibatch_size=5,  # Reduced to limit concurrent requests
-        reflection_lm=reflection_lm,
-    )
-
-    # Option 1: Quick DSPy evaluation (doesn't use EP infrastructure)
-    print("\n=== DSPy Evaluation ===")
-    print(trainer.evaluate(optimized_program))
-
-    # Option 2: Full EP evaluation (uses LLM proxy, Fireworks tracing, etc.)
-    # This goes through the normal @evaluation_test pipeline
-    print("\n=== EP Evaluation (with tracing) ===")
-    results = trainer.run_ep_evaluation(optimized_program)
-    print(f"Final EP Score: {results['score']:.3f}")
