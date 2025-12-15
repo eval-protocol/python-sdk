@@ -287,6 +287,79 @@ def get_fireworks_api_base() -> str:
     return api_base
 
 
+def get_extra_headers() -> Dict[str, str]:
+    """
+    Retrieves extra headers from the FIREWORKS_EXTRA_HEADERS environment variable.
+
+    The value should be a JSON object mapping header names to values.
+    Example: FIREWORKS_EXTRA_HEADERS='{"x-custom-header": "value", "x-another": "value2"}'
+
+    Returns:
+        Dictionary of extra headers, or empty dict if not set or invalid.
+    """
+    import json
+
+    extra_headers_str = os.environ.get("FIREWORKS_EXTRA_HEADERS")
+    if not extra_headers_str:
+        return {}
+
+    try:
+        extra_headers = json.loads(extra_headers_str)
+        if isinstance(extra_headers, dict):
+            # Ensure all values are strings
+            return {str(k): str(v) for k, v in extra_headers.items()}
+        else:
+            logger.warning("FIREWORKS_EXTRA_HEADERS must be a JSON object, got %s", type(extra_headers).__name__)
+            return {}
+    except json.JSONDecodeError as e:
+        logger.warning("Failed to parse FIREWORKS_EXTRA_HEADERS as JSON: %s", e)
+        return {}
+
+
+def get_platform_headers(
+    api_key: Optional[str] = None,
+    content_type: Optional[str] = "application/json",
+    include_extra_headers: bool = True,
+) -> Dict[str, str]:
+    """
+    Builds standard headers for Fireworks platform API requests.
+
+    This centralizes header construction including:
+    - Authorization bearer token
+    - Content-Type
+    - User-Agent
+    - Extra headers from FIREWORKS_EXTRA_HEADERS env var (JSON format)
+
+    Args:
+        api_key: The API key for authorization. If None, resolves via get_fireworks_api_key().
+        content_type: The Content-Type header value. Set to None to omit.
+        include_extra_headers: Whether to include extra headers from FIREWORKS_EXTRA_HEADERS env var.
+
+    Returns:
+        Dictionary of headers for platform API requests.
+    """
+    from .common_utils import get_user_agent
+
+    resolved_api_key = api_key or get_fireworks_api_key()
+
+    headers: Dict[str, str] = {
+        "User-Agent": get_user_agent(),
+    }
+
+    if resolved_api_key:
+        headers["Authorization"] = f"Bearer {resolved_api_key}"
+
+    if content_type:
+        headers["Content-Type"] = content_type
+
+    # Include extra headers if set in environment
+    if include_extra_headers:
+        extra = get_extra_headers()
+        headers.update(extra)
+
+    return headers
+
+
 def verify_api_key_and_get_account_id(
     api_key: Optional[str] = None,
     api_base: Optional[str] = None,

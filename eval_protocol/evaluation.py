@@ -18,6 +18,7 @@ import requests
 from eval_protocol.auth import (
     get_fireworks_account_id,
     get_fireworks_api_key,
+    get_platform_headers,
     verify_api_key_and_get_account_id,
 )
 from eval_protocol.common_utils import get_user_agent
@@ -403,11 +404,7 @@ class Evaluator:
             account_id = "pyroworks-dev"
 
         url = f"{api_base}/v1/accounts/{account_id}/evaluators:previewEvaluator"
-        headers = {
-            "Authorization": f"Bearer {auth_token}",
-            "Content-Type": "application/json",
-            "User-Agent": get_user_agent(),
-        }
+        headers = get_platform_headers(api_key=auth_token, content_type="application/json")
         logger.info(f"Previewing evaluator using API endpoint: {url} with account: {account_id}")
         logger.debug(f"Preview API Request URL: {url}")
         logger.debug(f"Preview API Request Headers: {json.dumps(headers, indent=2)}")
@@ -749,11 +746,7 @@ class Evaluator:
             account_id = "pyroworks-dev"
 
         base_url = f"{self.api_base}/v1/{parent}/evaluatorsV2"
-        headers = {
-            "Authorization": f"Bearer {auth_token}",
-            "Content-Type": "application/json",
-            "User-Agent": get_user_agent(),
-        }
+        headers = get_platform_headers(api_key=auth_token, content_type="application/json")
 
         self._ensure_requirements_present(os.getcwd())
 

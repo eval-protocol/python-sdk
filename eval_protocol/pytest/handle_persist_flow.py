@@ -7,7 +7,6 @@ import pathlib
 import re
 from typing import Any
 
-from eval_protocol.common_utils import get_user_agent
 from eval_protocol.directory_utils import find_eval_protocol_dir
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest.store_experiment_link import store_experiment_link
@@ -16,6 +15,7 @@ from eval_protocol.auth import (
     get_fireworks_account_id,
     verify_api_key_and_get_account_id,
     get_fireworks_api_base,
+    get_platform_headers,
 )
 
 import requests
@@ -130,11 +130,7 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                         continue
 
                     api_base = get_fireworks_api_base()
-                    headers = {
-                        "Authorization": f"Bearer {fireworks_api_key}",
-                        "Content-Type": "application/json",
-                        "User-Agent": get_user_agent(),
-                    }
+                    headers = get_platform_headers(api_key=fireworks_api_key, content_type="application/json")
 
                     # Make dataset first
 
@@ -167,10 +163,8 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
                     upload_url = f"{api_base}/v1/accounts/{fireworks_account_id}/datasets/{dataset_id}:upload"
                     with open(exp_file, "rb") as f:
                         files = {"file": f}
-                        upload_headers = {
-                            "Authorization": f"Bearer {fireworks_api_key}",
-                            "User-Agent": get_user_agent(),
-                        }
+                        # For file uploads, omit Content-Type (let requests set multipart boundary)
+                        upload_headers = get_platform_headers(api_key=fireworks_api_key, content_type=None)
                         upload_response = requests.post(upload_url, files=files, headers=upload_headers)
 
                     # Skip if upload failed
