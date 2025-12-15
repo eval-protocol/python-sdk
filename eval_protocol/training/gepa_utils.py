@@ -91,23 +91,30 @@ def build_reflection_lm(reflection_lm_name: str) -> LM:
         return dspy.LM(model=reflection_lm_name)
 
 
-def gold_and_pred_to_row(gold: Example, pred: Prediction) -> EvaluationRow:
+def gold_and_pred_to_row(
+    gold: Example,
+    pred: Prediction,
+    input_field: str = "problem",
+    output_field: str = "answer",
+) -> EvaluationRow:
     """
     Convert a GEPA (gold, pred) pair into an EvaluationRow for an EP `@evaluation_test`.
 
-    Assumptions (aligned with common DSPy usage):
-    - `gold.answer` holds the ground-truth answer.
-    - `pred.answer` holds the model's final answer text.
+    Args:
+        gold: The ground-truth example
+        pred: The model's prediction
+        input_field: Name of the input field in the DSPy signature
+        output_field: Name of the output field in the DSPy signature
 
     Note: ground_truth is preserved in its original type (list, dict, str, etc.)
     to support structured comparisons like SQL result matching.
     """
-    gt = gold.get("answer", None)
+    gt = gold.get(output_field, None)
     # Preserve original type - don't convert to string!
     # This is important for SQL evaluators that expect list[dict] results
     ground_truth = gt
 
-    content = pred.get("answer", "")
+    content = pred.get(output_field, "")
 
     return EvaluationRow(
         messages=[
@@ -135,13 +142,20 @@ def row_to_prediction(row: EvaluationRow) -> ScoreWithFeedback:
 
 def ep_test_to_gepa_metric(
     test_fn: TestFunction,
+    input_field: str = "problem",
+    output_field: str = "answer",
 ) -> GEPAFeedbackMetric:
     """
     Adapter: convert an EP-style `test_fn(row: EvaluationRow) -> EvaluationRow` into
     a GEPAFeedbackMetric-compatible callable.
 
+    Args:
+        test_fn: The EP evaluation test function
+        input_field: Name of the input field in the DSPy signature (default: "problem")
+        output_field: Name of the output field in the DSPy signature (default: "answer")
+
     The resulting metric:
-    - Constructs an EvaluationRow from (gold, pred) using a simple heuristic.
+    - Constructs an EvaluationRow from (gold, pred) using the configured field names.
     - Applies the EP test_fn to populate `row.evaluation_result`.
     - Returns a dspy.Prediction(score, feedback) derived from that result.
 
@@ -158,7 +172,7 @@ def ep_test_to_gepa_metric(
         pred_name: Optional[str] = None,
         pred_trace: Optional[DSPyTrace] = None,
     ) -> ScoreWithFeedback:
-        row = gold_and_pred_to_row(gold, pred)
+        row = gold_and_pred_to_row(gold, pred, input_field, output_field)
 
         # Call the test function - handle both sync and async
         result = test_fn(row)  # pyright: ignore

@@ -10,6 +10,9 @@ from gepa.proposer.reflective_mutation.base import ReflectionComponentSelector
 
 from eval_protocol.models import EPParameters, EvaluationRow, Message
 from eval_protocol.pytest.types import TestFunction, RolloutProcessorConfig
+from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
+from eval_protocol.pytest.execution import execute_pytest
+from eval_protocol.dataset_logger import default_logger
 from eval_protocol.training.trainer import Trainer
 from eval_protocol.training.utils import build_ep_parameters_from_test
 from eval_protocol.training.gepa_utils import (
@@ -98,12 +101,15 @@ class GEPATrainer(Trainer):
         # Store configuration
         self._input_field = input_field
         self._output_field = output_field
+        self._train_ratio = train_ratio
+        self._val_ratio = val_ratio
+        self._seed = seed
 
         # Configure DSPy to use the same LLM as EP
         configure_dspy_lm(self.ep_params)
 
-        # Wrap the EP test function as a GEPA metric
-        self.metric = ep_test_to_gepa_metric(test_fn)
+        # Wrap the EP test function as a GEPA metric (with configured field names)
+        self.metric = ep_test_to_gepa_metric(test_fn, input_field, output_field)
 
         # Load and split the dataset
         self._rows: List[EvaluationRow] = self._load_dataset()
@@ -113,6 +119,10 @@ class GEPATrainer(Trainer):
             val_ratio=val_ratio,
             seed=seed,
         )
+        # Store original EvaluationRow objects for later use in evaluate_with_ep
+        self._train_rows: List[EvaluationRow] = train_rows
+        self._val_rows: List[EvaluationRow] = val_rows
+        self._test_rows: List[EvaluationRow] = test_rows
 
         # Extract the system prompt from the dataset (this is what GEPA will optimize!)
         self._initial_system_prompt = extract_system_prompt_from_rows(self._rows)
@@ -372,23 +382,13 @@ class GEPATrainer(Trainer):
             - 'score': Aggregate score
             - 'optimized_prompt': The prompt used for evaluation
         """
-        from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
-        from eval_protocol.pytest.execution import execute_pytest
-        from eval_protocol.logging import default_logger
-
         # Get optimized system prompt
         optimized_prompt = self.get_optimized_system_prompt(optimized_program)
 
         # Get rows to evaluate
         if use_test_set:
-            # Reconstruct test rows from test_set examples
-            _, _, test_rows = train_val_test_split(
-                self._rows,
-                train_ratio=0.5,  # Match the ratio used in training
-                val_ratio=0.3,
-                seed=42,
-            )
-            rows_to_eval = test_rows
+            # Use stored test rows (same split from __init__)
+            rows_to_eval = self._test_rows
         else:
             rows_to_eval = self._rows
 
