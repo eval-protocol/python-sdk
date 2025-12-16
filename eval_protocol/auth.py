@@ -26,30 +26,21 @@ def get_fireworks_account_id() -> Optional[str]:
     """
     Retrieves the Fireworks Account ID.
 
-    The Account ID is sourced in the following order:
-    1. FIREWORKS_ACCOUNT_ID environment variable.
-    2. If an API key is available (env), resolve via verifyApiKey.
-
     Returns:
         The Account ID if found, otherwise None.
     """
-    account_id = os.environ.get("FIREWORKS_ACCOUNT_ID")
-    if account_id and account_id.strip():
-        logger.debug("Using FIREWORKS_ACCOUNT_ID from environment variable.")
-        return account_id.strip()
-
-    # Fallback: if API key is present, attempt to resolve via verifyApiKey (env)
+    # Account id is derived from the API key (single source of truth).
     try:
         api_key_for_verify = get_fireworks_api_key()
         if api_key_for_verify:
             resolved = verify_api_key_and_get_account_id(api_key=api_key_for_verify, api_base=get_fireworks_api_base())
             if resolved:
-                logger.debug("Using FIREWORKS_ACCOUNT_ID resolved via verifyApiKey: %s", resolved)
+                logger.debug("Resolved account id via verifyApiKey: %s", resolved)
                 return resolved
     except Exception as e:
-        logger.debug("Failed to resolve FIREWORKS_ACCOUNT_ID via verifyApiKey: %s", e)
+        logger.debug("Failed to resolve account id via verifyApiKey: %s", e)
 
-    logger.debug("Fireworks Account ID not found in environment variables or via verifyApiKey.")
+    logger.debug("Fireworks Account ID not found via verifyApiKey.")
     return None
 
 
@@ -107,7 +98,7 @@ def verify_api_key_and_get_account_id(
         # Header keys could vary in case; requests provides case-insensitive dict
         account_id = resp.headers.get("x-fireworks-account-id") or resp.headers.get("X-Fireworks-Account-Id")
         if account_id and account_id.strip():
-            logger.debug("Resolved FIREWORKS_ACCOUNT_ID via verifyApiKey: %s", account_id)
+            logger.debug("Resolved account id via verifyApiKey: %s", account_id)
             return account_id.strip()
         return None
     except Exception as e:

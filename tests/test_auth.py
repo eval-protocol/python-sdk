@@ -11,12 +11,11 @@ from eval_protocol.auth import (
 
 
 TEST_ENV_API_KEY = "test_env_api_key_123"
-TEST_ENV_ACCOUNT_ID = "test_env_account_id_456"
 
 
 @pytest.fixture(autouse=True)
 def clear_env_vars_fixture():
-    env_vars_to_clear = ["FIREWORKS_API_KEY", "FIREWORKS_ACCOUNT_ID", "FIREWORKS_API_BASE"]
+    env_vars_to_clear = ["FIREWORKS_API_KEY", "FIREWORKS_API_BASE"]
     original_values = {var: os.environ.get(var) for var in env_vars_to_clear}
     for var in env_vars_to_clear:
         os.environ.pop(var, None)
@@ -35,11 +34,6 @@ def test_get_api_key_from_env():
 
 def test_get_api_key_not_found():
     assert get_fireworks_api_key() is None
-
-
-def test_get_account_id_from_env():
-    os.environ["FIREWORKS_ACCOUNT_ID"] = TEST_ENV_ACCOUNT_ID
-    assert get_fireworks_account_id() == TEST_ENV_ACCOUNT_ID
 
 
 def test_get_account_id_not_found():

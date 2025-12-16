@@ -302,7 +302,6 @@ if __name__ == "__main__":
 
     # These should be set in your .env.dev, .env file (or shell environment) for this test to run
     # FIREWORKS_API_KEY="your_fireworks_api_key"
-    # FIREWORKS_ACCOUNT_ID="your_fireworks_account_id"
     # FIREWORKS_API_BASE="https://api.fireworks.ai" # or your dev/staging endpoint
 
     test_account_id = get_fireworks_account_id()
@@ -310,7 +309,7 @@ if __name__ == "__main__":
     test_api_base = get_fireworks_api_base()
 
     logger.info("Attempting to use the following configuration for testing Fireworks secrets API:")
-    logger.info(f"  Resolved FIREWORKS_ACCOUNT_ID: {test_account_id}")
+    logger.info(f"  Resolved account id (derived from API key): {test_account_id}")
     logger.info(f"  Resolved FIREWORKS_API_BASE: {test_api_base}")
     logger.info(
         f"  Resolved FIREWORKS_API_KEY: {'********' + test_api_key[-4:] if test_api_key and len(test_api_key) > 4 else 'Not set or too short'}"
@@ -318,7 +317,7 @@ if __name__ == "__main__":
 
     if not test_account_id or not test_api_key or not test_api_base:
         logger.error(
-            "CRITICAL: FIREWORKS_ACCOUNT_ID, FIREWORKS_API_KEY, and FIREWORKS_API_BASE must be correctly set in environment or .env file to run this test."
+            "CRITICAL: FIREWORKS_API_KEY and FIREWORKS_API_BASE must be correctly set in environment or .env file to run this test."
         )
         import sys  # Make sure sys is imported if using sys.exit
 

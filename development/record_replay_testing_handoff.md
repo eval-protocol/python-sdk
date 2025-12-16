@@ -101,7 +101,6 @@ PORT=8001 python simulation_server.py --port 8001
 ### Environment Variables
 ```bash
 export FIREWORKS_API_KEY="your_dev_fireworks_api_key"
-export FIREWORKS_ACCOUNT_ID="your_account_id"
 export EP_PLAYBACK_FILE="/path/to/recording.jsonl"  # For playback mode
 ```
 

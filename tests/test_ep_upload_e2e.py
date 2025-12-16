@@ -19,6 +19,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import eval_protocol.cli_commands.utils as cli_utils
+
 
 def create_test_project_with_evaluation_test(test_content: str, filename: str = "test_eval.py"):
     """
@@ -52,8 +54,11 @@ def create_test_project_with_evaluation_test(test_content: str, filename: str = 
 def mock_env_variables(monkeypatch):
     """Set up test environment variables"""
     monkeypatch.setenv("FIREWORKS_API_KEY", "test_api_key")
-    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "test_account")
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+
+    monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "test_account")
+    # Upload ultimately calls into eval_protocol.evaluation for API calls; keep it offline too.
+    monkeypatch.setattr("eval_protocol.evaluation.get_fireworks_account_id", lambda: "test_account")
 
 
 @pytest.fixture

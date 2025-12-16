@@ -66,12 +66,11 @@ For a streamlined local development experience, especially when managing multipl
     cp .env.example .env.dev
     ```
 2.  **Populate `.env.dev`:**
-    Open `.env.dev` and fill in the necessary environment variables, such as `FIREWORKS_API_KEY`, `FIREWORKS_ACCOUNT_ID`, and any other variables required for your development tasks (e.g., `E2B_API_KEY`).
+    Open `.env.dev` and fill in the necessary environment variables, such as `FIREWORKS_API_KEY` and any other variables required for your development tasks (e.g., `E2B_API_KEY`).
 
     Example content for `.env.dev`:
     ```
     FIREWORKS_API_KEY="your_dev_fireworks_api_key"
-    FIREWORKS_ACCOUNT_ID="abc"
     FIREWORKS_API_BASE="https://api.fireworks.ai"
     E2B_API_KEY="your_e2b_api_key"
     ```
@@ -92,15 +91,12 @@ Set the following environment variables. For development, you might use specific
 
 *   `FIREWORKS_API_KEY`: Your Fireworks AI API key.
     *   For development, you might use a specific dev key: `export FIREWORKS_API_KEY="your_dev_fireworks_api_key"`
-*   `FIREWORKS_ACCOUNT_ID`: Your Fireworks AI Account ID. This is used to scope operations to your account.
-    *   For development against a shared dev environment, this might be a common ID like `pyroworks-dev`: `export FIREWORKS_ACCOUNT_ID="pyroworks-dev"`
 *   `FIREWORKS_API_BASE`: (Optional) If you need to target a non-production Fireworks API endpoint.
     *   For development: `export FIREWORKS_API_BASE="https://dev.api.fireworks.ai"`
 
 Example for a typical development setup:
 ```bash
 export FIREWORKS_API_KEY="your_development_api_key"
-export FIREWORKS_ACCOUNT_ID="pyroworks-dev" # Or your specific dev account ID
 export FIREWORKS_API_BASE="https://dev.api.fireworks.ai" # If targeting dev API
 ```
 
@@ -110,11 +106,10 @@ Eval Protocol does not read `~/.fireworks/auth.ini` (or any firectl profiles). U
 
 **Credential Sourcing Order:**
 Eval Protocol prioritizes credentials as follows:
-1.  Environment Variables (`FIREWORKS_API_KEY`, optional `FIREWORKS_ACCOUNT_ID`)
+1.  Environment Variables (`FIREWORKS_API_KEY`)
 
 **Purpose of Credentials:**
 *   `FIREWORKS_API_KEY`: Authenticates your requests to the Fireworks AI service.
-*   `FIREWORKS_ACCOUNT_ID`: Identifies your account for operations like managing evaluators. Typically this is derived automatically from `FIREWORKS_API_KEY` via the `verifyApiKey` endpoint.
 *   `FIREWORKS_API_BASE`: Allows targeting different API environments (e.g., development, staging).
 
 **Other Environment Variables:**
@@ -490,11 +485,8 @@ This is perfect for development, webhook testing, or making your reward function
 If you encounter authentication issues:
 
 1.  **Check Credential Sources**:
-    *   Verify that `FIREWORKS_API_KEY` and `FIREWORKS_ACCOUNT_ID` are correctly set as environment variables.
-    *   If not using environment variables, ensure `~/.fireworks/auth.ini` exists, is correctly formatted, and contains the right `api_key` and `account_id` under the `[fireworks]` section.
-    *   Remember the priority: environment variables override the `auth.ini` file.
+    *   Verify that `FIREWORKS_API_KEY` is correctly set as an environment variable.
 2.  **Verify API Key Permissions**: Ensure the API key has the necessary permissions for the operations you are attempting.
-3.  **Check Account ID**: Confirm that the `FIREWORKS_ACCOUNT_ID` is correct for the environment you are targeting (e.g., `pyroworks-dev` for the dev API, or your personal account ID).
 4.  **API Base URL**: If using `FIREWORKS_API_BASE`, ensure it points to the correct API endpoint (e.g., `https://dev.api.fireworks.ai` for development).
 
 You can use the following snippet to check what credentials Eval Protocol is resolving:

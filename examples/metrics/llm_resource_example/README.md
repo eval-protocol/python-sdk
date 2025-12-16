@@ -21,14 +21,13 @@ This example demonstrates how to use an LLM as a judge within the reward functio
 ```bash
 # Set your Fireworks API key
 export FIREWORKS_API_KEY=your_api_key_here
-export FIREWORKS_ACCOUNT_ID=pyroworks
 ```
 
 ## Running the Example
 
 ```bash
 # Run evaluation using the configuration file
-FIREWORKS_ACCOUNT_ID=pyroworks eval-protocol run --config-path conf --config-name simple_llm_judge_eval
+eval-protocol run --config-path conf --config-name simple_llm_judge_eval
 ```
 
 ## Configuration
