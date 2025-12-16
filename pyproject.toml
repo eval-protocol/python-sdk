@@ -36,6 +36,7 @@ dependencies = [
     "pytest-asyncio>=0.21.0",
     "peewee>=3.18.2",
     "backoff>=2.2.0",
+    "fireworks>=1.0.0a11",
     "questionary>=2.0.0",
     # Dependencies for vendored tau2 package
     "toml>=0.10.0",
@@ -88,9 +89,6 @@ trl = [
 ]
 openevals = [
     "openevals>=0.1.0",
-]
-fireworks = [
-    "fireworks-ai>=0.19.19",
 ]
 box2d = [
     "swig",
