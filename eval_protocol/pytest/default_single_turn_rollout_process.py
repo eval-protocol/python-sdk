@@ -3,7 +3,9 @@ import json
 import logging
 import os
 import time
-from typing import List
+from dataclasses import asdict, is_dataclass
+from types import SimpleNamespace
+from typing import Any, List
 
 import litellm
 from litellm import acompletion
@@ -17,6 +19,28 @@ from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _serialize_logprobs(logprobs: Any) -> Any:
+    """Best-effort conversion of provider logprobs into JSON-serializable data."""
+
+    if logprobs is None:
+        return None
+    if hasattr(logprobs, "model_dump"):
+        try:
+            return logprobs.model_dump()
+        except Exception:
+            pass
+    if is_dataclass(logprobs) and not isinstance(logprobs, type):
+        return asdict(logprobs)
+    if isinstance(logprobs, SimpleNamespace):
+        return vars(logprobs)
+    if isinstance(logprobs, dict):
+        return logprobs
+    try:
+        return json.loads(json.dumps(logprobs, default=lambda o: getattr(o, "__dict__", str(o))))
+    except Exception:
+        return logprobs
 
 
 class SingleTurnRolloutProcessor(RolloutProcessor):
@@ -105,6 +129,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
             assistant_message = response.choices[0].message
             finish_reason = getattr(response.choices[0], "finish_reason", None)
+            assistant_logprobs = _serialize_logprobs(getattr(response.choices[0], "logprobs", None))
 
             # Extract content
             assistant_content = assistant_message.content or ""
@@ -159,6 +184,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                     content=assistant_content,
                     reasoning_content=reasoning_content,
                     tool_calls=converted_tool_calls,
+                    logprobs=assistant_logprobs,
                 )
             ]
 

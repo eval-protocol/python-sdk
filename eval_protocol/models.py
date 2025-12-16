@@ -517,10 +517,20 @@ class Message(BaseModel):
     function_call: Optional[FunctionCall] = None
     control_plane_step: Optional[Dict[str, Any]] = None
     weight: Optional[int] = None
+    logprobs: Optional[Any] = Field(
+        default=None,
+        description=(
+            "Optional log probability metadata captured from the completion response. "
+            "When present, this typically mirrors the provider-specific logprob payload."
+        ),
+    )
 
     def dump_mdoel_for_chat_completion_request(self):
         """Only keep chat completion accepted fields"""
-        return self.model_dump(exclude_none=True, exclude={"control_plane_step", "reasoning_content", "weight"})
+        return self.model_dump(
+            exclude_none=True,
+            exclude={"control_plane_step", "reasoning_content", "weight", "logprobs"},
+        )
 
     @classmethod
     def model_validate(cls, obj, *args, **kwargs):

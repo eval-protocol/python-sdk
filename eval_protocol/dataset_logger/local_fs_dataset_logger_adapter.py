@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from eval_protocol.common_utils import load_jsonl
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
-from eval_protocol.dataset_logger.directory_utils import find_eval_protocol_datasets_dir
+from eval_protocol.directory_utils import find_eval_protocol_datasets_dir
 
 if TYPE_CHECKING:
     from eval_protocol.models import EvaluationRow
