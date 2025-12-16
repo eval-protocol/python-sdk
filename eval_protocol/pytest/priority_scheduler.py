@@ -86,6 +86,14 @@ class PriorityRolloutScheduler:
         # Progress bars (initialized in run())
         self.rollout_pbar: Optional[async_tqdm] = None
         self.eval_pbar: Optional[async_tqdm] = None
+        
+        # Track active rollouts: {row_index: set of run_indices currently in progress}
+        self.active_rollouts: Dict[int, set] = defaultdict(set)
+        self.active_rollouts_lock = asyncio.Lock()
+        
+        # Track active evaluations
+        self.active_evals: int = 0
+        self.active_evals_lock = asyncio.Lock()
 
     async def schedule_dataset(
         self,
@@ -140,51 +148,64 @@ class PriorityRolloutScheduler:
             run_id = rows_to_eval[0].execution_metadata.run_id if isinstance(rows_to_eval, list) else rows_to_eval.execution_metadata.run_id
             eval_res = None
 
+            # Track active eval
+            async with self.active_evals_lock:
+                self.active_evals += 1
+                if self.eval_pbar:
+                    self.eval_pbar.set_postfix_str(f"active={self.active_evals}")
+
             start_time = time.perf_counter()
             
-            async with self.eval_sem:
-                async with rollout_logging_context(
-                    rollout_id or "",
-                    experiment_id=experiment_id,
-                    run_id=run_id,
-                ):
-                    if isinstance(rows_to_eval, list):
-                        eval_res = await execute_pytest_with_exception_handling(
-                            test_func=self.eval_executor,
-                            evaluation_test_kwargs=self.evaluation_test_kwargs,
-                            processed_dataset=rows_to_eval,
-                        )
+            try:
+                async with self.eval_sem:
+                    async with rollout_logging_context(
+                        rollout_id or "",
+                        experiment_id=experiment_id,
+                        run_id=run_id,
+                    ):
+                        if isinstance(rows_to_eval, list):
+                            eval_res = await execute_pytest_with_exception_handling(
+                                test_func=self.eval_executor,
+                                evaluation_test_kwargs=self.evaluation_test_kwargs,
+                                processed_dataset=rows_to_eval,
+                            )
+                        else:
+                            eval_res = await execute_pytest_with_exception_handling(
+                                test_func=self.eval_executor,
+                                evaluation_test_kwargs=self.evaluation_test_kwargs,
+                                processed_row=rows_to_eval,
+                            )
+                eval_duration = time.perf_counter() - start_time
+                # push result to the output buffer
+                if self.output_buffer:
+                    if isinstance(eval_res, list):
+                        for row in eval_res:
+                            self._post_process_result(row)
+                            await self.output_buffer.add_result(row)
                     else:
-                        eval_res = await execute_pytest_with_exception_handling(
-                            test_func=self.eval_executor,
-                            evaluation_test_kwargs=self.evaluation_test_kwargs,
-                            processed_row=rows_to_eval,
-                        )
-            eval_duration = time.perf_counter() - start_time
-            # push result to the output buffer
-            if self.output_buffer:
+                        self._post_process_result(eval_res)
+                        await self.output_buffer.add_result(eval_res)
+                    
                 if isinstance(eval_res, list):
                     for row in eval_res:
-                        self._post_process_result(row)
-                        await self.output_buffer.add_result(row)
+                        row.execution_metadata.eval_duration_seconds = eval_duration
+                        self.results.append(row)
+                    # Update eval progress bar (groupwise: 1 eval for the group)
+                    if self.eval_pbar:
+                        self.eval_pbar.update(1)
                 else:
-                    self._post_process_result(eval_res)
-                    await self.output_buffer.add_result(eval_res)
-                
-            if isinstance(eval_res, list):
-                for row in eval_res:
-                    row.execution_metadata.eval_duration_seconds = eval_duration
-                    self.results.append(row)
-                # Update eval progress bar (groupwise: 1 eval for the group)
-                if self.eval_pbar:
-                    self.eval_pbar.update(1)
-            else:
-                eval_res.execution_metadata.eval_duration_seconds = eval_duration
-                self.results.append(eval_res)
-                # Update eval progress bar (pointwise: 1 eval per row)
-                if self.eval_pbar:
-                    self.eval_pbar.update(1)
-            return eval_res
+                    eval_res.execution_metadata.eval_duration_seconds = eval_duration
+                    self.results.append(eval_res)
+                    # Update eval progress bar (pointwise: 1 eval per row)
+                    if self.eval_pbar:
+                        self.eval_pbar.update(1)
+                return eval_res
+            finally:
+                # Decrement active eval counter
+                async with self.active_evals_lock:
+                    self.active_evals -= 1
+                    if self.eval_pbar:
+                        self.eval_pbar.set_postfix_str(f"active={self.active_evals}")
 
         # 1. Prepare Config & Row for this micro-batch
         current_batch_rows = []
@@ -223,23 +244,36 @@ class PriorityRolloutScheduler:
         batch_results: List[EvaluationRow] = []
         if current_batch_rows:
             for idx, row in current_batch_rows:
+                # Track this rollout as active
+                async with self.active_rollouts_lock:
+                    self.active_rollouts[task.row_index].add(idx)
+                    await self._update_rollout_pbar_postfix()
+                
                 start_time = time.perf_counter()
-                async for result_row in rollout_processor_with_retry(
-                    self.rollout_processor, [row], task.config, idx, disable_tqdm=True
-                ):
-                    rollout_duration = time.perf_counter() - start_time
-                    result_row.execution_metadata.rollout_duration_seconds = rollout_duration
-                    batch_results.append(result_row)
-                    
-                    # Update rollout progress bar
-                    if self.rollout_pbar:
-                        self.rollout_pbar.update(1)
-                    
-                    # in pointwise, we start evaluation immediately
-                    if self.mode == "pointwise":
-                        t = asyncio.create_task(_run_eval(result_row))
-                        self.background_tasks.add(t)
-                        t.add_done_callback(self.background_tasks.discard)
+                try:
+                    async for result_row in rollout_processor_with_retry(
+                        self.rollout_processor, [row], task.config, idx, disable_tqdm=True
+                    ):
+                        rollout_duration = time.perf_counter() - start_time
+                        result_row.execution_metadata.rollout_duration_seconds = rollout_duration
+                        batch_results.append(result_row)
+                        
+                        # Update rollout progress bar
+                        if self.rollout_pbar:
+                            self.rollout_pbar.update(1)
+                        
+                        # in pointwise, we start evaluation immediately
+                        if self.mode == "pointwise":
+                            t = asyncio.create_task(_run_eval(result_row))
+                            self.background_tasks.add(t)
+                            t.add_done_callback(self.background_tasks.discard)
+                finally:
+                    # Remove from active tracking
+                    async with self.active_rollouts_lock:
+                        self.active_rollouts[task.row_index].discard(idx)
+                        if not self.active_rollouts[task.row_index]:
+                            del self.active_rollouts[task.row_index]
+                        await self._update_rollout_pbar_postfix()
         
         # 3. Evaluate and Collect History
         current_batch_history_updates = []
@@ -282,6 +316,34 @@ class PriorityRolloutScheduler:
                 history=new_history
             )
             self.queue.put_nowait(new_task)
+
+    def _format_active_rollouts(self) -> str:
+        """Format active rollouts for display in progress bar."""
+        if not self.active_rollouts:
+            return ""
+        
+        # Show active rows and their run indices
+        parts = []
+        for row_idx in sorted(self.active_rollouts.keys())[:5]:  # Limit to 5 rows to keep it readable
+            runs = sorted(self.active_rollouts[row_idx])
+            if runs:
+                runs_str = ",".join(str(r) for r in runs[:3])  # Show up to 3 run indices
+                if len(runs) > 3:
+                    runs_str += f"+{len(runs)-3}"
+                parts.append(f"r{row_idx}:[{runs_str}]")
+        
+        if len(self.active_rollouts) > 5:
+            parts.append(f"+{len(self.active_rollouts)-5} more")
+        
+        return " | ".join(parts)
+    
+    async def _update_rollout_pbar_postfix(self):
+        """Update the rollout progress bar postfix with active tasks info."""
+        if self.rollout_pbar:
+            active_count = sum(len(runs) for runs in self.active_rollouts.values())
+            self.rollout_pbar.set_postfix_str(
+                f"active={active_count} {self._format_active_rollouts()}"
+            )
 
     def _post_process_result(self, res: EvaluationRow):
         """
