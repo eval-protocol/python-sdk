@@ -13,11 +13,12 @@ from typing import Dict, List
 logger = logging.getLogger(__name__)
 
 
-def _get_parser_info(parser: argparse.ArgumentParser) -> Dict:
+def _get_parser_info(parser: argparse.ArgumentParser, subparser_help: str = "") -> Dict:
     """Extract information from an ArgumentParser."""
     info = {
         "prog": parser.prog,
         "description": parser.description or "",
+        "help": subparser_help,  # The help text from add_parser()
         "epilog": parser.epilog or "",
         "arguments": [],
         "subparsers": {},
@@ -26,9 +27,16 @@ def _get_parser_info(parser: argparse.ArgumentParser) -> Dict:
     # Extract arguments
     for action in parser._actions:
         if isinstance(action, argparse._SubParsersAction):
-            # Handle subparsers
+            # Handle subparsers - also extract the help text for each
             for name, subparser in action.choices.items():
-                info["subparsers"][name] = _get_parser_info(subparser)
+                # Get the help text from the subparser action's _parser_class
+                subparser_help_text = ""
+                if hasattr(action, "_choices_actions"):
+                    for choice_action in action._choices_actions:
+                        if choice_action.dest == name:
+                            subparser_help_text = choice_action.help or ""
+                            break
+                info["subparsers"][name] = _get_parser_info(subparser, subparser_help_text)
         elif isinstance(action, argparse._HelpAction):
             # Skip help action, it's always present
             continue
@@ -100,8 +108,10 @@ def _generate_command_section(
     lines.append(f"{heading} `{full_command}`")
     lines.append("")
 
-    if info["description"]:
-        lines.append(info["description"])
+    # Use help text (from add_parser) or description (from ArgumentParser)
+    description = info.get("help") or info.get("description") or ""
+    if description and description != argparse.SUPPRESS:
+        lines.append(description)
         lines.append("")
 
     # Arguments table

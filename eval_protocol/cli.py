@@ -500,10 +500,7 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
     # )
 
     # Hidden command: export-docs (for generating CLI reference documentation)
-    export_docs_parser = subparsers.add_parser(
-        "export-docs",
-        help=argparse.SUPPRESS,  # Hidden from help output
-    )
+    export_docs_parser = subparsers.add_parser("export-docs", help=argparse.SUPPRESS)
     export_docs_parser.add_argument(
         "--output",
         "-o",
@@ -511,7 +508,24 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         help="Output markdown file path (default: ./docs/cli-reference.md)",
     )
 
+    # Update metavar to only show visible commands (exclude those with SUPPRESS)
+    _hide_suppressed_subparsers(parser)
+
     return parser
+
+
+def _hide_suppressed_subparsers(parser: argparse.ArgumentParser) -> None:
+    """Update subparsers to exclude commands with help=SUPPRESS from help output."""
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            # Filter _choices_actions to only visible commands
+            choices_actions = getattr(action, "_choices_actions", [])
+            visible_actions = [a for a in choices_actions if a.help != argparse.SUPPRESS]
+            action._choices_actions = visible_actions
+            # Update metavar to match
+            visible_names = [a.dest for a in visible_actions]
+            if visible_names:
+                action.metavar = "{" + ",".join(visible_names) + "}"
 
 
 def parse_args(args=None):
