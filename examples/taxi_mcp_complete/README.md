@@ -94,7 +94,6 @@ source .venv/bin/activate
 
 # Set up authentication
 export FIREWORKS_API_KEY="your_dev_fireworks_api_key"
-export FIREWORKS_ACCOUNT_ID="your_account_id"
 ```
 
 ### Proper Testing (Recommended)

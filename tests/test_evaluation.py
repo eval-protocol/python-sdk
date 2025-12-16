@@ -169,7 +169,7 @@ def test_evaluator_preview(mock_requests_post, monkeypatch):
     mock_requests_post.return_value = mock_response
 
     monkeypatch.setenv("FIREWORKS_API_KEY", "test_preview_api_key")
-    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "test_preview_account")
+    monkeypatch.setattr("eval_protocol.evaluation.get_fireworks_account_id", lambda: "test_preview_account")
     # Using a mock API base to prevent real calls
     monkeypatch.setenv("FIREWORKS_API_BASE", "http://mock-api-server")  # Changed to avoid actual localhost call
 
@@ -269,7 +269,7 @@ def test_preview_evaluation_helper(mock_requests_post, monkeypatch):
     mock_requests_post.return_value = mock_response
 
     monkeypatch.setenv("FIREWORKS_API_KEY", "test_helper_api_key")
-    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "test_helper_account")
+    monkeypatch.setattr("eval_protocol.evaluation.get_fireworks_account_id", lambda: "test_helper_account")
     # Using a mock API base to prevent real calls
     monkeypatch.setenv("FIREWORKS_API_BASE", "http://mock-api-server-helper")  # Changed
 
@@ -333,7 +333,7 @@ def test_preview_evaluation_helper(mock_requests_post, monkeypatch):
 def test_create_evaluation_helper(monkeypatch):
     tmp_dir = create_test_folder()
     monkeypatch.setenv("FIREWORKS_API_KEY", "test_api_key")
-    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "test_account")
+    monkeypatch.setattr("eval_protocol.evaluation.get_fireworks_account_id", lambda: "test_account")
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
 
     original_cwd = os.getcwd()

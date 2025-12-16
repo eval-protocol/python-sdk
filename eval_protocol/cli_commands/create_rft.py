@@ -753,7 +753,7 @@ def create_rft_command(args) -> int:
 
     account_id = _ensure_account_id()
     if not account_id:
-        print("Error: FIREWORKS_ACCOUNT_ID not set and could not be resolved.")
+        print("Error: Could not resolve Fireworks account id from FIREWORKS_API_KEY.")
         return 1
 
     api_base = get_fireworks_api_base()

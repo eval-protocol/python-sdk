@@ -35,8 +35,8 @@ def examples_path():
 def mock_env_variables(monkeypatch):
     """Set environment variables for testing"""
     monkeypatch.setenv("FIREWORKS_API_KEY", "test_api_key")
-    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "test_account")
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+    monkeypatch.setattr("eval_protocol.evaluation.get_fireworks_account_id", lambda: "test_account")
 
 
 @pytest.fixture

@@ -81,8 +81,9 @@ def deploy_example():
 def mock_env_variables(monkeypatch):
     """Set environment variables for testing"""
     monkeypatch.setenv("FIREWORKS_API_KEY", "test_api_key")
-    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "test_account")
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+    # Account id is derived from API key; mock deploy module lookup to keep tests offline.
+    monkeypatch.setattr("eval_protocol.cli_commands.deploy.get_fireworks_account_id", lambda: "test_account")
 
 
 @pytest.fixture
@@ -109,7 +110,7 @@ def mock_requests_get():
 
 
 def test_deploy_gcp_with_inline_requirements(
-    mock_env_variables,  # Ensures FIREWORKS_ACCOUNT_ID etc. are set
+    mock_env_variables,  # Ensures FIREWORKS_API_KEY etc. are set
     create_dummy_reward_module_for_deploy,  # Creates and cleans up the dummy module
 ):
     """

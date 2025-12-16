@@ -52,8 +52,8 @@ This roadmap outlines the development priorities. Tasks within each phase can be
     *   [ ] **Docstring Checking:** Enable and enforce docstring checking.
 *   **P1.5: Authentication System Refactor:**
     *   [ ] **Centralize Logic:** Create `eval_protocol/auth.py`.
-    *   [ ] **Configuration Methods:** Support environment variables and `auth.ini`.
-    *   [ ] **Documentation:** Clearly document `FIREWORKS_ACCOUNT_ID` usage and auth setup.
+    *   [ ] **Configuration Methods:** Support `FIREWORKS_API_KEY` (environment variable) as the single source of truth.
+    *   [ ] **Documentation:** Clearly document API-key-based auth and account id derivation.
     *   [ ] **Codebase Update:** Refactor `eval_protocol/evaluation.py` etc. to use new auth module.
 *   **P1.6: Build, Packaging, and Basic CI:**
     *   [ ] **`setup.py` Review:** Evaluate `openai` pinning, clean `extras_require`, populate `long_description`.

@@ -10,6 +10,7 @@ from eval_protocol.cli_commands import create_rft as cr
 from eval_protocol.cli_commands import upload as upload_mod
 import eval_protocol.fireworks_rft as fr
 from eval_protocol.cli import parse_args
+import eval_protocol.cli_commands.utils as cli_utils
 
 
 def _write_json(path: str, data: dict) -> None:
@@ -34,8 +35,9 @@ def rft_test_harness(tmp_path, monkeypatch):
 
     # Environment required by command
     monkeypatch.setenv("FIREWORKS_API_KEY", "fw_dummy")
-    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "acct123")
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+    # Account id is derived from API key; mock the verify call to keep tests offline.
+    monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "acct123")
 
     monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
@@ -634,8 +636,8 @@ def test_create_rft_quiet_existing_evaluator_skips_upload(tmp_path, monkeypatch)
 
     # Env
     monkeypatch.setenv("FIREWORKS_API_KEY", "fw_dummy")
-    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "acct123")
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+    monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "acct123")
 
     # Mock evaluator exists and is ACTIVE
     class _Resp:
@@ -697,8 +699,8 @@ def test_create_rft_quiet_new_evaluator_ambiguous_without_entry_errors(tmp_path,
 
     # Env
     monkeypatch.setenv("FIREWORKS_API_KEY", "fw_dummy")
-    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "acct123")
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+    monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "acct123")
 
     # Evaluator does not exist (force path into upload section)
     def _raise(*a, **k):
@@ -1039,8 +1041,8 @@ def test_cli_full_command_style_evaluator_and_dataset_flags(tmp_path, monkeypatc
 
     # Env
     monkeypatch.setenv("FIREWORKS_API_KEY", "fw_dummy")
-    monkeypatch.setenv("FIREWORKS_ACCOUNT_ID", "pyroworks-dev")
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
+    monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "pyroworks-dev")
 
     # Mock evaluator exists and ACTIVE
     class _Resp:
