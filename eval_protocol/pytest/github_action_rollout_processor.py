@@ -162,7 +162,7 @@ class GithubActionRolloutProcessor(RolloutProcessor):
                 row.rollout_status = Status.rollout_error(
                     f"Failed to find workflow run in GHA with rollout_id {row.execution_metadata.rollout_id}"
                 )
-                row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+                row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
                 return row
 
             run_id = run.get("id")
@@ -170,7 +170,7 @@ class GithubActionRolloutProcessor(RolloutProcessor):
                 row.rollout_status = Status.rollout_error(
                     f"Failed to find workflow run in GHA with rollout_id {row.execution_metadata.rollout_id}"
                 )
-                row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+                row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
                 return row
 
             # Poll the specific run until completion
@@ -194,10 +194,10 @@ class GithubActionRolloutProcessor(RolloutProcessor):
                 row.rollout_status = Status.rollout_error(
                     f"GitHub Actions run timed out after {self.timeout_seconds} seconds"
                 )
-                row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+                row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
                 return row
 
-            row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+            row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
             def _update_with_trace() -> None:
                 return update_row_with_remote_trace(row, self._output_data_loader, self.model_base_url)

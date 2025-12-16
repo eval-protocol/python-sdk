@@ -180,7 +180,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
             row.messages = messages
 
-            row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+            row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
             default_logger.log(row)
             return row

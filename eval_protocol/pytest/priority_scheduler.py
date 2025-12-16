@@ -14,6 +14,7 @@ from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.human_id import generate_id
 from eval_protocol.log_utils.rollout_context import rollout_logging_context
 from eval_protocol.pytest.execution import execute_pytest_with_exception_handling
+import time
 
 ENABLE_SPECULATION = os.getenv("ENABLE_SPECULATION", "0").strip() == "1"
 
@@ -132,6 +133,8 @@ class PriorityRolloutScheduler:
             experiment_id = rows_to_eval[0].execution_metadata.experiment_id if isinstance(rows_to_eval, list) else rows_to_eval.execution_metadata.experiment_id
             run_id = rows_to_eval[0].execution_metadata.run_id if isinstance(rows_to_eval, list) else rows_to_eval.execution_metadata.run_id
             eval_res = None
+
+            start_time = time.perf_counter()
             
             async with self.eval_sem:
                 async with rollout_logging_context(
@@ -151,7 +154,7 @@ class PriorityRolloutScheduler:
                             evaluation_test_kwargs=self.evaluation_test_kwargs,
                             processed_row=rows_to_eval,
                         )
-            
+            eval_duration = time.perf_counter() - start_time
             # push result to the output buffer
             if self.output_buffer:
                 if isinstance(eval_res, list):
@@ -163,8 +166,11 @@ class PriorityRolloutScheduler:
                     await self.output_buffer.add_result(eval_res)
                 
             if isinstance(eval_res, list):
-                self.results.extend(eval_res)
+                for row in eval_res:
+                    row.execution_metadata.eval_duration_seconds = eval_duration
+                    self.results.append(row)
             else:
+                eval_res.execution_metadata.eval_duration_seconds = eval_duration
                 self.results.append(eval_res)
             return eval_res
 
@@ -206,7 +212,7 @@ class PriorityRolloutScheduler:
         if current_batch_rows:
             for idx, row in current_batch_rows:
                 async for result_row in rollout_processor_with_retry(
-                    self.rollout_processor, [row], task.config, idx
+                    self.rollout_processor, [row], task.config, idx, disable_tqdm=True
                 ):
                     batch_results.append(result_row)
                     # in pointwise, we start evaluation immediately

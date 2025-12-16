@@ -267,7 +267,7 @@ class AgentRolloutProcessor(RolloutProcessor):
                     total_tokens=agent.usage["total_tokens"],
                 )
 
-                agent.evaluation_row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+                agent.evaluation_row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
                 return agent.evaluation_row
             finally:

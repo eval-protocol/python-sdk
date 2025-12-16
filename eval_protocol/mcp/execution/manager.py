@@ -150,7 +150,7 @@ class ExecutionManager:
                 else:
                     evaluation_row.rollout_status = Status.rollout_running()
 
-                evaluation_row.execution_metadata.duration_seconds = time.perf_counter() - row_start_time
+                evaluation_row.execution_metadata.rollout_duration_seconds = time.perf_counter() - row_start_time
 
                 return evaluation_row
 

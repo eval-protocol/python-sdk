@@ -83,7 +83,7 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
             #     total_tokens=usage_info.total_tokens or 0,
             # )
 
-            row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+            row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
             return row
 

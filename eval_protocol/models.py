@@ -809,9 +809,20 @@ class ExecutionMetadata(BaseModel):
 
     cost_metrics: Optional[CostMetrics] = Field(default=None, description="Cost breakdown for LLM API calls.")
 
+    # deprecated: use rollout_duration_seconds and eval_duration_seconds instead
     duration_seconds: Optional[float] = Field(
         default=None,
-        description="Processing duration in seconds for this evaluation row. Note that if it gets retried, this will be the duration of the last attempt.",
+        description="[Deprecated] Processing duration in seconds for this evaluation row. Note that if it gets retried, this will be the duration of the last attempt.",
+    )
+
+    rollout_duration_seconds: Optional[float] = Field(
+        default=None,
+        description="Processing duration in seconds for the rollout of this evaluation row. Note that if it gets retried, this will be the duration of the last attempt.",
+    )
+
+    eval_duration_seconds: Optional[float] = Field(
+        default=None,
+        description="Processing duration in seconds for the evaluation of this evaluation row. Note that if it gets retried, this will be the duration of the last attempt.",
     )
 
     experiment_duration_seconds: Optional[float] = Field(
