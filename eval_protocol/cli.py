@@ -32,9 +32,14 @@ except Exception:  # pragma: no cover
     preview_command = None  # type: ignore[assignment]
 
 
-def parse_args(args=None):
-    """Parse command line arguments"""
+def build_parser() -> argparse.ArgumentParser:
+    """Build and return the argument parser for the CLI."""
     parser = argparse.ArgumentParser(description="eval-protocol: Tools for evaluation and reward modeling")
+    return _configure_parser(parser)
+
+
+def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """Configure all arguments and subparsers on the given parser."""
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     parser.add_argument(
         "--profile",
@@ -500,11 +505,18 @@ def parse_args(args=None):
         help=argparse.SUPPRESS,  # Hidden from help output
     )
     export_docs_parser.add_argument(
-        "--output-dir",
-        default="./docs/cli-reference",
-        help="Directory to write markdown files to (default: ./docs/cli-reference)",
+        "--output",
+        "-o",
+        default="./docs/cli-reference.md",
+        help="Output markdown file path (default: ./docs/cli-reference.md)",
     )
 
+    return parser
+
+
+def parse_args(args=None):
+    """Parse command line arguments."""
+    parser = build_parser()
     # Use parse_known_args to allow Hydra to handle its own arguments
     return parser.parse_known_args(args)
 
