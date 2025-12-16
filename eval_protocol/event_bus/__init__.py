@@ -4,6 +4,7 @@ from eval_protocol.event_bus.event_bus import EventBus
 from eval_protocol.event_bus.sqlite_event_bus_database import (
     DatabaseCorruptedError,
     check_and_repair_database,
+    execute_with_sqlite_retry,
     SQLITE_HARDENED_PRAGMAS,
 )
 
