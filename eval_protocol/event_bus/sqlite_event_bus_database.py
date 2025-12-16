@@ -1,12 +1,58 @@
 import os
 import time
-from typing import Any, List
+from typing import Any, Callable, List, TypeVar
 from uuid import uuid4
 
-from peewee import BooleanField, CharField, DatabaseError, DateTimeField, Model, SqliteDatabase
+import backoff
+from peewee import BooleanField, CharField, DatabaseError, DateTimeField, Model, OperationalError, SqliteDatabase
 from playhouse.sqlite_ext import JSONField
 
 from eval_protocol.event_bus.logger import logger
+
+
+# Retry configuration for database operations
+SQLITE_RETRY_MAX_TRIES = 5
+SQLITE_RETRY_MAX_TIME = 30  # seconds
+
+
+def _is_database_locked_error(e: Exception) -> bool:
+    """Check if an exception is a database locked error."""
+    error_str = str(e).lower()
+    return "database is locked" in error_str or "locked" in error_str
+
+
+T = TypeVar("T")
+
+
+def execute_with_sqlite_retry(operation: Callable[[], T]) -> T:
+    """
+    Execute a database operation with exponential backoff retry on lock errors.
+
+    Uses the backoff library for consistent retry behavior across the codebase.
+    Retries only on OperationalError with "database is locked" message.
+
+    Args:
+        operation: A callable that performs the database operation
+
+    Returns:
+        The result of the operation
+
+    Raises:
+        OperationalError: If the operation fails after all retries
+    """
+
+    @backoff.on_exception(
+        backoff.expo,
+        OperationalError,
+        max_tries=SQLITE_RETRY_MAX_TRIES,
+        max_time=SQLITE_RETRY_MAX_TIME,
+        giveup=lambda e: not _is_database_locked_error(e),
+        jitter=backoff.full_jitter,
+    )
+    def _execute() -> T:
+        return operation()
+
+    return _execute()
 
 
 # SQLite pragmas for hardened concurrency safety
@@ -148,13 +194,15 @@ class SqliteEventBusDatabase:
             else:
                 serialized_data = data
 
-            self._Event.create(
-                event_id=str(uuid4()),
-                event_type=event_type,
-                data=serialized_data,
-                timestamp=time.time(),
-                process_id=process_id,
-                processed=False,
+            execute_with_sqlite_retry(
+                lambda: self._Event.create(
+                    event_id=str(uuid4()),
+                    event_type=event_type,
+                    data=serialized_data,
+                    timestamp=time.time(),
+                    process_id=process_id,
+                    processed=False,
+                )
             )
         except Exception as e:
             logger.warning(f"Failed to publish event to database: {e}")
@@ -188,7 +236,9 @@ class SqliteEventBusDatabase:
     def mark_event_processed(self, event_id: str) -> None:
         """Mark an event as processed."""
         try:
-            self._Event.update(processed=True).where(self._Event.event_id == event_id).execute()
+            execute_with_sqlite_retry(
+                lambda: self._Event.update(processed=True).where(self._Event.event_id == event_id).execute()
+            )
         except Exception as e:
             logger.debug(f"Failed to mark event as processed: {e}")
 
@@ -196,6 +246,10 @@ class SqliteEventBusDatabase:
         """Clean up old processed events."""
         try:
             cutoff_time = time.time() - (max_age_hours * 3600)
-            self._Event.delete().where((self._Event.processed) & (self._Event.timestamp < cutoff_time)).execute()
+            execute_with_sqlite_retry(
+                lambda: self._Event.delete()
+                .where((self._Event.processed) & (self._Event.timestamp < cutoff_time))
+                .execute()
+            )
         except Exception as e:
             logger.debug(f"Failed to cleanup old events: {e}")
