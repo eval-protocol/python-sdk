@@ -1,13 +1,13 @@
 import os
 from typing import List, Optional
 
-from peewee import CharField, DatabaseError, Model, SqliteDatabase
+from peewee import CharField, Model, SqliteDatabase
 from playhouse.sqlite_ext import JSONField
 
 from eval_protocol.event_bus.sqlite_event_bus_database import (
     SQLITE_HARDENED_PRAGMAS,
-    DatabaseCorruptedError,
     check_and_repair_database,
+    execute_with_sqlite_retry,
 )
 from eval_protocol.models import EvaluationRow
 
@@ -55,7 +55,13 @@ class SqliteEvaluationRowStore:
         if rollout_id is None:
             raise ValueError("execution_metadata.rollout_id is required to upsert a row")
 
-        with self._db.atomic("EXCLUSIVE"):
+        execute_with_sqlite_retry(lambda: self._do_upsert(rollout_id, data))
+
+    def _do_upsert(self, rollout_id: str, data: dict) -> None:
+        """Internal method to perform the actual upsert within a transaction."""
+        # Use IMMEDIATE instead of EXCLUSIVE for better concurrency
+        # IMMEDIATE acquires a reserved lock immediately but allows concurrent reads
+        with self._db.atomic("IMMEDIATE"):
             if self._EvaluationRow.select().where(self._EvaluationRow.rollout_id == rollout_id).exists():
                 self._EvaluationRow.update(data=data).where(self._EvaluationRow.rollout_id == rollout_id).execute()
             else:
