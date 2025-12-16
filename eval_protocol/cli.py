@@ -37,10 +37,6 @@ def parse_args(args=None):
     parser = argparse.ArgumentParser(description="eval-protocol: Tools for evaluation and reward modeling")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     parser.add_argument(
-        "--profile",
-        help="Fireworks profile to use (reads ~/.fireworks/profiles/<name>/auth.ini and settings.ini)",
-    )
-    parser.add_argument(
         "--server",
         help="Fireworks API server hostname or URL (e.g., dev.api.fireworks.ai or https://dev.api.fireworks.ai)",
     )
@@ -537,37 +533,7 @@ def main():
                 return tok.split("=", 1)[1]
         return None
 
-    pre_profile = _extract_flag_value(raw_argv, "--profile")
     pre_server = _extract_flag_value(raw_argv, "--server")
-
-    # Handle Fireworks profile selection early so downstream modules see the env
-    profile = pre_profile
-    if profile:
-        try:
-            os.environ["FIREWORKS_PROFILE"] = profile
-            # Mirror firectl behavior: ~/.fireworks[/profiles/<profile>]
-            base_dir = Path.home() / ".fireworks"
-            if profile:
-                base_dir = base_dir / "profiles" / profile
-            os.makedirs(str(base_dir), mode=0o700, exist_ok=True)
-
-            # Provide helpful env hints for consumers (optional)
-            os.environ["FIREWORKS_AUTH_FILE"] = str(base_dir / "auth.ini")
-            os.environ["FIREWORKS_SETTINGS_FILE"] = str(base_dir / "settings.ini")
-            logger.debug("Using Fireworks profile '%s' at %s", profile, base_dir)
-        except OSError as e:
-            logger.warning("Failed to initialize Fireworks profile '%s': %s", profile, e)
-
-        # Proactively resolve and export account_id from the active profile to avoid stale .env overrides
-        try:
-            from eval_protocol.auth import get_fireworks_account_id as _resolve_account_id
-
-            resolved_account = _resolve_account_id()
-            if resolved_account:
-                os.environ["FIREWORKS_ACCOUNT_ID"] = resolved_account
-                logger.debug("Resolved account_id from profile '%s': %s", profile, resolved_account)
-        except Exception as e:  # noqa: B902
-            logger.debug("Unable to resolve account_id from profile '%s': %s", profile, e)
 
     # Handle Fireworks server selection early
     server = pre_server

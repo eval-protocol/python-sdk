@@ -106,24 +106,15 @@ export FIREWORKS_API_BASE="https://dev.api.fireworks.ai" # If targeting dev API
 
 **B. Configuration File (Lower Priority)**
 
-If environment variables are not set, Eval Protocol will attempt to read credentials from `~/.fireworks/auth.ini`.
-
-Create or ensure the file `~/.fireworks/auth.ini` exists with the following format:
-```ini
-[fireworks]
-api_key = YOUR_FIREWORKS_API_KEY
-account_id = YOUR_FIREWORKS_ACCOUNT_ID
-```
-Replace with your actual development credentials if using this method.
+Eval Protocol does not read `~/.fireworks/auth.ini` (or any firectl profiles). Use environment variables instead.
 
 **Credential Sourcing Order:**
 Eval Protocol prioritizes credentials as follows:
-1.  Environment Variables (`FIREWORKS_API_KEY`, `FIREWORKS_ACCOUNT_ID`)
-2.  `~/.fireworks/auth.ini` configuration file
+1.  Environment Variables (`FIREWORKS_API_KEY`, optional `FIREWORKS_ACCOUNT_ID`)
 
 **Purpose of Credentials:**
 *   `FIREWORKS_API_KEY`: Authenticates your requests to the Fireworks AI service.
-*   `FIREWORKS_ACCOUNT_ID`: Identifies your account for operations like managing evaluators. It specifies *where* (under which account) an operation should occur.
+*   `FIREWORKS_ACCOUNT_ID`: Identifies your account for operations like managing evaluators. Typically this is derived automatically from `FIREWORKS_API_KEY` via the `verifyApiKey` endpoint.
 *   `FIREWORKS_API_BASE`: Allows targeting different API environments (e.g., development, staging).
 
 **Other Environment Variables:**

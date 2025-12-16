@@ -248,7 +248,9 @@ def upload_command(args: argparse.Namespace) -> int:
                     print(f"Warning: Failed to create/update {secret_name} secret on Fireworks.")
         else:
             if not fw_account_id:
-                print("Warning: FIREWORKS_ACCOUNT_ID not found; cannot register secrets.")
+                print(
+                    "Warning: Could not resolve Fireworks account id from FIREWORKS_API_KEY; cannot register secrets."
+                )
             if not secrets_from_file:
                 print("Warning: No API keys found in environment or .env file; no secrets to register.")
     except Exception as e:
