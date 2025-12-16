@@ -285,10 +285,9 @@ def _warn_if_large_dataset(dataset_jsonl: Optional[str], row_threshold: int = 20
             count = sum(1 for line in f if line.strip())
         if count > row_threshold:
             print(
-                f"Warning: Local evaluator validation will run over more than {row_threshold} rows "
-                f"from dataset JSONL at {dataset_jsonl}.\n"
-                "         This may take a while. You can pass --skip-validation to `ep create rft` "
-                "to skip local pytest-based validation if you are confident in your evaluator."
+                f"Warning: Local evaluator validation will run over more than {row_threshold} rows from dataset JSONL at {dataset_jsonl}.\n"
+                "         This may take a while. You can pass --skip-validation to `ep create rft` to skip local pytest-based validation "
+                "if you are confident in your evaluator."
             )
     except Exception:
         # Best-effort hint only; do not block RFT creation if counting fails.
