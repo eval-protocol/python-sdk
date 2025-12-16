@@ -494,6 +494,17 @@ def parse_args(args=None):
     #     help="Run an evaluation using a Hydra configuration. All arguments after 'run' are passed to Hydra.",
     # )
 
+    # Hidden command: export-docs (for generating CLI reference documentation)
+    export_docs_parser = subparsers.add_parser(
+        "export-docs",
+        help=argparse.SUPPRESS,  # Hidden from help output
+    )
+    export_docs_parser.add_argument(
+        "--output-dir",
+        default="./docs/cli-reference",
+        help="Directory to write markdown files to (default: ./docs/cli-reference)",
+    )
+
     # Use parse_known_args to allow Hydra to handle its own arguments
     return parser.parse_known_args(args)
 
@@ -623,6 +634,10 @@ def main():
         from .cli_commands.local_test import local_test_command
 
         return local_test_command(args)
+    elif args.command == "export-docs":
+        from .cli_commands.export_docs import export_docs_command
+
+        return export_docs_command(args)
     # elif args.command == "run":
     #     # For the 'run' command, Hydra takes over argument parsing.
     #
