@@ -59,39 +59,83 @@ def _get_parser_info(parser: argparse.ArgumentParser, subparser_help: str = "") 
     return info
 
 
-def _format_argument_row(arg: Dict) -> str:
-    """Format a single argument as a markdown table row."""
-    # Build the flag/argument name
-    if arg["option_strings"]:
-        name = ", ".join(f"`{opt}`" for opt in arg["option_strings"])
-    else:
-        name = f"`{arg['dest']}`"
+def _format_argument_item(arg: Dict) -> List[str]:
+    """Format a single argument as a Mintlify ParamField component."""
+    lines = []
 
-    # Build type info
+    # Build the flag name
+    if arg["option_strings"]:
+        long_opts = [o for o in arg["option_strings"] if o.startswith("--")]
+        short_opts = [o for o in arg["option_strings"] if not o.startswith("--")]
+        primary = long_opts[0] if long_opts else arg["option_strings"][0]
+    else:
+        primary = arg["dest"]
+        short_opts = []
+
+    # Map Python types to ParamField types
     type_str = ""
     if arg["type"]:
-        type_str = getattr(arg["type"], "__name__", str(arg["type"]))
-    if arg["choices"]:
-        type_str = f"choices: {arg['choices']}"
+        python_type = getattr(arg["type"], "__name__", str(arg["type"]))
+        type_map = {"int": "number", "float": "number", "str": "string", "bool": "boolean"}
+        type_str = type_map.get(python_type, python_type)
+    elif arg["default"] is not None:
+        # Infer type from default
+        if isinstance(arg["default"], bool):
+            type_str = "boolean"
+        elif isinstance(arg["default"], int):
+            type_str = "number"
+        elif isinstance(arg["default"], float):
+            type_str = "number"
+        elif isinstance(arg["default"], str):
+            type_str = "string"
 
-    # Format default value
+    # Build ParamField attributes
+    attrs = [f'path="{primary}"']
+
+    if type_str:
+        attrs.append(f'type="{type_str}"')
+
+    # Default value
     default = arg["default"]
-    if default is None:
-        default_str = "-"
-    elif default == argparse.SUPPRESS:
-        default_str = "-"
-    elif isinstance(default, bool):
-        default_str = str(default).lower()
-    else:
-        default_str = f"`{default}`"
+    if default is not None and default != argparse.SUPPRESS:
+        if isinstance(default, bool):
+            default_str = str(default).lower()
+        elif isinstance(default, str):
+            # Escape quotes in string defaults
+            default_str = default.replace('"', '\\"')
+        else:
+            default_str = str(default)
+        attrs.append(f'default="{default_str}"')
 
-    # Help text (escape pipe characters for markdown tables)
-    help_text = (arg["help"] or "-").replace("|", "\\|")
+    if arg["required"]:
+        attrs.append("required")
 
-    # Required indicator
-    required = "Yes" if arg["required"] else "No"
+    # Build description with short alias mention
+    help_text = (arg["help"] or "").replace("<", "&lt;").replace(">", "&gt;")
+    if short_opts:
+        alias_note = f"Short: `{short_opts[0]}`"
+        if help_text:
+            help_text = f"{help_text} ({alias_note})"
+        else:
+            help_text = alias_note
 
-    return f"| {name} | {type_str} | {default_str} | {required} | {help_text} |"
+    # Add choices info to description
+    if arg["choices"]:
+        choices_str = ", ".join(f"`{c}`" for c in arg["choices"])
+        choices_note = f"Choices: {choices_str}"
+        if help_text:
+            help_text = f"{help_text}. {choices_note}"
+        else:
+            help_text = choices_note
+
+    # Generate ParamField
+    lines.append(f"<ParamField {' '.join(attrs)}>")
+    if help_text:
+        lines.append(f"  {help_text}")
+    lines.append("</ParamField>")
+    lines.append("")
+
+    return lines
 
 
 def _generate_command_section(
@@ -105,6 +149,21 @@ def _generate_command_section(
     full_command = f"{parent_command} {name}".strip()
     heading = "#" * heading_level
 
+    # Skip commands that have no arguments and only subparsers (like "ep create")
+    # Instead, just render the subcommands directly at the same level
+    if not info["arguments"] and info["subparsers"]:
+        # Skip this level, render subcommands directly
+        for subname, subinfo in info["subparsers"].items():
+            lines.extend(
+                _generate_command_section(
+                    subname,
+                    subinfo,
+                    full_command,
+                    heading_level,  # Keep same heading level
+                )
+            )
+        return lines
+
     lines.append(f"{heading} `{full_command}`")
     lines.append("")
 
@@ -114,13 +173,10 @@ def _generate_command_section(
         lines.append(description)
         lines.append("")
 
-    # Arguments table
+    # Arguments (no extra heading to keep TOC clean)
     if info["arguments"]:
-        lines.append("| Option | Type | Default | Required | Description |")
-        lines.append("|--------|------|---------|----------|-------------|")
         for arg in info["arguments"]:
-            lines.append(_format_argument_row(arg))
-        lines.append("")
+            lines.extend(_format_argument_item(arg))
 
     # Handle nested subparsers recursively
     if info["subparsers"]:
@@ -162,22 +218,30 @@ def generate_cli_docs(parser: argparse.ArgumentParser, output_path: str) -> int:
         if name != "export-docs"  # Don't document the hidden command
     }
 
-    # Generate single page
+    # Generate single page with Mintlify frontmatter
     lines = []
-    lines.append("# CLI Reference")
+    lines.append("---")
+    lines.append("title: CLI")
+    lines.append("icon: terminal")
+    lines.append("---")
     lines.append("")
-    lines.append(f"**{info['prog']}** - {info['description']}")
+    lines.append(
+        f"The `{info['prog']}` command-line interface can {info['description'][0].lower()}{info['description'][1:]}."
+    )
+    lines.append("")
+    lines.append("```bash")
+    lines.append(f"{info['prog']} [global options] <command> [command options]")
+    lines.append("```")
     lines.append("")
 
     # Global options
     if info["arguments"]:
         lines.append("## Global Options")
         lines.append("")
-        lines.append("| Option | Type | Default | Required | Description |")
-        lines.append("|--------|------|---------|----------|-------------|")
-        for arg in info["arguments"]:
-            lines.append(_format_argument_row(arg))
+        lines.append("These options can be used with any command:")
         lines.append("")
+        for arg in info["arguments"]:
+            lines.extend(_format_argument_item(arg))
 
     # Commands section
     if visible_subparsers:
