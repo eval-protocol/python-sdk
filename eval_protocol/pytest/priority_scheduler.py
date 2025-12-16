@@ -176,6 +176,14 @@ class PriorityRolloutScheduler:
                                 processed_row=rows_to_eval,
                             )
                 eval_duration = time.perf_counter() - start_time
+                
+                # Set eval_duration_seconds BEFORE buffer writes to ensure it's included in serialization
+                if isinstance(eval_res, list):
+                    for row in eval_res:
+                        row.execution_metadata.eval_duration_seconds = eval_duration
+                else:
+                    eval_res.execution_metadata.eval_duration_seconds = eval_duration
+                
                 # push result to the output buffer
                 if self.output_buffer:
                     if isinstance(eval_res, list):
@@ -188,13 +196,11 @@ class PriorityRolloutScheduler:
                     
                 if isinstance(eval_res, list):
                     for row in eval_res:
-                        row.execution_metadata.eval_duration_seconds = eval_duration
                         self.results.append(row)
                     # Update eval progress bar (groupwise: 1 eval for the group)
                     if self.eval_pbar:
                         self.eval_pbar.update(1)
                 else:
-                    eval_res.execution_metadata.eval_duration_seconds = eval_duration
                     self.results.append(eval_res)
                     # Update eval progress bar (pointwise: 1 eval per row)
                     if self.eval_pbar:
