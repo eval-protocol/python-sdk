@@ -255,13 +255,10 @@ class PriorityRolloutScheduler:
                     self.active_rollouts[task.row_index].add(idx)
                     await self._update_rollout_pbar_postfix()
                 
-                start_time = time.perf_counter()
                 try:
                     async for result_row in rollout_processor_with_retry(
                         self.rollout_processor, [row], task.config, idx, disable_tqdm=True
                     ):
-                        rollout_duration = time.perf_counter() - start_time
-                        result_row.execution_metadata.rollout_duration_seconds = rollout_duration
                         batch_results.append(result_row)
                         
                         # Update rollout progress bar
