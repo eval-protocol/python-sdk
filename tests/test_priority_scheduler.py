@@ -57,7 +57,7 @@ async def test_scheduler_basic_execution(
     micro_batch_size = 1
     
     # Mock rollout processor with delay
-    async def delayed_rollout(processor, rows, config, run_idx):
+    async def delayed_rollout(processor, rows, config, run_idx, **kwargs):
         await asyncio.sleep(0.01)
         for row in rows:
             yield row
@@ -110,7 +110,7 @@ async def test_concurrency_control(
     rollout_lock = asyncio.Lock()
     eval_lock = asyncio.Lock()
 
-    async def mock_rollout_gen(processor, rows, config, run_idx):
+    async def mock_rollout_gen(processor, rows, config, run_idx, **kwargs):
         nonlocal active_rollouts, max_active_rollouts_seen
         async with rollout_lock:
             active_rollouts += 1
@@ -177,7 +177,7 @@ async def test_priority_scheduling(
     
     execution_order = []
     
-    async def mock_rollout_gen(processor, rows, config, run_idx):
+    async def mock_rollout_gen(processor, rows, config, run_idx, **kwargs):
         row_id = rows[0].input_metadata.row_id
         execution_order.append(f"{row_id}_run_{run_idx}")
         for row in rows:
@@ -290,7 +290,7 @@ async def test_groupwise_mode(
         eval_calls.append(rows)
         return rows # Pass through
 
-    async def mock_rollout_gen(processor, rows, config, run_idx):
+    async def mock_rollout_gen(processor, rows, config, run_idx, **kwargs):
         for row in rows:
             yield row
     
