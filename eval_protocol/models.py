@@ -812,6 +812,7 @@ class ExecutionMetadata(BaseModel):
     # deprecated: use rollout_duration_seconds and eval_duration_seconds instead
     duration_seconds: Optional[float] = Field(
         default=None,
+        deprecated=True,
         description="[Deprecated] Processing duration in seconds for this evaluation row. Note that if it gets retried, this will be the duration of the last attempt.",
     )
 

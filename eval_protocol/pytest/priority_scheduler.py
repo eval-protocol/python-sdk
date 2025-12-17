@@ -197,16 +197,13 @@ class PriorityRolloutScheduler:
                 if isinstance(eval_res, list):
                     for row in eval_res:
                         self.results.append(row)
-                    # Update eval progress bar (groupwise: 1 eval for the group)
-                    if self.eval_pbar:
-                        self.eval_pbar.update(1)
                 else:
                     self.results.append(eval_res)
-                    # Update eval progress bar (pointwise: 1 eval per row)
-                    if self.eval_pbar:
-                        self.eval_pbar.update(1)
                 return eval_res
             finally:
+                # Always update progress bar (handles both success and failure cases)
+                if self.eval_pbar:
+                    self.eval_pbar.update(1)
                 # Decrement active eval counter
                 async with self.active_evals_lock:
                     self.active_evals -= 1
