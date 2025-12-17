@@ -18,15 +18,6 @@ from eval_protocol.pytest.types import RolloutProcessorConfig
 
 logger = logging.getLogger(__name__)
 
-litellm._turn_on_debug()
-
-# Configure logger with timestamp format if not already configured
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(asctime)s.%(msecs)03d %(message)s', datefmt='%H:%M:%S'))
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
-
 
 class SingleTurnRolloutProcessor(RolloutProcessor):
     """Single turn rollout processor for direct LLM calls."""
@@ -48,7 +39,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row asynchronously."""
             start_time = time.perf_counter()
-            
+ 
             if len(row.messages) == 0:
                 raise ValueError("Messages is empty. Please provide a non-empty dataset")
 
@@ -106,12 +97,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                     chunks.append(chunk)
                 response = litellm.stream_chunk_builder(chunks, messages_payload)
             else:
-                logger.warning(f"******** rolling out {row.execution_metadata.run_id} ")
-                logger.warning(json.dumps(request_params))
-                start_time = time.perf_counter()
                 response = await acompletion(**request_params)
-                rollout_duration = time.perf_counter() - start_time
-                logger.warning(f"******** rollout duration for {row.execution_metadata.run_id} {rollout_duration} seconds")
 
             assert response is not None, "Response is None"
             assert isinstance(response, ModelResponse), "Response should be ModelResponse"

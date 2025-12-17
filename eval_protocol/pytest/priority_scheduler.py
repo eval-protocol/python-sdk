@@ -322,7 +322,6 @@ class PriorityRolloutScheduler:
             if result_row:
                 last_msg = result_row.last_assistant_message()
                 if last_msg and last_msg.content:
-                    print(f"******** history: {str(last_msg.content)}")
                     sample_state.history.append(str(last_msg.content))
                 else:
                     sample_state.history.append("")
