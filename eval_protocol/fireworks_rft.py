@@ -13,8 +13,7 @@ from urllib.parse import urlencode
 
 import requests
 
-from .auth import get_fireworks_account_id, get_fireworks_api_base, get_fireworks_api_key
-from .common_utils import get_user_agent
+from .auth import get_fireworks_account_id, get_fireworks_api_base, get_fireworks_api_key, get_platform_headers
 
 
 def _map_api_host_to_app_host(api_base: str) -> str:
@@ -142,11 +141,17 @@ def create_dataset_from_jsonl(
     display_name: Optional[str],
     jsonl_path: str,
 ) -> Tuple[str, Dict[str, Any]]:
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "User-Agent": get_user_agent(),
-    }
+    import os
+
+    # DEBUG: Check environment variable
+    extra_headers_env = os.environ.get("FIREWORKS_EXTRA_HEADERS", "<NOT SET>")
+    print(f"[DEBUG] FIREWORKS_EXTRA_HEADERS env: {extra_headers_env}")
+
+    headers = get_platform_headers(api_key=api_key, content_type="application/json")
+
+    # DEBUG: Print headers (mask auth token)
+    debug_headers = {k: (v[:20] + "..." if k == "Authorization" else v) for k, v in headers.items()}
+    print(f"[DEBUG] Headers being sent: {debug_headers}")
     # Count examples quickly
     example_count = 0
     with open(jsonl_path, "r", encoding="utf-8") as f:
@@ -171,10 +176,8 @@ def create_dataset_from_jsonl(
     upload_url = f"{api_base.rstrip('/')}/v1/accounts/{account_id}/datasets/{dataset_id}:upload"
     with open(jsonl_path, "rb") as f:
         files = {"file": f}
-        up_headers = {
-            "Authorization": f"Bearer {api_key}",
-            "User-Agent": get_user_agent(),
-        }
+        # For file uploads, omit Content-Type (let requests set multipart boundary)
+        up_headers = get_platform_headers(api_key=api_key, content_type=None)
         up_resp = requests.post(upload_url, files=files, headers=up_headers, timeout=600)
     if up_resp.status_code not in (200, 201):
         raise RuntimeError(f"Dataset upload failed: {up_resp.status_code} {up_resp.text}")
@@ -196,12 +199,8 @@ def create_reinforcement_fine_tuning_job(
         # Remove from body and append as query param
         body.pop("jobId", None)
         url = f"{url}?{urlencode({'reinforcementFineTuningJobId': job_id})}"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "User-Agent": get_user_agent(),
-    }
+    headers = get_platform_headers(api_key=api_key, content_type="application/json")
+    headers["Accept"] = "application/json"
     resp = requests.post(url, json=body, headers=headers, timeout=60)
     if resp.status_code not in (200, 201):
         raise RuntimeError(f"RFT job creation failed: {resp.status_code} {resp.text}")
@@ -217,11 +216,11 @@ def build_default_dataset_id(evaluator_id: str) -> str:
 def build_default_output_model(evaluator_id: str) -> str:
     base = evaluator_id.lower().replace("_", "-")
     uuid_suffix = str(uuid.uuid4())[:4]
-    
+
     # suffix is "-rft-{4chars}" -> 9 chars
     suffix_len = 9
     max_len = 63
-    
+
     # Check if we need to truncate
     if len(base) + suffix_len > max_len:
         # Calculate hash of the full base to preserve uniqueness
@@ -229,10 +228,10 @@ def build_default_output_model(evaluator_id: str) -> str:
         # New structure: {truncated_base}-{hash}-{uuid_suffix}
         # Space needed for "-{hash}" is 1 + 6 = 7
         hash_part_len = 7
-        
+
         allowed_base_len = max_len - suffix_len - hash_part_len
         truncated_base = base[:allowed_base_len].strip("-")
-        
+
         return f"{truncated_base}-{hash_digest}-rft-{uuid_suffix}"
 
     return f"{base}-rft-{uuid_suffix}"

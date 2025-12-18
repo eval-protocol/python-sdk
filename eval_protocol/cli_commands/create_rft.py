@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 import requests
 from pydantic import ValidationError
 
-from ..auth import get_fireworks_api_base, get_fireworks_api_key
+from ..auth import get_fireworks_api_base, get_fireworks_api_key, get_platform_headers
 from ..common_utils import get_user_agent
 from ..fireworks_rft import (
     build_default_output_model,
@@ -175,11 +175,7 @@ def _poll_evaluator_status(
     Returns:
         True if evaluator becomes ACTIVE, False if timeout or BUILD_FAILED
     """
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "User-Agent": get_user_agent(),
-    }
+    headers = get_platform_headers(api_key=api_key, content_type="application/json")
 
     check_url = f"{api_base}/v1/{evaluator_resource_name}"
     timeout_seconds = timeout_minutes * 60
@@ -523,11 +519,7 @@ def _upload_and_ensure_evaluator(
     # Optional short-circuit: if evaluator already exists and not forcing, skip upload path
     if not force:
         try:
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "User-Agent": get_user_agent(),
-            }
+            headers = get_platform_headers(api_key=api_key, content_type="application/json")
             resp = requests.get(f"{api_base}/v1/{evaluator_resource_name}", headers=headers, timeout=10)
             if resp.ok:
                 state = resp.json().get("state", "STATE_UNSPECIFIED")

@@ -10,8 +10,8 @@ from eval_protocol.auth import (
     get_fireworks_account_id,
     get_fireworks_api_base,
     get_fireworks_api_key,
+    get_platform_headers,
 )
-from eval_protocol.common_utils import get_user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -93,11 +93,7 @@ def create_or_update_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for creating/updating secret.")
         return False
 
-    headers = {
-        "Authorization": f"Bearer {resolved_api_key}",
-        "Content-Type": "application/json",
-        "User-Agent": get_user_agent(),
-    }
+    headers = get_platform_headers(api_key=resolved_api_key, content_type="application/json")
 
     # The secret_id for GET/PATCH/DELETE operations is the key_name.
     # The 'name' field in the gatewaySecret model for POST/PATCH is a bit ambiguous.
@@ -219,10 +215,7 @@ def get_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for getting secret.")
         return None
 
-    headers = {
-        "Authorization": f"Bearer {resolved_api_key}",
-        "User-Agent": get_user_agent(),
-    }
+    headers = get_platform_headers(api_key=resolved_api_key, content_type=None)
     resource_id = _normalize_secret_resource_id(key_name)
 
     try:
@@ -259,10 +252,7 @@ def delete_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for deleting secret.")
         return False
 
-    headers = {
-        "Authorization": f"Bearer {resolved_api_key}",
-        "User-Agent": get_user_agent(),
-    }
+    headers = get_platform_headers(api_key=resolved_api_key, content_type=None)
     resource_id = _normalize_secret_resource_id(key_name)
 
     try:
