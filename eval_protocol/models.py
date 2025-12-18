@@ -849,6 +849,11 @@ class ExecutionMetadata(BaseModel):
         description="Number of tool calls returned in the assistant message for this row.",
     )
 
+    raw_output: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Raw model output including prompt_fragments and completion_token_ids when raw_output=True is passed to the API.",
+    )
+
 
 class EvaluationRow(BaseModel):
     """

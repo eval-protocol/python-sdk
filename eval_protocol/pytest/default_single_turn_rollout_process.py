@@ -84,6 +84,11 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 if "reasoning_effort" in request_params:
                     request_params.pop("reasoning_effort", None)
 
+            # Handle raw_output - move to extra_body so LiteLLM forwards it
+            if "raw_output" in request_params:
+                request_params.setdefault("extra_body", {})
+                request_params["extra_body"]["raw_output"] = request_params.pop("raw_output")
+
             if row.tools is not None:
                 request_params["tools"] = row.tools
 
@@ -166,6 +171,35 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             row.execution_metadata.tool_call_count = (
                 len(converted_tool_calls) if converted_tool_calls is not None else 0
             )
+
+            # Extract raw_output if present (when raw_output=True was passed to the API)
+            # Note: raw_output is only captured for non-streaming requests
+            # LiteLLM stores extra fields in model_extra for non-streaming responses
+            choice = response.choices[0]
+            raw_output = None
+
+            # Check model_extra (where LiteLLM puts extra fields for non-streaming)
+            if hasattr(choice, "model_extra") and choice.model_extra:
+                raw_output = choice.model_extra.get("raw_output")
+            # Fallback: check as direct attribute
+            if raw_output is None:
+                raw_output = getattr(choice, "raw_output", None)
+
+            if raw_output is not None:
+                # Convert to dict if it's a pydantic model or similar
+                if hasattr(raw_output, "model_dump"):
+                    row.execution_metadata.raw_output = raw_output.model_dump()
+                elif hasattr(raw_output, "dict"):
+                    row.execution_metadata.raw_output = raw_output.dict()
+                elif isinstance(raw_output, dict):
+                    row.execution_metadata.raw_output = raw_output
+                else:
+                    # Try to convert to dict via json
+                    try:
+                        row.execution_metadata.raw_output = json.loads(json.dumps(raw_output, default=str))
+                    except Exception:
+                        row.execution_metadata.raw_output = {"value": str(raw_output)}
+
             usage = getattr(response, "usage", None)
             if usage:
                 row.execution_metadata.usage = (
