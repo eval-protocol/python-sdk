@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 import os
 import time
@@ -261,13 +262,13 @@ class PriorityRolloutScheduler:
         
         # Inject Speculation History into config.completion_params (use snapshot from when task was scheduled)
         if ENABLE_SPECULATION and task.history_snapshot:
-            # Deep copy completion_params to avoid mutating shared config
-            cp = dict(sample_state.config.completion_params) if sample_state.config.completion_params else {}
+            # Deep copy to avoid concurrent mutation of shared nested dicts
+            cp = copy.deepcopy(sample_state.config.completion_params) if sample_state.config.completion_params else {}
             max_tokens = cp.get("max_tokens", 2048)
             if "extra_body" not in cp:
                 cp["extra_body"] = {}
             
-            cp["extra_body"]["prediction"] = " ".join(task.history_snapshot)[:max_tokens]
+            cp["extra_body"]["prediction"] = {"type": "content", "content": " ".join(task.history_snapshot)[:max_tokens]}
             
             # Create a new config with the modified completion_params (copy all fields)
             base_config = sample_state.config
