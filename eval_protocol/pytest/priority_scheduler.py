@@ -70,7 +70,7 @@ class PriorityRolloutScheduler:
         output_buffer: Optional[MicroBatchDataBuffer] = None,
         rollout_n: int = 0,
         mode: str = "pointwise",
-        in_group_minibatch_size: int = 0, # for one sample, how many runs to execute at the same time
+        in_group_minibatch_size: Optional[int] = None, # for one sample, how many runs to execute at the same time
         evaluation_test_kwargs: Dict[str, Any] = {},
     ):
         self.rollout_processor = rollout_processor
@@ -94,6 +94,11 @@ class PriorityRolloutScheduler:
         self.background_tasks = set() # run evaluations in the background asynchronously
         
         self.rollout_n = rollout_n
+        if in_group_minibatch_size is None:
+            if ENABLE_SPECULATION:
+                in_group_minibatch_size = rollout_n // 2
+            else:
+                in_group_minibatch_size = rollout_n
         self.in_group_minibatch_size = in_group_minibatch_size if in_group_minibatch_size > 0 else rollout_n
         self.evaluation_test_kwargs = evaluation_test_kwargs
         
@@ -108,8 +113,7 @@ class PriorityRolloutScheduler:
         # Track active evaluations
         self.active_evals: int = 0
         self.active_evals_lock = asyncio.Lock()
-        
-        # Per-sample state for streaming scheduling
+
         self.sample_states: Dict[int, SampleState] = {}
 
     async def schedule_dataset(
@@ -504,7 +508,6 @@ async def execute_priority_rollouts(
         max_concurrent_evaluations=max_concurrent_evaluations,
         rollout_n=num_runs,
         mode=mode,
-        in_group_minibatch_size=(num_runs // 2),
         evaluation_test_kwargs=evaluation_test_kwargs,
     )
     return await scheduler.run(dataset, num_runs, config)
