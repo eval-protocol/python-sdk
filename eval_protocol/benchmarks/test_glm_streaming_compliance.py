@@ -5,12 +5,14 @@ import os
 import re
 from typing import Any
 
+import pytest
+
 from eval_protocol.models import (
     EvaluateResult,
     EvaluationRow,
     Message,
     MetricResult,
-    ChatCompletionContentPartTextParam,
+    ChatCompletionContentPartParam,
 )
 from eval_protocol.pytest.default_single_turn_rollout_process import (
     SingleTurnRolloutProcessor,
@@ -21,9 +23,23 @@ from eval_protocol.pytest.evaluation_test import evaluation_test
 DEFAULT_MODEL_ID = "fireworks_ai/accounts/fireworks/models/glm-4p6"
 DEFAULT_MAX_TOKENS = 10000
 
+# ============================================================================
+# Feature Flags (read from environment variables)
+# ============================================================================
+
+# EP_SUPPORTS_MULTIPLE_TOOL_CALLS: Whether model supports multiple tool calls in one response
+# Default: True ("1"). Set to "0" to skip multiple tool call tests.
+SUPPORTS_MULTIPLE_TOOL_CALLS = os.getenv("EP_SUPPORTS_MULTIPLE_TOOL_CALLS", "1") == "1"
+
+# EP_SUPPORTS_REASONING: Whether model supports the reasoning_effort parameter
+# Default: True ("1"). Set to "0" to skip reasoning-specific tests and NOT pass reasoning_effort param.
+# When True: Include reasoning tests, pass reasoning_effort parameter, check reasoning_content
+# When False: Skip reasoning-specific tests, do NOT pass reasoning_effort parameter at all
+SUPPORTS_REASONING = os.getenv("EP_SUPPORTS_REASONING", "1") == "1"
+
 
 def _coerce_content_to_str(
-    content: str | list[ChatCompletionContentPartTextParam] | None,
+    content: str | list[ChatCompletionContentPartParam] | None,
 ) -> str:
     if isinstance(content, list):
         texts: list[str] = []
@@ -525,12 +541,27 @@ def _build_completion_params_from_payload(payload: dict[str, Any]) -> dict[str, 
         "model": DEFAULT_MODEL_ID,
         "stream": True,
         "return_reasoning_with_separate_field": True,
-        "reasoning_effort": "none",  # Default: no reasoning unless explicitly requested
+        "raw_output": True,  # Include raw model output for debugging
     }
-    passthrough_keys = {"temperature", "top_p", "max_tokens", "response_format", "reasoning_effort"}
+    # Only include reasoning_effort if model supports it
+    if SUPPORTS_REASONING:
+        params["reasoning_effort"] = "none"  # Default: no reasoning unless explicitly requested
+
+    passthrough_keys = {"temperature", "top_p", "max_tokens", "response_format", "tool_choice"}
+    # Only passthrough reasoning_effort if model supports it
+    if SUPPORTS_REASONING:
+        passthrough_keys.add("reasoning_effort")
+
     for key in passthrough_keys:
         if key in payload:
             params[key] = payload[key]
+    return params
+
+
+def _maybe_add_reasoning_effort(params: dict[str, Any], effort: str = "none") -> dict[str, Any]:
+    """Add reasoning_effort to params only if model supports it."""
+    if SUPPORTS_REASONING:
+        params["reasoning_effort"] = effort
     return params
 
 
@@ -712,6 +743,7 @@ def _debug_log_assistant_message(test_name: str, assistant_message: Message | No
             "max_tokens": DEFAULT_MAX_TOKENS,
             "response_format": STRUCTURED_RESPONSE_FORMAT,
             "reasoning_effort": "none",  # No reasoning expected for structured output
+            "raw_output": True,
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
@@ -980,6 +1012,7 @@ def test_streaming_json_preservation(row: EvaluationRow) -> EvaluationRow:
             "top_p": 1.0,
             "max_tokens": DEFAULT_MAX_TOKENS,
             "reasoning_effort": "none",  # No reasoning expected for tool calls
+            "raw_output": True,
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
@@ -1252,6 +1285,7 @@ def test_streaming_tool_complex_arguments(row: EvaluationRow) -> EvaluationRow:
 _MULTI_TOOL_CALLS_ROW = _build_row_from_payload("multi-tool-calls", MULTI_TOOL_CALLS_PAYLOAD)
 
 
+@pytest.mark.skipif(not SUPPORTS_MULTIPLE_TOOL_CALLS, reason="Model does not support multiple tool calls")
 @evaluation_test(
     input_rows=[[_MULTI_TOOL_CALLS_ROW]],
     completion_params=[_build_completion_params_from_payload(MULTI_TOOL_CALLS_PAYLOAD)],
@@ -1755,16 +1789,20 @@ REASONING_DISABLED_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(not SUPPORTS_REASONING, reason="Model does not support reasoning_effort parameter")
 @evaluation_test(
     input_rows=[[REASONING_DISABLED_ROW]],
     completion_params=[
-        {
-            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",  # Reasoning-capable model
-            "reasoning_effort": "none",  # Explicitly disable reasoning
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "temperature": 0.0,
-            "stream": True,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",  # Reasoning-capable model
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "temperature": 0.0,
+                "stream": True,
+                "raw_output": True,
+            },
+            "none",
+        )  # Explicitly disable reasoning
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -1865,16 +1903,20 @@ REASONING_ENABLED_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(not SUPPORTS_REASONING, reason="Model does not support reasoning_effort parameter")
 @evaluation_test(
     input_rows=[[REASONING_ENABLED_ROW]],
     completion_params=[
-        {
-            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",  # Reasoning-capable model
-            "reasoning_effort": "low",  # Enable reasoning
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "temperature": 0.0,
-            "stream": True,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",  # Reasoning-capable model
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "temperature": 0.0,
+                "stream": True,
+                "raw_output": True,
+            },
+            "low",
+        )  # Enable reasoning
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -2003,13 +2045,16 @@ TOOLS_WITH_REASONING_ROW.input_metadata.dataset_info = {
 @evaluation_test(
     input_rows=[[TOOLS_WITH_REASONING_ROW]],
     completion_params=[
-        {
-            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",  # Reasoning-capable model
-            "reasoning_effort": "low",  # Enable reasoning
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "temperature": 0.0,
-            "stream": True,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",  # Reasoning-capable model
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "temperature": 0.0,
+                "stream": True,
+                "raw_output": True,
+            },
+            "low",
+        )  # Enable reasoning
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -2020,7 +2065,7 @@ def test_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow:
     Verify that streaming works correctly when BOTH tools and reasoning are present.
 
     Requirements:
-    - reasoning_content should be present
+    - reasoning_content should be present (only checked if SUPPORTS_REASONING)
     - tool_calls should be present
     - finish_reason should be "tool_calls"
     - No XML tags or reasoning leakage
@@ -2047,12 +2092,6 @@ def test_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow:
                     break
 
     metrics = {
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "has_tool_calls": MetricResult(
             score=1.0 if has_tool_calls else 0.0,
             is_score_valid=True,
@@ -2074,12 +2113,24 @@ def test_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow:
         ),
     }
 
+    # Only add reasoning metric if reasoning is supported
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
 
+    # Reasoning check is only required if SUPPORTS_REASONING is True
+    reasoning_check_passed = reasoning_present if SUPPORTS_REASONING else True
+
     all_checks_passed = (
-        reasoning_present
+        reasoning_check_passed
         and has_tool_calls
         and finish_reason_tool_calls
         and tool_call_valid
@@ -2091,7 +2142,7 @@ def test_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow:
 
     # Build detailed failure reason
     failure_reasons = []
-    if not reasoning_present:
+    if SUPPORTS_REASONING and not reasoning_present:
         failure_reasons.append("reasoning_content missing")
     if not has_tool_calls:
         failure_reasons.append("no tool calls")
@@ -2147,6 +2198,7 @@ STREAMING_CONSISTENCY_ROW.input_metadata.dataset_info = {
             "max_tokens": os.getenv("EP_MAX_TOKENS", DEFAULT_MAX_TOKENS),
             "temperature": 0.0,  # Deterministic for consistency
             "stream": False,  # Will be overridden by custom rollout
+            "raw_output": True,
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
@@ -2298,6 +2350,7 @@ async def test_streaming_output_consistency(row: EvaluationRow) -> EvaluationRow
             "max_tokens": DEFAULT_MAX_TOKENS,
             "response_format": STRUCTURED_RESPONSE_FORMAT,
             "reasoning_effort": "none",
+            "raw_output": True,
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
@@ -2505,6 +2558,7 @@ TOOL_CALL_NON_STREAM_ROW.input_metadata.dataset_info = {
             "top_p": 1.0,
             "max_tokens": DEFAULT_MAX_TOKENS,
             "reasoning_effort": "none",
+            "raw_output": True,
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
@@ -2629,6 +2683,7 @@ def test_non_streaming_single_tool_call(row: EvaluationRow) -> EvaluationRow:
 _MULTI_TOOL_CALLS_NON_STREAM_ROW = _build_row_from_payload("multi-tool-calls-non-stream", MULTI_TOOL_CALLS_PAYLOAD)
 
 
+@pytest.mark.skipif(not SUPPORTS_MULTIPLE_TOOL_CALLS, reason="Model does not support multiple tool calls")
 @evaluation_test(
     input_rows=[[_MULTI_TOOL_CALLS_NON_STREAM_ROW]],
     completion_params=[
@@ -2723,16 +2778,20 @@ REASONING_DISABLED_NON_STREAM_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(not SUPPORTS_REASONING, reason="Model does not support reasoning_effort parameter")
 @evaluation_test(
     input_rows=[[REASONING_DISABLED_NON_STREAM_ROW]],
     completion_params=[
-        {
-            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
-            "reasoning_effort": "none",
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "temperature": 0.0,
-            "stream": False,  # Non-streaming
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "temperature": 0.0,
+                "stream": False,  # Non-streaming
+                "raw_output": True,
+            },
+            "none",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -2830,16 +2889,20 @@ REASONING_ENABLED_NON_STREAM_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(not SUPPORTS_REASONING, reason="Model does not support reasoning_effort parameter")
 @evaluation_test(
     input_rows=[[REASONING_ENABLED_NON_STREAM_ROW]],
     completion_params=[
-        {
-            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
-            "reasoning_effort": "low",
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "temperature": 0.0,
-            "stream": False,  # Non-streaming
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "temperature": 0.0,
+                "stream": False,  # Non-streaming
+                "raw_output": True,
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -2961,13 +3024,16 @@ TOOLS_WITH_REASONING_NON_STREAM_ROW.input_metadata.dataset_info = {
 @evaluation_test(
     input_rows=[[TOOLS_WITH_REASONING_NON_STREAM_ROW]],
     completion_params=[
-        {
-            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
-            "reasoning_effort": "low",
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "temperature": 0.0,
-            "stream": False,  # Non-streaming
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "temperature": 0.0,
+                "stream": False,  # Non-streaming
+                "raw_output": True,
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -2997,12 +3063,6 @@ def test_non_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow
                     break
 
     metrics = {
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "has_tool_calls": MetricResult(
             score=1.0 if has_tool_calls else 0.0,
             is_score_valid=True,
@@ -3024,12 +3084,24 @@ def test_non_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow
         ),
     }
 
+    # Only add reasoning metric if reasoning is supported
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
 
+    # Reasoning check is only required if SUPPORTS_REASONING is True
+    reasoning_check_passed = reasoning_present if SUPPORTS_REASONING else True
+
     all_checks_passed = (
-        reasoning_present
+        reasoning_check_passed
         and has_tool_calls
         and finish_reason_tool_calls
         and tool_call_valid
@@ -3041,7 +3113,7 @@ def test_non_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow
 
     # Build detailed failure reason
     failure_reasons = []
-    if not reasoning_present:
+    if SUPPORTS_REASONING and not reasoning_present:
         failure_reasons.append("reasoning_content missing")
     if not has_tool_calls:
         failure_reasons.append("no tool calls")
@@ -3059,7 +3131,7 @@ def test_non_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow
         failure_reasons.append("thinking phrases in content")
 
     reason = (
-        "Tools + reasoning work together in streaming"
+        "Tools + reasoning work together in non-streaming"
         if all_checks_passed
         else f"Compliance failed: {', '.join(failure_reasons)}"
     )
@@ -3107,14 +3179,17 @@ STRUCTURED_JSON_SCHEMA = {
 @evaluation_test(
     input_rows=[[STRUCTURED_OUTPUT_WITH_REASONING_ROW]],
     completion_params=[
-        {
-            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
-            "stream": True,
-            "reasoning_effort": "low",
-            "response_format": STRUCTURED_JSON_SCHEMA,
-            "temperature": 0.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
+                "stream": True,
+                "response_format": STRUCTURED_JSON_SCHEMA,
+                "temperature": 0.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -3153,12 +3228,6 @@ def test_streaming_structured_output_with_reasoning(row: EvaluationRow) -> Evalu
             is_score_valid=content_is_json,
             reason="speed_kmh is numeric" if speed_is_number else "speed_kmh not numeric",
         ),
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "finish_reason_stop": MetricResult(
             score=1.0 if finish_reason_stop else 0.0,
             is_score_valid=True,
@@ -3166,15 +3235,27 @@ def test_streaming_structured_output_with_reasoning(row: EvaluationRow) -> Evalu
         ),
     }
 
+    # Only add reasoning metric if reasoning is supported
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
+
+    # Reasoning check is only required if SUPPORTS_REASONING is True
+    reasoning_check_passed = reasoning_present if SUPPORTS_REASONING else True
 
     all_checks_passed = (
         content_is_json
         and has_required_keys
         and speed_is_number
-        and reasoning_present
+        and reasoning_check_passed
         and finish_reason_stop
         and finish_reason_present
         and no_forbidden_tags
@@ -3210,14 +3291,17 @@ STRUCTURED_OUTPUT_WITH_REASONING_NON_STREAM_ROW.input_metadata.dataset_info = {
 @evaluation_test(
     input_rows=[[STRUCTURED_OUTPUT_WITH_REASONING_NON_STREAM_ROW]],
     completion_params=[
-        {
-            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
-            "stream": False,
-            "reasoning_effort": "low",
-            "response_format": STRUCTURED_JSON_SCHEMA,
-            "temperature": 0.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
+                "stream": False,
+                "response_format": STRUCTURED_JSON_SCHEMA,
+                "temperature": 0.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -3256,12 +3340,6 @@ def test_non_streaming_structured_output_with_reasoning(row: EvaluationRow) -> E
             is_score_valid=content_is_json,
             reason="speed_kmh is numeric" if speed_is_number else "speed_kmh not numeric",
         ),
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "finish_reason_stop": MetricResult(
             score=1.0 if finish_reason_stop else 0.0,
             is_score_valid=True,
@@ -3269,15 +3347,27 @@ def test_non_streaming_structured_output_with_reasoning(row: EvaluationRow) -> E
         ),
     }
 
+    # Only add reasoning metric if reasoning is supported
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
+
+    # Reasoning check is only required if SUPPORTS_REASONING is True
+    reasoning_check_passed = reasoning_present if SUPPORTS_REASONING else True
 
     all_checks_passed = (
         content_is_json
         and has_required_keys
         and speed_is_number
-        and reasoning_present
+        and reasoning_check_passed
         and finish_reason_stop
         and finish_reason_present
         and no_forbidden_tags
@@ -3330,16 +3420,20 @@ MULTIPLE_TOOLS_WITH_REASONING_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(not SUPPORTS_MULTIPLE_TOOL_CALLS, reason="Model does not support multiple tool calls")
 @evaluation_test(
     input_rows=[[MULTIPLE_TOOLS_WITH_REASONING_ROW]],
     completion_params=[
-        {
-            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
-            "stream": True,
-            "reasoning_effort": "low",
-            "temperature": 0.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
+                "stream": True,
+                "temperature": 0.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -3373,12 +3467,6 @@ def test_streaming_multiple_tools_with_reasoning(row: EvaluationRow) -> Evaluati
     all_cities_covered = len(cities_covered) == 3
 
     metrics = {
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "has_multiple_tools": MetricResult(
             score=1.0 if has_multiple_tools else 0.0,
             is_score_valid=True,
@@ -3398,12 +3486,24 @@ def test_streaming_multiple_tools_with_reasoning(row: EvaluationRow) -> Evaluati
         ),
     }
 
+    # Only add reasoning metric if reasoning is supported
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
 
+    # Reasoning check is only required if SUPPORTS_REASONING is True
+    reasoning_check_passed = reasoning_present if SUPPORTS_REASONING else True
+
     all_checks_passed = (
-        reasoning_present
+        reasoning_check_passed
         and has_multiple_tools
         and all_cities_covered
         and finish_reason_tool_calls
@@ -3457,16 +3557,20 @@ MULTIPLE_TOOLS_WITH_REASONING_NON_STREAM_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(not SUPPORTS_MULTIPLE_TOOL_CALLS, reason="Model does not support multiple tool calls")
 @evaluation_test(
     input_rows=[[MULTIPLE_TOOLS_WITH_REASONING_NON_STREAM_ROW]],
     completion_params=[
-        {
-            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
-            "stream": False,
-            "reasoning_effort": "low",
-            "temperature": 0.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
+                "stream": False,
+                "temperature": 0.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -3500,12 +3604,6 @@ def test_non_streaming_multiple_tools_with_reasoning(row: EvaluationRow) -> Eval
     all_cities_covered = len(cities_covered) == 3
 
     metrics = {
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "has_multiple_tools": MetricResult(
             score=1.0 if has_multiple_tools else 0.0,
             is_score_valid=True,
@@ -3525,12 +3623,24 @@ def test_non_streaming_multiple_tools_with_reasoning(row: EvaluationRow) -> Eval
         ),
     }
 
+    # Only add reasoning metric if reasoning is supported
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
 
+    # Reasoning check is only required if SUPPORTS_REASONING is True
+    reasoning_check_passed = reasoning_present if SUPPORTS_REASONING else True
+
     all_checks_passed = (
-        reasoning_present
+        reasoning_check_passed
         and has_multiple_tools
         and all_cities_covered
         and finish_reason_tool_calls
@@ -3546,6 +3656,573 @@ def test_non_streaming_multiple_tools_with_reasoning(row: EvaluationRow) -> Eval
         reason="Multiple tools + reasoning work together"
         if all_checks_passed
         else "Multiple tools or reasoning invalid",
+        metrics=metrics,
+    )
+    return row
+
+
+# ============================================================================
+# Tool Choice Tests
+# ============================================================================
+
+TOOL_CHOICE_NONE_ROW = EvaluationRow(
+    messages=[
+        Message(role="system", content="You are a helpful assistant."),
+        Message(
+            role="user",
+            content="What's the weather in San Francisco?",
+        ),
+    ],
+    tools=WEATHER_TOOL_DEFINITION,  # Tools are passed but should be ignored with tool_choice=none
+)
+TOOL_CHOICE_NONE_ROW.input_metadata.dataset_info = {
+    "test_name": "tool_choice_none_stream",
+    "description": "Streaming: tool_choice=none should not produce tool calls and tools should not appear in raw_output prompt",
+}
+
+
+@evaluation_test(
+    input_rows=[[TOOL_CHOICE_NONE_ROW]],
+    completion_params=[
+        {
+            "model": DEFAULT_MODEL_ID,
+            "stream": True,
+            "temperature": 0.0,
+            "max_tokens": DEFAULT_MAX_TOKENS,
+            "reasoning_effort": "none",
+            "tool_choice": "none",
+            "raw_output": True,
+        }
+    ],
+    rollout_processor=SingleTurnRolloutProcessor(),
+    passed_threshold=1.0,
+    mode="pointwise",
+)
+def test_streaming_tool_choice_none(row: EvaluationRow) -> EvaluationRow:
+    """
+    Verify that tool_choice=none prevents tool calls and tools are not in raw_output prompt.
+
+    Requirements:
+    - No tool_calls should be returned
+    - raw_output should NOT mention tools in the prompt
+    - finish_reason should be "stop"
+    - Content should be present
+    """
+    assistant_msg = row.last_assistant_message()
+    finish_reason = row.execution_metadata.finish_reason
+
+    content_str = _coerce_content_to_str(assistant_msg.content) if assistant_msg else ""
+    reasoning_str = (assistant_msg.reasoning_content or "").strip() if assistant_msg else ""
+    tool_calls = assistant_msg.tool_calls if assistant_msg else []
+
+    has_content = bool(content_str.strip())
+    no_tool_calls = not tool_calls or len(tool_calls) == 0
+    finish_reason_stop = finish_reason == "stop"
+
+    # Check raw_output for tool mentions (if available)
+    raw_output = getattr(row.execution_metadata, "raw_output", None) or {}
+    prompt_fragments = raw_output.get("prompt_fragments", []) if isinstance(raw_output, dict) else []
+
+    # Check if tools are mentioned in prompt_fragments
+    tools_in_prompt = False
+    tool_keywords = ["get_current_weather", "function", "tool"]
+    for fragment in prompt_fragments:
+        fragment_lower = fragment.lower() if isinstance(fragment, str) else ""
+        if any(keyword in fragment_lower for keyword in tool_keywords):
+            tools_in_prompt = True
+            break
+
+    # If raw_output not available, skip the prompt check (is_score_valid=False)
+    raw_output_available = bool(raw_output and prompt_fragments)
+
+    metrics = {
+        "has_content": MetricResult(
+            score=1.0 if has_content else 0.0,
+            is_score_valid=True,
+            reason="Content present" if has_content else "No content",
+            data={"content_preview": content_str[:100]},
+        ),
+        "no_tool_calls": MetricResult(
+            score=1.0 if no_tool_calls else 0.0,
+            is_score_valid=True,
+            reason="No tool calls (as expected with tool_choice=none)"
+            if no_tool_calls
+            else f"Unexpected tool calls: {len(tool_calls) if tool_calls else 0}",
+            data={"tool_call_count": len(tool_calls) if tool_calls else 0},
+        ),
+        "tools_not_in_prompt": MetricResult(
+            score=1.0 if not tools_in_prompt else 0.0,
+            is_score_valid=raw_output_available,  # Only valid if raw_output is available
+            reason="Tools not mentioned in raw_output prompt"
+            if not tools_in_prompt
+            else "Tools found in raw_output prompt (unexpected with tool_choice=none)",
+            data={
+                "prompt_fragments": prompt_fragments[:3] if prompt_fragments else [],
+                "raw_output_available": raw_output_available,
+            },
+        ),
+        "finish_reason_stop": MetricResult(
+            score=1.0 if finish_reason_stop else 0.0,
+            is_score_valid=True,
+            reason="finish_reason is stop" if finish_reason_stop else f"Unexpected finish_reason: {finish_reason}",
+        ),
+    }
+
+    finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
+        metrics, finish_reason, content_str, reasoning_str
+    )
+
+    # For all_checks_passed, only consider tools_in_prompt if raw_output is available
+    tools_check_passed = not tools_in_prompt if raw_output_available else True
+
+    all_checks_passed = (
+        has_content
+        and no_tool_calls
+        and tools_check_passed
+        and finish_reason_stop
+        and finish_reason_present
+        and no_forbidden_tags
+        and no_xml_tags
+        and no_reasoning_leakage
+    )
+
+    # Build detailed failure reason
+    failure_reasons: list[str] = []
+    if not has_content:
+        failure_reasons.append("no content")
+    if not no_tool_calls:
+        failure_reasons.append("tool calls present")
+    if raw_output_available and tools_in_prompt:
+        failure_reasons.append("tools in raw_output prompt")
+    if not finish_reason_stop:
+        failure_reasons.append(f"finish_reason={finish_reason}")
+    if not finish_reason_present:
+        failure_reasons.append("finish_reason null")
+    if not no_forbidden_tags:
+        failure_reasons.append("forbidden tags detected")
+    if not no_xml_tags:
+        failure_reasons.append("XML tags detected")
+
+    reason = (
+        "tool_choice=none respected: no tool calls, tools not in prompt"
+        if all_checks_passed
+        else f"Compliance failed: {', '.join(failure_reasons)}"
+    )
+
+    row.evaluation_result = EvaluateResult(
+        score=1.0 if all_checks_passed else 0.0,
+        is_score_valid=True,
+        reason=reason,
+        metrics=metrics,
+    )
+    return row
+
+
+# Non-streaming version
+TOOL_CHOICE_NONE_NON_STREAM_ROW = EvaluationRow(
+    messages=[
+        Message(role="system", content="You are a helpful assistant."),
+        Message(
+            role="user",
+            content="What's the weather in San Francisco?",
+        ),
+    ],
+    tools=WEATHER_TOOL_DEFINITION,  # Tools are passed but should be ignored with tool_choice=none
+)
+TOOL_CHOICE_NONE_NON_STREAM_ROW.input_metadata.dataset_info = {
+    "test_name": "tool_choice_none_non_stream",
+    "description": "Non-streaming: tool_choice=none should not produce tool calls and tools should not appear in raw_output prompt",
+}
+
+
+@evaluation_test(
+    input_rows=[[TOOL_CHOICE_NONE_NON_STREAM_ROW]],
+    completion_params=[
+        {
+            "model": DEFAULT_MODEL_ID,
+            "stream": False,
+            "temperature": 0.0,
+            "max_tokens": DEFAULT_MAX_TOKENS,
+            "reasoning_effort": "none",
+            "tool_choice": "none",
+            "raw_output": True,
+        }
+    ],
+    rollout_processor=SingleTurnRolloutProcessor(),
+    passed_threshold=1.0,
+    mode="pointwise",
+)
+def test_non_streaming_tool_choice_none(row: EvaluationRow) -> EvaluationRow:
+    """Non-streaming version: Verify tool_choice=none prevents tool calls."""
+    assistant_msg = row.last_assistant_message()
+    finish_reason = row.execution_metadata.finish_reason
+
+    content_str = _coerce_content_to_str(assistant_msg.content) if assistant_msg else ""
+    reasoning_str = (assistant_msg.reasoning_content or "").strip() if assistant_msg else ""
+    tool_calls = assistant_msg.tool_calls if assistant_msg else []
+
+    has_content = bool(content_str.strip())
+    no_tool_calls = not tool_calls or len(tool_calls) == 0
+    finish_reason_stop = finish_reason == "stop"
+
+    # Check raw_output for tool mentions (if available)
+    raw_output = getattr(row.execution_metadata, "raw_output", None) or {}
+    prompt_fragments = raw_output.get("prompt_fragments", []) if isinstance(raw_output, dict) else []
+
+    # Check if tools are mentioned in prompt_fragments
+    tools_in_prompt = False
+    tool_keywords = ["get_current_weather", "function", "tool"]
+    for fragment in prompt_fragments:
+        fragment_lower = fragment.lower() if isinstance(fragment, str) else ""
+        if any(keyword in fragment_lower for keyword in tool_keywords):
+            tools_in_prompt = True
+            break
+
+    # If raw_output not available, skip the prompt check (is_score_valid=False)
+    raw_output_available = bool(raw_output and prompt_fragments)
+
+    metrics = {
+        "has_content": MetricResult(
+            score=1.0 if has_content else 0.0,
+            is_score_valid=True,
+            reason="Content present" if has_content else "No content",
+            data={"content_preview": content_str[:100]},
+        ),
+        "no_tool_calls": MetricResult(
+            score=1.0 if no_tool_calls else 0.0,
+            is_score_valid=True,
+            reason="No tool calls (as expected with tool_choice=none)"
+            if no_tool_calls
+            else f"Unexpected tool calls: {len(tool_calls) if tool_calls else 0}",
+            data={"tool_call_count": len(tool_calls) if tool_calls else 0},
+        ),
+        "tools_not_in_prompt": MetricResult(
+            score=1.0 if not tools_in_prompt else 0.0,
+            is_score_valid=raw_output_available,  # Only valid if raw_output is available
+            reason="Tools not mentioned in raw_output prompt"
+            if not tools_in_prompt
+            else "Tools found in raw_output prompt (unexpected with tool_choice=none)",
+            data={
+                "prompt_fragments": prompt_fragments[:3] if prompt_fragments else [],
+                "raw_output_available": raw_output_available,
+            },
+        ),
+        "finish_reason_stop": MetricResult(
+            score=1.0 if finish_reason_stop else 0.0,
+            is_score_valid=True,
+            reason="finish_reason is stop" if finish_reason_stop else f"Unexpected finish_reason: {finish_reason}",
+        ),
+    }
+
+    finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
+        metrics, finish_reason, content_str, reasoning_str
+    )
+
+    # For all_checks_passed, only consider tools_in_prompt if raw_output is available
+    tools_check_passed = not tools_in_prompt if raw_output_available else True
+
+    all_checks_passed = (
+        has_content
+        and no_tool_calls
+        and tools_check_passed
+        and finish_reason_stop
+        and finish_reason_present
+        and no_forbidden_tags
+        and no_xml_tags
+        and no_reasoning_leakage
+    )
+
+    # Build detailed failure reason
+    failure_reasons: list[str] = []
+    if not has_content:
+        failure_reasons.append("no content")
+    if not no_tool_calls:
+        failure_reasons.append("tool calls present")
+    if raw_output_available and tools_in_prompt:
+        failure_reasons.append("tools in raw_output prompt")
+    if not finish_reason_stop:
+        failure_reasons.append(f"finish_reason={finish_reason}")
+    if not finish_reason_present:
+        failure_reasons.append("finish_reason null")
+    if not no_forbidden_tags:
+        failure_reasons.append("forbidden tags detected")
+    if not no_xml_tags:
+        failure_reasons.append("XML tags detected")
+
+    reason = (
+        "tool_choice=none respected: no tool calls, tools not in prompt"
+        if all_checks_passed
+        else f"Compliance failed: {', '.join(failure_reasons)}"
+    )
+
+    row.evaluation_result = EvaluateResult(
+        score=1.0 if all_checks_passed else 0.0,
+        is_score_valid=True,
+        reason=reason,
+        metrics=metrics,
+    )
+    return row
+
+
+# ============================================================================
+# Tool Choice Required Tests
+# ============================================================================
+
+TOOL_CHOICE_REQUIRED_ROW = EvaluationRow(
+    messages=[
+        Message(role="system", content="You are a helpful assistant with access to tools."),
+        Message(
+            role="user",
+            content="What's the weather in Boston?",
+        ),
+    ],
+    tools=WEATHER_TOOL_DEFINITION,
+)
+TOOL_CHOICE_REQUIRED_ROW.input_metadata.dataset_info = {
+    "test_name": "tool_choice_required_stream",
+    "description": "Streaming: tool_choice=required must produce at least one tool call",
+}
+
+
+@evaluation_test(
+    input_rows=[[TOOL_CHOICE_REQUIRED_ROW]],
+    completion_params=[
+        {
+            "model": DEFAULT_MODEL_ID,
+            "stream": True,
+            "temperature": 0.0,
+            "max_tokens": DEFAULT_MAX_TOKENS,
+            "reasoning_effort": "none",
+            "tool_choice": "required",
+            "raw_output": True,
+        }
+    ],
+    rollout_processor=SingleTurnRolloutProcessor(),
+    passed_threshold=1.0,
+    mode="pointwise",
+)
+def test_streaming_tool_choice_required(row: EvaluationRow) -> EvaluationRow:
+    """
+    Verify that tool_choice=required forces the model to make a tool call.
+
+    Requirements:
+    - At least one tool_call should be returned
+    - finish_reason should be "tool_calls"
+    - Tool call arguments should be valid JSON
+    """
+    assistant_msg = row.last_assistant_message()
+    finish_reason = row.execution_metadata.finish_reason
+
+    content_str = _coerce_content_to_str(assistant_msg.content) if assistant_msg else ""
+    reasoning_str = (assistant_msg.reasoning_content or "").strip() if assistant_msg else ""
+    tool_calls = assistant_msg.tool_calls if assistant_msg else []
+    calls = _collect_tool_calls(tool_calls)
+
+    has_tool_calls = len(calls) > 0
+    finish_reason_tool_calls = finish_reason == "tool_calls"
+
+    # Validate tool call arguments are valid
+    tool_call_valid = False
+    tool_call_args = None
+    if has_tool_calls:
+        for name, args in calls:
+            if name == "get_current_weather" and isinstance(args, dict):
+                tool_call_args = args
+                location = (args.get("location") or "").lower()
+                if "boston" in location:
+                    tool_call_valid = True
+                    break
+
+    metrics = {
+        "has_tool_calls": MetricResult(
+            score=1.0 if has_tool_calls else 0.0,
+            is_score_valid=True,
+            reason="Tool calls present (as expected with tool_choice=required)"
+            if has_tool_calls
+            else "No tool calls (unexpected with tool_choice=required)",
+            data={"tool_call_count": len(calls)},
+        ),
+        "tool_call_valid": MetricResult(
+            score=1.0 if tool_call_valid else 0.0,
+            is_score_valid=has_tool_calls,
+            reason="Tool call arguments valid" if tool_call_valid else "Tool call arguments invalid or missing",
+            data={"arguments": tool_call_args, "tool_calls": [{"name": n, "args": a} for n, a in calls]},
+        ),
+        "finish_reason_tool_calls": MetricResult(
+            score=1.0 if finish_reason_tool_calls else 0.0,
+            is_score_valid=True,
+            reason="finish_reason is tool_calls"
+            if finish_reason_tool_calls
+            else f"Unexpected finish_reason: {finish_reason}",
+        ),
+    }
+
+    finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
+        metrics, finish_reason, content_str, reasoning_str
+    )
+
+    all_checks_passed = (
+        has_tool_calls
+        and tool_call_valid
+        and finish_reason_tool_calls
+        and finish_reason_present
+        and no_forbidden_tags
+        and no_xml_tags
+        and no_reasoning_leakage
+    )
+
+    # Build detailed failure reason
+    failure_reasons = []
+    if not has_tool_calls:
+        failure_reasons.append("no tool calls")
+    if not tool_call_valid:
+        failure_reasons.append("tool call invalid")
+    if not finish_reason_tool_calls:
+        failure_reasons.append(f"finish_reason={finish_reason}")
+    if not finish_reason_present:
+        failure_reasons.append("finish_reason null")
+    if not no_forbidden_tags:
+        failure_reasons.append("forbidden tags detected")
+    if not no_xml_tags:
+        failure_reasons.append("XML tags detected")
+
+    reason = (
+        "tool_choice=required respected: tool call made"
+        if all_checks_passed
+        else f"Compliance failed: {', '.join(failure_reasons)}"
+    )
+
+    row.evaluation_result = EvaluateResult(
+        score=1.0 if all_checks_passed else 0.0,
+        is_score_valid=True,
+        reason=reason,
+        metrics=metrics,
+    )
+    return row
+
+
+# Non-streaming version
+TOOL_CHOICE_REQUIRED_NON_STREAM_ROW = EvaluationRow(
+    messages=[
+        Message(role="system", content="You are a helpful assistant with access to tools."),
+        Message(
+            role="user",
+            content="What's the weather in Boston?",
+        ),
+    ],
+    tools=WEATHER_TOOL_DEFINITION,
+)
+TOOL_CHOICE_REQUIRED_NON_STREAM_ROW.input_metadata.dataset_info = {
+    "test_name": "tool_choice_required_non_stream",
+    "description": "Non-streaming: tool_choice=required must produce at least one tool call",
+}
+
+
+@evaluation_test(
+    input_rows=[[TOOL_CHOICE_REQUIRED_NON_STREAM_ROW]],
+    completion_params=[
+        {
+            "model": DEFAULT_MODEL_ID,
+            "stream": False,
+            "temperature": 0.0,
+            "max_tokens": DEFAULT_MAX_TOKENS,
+            "reasoning_effort": "none",
+            "tool_choice": "required",
+            "raw_output": True,
+        }
+    ],
+    rollout_processor=SingleTurnRolloutProcessor(),
+    passed_threshold=1.0,
+    mode="pointwise",
+)
+def test_non_streaming_tool_choice_required(row: EvaluationRow) -> EvaluationRow:
+    """Non-streaming version: Verify tool_choice=required forces tool call."""
+    assistant_msg = row.last_assistant_message()
+    finish_reason = row.execution_metadata.finish_reason
+
+    content_str = _coerce_content_to_str(assistant_msg.content) if assistant_msg else ""
+    reasoning_str = (assistant_msg.reasoning_content or "").strip() if assistant_msg else ""
+    tool_calls = assistant_msg.tool_calls if assistant_msg else []
+    calls = _collect_tool_calls(tool_calls)
+
+    has_tool_calls = len(calls) > 0
+    finish_reason_tool_calls = finish_reason == "tool_calls"
+
+    # Validate tool call arguments are valid
+    tool_call_valid = False
+    tool_call_args = None
+    if has_tool_calls:
+        for name, args in calls:
+            if name == "get_current_weather" and isinstance(args, dict):
+                tool_call_args = args
+                location = (args.get("location") or "").lower()
+                if "boston" in location:
+                    tool_call_valid = True
+                    break
+
+    metrics = {
+        "has_tool_calls": MetricResult(
+            score=1.0 if has_tool_calls else 0.0,
+            is_score_valid=True,
+            reason="Tool calls present (as expected with tool_choice=required)"
+            if has_tool_calls
+            else "No tool calls (unexpected with tool_choice=required)",
+            data={"tool_call_count": len(calls)},
+        ),
+        "tool_call_valid": MetricResult(
+            score=1.0 if tool_call_valid else 0.0,
+            is_score_valid=has_tool_calls,
+            reason="Tool call arguments valid" if tool_call_valid else "Tool call arguments invalid or missing",
+            data={"arguments": tool_call_args, "tool_calls": [{"name": n, "args": a} for n, a in calls]},
+        ),
+        "finish_reason_tool_calls": MetricResult(
+            score=1.0 if finish_reason_tool_calls else 0.0,
+            is_score_valid=True,
+            reason="finish_reason is tool_calls"
+            if finish_reason_tool_calls
+            else f"Unexpected finish_reason: {finish_reason}",
+        ),
+    }
+
+    finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
+        metrics, finish_reason, content_str, reasoning_str
+    )
+
+    all_checks_passed = (
+        has_tool_calls
+        and tool_call_valid
+        and finish_reason_tool_calls
+        and finish_reason_present
+        and no_forbidden_tags
+        and no_xml_tags
+        and no_reasoning_leakage
+    )
+
+    # Build detailed failure reason
+    failure_reasons = []
+    if not has_tool_calls:
+        failure_reasons.append("no tool calls")
+    if not tool_call_valid:
+        failure_reasons.append("tool call invalid")
+    if not finish_reason_tool_calls:
+        failure_reasons.append(f"finish_reason={finish_reason}")
+    if not finish_reason_present:
+        failure_reasons.append("finish_reason null")
+    if not no_forbidden_tags:
+        failure_reasons.append("forbidden tags detected")
+    if not no_xml_tags:
+        failure_reasons.append("XML tags detected")
+
+    reason = (
+        "tool_choice=required respected: tool call made"
+        if all_checks_passed
+        else f"Compliance failed: {', '.join(failure_reasons)}"
+    )
+
+    row.evaluation_result = EvaluateResult(
+        score=1.0 if all_checks_passed else 0.0,
+        is_score_valid=True,
+        reason=reason,
         metrics=metrics,
     )
     return row
