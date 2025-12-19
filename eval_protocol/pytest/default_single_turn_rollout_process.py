@@ -97,7 +97,10 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                     chunks.append(chunk)
                 response = litellm.stream_chunk_builder(chunks, messages_payload)
             else:
+                tc = time.perf_counter()
+                # print(f"run_id {row.execution_metadata.run_id} request_params: {json.dumps(request_params)}")
                 response = await acompletion(**request_params)
+                print(f"run_id {row.execution_metadata.run_id} time taken: {time.perf_counter() - tc} speculation_enabled: {request_params.get('extra_body', {}).get('prediction', None) is not None}")
 
             assert response is not None, "Response is None"
             assert isinstance(response, ModelResponse), "Response should be ModelResponse"

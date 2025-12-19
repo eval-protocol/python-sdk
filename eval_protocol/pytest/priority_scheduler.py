@@ -318,52 +318,53 @@ class PriorityRolloutScheduler:
                     del self.active_rollouts[row_index]
                 await self._update_rollout_pbar_postfix()
         
-        # 4. Update sample state and schedule next run (streaming)
-        async with sample_state.lock:
-            sample_state.active_runs -= 1
-            sample_state.completed_runs += 1
-            
-            # Extract history from this run's result
-            if result_row:
-                last_msg = result_row.last_assistant_message()
-                if last_msg and last_msg.content:
-                    sample_state.history.append(str(last_msg.content))
-                else:
-                    sample_state.history.append("")
-            
-            # In groupwise mode, buffer results
-            if self.mode == "groupwise":
+            # 4. Update sample state and schedule next run (streaming)
+            # Must be in finally to ensure state is updated even on exception
+            async with sample_state.lock:
+                sample_state.active_runs -= 1
+                sample_state.completed_runs += 1
+                
+                # Extract history from this run's result
                 if result_row:
-                    self.groups_buffer[row_index].append(result_row)
-                # Check if all runs for this sample are complete
-                if sample_state.completed_runs >= self.rollout_n:
-                    full_group = self.groups_buffer.pop(row_index, [])
-                    if full_group:
-                        t = asyncio.create_task(_run_eval(full_group))
-                        self.background_tasks.add(t)
-                        t.add_done_callback(self.background_tasks.discard)
-            
-            # Schedule next run if:
-            # 1. There are more runs to do
-            # 2. We haven't hit in_group_minibatch_size concurrent runs for this sample
-            if (sample_state.next_run_idx < self.rollout_n and 
-                sample_state.active_runs < self.in_group_minibatch_size):
+                    last_msg = result_row.last_assistant_message()
+                    if last_msg and last_msg.content:
+                        sample_state.history.append(str(last_msg.content))
+                    else:
+                        sample_state.history.append("")
                 
-                next_run_idx = sample_state.next_run_idx
-                sample_state.next_run_idx += 1
-                sample_state.active_runs += 1
+                # In groupwise mode, buffer results
+                if self.mode == "groupwise":
+                    if result_row:
+                        self.groups_buffer[row_index].append(result_row)
+                    # Check if all runs for this sample are complete
+                    if sample_state.completed_runs >= self.rollout_n:
+                        full_group = self.groups_buffer.pop(row_index, [])
+                        if full_group:
+                            t = asyncio.create_task(_run_eval(full_group))
+                            self.background_tasks.add(t)
+                            t.add_done_callback(self.background_tasks.discard)
                 
-                # High priority (0) to finish this sample ASAP
-                # Use current accumulated history for speculation
-                priority = (0, row_index, next_run_idx)
-                
-                new_task = RolloutTask(
-                    priority=priority,
-                    sample_state=sample_state,
-                    run_idx=next_run_idx,
-                    history_snapshot=list(sample_state.history),  # Snapshot current history
-                )
-                self.queue.put_nowait(new_task)
+                # Schedule next run if:
+                # 1. There are more runs to do
+                # 2. We haven't hit in_group_minibatch_size concurrent runs for this sample
+                if (sample_state.next_run_idx < self.rollout_n and 
+                    sample_state.active_runs < self.in_group_minibatch_size):
+                    
+                    next_run_idx = sample_state.next_run_idx
+                    sample_state.next_run_idx += 1
+                    sample_state.active_runs += 1
+                    
+                    # High priority (0) to finish this sample ASAP
+                    # Use current accumulated history for speculation
+                    priority = (0, row_index, next_run_idx)
+                    
+                    new_task = RolloutTask(
+                        priority=priority,
+                        sample_state=sample_state,
+                        run_idx=next_run_idx,
+                        history_snapshot=list(sample_state.history),  # Snapshot current history
+                    )
+                    self.queue.put_nowait(new_task)
 
     def _format_active_rollouts(self) -> str:
         """Format active rollouts for display in progress bar."""
