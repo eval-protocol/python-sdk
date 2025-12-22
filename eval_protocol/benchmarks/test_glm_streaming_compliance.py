@@ -711,16 +711,18 @@ def _debug_log_assistant_message(test_name: str, assistant_message: Message | No
 @evaluation_test(
     input_rows=[[STRUCTURED_OUTPUT_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": True,
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "response_format": STRUCTURED_RESPONSE_FORMAT,
-            "reasoning_effort": "none",  # No reasoning expected for structured output
-            "raw_output": True,  # Include raw model output for debugging
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": True,
+                "temperature": 1.0,
+                "top_p": 1.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "response_format": STRUCTURED_RESPONSE_FORMAT,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "none",  # No reasoning expected for structured output
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
@@ -981,15 +983,17 @@ def test_streaming_json_preservation(row: EvaluationRow) -> EvaluationRow:
 @evaluation_test(
     input_rows=[[TOOL_CALL_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": True,
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "reasoning_effort": "none",  # No reasoning expected for tool calls
-            "raw_output": True,  # Include raw model output for debugging
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": True,
+                "temperature": 1.0,
+                "top_p": 1.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "none",  # No reasoning expected for tool calls
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
@@ -2264,16 +2268,18 @@ async def test_streaming_output_consistency(row: EvaluationRow) -> EvaluationRow
 @evaluation_test(
     input_rows=[[STRUCTURED_OUTPUT_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": False,  # Non-streaming
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "response_format": STRUCTURED_RESPONSE_FORMAT,
-            "reasoning_effort": "none",
-            "raw_output": True,  # Include raw model output for debugging
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": False,  # Non-streaming
+                "temperature": 1.0,
+                "top_p": 1.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "response_format": STRUCTURED_RESPONSE_FORMAT,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "none",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
@@ -2473,15 +2479,17 @@ TOOL_CALL_NON_STREAM_ROW.input_metadata.dataset_info = {
 @evaluation_test(
     input_rows=[[TOOL_CALL_NON_STREAM_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": False,  # Non-streaming
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "reasoning_effort": "none",
-            "raw_output": True,  # Include raw model output for debugging
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": False,  # Non-streaming
+                "temperature": 1.0,
+                "top_p": 1.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "none",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
