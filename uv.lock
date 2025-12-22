@@ -1308,6 +1308,7 @@ requires-dist = [
     { name = "e2b", marker = "extra == 'dev'" },
     { name = "fastapi", specifier = ">=0.116.1" },
     { name = "fireworks-ai", specifier = "==1.0.0a18" },
+    { name = "fireworks-ai", specifier = ">=1.0.0a11" },
     { name = "google-auth", marker = "extra == 'bigquery'", specifier = ">=2.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'bigquery'", specifier = ">=3.0.0" },
     { name = "gymnasium", marker = "extra == 'dev'", specifier = ">=1.2.0" },
