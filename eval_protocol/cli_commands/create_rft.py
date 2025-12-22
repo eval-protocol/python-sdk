@@ -635,7 +635,7 @@ def _create_rft_job(
     args_dict = vars(args)
     for name in signature.parameters:
         # Do NOT let raw CLI args overwrite the normalized resources passed into this function.
-        if name in ("account_id", "dataset", "evaluator"):
+        if name in ("dataset", "evaluator"):
             continue
         prefix = name + "_"
 
