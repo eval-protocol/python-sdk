@@ -22,6 +22,7 @@ from eval_protocol.models import (
     EvaluationThresholdDict,
     EvaluateResult,
     Status,
+    EPParameters,
 )
 from eval_protocol.pytest.dual_mode_wrapper import create_dual_mode_wrapper
 from eval_protocol.pytest.evaluation_test_postprocess import postprocess
@@ -753,13 +754,34 @@ def evaluation_test(
         )
         pytest_wrapper = pytest.mark.asyncio(pytest_wrapper)
 
-        ep_params: dict[str, Any] = {
-            "rollout_processor": rollout_processor,
-            "server_script_path": server_script_path,
-            "mcp_config_path": mcp_config_path,
-            "rollout_processor_kwargs": rollout_processor_kwargs,
-            "mode": mode,
-        }
+        # Attach full evaluation parameter metadata for training integrations
+        ep_params: EPParameters = EPParameters(
+            completion_params=completion_params,
+            input_messages=input_messages,
+            input_dataset=input_dataset,
+            input_rows=input_rows,
+            data_loaders=data_loaders,
+            dataset_adapter=dataset_adapter,
+            rollout_processor=rollout_processor,
+            rollout_processor_kwargs=rollout_processor_kwargs,
+            evaluation_test_kwargs=evaluation_test_kwargs,
+            aggregation_method=aggregation_method,
+            passed_threshold=passed_threshold,
+            disable_browser_open=disable_browser_open,
+            num_runs=num_runs,
+            filtered_row_ids=filtered_row_ids,
+            max_dataset_rows=max_dataset_rows,
+            mcp_config_path=mcp_config_path,
+            max_concurrent_rollouts=max_concurrent_rollouts,
+            max_concurrent_evaluations=max_concurrent_evaluations,
+            server_script_path=server_script_path,
+            steps=steps,
+            mode=mode,
+            combine_datasets=combine_datasets,
+            preprocess_fn=preprocess_fn,
+            logger=logger,
+            exception_handler_config=exception_handler_config,
+        )
 
         # Create the dual mode wrapper
         dual_mode_wrapper = create_dual_mode_wrapper(

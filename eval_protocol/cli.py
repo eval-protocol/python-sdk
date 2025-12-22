@@ -3,11 +3,16 @@ Command-line interface for Eval Protocol.
 """
 
 import argparse
+import inspect
+import json
 import logging
 import os
 import sys
 from pathlib import Path
 from typing import Any, cast
+from .cli_commands.utils import add_args_from_callable_signature
+
+from fireworks import Fireworks
 
 logger = logging.getLogger(__name__)
 
@@ -374,87 +379,11 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         "rft",
         help="Create a Reinforcement Fine-tuning Job on Fireworks",
     )
-    rft_parser.add_argument(
-        "--evaluator",
-        help="Evaluator ID or fully-qualified resource (accounts/{acct}/evaluators/{id}); if omitted, derive from local tests",
-    )
-    # Dataset options
-    rft_parser.add_argument(
-        "--dataset",
-        help="Use existing dataset (ID or resource 'accounts/{acct}/datasets/{id}') to skip local materialization",
-    )
-    rft_parser.add_argument(
-        "--dataset-jsonl",
-        help="Path to JSONL to upload as a new Fireworks dataset",
-    )
-    rft_parser.add_argument(
-        "--dataset-builder",
-        help="Explicit dataset builder spec (module::function or path::function)",
-    )
-    rft_parser.add_argument(
-        "--dataset-display-name",
-        help="Display name for dataset on Fireworks (defaults to dataset id)",
-    )
-    # Training config and evaluator/job settings
-    rft_parser.add_argument("--base-model", help="Base model resource id")
-    rft_parser.add_argument("--warm-start-from", help="Addon model to warm start from")
-    rft_parser.add_argument("--output-model", help="Output model id (defaults from evaluator)")
-    rft_parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs")
-    rft_parser.add_argument("--batch-size", type=int, default=128000, help="Training batch size in tokens")
-    rft_parser.add_argument("--learning-rate", type=float, default=3e-5, help="Learning rate for training")
-    rft_parser.add_argument("--max-context-length", type=int, default=65536, help="Maximum context length in tokens")
-    rft_parser.add_argument("--lora-rank", type=int, default=16, help="LoRA rank for fine-tuning")
-    rft_parser.add_argument("--gradient-accumulation-steps", type=int, help="Number of gradient accumulation steps")
-    rft_parser.add_argument("--learning-rate-warmup-steps", type=int, help="Number of learning rate warmup steps")
-    rft_parser.add_argument("--accelerator-count", type=int, help="Number of accelerators (GPUs) to use")
-    rft_parser.add_argument("--region", help="Fireworks region for training")
-    rft_parser.add_argument("--display-name", help="Display name for the RFT job")
-    rft_parser.add_argument("--evaluation-dataset", help="Separate dataset id for evaluation")
-    rft_parser.add_argument(
-        "--eval-auto-carveout",
-        dest="eval_auto_carveout",
-        action="store_true",
-        default=True,
-        help="Automatically carve out evaluation data from training set",
-    )
-    rft_parser.add_argument(
-        "--no-eval-auto-carveout",
-        dest="eval_auto_carveout",
-        action="store_false",
-        help="Disable automatic evaluation data carveout",
-    )
-    # Rollout chunking
-    rft_parser.add_argument("--chunk-size", type=int, default=100, help="Data chunk size for rollout batching")
-    # Inference params
-    rft_parser.add_argument("--temperature", type=float, help="Sampling temperature for rollouts")
-    rft_parser.add_argument("--top-p", type=float, help="Top-p (nucleus) sampling parameter")
-    rft_parser.add_argument("--top-k", type=int, help="Top-k sampling parameter")
-    rft_parser.add_argument("--max-output-tokens", type=int, default=32768, help="Maximum output tokens per rollout")
-    rft_parser.add_argument(
-        "--response-candidates-count", type=int, default=8, help="Number of response candidates per prompt"
-    )
-    rft_parser.add_argument("--extra-body", help="JSON string for extra inference params")
-    # MCP server (optional)
-    rft_parser.add_argument(
-        "--mcp-server",
-        help="MCP server resource name for agentic rollouts",
-    )
-    # Wandb
-    rft_parser.add_argument("--wandb-enabled", action="store_true", help="Enable Weights & Biases logging")
-    rft_parser.add_argument("--wandb-project", help="Weights & Biases project name")
-    rft_parser.add_argument("--wandb-entity", help="Weights & Biases entity (username or team)")
-    rft_parser.add_argument("--wandb-run-id", help="Weights & Biases run id for resuming")
-    rft_parser.add_argument("--wandb-api-key", help="Weights & Biases API key")
-    # Misc
-    rft_parser.add_argument("--job-id", help="Specify an explicit RFT job id")
+
     rft_parser.add_argument("--yes", "-y", action="store_true", help="Non-interactive mode")
-    rft_parser.add_argument("--dry-run", action="store_true", help="Print planned REST calls without sending")
+    rft_parser.add_argument("--dry-run", action="store_true", help="Print planned SDK call without sending")
     rft_parser.add_argument("--force", action="store_true", help="Overwrite existing evaluator with the same ID")
-    rft_parser.add_argument(
-        "--skip-validation",
-        action="store_true",
-        help="Skip local dataset and evaluator validation before creating the RFT job",
-    )
+    rft_parser.add_argument("--skip-validation", action="store_true", help="Skip local dataset/evaluator validation")
     rft_parser.add_argument(
         "--ignore-docker",
         action="store_true",
@@ -463,12 +392,65 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
     rft_parser.add_argument(
         "--docker-build-extra",
         default="",
+        metavar="",
         help="Extra flags to pass to 'docker build' when validating evaluator (quoted string, e.g. \"--no-cache --pull --progress=plain\")",
     )
     rft_parser.add_argument(
         "--docker-run-extra",
         default="",
+        metavar="",
         help="Extra flags to pass to 'docker run' when validating evaluator (quoted string, e.g. \"--env-file .env --memory=8g\")",
+    )
+
+    # The flags below are Eval Protocol CLI workflow controls (not part of the Fireworks SDK `create()` signature),
+    # so they can’t be auto-generated via signature introspection and must be maintained here.
+    rft_parser.add_argument(
+        "--source-job",
+        metavar="",
+        help="The source reinforcement fine-tuning job to copy configuration from. If other flags are set, they will override the source job's configuration.",
+    )
+    rft_parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="If set, only errors will be printed.",
+    )
+    skip_fields = {
+        "__top_level__": {
+            "extra_headers",
+            "extra_query",
+            "extra_body",
+            "timeout",
+            "display_name",
+            "account_id",
+        },
+        "training_config": {"region", "jinja_template"},
+        "wandb_config": {"run_id"},
+    }
+    aliases = {
+        "wandb_config.api_key": ["--wandb-api-key"],
+        "wandb_config.project": ["--wandb-project"],
+        "wandb_config.entity": ["--wandb-entity"],
+        "wandb_config.enabled": ["--wandb"],
+        "reinforcement_fine_tuning_job_id": ["--job-id"],
+        "loss_config.kl_beta": ["--rl-kl-beta"],
+        "loss_config.method": ["--rl-loss-method"],
+        "node_count": ["--nodes"],
+    }
+    help_overrides = {
+        "training_config.gradient_accumulation_steps": "The number of batches to accumulate gradients before updating the model parameters. The effective batch size will be batch-size multiplied by this value.",
+        "training_config.learning_rate_warmup_steps": "The number of learning rate warmup steps for the reinforcement fine-tuning job.",
+        "mcp_server": "The MCP server resource name to use for the reinforcement fine-tuning job. (Optional)",
+        "loss_config.method": "RL loss method for underlying trainers. One of {grpo,dapo}.",
+    }
+
+    create_rft_job_fn = Fireworks().reinforcement_fine_tuning_jobs.create
+
+    add_args_from_callable_signature(
+        rft_parser,
+        create_rft_job_fn,
+        skip_fields=skip_fields,
+        aliases=aliases,
+        help_overrides=help_overrides,
     )
 
     # Local test command
@@ -542,8 +524,11 @@ def _hide_suppressed_subparsers(parser: argparse.ArgumentParser) -> None:
 def parse_args(args=None):
     """Parse command line arguments."""
     parser = build_parser()
-    # Use parse_known_args to allow Hydra to handle its own arguments
-    return parser.parse_known_args(args)
+    # Fail fast on unknown flags so typos don't silently get ignored.
+    parsed, remaining = parser.parse_known_args(args)
+    if remaining:
+        parser.error(f"unrecognized arguments: {' '.join(remaining)}")
+    return parsed, remaining
 
 
 def main():

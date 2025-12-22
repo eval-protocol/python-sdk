@@ -42,7 +42,7 @@ AggregationMethod = Literal["mean", "max", "min", "bootstrap"]
 
 
 async def run_tasks_with_eval_progress(
-    pointwise_tasks: list[asyncio.Task[EvaluationRow]], run_idx: int
+    pointwise_tasks: list[asyncio.Task[EvaluationRow]], run_idx: int, disable_tqdm: bool = False
 ) -> list[EvaluationRow]:
     """
     Run evaluation tasks with a progress bar and proper cancellation handling.
@@ -66,6 +66,7 @@ async def run_tasks_with_eval_progress(
         miniters=1,
         mininterval=0.1,
         bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+        disable=disable_tqdm,
     ) as eval_pbar:
 
         async def task_with_progress(task: asyncio.Task[EvaluationRow]) -> EvaluationRow:
@@ -88,7 +89,10 @@ async def run_tasks_with_eval_progress(
 
 
 async def run_tasks_with_run_progress(
-    execute_run_func: Callable[[int, RolloutProcessorConfig], Any], num_runs: int, config: RolloutProcessorConfig
+    execute_run_func: Callable[[int, RolloutProcessorConfig], Any],
+    num_runs: int,
+    config: RolloutProcessorConfig,
+    disable_tqdm: bool = False,
 ) -> None:
     """
     Run tasks with a parallel runs progress bar, preserving original logic.
@@ -108,6 +112,7 @@ async def run_tasks_with_run_progress(
         dynamic_ncols=True,
         miniters=1,
         bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+        disable=disable_tqdm,
     ) as run_pbar:
 
         async def execute_run_with_progress(run_idx: int, config: RolloutProcessorConfig) -> Any:
@@ -330,6 +335,7 @@ async def rollout_processor_with_retry(
     fresh_dataset: list[EvaluationRow],
     config: RolloutProcessorConfig,
     run_idx: int = 0,
+    disable_tqdm: bool = False,
 ) -> AsyncGenerator[EvaluationRow, None]:
     """
     Wrapper around rollout_processor that handles retry logic using the Python backoff library.
@@ -449,6 +455,7 @@ async def rollout_processor_with_retry(
             miniters=1,
             mininterval=0.1,
             bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+            disable=disable_tqdm,
         ) as rollout_pbar:
             # Yield results as they complete
             for task in asyncio.as_completed(retry_tasks):

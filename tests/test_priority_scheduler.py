@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 from typing import List, Union
 
 from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, EvaluateResult
-from eval_protocol.pytest.priority_scheduler import PriorityRolloutScheduler, execute_priority_rollouts, RolloutTask
+from eval_protocol.pytest.priority_scheduler import PriorityRolloutScheduler, execute_priority_rollouts, RolloutTask, SampleState
 from eval_protocol.pytest.types import RolloutProcessorConfig
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 
@@ -57,7 +57,7 @@ async def test_scheduler_basic_execution(
     micro_batch_size = 1
     
     # Mock rollout processor with delay
-    async def delayed_rollout(processor, rows, config, run_idx):
+    async def delayed_rollout(processor, rows, config, run_idx, **kwargs):
         await asyncio.sleep(0.01)
         for row in rows:
             yield row
@@ -110,7 +110,7 @@ async def test_concurrency_control(
     rollout_lock = asyncio.Lock()
     eval_lock = asyncio.Lock()
 
-    async def mock_rollout_gen(processor, rows, config, run_idx):
+    async def mock_rollout_gen(processor, rows, config, run_idx, **kwargs):
         nonlocal active_rollouts, max_active_rollouts_seen
         async with rollout_lock:
             active_rollouts += 1
@@ -177,7 +177,7 @@ async def test_priority_scheduling(
     
     execution_order = []
     
-    async def mock_rollout_gen(processor, rows, config, run_idx):
+    async def mock_rollout_gen(processor, rows, config, run_idx, **kwargs):
         row_id = rows[0].input_metadata.row_id
         execution_order.append(f"{row_id}_run_{run_idx}")
         for row in rows:
@@ -244,13 +244,21 @@ async def test_worker_scaling(
         async def schedule_dataset(self, *args):
              # Put enough items to ensure all workers wake up and grab one
              for i in range(expected_workers):
-                 task = RolloutTask(
-                     priority=(1, i),
+                 sample_state = SampleState(
                      row=dataset[0],
-                     run_indices=[],
-                     config=base_config,
                      row_index=0,
-                     history=[]
+                     config=base_config,
+                     history=[],
+                     next_run_idx=0,
+                     active_runs=0,
+                     completed_runs=0,
+                     lock=asyncio.Lock(),
+                 )
+                 task = RolloutTask(
+                     priority=(1, i, 0),
+                     sample_state=sample_state,
+                     run_idx=0,
+                     history_snapshot=[],
                  )
                  await self.queue.put(task)
 
@@ -290,7 +298,7 @@ async def test_groupwise_mode(
         eval_calls.append(rows)
         return rows # Pass through
 
-    async def mock_rollout_gen(processor, rows, config, run_idx):
+    async def mock_rollout_gen(processor, rows, config, run_idx, **kwargs):
         for row in rows:
             yield row
     

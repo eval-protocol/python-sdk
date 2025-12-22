@@ -411,7 +411,7 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                     completion_tokens=usage["completion_tokens"],
                     total_tokens=usage["total_tokens"],
                 )
-                row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+                row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
                 # Attach per-step rewards and accumulated token IDs to
                 # execution_metadata.extra for downstream integrations
@@ -436,14 +436,14 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                 logger.info("[OpenEnvRolloutProcessor] Total reward: %.3f", total_reward)
                 logger.info(
                     "[OpenEnvRolloutProcessor] Duration: %.2fs",
-                    row.execution_metadata.duration_seconds,
+                    row.execution_metadata.rollout_duration_seconds,
                 )
                 logger.debug("[OpenEnvRolloutProcessor] Messages collected: %d", len(messages))
 
                 logger.info(
                     f"Rollout complete: {len(step_rewards)} steps, "
                     f"total_reward={total_reward:.2f}, "
-                    f"duration={row.execution_metadata.duration_seconds:.2f}s"
+                    f"duration={row.execution_metadata.rollout_duration_seconds:.2f}s"
                 )
                 # Final log with complete message history
                 if getattr(config, "logger", None):

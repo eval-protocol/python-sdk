@@ -185,7 +185,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     f"Rollout {row.execution_metadata.rollout_id} timed out after {timeout_seconds} seconds"
                 )
 
-            row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+            row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
             def _update_with_trace() -> None:
                 return update_row_with_remote_trace(row, self._output_data_loader, model_base_url)

@@ -34,7 +34,7 @@ export const DEFAULT_COST_PIVOT_CONFIG: PivotConfig = {
 export const DEFAULT_SPEED_PIVOT_CONFIG: PivotConfig = {
   selectedRowFields: ["$.eval_metadata.name"],
   selectedColumnFields: ["$.input_metadata.completion_params.model"],
-  selectedValueField: "$.execution_metadata.duration_seconds",
+  selectedValueField: "$.execution_metadata.rollout_duration_seconds",
   selectedAggregator: "avg",
 };
 

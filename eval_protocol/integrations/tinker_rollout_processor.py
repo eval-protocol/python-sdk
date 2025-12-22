@@ -152,7 +152,7 @@ class TinkerRolloutProcessor(RolloutProcessor):
             # Update row
             new_messages = list(row.messages) + [Message(role="assistant", content=assistant_content)]
             row.messages = new_messages
-            row.execution_metadata.duration_seconds = time.perf_counter() - start_time
+            row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
             # Log usage (approximate since Tinker might not return usage stats in same format)
             # We can count tokens ourselves

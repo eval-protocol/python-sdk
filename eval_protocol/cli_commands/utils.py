@@ -1,12 +1,17 @@
 import os
+import ast
 import sys
 import time
 import inspect
-import subprocess
+import argparse
+import typing
+import types
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
-
+from typing import Any, List, Optional, is_typeddict
+import typing_extensions
+import inspect
+from collections.abc import Callable
 import pytest
 
 from ..auth import (
@@ -505,3 +510,197 @@ def _build_entry_point(project_root: str, source_file_path: Optional[str], func_
         return f"{rel}::{func_name}"
     # Fallback: use filename only
     return f"{func_name}.py::{func_name}"
+
+
+def unwrap_union(tp):
+    origin = typing.get_origin(tp)
+
+    # Handles both typing.Union[...] and PEP604 unions (A | B)
+    if origin is typing.Union or origin is types.UnionType:
+        args = [a for a in typing.get_args(tp) if getattr(a, "__name__", "") != "Omit" and a is not type(None)]
+        return args[0] if args else None
+
+    return tp
+
+
+def argparse_type_from_hint(t: Any) -> Any:
+    """Return a callable argparse type for a type hint (minimal unwrapping + fallback).
+
+    - Drops Omit/None from unions
+    - Unwraps Annotated[T, ...] => T
+    - Falls back to str when the result isn't callable
+    """
+    t = unwrap_union(t)
+    if typing.get_origin(t) is typing.Annotated:
+        args = typing.get_args(t)
+        t = args[0] if args else str
+    return t if callable(t) else str
+
+
+def typed_dict_field_docs(typed_dict_cls: type) -> dict[str, str]:
+    """
+    Extract per-field docstrings from a TypedDict class that uses the pattern:
+
+        field: Type
+        'doc...'
+
+    Returns { "field": "doc..." }
+    """
+    try:
+        src = inspect.getsource(typed_dict_cls)
+    except Exception:
+        return {}
+
+    try:
+        mod = ast.parse(src)
+    except SyntaxError:
+        return {}
+
+    # find the class definition
+    cls_node = None
+    for node in mod.body:
+        if isinstance(node, ast.ClassDef) and node.name == typed_dict_cls.__name__:
+            cls_node = node
+            break
+    if cls_node is None:
+        return {}
+
+    docs: dict[str, str] = {}
+    body = cls_node.body
+
+    i = 0
+    while i < len(body):
+        node = body[i]
+
+        # field: Annotated[...] or field: T
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            field_name = node.target.id
+
+            # next node is a string literal expression => treat as "field doc"
+            if i + 1 < len(body):
+                nxt = body[i + 1]
+                if (
+                    isinstance(nxt, ast.Expr)
+                    and isinstance(nxt.value, ast.Constant)
+                    and isinstance(nxt.value.value, str)
+                ):
+                    docs[field_name] = nxt.value.value.strip()
+                    i += 2
+                    continue
+
+        i += 1
+
+    return docs
+
+
+def _parse_args_section_from_doc(doc: str) -> dict[str, str]:
+    if not doc:
+        return {}
+
+    lines = doc.splitlines()
+
+    # find "Args:"
+    try:
+        start = next(i for i, line in enumerate(lines) if line.strip() == "Args:")
+    except StopIteration:
+        return {}
+
+    out: dict[str, str] = {}
+    cur_name: str | None = None
+    cur_parts: list[str] = []
+
+    for line in lines[start + 1 :]:
+        # stop if we hit another top-level section header like "Returns:"
+        if line and not line.startswith(" ") and line.endswith(":"):
+            break
+
+        if not line.strip():
+            continue
+
+        stripped = line.strip()
+
+        # New arg header like "dataset: blah"
+        if ":" in stripped:
+            name, rest = stripped.split(":", 1)
+            name = name.strip()
+            if name.replace("_", "").isalnum():
+                if cur_name:
+                    out[cur_name] = " ".join(cur_parts).strip()
+                cur_name = name
+                cur_parts = [rest.strip()]
+                continue
+
+        # Continuation
+        if cur_name:
+            cur_parts.append(stripped)
+
+    if cur_name:
+        out[cur_name] = " ".join(cur_parts).strip()
+
+    return out
+
+
+def _add_flag(
+    parser: argparse.ArgumentParser,
+    flags: list[str],
+    hint: Any,
+    help_text: str | None,
+) -> None:
+    if unwrap_union(hint) is bool:
+        parser.add_argument(*flags, action="store_true", help=help_text)
+        return
+    parser.add_argument(
+        *flags,
+        type=argparse_type_from_hint(hint),
+        help=help_text,
+        metavar="",
+    )
+
+
+def add_args_from_callable_signature(
+    parser: argparse.ArgumentParser,
+    fn: Callable[..., Any],
+    overrides: dict[str, str] | None = None,
+    skip_fields: dict[str, set[str]] | None = None,
+    aliases: dict[str, list[str]] | None = None,
+    help_overrides: dict[str, str] | None = None,
+) -> None:
+    overrides = overrides or {}
+    aliases = aliases or {}
+    help_overrides = help_overrides or {}
+    skip_fields = skip_fields or {}
+    top_level_skip = skip_fields.get("__top_level__", set())
+
+    sig = inspect.signature(fn)
+    help = _parse_args_section_from_doc(inspect.getdoc(fn) or "")
+    hints = typing.get_type_hints(fn, include_extras=True)
+
+    for name in sig.parameters.keys():
+        resolved_type = unwrap_union(hints.get(name))
+
+        # Allow one nested layer of TypeDicts
+        if resolved_type and typing_extensions.is_typeddict(resolved_type):
+            field_help = typed_dict_field_docs(resolved_type)
+            field_hints = typing.get_type_hints(resolved_type, include_extras=True)
+            field_skip = skip_fields.get(name, set())
+
+            for field_name, field_type in resolved_type.__annotations__.items():
+                if field_name in field_skip:
+                    continue
+                prefix = name.replace("_", "-")
+                field_kebab = field_name.replace("_", "-")
+                flag_name = f"--{prefix}-{field_kebab}"
+                flags = [flag_name] + aliases.get(f"{name}.{field_name}", []) + [f"--{field_kebab}"]
+                help_text = help_overrides.get(f"{name}.{field_name}", field_help.get(field_name))
+
+                _add_flag(parser, flags, field_hints.get(field_name, field_type), help_text)
+            continue
+
+        if name in top_level_skip:
+            continue
+
+        flag_name = "--" + name.replace("_", "-")
+        flags = [flag_name] + aliases.get(name, [])
+        help_text = help_overrides.get(name, help.get(name))
+
+        _add_flag(parser, flags, hints.get(name), help_text)

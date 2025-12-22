@@ -3,7 +3,7 @@ import logging
 import importlib
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Union
+from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Union, Callable, Sequence
 
 JSONType = Union[Dict[str, Any], List[Any], str, int, float, bool, None]
 
@@ -809,9 +809,21 @@ class ExecutionMetadata(BaseModel):
 
     cost_metrics: Optional[CostMetrics] = Field(default=None, description="Cost breakdown for LLM API calls.")
 
+    # deprecated: use rollout_duration_seconds and eval_duration_seconds instead
     duration_seconds: Optional[float] = Field(
         default=None,
-        description="Processing duration in seconds for this evaluation row. Note that if it gets retried, this will be the duration of the last attempt.",
+        deprecated=True,
+        description="[Deprecated] Processing duration in seconds for this evaluation row. Note that if it gets retried, this will be the duration of the last attempt.",
+    )
+
+    rollout_duration_seconds: Optional[float] = Field(
+        default=None,
+        description="Processing duration in seconds for the rollout of this evaluation row. Note that if it gets retried, this will be the duration of the last attempt.",
+    )
+
+    eval_duration_seconds: Optional[float] = Field(
+        default=None,
+        description="Processing duration in seconds for the evaluation of this evaluation row. Note that if it gets retried, this will be the duration of the last attempt.",
     )
 
     experiment_duration_seconds: Optional[float] = Field(
@@ -835,6 +847,11 @@ class ExecutionMetadata(BaseModel):
     tool_call_count: Optional[int] = Field(
         default=None,
         description="Number of tool calls returned in the assistant message for this row.",
+    )
+
+    raw_output: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Raw model output including prompt_fragments and completion_token_ids when raw_output=True is passed to the API.",
     )
 
 
@@ -1190,3 +1207,35 @@ class MCPMultiClientConfiguration(BaseModel):
     """Represents a MCP configuration."""
 
     mcpServers: Dict[str, Union[MCPConfigurationServerStdio, MCPConfigurationServerUrl]]
+
+
+class EPParameters(BaseModel):
+    """The parameters of an `@evaluation_test`. Used for trainable integrations."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    completion_params: Any = None
+    input_messages: Any = None
+    input_dataset: Any = None
+    input_rows: Any = None
+    data_loaders: Any = None
+    dataset_adapter: Optional[Callable[..., Any]] = None
+    rollout_processor: Any = None
+    rollout_processor_kwargs: Dict[str, Any] | None = None
+    evaluation_test_kwargs: Any = None
+    aggregation_method: Any = Field(default="mean")
+    passed_threshold: Any = None
+    disable_browser_open: bool = False
+    num_runs: int = 1
+    filtered_row_ids: Optional[Sequence[str]] = None
+    max_dataset_rows: Optional[int] = None
+    mcp_config_path: Optional[str] = None
+    max_concurrent_rollouts: int = 8
+    max_concurrent_evaluations: int = 64
+    server_script_path: Optional[str] = None
+    steps: int = 30
+    mode: Any = Field(default="pointwise")
+    combine_datasets: bool = True
+    preprocess_fn: Optional[Callable[[list[EvaluationRow]], list[EvaluationRow]]] = None
+    logger: Any = None
+    exception_handler_config: Any = None

@@ -5,6 +5,8 @@ import os
 import re
 from typing import Any
 
+import pytest
+
 from eval_protocol.models import (
     EvaluateResult,
     EvaluationRow,
@@ -17,8 +19,14 @@ from eval_protocol.pytest.default_single_turn_rollout_process import (
 from eval_protocol.pytest.evaluation_test import evaluation_test
 
 
-DEFAULT_MODEL_ID = "fireworks_ai/accounts/pyroworks/deployedModels/minimax-m2-zmi4qk9f"
+DEFAULT_MODEL_ID = "fireworks_ai/accounts/fireworks/models/glm-4p6"
 DEFAULT_MAX_TOKENS = 10000
+
+# Feature flags from environment variables
+# EP_SUPPORTS_MULTIPLE_TOOL_CALLS: "1" to include multiple tool call tests, "0" to skip
+SUPPORTS_MULTIPLE_TOOL_CALLS = os.getenv("EP_SUPPORTS_MULTIPLE_TOOL_CALLS", "1") == "1"
+# EP_SUPPORTS_REASONING: "1" to include reasoning tests and pass reasoning_effort, "0" to skip reasoning tests
+SUPPORTS_REASONING = os.getenv("EP_SUPPORTS_REASONING", "1") == "1"
 
 
 def _coerce_content_to_str(
@@ -509,12 +517,27 @@ def _build_completion_params_from_payload(payload: dict[str, Any]) -> dict[str, 
         "model": DEFAULT_MODEL_ID,
         "stream": True,
         "return_reasoning_with_separate_field": True,
-        "reasoning_effort": "none",  # Default: no reasoning unless explicitly requested
+        "raw_output": True,  # Include raw model output for debugging
     }
-    passthrough_keys = {"temperature", "top_p", "max_tokens", "response_format", "reasoning_effort"}
+    # Only include reasoning_effort if model supports it
+    if SUPPORTS_REASONING:
+        params["reasoning_effort"] = "none"  # Default: no reasoning unless explicitly requested
+
+    passthrough_keys = {"temperature", "top_p", "max_tokens", "response_format"}
+    # Only passthrough reasoning_effort if model supports it
+    if SUPPORTS_REASONING:
+        passthrough_keys.add("reasoning_effort")
+
     for key in passthrough_keys:
         if key in payload:
             params[key] = payload[key]
+    return params
+
+
+def _maybe_add_reasoning_effort(params: dict[str, Any], effort: str = "low") -> dict[str, Any]:
+    """Conditionally add reasoning_effort to params if model supports it."""
+    if SUPPORTS_REASONING:
+        params["reasoning_effort"] = effort
     return params
 
 
@@ -688,15 +711,18 @@ def _debug_log_assistant_message(test_name: str, assistant_message: Message | No
 @evaluation_test(
     input_rows=[[STRUCTURED_OUTPUT_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": True,
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "response_format": STRUCTURED_RESPONSE_FORMAT,
-            "reasoning_effort": "none",  # No reasoning expected for structured output
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": True,
+                "temperature": 1.0,
+                "top_p": 1.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "response_format": STRUCTURED_RESPONSE_FORMAT,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "none",  # No reasoning expected for structured output
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
@@ -957,14 +983,17 @@ def test_streaming_json_preservation(row: EvaluationRow) -> EvaluationRow:
 @evaluation_test(
     input_rows=[[TOOL_CALL_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": True,
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "reasoning_effort": "none",  # No reasoning expected for tool calls
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": True,
+                "temperature": 1.0,
+                "top_p": 1.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "none",  # No reasoning expected for tool calls
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
@@ -1236,6 +1265,10 @@ def test_streaming_tool_complex_arguments(row: EvaluationRow) -> EvaluationRow:
 _MULTI_TOOL_CALLS_ROW = _build_row_from_payload("multi-tool-calls", MULTI_TOOL_CALLS_PAYLOAD)
 
 
+@pytest.mark.skipif(
+    not SUPPORTS_MULTIPLE_TOOL_CALLS,
+    reason="Model does not support multiple tool calls (EP_SUPPORTS_MULTIPLE_TOOL_CALLS=0)",
+)
 @evaluation_test(
     input_rows=[[_MULTI_TOOL_CALLS_ROW]],
     completion_params=[_build_completion_params_from_payload(MULTI_TOOL_CALLS_PAYLOAD)],
@@ -1681,6 +1714,10 @@ REASONING_DISABLED_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(
+    not SUPPORTS_REASONING,
+    reason="Model does not support reasoning_effort parameter (EP_SUPPORTS_REASONING=0)",
+)
 @evaluation_test(
     input_rows=[[REASONING_DISABLED_ROW]],
     completion_params=[
@@ -1690,6 +1727,7 @@ REASONING_DISABLED_ROW.input_metadata.dataset_info = {
             "max_tokens": DEFAULT_MAX_TOKENS,
             "temperature": 0.0,
             "stream": True,
+            "raw_output": True,  # Include raw model output for debugging
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
@@ -1791,6 +1829,10 @@ REASONING_ENABLED_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(
+    not SUPPORTS_REASONING,
+    reason="Model does not support reasoning_effort parameter (EP_SUPPORTS_REASONING=0)",
+)
 @evaluation_test(
     input_rows=[[REASONING_ENABLED_ROW]],
     completion_params=[
@@ -1800,6 +1842,7 @@ REASONING_ENABLED_ROW.input_metadata.dataset_info = {
             "max_tokens": DEFAULT_MAX_TOKENS,
             "temperature": 0.0,
             "stream": True,
+            "raw_output": True,  # Include raw model output for debugging
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
@@ -1929,13 +1972,16 @@ TOOLS_WITH_REASONING_ROW.input_metadata.dataset_info = {
 @evaluation_test(
     input_rows=[[TOOLS_WITH_REASONING_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,  # Reasoning-capable model
-            "reasoning_effort": "low",  # Enable reasoning
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "temperature": 0.0,
-            "stream": True,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,  # Reasoning-capable model
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "temperature": 0.0,
+                "stream": True,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -1946,7 +1992,7 @@ def test_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow:
     Verify that streaming works correctly when BOTH tools and reasoning are present.
 
     Requirements:
-    - reasoning_content should be present
+    - reasoning_content should be present (if SUPPORTS_REASONING)
     - tool_calls should be present
     - finish_reason should be "tool_calls"
     - No XML tags or reasoning leakage
@@ -1973,12 +2019,6 @@ def test_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow:
                     break
 
     metrics = {
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "has_tool_calls": MetricResult(
             score=1.0 if has_tool_calls else 0.0,
             is_score_valid=True,
@@ -2000,13 +2040,22 @@ def test_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow:
         ),
     }
 
+    # Only add reasoning_present metric if model supports reasoning
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
 
+    # Build pass criteria - reasoning check is conditional
     all_checks_passed = (
-        reasoning_present
-        and has_tool_calls
+        has_tool_calls
         and finish_reason_tool_calls
         and tool_call_valid
         and finish_reason_present
@@ -2014,10 +2063,13 @@ def test_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow:
         and no_xml_tags
         and no_reasoning_leakage
     )
+    # Only require reasoning if model supports it
+    if SUPPORTS_REASONING:
+        all_checks_passed = all_checks_passed and reasoning_present
 
     # Build detailed failure reason
     failure_reasons = []
-    if not reasoning_present:
+    if SUPPORTS_REASONING and not reasoning_present:
         failure_reasons.append("reasoning_content missing")
     if not has_tool_calls:
         failure_reasons.append("no tool calls")
@@ -2216,15 +2268,18 @@ async def test_streaming_output_consistency(row: EvaluationRow) -> EvaluationRow
 @evaluation_test(
     input_rows=[[STRUCTURED_OUTPUT_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": False,  # Non-streaming
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "response_format": STRUCTURED_RESPONSE_FORMAT,
-            "reasoning_effort": "none",
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": False,  # Non-streaming
+                "temperature": 1.0,
+                "top_p": 1.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "response_format": STRUCTURED_RESPONSE_FORMAT,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "none",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
@@ -2424,14 +2479,17 @@ TOOL_CALL_NON_STREAM_ROW.input_metadata.dataset_info = {
 @evaluation_test(
     input_rows=[[TOOL_CALL_NON_STREAM_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": False,  # Non-streaming
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "reasoning_effort": "none",
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": False,  # Non-streaming
+                "temperature": 1.0,
+                "top_p": 1.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "none",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     aggregation_method="mean",
@@ -2555,6 +2613,10 @@ def test_non_streaming_single_tool_call(row: EvaluationRow) -> EvaluationRow:
 _MULTI_TOOL_CALLS_NON_STREAM_ROW = _build_row_from_payload("multi-tool-calls-non-stream", MULTI_TOOL_CALLS_PAYLOAD)
 
 
+@pytest.mark.skipif(
+    not SUPPORTS_MULTIPLE_TOOL_CALLS,
+    reason="Model does not support multiple tool calls (EP_SUPPORTS_MULTIPLE_TOOL_CALLS=0)",
+)
 @evaluation_test(
     input_rows=[[_MULTI_TOOL_CALLS_NON_STREAM_ROW]],
     completion_params=[
@@ -2649,6 +2711,10 @@ REASONING_DISABLED_NON_STREAM_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(
+    not SUPPORTS_REASONING,
+    reason="Model does not support reasoning_effort parameter (EP_SUPPORTS_REASONING=0)",
+)
 @evaluation_test(
     input_rows=[[REASONING_DISABLED_NON_STREAM_ROW]],
     completion_params=[
@@ -2658,6 +2724,7 @@ REASONING_DISABLED_NON_STREAM_ROW.input_metadata.dataset_info = {
             "max_tokens": DEFAULT_MAX_TOKENS,
             "temperature": 0.0,
             "stream": False,  # Non-streaming
+            "raw_output": True,  # Include raw model output for debugging
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
@@ -2756,6 +2823,10 @@ REASONING_ENABLED_NON_STREAM_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(
+    not SUPPORTS_REASONING,
+    reason="Model does not support reasoning_effort parameter (EP_SUPPORTS_REASONING=0)",
+)
 @evaluation_test(
     input_rows=[[REASONING_ENABLED_NON_STREAM_ROW]],
     completion_params=[
@@ -2765,6 +2836,7 @@ REASONING_ENABLED_NON_STREAM_ROW.input_metadata.dataset_info = {
             "max_tokens": DEFAULT_MAX_TOKENS,
             "temperature": 0.0,
             "stream": False,  # Non-streaming
+            "raw_output": True,  # Include raw model output for debugging
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
@@ -2887,13 +2959,16 @@ TOOLS_WITH_REASONING_NON_STREAM_ROW.input_metadata.dataset_info = {
 @evaluation_test(
     input_rows=[[TOOLS_WITH_REASONING_NON_STREAM_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "reasoning_effort": "low",
-            "max_tokens": DEFAULT_MAX_TOKENS,
-            "temperature": 0.0,
-            "stream": False,  # Non-streaming
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "temperature": 0.0,
+                "stream": False,  # Non-streaming
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -2923,12 +2998,6 @@ def test_non_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow
                     break
 
     metrics = {
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "has_tool_calls": MetricResult(
             score=1.0 if has_tool_calls else 0.0,
             is_score_valid=True,
@@ -2950,13 +3019,22 @@ def test_non_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow
         ),
     }
 
+    # Only add reasoning_present metric if model supports reasoning
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
 
+    # Build pass criteria - reasoning check is conditional
     all_checks_passed = (
-        reasoning_present
-        and has_tool_calls
+        has_tool_calls
         and finish_reason_tool_calls
         and tool_call_valid
         and finish_reason_present
@@ -2964,10 +3042,13 @@ def test_non_streaming_tools_with_reasoning(row: EvaluationRow) -> EvaluationRow
         and no_xml_tags
         and no_reasoning_leakage
     )
+    # Only require reasoning if model supports it
+    if SUPPORTS_REASONING:
+        all_checks_passed = all_checks_passed and reasoning_present
 
     # Build detailed failure reason
     failure_reasons = []
-    if not reasoning_present:
+    if SUPPORTS_REASONING and not reasoning_present:
         failure_reasons.append("reasoning_content missing")
     if not has_tool_calls:
         failure_reasons.append("no tool calls")
@@ -3033,14 +3114,17 @@ STRUCTURED_JSON_SCHEMA = {
 @evaluation_test(
     input_rows=[[STRUCTURED_OUTPUT_WITH_REASONING_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": True,
-            "reasoning_effort": "low",
-            "response_format": STRUCTURED_JSON_SCHEMA,
-            "temperature": 0.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": True,
+                "response_format": STRUCTURED_JSON_SCHEMA,
+                "temperature": 0.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -3079,12 +3163,6 @@ def test_streaming_structured_output_with_reasoning(row: EvaluationRow) -> Evalu
             is_score_valid=content_is_json,
             reason="speed_kmh is numeric" if speed_is_number else "speed_kmh not numeric",
         ),
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "finish_reason_stop": MetricResult(
             score=1.0 if finish_reason_stop else 0.0,
             is_score_valid=True,
@@ -3092,21 +3170,33 @@ def test_streaming_structured_output_with_reasoning(row: EvaluationRow) -> Evalu
         ),
     }
 
+    # Only add reasoning_present metric if model supports reasoning
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
 
+    # Build pass criteria - reasoning check is conditional
     all_checks_passed = (
         content_is_json
         and has_required_keys
         and speed_is_number
-        and reasoning_present
         and finish_reason_stop
         and finish_reason_present
         and no_forbidden_tags
         and no_xml_tags
         and no_reasoning_leakage
     )
+    # Only require reasoning if model supports it
+    if SUPPORTS_REASONING:
+        all_checks_passed = all_checks_passed and reasoning_present
 
     row.evaluation_result = EvaluateResult(
         score=1.0 if all_checks_passed else 0.0,
@@ -3136,14 +3226,17 @@ STRUCTURED_OUTPUT_WITH_REASONING_NON_STREAM_ROW.input_metadata.dataset_info = {
 @evaluation_test(
     input_rows=[[STRUCTURED_OUTPUT_WITH_REASONING_NON_STREAM_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": False,
-            "reasoning_effort": "low",
-            "response_format": STRUCTURED_JSON_SCHEMA,
-            "temperature": 0.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": False,
+                "response_format": STRUCTURED_JSON_SCHEMA,
+                "temperature": 0.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -3182,12 +3275,6 @@ def test_non_streaming_structured_output_with_reasoning(row: EvaluationRow) -> E
             is_score_valid=content_is_json,
             reason="speed_kmh is numeric" if speed_is_number else "speed_kmh not numeric",
         ),
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "finish_reason_stop": MetricResult(
             score=1.0 if finish_reason_stop else 0.0,
             is_score_valid=True,
@@ -3195,21 +3282,33 @@ def test_non_streaming_structured_output_with_reasoning(row: EvaluationRow) -> E
         ),
     }
 
+    # Only add reasoning_present metric if model supports reasoning
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
 
+    # Build pass criteria - reasoning check is conditional
     all_checks_passed = (
         content_is_json
         and has_required_keys
         and speed_is_number
-        and reasoning_present
         and finish_reason_stop
         and finish_reason_present
         and no_forbidden_tags
         and no_xml_tags
         and no_reasoning_leakage
     )
+    # Only require reasoning if model supports it
+    if SUPPORTS_REASONING:
+        all_checks_passed = all_checks_passed and reasoning_present
 
     row.evaluation_result = EvaluateResult(
         score=1.0 if all_checks_passed else 0.0,
@@ -3256,16 +3355,23 @@ MULTIPLE_TOOLS_WITH_REASONING_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(
+    not SUPPORTS_MULTIPLE_TOOL_CALLS,
+    reason="Model does not support multiple tool calls (EP_SUPPORTS_MULTIPLE_TOOL_CALLS=0)",
+)
 @evaluation_test(
     input_rows=[[MULTIPLE_TOOLS_WITH_REASONING_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": True,
-            "reasoning_effort": "low",
-            "temperature": 0.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": True,
+                "temperature": 0.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -3299,12 +3405,6 @@ def test_streaming_multiple_tools_with_reasoning(row: EvaluationRow) -> Evaluati
     all_cities_covered = len(cities_covered) == 3
 
     metrics = {
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "has_multiple_tools": MetricResult(
             score=1.0 if has_multiple_tools else 0.0,
             is_score_valid=True,
@@ -3324,13 +3424,22 @@ def test_streaming_multiple_tools_with_reasoning(row: EvaluationRow) -> Evaluati
         ),
     }
 
+    # Only add reasoning_present metric if model supports reasoning
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
 
+    # Build pass criteria - reasoning check is conditional
     all_checks_passed = (
-        reasoning_present
-        and has_multiple_tools
+        has_multiple_tools
         and all_cities_covered
         and finish_reason_tool_calls
         and finish_reason_present
@@ -3338,6 +3447,9 @@ def test_streaming_multiple_tools_with_reasoning(row: EvaluationRow) -> Evaluati
         and no_xml_tags
         and no_reasoning_leakage
     )
+    # Only require reasoning if model supports it
+    if SUPPORTS_REASONING:
+        all_checks_passed = all_checks_passed and reasoning_present
 
     row.evaluation_result = EvaluateResult(
         score=1.0 if all_checks_passed else 0.0,
@@ -3383,16 +3495,23 @@ MULTIPLE_TOOLS_WITH_REASONING_NON_STREAM_ROW.input_metadata.dataset_info = {
 }
 
 
+@pytest.mark.skipif(
+    not SUPPORTS_MULTIPLE_TOOL_CALLS,
+    reason="Model does not support multiple tool calls (EP_SUPPORTS_MULTIPLE_TOOL_CALLS=0)",
+)
 @evaluation_test(
     input_rows=[[MULTIPLE_TOOLS_WITH_REASONING_NON_STREAM_ROW]],
     completion_params=[
-        {
-            "model": DEFAULT_MODEL_ID,
-            "stream": False,
-            "reasoning_effort": "low",
-            "temperature": 0.0,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-        }
+        _maybe_add_reasoning_effort(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "stream": False,
+                "temperature": 0.0,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "raw_output": True,  # Include raw model output for debugging
+            },
+            "low",
+        )
     ],
     rollout_processor=SingleTurnRolloutProcessor(),
     passed_threshold=1.0,
@@ -3426,12 +3545,6 @@ def test_non_streaming_multiple_tools_with_reasoning(row: EvaluationRow) -> Eval
     all_cities_covered = len(cities_covered) == 3
 
     metrics = {
-        "reasoning_present": MetricResult(
-            score=1.0 if reasoning_present else 0.0,
-            is_score_valid=True,
-            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
-            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
-        ),
         "has_multiple_tools": MetricResult(
             score=1.0 if has_multiple_tools else 0.0,
             is_score_valid=True,
@@ -3451,13 +3564,22 @@ def test_non_streaming_multiple_tools_with_reasoning(row: EvaluationRow) -> Eval
         ),
     }
 
+    # Only add reasoning_present metric if model supports reasoning
+    if SUPPORTS_REASONING:
+        metrics["reasoning_present"] = MetricResult(
+            score=1.0 if reasoning_present else 0.0,
+            is_score_valid=True,
+            reason="reasoning_content present" if reasoning_present else "reasoning_content missing",
+            data={"reasoning_length": len(reasoning_str), "reasoning_preview": reasoning_str[:200]},
+        )
+
     finish_reason_present, no_forbidden_tags, no_xml_tags, no_reasoning_leakage = _augment_metrics_with_common_checks(
         metrics, finish_reason, content_str, reasoning_str
     )
 
+    # Build pass criteria - reasoning check is conditional
     all_checks_passed = (
-        reasoning_present
-        and has_multiple_tools
+        has_multiple_tools
         and all_cities_covered
         and finish_reason_tool_calls
         and finish_reason_present
@@ -3465,6 +3587,9 @@ def test_non_streaming_multiple_tools_with_reasoning(row: EvaluationRow) -> Eval
         and no_xml_tags
         and no_reasoning_leakage
     )
+    # Only require reasoning if model supports it
+    if SUPPORTS_REASONING:
+        all_checks_passed = all_checks_passed and reasoning_present
 
     row.evaluation_result = EvaluateResult(
         score=1.0 if all_checks_passed else 0.0,

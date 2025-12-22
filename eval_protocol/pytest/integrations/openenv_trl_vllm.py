@@ -121,10 +121,13 @@ def create_openenv_vllm_rollout_func(
 
             eval_func = candidate_tests[0]
             ep_eval_func = eval_func  # used later after rollouts complete
-            ep_params: Dict[str, Any] = getattr(eval_func, "__ep_params__", {})
-            ep_rollout_processor = ep_params.get("rollout_processor")
-            ep_rollout_processor_kwargs = ep_params.get("rollout_processor_kwargs") or {}
-            ep_mcp_config_path = ep_params.get("mcp_config_path") or ""
+            ep_params = getattr(eval_func, "__ep_params__", None)
+            # ep_params is an EPParameters model (Pydantic), use attribute access
+            ep_rollout_processor = getattr(ep_params, "rollout_processor", None) if ep_params else None
+            ep_rollout_processor_kwargs = (
+                (getattr(ep_params, "rollout_processor_kwargs", None) or {}) if ep_params else {}
+            )
+            ep_mcp_config_path = (getattr(ep_params, "mcp_config_path", None) or "") if ep_params else ""
             logger.info(
                 "[OpenEnvVLLM] Loaded eval test '%s' with rollout_processor=%s",
                 getattr(eval_func, "__name__", str(eval_func)),
