@@ -142,12 +142,12 @@ def test_create_rft_passes_all_flags_into_request_body(rft_test_harness, monkeyp
         chunk_size=250,
         eval_auto_carveout=False,  # explicitly disabled via --no-eval-auto-carveout
         evaluation_dataset="accounts/acct123/datasets/eval-ds",
-        # W&B
-        wandb_enabled=True,
-        wandb_project="proj",
-        wandb_entity="ent",
-        wandb_run_id="run123",
-        wandb_api_key="key123",
+        # W&B (new flattened flags)
+        enabled=True,
+        project="proj",
+        entity="ent",
+        run_id="run123",
+        api_key="key123",
         # Unused in body but accepted by parser
         job_id=None,
         display_name=None,
