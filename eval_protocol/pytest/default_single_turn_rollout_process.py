@@ -185,20 +185,8 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             if raw_output is None:
                 raw_output = getattr(choice, "raw_output", None)
 
-            if raw_output is not None:
-                # Convert to dict if it's a pydantic model or similar
-                if hasattr(raw_output, "model_dump"):
-                    row.execution_metadata.raw_output = raw_output.model_dump()
-                elif hasattr(raw_output, "dict"):
-                    row.execution_metadata.raw_output = raw_output.dict()
-                elif isinstance(raw_output, dict):
-                    row.execution_metadata.raw_output = raw_output
-                else:
-                    # Try to convert to dict via json
-                    try:
-                        row.execution_metadata.raw_output = json.loads(json.dumps(raw_output, default=str))
-                    except Exception:
-                        row.execution_metadata.raw_output = {"value": str(raw_output)}
+            if raw_output is not None and isinstance(raw_output, dict):
+                row.execution_metadata.raw_output = raw_output
 
             usage = getattr(response, "usage", None)
             if usage:
