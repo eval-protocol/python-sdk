@@ -48,6 +48,7 @@ dependencies = [
     "websockets>=15.0.1",
     "fastapi>=0.116.1",
     "dspy>=3.0.0",
+    "fireworks-ai==1.0.0a18",
 ]
 
 [project.urls]
@@ -89,9 +90,6 @@ trl = [
 ]
 openevals = [
     "openevals>=0.1.0",
-]
-fireworks = [
-    "fireworks-ai>=0.19.19",
 ]
 box2d = [
     "swig",
