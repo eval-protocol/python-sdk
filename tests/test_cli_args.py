@@ -6,6 +6,16 @@ import pytest
 from eval_protocol.cli import parse_args
 
 
+def test_unknown_flag_fails_fast(capsys):
+    with pytest.raises(SystemExit) as e:
+        parse_args(["create", "rft", "--definitely-not-a-real-flag"])
+    assert e.value.code == 2
+    out = capsys.readouterr()
+    # argparse writes errors to stderr
+    assert "unrecognized arguments" in out.err
+    assert "--definitely-not-a-real-flag" in out.err
+
+
 @pytest.mark.skip(reason="preview and deploy commands are currently disabled in cli.py")
 class TestCliArgParsing:
     # --- Tests for 'preview' command ---

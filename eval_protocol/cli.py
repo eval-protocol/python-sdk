@@ -521,8 +521,11 @@ def _hide_suppressed_subparsers(parser: argparse.ArgumentParser) -> None:
 def parse_args(args=None):
     """Parse command line arguments."""
     parser = build_parser()
-    # Use parse_known_args to allow Hydra to handle its own arguments
-    return parser.parse_known_args(args)
+    # Fail fast on unknown flags so typos don't silently get ignored.
+    parsed, remaining = parser.parse_known_args(args)
+    if remaining:
+        parser.error(f"unrecognized arguments: {' '.join(remaining)}")
+    return parsed, remaining
 
 
 def main():
