@@ -1,4 +1,6 @@
 import argparse
+import subprocess
+import sys
 
 import pytest
 
@@ -14,6 +16,20 @@ def test_unknown_flag_fails_fast(capsys):
     # argparse writes errors to stderr
     assert "unrecognized arguments" in out.err
     assert "--definitely-not-a-real-flag" in out.err
+
+
+def test_create_rft_help_does_not_error():
+    """Smoke test: `python -m eval_protocol create rft --help` should exit cleanly."""
+    proc = subprocess.run(
+        [sys.executable, "-m", "eval_protocol", "create", "rft", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0
+    combined = (proc.stdout or "") + "\n" + (proc.stderr or "")
+    assert "create rft" in combined
+    assert "--dry-run" in combined
 
 
 @pytest.mark.skip(reason="preview and deploy commands are currently disabled in cli.py")
