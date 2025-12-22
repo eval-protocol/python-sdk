@@ -681,13 +681,13 @@ def _create_rft_job(
             return 1
 
     wandb_config: Optional[Dict[str, Any]] = None
-    if getattr(args, "wandb_enabled", False):
+    if getattr(args, "enabled", False):
         wandb_config = {
             "enabled": True,
-            "apiKey": getattr(args, "wandb_api_key", None),
-            "project": getattr(args, "wandb_project", None),
-            "entity": getattr(args, "wandb_entity", None),
-            "runId": getattr(args, "wandb_run_id", None),
+            "apiKey": getattr(args, "api_key", None),
+            "project": getattr(args, "project", None),
+            "entity": getattr(args, "entity", None),
+            "runId": getattr(args, "run_id", None),
         }
 
     body: Dict[str, Any] = {
@@ -702,7 +702,9 @@ def _create_rft_job(
         "outputStats": None,
         "outputMetrics": None,
         "mcpServer": getattr(args, "mcp_server", None),
-        "jobId": getattr(args, "job_id", None),
+        "jobId": getattr(args, "reinforcement_fine_tuning_job_id", None),
+        "sourceJob": getattr(args, "source_job", None),
+        "quiet": getattr(args, "quiet", False),
     }
     # Debug: print minimal summary
     print(f"Prepared RFT job for evaluator '{evaluator_id}' using dataset '{dataset_id}'")
