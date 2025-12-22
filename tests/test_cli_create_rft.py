@@ -1134,6 +1134,11 @@ def test_cli_full_command_style_evaluator_and_dataset_flags(tmp_path, monkeypatc
     # Job id sent as query param
     assert captured["url"] is not None and "reinforcementFineTuningJobId=custom-job-123" in captured["url"]
     assert "jobId" not in body
+    # New fields:
+    # - quiet is always included (False unless --quiet is passed), because we only filter None fields.
+    # - sourceJob is only included if provided (None is filtered out).
+    assert body["quiet"] is False
+    assert "sourceJob" not in body
 
 
 def test_create_rft_prefers_explicit_dataset_jsonl_over_input_dataset(rft_test_harness, monkeypatch):
