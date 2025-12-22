@@ -402,7 +402,8 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         help="Extra flags to pass to 'docker run' when validating evaluator (quoted string, e.g. \"--env-file .env --memory=8g\")",
     )
 
-    # Everything below has to manually be maintained, can't be auto-generated
+    # The flags below are Eval Protocol CLI workflow controls (not part of the Fireworks SDK `create()` signature),
+    # so they can’t be auto-generated via signature introspection and must be maintained here.
     rft_parser.add_argument(
         "--source-job",
         metavar="",
@@ -419,11 +420,9 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
             "extra_query",
             "extra_body",
             "timeout",
-            "node_count",
             "display_name",
             "account_id",
         },
-        "loss_config": {"kl_beta", "method"},
         "training_config": {"region", "jinja_template"},
         "wandb_config": {"run_id"},
     }
@@ -433,11 +432,15 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         "wandb_config.entity": ["--wandb-entity"],
         "wandb_config.enabled": ["--wandb"],
         "reinforcement_fine_tuning_job_id": ["--job-id"],
+        "loss_config.kl_beta": ["--rl-kl-beta"],
+        "loss_config.method": ["--rl-loss-method"],
+        "node_count": ["--nodes"],
     }
     help_overrides = {
         "training_config.gradient_accumulation_steps": "The number of batches to accumulate gradients before updating the model parameters. The effective batch size will be batch-size multiplied by this value.",
         "training_config.learning_rate_warmup_steps": "The number of learning rate warmup steps for the reinforcement fine-tuning job.",
         "mcp_server": "The MCP server resource name to use for the reinforcement fine-tuning job. (Optional)",
+        "loss_config.method": "RL loss method for underlying trainers. One of {grpo,dapo}.",
     }
 
     create_rft_job_fn = Fireworks().reinforcement_fine_tuning_jobs.create

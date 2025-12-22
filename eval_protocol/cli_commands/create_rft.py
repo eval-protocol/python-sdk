@@ -1,10 +1,12 @@
 import argparse
+from fireworks._client import Fireworks
+from fireworks.types.reinforcement_fine_tuning_job import ReinforcementFineTuningJob
 import json
 import os
 import sys
 import time
 from typing import Any, Dict, Optional
-
+import inspect
 import requests
 from pydantic import ValidationError
 
@@ -13,7 +15,6 @@ from ..common_utils import get_user_agent
 from ..fireworks_rft import (
     build_default_output_model,
     create_dataset_from_jsonl,
-    create_reinforcement_fine_tuning_job,
     detect_dataset_builder,
     materialize_dataset_via_builder,
 )
@@ -32,6 +33,8 @@ from .utils import (
     _resolve_selected_test,
 )
 from .local_test import run_evaluator_test
+
+from fireworks import Fireworks
 
 
 def _extract_jsonl_from_dataloader(test_file_path: str, test_func_name: str) -> Optional[str]:
@@ -619,126 +622,48 @@ def _create_rft_job(
     args: argparse.Namespace,
     dry_run: bool,
 ) -> int:
-    """Build and submit the RFT job request."""
-    # Build training config/body
-    # Exactly one of base-model or warm-start-from must be provided
-    base_model_raw = getattr(args, "base_model", None)
-    warm_start_from_raw = getattr(args, "warm_start_from", None)
-    # Treat empty/whitespace strings as not provided
-    base_model = base_model_raw.strip() if isinstance(base_model_raw, str) else base_model_raw
-    warm_start_from = warm_start_from_raw.strip() if isinstance(warm_start_from_raw, str) else warm_start_from_raw
-    has_base_model = bool(base_model)
-    has_warm_start = bool(warm_start_from)
-    if (not has_base_model and not has_warm_start) or (has_base_model and has_warm_start):
-        print("Error: exactly one of --base-model or --warm-start-from must be specified.")
-        return 1
+    """Build and submit the RFT job request (via Fireworks SDK)."""
 
-    training_config: Dict[str, Any] = {}
-    if has_base_model:
-        training_config["baseModel"] = base_model
-    if has_warm_start:
-        training_config["warmStartFrom"] = warm_start_from
+    signature = inspect.signature(Fireworks().reinforcement_fine_tuning_jobs.create)
 
-    # Optional hyperparameters
-    for key, arg_name in [
-        ("epochs", "epochs"),
-        ("batchSize", "batch_size"),
-        ("learningRate", "learning_rate"),
-        ("maxContextLength", "max_context_length"),
-        ("loraRank", "lora_rank"),
-        ("gradientAccumulationSteps", "gradient_accumulation_steps"),
-        ("learningRateWarmupSteps", "learning_rate_warmup_steps"),
-        ("acceleratorCount", "accelerator_count"),
-        ("region", "region"),
-    ]:
-        val = getattr(args, arg_name, None)
-        if val is not None:
-            training_config[key] = val
-
-    inference_params: Dict[str, Any] = {}
-    for key, arg_name in [
-        ("temperature", "temperature"),
-        ("topP", "top_p"),
-        ("topK", "top_k"),
-        ("maxOutputTokens", "max_output_tokens"),
-        ("responseCandidatesCount", "response_candidates_count"),
-    ]:
-        val = getattr(args, arg_name, None)
-        if val is not None:
-            inference_params[key] = val
-    if getattr(args, "extra_body", None):
-        extra = getattr(args, "extra_body")
-        if isinstance(extra, (dict, list)):
-            try:
-                inference_params["extraBody"] = json.dumps(extra, ensure_ascii=False)
-            except (TypeError, ValueError) as e:
-                print(f"Error: --extra-body dict/list must be JSON-serializable: {e}")
-                return 1
-        elif isinstance(extra, str):
-            inference_params["extraBody"] = extra
-        else:
-            print("Error: --extra-body must be a JSON string or a JSON-serializable dict/list.")
-            return 1
-
-    wandb_config: Optional[Dict[str, Any]] = None
-    if getattr(args, "enabled", False):
-        wandb_config = {
-            "enabled": True,
-            "apiKey": getattr(args, "api_key", None),
-            "project": getattr(args, "project", None),
-            "entity": getattr(args, "entity", None),
-            "runId": getattr(args, "run_id", None),
-        }
-
-    body: Dict[str, Any] = {
-        "displayName": getattr(args, "display_name", None),
-        "dataset": dataset_resource,
+    # Build top-level SDK kwargs
+    sdk_kwargs: Dict[str, Any] = {
         "evaluator": evaluator_resource_name,
-        "evalAutoCarveout": bool(getattr(args, "eval_auto_carveout", True)),
-        "trainingConfig": training_config,
-        "inferenceParameters": inference_params or None,
-        "wandbConfig": wandb_config,
-        "chunkSize": getattr(args, "chunk_size", None),
-        "outputStats": None,
-        "outputMetrics": None,
-        "mcpServer": getattr(args, "mcp_server", None),
-        "jobId": getattr(args, "reinforcement_fine_tuning_job_id", None),
-        "sourceJob": getattr(args, "source_job", None),
-        "quiet": getattr(args, "quiet", False),
+        "dataset": dataset_resource,
     }
-    # Debug: print minimal summary
+
+    args_dict = vars(args)
+    for name in signature.parameters:
+        prefix = name + "_"
+
+        # Collect "flattened" argparse fields back into the nested dict expected by the SDK.
+        # Example: training_config_epochs=3 becomes sdk_kwargs["training_config"]["epochs"] = 3.
+        nested = {}
+        for k, v in args_dict.items():
+            if v is None:
+                continue
+            if not k.startswith(prefix):
+                continue
+            nested[k[len(prefix) :]] = v
+
+        if nested:
+            sdk_kwargs[name] = nested
+        elif args_dict.get(name) is not None:
+            sdk_kwargs[name] = args_dict[name]
+
     print(f"Prepared RFT job for evaluator '{evaluator_id}' using dataset '{dataset_id}'")
-    if getattr(args, "evaluation_dataset", None):
-        body["evaluationDataset"] = args.evaluation_dataset
-
-    output_model_arg = getattr(args, "output_model", None)
-    if output_model_arg:
-        if len(output_model_arg) > 63:
-            print(f"Error: Output model name '{output_model_arg}' exceeds 63 characters.")
-            return 1
-        body.setdefault("trainingConfig", {})["outputModel"] = f"accounts/{account_id}/models/{output_model_arg}"
-    else:
-        # Auto-generate output model name if not provided
-        auto_output_model = build_default_output_model(evaluator_id)
-        body.setdefault("trainingConfig", {})["outputModel"] = f"accounts/{account_id}/models/{auto_output_model}"
-
-    # Clean None fields to avoid noisy payloads
-    body = {k: v for k, v in body.items() if v is not None}
 
     if dry_run:
-        print("--dry-run: would create RFT job with body:")
-        print(json.dumps(body, indent=2))
+        print("--dry-run: would call Fireworks().reinforcement_fine_tuning_jobs.create with kwargs:")
+        print(json.dumps(sdk_kwargs, indent=2))
         _print_links(evaluator_id, dataset_id, None)
         return 0
 
     try:
-        result = create_reinforcement_fine_tuning_job(
-            account_id=account_id, api_key=api_key, api_base=api_base, body=body
-        )
-        job_name = result.get("name") if isinstance(result, dict) else None
-        print("\n✅ Created Reinforcement Fine-tuning Job")
-        if job_name:
-            print(f"   name: {job_name}")
+        fw: Fireworks = Fireworks(api_key=api_key, base_url=api_base)
+        job: ReinforcementFineTuningJob = fw.reinforcement_fine_tuning_jobs.create(account_id=account_id, **sdk_kwargs)
+        job_name = job.name
+        print(f"\n✅ Created Reinforcement Fine-tuning Job: {job_name}")
         _print_links(evaluator_id, dataset_id, job_name)
         return 0
     except Exception as e:

@@ -660,7 +660,6 @@ def _add_flag(
 def add_args_from_callable_signature(
     parser: argparse.ArgumentParser,
     fn: Callable[..., Any],
-    *,
     overrides: dict[str, str] | None = None,
     skip_fields: dict[str, set[str]] | None = None,
     aliases: dict[str, list[str]] | None = None,
@@ -676,7 +675,7 @@ def add_args_from_callable_signature(
     help = _parse_args_section_from_doc(inspect.getdoc(fn) or "")
     hints = typing.get_type_hints(fn, include_extras=True)
 
-    for name, param in sig.parameters.items():
+    for name in sig.parameters.keys():
         resolved_type = unwrap_union(hints.get(name))
 
         # Allow one nested layer of TypeDicts
@@ -688,8 +687,10 @@ def add_args_from_callable_signature(
             for field_name, field_type in resolved_type.__annotations__.items():
                 if field_name in field_skip:
                     continue
-                flag_name = "--" + field_name.replace("_", "-")
-                flags = [flag_name] + aliases.get(f"{name}.{field_name}", [])
+                prefix = name.replace("_", "-")
+                field_kebab = field_name.replace("_", "-")
+                flag_name = f"--{prefix}-{field_kebab}"
+                flags = [flag_name] + aliases.get(f"{name}.{field_name}", []) + [f"--{field_kebab}"]
                 help_text = help_overrides.get(f"{name}.{field_name}", field_help.get(field_name))
 
                 _add_flag(parser, flags, field_hints.get(field_name, field_type), help_text)

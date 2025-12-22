@@ -181,33 +181,6 @@ def create_dataset_from_jsonl(
     return dataset_id, ds
 
 
-def create_reinforcement_fine_tuning_job(
-    account_id: str,
-    api_key: str,
-    api_base: str,
-    body: Dict[str, Any],
-) -> Dict[str, Any]:
-    url = f"{api_base.rstrip('/')}/v1/accounts/{account_id}/reinforcementFineTuningJobs"
-    # Move optional jobId from body to query parameter if provided
-    job_id = body.get("jobId")
-    if isinstance(job_id, str):
-        job_id = job_id.strip()
-    if job_id:
-        # Remove from body and append as query param
-        body.pop("jobId", None)
-        url = f"{url}?{urlencode({'reinforcementFineTuningJobId': job_id})}"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "User-Agent": get_user_agent(),
-    }
-    resp = requests.post(url, json=body, headers=headers, timeout=60)
-    if resp.status_code not in (200, 201):
-        raise RuntimeError(f"RFT job creation failed: {resp.status_code} {resp.text}")
-    return resp.json()
-
-
 def build_default_dataset_id(evaluator_id: str) -> str:
     ts = time.strftime("%Y%m%d%H%M%S")
     base = evaluator_id.lower().replace("_", "-")
@@ -217,11 +190,11 @@ def build_default_dataset_id(evaluator_id: str) -> str:
 def build_default_output_model(evaluator_id: str) -> str:
     base = evaluator_id.lower().replace("_", "-")
     uuid_suffix = str(uuid.uuid4())[:4]
-    
+
     # suffix is "-rft-{4chars}" -> 9 chars
     suffix_len = 9
     max_len = 63
-    
+
     # Check if we need to truncate
     if len(base) + suffix_len > max_len:
         # Calculate hash of the full base to preserve uniqueness
@@ -229,10 +202,10 @@ def build_default_output_model(evaluator_id: str) -> str:
         # New structure: {truncated_base}-{hash}-{uuid_suffix}
         # Space needed for "-{hash}" is 1 + 6 = 7
         hash_part_len = 7
-        
+
         allowed_base_len = max_len - suffix_len - hash_part_len
         truncated_base = base[:allowed_base_len].strip("-")
-        
+
         return f"{truncated_base}-{hash_digest}-rft-{uuid_suffix}"
 
     return f"{base}-rft-{uuid_suffix}"
@@ -242,7 +215,6 @@ __all__ = [
     "detect_dataset_builder",
     "materialize_dataset_via_builder",
     "create_dataset_from_jsonl",
-    "create_reinforcement_fine_tuning_job",
     "build_default_dataset_id",
     "build_default_output_model",
     "_map_api_host_to_app_host",
