@@ -393,13 +393,13 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         "--docker-build-extra",
         default="",
         metavar="",
-        help="Extra flags to pass to 'docker build' when validating evaluator",
+        help="Extra flags to pass to 'docker build' when validating evaluator (quoted string, e.g. \"--no-cache --pull --progress=plain\")",
     )
     rft_parser.add_argument(
         "--docker-run-extra",
         default="",
         metavar="",
-        help="Extra flags to pass to 'docker run' when validating evaluator",
+        help="Extra flags to pass to 'docker run' when validating evaluator (quoted string, e.g. \"--env-file .env --memory=8g\")",
     )
 
     # Everything below has to manually be maintained, can't be auto-generated
