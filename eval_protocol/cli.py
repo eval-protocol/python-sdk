@@ -332,6 +332,8 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         "upload",
         help="Scan for evaluation tests, select, and upload as Fireworks evaluators",
     )
+
+    # CLI workflow flags (not part of the SDK create() signature)
     upload_parser.add_argument(
         "--path",
         default=".",
@@ -342,23 +344,6 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         help="Entrypoint of evaluation test to upload (module:function or path::function). For multiple, separate by commas.",
     )
     upload_parser.add_argument(
-        "--id",
-        help="Evaluator ID to use (if multiple selections, a numeric suffix is appended)",
-    )
-    upload_parser.add_argument(
-        "--display-name",
-        help="Display name for evaluator (defaults to ID)",
-    )
-    upload_parser.add_argument(
-        "--description",
-        help="Description for evaluator",
-    )
-    upload_parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite existing evaluator with the same ID",
-    )
-    upload_parser.add_argument(
         "--yes",
         "-y",
         action="store_true",
@@ -367,6 +352,48 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
     upload_parser.add_argument(
         "--env-file",
         help="Path to .env file containing secrets to upload (default: .env in current directory)",
+    )
+    upload_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing evaluator with the same ID",
+    )
+
+    # Auto-generate flags from SDK Fireworks().evaluators.create() signature
+    create_evaluator_fn = Fireworks().evaluators.create
+
+    upload_skip_fields = {
+        "__top_level__": {
+            "account_id",  # auto-detected
+            "extra_headers",
+            "extra_query",
+            "extra_body",
+            "timeout",
+        },
+        "evaluator": {
+            "commit_hash",  # should be auto-detected from git
+            "source",  # not relevant for CLI flow
+        },
+    }
+    upload_aliases = {
+        "evaluator_id": ["--id"],
+        "evaluator.display_name": ["--name"],
+    }
+    upload_help_overrides = {
+        "evaluator_id": "Evaluator ID to use (if multiple selections, a numeric suffix is appended)",
+        "evaluator.display_name": "Display name for evaluator (defaults to ID)",
+        "evaluator.description": "Description for evaluator",
+        "evaluator.requirements": "Requirements for evaluator (auto-detected from requirements.txt if not provided)",
+        "evaluator.entry_point": "Pytest-style entrypoint (e.g., test_file.py::test_func). Auto-detected if not provided.",
+        "evaluator.default_dataset": "Default dataset to use with this evaluator",
+    }
+
+    add_args_from_callable_signature(
+        upload_parser,
+        create_evaluator_fn,
+        skip_fields=upload_skip_fields,
+        aliases=upload_aliases,
+        help_overrides=upload_help_overrides,
     )
 
     # Create command group
