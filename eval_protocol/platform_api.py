@@ -169,6 +169,10 @@ def get_fireworks_secret(
     resolved_api_base = api_base or get_fireworks_api_base()
     resolved_account_id = account_id
 
+    if not all([resolved_api_key, resolved_api_base, resolved_account_id]):
+        logger.error("Missing Fireworks API key, base URL, or account ID for getting secret.")
+        return None
+
     client = Fireworks(api_key=resolved_api_key, account_id=resolved_account_id, base_url=resolved_api_base)
     resource_id = _normalize_secret_resource_id(key_name)
 
