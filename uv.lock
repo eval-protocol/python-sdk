@@ -1309,8 +1309,7 @@ requires-dist = [
     { name = "dspy", marker = "extra == 'dspy'", specifier = ">=3.0.0" },
     { name = "e2b", marker = "extra == 'dev'" },
     { name = "fastapi", specifier = ">=0.116.1" },
-    { name = "fireworks-ai", specifier = "==1.0.0a18" },
-    { name = "fireworks-ai", specifier = ">=1.0.0a11" },
+    { name = "fireworks-ai", specifier = "==1.0.0a19" },
     { name = "google-auth", marker = "extra == 'bigquery'", specifier = ">=2.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'bigquery'", specifier = ">=3.0.0" },
     { name = "gymnasium", marker = "extra == 'dev'", specifier = ">=1.2.0" },
@@ -1579,7 +1578,7 @@ wheels = [
 
 [[package]]
 name = "fireworks-ai"
-version = "1.0.0a18"
+version = "1.0.0a19"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -1591,9 +1590,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d5/c8/2d8454b01facbc3db73ec1a30d087ef2a3f6eee42b2817ca984cda5e789f/fireworks_ai-1.0.0a18.tar.gz", hash = "sha256:68a80a7ab15803a03cca96efc7078099e229901f867d43cbb463963ed2353ba2", size = 563750, upload-time = "2025-12-20T08:45:24.388Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/59/02/1a21aa42374d08d83280eb6f6fc34b1ec94eea55390d201e30c524840f24/fireworks_ai-1.0.0a19.tar.gz", hash = "sha256:a8194bc306d3c5cc1bbe3484c01e0975ce9cace180971de57ebb2725a0064dc2", size = 565546, upload-time = "2025-12-22T23:33:33.291Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/b0/eaa7b865a99307e80fd6852348dc0aa1135c0e8c5cb91b050f93dde4919d/fireworks_ai-1.0.0a18-py3-none-any.whl", hash = "sha256:7f6b46a2b9928464bc515f3f68282a97e2df2f6e230ea1acc26d9c4d404a0f6e", size = 307477, upload-time = "2025-12-20T08:45:22.98Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/46/0bf7a6dbcacebd967467f98442a367c59b6c67aa71f82236ca5d932e3770/fireworks_ai-1.0.0a19-py3-none-any.whl", hash = "sha256:2e3cb102a2f65c3b8a6eb5daaa71438c723e72d1f5689e8a86fa3b685d32e74f", size = 309072, upload-time = "2025-12-22T23:33:31.886Z" },
 ]
 
 [[package]]
