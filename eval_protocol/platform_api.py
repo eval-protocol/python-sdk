@@ -177,6 +177,9 @@ def get_fireworks_secret(
         if secret:
             logger.info(f"Successfully retrieved secret '{key_name}'.")
             return secret
+        else:
+            logger.warning(f"Secret '{key_name}' lookup succeeded but returned empty/falsy value.")
+            return None
     except NotFoundError:
         logger.info(f"Secret '{key_name}' not found.")
         return None
