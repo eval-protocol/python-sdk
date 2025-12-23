@@ -73,11 +73,12 @@ async def _fetch_trace_list_with_retry(
     from_ts: Optional[datetime],
     to_ts: Optional[datetime],
     max_retries: int,
+    rollout_id: Optional[str] = None,
 ) -> Any:
     """Fetch trace list with rate limit retry logic."""
     list_retries = 0
-    rollout_id: Optional[str] = None
-    if tags:
+    # Best-effort context for logging: caller may pass rollout_id explicitly.
+    if rollout_id is None and tags:
         for t in tags:
             if isinstance(t, str) and t.startswith("rollout_id:"):
                 rollout_id = t.split(":", 1)[1] if ":" in t else t
@@ -298,6 +299,7 @@ async def fetch_langfuse_traces(
                     from_ts,
                     to_ts,
                     max_retries,
+                    rollout_id=rollout_id,
                 )
 
                 if not traces or not traces.data:
@@ -496,6 +498,7 @@ async def pointwise_fetch_langfuse_trace(
                 from_ts=from_ts,
                 to_ts=to_ts,
                 max_retries=max_retries,
+                rollout_id=rollout_id,
             )
 
             if traces and traces.data:
