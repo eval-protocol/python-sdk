@@ -136,8 +136,6 @@ def _resolve_entry_to_qual_and_source(entry: str, cwd: str) -> tuple[str, str]:
 def _load_secrets_from_env_file(env_file_path: str) -> Dict[str, str]:
     """
     Load secrets from a .env file that should be uploaded to Fireworks.
-
-    Returns a dictionary of secret key-value pairs that contain 'API_KEY' in the name.
     """
     if not os.path.exists(env_file_path):
         return {}
@@ -152,14 +150,7 @@ def _load_secrets_from_env_file(env_file_path: str) -> Dict[str, str]:
                 key = key.strip()
                 value = value.strip().strip('"').strip("'")  # Remove quotes
                 env_vars[key] = value
-
-    # Filter for secrets that look like API keys
-    secrets = {}
-    for key, value in env_vars.items():
-        if "API_KEY" in key.upper() and value:
-            secrets[key] = value
-
-    return secrets
+    return env_vars
 
 
 def _mask_secret_value(value: str) -> str:
@@ -193,13 +184,6 @@ def upload_command(args: argparse.Namespace) -> int:
         selected_tests = _discover_and_select_tests(root, non_interactive=non_interactive)
         if not selected_tests:
             return 1
-        # Warn about parameterized tests
-        parameterized_tests = [t for t in selected_tests if t.has_parametrize]
-        if parameterized_tests:
-            print("\nNote: Parameterized tests will be uploaded as a single evaluator that")
-            print("      handles all parameter combinations. The evaluator will work with")
-            print("      the same logic regardless of which model/parameters are used.")
-
         selected_specs = [(t.qualname, t.file_path) for t in selected_tests]
 
     base_id = getattr(args, "id", None)
