@@ -286,7 +286,7 @@ if __name__ == "__main__":
 
     # 2. Create secret
     logger.info(f"\n[Test Step 1] Creating secret '{test_secret_key_name}' with value '{test_secret_value}'...")
-    success_create = create_or_update_fireworks_secret(test_account_id, test_secret_key_name, test_secret_value)
+    success_create: bool = create_or_update_fireworks_secret(test_account_id, test_secret_key_name, test_secret_value)
     logger.info(f"Create operation success: {success_create}")
 
     # 3. Get secret (to verify creation, though value won't be returned)
