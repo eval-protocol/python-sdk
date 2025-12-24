@@ -268,11 +268,8 @@ def upload_command(args: argparse.Namespace) -> int:
 
         print(f"\nUploading evaluator '{evaluator_id}' for {qualname.split('.')[-1]}...")
         try:
-            test_dir = root
-            metric_name = os.path.basename(test_dir) or "metric"
             result = create_evaluation(
                 evaluator_id=evaluator_id,
-                metric_folders=[f"{metric_name}={test_dir}"],
                 display_name=display_name or evaluator_id,
                 description=description or f"Evaluator for {qualname}",
                 force=force,

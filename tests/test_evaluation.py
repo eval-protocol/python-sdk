@@ -1,12 +1,9 @@
-import json
 import os
 import shutil
 import tempfile
 from unittest.mock import MagicMock, patch
 
-import requests
-
-from eval_protocol.evaluation import Evaluator, create_evaluation
+from eval_protocol.evaluation import create_evaluation
 
 
 def create_test_folder():
@@ -32,72 +29,6 @@ def evaluate(messages, original_messages=None, tools=None, **kwargs):
     with open(os.path.join(tmp_dir, "requirements.txt"), "w") as f:
         f.write("eval-protocol>=0.1.0\n")
     return tmp_dir
-
-
-def create_sample_file():
-    fd, path = tempfile.mkstemp(suffix=".jsonl")
-    samples = [
-        {
-            "messages": [
-                {"role": "user", "content": "Hello"},
-                {"role": "assistant", "content": "Hi there! How can I help you today?"},
-            ]
-        },
-        {
-            "messages": [
-                {"role": "user", "content": "What is AI?"},
-                {
-                    "role": "assistant",
-                    "content": "AI stands for Artificial Intelligence.",
-                },
-            ],
-            "original_messages": [
-                {"role": "user", "content": "What is AI?"},
-                {
-                    "role": "assistant",
-                    "content": "AI stands for Artificial Intelligence.",
-                },
-            ],
-            "tools": [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "search",
-                        "description": "Search for information",
-                    },
-                }
-            ],
-        },
-    ]
-    with os.fdopen(fd, "w") as f:
-        for sample in samples:
-            f.write(json.dumps(sample) + "\n")
-    return path
-
-
-def test_evaluator_load_metric_folder():
-    tmp_dir = create_test_folder()
-    try:
-        evaluator = Evaluator()
-        files = evaluator.load_metric_folder("test_metric", tmp_dir)
-        assert "main.py" in files
-        assert "test_metric" in evaluator.metric_folders
-        assert "test_metric/main.py" in evaluator.code_files
-        assert "evaluate" in evaluator.code_files["test_metric/main.py"]
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-
-
-def test_evaluator_load_multi_metrics_folder():
-    tmp_dir = create_test_folder()
-    try:
-        evaluator = Evaluator(multi_metrics=True)
-        files = evaluator.load_multi_metrics_folder(tmp_dir)
-        assert "main.py" in files
-        assert "main.py" in evaluator.code_files
-        assert "evaluate" in evaluator.code_files["main.py"]
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def test_create_evaluation_helper(monkeypatch):
@@ -167,7 +98,6 @@ def test_create_evaluation_helper(monkeypatch):
             os.chdir(tmp_dir)
             api_response = create_evaluation(
                 evaluator_id="test-eval",
-                metric_folders=[f"test_metric={tmp_dir}"],
                 display_name="Test Evaluator",
                 description="Test description",
             )
