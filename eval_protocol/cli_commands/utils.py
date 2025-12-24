@@ -334,7 +334,11 @@ def _prompt_select_fallback(tests: list[DiscoveredTest]) -> list[DiscoveredTest]
 def _prompt_select(tests: list[DiscoveredTest], non_interactive: bool) -> list[DiscoveredTest]:
     """Prompt user to select tests to upload."""
     if non_interactive:
-        return tests
+        # In non-interactive mode, auto-select only the first test
+        if len(tests) > 1:
+            print(f"Note: {len(tests)} tests discovered. Auto-selecting first test in non-interactive mode:")
+            print(f"  {_format_test_choice(tests[0], 1)}")
+        return [tests[0]]
 
     return _prompt_select_interactive(tests)
 

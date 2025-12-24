@@ -184,23 +184,32 @@ def upload_command(args: argparse.Namespace) -> int:
     entries_arg = getattr(args, "entry", None)
     non_interactive: bool = bool(getattr(args, "yes", False))
     if entries_arg:
-        entries = [e.strip() for e in re.split(r"[,\s]+", entries_arg) if e.strip()]
-        selected_specs: list[tuple[str, str]] = []
-        for e in entries:
-            qualname, resolved_path = _resolve_entry_to_qual_and_source(e, root)
-            selected_specs.append((qualname, resolved_path))
+        # Only support single entry, not comma-separated values
+        entry = entries_arg.strip()
+        if "," in entry:
+            print("Error: --entry only supports uploading one evaluator at a time.")
+            print("Please specify a single entry in the format: module::function or path::function")
+            return 1
+        qualname, resolved_path = _resolve_entry_to_qual_and_source(entry, root)
+        selected_specs: list[tuple[str, str]] = [(qualname, resolved_path)]
     else:
         selected_tests = _discover_and_select_tests(root, non_interactive=non_interactive)
         if not selected_tests:
             return 1
+
+        # Enforce single selection
+        if len(selected_tests) > 1:
+            print(f"Error: Multiple tests selected ({len(selected_tests)}), but only one can be uploaded at a time.")
+            print("Please select exactly one test to upload.")
+            return 1
+
         # Warn about parameterized tests
-        parameterized_tests = [t for t in selected_tests if t.has_parametrize]
-        if parameterized_tests:
-            print("\nNote: Parameterized tests will be uploaded as a single evaluator that")
+        if selected_tests[0].has_parametrize:
+            print("\nNote: This parameterized test will be uploaded as a single evaluator that")
             print("      handles all parameter combinations. The evaluator will work with")
             print("      the same logic regardless of which model/parameters are used.")
 
-        selected_specs = [(t.qualname, t.file_path) for t in selected_tests]
+        selected_specs = [(selected_tests[0].qualname, selected_tests[0].file_path)]
 
     base_id = getattr(args, "id", None)
     display_name = getattr(args, "display_name", None)
@@ -256,53 +265,51 @@ def upload_command(args: argparse.Namespace) -> int:
     except Exception as e:
         print(f"Warning: Skipped Fireworks secret registration due to error: {e}")
 
-    exit_code = 0
-    for i, (qualname, source_file_path) in enumerate(selected_specs):
-        # Generate a short default ID from just the test function name
-        if base_id:
-            evaluator_id = base_id
-            if len(selected_specs) > 1:
-                evaluator_id = f"{base_id}-{i + 1}"
+    # selected_specs is guaranteed to have exactly 1 item at this point
+    qualname, source_file_path = selected_specs[0]
+
+    # Generate evaluator ID
+    if base_id:
+        evaluator_id = base_id
+    else:
+        # Extract just the test function name from qualname
+        test_func_name = qualname.split(".")[-1]
+        # Extract source file name (e.g., "test_gpqa.py" -> "test_gpqa")
+        if source_file_path:
+            source_file_name = Path(source_file_path).stem
         else:
-            # Extract just the test function name from qualname
-            test_func_name = qualname.split(".")[-1]
-            # Extract source file name (e.g., "test_gpqa.py" -> "test_gpqa")
-            if source_file_path:
-                source_file_name = Path(source_file_path).stem
-            else:
-                source_file_name = "eval"
-            # Create a shorter ID: filename-testname
-            evaluator_id = f"{source_file_name}-{test_func_name}"
+            source_file_name = "eval"
+        # Create a shorter ID: filename-testname
+        evaluator_id = f"{source_file_name}-{test_func_name}"
 
-        # Normalize the evaluator ID to meet Fireworks requirements
-        evaluator_id = _normalize_evaluator_id(evaluator_id)
+    # Normalize the evaluator ID to meet Fireworks requirements
+    evaluator_id = _normalize_evaluator_id(evaluator_id)
 
-        # Compute entry point metadata for backend as a pytest nodeid usable with `pytest <entrypoint>`
-        # Always prefer a path-based nodeid to work in plain pytest environments (server may not use --pyargs)
-        func_name = qualname.split(".")[-1]
-        entry_point = _build_entry_point(root, source_file_path, func_name)
+    # Compute entry point metadata for backend as a pytest nodeid usable with `pytest <entrypoint>`
+    # Always prefer a path-based nodeid to work in plain pytest environments (server may not use --pyargs)
+    func_name = qualname.split(".")[-1]
+    entry_point = _build_entry_point(root, source_file_path, func_name)
 
-        print(f"\nUploading evaluator '{evaluator_id}' for {qualname.split('.')[-1]}...")
-        try:
-            test_dir = root
-            metric_name = os.path.basename(test_dir) or "metric"
-            result = create_evaluation(
-                evaluator_id=evaluator_id,
-                metric_folders=[f"{metric_name}={test_dir}"],
-                display_name=display_name or evaluator_id,
-                description=description or f"Evaluator for {qualname}",
-                force=force,
-                entry_point=entry_point,
-            )
-            name = result.get("name", evaluator_id) if isinstance(result, dict) else evaluator_id
+    print(f"\nUploading evaluator '{evaluator_id}' for {qualname.split('.')[-1]}...")
+    try:
+        test_dir = root
+        metric_name = os.path.basename(test_dir) or "metric"
+        result = create_evaluation(
+            evaluator_id=evaluator_id,
+            metric_folders=[f"{metric_name}={test_dir}"],
+            display_name=display_name or evaluator_id,
+            description=description or f"Evaluator for {qualname}",
+            force=force,
+            entry_point=entry_point,
+        )
+        name = result.get("name", evaluator_id) if isinstance(result, dict) else evaluator_id
 
-            # Print success message with Fireworks dashboard link
-            print(f"\n✅ Successfully uploaded evaluator: {evaluator_id}")
-            print("📊 View in Fireworks Dashboard:")
-            dashboard_url = _build_evaluator_dashboard_url(evaluator_id)
-            print(f"   {dashboard_url}\n")
-        except Exception as e:
-            print(f"Failed to upload {qualname}: {e}")
-            exit_code = 2
-
-    return exit_code
+        # Print success message with Fireworks dashboard link
+        print(f"\n✅ Successfully uploaded evaluator: {evaluator_id}")
+        print("📊 View in Fireworks Dashboard:")
+        dashboard_url = _build_evaluator_dashboard_url(evaluator_id)
+        print(f"   {dashboard_url}\n")
+        return 0
+    except Exception as e:
+        print(f"Failed to upload {qualname}: {e}")
+        return 2
