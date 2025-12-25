@@ -134,6 +134,9 @@ openenv = [
 dspy = [
     "dspy>=3.0.0",
 ]
+klavis = [
+    "klavis>=2.18.0",
+]
 
 # Optional deps for LangGraph example/tests
 langgraph = [

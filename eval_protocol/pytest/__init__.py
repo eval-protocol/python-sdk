@@ -1,5 +1,6 @@
 from .default_agent_rollout_processor import AgentRolloutProcessor
 from .default_dataset_adapter import default_dataset_adapter
+from .default_klavis_sandbox_rollout_processor import KlavisSandboxRolloutProcessor
 from .default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 from .default_no_op_rollout_processor import NoOpRolloutProcessor
 from .default_single_turn_rollout_process import SingleTurnRolloutProcessor
@@ -31,6 +32,7 @@ except ImportError:
 
 __all__ = [
     "AgentRolloutProcessor",
+    "KlavisSandboxRolloutProcessor",
     "MCPGymRolloutProcessor",
     "RolloutProcessor",
     "SingleTurnRolloutProcessor",
