@@ -30,7 +30,6 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
         self.server_name = server_name
         self.initialize_data_factory = initialize_data_factory
         self.klavis_client = Klavis(api_key=os.environ.get("KLAVIS_API_KEY"))
-        self.sandbox = self._init_sandbox()
         
     def _init_sandbox(self) -> CreateSandboxResponse:
         try:
@@ -63,27 +62,46 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
         self, rows: List[EvaluationRow], config: RolloutProcessorConfig
     ) -> List[asyncio.Task[EvaluationRow]]:
         """Process evaluation rows with Klavis sandbox lifecycle management"""
-        if not self.sandbox:
-            raise RuntimeError("Sandbox not initialized")
-
         semaphore = config.semaphore
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with complete sandbox lifecycle"""
             
             start_time = time.perf_counter()
+            agent: Agent | None = None
+            temp_config_path: str | None = None
+            sandbox: CreateSandboxResponse | None = None
 
             try:
-                # Step 1: Initialize data in the sandbox
-                if self.initialize_data_factory:
-                    logger.info(f"Initializing {self.server_name} sandbox {self.sandbox.sandbox_id}")
-                    init_data = self.initialize_data_factory(row)
-                    initialize_method = getattr(self.klavis_client.sandbox, f"initialize_{self.sandbox.server_name}_sandbox")
-                    initialize_method(sandbox_id=self.sandbox.sandbox_id, **init_data)
-                    logger.info(f"Sandbox initialized successfully")
+                # Step 0: Create a sandbox for this row
+                sandbox = self._init_sandbox()
+                logger.info(f"Sandbox created: {sandbox}")
 
+                # Step 1: Initialize data in the sandbox
+                init_data: Dict[str, Any] | None = None
+                if self.initialize_data_factory:
+                    init_data = self.initialize_data_factory(row)
+                else:
+                    # Allow datasets to provide initialization payload directly
+                    init_data = (
+                        (row.input_metadata.session_data or {}).get("initialize_data")
+                        if row.input_metadata is not None
+                        else None
+                    )
+                
+                if init_data:
+                    logger.info(f"Initializing {self.server_name} sandbox {sandbox.sandbox_id}")
+                    initialize_method = getattr(
+                        self.klavis_client.sandbox, f"initialize_{sandbox.server_name.value}_sandbox"
+                    )
+                    init_response = initialize_method(sandbox_id=sandbox.sandbox_id, **init_data)
+                    logger.info(f"Initialization response: {init_response}")
+                    
                 # Step 2: Create temporary MCP config with sandbox URL
-                temp_config_path = self.create_mcp_config(server_url=self.sandbox.server_url, server_key=self.sandbox.server_name)
+                temp_config_path = self.create_mcp_config(
+                    server_url=sandbox.server_url, server_key=sandbox.server_name.value
+                )
+                logger.info(f"MCP config created: {temp_config_path}")
 
                 # Step 3: Run agent with sandbox MCP server
                 logger.info(f"Running agent for row {row.execution_metadata.rollout_id} with {self.server_name} sandbox")
@@ -106,16 +124,16 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
                 logger.info(f"Agent execution completed for row {row.execution_metadata.rollout_id}")
 
                 # Step 4: Export sandbox data
-                logger.info(f"Exporting {self.server_name} sandbox data")
-                dump_method = getattr(self.klavis_client.sandbox, f"dump_{self.sandbox.server_name}_sandbox")
-                dump_response = dump_method(sandbox_id=self.sandbox.sandbox_id)
+                dump_method = getattr(self.klavis_client.sandbox, f"dump_{sandbox.server_name.value}_sandbox")
+                dump_response = dump_method(sandbox_id=sandbox.sandbox_id)
                 sandbox_data = dump_response.data
+                logger.info(f"Sandbox data: {sandbox_data}")
 
                 # Store sandbox data in row metadata for evaluation
                 if not row.execution_metadata.extra:
                     row.execution_metadata.extra = {}
                 row.execution_metadata.extra["sandbox_data"] = sandbox_data
-                row.execution_metadata.extra["sandbox_id"] = self.sandbox.sandbox_id
+                row.execution_metadata.extra["sandbox_id"] = sandbox.sandbox_id
                 row.execution_metadata.extra["server_name"] = self.server_name
 
             except Exception as e:
@@ -133,15 +151,14 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
                     os.unlink(temp_config_path)
                 
                 # Release sandbox
-                if self.sandbox.sandbox_id:
+                if sandbox and sandbox.sandbox_id:
                     try:
-                        logger.info(f"Releasing {self.server_name} sandbox {self.sandbox.sandbox_id}")
                         self.klavis_client.sandbox.delete_sandbox(
-                            server_name=self.sandbox.server_name, sandbox_id=self.sandbox.sandbox_id
+                            server_name=sandbox.server_name, sandbox_id=sandbox.sandbox_id
                         )
-                        logger.info(f"Sandbox {self.sandbox.sandbox_id} released successfully")
+                        logger.info(f"Sandbox {sandbox.sandbox_id} released successfully")
                     except Exception as e:
-                        logger.error(f"Error releasing sandbox {self.sandbox.sandbox_id}: {str(e)}", exc_info=True)
+                        logger.error(f"Error releasing sandbox {sandbox.sandbox_id}: {str(e)}", exc_info=True)
 
                 row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
