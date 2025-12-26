@@ -62,24 +62,6 @@ def mock_env_variables(monkeypatch):
 
 
 @pytest.fixture
-def mock_requests_get():
-    """Mock requests.get for force flow check"""
-    with patch("requests.get") as mock_get:
-        mock_get.return_value.status_code = 404  # Evaluator doesn't exist
-        mock_get.return_value.raise_for_status = MagicMock()
-        yield mock_get
-
-
-@pytest.fixture
-def mock_requests_delete():
-    """Mock requests.delete for force flow"""
-    with patch("requests.delete") as mock_delete:
-        mock_delete.return_value.status_code = 200
-        mock_delete.return_value.raise_for_status = MagicMock()
-        yield mock_delete
-
-
-@pytest.fixture
 def mock_gcs_upload():
     """Mock the GCS upload via requests.Session"""
     with patch("requests.Session") as mock_session_class:
@@ -96,45 +78,77 @@ def mock_gcs_upload():
 
 
 @pytest.fixture
-def mock_requests_post():
-    """Mock requests.post for all API endpoints"""
-    with patch("requests.post") as mock_post:
-        validate_response = {"success": True, "valid": True}
-        create_response = {
-            "name": "accounts/test_account/evaluators/test-eval",
-            "displayName": "Test Evaluator",
-            "description": "Test description",
-        }
+def mock_fireworks_client():
+    """Mock the Fireworks SDK client used in evaluation.py"""
+    with patch("eval_protocol.evaluation.Fireworks") as mock_fw_class:
+        mock_client = MagicMock()
+        mock_fw_class.return_value = mock_client
 
-        def side_effect(*args, **kwargs):
-            url = args[0]
-            payload = kwargs.get("json", {})
-            response = mock_post.return_value
+        # Mock evaluators.create response
+        mock_create_response = MagicMock()
+        mock_create_response.name = "accounts/test_account/evaluators/test-eval"
+        mock_create_response.display_name = "Test Evaluator"
+        mock_create_response.description = "Test description"
+        mock_client.evaluators.create.return_value = mock_create_response
 
-            if "getUploadEndpoint" in url:
-                # Dynamically create signed URLs for whatever filenames are requested
-                filename_to_size = payload.get("filename_to_size", {})
-                signed_urls = {}
-                for filename in filename_to_size.keys():
-                    signed_urls[filename] = f"https://storage.googleapis.com/test-bucket/{filename}?signed=true"
-                response.json.return_value = {"filenameToSignedUrls": signed_urls}
-            elif "validateUpload" in url:
-                response.json.return_value = validate_response
-            else:
-                # Create evaluator endpoint
-                response.json.return_value = create_response
-
-            response.status_code = 200
+        # Mock evaluators.get_upload_endpoint response - will be set dynamically
+        def get_upload_endpoint_side_effect(evaluator_id, filename_to_size):
+            response = MagicMock()
+            signed_urls = {}
+            for filename in filename_to_size.keys():
+                signed_urls[filename] = f"https://storage.googleapis.com/test-bucket/{filename}?signed=true"
+            response.filename_to_signed_urls = signed_urls
             return response
 
-        mock_post.side_effect = side_effect
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.raise_for_status = MagicMock()
-        yield mock_post
+        mock_client.evaluators.get_upload_endpoint.side_effect = get_upload_endpoint_side_effect
+
+        # Mock evaluators.validate_upload response
+        mock_validate_response = MagicMock()
+        mock_validate_response.success = True
+        mock_validate_response.valid = True
+        mock_client.evaluators.validate_upload.return_value = mock_validate_response
+
+        # Mock evaluators.get (for force flow - raises NotFoundError by default)
+        import fireworks
+
+        mock_client.evaluators.get.side_effect = fireworks.NotFoundError(
+            "Evaluator not found",
+            response=MagicMock(status_code=404),
+            body={"error": "not found"},
+        )
+
+        # Mock evaluators.delete
+        mock_client.evaluators.delete.return_value = None
+
+        yield mock_client
+
+
+@pytest.fixture
+def mock_platform_api_client():
+    """Mock the Fireworks SDK client used in platform_api.py for secrets"""
+    with patch("eval_protocol.platform_api.Fireworks") as mock_fw_class:
+        mock_client = MagicMock()
+        mock_fw_class.return_value = mock_client
+
+        # Mock secrets.get - raise NotFoundError to simulate secret doesn't exist
+        from fireworks import NotFoundError
+
+        mock_client.secrets.get.side_effect = NotFoundError(
+            "Secret not found",
+            response=MagicMock(status_code=404),
+            body={"error": "not found"},
+        )
+
+        # Mock secrets.create - successful
+        mock_create_response = MagicMock()
+        mock_create_response.name = "accounts/test_account/secrets/test-secret"
+        mock_client.secrets.create.return_value = mock_create_response
+
+        yield mock_client
 
 
 def test_ep_upload_discovers_and_uploads_evaluation_test(
-    mock_env_variables, mock_requests_post, mock_requests_get, mock_gcs_upload, monkeypatch
+    mock_env_variables, mock_fireworks_client, mock_platform_api_client, mock_gcs_upload, monkeypatch
 ):
     """
     Test the complete ep upload flow:
@@ -213,20 +227,17 @@ async def test_simple_evaluation(row: EvaluationRow) -> EvaluationRow:
         # 4. VERIFY SUCCESS
         assert exit_code == 0, "Upload command should return 0 (success)"
 
-        # 5. VERIFY ALL API CALLS IN UPLOAD FLOW
-        post_calls = [call[0][0] for call in mock_requests_post.call_args_list]
-
-        # Step 1: Create evaluator (V2 endpoint)
-        create_calls = [url for url in post_calls if "evaluatorsV2" in url]
-        assert len(create_calls) >= 1, "Should call V2 create endpoint"
+        # 5. VERIFY ALL API CALLS IN UPLOAD FLOW via Fireworks SDK
+        # Step 1: Create evaluator
+        assert mock_fireworks_client.evaluators.create.called, "Should call evaluators.create"
 
         # Step 2: Get upload endpoint
-        upload_endpoint_calls = [url for url in post_calls if "getUploadEndpoint" in url]
-        assert len(upload_endpoint_calls) >= 1, "Should call getUploadEndpoint"
+        assert mock_fireworks_client.evaluators.get_upload_endpoint.called, (
+            "Should call evaluators.get_upload_endpoint"
+        )
 
         # Step 3: Validate upload
-        validate_calls = [url for url in post_calls if "validateUpload" in url]
-        assert len(validate_calls) >= 1, "Should call validateUpload"
+        assert mock_fireworks_client.evaluators.validate_upload.called, "Should call evaluators.validate_upload"
 
         # Step 4: GCS upload
         assert mock_gcs_upload.send.called, "Should upload tar.gz to GCS"
@@ -235,31 +246,21 @@ async def test_simple_evaluation(row: EvaluationRow) -> EvaluationRow:
         assert "storage.googleapis.com" in gcs_request.url, "Should upload to GCS"
 
         # 6. VERIFY CREATE PAYLOAD STRUCTURE
-        create_payload = None
-        for call in mock_requests_post.call_args_list:
-            url = call[0][0]
-            if "evaluatorsV2" in url:
-                create_payload = call[1].get("json")
-                break
+        create_call = mock_fireworks_client.evaluators.create.call_args
+        assert create_call is not None
 
-        assert create_payload is not None
-        assert "evaluator" in create_payload
-        assert create_payload["evaluatorId"] == "test-simple-eval"
+        # Check evaluator_id
+        assert create_call.kwargs.get("evaluator_id") == "test-simple-eval"
 
-        evaluator_data = create_payload["evaluator"]
-        assert evaluator_data["displayName"] == "Simple Word Count Eval"
-        assert evaluator_data["description"] == "E2E test evaluator"
+        # Check evaluator params
+        evaluator_params = create_call.kwargs.get("evaluator", {})
+        assert evaluator_params.get("display_name") == "Simple Word Count Eval"
+        assert evaluator_params.get("description") == "E2E test evaluator"
 
         # Verify entry point is included
-        assert "entryPoint" in evaluator_data, "Should include entry point"
-        entry_point = evaluator_data["entryPoint"]
+        assert "entry_point" in evaluator_params, "Should include entry point"
+        entry_point = evaluator_params["entry_point"]
         assert "test_simple_eval.py::test_simple_evaluation" in entry_point
-
-        # Verify criteria structure (minimal, no embedded code)
-        criteria = evaluator_data["criteria"]
-        assert len(criteria) > 0
-        assert criteria[0]["type"] == "CODE_SNIPPETS"
-        # Code is uploaded as tar.gz, not embedded in criteria
 
     finally:
         # Restore original directory
@@ -273,8 +274,8 @@ async def test_simple_evaluation(row: EvaluationRow) -> EvaluationRow:
 
 def test_ep_upload_with_parametrized_test(
     mock_env_variables,
-    mock_requests_post,
-    mock_requests_get,
+    mock_fireworks_client,
+    mock_platform_api_client,
     mock_gcs_upload,
 ):
     """
@@ -335,11 +336,10 @@ async def test_multi_model_eval(row: EvaluationRow) -> EvaluationRow:
 
         assert exit_code == 0
 
-        # Verify upload flow completed
-        post_calls = [call[0][0] for call in mock_requests_post.call_args_list]
-        assert any("evaluatorsV2" in url for url in post_calls)
-        assert any("getUploadEndpoint" in url for url in post_calls)
-        assert any("validateUpload" in url for url in post_calls)
+        # Verify upload flow completed via Fireworks SDK
+        assert mock_fireworks_client.evaluators.create.called
+        assert mock_fireworks_client.evaluators.get_upload_endpoint.called
+        assert mock_fireworks_client.evaluators.validate_upload.called
         assert mock_gcs_upload.send.called
 
     finally:
@@ -440,8 +440,8 @@ async def test_quickstart_eval(row: EvaluationRow) -> EvaluationRow:
 
 def test_ep_upload_complete_workflow_with_entry_point_validation(
     mock_env_variables,
-    mock_requests_post,
-    mock_requests_get,
+    mock_fireworks_client,
+    mock_platform_api_client,
     mock_gcs_upload,
 ):
     """
@@ -515,14 +515,12 @@ async def test_math_correctness(row: EvaluationRow) -> EvaluationRow:
 
         assert exit_code == 0
 
-        # 3. VERIFY 5-STEP UPLOAD FLOW
-        post_calls = [call[0][0] for call in mock_requests_post.call_args_list]
-
+        # 3. VERIFY 5-STEP UPLOAD FLOW via Fireworks SDK
         # Step 1: Create evaluator
-        assert any("evaluatorsV2" in url for url in post_calls), "Missing create call"
+        assert mock_fireworks_client.evaluators.create.called, "Missing create call"
 
         # Step 2: Get upload endpoint
-        assert any("getUploadEndpoint" in url for url in post_calls), "Missing getUploadEndpoint call"
+        assert mock_fireworks_client.evaluators.get_upload_endpoint.called, "Missing getUploadEndpoint call"
 
         # Step 3: Upload to GCS
         assert mock_gcs_upload.send.called, "Missing GCS upload"
@@ -531,51 +529,34 @@ async def test_math_correctness(row: EvaluationRow) -> EvaluationRow:
         assert "storage.googleapis.com" in gcs_request.url
 
         # Step 4: Validate
-        assert any("validateUpload" in url for url in post_calls), "Missing validateUpload call"
+        assert mock_fireworks_client.evaluators.validate_upload.called, "Missing validateUpload call"
 
         # 4. VERIFY PAYLOAD DETAILS
-        create_payload = None
-        for call in mock_requests_post.call_args_list:
-            url = call[0][0]
-            if "evaluatorsV2" in url:
-                create_payload = call[1].get("json")
-                break
-
-        assert create_payload is not None
+        create_call = mock_fireworks_client.evaluators.create.call_args
+        assert create_call is not None
 
         # Verify evaluator ID auto-generated from filename + test name
-        evaluator_id = create_payload["evaluatorId"]
+        evaluator_id = create_call.kwargs.get("evaluator_id", "")
         assert "test-math-eval" in evaluator_id or "math-correctness" in evaluator_id
 
         # Verify entry point is path-based (not module-based)
-        evaluator_data = create_payload["evaluator"]
-        assert "entryPoint" in evaluator_data, "Should include entry point"
-        entry_point = evaluator_data["entryPoint"]
+        evaluator_params = create_call.kwargs.get("evaluator", {})
+        assert "entry_point" in evaluator_params, "Should include entry point"
+        entry_point = evaluator_params["entry_point"]
         assert "test_math_eval.py::test_math_correctness" in entry_point
-
-        # Verify criteria is minimal
-        criteria = evaluator_data["criteria"]
-        assert len(criteria) > 0
-        assert criteria[0]["type"] == "CODE_SNIPPETS"
-        # Code is in tar.gz, not in payload
 
         # 5. VERIFY TAR.GZ WAS CREATED AND UPLOADED
         # Check getUploadEndpoint call payload
-        upload_endpoint_payload = None
-        for call in mock_requests_post.call_args_list:
-            url = call[0][0]
-            if "getUploadEndpoint" in url:
-                upload_endpoint_payload = call[1].get("json")
-                break
-
-        assert upload_endpoint_payload is not None
-        assert "filename_to_size" in upload_endpoint_payload
+        upload_call = mock_fireworks_client.evaluators.get_upload_endpoint.call_args
+        assert upload_call is not None
+        filename_to_size = upload_call.kwargs.get("filename_to_size", {})
+        assert filename_to_size, "Should have filename_to_size"
         # Tar filename is dynamic (based on directory name)
-        tar_files = list(upload_endpoint_payload["filename_to_size"].keys())
+        tar_files = list(filename_to_size.keys())
         assert len(tar_files) == 1, "Should have exactly one tar file"
         tar_filename = tar_files[0]
         assert tar_filename.endswith(".tar.gz"), "Should be a tar.gz file"
-        tar_size = upload_endpoint_payload["filename_to_size"][tar_filename]
+        tar_size = int(filename_to_size[tar_filename])
         assert tar_size > 0, "Tar file should have non-zero size"
 
     finally:
@@ -587,8 +568,8 @@ async def test_math_correctness(row: EvaluationRow) -> EvaluationRow:
 
 def test_ep_upload_force_flag_triggers_delete_flow(
     mock_env_variables,
-    mock_requests_post,
     mock_gcs_upload,
+    mock_platform_api_client,
 ):
     """
     Test that --force flag triggers the check/delete/recreate flow
@@ -611,39 +592,64 @@ async def test_force_eval(row: EvaluationRow) -> EvaluationRow:
     try:
         os.chdir(test_project_dir)
 
-        # Mock requests.get to return 200 (evaluator exists)
-        with patch("requests.get") as mock_get:
-            mock_get.return_value.status_code = 200
-            mock_get.return_value.raise_for_status = MagicMock()
+        # Mock the Fireworks client with evaluator existing (for force flow)
+        with patch("eval_protocol.evaluation.Fireworks") as mock_fw_class:
+            mock_client = MagicMock()
+            mock_fw_class.return_value = mock_client
 
-            # Mock requests.delete
-            with patch("requests.delete") as mock_delete:
-                mock_delete.return_value.status_code = 200
-                mock_delete.return_value.raise_for_status = MagicMock()
+            # Mock evaluators.get to return an existing evaluator (not raise NotFoundError)
+            mock_existing_evaluator = MagicMock()
+            mock_existing_evaluator.name = "accounts/test_account/evaluators/test-force"
+            mock_client.evaluators.get.return_value = mock_existing_evaluator
 
-                discovered_tests = _discover_tests(test_project_dir)
+            # Mock evaluators.delete
+            mock_client.evaluators.delete.return_value = None
 
-                args = argparse.Namespace(
-                    path=test_project_dir,
-                    entry=None,
-                    id="test-force",
-                    display_name=None,
-                    description=None,
-                    force=True,  # Force flag enabled
-                    yes=True,
-                )
+            # Mock evaluators.create response
+            mock_create_response = MagicMock()
+            mock_create_response.name = "accounts/test_account/evaluators/test-force"
+            mock_client.evaluators.create.return_value = mock_create_response
 
-                with patch("eval_protocol.cli_commands.upload._prompt_select") as mock_select:
-                    mock_select.return_value = discovered_tests
-                    exit_code = upload_command(args)
+            # Mock get_upload_endpoint
+            def get_upload_endpoint_side_effect(evaluator_id, filename_to_size):
+                response = MagicMock()
+                signed_urls = {}
+                for filename in filename_to_size.keys():
+                    signed_urls[filename] = f"https://storage.googleapis.com/test-bucket/{filename}?signed=true"
+                response.filename_to_signed_urls = signed_urls
+                return response
 
-                assert exit_code == 0
+            mock_client.evaluators.get_upload_endpoint.side_effect = get_upload_endpoint_side_effect
 
-                # Verify check happened
-                assert mock_get.called, "Should check if evaluator exists"
+            # Mock validate_upload
+            mock_client.evaluators.validate_upload.return_value = MagicMock()
 
-                # Verify delete happened (since mock_get returned 200)
-                assert mock_delete.called, "Should delete existing evaluator"
+            discovered_tests = _discover_tests(test_project_dir)
+
+            args = argparse.Namespace(
+                path=test_project_dir,
+                entry=None,
+                id="test-force",
+                display_name=None,
+                description=None,
+                force=True,  # Force flag enabled
+                yes=True,
+            )
+
+            with patch("eval_protocol.cli_commands.upload._prompt_select") as mock_select:
+                mock_select.return_value = discovered_tests
+                exit_code = upload_command(args)
+
+            assert exit_code == 0
+
+            # Verify check happened (evaluators.get was called)
+            assert mock_client.evaluators.get.called, "Should check if evaluator exists"
+
+            # Verify delete happened (since evaluator existed)
+            assert mock_client.evaluators.delete.called, "Should delete existing evaluator"
+
+            # Verify create happened after delete
+            assert mock_client.evaluators.create.called, "Should create evaluator after delete"
 
     finally:
         os.chdir(original_cwd)
