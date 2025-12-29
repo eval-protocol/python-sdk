@@ -2,36 +2,39 @@
 Lilac ML integration for Eval Protocol.
 
 This adapter provides utilities for converting between EvaluationRow format
-and Lilac dataset format, enabling powerful data curation features like:
+and pandas DataFrame format, enabling integration with Lilac for data curation:
 - Clustering and deduplication
 - Semantic search and filtering
 - Quality scoring with embeddings
 - Interactive data exploration
 
-Prerequisites:
-    pip install 'lilac[all]'
-
 Example usage:
     >>> from eval_protocol.adapters.lilac import (
-    ...     evaluation_rows_to_lilac_dataset,
-    ...     lilac_dataset_to_evaluation_rows,
+    ...     evaluation_rows_to_dataframe,
+    ...     dataframe_to_evaluation_rows,
     ... )
     >>>
-    >>> # Convert EvaluationRows to Lilac dataset
-    >>> dataset = evaluation_rows_to_lilac_dataset(rows, name='my-traces')
+    >>> # Convert EvaluationRows to DataFrame for Lilac
+    >>> df = evaluation_rows_to_dataframe(rows)
+    >>> df['user_query'] = df['messages_json'].apply(extract_user_message)
     >>>
-    >>> # Do Lilac operations (cluster, filter, etc.)
-    >>> dataset.cluster('messages_json')  # or create your own text column
+    >>> # Use with Lilac for clustering
+    >>> import lilac as ll
+    >>> dataset = ll.create_dataset(ll.DatasetConfig(
+    ...     namespace='local', name='my-data', source=ll.PandasSource(df)
+    ... ))
+    >>> dataset.cluster('user_query')
     >>>
     >>> # Convert back to EvaluationRows
-    >>> processed_rows = lilac_dataset_to_evaluation_rows(dataset)
+    >>> processed_df = dataset.to_pandas(include_signals=True)
+    >>> processed_rows = dataframe_to_evaluation_rows(processed_df)
 """
 
 from __future__ import annotations
 
 import json
 import logging
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 import pandas as pd
 
@@ -43,29 +46,11 @@ from eval_protocol.models import (
     Message,
 )
 
-if TYPE_CHECKING:
-    import lilac as ll
-
 logger = logging.getLogger(__name__)
-
-# Check if lilac is available
-try:
-    import lilac as ll
-
-    LILAC_AVAILABLE = True
-except ImportError:
-    LILAC_AVAILABLE = False
-    ll = None  # type: ignore
-
-
-def _ensure_lilac_available() -> None:
-    """Raise ImportError if lilac is not installed."""
-    if not LILAC_AVAILABLE:
-        raise ImportError("Lilac is not installed. Install it with: pip install 'lilac[all]'")
 
 
 # =============================================================================
-# Core Conversion Functions
+# Internal Helpers
 # =============================================================================
 
 
@@ -86,13 +71,13 @@ def _deserialize_messages(messages_json: str | None) -> list[Message]:
         return []
 
 
-def evaluation_row_to_dict(row: EvaluationRow) -> dict[str, Any]:
-    """Convert a single EvaluationRow to a dictionary for Lilac.
+def _evaluation_row_to_dict(row: EvaluationRow) -> dict[str, Any]:
+    """Convert a single EvaluationRow to a dictionary.
 
     The output contains JSON-serialized fields that can be reconstructed back
     to EvaluationRow. Users can add their own text columns for clustering.
     """
-    result: dict[str, Any] = {
+    return {
         # Identifiers
         "row_id": row.input_metadata.row_id if row.input_metadata else None,
         # Full data as JSON (for reconstruction)
@@ -108,11 +93,9 @@ def evaluation_row_to_dict(row: EvaluationRow) -> dict[str, Any]:
         "has_tools": bool(row.tools),
     }
 
-    return result
 
-
-def dict_to_evaluation_row(data: dict[str, Any]) -> EvaluationRow:
-    """Convert a Lilac row dictionary back to an EvaluationRow."""
+def _dict_to_evaluation_row(data: dict[str, Any]) -> EvaluationRow:
+    """Convert a dictionary back to an EvaluationRow."""
     # Parse messages
     messages = _deserialize_messages(data.get("messages_json"))
 
@@ -167,97 +150,38 @@ def dict_to_evaluation_row(data: dict[str, Any]) -> EvaluationRow:
 
 
 # =============================================================================
-# Main Conversion Functions
+# Public API
 # =============================================================================
-
-
-def evaluation_rows_to_lilac_dataset(
-    rows: list[EvaluationRow],
-    namespace: str = "local",
-    name: str = "eval-data",
-    project_dir: str | None = None,
-) -> Any:
-    """Convert EvaluationRows to a Lilac dataset.
-
-    Args:
-        rows: List of EvaluationRow objects
-        namespace: Lilac namespace (default: 'local')
-        name: Dataset name
-        project_dir: Lilac project directory (uses default if None)
-
-    Returns:
-        Lilac Dataset object ready for clustering, filtering, etc.
-
-    Example:
-        >>> dataset = evaluation_rows_to_lilac_dataset(rows, name='my-traces')
-        >>>
-        >>> # Add your own text column for clustering
-        >>> df = dataset.to_pandas()
-        >>> df['user_query'] = df['messages_json'].apply(extract_user_query)
-        >>> # Re-create dataset with new column, then cluster
-    """
-    _ensure_lilac_available()
-    import lilac as ll_module  # Re-import after ensuring available
-
-    if project_dir:
-        ll_module.set_project_dir(project_dir)
-
-    # Convert to DataFrame
-    records = [evaluation_row_to_dict(row) for row in rows]
-    df = pd.DataFrame(records)
-
-    config = ll_module.DatasetConfig(
-        namespace=namespace,
-        name=name,
-        source=ll_module.PandasSource(df),
-    )
-
-    return ll_module.create_dataset(config)
-
-
-def lilac_dataset_to_evaluation_rows(
-    dataset: Any,
-    filters: list[tuple[str, str, Any]] | None = None,
-    limit: int | None = None,
-) -> list[EvaluationRow]:
-    """Convert a Lilac dataset back to EvaluationRows.
-
-    Args:
-        dataset: Lilac Dataset object
-        filters: Optional Lilac filter tuples, e.g. [('score', 'greater', 0.5)]
-        limit: Maximum number of rows to return
-
-    Returns:
-        List of EvaluationRow objects
-    """
-    _ensure_lilac_available()
-
-    # Build query
-    kwargs: dict[str, Any] = {}
-    if filters:
-        kwargs["filters"] = filters
-    if limit:
-        kwargs["limit"] = limit
-
-    df = dataset.select_rows(**kwargs).df()
-    return dataframe_to_evaluation_rows(df)
 
 
 def evaluation_rows_to_dataframe(rows: list[EvaluationRow]) -> pd.DataFrame:
     """Convert EvaluationRows to a pandas DataFrame.
 
-    Useful if you want to work with the DataFrame directly.
+    The DataFrame can be used directly with Lilac for clustering and curation.
+
+    Args:
+        rows: List of EvaluationRow objects
+
+    Returns:
+        DataFrame with JSON-serialized fields for reconstruction
     """
-    records = [evaluation_row_to_dict(row) for row in rows]
+    records = [_evaluation_row_to_dict(row) for row in rows]
     return pd.DataFrame(records)
 
 
 def dataframe_to_evaluation_rows(df: pd.DataFrame) -> list[EvaluationRow]:
-    """Convert a pandas DataFrame back to EvaluationRows."""
+    """Convert a pandas DataFrame back to EvaluationRows.
+
+    Args:
+        df: DataFrame with messages_json and other serialized fields
+
+    Returns:
+        List of EvaluationRow objects
+    """
     rows = []
     for _, row_data in df.iterrows():
         try:
-            row = dict_to_evaluation_row(row_data.to_dict())
+            row = _dict_to_evaluation_row(row_data.to_dict())
             rows.append(row)
         except Exception as e:
             logger.warning(f"Failed to convert row: {e}")
