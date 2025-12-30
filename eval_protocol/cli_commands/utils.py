@@ -23,6 +23,28 @@ from ..auth import (
 from ..fireworks_rft import _map_api_host_to_app_host
 
 
+def _get_questionary_style():
+    """Get the shared questionary style for CLI prompts - minimal and clean."""
+    try:
+        from questionary import Style
+
+        return Style(
+            [
+                ("qmark", "fg:#888888"),
+                ("question", "bold"),
+                ("answer", "noinherit"),
+                ("pointer", "noinherit"),
+                ("highlighted", "noinherit"),
+                ("selected", "noinherit"),
+                ("separator", "noinherit"),
+                ("instruction", "noinherit fg:#888888"),
+                ("text", "noinherit"),
+            ]
+        )
+    except ImportError:
+        return None
+
+
 @dataclass
 class DiscoveredTest:
     module_path: str
@@ -233,22 +255,8 @@ def _prompt_select_interactive(tests: list[DiscoveredTest]) -> list[DiscoveredTe
     """Interactive selection with arrow keys using questionary."""
     try:
         import questionary
-        from questionary import Style
 
-        # Custom style similar to Vercel CLI
-        custom_style = Style(
-            [
-                ("qmark", "fg:#673ab7 bold"),
-                ("question", "bold"),
-                ("answer", "fg:#2196f3 bold"),
-                ("pointer", "fg:#673ab7 bold"),
-                ("highlighted", "fg:#673ab7 bold"),
-                ("selected", "fg:#cc5454"),
-                ("separator", "fg:#cc5454"),
-                ("instruction", ""),
-                ("text", ""),
-            ]
-        )
+        custom_style = _get_questionary_style()
 
         # Check if only one test - auto-select it
         if len(tests) == 1:
@@ -259,25 +267,31 @@ def _prompt_select_interactive(tests: list[DiscoveredTest]) -> list[DiscoveredTe
             else:
                 return []
 
-        # Single-select UX
-        print("\n")
-        print("Tip: Use ↑/↓ arrows to navigate and press ENTER to select.\n")
-
+        # Build checkbox choices
         choices = []
         for idx, t in enumerate(tests, 1):
             choice_text = _format_test_choice(t, idx)
-            choices.append({"name": choice_text, "value": idx - 1})
+            choices.append(questionary.Choice(title=choice_text, value=idx - 1, checked=False))
 
-        selected = questionary.select(
-            "Select an evaluation test to upload:", choices=choices, style=custom_style
+        print()
+        selected_indices = questionary.checkbox(
+            "Select evaluation tests to upload:",
+            choices=choices,
+            style=custom_style,
+            pointer=">",
+            instruction="(↑↓ move, space select, enter confirm)",
         ).ask()
 
-        if selected is None:  # Ctrl+C
+        if selected_indices is None:  # Ctrl+C
             print("\nUpload cancelled.")
             return []
 
-        print("\n✓ Selected 1 test")
-        return [tests[selected]]
+        if not selected_indices:
+            return []
+
+        selected_tests = [tests[i] for i in selected_indices]
+        print(f"\n✓ Selected {len(selected_tests)} test(s)")
+        return selected_tests
 
     except ImportError:
         # Fallback to simpler implementation
@@ -355,8 +369,9 @@ def _discover_and_select_tests(project_root: str, non_interactive: bool) -> Opti
 
     try:
         selected_tests = _prompt_select(tests, non_interactive=non_interactive)
-    except Exception:
-        print("Error: Failed to open selector UI. Please pass --evaluator or --entry explicitly.")
+    except Exception as e:
+        print(f"Error: Failed to open selector UI: {e}")
+        print("Please pass --evaluator or --entry explicitly.")
         return None
 
     if not selected_tests:
