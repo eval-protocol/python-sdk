@@ -15,9 +15,11 @@ from .utils import (
     _build_entry_point,
     _build_evaluator_dashboard_url,
     _discover_and_select_tests,
+    _discover_tests,
     _ensure_account_id,
     _get_questionary_style,
     _normalize_evaluator_id,
+    _prompt_select,
 )
 
 
