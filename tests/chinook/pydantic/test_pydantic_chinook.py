@@ -1,6 +1,12 @@
+import pytest
+
+pytest.skip(
+    "Skipping Chinook pydantic-ai integration tests (requires external LLM access/credentials).",
+    allow_module_level=True,
+)
+
 from pydantic import BaseModel
 from pydantic_ai import Agent
-import pytest
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message
 from eval_protocol.pytest import evaluation_test

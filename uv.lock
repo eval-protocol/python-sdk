@@ -1236,6 +1236,9 @@ huggingface = [
     { name = "datasets" },
     { name = "transformers" },
 ]
+klavis = [
+    { name = "klavis" },
+]
 langchain = [
     { name = "langchain-core" },
 ]
@@ -1319,6 +1322,7 @@ requires-dist = [
     { name = "hydra-core", specifier = ">=1.3.2" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.30.0" },
     { name = "jupyter", marker = "extra == 'dev'", specifier = ">=1.1.1" },
+    { name = "klavis", marker = "extra == 'klavis'", specifier = ">=2.18.0" },
     { name = "langchain", marker = "extra == 'langgraph-tools'", specifier = ">=0.3.0" },
     { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=0.3.0" },
     { name = "langchain-core", marker = "extra == 'langgraph'", specifier = ">=0.3.75" },
@@ -1379,7 +1383,7 @@ requires-dist = [
     { name = "websockets", specifier = ">=15.0.1" },
     { name = "werkzeug", marker = "extra == 'dev'", specifier = ">=2.0.0" },
 ]
-provides-extras = ["dev", "trl", "openevals", "box2d", "langfuse", "huggingface", "langsmith", "bigquery", "svgbench", "pydantic", "supabase", "chinook", "langchain", "braintrust", "openenv", "dspy", "langgraph", "langgraph-tools", "proxy"]
+provides-extras = ["dev", "trl", "openevals", "box2d", "langfuse", "huggingface", "langsmith", "bigquery", "svgbench", "pydantic", "supabase", "chinook", "langchain", "braintrust", "openenv", "dspy", "klavis", "langgraph", "langgraph-tools", "proxy"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2909,6 +2913,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/70/09/d904a6e96f76ff214be59e7aa6ef7190008f52a0ab6689760a98de0bf37d/keyring-25.6.0.tar.gz", hash = "sha256:0b39998aa941431eb3d9b0d4b2460bc773b9df6fed7621c2dfb291a7e0187a66", size = 62750, upload-time = "2024-12-25T15:26:45.782Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d3/32/da7f44bcb1105d3e88a0b74ebdca50c59121d2ddf71c9e34ba47df7f3a56/keyring-25.6.0-py3-none-any.whl", hash = "sha256:552a3f7af126ece7ed5c89753650eec89c7eaae8617d0aa4d9ad2b75111266bd", size = 39085, upload-time = "2024-12-25T15:26:44.377Z" },
+]
+
+[[package]]
+name = "klavis"
+version = "2.18.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/40/36/14fbb41e800b4af91ddca293e54428b7be1dd51503272ef8e77347922868/klavis-2.18.0.tar.gz", hash = "sha256:5dd6e8ab3523008889729e0095fb2055d427e3bb91c9da2d2e2594db685bbb08", size = 149469, upload-time = "2025-12-12T20:35:56.224Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/c6/8eccfcf538c18c6bd4a5aa3a62af8ba3d9ea22d799df06a604ed87e84c67/klavis-2.18.0-py3-none-any.whl", hash = "sha256:33e7d855bd1b8526859391341c44808fb7da5beb2ad31d7c4a8e383ca1e3846b", size = 335786, upload-time = "2025-12-12T20:35:54.631Z" },
 ]
 
 [[package]]

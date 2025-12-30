@@ -11,6 +11,15 @@ from .rollout_processor import RolloutProcessor
 from .rollout_result_post_processor import RolloutResultPostProcessor, NoOpRolloutResultPostProcessor
 from .types import RolloutProcessorConfig
 
+# Conditional import for optional Klavis dependency
+try:
+    from .default_klavis_sandbox_rollout_processor import KlavisSandboxRolloutProcessor
+
+    KLAVIS_AVAILABLE = True
+except ImportError:
+    KLAVIS_AVAILABLE = False
+    KlavisSandboxRolloutProcessor = None
+
 # Conditional import for optional dependencies
 try:
     from .default_pydantic_ai_rollout_processor import PydanticAgentRolloutProcessor
@@ -46,6 +55,10 @@ __all__ = [
     "RolloutResultPostProcessor",
     "NoOpRolloutResultPostProcessor",
 ]
+
+# Only add to __all__ if available
+if KLAVIS_AVAILABLE:
+    __all__.append("KlavisSandboxRolloutProcessor")
 
 # Only add to __all__ if available
 if PYDANTIC_AI_AVAILABLE:

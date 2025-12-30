@@ -13,6 +13,25 @@ from typing import Dict, List
 logger = logging.getLogger(__name__)
 
 
+def _escape_mdx_text(text: str) -> str:
+    """
+    Escape text that will be emitted as the *children* of an MDX/JSX component.
+
+    In MDX, `{` and `}` can start JS expressions even in otherwise plain text,
+    which can break parsing when help strings include JSON examples.
+    """
+    if not text:
+        return ""
+    # IMPORTANT: escape '&' first to avoid double-escaping.
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("{", "&#123;")
+        .replace("}", "&#125;")
+    )
+
+
 def _get_parser_info(parser: argparse.ArgumentParser, subparser_help: str = "") -> Dict:
     """Extract information from an ArgumentParser."""
     info = {
@@ -110,10 +129,19 @@ def _format_argument_item(arg: Dict) -> List[str]:
     if arg["required"]:
         attrs.append("required")
 
-    # Build description with short alias mention
-    help_text = (arg["help"] or "").replace("<", "&lt;").replace(">", "&gt;")
-    if short_opts:
-        alias_note = f"Short: `{short_opts[0]}`"
+    # Build description with alias mention (short + additional long aliases)
+    help_text = _escape_mdx_text(arg["help"] or "")
+
+    aliases: List[str] = []
+    if arg["option_strings"]:
+        aliases = [o for o in arg["option_strings"] if o != primary]
+
+    if aliases:
+        # Put long aliases first, then short ones for readability.
+        long_aliases = [a for a in aliases if a.startswith("--")]
+        short_aliases = [a for a in aliases if not a.startswith("--")]
+        aliases_fmt = ", ".join([f"`{a}`" for a in (long_aliases + short_aliases)])
+        alias_note = f"Aliases: {aliases_fmt}"
         if help_text:
             help_text = f"{help_text} ({alias_note})"
         else:
