@@ -6,8 +6,12 @@ API key (e.g., OpenAI or Fireworks). You can override the base URL with
 parameters through ``completion_params``. Logs are written to
 ``~/.eval_protocol/datasets/<YYYY-MM-DD>.jsonl`` via the local filesystem
 logger so you can inspect the captured logprobs directly.
+
+Environment variables:
+    FIREWORKS_API_KEY - Required for Fireworks models
 """
 
+import os
 from typing import List
 
 from eval_protocol.dataset_logger.local_fs_dataset_logger_adapter import LocalFSDatasetLoggerAdapter
@@ -17,9 +21,18 @@ from eval_protocol.pytest import evaluation_test
 
 try:  # pragma: no cover - optional dependency for the example
     from deepeval.metrics import GEval
+    from deepeval.models import LiteLLMModel
     from deepeval.test_case import LLMTestCaseParams
 except ImportError as exc:  # pragma: no cover - optional dependency for the example
     raise ImportError("Install deepeval to run this example: pip install deepeval") from exc
+
+# Use DeepSeek via Fireworks for the GEval judge model
+# Note: We need allowed_openai_params to enable top_logprobs for GEval's score normalization
+judge_model = LiteLLMModel(
+    model="fireworks_ai/accounts/fireworks/models/deepseek-v3p2",
+    api_key=os.environ.get("FIREWORKS_API_KEY"),
+    allowed_openai_params=["top_logprobs"],  # Enable logprobs for GEval normalization
+)
 
 # Configure GEval to judge the assistant response with the full chat context.
 wrapped_metric = adapt_metric(
@@ -27,6 +40,8 @@ wrapped_metric = adapt_metric(
         name="Helpful & Relevant",
         criteria="Evaluate the helpfulness and relevance of the model output.",
         evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
+        model=judge_model,
+        top_logprobs=5,  # Fireworks max is 5 (default is 20)
     )
 )
 
@@ -34,12 +49,8 @@ wrapped_metric = adapt_metric(
 @evaluation_test(
     input_rows=[[EvaluationRow(messages=[{"role": "user", "content": "Say hello politely."}])]],
     completion_params=[
-        {"model": "gpt-3.5-turbo", "logprobs": True, "top_logprobs": 3},
         {
-            "model": "accounts/fireworks/models/qwen3-8b",
-            "logprobs": True,
-            "api_base": "https://api.fireworks.ai/inference/v1",
-            "custom_llm_provider": "fireworks_ai",
+            "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p2",
         },
     ],
     logger=LocalFSDatasetLoggerAdapter(),
