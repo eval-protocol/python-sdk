@@ -953,6 +953,49 @@ class EvaluationRow(BaseModel):
                 return str(reason)
         return "unknown"
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize this EvaluationRow to a dictionary.
+
+        The entire EvaluationRow is serialized to JSON, allowing full reconstruction.
+        Additional scalar fields are included for convenient filtering/grouping.
+
+        Returns:
+            Dictionary with 'data_json' containing the full serialized row,
+            plus convenience fields for filtering.
+        """
+        return {
+            "data_json": self.model_dump_json(),
+            "row_id": self.input_metadata.row_id if self.input_metadata else None,
+            "score": self.evaluation_result.score if self.evaluation_result else None,
+            "message_count": len(self.messages),
+            "has_tools": bool(self.tools),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "EvaluationRow":
+        """Reconstruct an EvaluationRow from a dictionary.
+
+        Args:
+            data: Dictionary containing 'data_json' with the serialized EvaluationRow.
+
+        Returns:
+            Reconstructed EvaluationRow instance.
+
+        Raises:
+            ValueError: If 'data_json' is missing or invalid.
+        """
+        from pydantic import ValidationError
+
+        data_json = data.get("data_json")
+        if not data_json:
+            raise ValueError("Missing 'data_json' field in dictionary")
+
+        try:
+            return cls.model_validate_json(data_json)
+        except ValidationError as e:
+            raise ValueError(f"Failed to deserialize EvaluationRow: {e}") from e
+
     def __hash__(self) -> int:
         # Use a stable hash that works across Python processes
         return self._stable_hash()

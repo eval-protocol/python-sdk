@@ -99,3 +99,19 @@ try:
     __all__.extend(["WeaveAdapter"])
 except ImportError:
     pass
+
+# DataFrame adapter (pandas integration for Lilac, etc.)
+try:
+    from .dataframe import (
+        evaluation_rows_to_dataframe,
+        dataframe_to_evaluation_rows,
+    )
+
+    __all__.extend(
+        [
+            "evaluation_rows_to_dataframe",
+            "dataframe_to_evaluation_rows",
+        ]
+    )
+except ImportError:
+    pass
