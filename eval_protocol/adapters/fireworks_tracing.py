@@ -264,6 +264,8 @@ class FireworksTracingAdapter(BaseAdapter):
         self.project_id = project_id
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        # Reuse a single session for connection pooling and to avoid leaking FDs.
+        self._session = requests.Session()
 
     def search_logs(self, tags: List[str], limit: int = 100, hours_back: int = 24) -> List[Dict[str, Any]]:
         """Fetch logs from Fireworks tracing gateway /logs endpoint.
@@ -287,14 +289,14 @@ class FireworksTracingAdapter(BaseAdapter):
         last_error: Optional[str] = None
         for url in urls_to_try:
             try:
-                response = requests.get(url, params=params, timeout=self.timeout, headers=headers)
-                if response.status_code == 404:
-                    # Try next variant
-                    last_error = f"404 for {url}"
-                    continue
-                response.raise_for_status()
-                data = response.json() or {}
-                break
+                with self._session.get(url, params=params, timeout=self.timeout, headers=headers) as response:
+                    if response.status_code == 404:
+                        # Try next variant (must close response to release connection)
+                        last_error = f"404 for {url}"
+                        continue
+                    response.raise_for_status()
+                    data = response.json() or {}
+                    break
             except requests.exceptions.RequestException as e:
                 last_error = str(e)
                 continue
@@ -412,9 +414,9 @@ class FireworksTracingAdapter(BaseAdapter):
 
         result = None
         try:
-            response = requests.get(url, params=params, timeout=self.timeout, headers=headers)
-            response.raise_for_status()
-            result = response.json()
+            with self._session.get(url, params=params, timeout=self.timeout, headers=headers) as response:
+                response.raise_for_status()
+                result = response.json()
         except requests.exceptions.HTTPError as e:
             error_msg = str(e)
 
@@ -451,3 +453,10 @@ class FireworksTracingAdapter(BaseAdapter):
 
         logger.info("Successfully converted %d traces to evaluation rows", len(eval_rows))
         return eval_rows
+
+    def close(self) -> None:
+        """Close underlying HTTP resources."""
+        try:
+            self._session.close()
+        except Exception:
+            pass

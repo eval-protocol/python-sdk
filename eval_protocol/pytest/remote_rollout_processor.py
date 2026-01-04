@@ -3,6 +3,7 @@ import time
 from typing import Any, Dict, List, Optional, Callable
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
@@ -55,6 +56,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._output_data_loader = output_data_loader or default_fireworks_output_data_loader
         self._tracing_adapter = FireworksTracingAdapter(base_url=self._model_base_url)
 
+        self._session = requests.Session()
+
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         tasks: List[asyncio.Task[EvaluationRow]] = []
 
@@ -94,8 +97,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
             def _post_init() -> None:
                 url = f"{remote_base_url}/init"
                 try:
-                    r = requests.post(url, json=init_payload.model_dump(), timeout=300)
-                    r.raise_for_status()
+                    with self._session.post(url, json=init_payload.model_dump(), timeout=300) as r:
+                        r.raise_for_status()
                 except requests.exceptions.Timeout:
                     raise TimeoutError(
                         f"The /init endpoint tried {url} with {init_payload.model_dump()} but timed out after 300 seconds."
@@ -108,9 +111,9 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
             def _get_status() -> Dict[str, Any]:
                 url = f"{remote_base_url}/status"
-                r = requests.get(url, params={"rollout_id": row.execution_metadata.rollout_id}, timeout=15)
-                r.raise_for_status()
-                return r.json()
+                with self._session.get(url, params={"rollout_id": row.execution_metadata.rollout_id}, timeout=15) as r:
+                    r.raise_for_status()
+                    return r.json()
 
             continue_polling_status = True
             while time.time() < deadline:
@@ -204,4 +207,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
         return tasks
 
     def cleanup(self) -> None:
+        try:
+            self._session.close()
+        except Exception:
+            pass
         return None
