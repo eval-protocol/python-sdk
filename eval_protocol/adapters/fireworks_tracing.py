@@ -264,7 +264,6 @@ class FireworksTracingAdapter(BaseAdapter):
         self.project_id = project_id
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        # Reuse a single session for connection pooling and to avoid leaking FDs.
         self._session = requests.Session()
 
     def search_logs(self, tags: List[str], limit: int = 100, hours_back: int = 24) -> List[Dict[str, Any]]:
@@ -415,21 +414,19 @@ class FireworksTracingAdapter(BaseAdapter):
         result = None
         try:
             with self._session.get(url, params=params, timeout=self.timeout, headers=headers) as response:
-                response.raise_for_status()
+                if response.status_code >= 400:
+                    error_msg: str = response.text
+                    try:
+                        payload = response.json()
+                        if isinstance(payload, dict) and "detail" in payload:
+                            detail = payload.get("detail")
+                            if detail:
+                                error_msg = str(detail)
+                    except Exception:
+                        pass
+                    logger.error("Failed to fetch traces from proxy (HTTP %s): %s", response.status_code, error_msg)
+                    return eval_rows
                 result = response.json()
-        except requests.exceptions.HTTPError as e:
-            error_msg = str(e)
-
-            # Try to extract detail message from response
-            if e.response is not None:
-                try:
-                    error_detail = e.response.json().get("detail", {})
-                    error_msg = error_detail or e.response.text
-                except Exception:  # In case e.response.json() fails
-                    error_msg = f"Proxy error: {e.response.text}"
-
-            logger.error("Failed to fetch traces from proxy (HTTP %s): %s", e.response.status_code, error_msg)
-            return eval_rows
         except requests.exceptions.RequestException as e:
             # Non-HTTP errors (network issues, timeouts, etc.)
             logger.error("Failed to fetch traces from proxy: %s", str(e))

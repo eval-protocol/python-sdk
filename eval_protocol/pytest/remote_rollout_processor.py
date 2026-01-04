@@ -54,7 +54,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._timeout_seconds = timeout_seconds
         self._output_data_loader = output_data_loader or default_fireworks_output_data_loader
         self._tracing_adapter = FireworksTracingAdapter(base_url=self._model_base_url)
-
         self._session = requests.Session()
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
@@ -206,6 +205,10 @@ class RemoteRolloutProcessor(RolloutProcessor):
         return tasks
 
     def cleanup(self) -> None:
+        try:
+            self._tracing_adapter.close()
+        except Exception:
+            pass
         try:
             self._session.close()
         except Exception:
