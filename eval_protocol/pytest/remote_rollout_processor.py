@@ -3,7 +3,6 @@ import time
 from typing import Any, Dict, List, Optional, Callable
 
 import requests
-from requests.adapters import HTTPAdapter
 
 from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
