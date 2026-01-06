@@ -380,27 +380,15 @@ def _resolve_evaluator(
         selected_tests = _discover_and_select_tests(project_root, non_interactive=non_interactive)
         if not selected_tests:
             return None, None, None, None
+
         if len(selected_tests) != 1:
             if non_interactive and len(selected_tests) > 1:
                 print("Error: Multiple evaluation tests found in --yes (non-interactive) mode.")
                 print("       Please pass --evaluator or --entry to disambiguate.")
-                try:
-                    # Offer candidate evaluator ids for convenience
-                    tests = _discover_tests(project_root)
-                    if tests:
-                        print("       Candidate evaluator ids:")
-                        for t in tests:
-                            func = t.qualname.split(".")[-1]
-                            stem = os.path.splitext(os.path.basename(t.file_path))[0]
-                            cand = _normalize_evaluator_id(f"{stem}-{func}")
-                            print(f"         - {cand}")
-                except Exception:
-                    pass
             else:
                 print("Error: Please select exactly one evaluation test for 'create rft'.")
             return None, None, None, None
 
-        # Derive evaluator_id from user's single selection
         chosen = selected_tests[0]
         func_name = chosen.qualname.split(".")[-1]
         source_file_name = os.path.splitext(os.path.basename(chosen.file_path))[0]
