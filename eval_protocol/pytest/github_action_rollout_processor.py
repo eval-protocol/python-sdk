@@ -50,7 +50,6 @@ class GithubActionRolloutProcessor(RolloutProcessor):
         self.timeout_seconds = timeout_seconds
         self.max_find_workflow_retries = max_find_workflow_retries
         self.github_token = github_token
-        self._output_data_loader = default_fireworks_output_data_loader
 
     def _headers(self) -> Dict[str, str]:
         headers = {"Accept": "application/vnd.github+json"}
@@ -198,7 +197,7 @@ class GithubActionRolloutProcessor(RolloutProcessor):
             row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
             def _update_with_trace() -> None:
-                return update_row_with_remote_trace(row, self._output_data_loader, self.model_base_url)
+                return update_row_with_remote_trace(row, default_fireworks_output_data_loader, self.model_base_url)
 
             await asyncio.to_thread(_update_with_trace)
 

@@ -50,7 +50,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
             self._model_base_url = _ep_model_base_url
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
-        self._output_data_loader = default_fireworks_output_data_loader
         self._tracing_adapter = FireworksTracingAdapter(base_url=self._model_base_url)
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
@@ -186,7 +185,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
             row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
             def _update_with_trace() -> None:
-                return update_row_with_remote_trace(row, self._output_data_loader, model_base_url)
+                return update_row_with_remote_trace(row, default_fireworks_output_data_loader, model_base_url)
 
             await asyncio.to_thread(_update_with_trace)  # Update row with remote trace in-place
             return row
