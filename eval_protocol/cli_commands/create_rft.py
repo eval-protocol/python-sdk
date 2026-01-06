@@ -103,7 +103,7 @@ def _maybe_transform_dataset_jsonl_via_adapter(
         dir=output_dir,
     ) as f:
         for row in eval_rows:
-            f.write(json.dumps(row.model_dump(mode="json"), ensure_ascii=False) + "\n")
+            f.write(json.dumps(row.model_dump(mode="json", exclude_none=True), ensure_ascii=False) + "\n")
         out_path = os.path.abspath(f.name)
     try:
         rel = os.path.relpath(out_path, project_root)
