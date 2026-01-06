@@ -1,6 +1,5 @@
 import argparse
 from eval_protocol.cli_commands.utils import DiscoveredTest
-import importlib.util
 import os
 import re
 import sys
@@ -18,6 +17,7 @@ from .utils import (
     _discover_tests,
     _ensure_account_id,
     _get_questionary_style,
+    load_module_from_file_path,
     _normalize_evaluator_id,
     _prompt_select,
 )
@@ -120,13 +120,8 @@ def _resolve_entry_to_qual_and_source(entry: str, cwd: str) -> tuple[str, str]:
         source_file_path = os.path.join(cwd, dotted_as_path)
 
     # Load the module from the file path
-    spec = importlib.util.spec_from_file_location(Path(source_file_path).stem, source_file_path)
-    if not spec or not spec.loader:
-        raise ValueError(f"Unable to load module from path: {source_file_path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)  # type: ignore[attr-defined]
-    module_name = spec.name
+    module = load_module_from_file_path(source_file_path)
+    module_name = getattr(module, "__name__", Path(source_file_path).stem)
 
     if not hasattr(module, func):
         raise ValueError(f"Function '{func}' not found in module '{module_name}'")

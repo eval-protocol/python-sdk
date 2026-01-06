@@ -1206,3 +1206,95 @@ def test_create_rft_prefers_explicit_dataset_jsonl_over_input_dataset(rft_test_h
     assert captured["jsonl_path"] != str(inferred_jsonl)
     # And because --dataset-jsonl was provided, we should never call the input_dataset extractor
     assert calls["input_dataset"] == 0
+
+
+def test_create_rft_transforms_raw_input_dataset_via_dataset_adapter_before_upload(rft_test_harness, monkeypatch):
+    project = rft_test_harness
+
+    # Create a real @evaluation_test-decorated module so create_rft can extract __ep_params__.dataset_adapter
+    metric_dir = project / "metric"
+    metric_dir.mkdir(parents=True, exist_ok=True)
+
+    raw_jsonl = metric_dir / "raw.jsonl"
+    raw_jsonl.write_text('{"q":"hi","a":"ok"}\n{"q":"yo","a":"ok2"}\n', encoding="utf-8")
+
+    test_file = metric_dir / "test_adapt.py"
+    test_file.write_text(
+        """
+from typing import Any
+from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.pytest import evaluation_test
+
+def my_adapter(rows: list[dict[str, Any]]) -> list[EvaluationRow]:
+    return [
+        EvaluationRow(messages=[Message(role="user", content=r["q"])], ground_truth=r.get("a"))
+        for r in rows
+    ]
+
+@evaluation_test(
+    input_dataset=["raw.jsonl"],
+    dataset_adapter=my_adapter,
+    num_runs=1,
+    max_dataset_rows=2,
+    mode="pointwise",
+)
+def test_adapt(row: EvaluationRow) -> EvaluationRow:
+    return row
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    # Discovery: exactly one test, and resolve_selected_test points to our module/function
+    single_disc = SimpleNamespace(qualname="metric.test_adapt.test_adapt", file_path=str(test_file))
+    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+    monkeypatch.setattr(
+        cr,
+        "_resolve_selected_test",
+        lambda project_root, evaluator_id, selected_tests=None: (str(test_file), "test_adapt"),
+    )
+
+    captured = {"jsonl_path": None}
+
+    def _fake_create_dataset_from_jsonl(account_id, api_key, api_base, dataset_id, display_name, jsonl_path):
+        captured["jsonl_path"] = jsonl_path
+        return dataset_id, {"name": f"accounts/{account_id}/datasets/{dataset_id}", "state": "UPLOADING"}
+
+    monkeypatch.setattr(cr, "create_dataset_from_jsonl", _fake_create_dataset_from_jsonl)
+
+    # Ensure upload path doesn't touch the network; job creation via stub_fireworks fixture
+    args = argparse.Namespace(
+        evaluator=None,
+        yes=True,
+        dry_run=False,
+        force=False,
+        env_file=None,
+        dataset=None,
+        dataset_jsonl=None,
+        dataset_display_name=None,
+        dataset_builder=None,
+        base_model=None,
+        warm_start_from="accounts/acct123/models/ft-abc123",
+        output_model=None,
+        n=None,
+        max_tokens=None,
+        learning_rate=None,
+        batch_size=None,
+        epochs=None,
+        lora_rank=None,
+        max_context_length=None,
+        chunk_size=None,
+        eval_auto_carveout=None,
+        skip_validation=True,
+        ignore_docker=False,
+        docker_build_extra="",
+        docker_run_extra="",
+    )
+
+    rc = cr.create_rft_command(args)
+    assert rc == 0
+    assert captured["jsonl_path"] is not None
+    # Raw JSONL should NOT be uploaded; transformed EvaluationRow JSONL should be.
+    assert os.path.abspath(captured["jsonl_path"]) != os.path.abspath(str(raw_jsonl))
+    assert os.path.basename(captured["jsonl_path"]).endswith(".jsonl")
+    # The transformed file should validate as EvaluationRow JSONL
+    assert cr._validate_dataset_jsonl(captured["jsonl_path"])

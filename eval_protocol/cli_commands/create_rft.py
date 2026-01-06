@@ -5,15 +5,15 @@ import json
 import os
 import sys
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 import inspect
 import requests
+import tempfile
 from pydantic import ValidationError
 
 from ..auth import get_fireworks_api_base, get_fireworks_api_key
-from ..common_utils import get_user_agent
+from ..common_utils import get_user_agent, load_jsonl
 from ..fireworks_rft import (
-    build_default_output_model,
     create_dataset_from_jsonl,
     detect_dataset_builder,
     materialize_dataset_via_builder,
@@ -31,10 +31,86 @@ from .utils import (
     _normalize_evaluator_id,
     _print_links,
     _resolve_selected_test,
+    load_module_from_file_path,
 )
 from .local_test import run_evaluator_test
 
 from fireworks import Fireworks
+
+
+def _extract_dataset_adapter(
+    test_file_path: str, test_func_name: str
+) -> Optional[Callable[[list[dict[str, Any]]], Any]]:
+    """Extract dataset_adapter from an @evaluation_test wrapper via __ep_params__."""
+    try:
+        module = load_module_from_file_path(test_file_path)
+        wrapper = getattr(module, test_func_name, None)
+        if wrapper is None:
+            return None
+        ep_params = getattr(wrapper, "__ep_params__", None)
+        if ep_params is None:
+            return None
+        adapter = getattr(ep_params, "dataset_adapter", None)
+        if callable(adapter):
+            return adapter
+        return None
+    except Exception:
+        return None
+
+
+def _maybe_transform_dataset_jsonl_via_adapter(
+    project_root: str,
+    dataset_jsonl: str,
+    test_file_path: Optional[str],
+    test_func_name: Optional[str],
+) -> str:
+    """Transform dataset_jsonl via the test's dataset_adapter (when available).
+
+    For RFT dataset uploads, we want the uploaded dataset to match what evaluation-time
+    would run on. If the selected evaluation test provides a dataset_adapter, that
+    adapter is treated as the source of truth for constructing EvaluationRows.
+    """
+    if not dataset_jsonl:
+        return dataset_jsonl
+
+    if not test_file_path or not test_func_name:
+        return dataset_jsonl
+
+    adapter = _extract_dataset_adapter(test_file_path, test_func_name)
+    if not adapter:
+        return dataset_jsonl
+
+    raw_rows: list[dict[str, Any]] = load_jsonl(dataset_jsonl)  # type: ignore[assignment]
+    adapted = adapter(raw_rows)
+    if not isinstance(adapted, list):
+        raise ValueError("dataset_adapter must return a list of EvaluationRow (or dicts parseable as EvaluationRow).")
+
+    eval_rows: list[EvaluationRow] = []
+    for item in adapted:
+        if isinstance(item, EvaluationRow):
+            eval_rows.append(item)
+        else:
+            eval_rows.append(EvaluationRow.model_validate(item))
+
+    output_dir = os.path.join(project_root, ".ep_tmp")
+    os.makedirs(output_dir, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        delete=False,
+        suffix=".jsonl",
+        prefix="ep_rft_dataset_",
+        dir=output_dir,
+    ) as f:
+        for row in eval_rows:
+            f.write(json.dumps(row.model_dump(mode="json"), ensure_ascii=False) + "\n")
+        out_path = os.path.abspath(f.name)
+    try:
+        rel = os.path.relpath(out_path, project_root)
+    except Exception:
+        rel = out_path
+    print(f"✓ Transformed dataset via dataset_adapter into EvaluationRow JSONL: {rel} ({len(eval_rows)} rows)")
+    return out_path
 
 
 def _extract_jsonl_from_dataloader(test_file_path: str, test_func_name: str) -> Optional[str]:
@@ -45,18 +121,10 @@ def _extract_jsonl_from_dataloader(test_file_path: str, test_func_name: str) -> 
     relative to the directory of the test file.
     """
     try:
-        import importlib.util
-        from pathlib import Path
-
-        spec = importlib.util.spec_from_file_location(Path(test_file_path).stem, test_file_path)
-        if not spec or not spec.loader:
+        module = load_module_from_file_path(test_file_path)
+        wrapper = getattr(module, test_func_name, None)
+        if wrapper is None:
             return None
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)  # type: ignore[attr-defined]
-        if not hasattr(module, test_func_name):
-            return None
-        wrapper = getattr(module, test_func_name)
         marks = getattr(wrapper, "pytestmark", [])
         for m in marks:
             if getattr(m, "name", "") == "parametrize":
@@ -105,18 +173,10 @@ def _extract_jsonl_from_input_dataset(test_file_path: str, test_func_name: str) 
     of the test file.
     """
     try:
-        import importlib.util
-        from pathlib import Path
-
-        spec = importlib.util.spec_from_file_location(Path(test_file_path).stem, test_file_path)
-        if not spec or not spec.loader:
+        module = load_module_from_file_path(test_file_path)
+        wrapper = getattr(module, test_func_name, None)
+        if wrapper is None:
             return None
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)  # type: ignore[attr-defined]
-        if not hasattr(module, test_func_name):
-            return None
-        wrapper = getattr(module, test_func_name)
         marks = getattr(wrapper, "pytestmark", [])
         for m in marks:
             if getattr(m, "name", "") == "parametrize":
@@ -718,6 +778,16 @@ def create_rft_command(args) -> int:
     # Require either an existing dataset id or a JSONL source to materialize from
     if dataset_jsonl is None and not dataset_id:
         return 1
+
+    # 2.5) If the selected evaluation test provides a dataset_adapter, always use it to
+    # construct the EvaluationRow dataset that we upload for RFT.
+    if dataset_jsonl is not None:
+        dataset_jsonl = _maybe_transform_dataset_jsonl_via_adapter(
+            project_root=project_root,
+            dataset_jsonl=dataset_jsonl,
+            test_file_path=selected_test_file_path,
+            test_func_name=selected_test_func_name,
+        )
 
     # 3) Optional local validation
     if not skip_validation:

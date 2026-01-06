@@ -1,3 +1,6 @@
+from types import ModuleType
+
+
 import os
 import ast
 import sys
@@ -6,21 +9,44 @@ import inspect
 import argparse
 import typing
 import types
+import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List, Optional, is_typeddict
+from typing import Any, List, Optional
 import typing_extensions
 import inspect
 from collections.abc import Callable
 import pytest
 
 from ..auth import (
-    get_fireworks_account_id,
     get_fireworks_api_base,
     get_fireworks_api_key,
     verify_api_key_and_get_account_id,
 )
 from ..fireworks_rft import _map_api_host_to_app_host
+
+
+def load_module_from_file_path(source_file_path: str) -> ModuleType:
+    """Load a Python module from an absolute/relative filesystem path.
+
+    This mirrors the CLI behavior used by `upload.py` and `create_rft.py`:
+    - module name is derived from the file stem (e.g. /a/b/foo.py -> foo)
+    - the module is inserted into sys.modules under that name before exec
+    """
+    abs_path = os.path.abspath(source_file_path)
+    if not os.path.isfile(abs_path):
+        raise ValueError(f"File not found: {abs_path}")
+    if not abs_path.endswith(".py"):
+        raise ValueError(f"Expected a .py file path, got: {abs_path}")
+
+    module_name = Path(abs_path).stem
+    spec = importlib.util.spec_from_file_location(module_name, abs_path)
+    if not spec or not spec.loader:
+        raise ValueError(f"Unable to load module from path: {abs_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)  # type: ignore[attr-defined]
+    return module
 
 
 def _get_questionary_style():
