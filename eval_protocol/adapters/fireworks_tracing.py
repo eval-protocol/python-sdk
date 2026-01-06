@@ -268,7 +268,7 @@ class FireworksTracingAdapter(BaseAdapter):
     def search_logs(self, tags: List[str], limit: int = 100, hours_back: int = 24) -> List[Dict[str, Any]]:
         """Fetch logs from Fireworks tracing gateway /logs endpoint.
 
-        Returns entries with keys: timestamp, message, severity, tags.
+        Returns entries with keys: timestamp, message, severity, tags, status, extras.
         """
         if not tags:
             raise ValueError("At least one tag is required to fetch logs")
@@ -315,6 +315,7 @@ class FireworksTracingAdapter(BaseAdapter):
                     "severity": e.get("severity", "INFO"),
                     "tags": e.get("tags", []),
                     "status": e.get("status"),
+                    "extras": e.get("extras"),
                 }
             )
         return results

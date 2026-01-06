@@ -14,6 +14,7 @@ interface FireworksLogInfo extends TransformableInfo {
   status?: any;
   program?: string;
   logger_name?: string;
+  extras?: Record<string, any>;
   [key: string]: any;
 }
 
@@ -32,6 +33,7 @@ interface FireworksPayload {
     logger_name: string;
     level: string;
     timestamp: string;
+    [key: string]: any;
   };
 }
 
@@ -208,12 +210,18 @@ export class FireworksTransport extends Transport {
 
     const program = (typeof info.program === 'string' ? info.program : null) || 'eval_protocol';
 
+    const extraInput =
+      info.extras && typeof info.extras === 'object' && !Array.isArray(info.extras)
+        ? info.extras
+        : {};
+
     return {
       program,
       status: this.getStatusInfo(info),
       message,
       tags,
       extras: {
+        ...extraInput,
         logger_name: info.logger_name || 'winston',
         level: level.toUpperCase(),
         timestamp,
