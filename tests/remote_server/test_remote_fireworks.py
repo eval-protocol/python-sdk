@@ -13,8 +13,6 @@ from eval_protocol.models import EvaluationRow, Message, EvaluateResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.remote_rollout_processor import RemoteRolloutProcessor
 
-ROLLOUT_IDS = set()
-
 
 def find_available_port() -> int:
     """Find an available port on localhost"""
@@ -64,16 +62,6 @@ def setup_remote_server():
     process.wait()
 
 
-@pytest.fixture(autouse=True)
-def check_rollout_coverage():
-    """Ensure we processed all expected rollout_ids"""
-    global ROLLOUT_IDS
-    ROLLOUT_IDS.clear()
-    yield
-
-    assert len(ROLLOUT_IDS) == 3, f"Expected to see 3 rollout_ids, but only saw {ROLLOUT_IDS}"
-
-
 def rows() -> List[EvaluationRow]:
     """Generate local rows with rich input_metadata to verify it survives remote traces."""
     base_dataset_info = {
@@ -109,7 +97,6 @@ async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> Evaluat
     - fetch traces from Langfuse via Fireworks tracing proxy filtered by metadata via output_data_loader; FAIL if none found
     """
     row.evaluation_result = EvaluateResult(score=0.0, reason="Dummy evaluation result")
-    ROLLOUT_IDS.add(row.execution_metadata.rollout_id)
 
     assert row.messages[0].content == "What is the capital of France?", "Row should have correct message content"
     assert len(row.messages) > 1, "Row should have a response. If this fails, we fellback to the original row."

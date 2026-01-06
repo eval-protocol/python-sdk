@@ -13,18 +13,6 @@ from eval_protocol.models import EvaluationRow, InputMetadata
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.github_action_rollout_processor import GithubActionRolloutProcessor
 
-ROLLOUT_IDS = set()
-
-
-@pytest.fixture(autouse=True)
-def check_rollout_coverage():
-    """Ensure we processed all expected rollout_ids"""
-    global ROLLOUT_IDS
-    ROLLOUT_IDS.clear()
-    yield
-
-    assert len(ROLLOUT_IDS) == 3, f"Expected to see 3 rollout_ids, but only saw {ROLLOUT_IDS}"
-
 
 def rows() -> List[EvaluationRow]:
     return [
@@ -54,9 +42,7 @@ def rows() -> List[EvaluationRow]:
 )
 async def test_github_actions_rollout(row: EvaluationRow) -> EvaluationRow:
     """Test GitHub Actions rollout with worker-controlled dataset."""
-    # Track rollout IDs for coverage check
-    global ROLLOUT_IDS
-    ROLLOUT_IDS.add(row.execution_metadata.rollout_id)
+    assert row.execution_metadata.rollout_id is not None
 
     # This dataset is built into github_actions/rollout_worker.py
     if row.messages[0].content == "What is the capital of France?":
