@@ -1,6 +1,6 @@
 import asyncio
 import time
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -26,8 +26,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
     """
     Rollout processor that triggers a remote HTTP server to perform the rollout.
 
-    By default, fetches traces from the Fireworks tracing proxy using rollout_id tags.
-    You can provide a custom output_data_loader for different tracing backends.
+    Fetches traces from the Fireworks tracing proxy using rollout_id tags.
 
     See https://evalprotocol.io/tutorial/remote-rollout-processor for documentation.
     """
@@ -39,7 +38,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
         model_base_url: str = "https://tracing.fireworks.ai",
         poll_interval: float = 1.0,
         timeout_seconds: float = 120.0,
-        output_data_loader: Optional[Callable[[DataLoaderConfig], DynamicDataLoader]] = None,
     ):
         # Prefer constructor-provided configuration. These can be overridden via
         # config.kwargs at call time for backward compatibility.
@@ -52,7 +50,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
             self._model_base_url = _ep_model_base_url
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
-        self._output_data_loader = output_data_loader or default_fireworks_output_data_loader
+        self._output_data_loader = default_fireworks_output_data_loader
         self._tracing_adapter = FireworksTracingAdapter(base_url=self._model_base_url)
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:

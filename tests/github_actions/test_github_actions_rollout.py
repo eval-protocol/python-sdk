@@ -12,9 +12,6 @@ from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluationRow, InputMetadata
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.github_action_rollout_processor import GithubActionRolloutProcessor
-from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
-from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
-from eval_protocol.utils.evaluation_row_utils import filter_longest_conversation
 
 ROLLOUT_IDS = set()
 
@@ -27,21 +24,6 @@ def check_rollout_coverage():
     yield
 
     assert len(ROLLOUT_IDS) == 3, f"Expected to see 3 rollout_ids, but only saw {ROLLOUT_IDS}"
-
-
-def fetch_fireworks_traces(config: DataLoaderConfig) -> List[EvaluationRow]:
-    global ROLLOUT_IDS  # Track all rollout_ids we've seen
-    ROLLOUT_IDS.add(config.rollout_id)
-
-    base_url = config.model_base_url or "https://tracing.fireworks.ai"
-    adapter = FireworksTracingAdapter(base_url=base_url)
-    return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
-
-
-def fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
-    return DynamicDataLoader(
-        generators=[lambda: fetch_fireworks_traces(config)], preprocess_fn=filter_longest_conversation
-    )
 
 
 def rows() -> List[EvaluationRow]:
@@ -68,7 +50,6 @@ def rows() -> List[EvaluationRow]:
         ref=os.getenv("GITHUB_REF", "main"),
         poll_interval=3.0,  # For multi-turn, you'll likely want higher poll interval
         timeout_seconds=300,
-        output_data_loader=fireworks_output_data_loader,
     ),
 )
 async def test_github_actions_rollout(row: EvaluationRow) -> EvaluationRow:

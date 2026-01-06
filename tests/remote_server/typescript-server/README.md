@@ -120,7 +120,6 @@ from eval_protocol import (
     data_loaders=[InlineDataLoader(messages=[[Message(role="user", content="Hello")]])],
     rollout_processor=RemoteRolloutProcessor(
         remote_base_url="http://localhost:3000",
-        output_data_loader=create_output_data_loader,
     )
 )
 def test_remote_http(row: EvaluationRow) -> EvaluationRow:
