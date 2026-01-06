@@ -9,8 +9,10 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
-  "version": "0.1.10",
+  "files": [
+    "dist"
+  ],
+  "version": "0.1.11",
   "peerDependencies": {
     "typescript": "^5",
     "@vercel/functions": "^1.4.0",

@@ -126,7 +126,7 @@ class FireworksTracingHttpHandler(logging.Handler):
         program = cast(Optional[str], getattr(record, "program", None)) or "eval_protocol"
 
         extras_input = getattr(record, "extras", None)
-        extras: Dict[str, Any] = extras_input if isinstance(extras_input, dict) else {}
+        extras: Dict[str, Any] = dict(extras_input) if isinstance(extras_input, dict) else {}
         extras["logger_name"] = record.name
         extras["level"] = record.levelname
         extras["timestamp"] = timestamp
