@@ -3,8 +3,29 @@ import os
 from typing import Optional
 
 import requests
+from dotenv import find_dotenv, load_dotenv
 
 logger = logging.getLogger(__name__)
+
+# --- Load .env files ---
+# Attempt to load .env.dev first, then .env as a fallback.
+# This happens when the module is imported.
+# We use override=False (default) so that existing environment variables
+# (e.g., set in the shell) are NOT overridden by .env files.
+_ENV_DEV_PATH = find_dotenv(filename=".env.dev", raise_error_if_not_found=False, usecwd=True)
+if _ENV_DEV_PATH:
+    load_dotenv(dotenv_path=_ENV_DEV_PATH, override=False)
+    logger.debug(f"eval_protocol.auth: Loaded environment variables from: {_ENV_DEV_PATH}")
+else:
+    _ENV_PATH = find_dotenv(filename=".env", raise_error_if_not_found=False, usecwd=True)
+    if _ENV_PATH:
+        load_dotenv(dotenv_path=_ENV_PATH, override=False)
+        logger.debug(f"eval_protocol.auth: Loaded environment variables from: {_ENV_PATH}")
+    else:
+        logger.debug(
+            "eval_protocol.auth: No .env.dev or .env file found. Relying on shell/existing environment variables."
+        )
+# --- End .env loading ---
 
 
 def get_fireworks_api_key() -> Optional[str]:
@@ -73,6 +94,8 @@ def verify_api_key_and_get_account_id(
     Args:
         api_key: Optional explicit API key. When None, resolves via get_fireworks_api_key().
         api_base: Optional explicit API base. When None, resolves via get_fireworks_api_base().
+            If api_base is api.fireworks.ai, it is used directly. Otherwise, defaults to
+            dev.api.fireworks.ai for the verification call.
 
     Returns:
         The resolved account id if verification succeeds and the header is present; otherwise None.
@@ -81,7 +104,12 @@ def verify_api_key_and_get_account_id(
         resolved_key = api_key or get_fireworks_api_key()
         if not resolved_key:
             return None
-        resolved_base = api_base or get_fireworks_api_base()
+        provided_base = api_base or get_fireworks_api_base()
+        # Use api.fireworks.ai if explicitly provided, otherwise fall back to dev
+        if "api.fireworks.ai" in provided_base:
+            resolved_base = provided_base
+        else:
+            resolved_base = "https://dev.api.fireworks.ai"
 
         from .common_utils import get_user_agent
 

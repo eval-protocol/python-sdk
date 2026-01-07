@@ -3,8 +3,6 @@ import logging
 import sys
 from typing import Optional
 
-from dotenv import find_dotenv, load_dotenv
-
 from eval_protocol.auth import (
     get_fireworks_account_id,
     get_fireworks_api_base,
@@ -15,27 +13,6 @@ from fireworks.types import Secret
 from fireworks import FireworksError, NotFoundError, InternalServerError
 
 logger = logging.getLogger(__name__)
-
-# --- Load .env files ---
-# Attempt to load .env.dev first, then .env as a fallback.
-# This happens when the module is imported.
-# We use override=False (default) so that existing environment variables
-# (e.g., set in the shell) are NOT overridden by .env files.
-ENV_DEV_PATH = find_dotenv(filename=".env.dev", raise_error_if_not_found=False, usecwd=True)
-if ENV_DEV_PATH:
-    load_dotenv(dotenv_path=ENV_DEV_PATH, override=False)
-    logger.info(f"eval_protocol.platform_api: Loaded environment variables from: {ENV_DEV_PATH}")
-else:
-    ENV_PATH = find_dotenv(filename=".env", raise_error_if_not_found=False, usecwd=True)
-    if ENV_PATH:
-        load_dotenv(dotenv_path=ENV_PATH, override=False)
-        logger.info(f"eval_protocol.platform_api: Loaded environment variables from: {ENV_PATH}")
-    else:
-        logger.info(
-            "eval_protocol.platform_api: No .env.dev or .env file found. "
-            "Relying on shell/existing environment variables."
-        )
-# --- End .env loading ---
 
 
 class PlatformAPIError(Exception):
