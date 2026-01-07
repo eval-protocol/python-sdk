@@ -4,6 +4,7 @@ import time
 from typing import List, Optional
 
 import fireworks
+from fireworks.types import EvaluatorVersionParam
 import requests
 
 from eval_protocol.auth import (
@@ -234,6 +235,25 @@ class Evaluator:
                     f"Cannot proceed with code upload. Response: {result}"
                 )
 
+            evaluator_version_param: EvaluatorVersionParam = {}
+            if "commit_hash" in evaluator_params:
+                evaluator_version_param["commit_hash"] = evaluator_params["commit_hash"]
+            if "entry_point" in evaluator_params:
+                evaluator_version_param["entry_point"] = evaluator_params["entry_point"]
+            if "requirements" in evaluator_params:
+                evaluator_version_param["requirements"] = evaluator_params["requirements"]
+
+            evaluator_version = client.evaluator_versions.create(
+                evaluator_id=evaluator_id,
+                evaluator_version=evaluator_version_param,
+            )
+            evaluator_version_id = evaluator_version.name.split("/")[-1] if evaluator_version.name else None
+            if not evaluator_version_id:
+                raise ValueError(
+                    "Create evaluator version response missing 'name' field. "
+                    f"Cannot proceed with code upload. Response: {evaluator_version}"
+                )
+
             try:
                 # Create tar.gz of current directory
                 cwd = os.getcwd()
@@ -243,12 +263,10 @@ class Evaluator:
 
                 tar_size = self._create_tar_gz_with_ignores(tar_path, cwd)
 
-                version_id = "test"
-
                 # Call GetEvaluatorUploadEndpoint using SDK
                 logger.info(f"Requesting upload endpoint for {tar_filename}")
                 upload_response = client.evaluator_versions.get_upload_endpoint(
-                    version_id=version_id,
+                    version_id=evaluator_version_id,
                     evaluator_id=evaluator_id,
                     filename_to_size={tar_filename: str(tar_size)},
                 )
@@ -330,7 +348,7 @@ class Evaluator:
 
                 # Step 3: Validate upload using SDK
                 client.evaluator_versions.validate_upload(
-                    version_id=version_id,
+                    version_id=evaluator_version_id,
                     evaluator_id=evaluator_id,
                 )
                 logger.info("Upload validated successfully")
