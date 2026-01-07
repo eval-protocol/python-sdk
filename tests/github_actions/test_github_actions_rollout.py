@@ -12,6 +12,33 @@ from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from eval_protocol.models import EvaluationRow, InputMetadata
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.github_action_rollout_processor import GithubActionRolloutProcessor
+import eval_protocol.pytest.github_action_rollout_processor as github_action_rollout_processor_module
+from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
+
+
+ROLLOUT_IDS = set()
+
+
+@pytest.fixture(autouse=True)
+def check_rollout_coverage(monkeypatch):
+    """
+    Ensure we attempted to fetch remote traces for each rollout.
+
+    This wraps the built-in default_fireworks_output_data_loader (without making it configurable)
+    and tracks rollout_ids passed through its DataLoaderConfig.
+    """
+    global ROLLOUT_IDS
+    ROLLOUT_IDS.clear()
+
+    original_loader = github_action_rollout_processor_module.default_fireworks_output_data_loader
+
+    def wrapped_loader(config: DataLoaderConfig) -> DynamicDataLoader:
+        ROLLOUT_IDS.add(config.rollout_id)
+        return original_loader(config)
+
+    monkeypatch.setattr(github_action_rollout_processor_module, "default_fireworks_output_data_loader", wrapped_loader)
+    yield
+    assert len(ROLLOUT_IDS) == 3, f"Expected to see 3 rollout_ids, but only saw {ROLLOUT_IDS}"
 
 
 def rows() -> List[EvaluationRow]:
