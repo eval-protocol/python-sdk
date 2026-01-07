@@ -5,13 +5,13 @@ from typing import List, Optional
 
 import fireworks
 import requests
-from fireworks import Fireworks
 
 from eval_protocol.auth import (
     get_fireworks_account_id,
     get_fireworks_api_key,
     verify_api_key_and_get_account_id,
 )
+from eval_protocol.fireworks_client import create_fireworks_client
 from eval_protocol.get_pep440_version import get_pep440_version
 
 logger = logging.getLogger(__name__)
@@ -164,7 +164,11 @@ class Evaluator:
             logger.error("Authentication error: API credentials appear to be invalid or incomplete.")
             raise ValueError("Invalid or missing API credentials.")
 
-        client = Fireworks(api_key=auth_token, base_url=self.api_base, account_id=account_id)
+        client = create_fireworks_client(
+            api_key=auth_token,
+            base_url=self.api_base,
+            account_id=account_id,
+        )
 
         self.display_name = display_name or evaluator_id
         self.description = description or f"Evaluator created from {evaluator_id}"
@@ -239,9 +243,12 @@ class Evaluator:
 
                 tar_size = self._create_tar_gz_with_ignores(tar_path, cwd)
 
+                version_id = "test"
+
                 # Call GetEvaluatorUploadEndpoint using SDK
                 logger.info(f"Requesting upload endpoint for {tar_filename}")
-                upload_response = client.evaluators.get_upload_endpoint(
+                upload_response = client.evaluator_versions.get_upload_endpoint(
+                    version_id=version_id,
                     evaluator_id=evaluator_id,
                     filename_to_size={tar_filename: str(tar_size)},
                 )
@@ -322,9 +329,9 @@ class Evaluator:
                             raise
 
                 # Step 3: Validate upload using SDK
-                client.evaluators.validate_upload(
+                client.evaluator_versions.validate_upload(
+                    version_id=version_id,
                     evaluator_id=evaluator_id,
-                    body={},
                 )
                 logger.info("Upload validated successfully")
 

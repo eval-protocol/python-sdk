@@ -10,8 +10,9 @@ from eval_protocol.auth import (
     get_fireworks_api_base,
     get_fireworks_api_key,
 )
+from eval_protocol.fireworks_client import create_fireworks_client
 from fireworks.types import Secret
-from fireworks import Fireworks, FireworksError, NotFoundError, InternalServerError
+from fireworks import FireworksError, NotFoundError, InternalServerError
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,11 @@ def create_or_update_fireworks_secret(
     resolved_api_key = api_key or get_fireworks_api_key()
     resolved_api_base = api_base or get_fireworks_api_base()
     resolved_account_id = account_id  # Must be provided
-    client = Fireworks(api_key=resolved_api_key, account_id=resolved_account_id, base_url=resolved_api_base)
+    client = create_fireworks_client(
+        api_key=resolved_api_key,
+        account_id=resolved_account_id,
+        base_url=resolved_api_base,
+    )
 
     if not all([resolved_api_key, resolved_api_base, resolved_account_id]):
         logger.error("Missing Fireworks API key, base URL, or account ID for creating/updating secret.")
@@ -173,7 +178,11 @@ def get_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for getting secret.")
         return None
 
-    client = Fireworks(api_key=resolved_api_key, account_id=resolved_account_id, base_url=resolved_api_base)
+    client = create_fireworks_client(
+        api_key=resolved_api_key,
+        account_id=resolved_account_id,
+        base_url=resolved_api_base,
+    )
     resource_id = _normalize_secret_resource_id(key_name)
 
     try:
@@ -215,7 +224,11 @@ def delete_fireworks_secret(
         logger.error("Missing Fireworks API key, base URL, or account ID for deleting secret.")
         return False
 
-    client = Fireworks(api_key=resolved_api_key, account_id=resolved_account_id, base_url=resolved_api_base)
+    client = create_fireworks_client(
+        api_key=resolved_api_key,
+        account_id=resolved_account_id,
+        base_url=resolved_api_base,
+    )
     resource_id = _normalize_secret_resource_id(key_name)
 
     try:

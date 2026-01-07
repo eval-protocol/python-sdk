@@ -8,10 +8,9 @@ import os
 import sys
 from pathlib import Path
 
-from fireworks import Fireworks
-
 from .cli_commands.common import setup_logging
 from .cli_commands.utils import add_args_from_callable_signature
+from .fireworks_client import create_fireworks_client
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +87,7 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
     )
 
     # Auto-generate flags from SDK Fireworks().evaluators.create() signature
-    create_evaluator_fn = Fireworks().evaluators.create
+    create_evaluator_fn = create_fireworks_client().evaluators.create
 
     upload_skip_fields = {
         "__top_level__": {
@@ -198,7 +197,7 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         "loss_config.method": "RL loss method for underlying trainers. One of {grpo,dapo}.",
     }
 
-    create_rft_job_fn = Fireworks().reinforcement_fine_tuning_jobs.create
+    create_rft_job_fn = create_fireworks_client().reinforcement_fine_tuning_jobs.create
 
     add_args_from_callable_signature(
         rft_parser,

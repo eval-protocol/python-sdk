@@ -12,6 +12,7 @@ import tempfile
 from pydantic import ValidationError
 
 from ..auth import get_fireworks_api_base, get_fireworks_api_key
+from ..fireworks_client import create_fireworks_client
 from ..common_utils import get_user_agent, load_jsonl
 from ..fireworks_rft import (
     create_dataset_from_jsonl,
@@ -34,8 +35,6 @@ from .utils import (
     load_module_from_file_path,
 )
 from .local_test import run_evaluator_test
-
-from fireworks import Fireworks
 
 
 def _extract_dataset_adapter(
@@ -672,7 +671,7 @@ def _create_rft_job(
 ) -> int:
     """Build and submit the RFT job request (via Fireworks SDK)."""
 
-    signature = inspect.signature(Fireworks().reinforcement_fine_tuning_jobs.create)
+    signature = inspect.signature(create_fireworks_client().reinforcement_fine_tuning_jobs.create)
 
     # Build top-level SDK kwargs
     sdk_kwargs: Dict[str, Any] = {
@@ -711,7 +710,7 @@ def _create_rft_job(
         return 0
 
     try:
-        fw: Fireworks = Fireworks(api_key=api_key, base_url=api_base)
+        fw: Fireworks = create_fireworks_client(api_key=api_key, base_url=api_base)
         job: ReinforcementFineTuningJob = fw.reinforcement_fine_tuning_jobs.create(account_id=account_id, **sdk_kwargs)
         job_name = job.name
         print(f"\n✅ Created Reinforcement Fine-tuning Job: {job_name}")
