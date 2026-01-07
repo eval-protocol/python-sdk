@@ -465,8 +465,8 @@ async def rollout_processor_with_retry(
 
     finally:
         # Prefer async cleanup if available, fall back to sync
-        if hasattr(rollout_processor, "aclose"):
-            await getattr(rollout_processor, "aclose")()
+        if hasattr(rollout_processor, "acleanup"):
+            await getattr(rollout_processor, "acleanup")()
         else:
             rollout_processor.cleanup()
 

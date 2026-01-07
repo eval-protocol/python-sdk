@@ -182,7 +182,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
         tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
         return tasks
 
-    async def aclose(self) -> None:
+    async def acleanup(self) -> None:
         """Async cleanup - preferred when you can await."""
         if self._session and not self._session.closed:
             await self._session.close()
@@ -198,5 +198,5 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 # The session will be garbage collected eventually, but warn about it.
                 logger.warning(
                     "RemoteRolloutProcessor.cleanup() called outside of async context. "
-                    "Session may not be properly closed. Use `await processor.aclose()` when possible."
+                    "Session may not be properly closed. Use `await processor.acleanup()` when possible."
                 )
