@@ -1,14 +1,10 @@
 import asyncio
 import time
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-import requests
+import aiohttp
 
 from eval_protocol.models import EvaluationRow, Status
-from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
-from eval_protocol.types.remote_rollout_processor import (
-    DataLoaderConfig,
-)
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
 from eval_protocol.exceptions import exception_for_status_code
 
@@ -88,48 +84,24 @@ class RemoteRolloutProcessor(RolloutProcessor):
             init_payload = build_init_request(row, config, model_base_url)
 
             # Fire-and-poll
-            def _post_init() -> None:
-                url = f"{remote_base_url}/init"
+            init_url = f"{remote_base_url}/init"
+
+            timeout_init = aiohttp.ClientTimeout(total=300)
+
+            async with aiohttp.ClientSession() as session:
                 try:
-                    r = requests.post(url, json=init_payload.model_dump(), timeout=300)
-                    r.raise_for_status()
-                except requests.exceptions.Timeout:
+                    async with session.post(init_url, json=init_payload.model_dump(), timeout=timeout_init) as resp:
+                        if resp.status >= 400:
+                            body = await resp.text()
+                            raise RuntimeError(f"Remote /init failed (HTTP {resp.status}): {body}")
+                except asyncio.TimeoutError:
                     raise TimeoutError(
-                        f"The /init endpoint tried {url} with {init_payload.model_dump()} but timed out after 300 seconds."
+                        f"The /init endpoint tried {init_url} with {init_payload.model_dump()} but timed out after 300 seconds."
                     )
 
-            await asyncio.to_thread(_post_init)
-
-            terminated = False
             deadline = time.time() + timeout_seconds
 
-            def _get_status() -> Dict[str, Any]:
-                url = f"{remote_base_url}/status"
-                r = requests.get(url, params={"rollout_id": row.execution_metadata.rollout_id}, timeout=15)
-                r.raise_for_status()
-                return r.json()
-
-            continue_polling_status = True
             while time.time() < deadline:
-                try:
-                    if continue_polling_status:
-                        status = await asyncio.to_thread(_get_status)
-                        terminated = bool(status.get("terminated", False))
-                        if terminated:
-                            break
-                except requests.exceptions.HTTPError as e:
-                    if e.response is not None and e.response.status_code == 404:
-                        # 404 means server doesn't implement /status endpoint, stop polling
-                        logger.debug(
-                            f"Server doesn't implement /status endpoint (404), stopping status polling for rollout {row.execution_metadata.rollout_id}"
-                        )
-                        continue_polling_status = False
-                    else:
-                        raise
-                except Exception:
-                    # For all other exceptions, raise them
-                    raise
-
                 # Search Fireworks tracing logs for completion (run in thread to avoid blocking event loop)
                 completed_logs = await asyncio.to_thread(
                     self._tracing_adapter.search_logs, tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
@@ -142,6 +114,17 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         status_logs.append(log)
 
                 if status_logs:
+                    # finished_logs = []
+                    # for log in status_logs:
+                    #     sd = log.get("status") or {}
+                    #     if isinstance(sd, dict) and sd.get("code") == Status.Code.FINISHED:
+                    #         finished_logs.append(log)
+                    # if len(finished_logs) > 1:
+                    #     logger.warning(
+                    #         "Found %s FINISHED status logs for rollout %s; expected at most 1. Using the first one.",
+                    #         len(finished_logs),
+                    #         row.execution_metadata.rollout_id,
+                    # )
                     # Use the first log with status information
                     status_log = status_logs[0]
                     status_dict = status_log.get("status")
@@ -168,6 +151,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         message=status_message,
                         details=status_details,
                     )
+
+                    # then add the log extras to be stuffed into row.artifacts or something
 
                     logger.info("Stopping polling for rollout %s", row.execution_metadata.rollout_id)
                     break
