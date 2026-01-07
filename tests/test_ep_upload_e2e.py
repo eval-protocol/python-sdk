@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import sys
+import tarfile
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -564,6 +565,38 @@ async def test_math_correctness(row: EvaluationRow) -> EvaluationRow:
         if test_project_dir in sys.path:
             sys.path.remove(test_project_dir)
         shutil.rmtree(test_project_dir, ignore_errors=True)
+
+
+def test_create_tar_includes_dockerignored_files(tmp_path):
+    from eval_protocol.evaluation import Evaluator
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    (project_dir / "requirements.txt").write_text("")
+    (project_dir / "Dockerfile").write_text("FROM python:3.11\n")
+    (project_dir / ".dockerignore").write_text("Dockerfile\nignored_dir/\n")
+
+    ignored_dir = project_dir / "ignored_dir"
+    ignored_dir.mkdir()
+    (ignored_dir / "data.txt").write_text("package me\n")
+
+    tar_path = tmp_path / "archive.tar.gz"
+    archive_size = Evaluator._create_tar_gz_with_ignores(str(tar_path), str(project_dir))
+
+    assert archive_size > 0
+    with tarfile.open(tar_path, "r:gz") as tar:
+        names = tar.getnames()
+
+    project_prefix = project_dir.name
+    expected_paths = [
+        f"{project_prefix}/Dockerfile",
+        f"{project_prefix}/.dockerignore",
+        f"{project_prefix}/ignored_dir/data.txt",
+        f"{project_prefix}/requirements.txt",
+    ]
+
+    for expected_path in expected_paths:
+        assert expected_path in names, f"Expected {expected_path} in archive"
 
 
 def test_ep_upload_force_flag_triggers_delete_flow(

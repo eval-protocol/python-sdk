@@ -33,7 +33,7 @@ class Evaluator:
 
     @staticmethod
     def _parse_ignore_file(ignore_path: str) -> List[str]:
-        """Parse .gitignore or .dockerignore and return patterns."""
+        """Parse .gitignore and return patterns."""
         patterns = []
         if not os.path.exists(ignore_path):
             return patterns
@@ -128,8 +128,7 @@ class Evaluator:
 
         source_path = Path(source_dir)
         gitignore_patterns = Evaluator._parse_ignore_file(str(source_path / ".gitignore"))
-        dockerignore_patterns = Evaluator._parse_ignore_file(str(source_path / ".dockerignore"))
-        all_ignore_patterns = gitignore_patterns + dockerignore_patterns
+        all_ignore_patterns = gitignore_patterns
 
         logger.info(f"Creating tar.gz with {len(all_ignore_patterns)} ignore patterns")
 
