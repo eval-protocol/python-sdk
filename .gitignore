@@ -243,3 +243,5 @@ package.json
 tau2-bench
 *.err
 eval-protocol
+
+.vscode/launch.json
