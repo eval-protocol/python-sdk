@@ -371,7 +371,7 @@ async def rollout_processor_with_retry(
             retry_config = replace(config, kwargs={**(config.kwargs or {}), "start_server": False})
             retry_tasks = rollout_processor([row], retry_config)
             result = await retry_tasks[0]
-            
+
             # Apply post-processing quality checks if configured
             # This must be inside the retry function so ResponseQualityError can trigger retries
             if config.post_processor is not None:
@@ -380,7 +380,7 @@ async def rollout_processor_with_retry(
                 except ResponseQualityError as quality_error:
                     # Re-raise ResponseQualityError to trigger retry logic
                     raise quality_error
-            
+
             return result
 
         async def execute_row_with_backoff(task: asyncio.Task[EvaluationRow], row: EvaluationRow) -> EvaluationRow:
@@ -464,7 +464,11 @@ async def rollout_processor_with_retry(
                 yield result
 
     finally:
-        rollout_processor.cleanup()
+        # Prefer async cleanup if available, fall back to sync
+        if hasattr(rollout_processor, "aclose"):
+            await getattr(rollout_processor, "aclose")()
+        else:
+            rollout_processor.cleanup()
 
 
 def sanitize_filename(text: str) -> str:
