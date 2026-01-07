@@ -50,7 +50,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._session: Optional[aiohttp.ClientSession] = None
         self._session_lock = asyncio.Lock()
 
-    async def _get_session(self) -> aiohttp.ClientSession:
+    async def _get_or_create_session(self) -> aiohttp.ClientSession:
         async with self._session_lock:
             if self._session is None or self._session.closed:
                 self._session = aiohttp.ClientSession()
@@ -97,7 +97,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
             timeout_init = aiohttp.ClientTimeout(total=300)
 
             try:
-                session = await self._get_session()
+                session = await self._get_or_create_session()
                 async with session.post(init_url, json=init_payload.model_dump(), timeout=timeout_init) as resp:
                     if resp.status >= 400:
                         body = await resp.text()
