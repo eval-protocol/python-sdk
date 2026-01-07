@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Callable
 import logging
 import time
+from datetime import datetime, timezone
 from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai.usage import UsageLimits
 from typing_extensions import override
@@ -50,6 +51,8 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with agent rollout."""
+            if row.execution_metadata.rollout_start_time is None:
+                row.execution_metadata.rollout_start_time = datetime.now(timezone.utc)
             start_time = time.perf_counter()
 
             tools = []

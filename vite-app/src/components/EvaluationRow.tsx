@@ -263,6 +263,21 @@ const RowScore = observer(({ score }: { score: number | undefined }) => {
   );
 });
 
+const RowRolloutDuration = observer(
+  ({ durationSeconds }: { durationSeconds?: number | null }) => {
+    if (durationSeconds === null || durationSeconds === undefined) {
+      return <span className="text-gray-500">N/A</span>;
+    }
+
+    const formatted = `${durationSeconds.toFixed(2)}s`;
+    return (
+      <span className="font-mono text-gray-900 whitespace-nowrap">
+        {formatted}
+      </span>
+    );
+  }
+);
+
 const RowCreated = observer(({ created_at }: { created_at: Date | string }) => {
   const date = created_at instanceof Date ? created_at : new Date(created_at);
 
@@ -429,6 +444,13 @@ export const EvaluationRow = observer(
             <RowStatus
               status={row.rollout_status}
               showSpinner={row.rollout_status?.code === 101}
+            />
+          </TableCell>
+
+          {/* Rollout Latency */}
+          <TableCell className="py-3 text-xs">
+            <RowRolloutDuration
+              durationSeconds={row.execution_metadata?.rollout_duration_seconds}
             />
           </TableCell>
 

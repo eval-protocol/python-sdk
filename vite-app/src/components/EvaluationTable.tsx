@@ -227,6 +227,14 @@ export const EvaluationTable = observer(() => {
                   Rollout Status
                 </SortableTableHeader>
                 <SortableTableHeader
+                  sortField="$.execution_metadata.rollout_duration_seconds"
+                  currentSortField={state.sortField}
+                  currentSortDirection={state.sortDirection}
+                  onSort={handleSort}
+                >
+                  Rollout Latency
+                </SortableTableHeader>
+                <SortableTableHeader
                   sortField="$.input_metadata.completion_params.model"
                   currentSortField={state.sortField}
                   currentSortDirection={state.sortDirection}

@@ -3,6 +3,7 @@ import copy
 import logging
 import os
 import time
+from datetime import datetime, timezone
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, List, Dict, Optional, Union
@@ -293,6 +294,8 @@ class PriorityRolloutScheduler:
         
         # 3. Execute the rollout
         result_row: Optional[EvaluationRow] = None
+        if row_copy.execution_metadata.rollout_start_time is None:
+            row_copy.execution_metadata.rollout_start_time = datetime.now(timezone.utc)
         start_time = time.perf_counter()
         try:
             async for result in rollout_processor_with_retry(

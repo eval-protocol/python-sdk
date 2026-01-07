@@ -319,6 +319,13 @@ export const CostMetricsSchema = z.object({
 });
 
 export const ExecutionMetadataSchema = z.object({
+  rollout_start_time: z
+    .preprocess(
+      (val) => (typeof val === "string" ? new Date(val) : val),
+      z.date()
+    )
+    .optional()
+    .describe("UTC timestamp when the rollout started."),
   invocation_id: z
     .string()
     .optional()
@@ -346,6 +353,16 @@ export const ExecutionMetadataSchema = z.object({
     .nullable()
     .optional()
     .describe("Processing duration in seconds for this evaluation row."),
+  rollout_duration_seconds: z
+    .number()
+    .nullable()
+    .optional()
+    .describe("Processing duration in seconds for the rollout of this row."),
+  eval_duration_seconds: z
+    .number()
+    .nullable()
+    .optional()
+    .describe("Processing duration in seconds for the evaluation of this row."),
   experiment_duration_seconds: z
     .number()
     .nullable()
