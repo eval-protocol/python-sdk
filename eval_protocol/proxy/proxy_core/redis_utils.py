@@ -8,8 +8,12 @@ import redis
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_ROLLOUT_TTL_SECONDS = 60 * 60 * 24
 
-def register_insertion_id(redis_client: redis.Redis, rollout_id: str, insertion_id: str) -> bool:
+
+def register_insertion_id(
+    redis_client: redis.Redis, rollout_id: str, insertion_id: str, ttl_seconds: int = DEFAULT_ROLLOUT_TTL_SECONDS
+) -> bool:
     """Register an insertion_id for a rollout_id in Redis.
 
     Tracks all expected completion insertion_ids for this rollout.
@@ -22,7 +26,10 @@ def register_insertion_id(redis_client: redis.Redis, rollout_id: str, insertion_
         True if successful, False otherwise
     """
     try:
-        redis_client.sadd(rollout_id, insertion_id)
+        pipe = redis_client.pipeline()
+        pipe.sadd(rollout_id, insertion_id)
+        pipe.expire(rollout_id, int(ttl_seconds))
+        pipe.execute()
         logger.info(f"Registered insertion_id {insertion_id} for rollout {rollout_id}")
         return True
     except Exception as e:

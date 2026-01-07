@@ -4,7 +4,7 @@ A FastAPI service that sits in front of LiteLLM and extracts metadata from URL p
 """
 
 from fastapi import FastAPI, Depends, Request, Query
-from typing import Optional, List
+from typing import Optional, List, Callable
 import os
 import redis
 import logging
@@ -105,6 +105,7 @@ def create_app(
     auth_provider: AuthProvider = NoAuthProvider(),
     preprocess_chat_request: Optional[ChatRequestHook] = None,
     preprocess_traces_request: Optional[TracesRequestHook] = None,
+    extra_routes: Optional[Callable[[FastAPI], None]] = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -287,6 +288,9 @@ def create_app(
             request=request,
             params=params,
         )
+
+    if extra_routes is not None:
+        extra_routes(app)
 
     # Health
     @app.get("/health")
