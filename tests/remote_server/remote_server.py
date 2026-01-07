@@ -37,8 +37,23 @@ def init(req: InitRequest):
             if not model:
                 raise ValueError("model is required in completion_params")
 
+            # Convert Eval Protocol Message objects into OpenAI-compatible dicts,
+            # excluding any None fields (Fireworks rejects extra keys even when null).
+            messages_payload = []
+            for m in req.messages:
+                if hasattr(m, "dump_mdoel_for_chat_completion_request"):
+                    md = m.dump_mdoel_for_chat_completion_request()  # type: ignore[attr-defined]
+                elif hasattr(m, "model_dump"):
+                    md = m.model_dump(exclude_none=True)  # type: ignore[call-arg]
+                elif isinstance(m, dict):
+                    md = {k: v for k, v in m.items() if v is not None}
+                else:
+                    md = {"role": getattr(m, "role", None), "content": getattr(m, "content", None)}
+                    md = {k: v for k, v in md.items() if v is not None}
+                messages_payload.append(md)
+
             # Spread all completion_params (model, temperature, max_tokens, etc.)
-            completion_kwargs = {"messages": req.messages, **req.completion_params}
+            completion_kwargs = {"messages": messages_payload, **req.completion_params}
 
             if req.tools:
                 completion_kwargs["tools"] = req.tools
