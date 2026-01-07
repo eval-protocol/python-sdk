@@ -199,5 +199,5 @@ class TestRolloutProcessorWithRetry:
             async for result in rollout_processor_with_retry(mock_rollout_processor, sample_dataset, mock_config):
                 pass
 
-        # Verify cleanup was called even though the function failed
-        mock_rollout_processor.cleanup.assert_called_once()
+        # Verify async cleanup was called even though the function failed
+        mock_rollout_processor.aclose.assert_awaited_once()
