@@ -124,17 +124,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         status_logs.append(log)
 
                 if status_logs:
-                    # finished_logs = []
-                    # for log in status_logs:
-                    #     sd = log.get("status") or {}
-                    #     if isinstance(sd, dict) and sd.get("code") == Status.Code.FINISHED:
-                    #         finished_logs.append(log)
-                    # if len(finished_logs) > 1:
-                    #     logger.warning(
-                    #         "Found %s FINISHED status logs for rollout %s; expected at most 1. Using the first one.",
-                    #         len(finished_logs),
-                    #         row.execution_metadata.rollout_id,
-                    # )
                     # Use the first log with status information
                     status_log = status_logs[0]
                     status_dict = status_log.get("status")
@@ -161,8 +150,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         message=status_message,
                         details=status_details,
                     )
-
-                    # then add the log extras to be stuffed into row.artifacts or something
 
                     logger.info("Stopping polling for rollout %s", row.execution_metadata.rollout_id)
                     break
