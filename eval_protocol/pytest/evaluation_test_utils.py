@@ -464,11 +464,8 @@ async def rollout_processor_with_retry(
                 yield result
 
     finally:
-        # Prefer async cleanup if available, fall back to sync
-        if hasattr(rollout_processor, "acleanup"):
-            await getattr(rollout_processor, "acleanup")()
-        else:
-            rollout_processor.cleanup()
+        await rollout_processor.acleanup()
+        rollout_processor.cleanup()
 
 
 def sanitize_filename(text: str) -> str:

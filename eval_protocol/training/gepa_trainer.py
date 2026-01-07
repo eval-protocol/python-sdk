@@ -503,11 +503,8 @@ class GEPATrainer(Trainer):
             }
 
         finally:
-            # Prefer async cleanup if available, fall back to sync
-            if hasattr(rollout_processor, "acleanup"):
-                await getattr(rollout_processor, "acleanup")()
-            else:
-                rollout_processor.cleanup()
+            await rollout_processor.acleanup()
+            rollout_processor.cleanup()
 
     def run_ep_evaluation(
         self,

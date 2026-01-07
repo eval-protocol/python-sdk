@@ -48,13 +48,11 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._timeout_seconds = timeout_seconds
         self._tracing_adapter = FireworksTracingAdapter(base_url=self._model_base_url)
         self._session: Optional[aiohttp.ClientSession] = None
-        self._session_lock = asyncio.Lock()
 
-    async def _get_or_create_session(self) -> aiohttp.ClientSession:
-        async with self._session_lock:
-            if self._session is None or self._session.closed:
-                self._session = aiohttp.ClientSession()
-            return self._session
+    def _get_or_create_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         tasks: List[asyncio.Task[EvaluationRow]] = []
@@ -97,7 +95,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
             timeout_init = aiohttp.ClientTimeout(total=300)
 
             try:
-                session = await self._get_or_create_session()
+                session = self._get_or_create_session()
                 async with session.post(init_url, json=init_payload.model_dump(), timeout=timeout_init) as resp:
                     if resp.status >= 400:
                         body = await resp.text()

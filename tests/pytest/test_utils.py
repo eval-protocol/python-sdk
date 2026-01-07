@@ -16,7 +16,7 @@ class TestRolloutProcessorWithRetry:
         """Create a mock rollout processor that returns async tasks."""
         processor = MagicMock()
         processor.cleanup = MagicMock()
-        processor.aclose = AsyncMock()  # async cleanup method
+        processor.acleanup = AsyncMock()  # async cleanup method
         return processor
 
     @pytest.fixture
@@ -73,7 +73,7 @@ class TestRolloutProcessorWithRetry:
         mock_config.logger.log.assert_called_once_with(results[0])
 
         # Verify async cleanup was called (aclose is preferred over cleanup)
-        mock_rollout_processor.aclose.assert_awaited_once()
+        mock_rollout_processor.acleanup.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_logger_called_on_failed_execution(self, mock_rollout_processor, mock_config, sample_dataset):
@@ -99,7 +99,7 @@ class TestRolloutProcessorWithRetry:
         assert "Test error" in results[0].rollout_status.message
 
         # Verify async cleanup was called (aclose is preferred over cleanup)
-        mock_rollout_processor.aclose.assert_awaited_once()
+        mock_rollout_processor.acleanup.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_logger_called_on_retry_execution(self, mock_rollout_processor, mock_config, sample_dataset):
@@ -136,7 +136,7 @@ class TestRolloutProcessorWithRetry:
         mock_config.logger.log.assert_called_once_with(results[0])
 
         # Verify async cleanup was called (aclose is preferred over cleanup)
-        mock_rollout_processor.aclose.assert_awaited_once()
+        mock_rollout_processor.acleanup.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_logger_called_for_multiple_rows(self, mock_rollout_processor, mock_config):
@@ -184,7 +184,7 @@ class TestRolloutProcessorWithRetry:
         assert len(results) == 2
 
         # Verify async cleanup was called (aclose is preferred over cleanup)
-        mock_rollout_processor.aclose.assert_awaited_once()
+        mock_rollout_processor.acleanup.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_logger_called_even_when_processor_fails_to_initialize(
@@ -200,4 +200,4 @@ class TestRolloutProcessorWithRetry:
                 pass
 
         # Verify async cleanup was called even though the function failed
-        mock_rollout_processor.aclose.assert_awaited_once()
+        mock_rollout_processor.acleanup.assert_awaited_once()
