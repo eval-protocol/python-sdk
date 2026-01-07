@@ -92,13 +92,23 @@ export class FireworksTransport extends Transport {
     const baseUrl = this.gatewayBaseUrl.replace(/\/$/, '');
     const url = `${baseUrl}/logs`;
 
+    let payloadJson: string;
+    try {
+      payloadJson = JSON.stringify(payload);
+    } catch (e: any) {
+      const msg = `Fireworks logging payload is not JSON-serializable (rollout_id=${rolloutId}): ${e?.message || e}`;
+      console.error(`[FW_LOG] ${msg}`);
+      this.emit('error', new Error(msg));
+      return;
+    }
+
     // Debug logging
     if (process.env.EP_DEBUG === 'true') {
       const tagsLen = Array.isArray(payload.tags) ? payload.tags.length : 0;
       const msgPreview = typeof payload.message === 'string'
         ? payload.message.substring(0, 80)
         : payload.message;
-      const payloadSize = JSON.stringify(payload).length;
+      const payloadSize = payloadJson.length;
       const hasStatus = !!payload.status;
       console.log(`[FW_LOG] POST ${url} rollout_id=${rolloutId} tags=${tagsLen} msg=${msgPreview} size=${payloadSize} hasStatus=${hasStatus}`);
     }
@@ -116,7 +126,7 @@ export class FireworksTransport extends Transport {
       const response = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(payload),
+        body: payloadJson,
         // No timeout signal for compatibility
       });
 
@@ -136,7 +146,7 @@ export class FireworksTransport extends Transport {
         const retryResponse = await fetch(altUrl, {
           method: 'POST',
           headers,
-          body: JSON.stringify(payload),
+          body: payloadJson,
           // No timeout signal for compatibility
         });
 
@@ -149,7 +159,7 @@ export class FireworksTransport extends Transport {
       // Silently handle errors - logging should not break the application
       if (process.env.EP_DEBUG === 'true') {
         console.error(`[FW_LOG] Error sending to Fireworks:`, error.message);
-        console.error(`[FW_LOG] Payload was:`, JSON.stringify(payload, null, 2));
+        console.error(`[FW_LOG] Payload was:`, payloadJson);
       }
     }
   }
