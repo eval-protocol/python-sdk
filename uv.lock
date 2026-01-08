@@ -1312,7 +1312,7 @@ requires-dist = [
     { name = "dspy", marker = "extra == 'dspy'", specifier = ">=3.0.0" },
     { name = "e2b", marker = "extra == 'dev'" },
     { name = "fastapi", specifier = ">=0.116.1" },
-    { name = "fireworks-ai", specifier = "==1.0.0a20" },
+    { name = "fireworks-ai", url = "https://pkg.stainless.com/s/fireworks-ai-python/edd49b0b378db786d6e6b043839baa9aeb6cf0c0/fireworks_ai-1.0.0a20-py3-none-any.whl" },
     { name = "google-auth", marker = "extra == 'bigquery'", specifier = ">=2.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'bigquery'", specifier = ">=3.0.0" },
     { name = "gymnasium", marker = "extra == 'dev'", specifier = ">=1.2.0" },
@@ -1583,7 +1583,7 @@ wheels = [
 [[package]]
 name = "fireworks-ai"
 version = "1.0.0a20"
-source = { registry = "https://pypi.org/simple" }
+source = { url = "https://pkg.stainless.com/s/fireworks-ai-python/edd49b0b378db786d6e6b043839baa9aeb6cf0c0/fireworks_ai-1.0.0a20-py3-none-any.whl" }
 dependencies = [
     { name = "aiohttp" },
     { name = "anyio" },
@@ -1594,9 +1594,20 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/c6/cdc6c152876ee1253491e6f72c65c2cdaf7b22b320be0cec7ac5778d3b1c/fireworks_ai-1.0.0a20.tar.gz", hash = "sha256:c84f702445679ea768461dba8fb027175b82255021832a89f9ece65821a2ab25", size = 564097, upload-time = "2025-12-23T19:21:17.891Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c5/a4/e2bc9c4af291786bc7fe364ae63503ba2c8161c2e71223d570a77f0a1415/fireworks_ai-1.0.0a20-py3-none-any.whl", hash = "sha256:b5e199978f71b564b2e19cf55a71c1ac20906d9a7b4ae75135fdccb245227722", size = 304153, upload-time = "2025-12-23T19:21:15.943Z" },
+    { url = "https://pkg.stainless.com/s/fireworks-ai-python/edd49b0b378db786d6e6b043839baa9aeb6cf0c0/fireworks_ai-1.0.0a20-py3-none-any.whl", hash = "sha256:d0fb6d84bc93d161276be6b8f134d77e0cbc7f12f3477482485fa4bfc1491d5a" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiohttp" },
+    { name = "anyio", specifier = ">=3.5.0,<5" },
+    { name = "distro", specifier = ">=1.7.0,<2" },
+    { name = "httpx", specifier = ">=0.23.0,<1" },
+    { name = "httpx-aiohttp", specifier = ">=0.1.9" },
+    { name = "pydantic", specifier = ">=1.9.0,<3" },
+    { name = "sniffio" },
+    { name = "typing-extensions", specifier = ">=4.10,<5" },
 ]
 
 [[package]]
