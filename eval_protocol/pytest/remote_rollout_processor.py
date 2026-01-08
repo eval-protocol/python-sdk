@@ -132,8 +132,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     # Use the first log with status information
                     status_log = status_logs[0]
                     status_dict = status_log.get("status")
-                    # Filter out transport metadata fields from extras
-                    raw_extras = status_log.get("extras", {})
+                    raw_extras = status_log.get("extras") or {}
                     status_extras = {
                         k: v for k, v in raw_extras.items() if k not in ("logger_name", "level", "timestamp")
                     }
@@ -161,7 +160,10 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         details=status_details,
                     )
 
-                    row.execution_metadata.extra = status_extras
+                    if row.execution_metadata.extra:
+                        row.execution_metadata.extra.update(status_extras)
+                    else:
+                        row.execution_metadata.extra = status_extras
 
                     logger.info("Stopping polling for rollout %s", row.execution_metadata.rollout_id)
                     break
