@@ -289,7 +289,6 @@ def upload_command(args: argparse.Namespace) -> int:
     base_id = getattr(args, "id", None)
     display_name = getattr(args, "display_name", None)
     description = getattr(args, "description", None)
-    force = bool(getattr(args, "force", False))
     env_file = getattr(args, "env_file", None)
 
     # Load secrets from .env file and ensure they're available on Fireworks
@@ -382,7 +381,6 @@ def upload_command(args: argparse.Namespace) -> int:
                 evaluator_id=evaluator_id,
                 display_name=display_name or evaluator_id,
                 description=description or f"Evaluator for {qualname}",
-                force=force,
                 entry_point=entry_point,
             )
             name = result.get("name", evaluator_id) if isinstance(result, dict) else evaluator_id

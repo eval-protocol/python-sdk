@@ -155,7 +155,7 @@ class Evaluator:
         logger.info(f"Created {output_path} ({size_bytes:,} bytes)")
         return size_bytes
 
-    def create(self, evaluator_id, display_name=None, description=None, force=False):
+    def create(self, evaluator_id, display_name=None, description=None):
         auth_token = self.api_key or get_fireworks_api_key()
         account_id = self.account_id or get_fireworks_account_id()
         if not account_id and auth_token:
@@ -203,22 +203,6 @@ class Evaluator:
         logger.info(f"Creating evaluator '{evaluator_id}' for account '{account_id}'...")
 
         try:
-            if force:
-                try:
-                    logger.info("Checking if evaluator exists")
-                    existing_evaluator = client.evaluators.get(evaluator_id=evaluator_id)
-                    if existing_evaluator:
-                        logger.info(f"Evaluator '{evaluator_id}' already exists, deleting and recreating...")
-                        try:
-                            client.evaluators.delete(evaluator_id=evaluator_id)
-                            logger.info(f"Successfully deleted evaluator '{evaluator_id}'")
-                        except fireworks.NotFoundError:
-                            logger.info(f"Evaluator '{evaluator_id}' not found, creating...")
-                        except fireworks.APIError as e:
-                            logger.warning(f"Error deleting evaluator: {str(e)}")
-                except fireworks.NotFoundError:
-                    logger.info(f"Evaluator '{evaluator_id}' does not exist, creating...")
-
             # Create evaluator using SDK
             result = client.evaluators.create(
                 evaluator_id=evaluator_id,
@@ -387,7 +371,6 @@ def create_evaluation(
     evaluator_id: str,
     display_name: Optional[str] = None,
     description: Optional[str] = None,
-    force: bool = False,
     account_id: Optional[str] = None,
     api_key: Optional[str] = None,
     entry_point: Optional[str] = None,
@@ -399,7 +382,6 @@ def create_evaluation(
         evaluator_id: Unique identifier for the evaluator
         display_name: Display name for the evaluator
         description: Description for the evaluator
-        force: If True, delete and recreate if evaluator exists
         account_id: Optional Fireworks account ID
         api_key: Optional Fireworks API key
         entry_point: Optional entry point (module::function or path::function)
@@ -410,4 +392,4 @@ def create_evaluation(
         entry_point=entry_point,
     )
 
-    return evaluator.create(evaluator_id, display_name, description, force)
+    return evaluator.create(evaluator_id, display_name, description)

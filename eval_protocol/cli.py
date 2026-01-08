@@ -80,11 +80,6 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         "--env-file",
         help="Path to .env file containing secrets to upload (default: .env in current directory)",
     )
-    upload_parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite existing evaluator with the same ID",
-    )
 
     # Auto-generate flags from SDK Fireworks().evaluators.create() signature
     create_evaluator_fn = create_fireworks_client().evaluators.create
@@ -136,7 +131,6 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
 
     rft_parser.add_argument("--yes", "-y", action="store_true", help="Non-interactive mode")
     rft_parser.add_argument("--dry-run", action="store_true", help="Print planned SDK call without sending")
-    rft_parser.add_argument("--force", action="store_true", help="Overwrite existing evaluator with the same ID")
     rft_parser.add_argument("--skip-validation", action="store_true", help="Skip local dataset/evaluator validation")
     rft_parser.add_argument(
         "--ignore-docker",

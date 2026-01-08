@@ -567,37 +567,35 @@ def _upload_and_ensure_evaluator(
     evaluator_resource_name: str,
     api_key: str,
     api_base: str,
-    force: bool,
 ) -> bool:
     """Ensure the evaluator exists and is ACTIVE, uploading it if needed."""
-    # Optional short-circuit: if evaluator already exists and not forcing, skip upload path
-    if not force:
-        try:
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "User-Agent": get_user_agent(),
-            }
-            resp = requests.get(f"{api_base}/v1/{evaluator_resource_name}", headers=headers, timeout=10)
-            if resp.ok:
-                state = resp.json().get("state", "STATE_UNSPECIFIED")
-                print(f"✓ Evaluator exists (state: {state}). Skipping upload (use --force to overwrite).")
-                # Poll for ACTIVE before proceeding
-                print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
-                if not _poll_evaluator_status(
-                    evaluator_resource_name=evaluator_resource_name,
-                    api_key=api_key,
-                    api_base=api_base,
-                    timeout_minutes=10,
-                ):
-                    dashboard_url = _build_evaluator_dashboard_url(evaluator_id)
-                    print("\n❌ Evaluator is not ready within the timeout period.")
-                    print(f"📊 Please check the evaluator status at: {dashboard_url}")
-                    print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
-                    return False
-                return True
-        except requests.exceptions.RequestException:
-            pass
+    # Check if evaluator already exists
+    try:
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": get_user_agent(),
+        }
+        resp = requests.get(f"{api_base}/v1/{evaluator_resource_name}", headers=headers, timeout=10)
+        if resp.ok:
+            state = resp.json().get("state", "STATE_UNSPECIFIED")
+            print(f"✓ Evaluator exists (state: {state}). Skipping upload.")
+            # Poll for ACTIVE before proceeding
+            print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
+            if not _poll_evaluator_status(
+                evaluator_resource_name=evaluator_resource_name,
+                api_key=api_key,
+                api_base=api_base,
+                timeout_minutes=10,
+            ):
+                dashboard_url = _build_evaluator_dashboard_url(evaluator_id)
+                print("\n❌ Evaluator is not ready within the timeout period.")
+                print(f"📊 Please check the evaluator status at: {dashboard_url}")
+                print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
+                return False
+            return True
+    except requests.exceptions.RequestException:
+        pass
 
     # Ensure evaluator exists by invoking the upload flow programmatically
     try:
@@ -622,13 +620,9 @@ def _upload_and_ensure_evaluator(
             id=evaluator_id,
             display_name=None,
             description=None,
-            force=force,  # Pass through the --force flag
             yes=True,
-            env_file=None,  # Add the new env_file parameter
+            env_file=None,
         )
-
-        if force:
-            print(f"🔄 Force flag enabled - will overwrite existing evaluator '{evaluator_id}'")
 
         rc = upload_command(upload_args)
         if rc == 0:
@@ -738,7 +732,6 @@ def create_rft_command(args) -> int:
     evaluator_arg: Optional[str] = getattr(args, "evaluator", None)
     non_interactive: bool = bool(getattr(args, "yes", False))
     dry_run: bool = bool(getattr(args, "dry_run", False))
-    force: bool = bool(getattr(args, "force", False))
     skip_validation: bool = bool(getattr(args, "skip_validation", False))
     ignore_docker: bool = bool(getattr(args, "ignore_docker", False))
     docker_build_extra: str = getattr(args, "docker_build_extra", "") or ""
@@ -816,7 +809,6 @@ def create_rft_command(args) -> int:
         evaluator_resource_name=evaluator_resource_name,
         api_key=api_key,
         api_base=api_base,
-        force=force,
     ):
         return 1
 
