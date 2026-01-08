@@ -15,6 +15,7 @@ This processor just calls env.reset(), env.step(), env.state() - that's it!
 import asyncio
 import logging
 import time
+from datetime import datetime, timezone
 from itertools import count
 from typing import List, Any, Dict, Callable, Generic, TypeVar, Optional, Type
 
@@ -167,6 +168,8 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with OpenEnv rollout."""
+            if row.execution_metadata.rollout_start_time is None:
+                row.execution_metadata.rollout_start_time = datetime.now(timezone.utc)
             start_time = time.perf_counter()
 
             logger.info("[OpenEnvRolloutProcessor] Starting rollout for row")

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime, timezone
 from typing import Any, AsyncIterator, List, Optional, Union, Dict
 
 from mcp.types import CallToolResult, TextContent
@@ -249,6 +250,8 @@ class AgentRolloutProcessor(RolloutProcessor):
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with agent rollout."""
+            if row.execution_metadata.rollout_start_time is None:
+                row.execution_metadata.rollout_start_time = datetime.now(timezone.utc)
             start_time = time.perf_counter()
 
             agent = Agent(

@@ -67,6 +67,8 @@ class GithubActionRolloutProcessor(RolloutProcessor):
         max_pages = (num_rows + 99) // 100  # Round up pages
 
         async def _process_row(row: EvaluationRow) -> EvaluationRow:
+            if row.execution_metadata.rollout_start_time is None:
+                row.execution_metadata.rollout_start_time = datetime.now(timezone.utc)
             start_time = time.perf_counter()
 
             if row.execution_metadata.invocation_id is None:

@@ -11,6 +11,7 @@ import logging
 import os
 import threading
 import time
+from datetime import datetime, timezone
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
 
@@ -97,6 +98,8 @@ class ExecutionManager:
         async def _execute_with_semaphore(idx):
             async with semaphore:
                 evaluation_row: EvaluationRow = evaluation_rows[idx]
+                if evaluation_row.execution_metadata.rollout_start_time is None:
+                    evaluation_row.execution_metadata.rollout_start_time = datetime.now(timezone.utc)
                 row_start_time = time.perf_counter()
 
                 trajectory = await self._execute_rollout(

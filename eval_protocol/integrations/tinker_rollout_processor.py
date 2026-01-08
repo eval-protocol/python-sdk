@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import time
+from datetime import datetime, timezone
 import traceback
 from typing import Any, Dict, List, Optional, Union
 
@@ -76,6 +77,8 @@ class TinkerRolloutProcessor(RolloutProcessor):
         """Generate rollout tasks using Tinker."""
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
+            if row.execution_metadata.rollout_start_time is None:
+                row.execution_metadata.rollout_start_time = datetime.now(timezone.utc)
             start_time = time.perf_counter()
 
             if not row.messages:

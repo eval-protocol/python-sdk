@@ -793,6 +793,11 @@ class CostMetrics(BaseModel):
 class ExecutionMetadata(BaseModel):
     """Metadata about the execution of the evaluation."""
 
+    rollout_start_time: Optional[datetime] = Field(
+        default=None,
+        description="UTC timestamp when the rollout started.",
+    )
+
     invocation_id: Optional[str] = Field(
         default_factory=generate_id,
         description="The ID of the invocation that this row belongs to.",

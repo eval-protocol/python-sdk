@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime, timezone
 from dataclasses import asdict, is_dataclass
 from types import SimpleNamespace
 from typing import Any, List
@@ -62,6 +63,8 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row asynchronously."""
+            if row.execution_metadata.rollout_start_time is None:
+                row.execution_metadata.rollout_start_time = datetime.now(timezone.utc)
             start_time = time.perf_counter()
  
             if len(row.messages) == 0:

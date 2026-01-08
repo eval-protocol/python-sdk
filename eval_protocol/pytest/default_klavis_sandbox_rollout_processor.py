@@ -4,6 +4,7 @@ import logging
 import os
 import tempfile
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -66,7 +67,8 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with complete sandbox lifecycle"""
-            
+            if row.execution_metadata.rollout_start_time is None:
+                row.execution_metadata.rollout_start_time = datetime.now(timezone.utc)
             start_time = time.perf_counter()
             agent: Agent | None = None
             temp_config_path: str | None = None

@@ -1,5 +1,6 @@
 import asyncio
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -72,6 +73,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
             raise ValueError("remote_base_url is required in RolloutProcessorConfig.kwargs for RemoteRolloutProcessor")
 
         async def _process_row(row: EvaluationRow) -> EvaluationRow:
+            if row.execution_metadata.rollout_start_time is None:
+                row.execution_metadata.rollout_start_time = datetime.now(timezone.utc)
             start_time = time.perf_counter()
 
             if row.execution_metadata.invocation_id is None:
