@@ -366,6 +366,7 @@ def evaluation_test(
                             row.input_metadata.row_id = generate_id(seed=0, index=index)
 
                     completion_params = kwargs["completion_params"] if "completion_params" in kwargs else None
+                    completion_params = normalize_fireworks_model(completion_params)
                     # Create eval metadata with test function info and current commit hash
                     eval_metadata = EvalMetadata(
                         name=test_func.__name__,
