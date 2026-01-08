@@ -122,9 +122,21 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         status_logs.append(log)
 
                 if status_logs:
+                    if len(status_logs) > 1:
+                        logger.warning(
+                            "Found %s status logs for rollout %s; expected at most 1. Using the first one: %s",
+                            len(status_logs),
+                            row.execution_metadata.rollout_id,
+                            status_logs[0],
+                        )
                     # Use the first log with status information
                     status_log = status_logs[0]
                     status_dict = status_log.get("status")
+                    # Filter out transport metadata fields from extras
+                    raw_extras = status_log.get("extras", {})
+                    status_extras = {
+                        k: v for k, v in raw_extras.items() if k not in ("logger_name", "level", "timestamp")
+                    }
 
                     logger.info(
                         f"Found status log for rollout {row.execution_metadata.rollout_id}: {status_log.get('message', '')}"
@@ -148,6 +160,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         message=status_message,
                         details=status_details,
                     )
+
+                    row.execution_metadata.extra = status_extras
 
                     logger.info("Stopping polling for rollout %s", row.execution_metadata.rollout_id)
                     break
