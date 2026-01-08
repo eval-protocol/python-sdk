@@ -181,7 +181,7 @@ def update_row_with_remote_trace(
 
         preserved_extra = row.execution_metadata.extra
 
-        row.execution_metadata = remote_row.execution_metadata
+        row.execution_metadata = remote_row.execution_metadata.model_copy(deep=True)
 
         if preserved_extra:
             if row.execution_metadata.extra:
