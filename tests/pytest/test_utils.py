@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from eval_protocol.pytest.evaluation_test_utils import rollout_processor_with_retry
@@ -16,6 +16,7 @@ class TestRolloutProcessorWithRetry:
         """Create a mock rollout processor that returns async tasks."""
         processor = MagicMock()
         processor.cleanup = MagicMock()
+        processor.acleanup = AsyncMock()  # async cleanup method
         return processor
 
     @pytest.fixture
@@ -71,8 +72,8 @@ class TestRolloutProcessorWithRetry:
         assert mock_config.logger.log.call_count == 1
         mock_config.logger.log.assert_called_once_with(results[0])
 
-        # Verify cleanup was called
-        mock_rollout_processor.cleanup.assert_called_once()
+        # Verify async cleanup was called (aclose is preferred over cleanup)
+        mock_rollout_processor.acleanup.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_logger_called_on_failed_execution(self, mock_rollout_processor, mock_config, sample_dataset):
@@ -97,8 +98,8 @@ class TestRolloutProcessorWithRetry:
         assert results[0].rollout_status.code == 13  # INTERNAL error code
         assert "Test error" in results[0].rollout_status.message
 
-        # Verify cleanup was called
-        mock_rollout_processor.cleanup.assert_called_once()
+        # Verify async cleanup was called (aclose is preferred over cleanup)
+        mock_rollout_processor.acleanup.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_logger_called_on_retry_execution(self, mock_rollout_processor, mock_config, sample_dataset):
@@ -134,8 +135,8 @@ class TestRolloutProcessorWithRetry:
         assert mock_config.logger.log.call_count == 1
         mock_config.logger.log.assert_called_once_with(results[0])
 
-        # Verify cleanup was called
-        mock_rollout_processor.cleanup.assert_called_once()
+        # Verify async cleanup was called (aclose is preferred over cleanup)
+        mock_rollout_processor.acleanup.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_logger_called_for_multiple_rows(self, mock_rollout_processor, mock_config):
@@ -182,8 +183,8 @@ class TestRolloutProcessorWithRetry:
         assert mock_config.logger.log.call_count == 2
         assert len(results) == 2
 
-        # Verify cleanup was called
-        mock_rollout_processor.cleanup.assert_called_once()
+        # Verify async cleanup was called (aclose is preferred over cleanup)
+        mock_rollout_processor.acleanup.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_logger_called_even_when_processor_fails_to_initialize(
@@ -198,5 +199,5 @@ class TestRolloutProcessorWithRetry:
             async for result in rollout_processor_with_retry(mock_rollout_processor, sample_dataset, mock_config):
                 pass
 
-        # Verify cleanup was called even though the function failed
-        mock_rollout_processor.cleanup.assert_called_once()
+        # Verify async cleanup was called even though the function failed
+        mock_rollout_processor.acleanup.assert_awaited_once()

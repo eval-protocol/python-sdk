@@ -19,6 +19,10 @@ class RolloutProcessor(ABC):
         """Process evaluation rows and return async tasks. Must be implemented by subclasses."""
         pass
 
+    async def acleanup(self) -> None:
+        """Async cleanup - preferred when you can await."""
+        pass
+
     def cleanup(self) -> None:
         """Cleanup resources. Override in subclasses if cleanup is needed."""
         pass

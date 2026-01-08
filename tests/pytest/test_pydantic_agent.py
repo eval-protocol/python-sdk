@@ -10,7 +10,10 @@ from eval_protocol.pytest.types import RolloutProcessorConfig
 
 
 def agent_factory(config: RolloutProcessorConfig) -> Agent:
-    model = OpenAIChatModel(config.completion_params["model"], provider="fireworks")
+    model_name = config.completion_params["model"]
+    if model_name.startswith("fireworks_ai/"):
+        model_name = model_name[len("fireworks_ai/") :]
+    model = OpenAIChatModel(model_name, provider="fireworks")
     return Agent(model=model)
 
 

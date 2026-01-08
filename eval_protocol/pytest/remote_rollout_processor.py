@@ -1,14 +1,10 @@
 import asyncio
 import time
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-import requests
+import aiohttp
 
 from eval_protocol.models import EvaluationRow, Status
-from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
-from eval_protocol.types.remote_rollout_processor import (
-    DataLoaderConfig,
-)
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
 from eval_protocol.exceptions import exception_for_status_code
 
@@ -51,6 +47,12 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._poll_interval = poll_interval
         self._timeout_seconds = timeout_seconds
         self._tracing_adapter = FireworksTracingAdapter(base_url=self._model_base_url)
+        self._session: Optional[aiohttp.ClientSession] = None
+
+    def _get_or_create_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         tasks: List[asyncio.Task[EvaluationRow]] = []
@@ -88,48 +90,26 @@ class RemoteRolloutProcessor(RolloutProcessor):
             init_payload = build_init_request(row, config, model_base_url)
 
             # Fire-and-poll
-            def _post_init() -> None:
-                url = f"{remote_base_url}/init"
-                try:
-                    r = requests.post(url, json=init_payload.model_dump(), timeout=300)
-                    r.raise_for_status()
-                except requests.exceptions.Timeout:
-                    raise TimeoutError(
-                        f"The /init endpoint tried {url} with {init_payload.model_dump()} but timed out after 300 seconds."
-                    )
+            init_url = f"{remote_base_url}/init"
 
-            await asyncio.to_thread(_post_init)
+            timeout_init = aiohttp.ClientTimeout(total=300)
 
-            terminated = False
+            try:
+                session = self._get_or_create_session()
+                async with session.post(init_url, json=init_payload.model_dump(), timeout=timeout_init) as resp:
+                    if resp.status >= 400:
+                        body = await resp.text()
+                        raise RuntimeError(f"Remote /init failed (HTTP {resp.status}): {body}")
+                    resp.raise_for_status()
+                    await resp.read()  # Drain the response body and release the connection back to the pool
+            except asyncio.TimeoutError:
+                raise TimeoutError(
+                    f"The /init endpoint tried {init_url} with {init_payload.model_dump()} but timed out after 300 seconds."
+                )
+
             deadline = time.time() + timeout_seconds
 
-            def _get_status() -> Dict[str, Any]:
-                url = f"{remote_base_url}/status"
-                r = requests.get(url, params={"rollout_id": row.execution_metadata.rollout_id}, timeout=15)
-                r.raise_for_status()
-                return r.json()
-
-            continue_polling_status = True
             while time.time() < deadline:
-                try:
-                    if continue_polling_status:
-                        status = await asyncio.to_thread(_get_status)
-                        terminated = bool(status.get("terminated", False))
-                        if terminated:
-                            break
-                except requests.exceptions.HTTPError as e:
-                    if e.response is not None and e.response.status_code == 404:
-                        # 404 means server doesn't implement /status endpoint, stop polling
-                        logger.debug(
-                            f"Server doesn't implement /status endpoint (404), stopping status polling for rollout {row.execution_metadata.rollout_id}"
-                        )
-                        continue_polling_status = False
-                    else:
-                        raise
-                except Exception:
-                    # For all other exceptions, raise them
-                    raise
-
                 # Search Fireworks tracing logs for completion (run in thread to avoid blocking event loop)
                 completed_logs = await asyncio.to_thread(
                     self._tracing_adapter.search_logs, tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
@@ -142,9 +122,20 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         status_logs.append(log)
 
                 if status_logs:
+                    if len(status_logs) > 1:
+                        logger.warning(
+                            "Found %s status logs for rollout %s; expected at most 1. Using the first one: %s",
+                            len(status_logs),
+                            row.execution_metadata.rollout_id,
+                            status_logs[0],
+                        )
                     # Use the first log with status information
                     status_log = status_logs[0]
                     status_dict = status_log.get("status")
+                    raw_extras = status_log.get("extras") or {}
+                    status_extras = {
+                        k: v for k, v in raw_extras.items() if k not in ("logger_name", "level", "timestamp")
+                    }
 
                     logger.info(
                         f"Found status log for rollout {row.execution_metadata.rollout_id}: {status_log.get('message', '')}"
@@ -168,6 +159,11 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         message=status_message,
                         details=status_details,
                     )
+
+                    if row.execution_metadata.extra:
+                        row.execution_metadata.extra.update(status_extras)
+                    else:
+                        row.execution_metadata.extra = status_extras
 
                     logger.info("Stopping polling for rollout %s", row.execution_metadata.rollout_id)
                     break
@@ -200,5 +196,21 @@ class RemoteRolloutProcessor(RolloutProcessor):
         tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
         return tasks
 
+    async def acleanup(self) -> None:
+        """Async cleanup - preferred when you can await."""
+        if self._session and not self._session.closed:
+            await self._session.close()
+
     def cleanup(self) -> None:
-        return None
+        """Sync cleanup - best-effort, schedules close if event loop is running."""
+        if self._session and not self._session.closed:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._session.close())
+            except RuntimeError:
+                # No running event loop - can't safely close the session.
+                # The session will be garbage collected eventually, but warn about it.
+                logger.warning(
+                    "RemoteRolloutProcessor.cleanup() called outside of async context. "
+                    "Session may not be properly closed. Use `await processor.acleanup()` when possible."
+                )

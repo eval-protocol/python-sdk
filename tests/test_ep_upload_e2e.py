@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import sys
+import tarfile
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -543,6 +544,130 @@ async def test_math_correctness(row: EvaluationRow) -> EvaluationRow:
         assert tar_filename.endswith(".tar.gz"), "Should be a tar.gz file"
         tar_size = int(filename_to_size[tar_filename])
         assert tar_size > 0, "Tar file should have non-zero size"
+
+    finally:
+        os.chdir(original_cwd)
+        if test_project_dir in sys.path:
+            sys.path.remove(test_project_dir)
+        shutil.rmtree(test_project_dir, ignore_errors=True)
+
+
+def test_create_tar_includes_dockerignored_files(tmp_path):
+    from eval_protocol.evaluation import Evaluator
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    (project_dir / "requirements.txt").write_text("")
+    (project_dir / "Dockerfile").write_text("FROM python:3.11\n")
+    (project_dir / ".dockerignore").write_text("Dockerfile\nignored_dir/\n")
+
+    ignored_dir = project_dir / "ignored_dir"
+    ignored_dir.mkdir()
+    (ignored_dir / "data.txt").write_text("package me\n")
+
+    tar_path = tmp_path / "archive.tar.gz"
+    archive_size = Evaluator._create_tar_gz_with_ignores(str(tar_path), str(project_dir))
+
+    assert archive_size > 0
+    with tarfile.open(tar_path, "r:gz") as tar:
+        names = tar.getnames()
+
+    project_prefix = project_dir.name
+    expected_paths = [
+        f"{project_prefix}/Dockerfile",
+        f"{project_prefix}/.dockerignore",
+        f"{project_prefix}/ignored_dir/data.txt",
+        f"{project_prefix}/requirements.txt",
+    ]
+
+    for expected_path in expected_paths:
+        assert expected_path in names, f"Expected {expected_path} in archive"
+
+
+def test_ep_upload_force_flag_triggers_delete_flow(
+    mock_env_variables,
+    mock_gcs_upload,
+    mock_platform_api_client,
+):
+    """
+    Test that --force flag triggers the check/delete/recreate flow
+    """
+    from eval_protocol.cli_commands.upload import upload_command, _discover_tests
+
+    test_content = """
+from eval_protocol.pytest import evaluation_test
+from eval_protocol.models import EvaluationRow
+
+@evaluation_test(input_rows=[[EvaluationRow()]])
+async def test_force_eval(row: EvaluationRow) -> EvaluationRow:
+    return row
+"""
+
+    test_project_dir, test_file_path = create_test_project_with_evaluation_test(test_content, "test_force.py")
+
+    original_cwd = os.getcwd()
+
+    try:
+        os.chdir(test_project_dir)
+
+        # Mock the Fireworks client with evaluator existing (for force flow)
+        with patch("eval_protocol.evaluation.Fireworks") as mock_fw_class:
+            mock_client = MagicMock()
+            mock_fw_class.return_value = mock_client
+
+            # Mock evaluators.get to return an existing evaluator (not raise NotFoundError)
+            mock_existing_evaluator = MagicMock()
+            mock_existing_evaluator.name = "accounts/test_account/evaluators/test-force"
+            mock_client.evaluators.get.return_value = mock_existing_evaluator
+
+            # Mock evaluators.delete
+            mock_client.evaluators.delete.return_value = None
+
+            # Mock evaluators.create response
+            mock_create_response = MagicMock()
+            mock_create_response.name = "accounts/test_account/evaluators/test-force"
+            mock_client.evaluators.create.return_value = mock_create_response
+
+            # Mock get_upload_endpoint
+            def get_upload_endpoint_side_effect(evaluator_id, filename_to_size):
+                response = MagicMock()
+                signed_urls = {}
+                for filename in filename_to_size.keys():
+                    signed_urls[filename] = f"https://storage.googleapis.com/test-bucket/{filename}?signed=true"
+                response.filename_to_signed_urls = signed_urls
+                return response
+
+            mock_client.evaluators.get_upload_endpoint.side_effect = get_upload_endpoint_side_effect
+
+            # Mock validate_upload
+            mock_client.evaluators.validate_upload.return_value = MagicMock()
+
+            discovered_tests = _discover_tests(test_project_dir)
+
+            args = argparse.Namespace(
+                path=test_project_dir,
+                entry=None,
+                id="test-force",
+                display_name=None,
+                description=None,
+                force=True,  # Force flag enabled
+                yes=True,
+            )
+
+            with patch("eval_protocol.cli_commands.upload._prompt_select") as mock_select:
+                mock_select.return_value = discovered_tests
+                exit_code = upload_command(args)
+
+            assert exit_code == 0
+
+            # Verify check happened (evaluators.get was called)
+            assert mock_client.evaluators.get.called, "Should check if evaluator exists"
+
+            # Verify delete happened (since evaluator existed)
+            assert mock_client.evaluators.delete.called, "Should delete existing evaluator"
+
+            # Verify create happened after delete
+            assert mock_client.evaluators.create.called, "Should create evaluator after delete"
 
     finally:
         os.chdir(original_cwd)

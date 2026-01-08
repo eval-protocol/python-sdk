@@ -351,7 +351,7 @@ export const ExecutionMetadataSchema = z.object({
     .nullable()
     .optional()
     .describe("Processing duration in seconds for an entire experiment."),
-});
+}).loose();
 
 export const EvaluationRowSchema = z.object({
   messages: z

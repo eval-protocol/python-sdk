@@ -503,6 +503,7 @@ class GEPATrainer(Trainer):
             }
 
         finally:
+            await rollout_processor.acleanup()
             rollout_processor.cleanup()
 
     def run_ep_evaluation(

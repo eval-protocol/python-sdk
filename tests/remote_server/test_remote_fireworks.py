@@ -105,7 +105,7 @@ def rows() -> List[EvaluationRow]:
 
 @pytest.mark.parametrize(
     "completion_params",
-    [{"model": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b", "temperature": 0.5}],
+    [{"model": "accounts/fireworks/models/gpt-oss-120b", "temperature": 0.5}],
 )
 @evaluation_test(
     data_loaders=DynamicDataLoader(

@@ -179,7 +179,18 @@ def update_row_with_remote_trace(
                 if k not in row.input_metadata.dataset_info:
                     row.input_metadata.dataset_info[k] = v
 
-        row.execution_metadata = remote_row.execution_metadata
+        preserved_extra = row.execution_metadata.extra
+
+        row.execution_metadata = remote_row.execution_metadata.model_copy(deep=True)
+
+        if preserved_extra:
+            if row.execution_metadata.extra:
+                # Merge remote and local extras; local takes precedence on conflicts
+                merged = row.execution_metadata.extra or {}
+                merged.update(preserved_extra)
+                row.execution_metadata.extra = merged
+            else:
+                row.execution_metadata.extra = preserved_extra
         return None
     else:
         raise ValueError("Output data loader should return exactly one row.")
