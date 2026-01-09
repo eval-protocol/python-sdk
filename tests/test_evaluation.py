@@ -41,6 +41,7 @@ def test_create_evaluation_helper(monkeypatch):
 
     # Track SDK calls
     create_called = False
+    version_create_called = False
     upload_endpoint_called = False
     validate_called = False
 
@@ -61,7 +62,16 @@ def test_create_evaluation_helper(monkeypatch):
         assert evaluator["description"] == "Test description"
         return mock_evaluator_result
 
-    def mock_get_upload_endpoint(evaluator_id, filename_to_size):
+    # Mock evaluator_versions.create
+    mock_version_result = MagicMock()
+    mock_version_result.name = "accounts/test_account/evaluators/test-eval/versions/v1"
+
+    def mock_version_create(evaluator_id, evaluator_version):
+        nonlocal version_create_called
+        version_create_called = True
+        return mock_version_result
+
+    def mock_get_upload_endpoint(evaluator_id, version_id, filename_to_size):
         nonlocal upload_endpoint_called
         upload_endpoint_called = True
         mock_response = MagicMock()
@@ -71,7 +81,7 @@ def test_create_evaluation_helper(monkeypatch):
         mock_response.filename_to_signed_urls = signed_urls
         return mock_response
 
-    def mock_validate_upload(evaluator_id, body):
+    def mock_validate_upload(evaluator_id, version_id):
         nonlocal validate_called
         validate_called = True
         return MagicMock()
@@ -83,13 +93,14 @@ def test_create_evaluation_helper(monkeypatch):
     mock_gcs_response.raise_for_status = MagicMock()
     mock_session.send.return_value = mock_gcs_response
 
-    # Patch the Fireworks client
-    with patch("eval_protocol.evaluation.Fireworks") as mock_fireworks_class:
+    # Patch the Fireworks client at the location where it's imported
+    with patch("eval_protocol.fireworks_client.Fireworks") as mock_fireworks_class:
         mock_client = MagicMock()
         mock_fireworks_class.return_value = mock_client
         mock_client.evaluators.create = mock_create
-        mock_client.evaluators.get_upload_endpoint = mock_get_upload_endpoint
-        mock_client.evaluators.validate_upload = mock_validate_upload
+        mock_client.evaluator_versions.create = mock_version_create
+        mock_client.evaluator_versions.get_upload_endpoint = mock_get_upload_endpoint
+        mock_client.evaluator_versions.validate_upload = mock_validate_upload
 
         # Patch requests.Session for GCS upload
         monkeypatch.setattr("requests.Session", lambda: mock_session)
@@ -109,6 +120,7 @@ def test_create_evaluation_helper(monkeypatch):
 
             # Verify full upload flow was executed
             assert create_called, "Create endpoint should be called"
+            assert version_create_called, "Version create should be called"
             assert upload_endpoint_called, "GetUploadEndpoint should be called"
             assert validate_called, "ValidateUpload should be called"
             assert mock_session.send.called, "GCS upload should happen"

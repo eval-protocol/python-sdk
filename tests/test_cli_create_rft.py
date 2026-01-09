@@ -24,7 +24,7 @@ def _write_json(path: str, data: dict) -> None:
 def stub_fireworks(monkeypatch) -> dict[str, Any]:
     """
     Stub Fireworks SDK so tests stay offline and so create_rft.py can inspect a stable
-    create() signature (it uses inspect.signature(Fireworks().reinforcement_fine_tuning_jobs.create)).
+    create() signature (it uses inspect.signature(create_fireworks_client().reinforcement_fine_tuning_jobs.create)).
 
     Returns:
         A dict containing the last captured create() kwargs under key "kwargs".
@@ -72,12 +72,15 @@ def stub_fireworks(monkeypatch) -> dict[str, Any]:
             return SimpleNamespace(name=f"accounts/{account_id}/reinforcementFineTuningJobs/xyz")
 
     class _FakeFW:
-        def __init__(self, api_key=None, base_url=None):
+        def __init__(self, api_key=None, base_url=None, account_id=None, default_headers=None):
             self.api_key = api_key
             self.base_url = base_url
+            self.account_id = account_id
+            self.default_headers = default_headers
             self.reinforcement_fine_tuning_jobs = _FakeJobs()
 
-    monkeypatch.setattr(cr, "Fireworks", _FakeFW)
+    # Patch create_fireworks_client to return our fake client
+    monkeypatch.setattr(cr, "create_fireworks_client", lambda **kwargs: _FakeFW(**kwargs))
     return captured
 
 
