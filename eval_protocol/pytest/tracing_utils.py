@@ -19,7 +19,9 @@ def default_fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDat
 
     def fetch_traces() -> List[EvaluationRow]:
         base_url = config.model_base_url or "https://tracing.fireworks.ai"
-        adapter = FireworksTracingAdapter(base_url=base_url)
+        # Use EP_REMOTE_API_KEY for fetching remote traces, falling back to FIREWORKS_API_KEY
+        api_key = os.environ.get("EP_REMOTE_API_KEY") or os.environ.get("FIREWORKS_API_KEY")
+        adapter = FireworksTracingAdapter(base_url=base_url, api_key=api_key)
         return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
 
     return DynamicDataLoader(generators=[fetch_traces], preprocess_fn=filter_longest_conversation)
@@ -131,7 +133,9 @@ def build_init_request(
         final_model_base_url = build_fireworks_tracing_url(model_base_url, meta, completion_params_base_url)
 
     # Extract API key from environment or completion_params
-    api_key = os.environ.get("FIREWORKS_API_KEY")
+    # EP_REMOTE_API_KEY takes precedence for remote rollout processors,
+    # falling back to FIREWORKS_API_KEY for backwards compatibility
+    api_key = os.environ.get("EP_REMOTE_API_KEY") or os.environ.get("FIREWORKS_API_KEY")
 
     return InitRequest(
         completion_params=completion_params_dict,
