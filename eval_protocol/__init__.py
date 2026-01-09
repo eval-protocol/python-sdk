@@ -9,10 +9,24 @@ tool-augmented models using self-contained task bundles.
 """
 
 import importlib
+import sys
 import warnings
 from typing import TYPE_CHECKING
 
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
+
+# Eager imports for symbols that conflict with module names - ONLY when pytest is running.
+# The reward_function.py module exports RewardFunction class, and we also export the
+# reward_function decorator from typed_interface. When pytest's AssertionRewritingHook
+# imports eval_protocol.reward_function as a module, Python would set
+# eval_protocol.reward_function to the module, shadowing our function export.
+#
+# We detect pytest by checking if _pytest or pytest is already loaded. This avoids
+# the ~500ms import overhead for non-test scenarios like the CLI.
+_running_under_pytest = "_pytest" in sys.modules or "pytest" in sys.modules
+if _running_under_pytest:
+    from .reward_function import RewardFunction  # noqa: E402
+    from .typed_interface import reward_function  # noqa: E402
 
 # Lazy import mappings: name -> (module_path, attribute_name or None for module import)
 _LAZY_IMPORTS = {
@@ -36,9 +50,12 @@ _LAZY_IMPORTS = {
     # From .data_loader
     "DynamicDataLoader": (".data_loader", "DynamicDataLoader"),
     "InlineDataLoader": (".data_loader", "InlineDataLoader"),
-    # Submodules
+    # Submodules (accessible as eval_protocol.submodule)
     "mcp": (".mcp", None),
     "rewards": (".rewards", None),
+    "models": (".models", None),
+    "auth": (".auth", None),
+    "config": (".config", None),
     # From .models
     "EvaluateResult": (".models", "EvaluateResult"),
     "Message": (".models", "Message"),
