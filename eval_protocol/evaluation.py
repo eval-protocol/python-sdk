@@ -202,12 +202,20 @@ class Evaluator:
         logger.info(f"Creating evaluator '{evaluator_id}' for account '{account_id}'...")
 
         try:
-            # Create evaluator using SDK
-            result = client.evaluators.create(
-                evaluator_id=evaluator_id,
-                evaluator=evaluator_params,
-            )
-            logger.info(f"Successfully created evaluator '{evaluator_id}'")
+            # Try to create evaluator using SDK
+            try:
+                result = client.evaluators.create(
+                    evaluator_id=evaluator_id,
+                    evaluator=evaluator_params,
+                )
+                logger.info(f"Successfully created evaluator '{evaluator_id}'")
+            except fireworks.APIStatusError as create_error:
+                if create_error.status_code == 409:
+                    # Evaluator already exists, get the existing one and proceed to create a new version
+                    logger.info(f"Evaluator '{evaluator_id}' already exists, creating new version...")
+                    result = client.evaluators.get(evaluator_id=evaluator_id)
+                else:
+                    raise
 
             # Upload code as tar.gz to GCS
             evaluator_name = result.name  # e.g., "accounts/pyroworks/evaluators/test-123"
