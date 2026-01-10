@@ -294,7 +294,8 @@ def upload_command(args: argparse.Namespace) -> int:
 
     # Load secrets from .env file and ensure they're available on Fireworks
     try:
-        fw_account_id = _ensure_account_id()
+        fw_api_key_value = get_fireworks_api_key()
+        fw_account_id = _ensure_account_id(api_key=fw_api_key_value)
 
         # Determine .env file path
         if env_file:
@@ -307,7 +308,6 @@ def upload_command(args: argparse.Namespace) -> int:
         secrets_from_env_file = secrets_from_file.copy()  # Track what came from .env file
 
         # Also consider FIREWORKS_API_KEY from environment, but prefer .env value
-        fw_api_key_value = get_fireworks_api_key()
         if fw_api_key_value and "FIREWORKS_API_KEY" not in secrets_from_file:
             secrets_from_file["FIREWORKS_API_KEY"] = fw_api_key_value
 
@@ -334,6 +334,7 @@ def upload_command(args: argparse.Namespace) -> int:
                         account_id=fw_account_id,
                         key_name=secret_name,
                         secret_value=secret_value,
+                        api_key=fw_api_key_value,
                     ):
                         print(f"✓ {secret_name} secret created/updated on Fireworks.")
                     else:

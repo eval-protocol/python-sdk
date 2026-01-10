@@ -729,7 +729,7 @@ def create_rft_command(args) -> int:
         print("Error: FIREWORKS_API_KEY not set.")
         return 1
 
-    account_id = _ensure_account_id()
+    account_id = _ensure_account_id(api_key=api_key)
     if not account_id:
         print("Error: Could not resolve Fireworks account id from FIREWORKS_API_KEY.")
         return 1
