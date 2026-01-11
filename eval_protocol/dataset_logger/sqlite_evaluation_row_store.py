@@ -1,7 +1,7 @@
 import os
 from typing import List, Optional
 
-from peewee import CharField, Model, SqliteDatabase
+from peewee import CharField, Model, SqliteDatabase, fn, SQL
 from playhouse.sqlite_ext import JSONField
 
 from eval_protocol.event_bus.sqlite_event_bus_database import (
@@ -67,12 +67,55 @@ class SqliteEvaluationRowStore:
             else:
                 self._EvaluationRow.create(rollout_id=rollout_id, data=data)
 
-    def read_rows(self, rollout_id: Optional[str] = None) -> List[dict]:
-        if rollout_id is None:
-            query = self._EvaluationRow.select().dicts()
-        else:
-            query = self._EvaluationRow.select().dicts().where(self._EvaluationRow.rollout_id == rollout_id)
-        results = list(query)
+    def read_rows(
+        self,
+        rollout_id: Optional[str] = None,
+        invocation_ids: Optional[List[str]] = None,
+        limit: Optional[int] = None,
+    ) -> List[dict]:
+        """
+        Read evaluation rows from the database with optional filtering.
+
+        Args:
+            rollout_id: Filter by a specific rollout_id (exact match)
+            invocation_ids: Filter by a list of invocation_ids (rows matching any)
+            limit: Maximum number of rows to return (most recent first)
+
+        Returns:
+            List of evaluation row data dictionaries
+        """
+        query = self._EvaluationRow.select()
+
+        if rollout_id is not None:
+            query = query.where(self._EvaluationRow.rollout_id == rollout_id)
+
+        # Apply invocation_ids filter using JSON extraction
+        # Note: This filters rows where data->'execution_metadata'->>'invocation_id' matches any of the provided IDs
+        if invocation_ids is not None and len(invocation_ids) > 0:
+            # Build a condition that matches any of the invocation_ids
+            # Using SQLite JSON extraction: json_extract(data, '$.execution_metadata.invocation_id')
+            invocation_conditions = []
+            for inv_id in invocation_ids:
+                invocation_conditions.append(
+                    fn.json_extract(self._EvaluationRow.data, "$.execution_metadata.invocation_id") == inv_id
+                )
+            # Combine with OR
+            if len(invocation_conditions) == 1:
+                query = query.where(invocation_conditions[0])
+            else:
+                from functools import reduce
+                from operator import or_
+
+                combined_condition = reduce(or_, invocation_conditions)
+                query = query.where(combined_condition)
+
+        # Order by rowid descending to get most recent rows first
+        query = query.order_by(SQL("rowid DESC"))
+
+        if limit is not None:
+            query = query.limit(limit)
+
+        results = list(query.dicts())
         return [result["data"] for result in results]
 
     def delete_row(self, rollout_id: str) -> int:

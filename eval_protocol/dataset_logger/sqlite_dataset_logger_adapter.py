@@ -38,8 +38,13 @@ class SqliteDatasetLoggerAdapter(DatasetLogger):
             logger.error(f"[EVENT_BUS_EMIT] Failed to emit row_upserted event for rollout_id {rollout_id}: {e}")
             pass
 
-    def read(self, rollout_id: Optional[str] = None) -> List["EvaluationRow"]:
+    def read(
+        self,
+        rollout_id: Optional[str] = None,
+        invocation_ids: Optional[List[str]] = None,
+        limit: Optional[int] = None,
+    ) -> List["EvaluationRow"]:
         from eval_protocol.models import EvaluationRow
 
-        results = self._store.read_rows(rollout_id=rollout_id)
+        results = self._store.read_rows(rollout_id=rollout_id, invocation_ids=invocation_ids, limit=limit)
         return [EvaluationRow(**data) for data in results]

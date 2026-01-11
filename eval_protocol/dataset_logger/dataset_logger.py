@@ -24,12 +24,19 @@ class DatasetLogger(ABC):
         pass
 
     @abstractmethod
-    def read(self, row_id: Optional[str] = None) -> List["EvaluationRow"]:
+    def read(
+        self,
+        rollout_id: Optional[str] = None,
+        invocation_ids: Optional[List[str]] = None,
+        limit: Optional[int] = None,
+    ) -> List["EvaluationRow"]:
         """
-        Retrieve EvaluationRow logs.
+        Retrieve EvaluationRow logs with optional filtering.
 
         Args:
-            row_id (Optional[str]): If provided, filter logs by this row_id.
+            rollout_id (Optional[str]): If provided, filter logs by this rollout_id.
+            invocation_ids (Optional[List[str]]): If provided, filter logs by these invocation_ids.
+            limit (Optional[int]): If provided, limit the number of rows returned (most recent first).
 
         Returns:
             List[EvaluationRow]: List of retrieved evaluation rows.

@@ -1,4 +1,5 @@
 import os
+from typing import List, Optional
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.dataset_logger.sqlite_dataset_logger_adapter import SqliteDatasetLoggerAdapter
@@ -14,7 +15,7 @@ def _get_default_logger():
             def log(self, row):
                 return None
 
-            def read(self, rollout_id=None):
+            def read(self, rollout_id=None, invocation_ids=None, limit=None):
                 return []
 
         return _NoOpLogger()
@@ -33,8 +34,13 @@ class _LazyLogger(DatasetLogger):
     def log(self, row):
         return self._get_logger().log(row)
 
-    def read(self, rollout_id=None):
-        return self._get_logger().read(rollout_id)
+    def read(
+        self,
+        rollout_id: Optional[str] = None,
+        invocation_ids: Optional[List[str]] = None,
+        limit: Optional[int] = None,
+    ):
+        return self._get_logger().read(rollout_id=rollout_id, invocation_ids=invocation_ids, limit=limit)
 
 
 default_logger: DatasetLogger = _LazyLogger()
