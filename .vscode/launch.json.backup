@@ -1,0 +1,37 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "EP: Upload",
+			"type": "python",
+			"request": "launch",
+			"module": "eval_protocol.cli",
+			"args": ["upload"],
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"cwd": "<REPLACE_WITH_YOUR_EVALUATOR_DIRECTORY>",
+			"env": {
+				"PYTHONPATH": "${workspaceFolder}",
+				"FIREWORKS_API_KEY": "${env:FIREWORKS_API_KEY}",
+				"FIREWORKS_BASE_URL": "${env:FIREWORKS_BASE_URL}",
+				"FIREWORKS_EXTRA_HEADERS": "{\"x-api-key\": \"${env:FIREWORKS_API_KEY}\", \"X-Fireworks-Gateway-Secret\": \"${env:FIREWORKS_GATEWAY_SECRET}\"}"
+			}
+		},
+		{
+			"name": "EP: Local Test",
+			"type": "python",
+			"request": "launch",
+			"module": "eval_protocol.cli",
+			"args": ["local-test"],
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"cwd": "<REPLACE_WITH_YOUR_EVALUATOR_DIRECTORY>",
+			"env": {
+				"PYTHONPATH": "${workspaceFolder}",
+				"FIREWORKS_API_KEY": "${env:FIREWORKS_API_KEY}",
+				"FIREWORKS_BASE_URL": "${env:FIREWORKS_BASE_URL}",
+				"FIREWORKS_EXTRA_HEADERS": "{\"x-api-key\": \"${env:FIREWORKS_API_KEY}\", \"X-Fireworks-Gateway-Secret\": \"${env:FIREWORKS_GATEWAY_SECRET}\"}"
+			}
+		}
+	]
+}
