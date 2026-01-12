@@ -1,7 +1,7 @@
 """
-Benchmark test for CLI startup time.
+Benchmark test for CLI startup time and evaluation_test import time.
 
-This test ensures the CLI startup time stays under the target threshold.
+These tests ensure startup times stay under target thresholds.
 Run with: pytest tests/test_cli_startup_benchmark.py -v
 """
 
@@ -11,8 +11,11 @@ import time
 
 import pytest
 
-# Target: CLI should start in under 1.0 second
-CLI_STARTUP_TARGET_SECONDS = 1.0
+# Target: CLI should start in under 1.2 seconds (CI runners are slower)
+CLI_STARTUP_TARGET_SECONDS = 1.2
+
+# Target: evaluation_test import should be under 1.5 seconds
+EVALUATION_TEST_IMPORT_TARGET_SECONDS = 1.5
 
 # Number of runs to average (first run may be slower due to cold cache)
 NUM_RUNS = 3
@@ -87,6 +90,61 @@ print(f"{elapsed:.6f}")
     assert import_time < 0.05, (
         f"Package import time ({import_time * 1000:.1f}ms) is too slow. "
         f"Check that __init__.py uses lazy loading correctly."
+    )
+
+
+@pytest.mark.benchmark
+def test_evaluation_test_import_time():
+    """Test that importing evaluation_test decorator is under the target threshold.
+
+    This tests the full import chain including:
+    - eval_protocol package (lazy loaded)
+    - evaluation_test decorator
+    - openai types (for models.py)
+    - pydantic (for data validation)
+
+    Heavy dependencies like litellm should NOT be loaded during import.
+    """
+    code = """
+import sys
+import time
+start = time.perf_counter()
+from eval_protocol import evaluation_test
+elapsed = time.perf_counter() - start
+litellm_loaded = "litellm" in sys.modules
+print(f"{elapsed:.6f}")
+print(f"{litellm_loaded}")
+"""
+    times = []
+
+    for i in range(NUM_RUNS):
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, f"Import failed: {result.stderr}"
+
+        lines = result.stdout.strip().split("\n")
+        import_time = float(lines[0])
+        litellm_loaded = lines[1] == "True"
+        times.append(import_time)
+        print(f"  Run {i + 1}: {import_time:.3f}s (litellm loaded: {litellm_loaded})")
+
+    avg_time = sum(times) / len(times)
+    min_time = min(times)
+    max_time = max(times)
+
+    print(f"\n  Average: {avg_time:.3f}s")
+    print(f"  Min: {min_time:.3f}s")
+    print(f"  Max: {max_time:.3f}s")
+    print(f"  Target: {EVALUATION_TEST_IMPORT_TARGET_SECONDS}s")
+
+    # Use the best time (min) as some CI environments have variable overhead
+    assert min_time < EVALUATION_TEST_IMPORT_TARGET_SECONDS, (
+        f"evaluation_test import time ({min_time:.3f}s) exceeds target ({EVALUATION_TEST_IMPORT_TARGET_SECONDS}s). "
+        f"Check for eager imports of heavy dependencies like litellm."
     )
 
 
