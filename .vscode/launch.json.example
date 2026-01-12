@@ -22,7 +22,7 @@
 			"type": "python",
 			"request": "launch",
 			"module": "eval_protocol.cli",
-			"args": ["local-test"],
+			"args": ["local-test", "--docker-run-extra", "--env-file .env"],
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"cwd": "<REPLACE_WITH_YOUR_EVALUATOR_DIRECTORY>",
