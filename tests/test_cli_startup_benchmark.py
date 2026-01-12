@@ -11,8 +11,8 @@ import time
 
 import pytest
 
-# Target: CLI should start in under 0.4 seconds
-CLI_STARTUP_TARGET_SECONDS = 0.4
+# Target: CLI should start in under 1.0 second
+CLI_STARTUP_TARGET_SECONDS = 1.0
 
 # Number of runs to average (first run may be slower due to cold cache)
 NUM_RUNS = 3

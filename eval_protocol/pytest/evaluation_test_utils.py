@@ -6,8 +6,10 @@ import sys
 from dataclasses import replace
 from typing import Any, Literal, Callable, AsyncGenerator, Optional
 
-from litellm.cost_calculator import cost_per_token
 from tqdm import tqdm
+
+# Note: litellm.cost_calculator.cost_per_token is imported lazily in add_cost_metrics()
+# to avoid ~1300ms import time at module load
 
 from eval_protocol.dataset_logger.dataset_logger import DatasetLogger
 from eval_protocol.models import (
@@ -22,7 +24,8 @@ from eval_protocol.models import (
 from eval_protocol.data_loader import DynamicDataLoader
 from eval_protocol.data_loader.models import EvaluationDataLoader
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
-from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
+
+# Note: MCPGymRolloutProcessor is imported lazily in validate_config_for_processor() to avoid loading litellm
 from eval_protocol.pytest.types import (
     RolloutProcessorConfig,
     ServerMode,
@@ -542,6 +545,9 @@ def add_cost_metrics(row: EvaluationRow) -> None:
 
     # Try to calculate costs, but gracefully handle unknown models
     try:
+        # Lazy import to avoid ~1300ms import time at module load
+        from litellm.cost_calculator import cost_per_token
+
         input_cost, output_cost = cost_per_token(
             model=model_id, prompt_tokens=input_tokens, completion_tokens=output_tokens
         )
@@ -595,6 +601,9 @@ def build_rollout_processor_config(
     rollout_processor_kwargs = rollout_processor_kwargs or {}
 
     completion_params = {"model": model, "temperature": temperature, "max_tokens": max_tokens}
+
+    # Lazy import to avoid loading litellm at module load time
+    from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 
     if isinstance(rollout_processor, MCPGymRolloutProcessor):
         base_kwargs = {**(rollout_processor_kwargs or {}), "start_server": start_server}

@@ -34,9 +34,9 @@ from eval_protocol.pytest.generate_parameter_combinations import (
 from eval_protocol.pytest.parameterize import pytest_parametrize, create_dynamically_parameterized_wrapper
 from eval_protocol.pytest.validate_signature import validate_signature
 from eval_protocol.pytest.default_dataset_adapter import default_dataset_adapter
-from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
+
+# Note: MCPGymRolloutProcessor and SingleTurnRolloutProcessor are imported lazily to avoid loading litellm (~1300ms)
 from eval_protocol.pytest.default_no_op_rollout_processor import NoOpRolloutProcessor
-from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
 from eval_protocol.pytest.exception_config import ExceptionHandlerConfig
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import (
@@ -188,6 +188,9 @@ def evaluation_test(
     if os.environ.get("EP_USE_NO_OP_ROLLOUT_PROCESSOR") == "1":
         rollout_processor = NoOpRolloutProcessor()
     elif rollout_processor is None:
+        # Lazy import to avoid loading litellm at decorator definition time
+        from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
+
         rollout_processor = SingleTurnRolloutProcessor()
 
     active_logger: DatasetLogger = logger if logger else default_logger
@@ -410,6 +413,9 @@ def evaluation_test(
                     )
 
                     rollout_processor.setup()
+
+                    # Lazy import to avoid loading litellm at module load time
+                    from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 
                     use_priority_scheduler = os.environ.get(
                         "EP_USE_PRIORITY_SCHEDULER", "0"
@@ -689,6 +695,9 @@ def evaluation_test(
 
                         # if rollout_processor is McpGymRolloutProcessor, we execute runs sequentially since McpGym does not support concurrent runs
                         # else, we execute runs in parallel
+                        # Lazy import (cached after first import above)
+                        from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
+
                         if isinstance(rollout_processor, MCPGymRolloutProcessor):
                             # For MCPGymRolloutProcessor, create and execute tasks one at a time to avoid port conflicts
                             for run_idx in range(num_runs):

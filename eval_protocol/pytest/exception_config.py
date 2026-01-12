@@ -1,54 +1,87 @@
 """
 Exception handling configuration for rollout processors with backoff retry logic.
+
+This module intentionally avoids importing heavy deps (litellm/requests/httpx)
+at module import time to keep `@evaluation_test` import fast.
 """
 
 import os
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Set, Type, Union
+from typing import Callable, Set, Type, Union
 
 import backoff
-
-import litellm
-import requests
-import httpx
-
 import eval_protocol.exceptions
 
+# Cache for the default retryable exceptions (populated on first access)
+_default_retryable_exceptions: Set[Type[Exception]] | None = None
 
-# Default exceptions that should be retried with backoff
-DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = {
-    # Standard library exceptions
-    ConnectionError,
-    TimeoutError,
-    OSError,  # Covers network-related OS errors
-    # Requests library exceptions
-    requests.exceptions.ConnectionError,
-    requests.exceptions.Timeout,
-    requests.exceptions.HTTPError,
-    requests.exceptions.RequestException,
-    # HTTPX library exceptions
-    httpx.ConnectError,
-    httpx.TimeoutException,
-    httpx.NetworkError,
-    httpx.RemoteProtocolError,
-    # LiteLLM library exceptions
-    litellm.exceptions.RateLimitError,
-    litellm.exceptions.InternalServerError,
-    litellm.exceptions.Timeout,
-    litellm.exceptions.NotFoundError,
-    litellm.exceptions.ServiceUnavailableError,
-    litellm.exceptions.APIError,
-    litellm.exceptions.BadRequestError,
-    # Eval Protocol exceptions
-    eval_protocol.exceptions.UnknownError,
-    eval_protocol.exceptions.DeadlineExceededError,
-    eval_protocol.exceptions.NotFoundError,
-    eval_protocol.exceptions.PermissionDeniedError,
-    eval_protocol.exceptions.UnavailableError,
-    eval_protocol.exceptions.UnauthenticatedError,
-    eval_protocol.exceptions.ResourceExhaustedError,
-    eval_protocol.exceptions.ResponseQualityError,
-}
+
+def get_default_retryable_exceptions() -> Set[Type[Exception]]:
+    """Compute the default set of retryable exceptions (lazy heavy imports)."""
+    global _default_retryable_exceptions
+    if _default_retryable_exceptions is not None:
+        return _default_retryable_exceptions
+
+    # Lazy imports (these are expensive)
+    import httpx
+    import litellm
+    import requests
+
+    _default_retryable_exceptions = {
+        # Standard library exceptions
+        ConnectionError,  # type: ignore[assignment]
+        TimeoutError,  # type: ignore[assignment]
+        OSError,  # type: ignore[assignment]  # Covers network-related OS errors
+        # Requests library exceptions
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        requests.exceptions.HTTPError,
+        requests.exceptions.RequestException,
+        # HTTPX library exceptions
+        httpx.ConnectError,
+        httpx.TimeoutException,
+        httpx.NetworkError,
+        httpx.RemoteProtocolError,
+        # LiteLLM library exceptions
+        litellm.exceptions.RateLimitError,
+        litellm.exceptions.InternalServerError,
+        litellm.exceptions.Timeout,
+        litellm.exceptions.NotFoundError,
+        litellm.exceptions.ServiceUnavailableError,
+        litellm.exceptions.APIError,
+        litellm.exceptions.BadRequestError,
+        # Eval Protocol exceptions
+        eval_protocol.exceptions.UnknownError,
+        eval_protocol.exceptions.DeadlineExceededError,
+        eval_protocol.exceptions.NotFoundError,
+        eval_protocol.exceptions.PermissionDeniedError,
+        eval_protocol.exceptions.UnavailableError,
+        eval_protocol.exceptions.UnauthenticatedError,
+        eval_protocol.exceptions.ResourceExhaustedError,
+        eval_protocol.exceptions.ResponseQualityError,
+    }
+
+    return _default_retryable_exceptions
+
+
+class _LazyDefaultRetryableExceptions(Set[Type[Exception]]):
+    """Set-like view that materializes the default exception set on first use."""
+
+    def __iter__(self):
+        return iter(get_default_retryable_exceptions())
+
+    def __len__(self) -> int:
+        return len(get_default_retryable_exceptions())
+
+    def __contains__(self, x: object) -> bool:
+        return x in get_default_retryable_exceptions()
+
+    def copy(self) -> Set[Type[Exception]]:
+        return set(get_default_retryable_exceptions())
+
+
+# Backwards compatible name: behaves like a set but doesn't import heavy deps until used
+DEFAULT_RETRYABLE_EXCEPTIONS: Set[Type[Exception]] = _LazyDefaultRetryableExceptions()
 
 
 @dataclass
@@ -68,7 +101,8 @@ class BackoffConfig:
     max_tries: int = 3
 
     # Jitter: adds randomness to backoff delays (None = no jitter for predictable timing)
-    jitter: Union[None, Callable] = None
+    # Backoff's jitter expects a function like `lambda value: float`
+    jitter: Union[None, Callable[[float], float]] = None
 
     # Factor for exponential backoff (only used if strategy == 'expo')
     factor: float = 2.0
@@ -81,7 +115,7 @@ class BackoffConfig:
 
     def get_backoff_decorator(self, exceptions: Set[Type[Exception]]):
         """Get the appropriate backoff decorator based on configuration.
-        
+
         Args:
             exceptions: Set of exception types to retry
         """
@@ -123,7 +157,8 @@ class ExceptionHandlerConfig:
     """Configuration for exception handling in rollout processors."""
 
     # Exceptions that should be retried using backoff
-    retryable_exceptions: Set[Type[Exception]] = field(default_factory=lambda: DEFAULT_RETRYABLE_EXCEPTIONS.copy())
+    # Use field with default_factory to lazily get the exceptions
+    retryable_exceptions: Set[Type[Exception]] = field(default_factory=lambda: set(get_default_retryable_exceptions()))
 
     # Backoff configuration
     backoff_config: BackoffConfig = field(default_factory=BackoffConfig)
@@ -141,9 +176,7 @@ class ExceptionHandlerConfig:
 
     def get_backoff_decorator(self):
         """Get the backoff decorator configured for this exception handler."""
-        return self.backoff_config.get_backoff_decorator(
-            self.retryable_exceptions
-        )
+        return self.backoff_config.get_backoff_decorator(self.retryable_exceptions)
 
 
 def get_default_exception_handler_config() -> ExceptionHandlerConfig:
