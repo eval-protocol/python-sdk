@@ -28,8 +28,8 @@ def test_llm_judge(row=None):
 
     def fake_create_evaluation(**kwargs):
         captured.update(kwargs)
-        # Simulate API response
-        return {"name": kwargs.get("evaluator_id", "eval")}
+        # Simulate API response - returns (result, version_id) tuple
+        return {"name": kwargs.get("evaluator_id", "eval")}, "v1"
 
     monkeypatch.setattr(upload_mod, "create_evaluation", fake_create_evaluation)
 
@@ -40,7 +40,6 @@ def test_llm_judge(row=None):
         id=None,
         display_name=None,
         description=None,
-        force=False,
         yes=True,
     )
 
@@ -72,7 +71,8 @@ def test_llm_judge(row=None):
 
     def fake_create_evaluation(**kwargs):
         captured.update(kwargs)
-        return {"name": kwargs.get("evaluator_id", "eval")}
+        # Simulate API response - returns (result, version_id) tuple
+        return {"name": kwargs.get("evaluator_id", "eval")}, "v1"
 
     monkeypatch.setattr(upload_mod, "create_evaluation", fake_create_evaluation)
 
@@ -83,7 +83,6 @@ def test_llm_judge(row=None):
         id=None,
         display_name=None,
         description=None,
-        force=False,
         yes=True,
     )
 
@@ -119,7 +118,8 @@ def test_llm_judge(row=None):
 
     def fake_create_evaluation(**kwargs):
         captured.update(kwargs)
-        return {"name": kwargs.get("evaluator_id", "eval")}
+        # Simulate API response - returns (result, version_id) tuple
+        return {"name": kwargs.get("evaluator_id", "eval")}, "v1"
 
     monkeypatch.setattr(upload_mod, "create_evaluation", fake_create_evaluation)
 
@@ -130,7 +130,6 @@ def test_llm_judge(row=None):
         id=None,
         display_name=None,
         description=None,
-        force=False,
         yes=True,
     )
 
@@ -163,8 +162,8 @@ def test_llm_judge(row=None):
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://dev.api.fireworks.ai")
 
     def fake_create_evaluation(**kwargs):
-        # Simulate creation result with evaluator name
-        return {"name": kwargs.get("evaluator_id", "eval")}
+        # Simulate creation result with evaluator name - returns (result, version_id) tuple
+        return {"name": kwargs.get("evaluator_id", "eval")}, "v1"
 
     monkeypatch.setattr(upload_mod, "create_evaluation", fake_create_evaluation)
 
@@ -174,7 +173,6 @@ def test_llm_judge(row=None):
         id="quickstart-test-llm-judge",
         display_name=None,
         description=None,
-        force=True,
         yes=True,
     )
 
@@ -204,7 +202,8 @@ def test_llm_judge(row=None):
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
 
     def fake_create_evaluation(**kwargs):
-        return {"name": kwargs.get("evaluator_id", "eval")}
+        # Simulate API response - returns (result, version_id) tuple
+        return {"name": kwargs.get("evaluator_id", "eval")}, "v1"
 
     monkeypatch.setattr(upload_mod, "create_evaluation", fake_create_evaluation)
 
@@ -214,7 +213,6 @@ def test_llm_judge(row=None):
         id="quickstart-test-llm-judge",
         display_name=None,
         description=None,
-        force=False,
         yes=True,
     )
 
