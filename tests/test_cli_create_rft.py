@@ -1,7 +1,6 @@
 import json
 import os
 import argparse
-import requests
 from types import SimpleNamespace
 from unittest.mock import patch
 from typing import Any, cast
@@ -106,7 +105,7 @@ def rft_test_harness(tmp_path, monkeypatch, stub_fireworks):
 
     monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
-    monkeypatch.setattr(cr, "_poll_evaluator_status", lambda **kwargs: True)
+    monkeypatch.setattr(cr, "_poll_evaluator_version_status", lambda **kwargs: True)
     monkeypatch.setattr(cr, "_upload_and_ensure_evaluator", lambda *a, **k: True)
 
     return project
@@ -446,7 +445,7 @@ def test_create_rft_picks_most_recent_evaluator_and_dataset_id_follows(rft_test_
     monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
     monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
-    monkeypatch.setattr(cr, "_poll_evaluator_status", lambda **kwargs: True)
+    monkeypatch.setattr(cr, "_poll_evaluator_version_status", lambda **kwargs: True)
 
     captured = {"dataset_id": None}
 
@@ -641,17 +640,8 @@ def test_create_rft_quiet_existing_evaluator_skips_upload(tmp_path, monkeypatch,
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
     monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "acct123")
 
-    # Mock evaluator exists and is ACTIVE
-    class _Resp:
-        ok = True
-
-        def json(self):
-            return {"state": "ACTIVE"}
-
-        def raise_for_status(self):
-            return None
-
-    monkeypatch.setattr(cr.requests, "get", lambda *a, **k: _Resp())
+    # Mock evaluator upload and version polling - evaluator becomes ACTIVE
+    monkeypatch.setattr(cr, "_upload_and_ensure_evaluator", lambda *a, **k: True)
 
     # Provide dataset via --dataset-jsonl so no test discovery needed
     ds_path = project / "dataset.jsonl"
@@ -703,11 +693,8 @@ def test_create_rft_quiet_new_evaluator_ambiguous_without_entry_errors(tmp_path,
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
     monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "acct123")
 
-    # Evaluator does not exist (force path into upload section)
-    def _raise(*a, **k):
-        raise requests.exceptions.RequestException("nope")
-
-    monkeypatch.setattr(cr.requests, "get", _raise)
+    # Mock _upload_and_ensure_evaluator to fail (ambiguous tests)
+    monkeypatch.setattr(cr, "_upload_and_ensure_evaluator", lambda *a, **k: False)
 
     # Two discovered tests (ambiguous)
     f1 = project / "a.py"
@@ -948,18 +935,8 @@ def test_create_rft_quiet_existing_evaluator_infers_dataset_from_matching_test(r
     d2 = SimpleNamespace(qualname="beta.test_two", file_path=str(f2))
     monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [d1, d2])
 
-    # Evaluator exists and is ACTIVE (skip upload)
-    class _Resp:
-        ok = True
-
-        def json(self):
-            return {"state": "ACTIVE"}
-
-        def raise_for_status(self):
-            return None
-
-    monkeypatch.setattr(cr.requests, "get", lambda *a, **k: _Resp())
-    monkeypatch.setattr(cr, "_poll_evaluator_status", lambda **kwargs: True)
+    # Evaluator upload succeeds and version becomes ACTIVE
+    monkeypatch.setattr(cr, "_upload_and_ensure_evaluator", lambda *a, **k: True)
 
     # We will provide JSONL via input_dataset extractor for matching test (beta.test_two)
     jsonl_path = project / "data.jsonl"
@@ -1040,17 +1017,8 @@ def test_cli_full_command_style_evaluator_and_dataset_flags(tmp_path, monkeypatc
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
     monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "pyroworks-dev")
 
-    # Mock evaluator exists and ACTIVE
-    class _Resp:
-        ok = True
-
-        def json(self):
-            return {"state": "ACTIVE"}
-
-        def raise_for_status(self):
-            return None
-
-    monkeypatch.setattr(cr.requests, "get", lambda *a, **k: _Resp())
+    # Mock evaluator upload succeeds and version becomes ACTIVE
+    monkeypatch.setattr(cr, "_upload_and_ensure_evaluator", lambda *a, **k: True)
 
     captured = stub_fireworks
 
@@ -1133,7 +1101,7 @@ def test_create_rft_prefers_explicit_dataset_jsonl_over_input_dataset(rft_test_h
 
     monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
-    monkeypatch.setattr(cr, "_poll_evaluator_status", lambda **kwargs: True)
+    monkeypatch.setattr(cr, "_poll_evaluator_version_status", lambda **kwargs: True)
 
     # Prepare two JSONL paths: one explicit via --dataset-jsonl and one inferable via input_dataset
     explicit_jsonl = project / "metric" / "explicit.jsonl"

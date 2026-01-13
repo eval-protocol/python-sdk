@@ -377,7 +377,7 @@ def upload_command(args: argparse.Namespace) -> int:
 
         print(f"\nUploading evaluator '{evaluator_id}' for {qualname.split('.')[-1]}...")
         try:
-            result = create_evaluation(
+            result, version_id = create_evaluation(
                 evaluator_id=evaluator_id,
                 display_name=display_name or evaluator_id,
                 description=description or f"Evaluator for {qualname}",
@@ -387,6 +387,8 @@ def upload_command(args: argparse.Namespace) -> int:
 
             # Print success message with Fireworks dashboard link
             print(f"\n✅ Successfully uploaded evaluator: {evaluator_id}")
+            if version_id:
+                print(f"   Version: {version_id}")
             print("📊 View in Fireworks Dashboard:")
             dashboard_url = _build_evaluator_dashboard_url(evaluator_id)
             print(f"   {dashboard_url}\n")

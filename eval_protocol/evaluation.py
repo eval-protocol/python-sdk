@@ -351,8 +351,10 @@ class Evaluator:
             except Exception as upload_error:
                 logger.warning(f"Code upload failed (evaluator created but code not uploaded): {upload_error}")
                 # Don't fail - evaluator is created, just code upload failed
+                # Return None for version_id since upload failed
+                return result, None
 
-            return result  # Return after attempting upload
+            return result, evaluator_version_id  # Return evaluator result and version ID
         except fireworks.APIStatusError as e:
             logger.error(f"Error creating evaluator: {str(e)}")
             logger.error(f"Status code: {e.status_code}, Response: {e.response.text}")
@@ -392,6 +394,10 @@ def create_evaluation(
         account_id: Optional Fireworks account ID
         api_key: Optional Fireworks API key
         entry_point: Optional entry point (module::function or path::function)
+
+    Returns:
+        A tuple of (evaluator_result, version_id) where version_id is the ID of the
+        created evaluator version, or None if upload failed.
     """
     evaluator = Evaluator(
         account_id=account_id,

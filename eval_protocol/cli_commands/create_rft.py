@@ -7,20 +7,18 @@ import sys
 import time
 from typing import Any, Callable, Dict, Optional
 import inspect
-import requests
 import tempfile
 from pydantic import ValidationError
 
 from ..auth import get_fireworks_api_base, get_fireworks_api_key
 from ..fireworks_client import create_fireworks_client
-from ..common_utils import get_user_agent, load_jsonl
+from ..common_utils import load_jsonl
 from ..fireworks_rft import (
     create_dataset_from_jsonl,
     detect_dataset_builder,
     materialize_dataset_via_builder,
 )
 from ..models import EvaluationRow
-from .upload import upload_command
 from .utils import (
     _build_entry_point,
     _build_trimmed_dataset_id,
@@ -222,64 +220,68 @@ def _extract_jsonl_from_input_dataset(test_file_path: str, test_func_name: str) 
         return None
 
 
-def _poll_evaluator_status(
-    evaluator_resource_name: str, api_key: str, api_base: str, timeout_minutes: int = 10
+def _poll_evaluator_version_status(
+    evaluator_id: str,
+    version_id: str,
+    api_key: str,
+    api_base: str,
+    timeout_minutes: int = 10,
 ) -> bool:
     """
-    Poll evaluator status until it becomes ACTIVE or times out.
+    Poll a specific evaluator version status until it becomes ACTIVE or times out.
+
+    Uses the Fireworks SDK to get the specified version of the evaluator and checks
+    its build state.
 
     Args:
-        evaluator_resource_name: Full evaluator resource name (e.g., accounts/xxx/evaluators/yyy)
+        evaluator_id: The evaluator ID (not full resource name)
+        version_id: The specific version ID to poll
         api_key: Fireworks API key
         api_base: Fireworks API base URL
         timeout_minutes: Maximum time to wait in minutes
 
     Returns:
-        True if evaluator becomes ACTIVE, False if timeout or BUILD_FAILED
+        True if evaluator version becomes ACTIVE, False if timeout or BUILD_FAILED
     """
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "User-Agent": get_user_agent(),
-    }
-
-    check_url = f"{api_base}/v1/{evaluator_resource_name}"
     timeout_seconds = timeout_minutes * 60
     poll_interval = 10  # seconds
     start_time = time.time()
 
-    print(f"Polling evaluator status (timeout: {timeout_minutes}m, interval: {poll_interval}s)...")
+    print(
+        f"Polling evaluator version '{version_id}' status (timeout: {timeout_minutes}m, interval: {poll_interval}s)..."
+    )
+
+    client = create_fireworks_client(api_key=api_key, base_url=api_base)
 
     while time.time() - start_time < timeout_seconds:
         try:
-            response = requests.get(check_url, headers=headers, timeout=30)
-            response.raise_for_status()
-
-            evaluator_data = response.json()
-            state = evaluator_data.get("state", "STATE_UNSPECIFIED")
-            status = evaluator_data.get("status", "")
+            version = client.evaluator_versions.get(version_id, evaluator_id=evaluator_id)
+            state = version.state or "STATE_UNSPECIFIED"
+            status_msg = ""
+            if version.status and version.status.message:
+                status_msg = version.status.message
 
             if state == "ACTIVE":
-                print("✅ Evaluator is ACTIVE and ready!")
+                print("✅ Evaluator version is ACTIVE and ready!")
                 return True
             elif state == "BUILD_FAILED":
-                print(f"❌ Evaluator build failed. Status: {status}")
+                print(f"❌ Evaluator version build failed. Status: {status_msg}")
                 return False
             elif state == "BUILDING":
                 elapsed_minutes = (time.time() - start_time) / 60
-                print(f"⏳ Evaluator is still building... ({elapsed_minutes:.1f}m elapsed)")
+                print(f"⏳ Evaluator version is still building... ({elapsed_minutes:.1f}m elapsed)")
             else:
-                print(f"⏳ Evaluator state: {state}, status: {status}")
+                print(f"⏳ Evaluator version state: {state}, status: {status_msg}")
 
-        except requests.exceptions.RequestException as e:
-            print(f"Warning: Failed to check evaluator status: {e}")
+        except Exception as e:
+            print(f"Warning: Failed to check evaluator version status: {e}")
 
         # Wait before next poll
         time.sleep(poll_interval)
 
     # Timeout reached
     elapsed_minutes = (time.time() - start_time) / 60
-    print(f"⏰ Timeout after {elapsed_minutes:.1f}m - evaluator is not yet ACTIVE")
+    print(f"⏰ Timeout after {elapsed_minutes:.1f}m - evaluator version is not yet ACTIVE")
     return False
 
 
@@ -564,40 +566,16 @@ def _upload_dataset(
 def _upload_and_ensure_evaluator(
     project_root: str,
     evaluator_id: str,
-    evaluator_resource_name: str,
     api_key: str,
     api_base: str,
 ) -> bool:
-    """Ensure the evaluator exists and is ACTIVE, uploading it if needed."""
-    # Check if evaluator already exists
-    try:
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "User-Agent": get_user_agent(),
-        }
-        resp = requests.get(f"{api_base}/v1/{evaluator_resource_name}", headers=headers, timeout=10)
-        if resp.ok:
-            state = resp.json().get("state", "STATE_UNSPECIFIED")
-            print(f"✓ Evaluator exists (state: {state}). Skipping upload.")
-            # Poll for ACTIVE before proceeding
-            print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
-            if not _poll_evaluator_status(
-                evaluator_resource_name=evaluator_resource_name,
-                api_key=api_key,
-                api_base=api_base,
-                timeout_minutes=10,
-            ):
-                dashboard_url = _build_evaluator_dashboard_url(evaluator_id)
-                print("\n❌ Evaluator is not ready within the timeout period.")
-                print(f"📊 Please check the evaluator status at: {dashboard_url}")
-                print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
-                return False
-            return True
-    except requests.exceptions.RequestException:
-        pass
+    """Upload evaluator and ensure its version becomes ACTIVE.
 
-    # Ensure evaluator exists by invoking the upload flow programmatically
+    Creates/updates the evaluator and uploads the code, then polls the specific
+    version until it becomes ACTIVE.
+    """
+    from eval_protocol.evaluation import create_evaluation
+
     try:
         tests = _discover_tests(project_root)
         selected_entry: Optional[str] = None
@@ -614,39 +592,37 @@ def _upload_and_ensure_evaluator(
             )
             return False
 
-        upload_args = argparse.Namespace(
-            path=project_root,
-            entry=selected_entry,
-            id=evaluator_id,
-            display_name=None,
-            description=None,
-            yes=True,
-            env_file=None,
+        print(f"\nUploading evaluator '{evaluator_id}'...")
+        result, version_id = create_evaluation(
+            evaluator_id=evaluator_id,
+            display_name=evaluator_id,
+            description=f"Evaluator for {evaluator_id}",
+            entry_point=selected_entry,
         )
 
-        rc = upload_command(upload_args)
-        if rc == 0:
-            print(f"✓ Uploaded/ensured evaluator: {evaluator_id}")
-
-            # Poll for evaluator status
-            print(f"Waiting for evaluator '{evaluator_id}' to become ACTIVE...")
-            is_active = _poll_evaluator_status(
-                evaluator_resource_name=evaluator_resource_name,
-                api_key=api_key,
-                api_base=api_base,
-                timeout_minutes=10,
-            )
-
-            if not is_active:
-                dashboard_url = _build_evaluator_dashboard_url(evaluator_id)
-                print("\n❌ Evaluator is not ready within the timeout period.")
-                print(f"📊 Please check the evaluator status at: {dashboard_url}")
-                print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
-                return False
-            return True
-        else:
-            print("Warning: Evaluator upload did not complete successfully; proceeding to RFT creation.")
+        if not version_id:
+            print("Warning: Evaluator created but version upload failed.")
             return False
+
+        print(f"✓ Uploaded evaluator: {evaluator_id} (version: {version_id})")
+
+        # Poll for the specific evaluator version status
+        print(f"Waiting for evaluator '{evaluator_id}' version '{version_id}' to become ACTIVE...")
+        is_active = _poll_evaluator_version_status(
+            evaluator_id=evaluator_id,
+            version_id=version_id,
+            api_key=api_key,
+            api_base=api_base,
+            timeout_minutes=10,
+        )
+
+        if not is_active:
+            dashboard_url = _build_evaluator_dashboard_url(evaluator_id)
+            print("\n❌ Evaluator version is not ready within the timeout period.")
+            print(f"📊 Please check the evaluator status at: {dashboard_url}")
+            print("   Wait for it to become ACTIVE, then run 'eval-protocol create rft' again.")
+            return False
+        return True
     except Exception as e:
         print(f"Warning: Failed to upload evaluator automatically: {e}")
         return False
@@ -802,11 +778,10 @@ def create_rft_command(args) -> int:
     if not dataset_id or not dataset_resource:
         return 1
 
-    # 5) Ensure evaluator exists and is ACTIVE (upload + poll if needed)
+    # 5) Ensure evaluator exists and its latest version is ACTIVE (upload + poll if needed)
     if not _upload_and_ensure_evaluator(
         project_root=project_root,
         evaluator_id=evaluator_id,
-        evaluator_resource_name=evaluator_resource_name,
         api_key=api_key,
         api_base=api_base,
     ):

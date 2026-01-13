@@ -107,7 +107,7 @@ def test_create_evaluation_helper(monkeypatch):
 
         try:
             os.chdir(tmp_dir)
-            api_response = create_evaluation(
+            api_response, version_id = create_evaluation(
                 evaluator_id="test-eval",
                 display_name="Test Evaluator",
                 description="Test description",
@@ -117,6 +117,9 @@ def test_create_evaluation_helper(monkeypatch):
             assert api_response.name == "accounts/test_account/evaluators/test-eval"
             assert api_response.display_name == "Test Evaluator"
             assert api_response.description == "Test description"
+
+            # Verify version ID was returned
+            assert version_id == "v1", "Version ID should be returned"
 
             # Verify full upload flow was executed
             assert create_called, "Create endpoint should be called"
