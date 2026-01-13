@@ -1312,7 +1312,7 @@ requires-dist = [
     { name = "dspy", marker = "extra == 'dspy'", specifier = ">=3.0.0" },
     { name = "e2b", marker = "extra == 'dev'" },
     { name = "fastapi", specifier = ">=0.116.1" },
-    { name = "fireworks-ai", url = "https://pkg.stainless.com/s/fireworks-ai-python/edd49b0b378db786d6e6b043839baa9aeb6cf0c0/fireworks_ai-1.0.0a20-py3-none-any.whl" },
+    { name = "fireworks-ai", url = "https://pkg.stainless.com/s/fireworks-ai-python/c35a37f39bced36305e3f2949484c3409a8f892e/fireworks_ai-1.0.0a21-py3-none-any.whl" },
     { name = "google-auth", marker = "extra == 'bigquery'", specifier = ">=2.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'bigquery'", specifier = ">=3.0.0" },
     { name = "gymnasium", marker = "extra == 'dev'", specifier = ">=1.2.0" },
@@ -1582,8 +1582,8 @@ wheels = [
 
 [[package]]
 name = "fireworks-ai"
-version = "1.0.0a20"
-source = { url = "https://pkg.stainless.com/s/fireworks-ai-python/edd49b0b378db786d6e6b043839baa9aeb6cf0c0/fireworks_ai-1.0.0a20-py3-none-any.whl" }
+version = "1.0.0a21"
+source = { url = "https://pkg.stainless.com/s/fireworks-ai-python/c35a37f39bced36305e3f2949484c3409a8f892e/fireworks_ai-1.0.0a21-py3-none-any.whl" }
 dependencies = [
     { name = "aiohttp" },
     { name = "anyio" },
@@ -1595,7 +1595,7 @@ dependencies = [
     { name = "typing-extensions" },
 ]
 wheels = [
-    { url = "https://pkg.stainless.com/s/fireworks-ai-python/edd49b0b378db786d6e6b043839baa9aeb6cf0c0/fireworks_ai-1.0.0a20-py3-none-any.whl", hash = "sha256:d0fb6d84bc93d161276be6b8f134d77e0cbc7f12f3477482485fa4bfc1491d5a" },
+    { url = "https://pkg.stainless.com/s/fireworks-ai-python/c35a37f39bced36305e3f2949484c3409a8f892e/fireworks_ai-1.0.0a21-py3-none-any.whl", hash = "sha256:882c45957fa4a5be55680b9a8972381ec83875834f097ab743981716819aecb7" },
 ]
 
 [package.metadata]
