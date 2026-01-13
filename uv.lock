@@ -1312,7 +1312,7 @@ requires-dist = [
     { name = "dspy", marker = "extra == 'dspy'", specifier = ">=3.0.0" },
     { name = "e2b", marker = "extra == 'dev'" },
     { name = "fastapi", specifier = ">=0.116.1" },
-    { name = "fireworks-ai", url = "https://pkg.stainless.com/s/fireworks-ai-python/c35a37f39bced36305e3f2949484c3409a8f892e/fireworks_ai-1.0.0a21-py3-none-any.whl" },
+    { name = "fireworks-ai", specifier = "==1.0.0a22" },
     { name = "google-auth", marker = "extra == 'bigquery'", specifier = ">=2.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'bigquery'", specifier = ">=3.0.0" },
     { name = "gymnasium", marker = "extra == 'dev'", specifier = ">=1.2.0" },
@@ -1582,8 +1582,8 @@ wheels = [
 
 [[package]]
 name = "fireworks-ai"
-version = "1.0.0a21"
-source = { url = "https://pkg.stainless.com/s/fireworks-ai-python/c35a37f39bced36305e3f2949484c3409a8f892e/fireworks_ai-1.0.0a21-py3-none-any.whl" }
+version = "1.0.0a22"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "anyio" },
@@ -1594,20 +1594,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/ef/16/073cf6855d18e43c14972d4b8f8fe59a43e41b581d430a7fad1dae3b8ddf/fireworks_ai-1.0.0a22.tar.gz", hash = "sha256:ab6fc7ad2beb8d69454b8c8c34ccd5d97ffa8cefa308a5cac7e568676e4b1188", size = 572510, upload-time = "2026-01-13T23:52:12.538Z" }
 wheels = [
-    { url = "https://pkg.stainless.com/s/fireworks-ai-python/c35a37f39bced36305e3f2949484c3409a8f892e/fireworks_ai-1.0.0a21-py3-none-any.whl", hash = "sha256:882c45957fa4a5be55680b9a8972381ec83875834f097ab743981716819aecb7" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiohttp" },
-    { name = "anyio", specifier = ">=3.5.0,<5" },
-    { name = "distro", specifier = ">=1.7.0,<2" },
-    { name = "httpx", specifier = ">=0.23.0,<1" },
-    { name = "httpx-aiohttp", specifier = ">=0.1.9" },
-    { name = "pydantic", specifier = ">=1.9.0,<3" },
-    { name = "sniffio" },
-    { name = "typing-extensions", specifier = ">=4.10,<5" },
+    { url = "https://files.pythonhosted.org/packages/26/ef/a932f1fc357b7847258c212d53c074df3956ffbcbf74b2d5c3fdf14fd805/fireworks_ai-1.0.0a22-py3-none-any.whl", hash = "sha256:4ee18a0cb454585baab4803d82ec647d70fd8078a737a7ca4be7a686bc468ce3", size = 316745, upload-time = "2026-01-13T23:52:11.268Z" },
 ]
 
 [[package]]
