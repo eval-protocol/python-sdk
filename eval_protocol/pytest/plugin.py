@@ -46,6 +46,12 @@ def pytest_addoption(parser) -> None:
         help=("Override the maximum number of concurrent rollouts. Pass an integer (e.g., 8, 50, 100)."),
     )
     group.addoption(
+        "--ep-max-concurrent-evaluations",
+        action="store",
+        default=None,
+        help=("Override the maximum number of concurrent evaluations. Pass an integer (e.g., 8, 50, 100)."),
+    )
+    group.addoption(
         "--ep-print-summary",
         action="store_true",
         default=False,
@@ -242,10 +248,15 @@ def pytest_configure(config) -> None:
     if norm_runs is not None:
         os.environ["EP_NUM_RUNS"] = norm_runs
 
-    max_concurrent_val = config.getoption("--ep-max-concurrent-rollouts")
-    norm_concurrent = _normalize_number(max_concurrent_val)
-    if norm_concurrent is not None:
-        os.environ["EP_MAX_CONCURRENT_ROLLOUTS"] = norm_concurrent
+    max_concurrent_rollouts_val = config.getoption("--ep-max-concurrent-rollouts")
+    norm_concurrent_rollouts = _normalize_number(max_concurrent_rollouts_val)
+    if norm_concurrent_rollouts is not None:
+        os.environ["EP_MAX_CONCURRENT_ROLLOUTS"] = norm_concurrent_rollouts
+
+    max_concurrent_evals_val = config.getoption("--ep-max-concurrent-evaluations")
+    norm_concurrent_evals = _normalize_number(max_concurrent_evals_val)
+    if norm_concurrent_evals is not None:
+        os.environ["EP_MAX_CONCURRENT_EVALUATIONS"] = norm_concurrent_evals
 
     if config.getoption("--ep-print-summary"):
         os.environ["EP_PRINT_SUMMARY"] = "1"
