@@ -80,6 +80,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
             # Normalize Fireworks model names for LiteLLM routing
             completion_params = normalize_fireworks_model_for_litellm(config.completion_params) or {}
+            row.input_metadata.completion_params = completion_params
             request_params = {"messages": messages_payload, **completion_params}
             # Ensure caching is disabled only for this request (review feedback)
             request_params["cache"] = {"no-cache": True}

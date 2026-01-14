@@ -180,6 +180,7 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
             try:
                 # Normalize Fireworks model names for LiteLLM routing
                 completion_params = normalize_fireworks_model_for_litellm(config.completion_params) or {}
+                row.input_metadata.completion_params = completion_params
                 # Get model config
                 raw_model = completion_params.get("model", "gpt-4o-mini")
                 model = raw_model

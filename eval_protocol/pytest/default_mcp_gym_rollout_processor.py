@@ -283,6 +283,9 @@ class MCPGymRolloutProcessor(RolloutProcessor):
 
         # Normalize Fireworks model names for LiteLLM routing
         completion_params = normalize_fireworks_model_for_litellm(config.completion_params) or {}
+        # Update all rows with normalized completion_params
+        for row in rows:
+            row.input_metadata.completion_params = completion_params
         model_id = str(completion_params.get("model") or "gpt-4o-mini")
         temperature = completion_params.get("temperature", 0.0)
         max_tokens = completion_params.get("max_tokens", 4096)

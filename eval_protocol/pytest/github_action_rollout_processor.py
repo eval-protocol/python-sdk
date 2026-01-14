@@ -11,6 +11,7 @@ from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
 from .tracing_utils import default_fireworks_output_data_loader, build_init_request, update_row_with_remote_trace
+from .utils import normalize_fireworks_model_for_litellm
 
 
 class GithubActionRolloutProcessor(RolloutProcessor):
@@ -80,7 +81,15 @@ class GithubActionRolloutProcessor(RolloutProcessor):
             if row.input_metadata.row_id is None:
                 raise ValueError("Row ID is required in GithubActionRolloutProcessor")
 
+            # Normalize Fireworks model names for LiteLLM routing
+            config.completion_params = (
+                normalize_fireworks_model_for_litellm(config.completion_params) or config.completion_params
+            )
+
             init_request = build_init_request(row, config, self.model_base_url)
+
+            # Update row with normalized completion_params for downstream access
+            row.input_metadata.completion_params = init_request.completion_params
 
             def _dispatch_workflow():
                 url = f"https://api.github.com/repos/{self.owner}/{self.repo}/actions/workflows/{self.workflow_id}/dispatches"

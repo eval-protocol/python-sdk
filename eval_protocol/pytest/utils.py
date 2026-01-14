@@ -1,7 +1,6 @@
 """Utility functions for model name handling."""
 
 import re
-from typing import Optional
 
 from eval_protocol.models import CompletionParams
 

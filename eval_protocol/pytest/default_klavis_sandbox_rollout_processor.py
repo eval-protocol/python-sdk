@@ -110,6 +110,7 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
                 )
                 # Normalize Fireworks model names for LiteLLM routing
                 completion_params = normalize_fireworks_model_for_litellm(row.input_metadata.completion_params) or {}
+                row.input_metadata.completion_params = completion_params
                 agent = Agent(
                     model=completion_params["model"],
                     row=row,
