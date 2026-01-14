@@ -1,10 +1,73 @@
 import logging
 import os
-from typing import Optional
+from typing import Dict, Optional
 
 import requests
+from dotenv import dotenv_values, find_dotenv, load_dotenv
 
 logger = logging.getLogger(__name__)
+
+
+def find_dotenv_path(search_path: Optional[str] = None) -> Optional[str]:
+    """
+    Find the .env file path, searching .env.dev first, then .env.
+
+    Args:
+        search_path: Directory to search from. If None, uses current working directory.
+
+    Returns:
+        Path to the .env file if found, otherwise None.
+    """
+    # If a specific search path is provided, look there first
+    if search_path:
+        env_dev_path = os.path.join(search_path, ".env.dev")
+        if os.path.isfile(env_dev_path):
+            return env_dev_path
+        env_path = os.path.join(search_path, ".env")
+        if os.path.isfile(env_path):
+            return env_path
+        return None
+
+    # Otherwise use find_dotenv to search up the directory tree
+    env_dev_path = find_dotenv(filename=".env.dev", raise_error_if_not_found=False, usecwd=True)
+    if env_dev_path:
+        return env_dev_path
+    env_path = find_dotenv(filename=".env", raise_error_if_not_found=False, usecwd=True)
+    if env_path:
+        return env_path
+    return None
+
+
+def get_dotenv_values(search_path: Optional[str] = None) -> Dict[str, Optional[str]]:
+    """
+    Get all key-value pairs from the .env file.
+
+    Args:
+        search_path: Directory to search from. If None, uses current working directory.
+
+    Returns:
+        Dictionary of environment variable names to values.
+    """
+    dotenv_path = find_dotenv_path(search_path)
+    if dotenv_path:
+        return dotenv_values(dotenv_path)
+    return {}
+
+
+# --- Load .env files ---
+# Attempt to load .env.dev first, then .env as a fallback.
+# This happens when the module is imported.
+# We use override=False (default) so that existing environment variables
+# (e.g., set in the shell) are NOT overridden by .env files.
+_DOTENV_PATH = find_dotenv_path()
+if _DOTENV_PATH:
+    load_dotenv(dotenv_path=_DOTENV_PATH, override=False)
+    logger.debug(f"eval_protocol.auth: Loaded environment variables from: {_DOTENV_PATH}")
+else:
+    logger.debug(
+        "eval_protocol.auth: No .env.dev or .env file found. Relying on shell/existing environment variables."
+    )
+# --- End .env loading ---
 
 
 def get_fireworks_api_key() -> Optional[str]:
