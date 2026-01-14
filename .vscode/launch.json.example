@@ -32,6 +32,29 @@
 				"FIREWORKS_BASE_URL": "${env:FIREWORKS_BASE_URL}",
 				"FIREWORKS_EXTRA_HEADERS": "{\"x-api-key\": \"${env:FIREWORKS_API_KEY}\", \"X-Fireworks-Gateway-Secret\": \"${env:FIREWORKS_GATEWAY_SECRET}\"}"
 			}
+		},
+		{
+			"name": "EP: Create RFT",
+			"type": "python",
+			"request": "launch",
+			"module": "eval_protocol.cli",
+			"args": [
+				"create",
+				"rft",
+				"--base-model",
+				"accounts/fireworks/models/qwen3-0p6b",
+				"--chunk-size",
+				"10"
+			],
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"cwd": "<REPLACE_WITH_YOUR_EVALUATOR_DIRECTORY>",
+			"env": {
+				"PYTHONPATH": "${workspaceFolder}",
+				"FIREWORKS_API_KEY": "${env:FIREWORKS_API_KEY}",
+				"FIREWORKS_BASE_URL": "${env:FIREWORKS_BASE_URL}",
+				"FIREWORKS_EXTRA_HEADERS": "{\"x-api-key\": \"${env:FIREWORKS_API_KEY}\", \"X-Fireworks-Gateway-Secret\": \"${env:FIREWORKS_GATEWAY_SECRET}\"}"
+			}
 		}
 	]
 }
