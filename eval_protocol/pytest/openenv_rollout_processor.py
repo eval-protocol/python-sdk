@@ -24,6 +24,7 @@ from eval_protocol.mcp.execution.policy import LiteLLMPolicy
 from eval_protocol.models import EvaluationRow, Message
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
+from eval_protocol.pytest.utils import normalize_fireworks_model_for_litellm
 
 logger = logging.getLogger(__name__)
 
@@ -177,15 +178,18 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
             logger.debug("[OpenEnvRolloutProcessor] Environment client created successfully")
 
             try:
+                # Normalize Fireworks model names for LiteLLM routing
+                completion_params = normalize_fireworks_model_for_litellm(config.completion_params) or {}
+                row.input_metadata.completion_params = completion_params
                 # Get model config
-                raw_model = config.completion_params.get("model", "gpt-4o-mini")
+                raw_model = completion_params.get("model", "gpt-4o-mini")
                 model = raw_model
-                temperature = config.completion_params.get("temperature", 0.0)
-                max_tokens = config.completion_params.get("max_tokens", 100)
+                temperature = completion_params.get("temperature", 0.0)
+                max_tokens = completion_params.get("max_tokens", 100)
                 # Optional: direct routing or provider overrides (e.g., base_url, api_key, top_p, stop, etc.)
-                base_url = config.completion_params.get("base_url")
+                base_url = completion_params.get("base_url")
                 # Forward any extra completion params to LiteLLMPolicy (they will be sent per-request)
-                extra_params: Dict[str, Any] = dict(config.completion_params or {})
+                extra_params: Dict[str, Any] = dict(completion_params)
                 for _k in ("model", "temperature", "max_tokens", "base_url"):
                     try:
                         extra_params.pop(_k, None)
@@ -247,7 +251,7 @@ class OpenEnvRolloutProcessor(RolloutProcessor):
                 messages = list(row.messages)  # Copy initial messages
                 # Inject system prompt if provided and not already present
                 has_system = any(m.role == "system" for m in messages)
-                system_prompt = config.completion_params.get("system_prompt")
+                system_prompt = completion_params.get("system_prompt")
                 if system_prompt and not has_system:
                     messages.insert(0, Message(role="system", content=system_prompt))
                 usage = {

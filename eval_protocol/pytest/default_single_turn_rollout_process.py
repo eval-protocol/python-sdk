@@ -17,6 +17,7 @@ from eval_protocol.models import EvaluationRow, Message
 from openai.types import CompletionUsage
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
+from eval_protocol.pytest.utils import normalize_fireworks_model_for_litellm
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row asynchronously."""
             start_time = time.perf_counter()
- 
+
             if len(row.messages) == 0:
                 raise ValueError("Messages is empty. Please provide a non-empty dataset")
 
@@ -77,7 +78,10 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             # Use the Message class method that excludes unsupported fields
             messages_payload = [message.dump_mdoel_for_chat_completion_request() for message in messages_for_request]
 
-            request_params = {"messages": messages_payload, **config.completion_params}
+            # Normalize Fireworks model names for LiteLLM routing
+            completion_params = normalize_fireworks_model_for_litellm(config.completion_params) or {}
+            row.input_metadata.completion_params = completion_params
+            request_params = {"messages": messages_payload, **completion_params}
             # Ensure caching is disabled only for this request (review feedback)
             request_params["cache"] = {"no-cache": True}
 
@@ -87,18 +91,15 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             # Single-level reasoning effort: expect `reasoning_effort` only
             effort_val = None
 
-            if (
-                "reasoning_effort" in config.completion_params
-                and config.completion_params["reasoning_effort"] is not None
-            ):
-                effort_val = str(config.completion_params["reasoning_effort"])  # flat shape
+            if "reasoning_effort" in completion_params and completion_params["reasoning_effort"] is not None:
+                effort_val = str(completion_params["reasoning_effort"])  # flat shape
             elif (
-                isinstance(config.completion_params.get("extra_body"), dict)
-                and "reasoning_effort" in config.completion_params["extra_body"]
-                and config.completion_params["extra_body"]["reasoning_effort"] is not None
+                isinstance(completion_params.get("extra_body"), dict)
+                and "reasoning_effort" in completion_params["extra_body"]
+                and completion_params["extra_body"]["reasoning_effort"] is not None
             ):
                 # Accept if user passed it directly inside extra_body
-                effort_val = str(config.completion_params["extra_body"]["reasoning_effort"])  # already in extra_body
+                effort_val = str(completion_params["extra_body"]["reasoning_effort"])  # already in extra_body
 
             if effort_val:
                 # Always under extra_body so LiteLLM forwards to provider-specific param set

@@ -14,6 +14,7 @@ from eval_protocol.mcp.execution.manager import ExecutionManager
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig, ServerMode
+from eval_protocol.pytest.utils import normalize_fireworks_model_for_litellm
 
 
 class MCPServerManager:
@@ -280,17 +281,20 @@ class MCPGymRolloutProcessor(RolloutProcessor):
                         "Cannot retry without existing server/environments. Call with start_server=True first."
                     )
 
-        model_id = str((config.completion_params.get("model") if config.completion_params else None) or "gpt-4o-mini")
-        temperature = config.completion_params.get("temperature", 0.0)
-        max_tokens = config.completion_params.get("max_tokens", 4096)
+        # Normalize Fireworks model names for LiteLLM routing
+        completion_params = normalize_fireworks_model_for_litellm(config.completion_params) or {}
+        # Update all rows with normalized completion_params
+        for row in rows:
+            row.input_metadata.completion_params = completion_params
+        model_id = str(completion_params.get("model") or "gpt-4o-mini")
+        temperature = completion_params.get("temperature", 0.0)
+        max_tokens = completion_params.get("max_tokens", 4096)
 
         # Pass all other completion_params (e.g. stream=True) via kwargs
         other_params = {
-            k: v
-            for k, v in (config.completion_params or {}).items()
-            if k not in ["model", "temperature", "max_tokens", "extra_body"]
+            k: v for k, v in completion_params.items() if k not in ["model", "temperature", "max_tokens", "extra_body"]
         }
-        extra_body = config.completion_params.get("extra_body", {}) or {}
+        extra_body = completion_params.get("extra_body", {}) or {}
 
         self.policy = ep.LiteLLMPolicy(
             model_id=model_id,
