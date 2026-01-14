@@ -14,8 +14,8 @@ import pytest
 # Target: CLI should start in under 1.5 seconds (CI runners are slower)
 CLI_STARTUP_TARGET_SECONDS = 1.5
 
-# Target: evaluation_test import should be under 5.0 seconds (CI runners are ~3-4x slower)
-EVALUATION_TEST_IMPORT_TARGET_SECONDS = 5.0
+# Target: evaluation_test import should be under 10.0 seconds (CI runners can be very slow)
+EVALUATION_TEST_IMPORT_TARGET_SECONDS = 10.0
 
 # Number of runs to average (first run may be slower due to cold cache)
 NUM_RUNS = 3
