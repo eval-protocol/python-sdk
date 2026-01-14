@@ -11,8 +11,8 @@ from eval_protocol.event_bus.logger import logger
 
 
 # Retry configuration for database operations
-SQLITE_RETRY_MAX_TRIES = 5
-SQLITE_RETRY_MAX_TIME = 30  # seconds
+SQLITE_RETRY_MAX_TRIES = 10
+SQLITE_RETRY_MAX_TIME = 60  # seconds
 
 
 def _is_database_locked_error(e: Exception) -> bool:
