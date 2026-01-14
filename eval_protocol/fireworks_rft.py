@@ -1,5 +1,4 @@
 import importlib.util
-import io
 import json
 import os
 import sys
@@ -9,12 +8,8 @@ import uuid
 import hashlib
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple
-from urllib.parse import urlencode
 
-import requests
-
-from .auth import get_fireworks_account_id, get_fireworks_api_base, get_fireworks_api_key
-from .common_utils import get_user_agent
+from .fireworks_client import create_fireworks_client
 
 
 def _map_api_host_to_app_host(api_base: str) -> str:
@@ -142,43 +137,80 @@ def create_dataset_from_jsonl(
     display_name: Optional[str],
     jsonl_path: str,
 ) -> Tuple[str, Dict[str, Any]]:
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "User-Agent": get_user_agent(),
-    }
+    """Create a dataset and upload a JSONL file using the Fireworks SDK client.
+
+    This function uses the Fireworks SDK client which properly handles authentication
+    including extra headers set via FIREWORKS_EXTRA_HEADERS environment variable.
+
+    Args:
+        account_id: The Fireworks account ID.
+        api_key: Fireworks API key.
+        api_base: Fireworks API base URL.
+        dataset_id: The ID for the new dataset.
+        display_name: Display name for the dataset (optional).
+        jsonl_path: Path to the JSONL file to upload.
+
+    Returns:
+        A tuple of (dataset_id, dataset_response_dict).
+
+    Raises:
+        RuntimeError: If dataset creation or upload fails.
+    """
     # Count examples quickly
     example_count = 0
     with open(jsonl_path, "r", encoding="utf-8") as f:
         for _ in f:
             example_count += 1
 
-    dataset_url = f"{api_base.rstrip('/')}/v1/accounts/{account_id}/datasets"
-    payload = {
-        "dataset": {
-            "displayName": display_name or dataset_id,
-            "evalProtocol": {},
-            "format": "FORMAT_UNSPECIFIED",
-            "exampleCount": str(example_count),
-        },
-        "datasetId": dataset_id,
-    }
-    resp = requests.post(dataset_url, json=payload, headers=headers, timeout=60)
-    if resp.status_code not in (200, 201):
-        raise RuntimeError(f"Dataset creation failed: {resp.status_code} {resp.text}")
-    ds = resp.json()
+    # Create Fireworks client with consistent configuration
+    client = create_fireworks_client(
+        api_key=api_key,
+        account_id=account_id,
+        base_url=api_base,
+    )
 
-    upload_url = f"{api_base.rstrip('/')}/v1/accounts/{account_id}/datasets/{dataset_id}:upload"
-    with open(jsonl_path, "rb") as f:
-        files = {"file": f}
-        up_headers = {
-            "Authorization": f"Bearer {api_key}",
-            "User-Agent": get_user_agent(),
+    try:
+        # Create the dataset
+        dataset = client.datasets.create(
+            account_id=account_id,
+            dataset_id=dataset_id,
+            dataset={
+                "display_name": display_name or dataset_id,
+                "eval_protocol": {},
+                "format": "FORMAT_UNSPECIFIED",
+                "example_count": str(example_count),
+            },
+            timeout=60.0,
+        )
+    except Exception as e:
+        raise RuntimeError(f"Dataset creation failed: {e}") from e
+
+    try:
+        # Upload the JSONL file
+        with open(jsonl_path, "rb") as f:
+            client.datasets.upload(
+                dataset_id=dataset_id,
+                account_id=account_id,
+                file=f,
+                timeout=600.0,
+            )
+    except Exception as e:
+        raise RuntimeError(f"Dataset upload failed: {e}") from e
+
+    # Convert SDK response to dict for backwards compatibility
+    ds_dict: Dict[str, Any] = {}
+    if hasattr(dataset, "model_dump"):
+        ds_dict = dataset.model_dump()
+    elif hasattr(dataset, "dict"):
+        ds_dict = dataset.dict()
+    else:
+        # Fallback: extract known fields
+        ds_dict = {
+            "name": getattr(dataset, "name", None),
+            "state": getattr(dataset, "state", None),
         }
-        up_resp = requests.post(upload_url, files=files, headers=up_headers, timeout=600)
-    if up_resp.status_code not in (200, 201):
-        raise RuntimeError(f"Dataset upload failed: {up_resp.status_code} {up_resp.text}")
-    return dataset_id, ds
+
+    return dataset_id, ds_dict
 
 
 def build_default_dataset_id(evaluator_id: str) -> str:
