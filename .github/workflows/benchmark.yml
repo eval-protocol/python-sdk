@@ -1,0 +1,79 @@
+name: EP CLI Benchmark
+
+# Run daily at 6 AM UTC (10 PM PST / 11 PM PDT)
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  benchmark:
+    name: CLI Startup & Import Benchmark
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run Benchmark Tests
+        id: benchmark
+        env:
+          RUN_BENCHMARK_TESTS: "1"
+          PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::RuntimeWarning"
+        run: |
+          echo "Running EP CLI benchmark tests..."
+          set +e
+
+          uv run pytest tests/test_cli_startup_benchmark.py -v --tb=short --durations=10 2>&1 | tee benchmark_output.log
+
+          BENCHMARK_EXIT_CODE=$?
+          echo "benchmark_exit_code=$BENCHMARK_EXIT_CODE" >> $GITHUB_OUTPUT
+
+          if [ $BENCHMARK_EXIT_CODE -eq 0 ]; then
+            echo "✅ Benchmark tests passed"
+          else
+            echo "❌ Benchmark tests failed"
+          fi
+
+          exit $BENCHMARK_EXIT_CODE
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-py${{ matrix.python-version }}-${{ github.run_number }}
+          path: benchmark_output.log
+          retention-days: 30
+
+      - name: Send failure notification to Slack
+        uses: act10ns/slack@v1
+        if: failure()
+        with:
+          status: failure
+          message: |
+            🐌 EP CLI Benchmark Failed (Python ${{ matrix.python-version }})
+            CLI startup or import times exceeded thresholds.
+            Check for new imports or heavy dependencies.
+            Job: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
