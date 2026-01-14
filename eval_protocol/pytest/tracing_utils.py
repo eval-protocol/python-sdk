@@ -99,6 +99,9 @@ def build_init_request(
     # Normalize Fireworks model names for LiteLLM routing
     completion_params_dict = normalize_fireworks_model_for_litellm(completion_params_dict) or {}
 
+    # Update row's completion_params with normalized value
+    row.input_metadata.completion_params = completion_params_dict
+
     # Validate model is present
     if not completion_params_dict.get("model"):
         raise ValueError("Model must be provided in completion_params")
