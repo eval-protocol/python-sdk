@@ -92,11 +92,9 @@ class RemoteRolloutProcessor(RolloutProcessor):
             config.completion_params = (
                 normalize_fireworks_model_for_litellm(config.completion_params) or config.completion_params
             )
+            row.input_metadata.completion_params = config.completion_params
 
             init_payload = build_init_request(row, config, model_base_url)
-
-            # Update row with normalized completion_params for downstream access
-            row.input_metadata.completion_params = init_payload.completion_params
 
             # Fire-and-poll
             init_url = f"{remote_base_url}/init"

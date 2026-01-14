@@ -85,11 +85,9 @@ class GithubActionRolloutProcessor(RolloutProcessor):
             config.completion_params = (
                 normalize_fireworks_model_for_litellm(config.completion_params) or config.completion_params
             )
+            row.input_metadata.completion_params = config.completion_params
 
             init_request = build_init_request(row, config, self.model_base_url)
-
-            # Update row with normalized completion_params for downstream access
-            row.input_metadata.completion_params = init_request.completion_params
 
             def _dispatch_workflow():
                 url = f"https://api.github.com/repos/{self.owner}/{self.repo}/actions/workflows/{self.workflow_id}/dispatches"
