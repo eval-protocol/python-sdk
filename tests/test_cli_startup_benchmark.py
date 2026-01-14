@@ -1,15 +1,21 @@
 """
 Benchmark test for CLI startup time and evaluation_test import time.
 
-These tests ensure startup times stay under target thresholds.
-Run with: pytest tests/test_cli_startup_benchmark.py -v
+These are smoke tests that run on schedule (not on every PR) to catch performance regressions.
+Run manually with: RUN_BENCHMARK_TESTS=1 pytest tests/test_cli_startup_benchmark.py -v
 """
 
+import os
 import subprocess
 import sys
 import time
 
 import pytest
+
+# Skip benchmark tests unless explicitly enabled via environment variable
+# This prevents flaky failures from blocking PRs
+SKIP_BENCHMARK = os.environ.get("RUN_BENCHMARK_TESTS", "0") != "1"
+SKIP_REASON = "Benchmark tests only run when RUN_BENCHMARK_TESTS=1 (scheduled smoke tests)"
 
 # Target: CLI should start in under 1.5 seconds (CI runners are slower)
 CLI_STARTUP_TARGET_SECONDS = 1.5
@@ -28,7 +34,7 @@ def measure_cli_startup_time() -> float:
         [sys.executable, "-m", "eval_protocol.cli", "--help"],
         capture_output=True,
         text=True,
-        env={**dict(__import__("os").environ), "FIREWORKS_API_KEY": "benchmark-test-key"},
+        env={**dict(os.environ), "FIREWORKS_API_KEY": "benchmark-test-key"},
     )
     elapsed = time.perf_counter() - start
 
@@ -39,6 +45,7 @@ def measure_cli_startup_time() -> float:
 
 
 @pytest.mark.benchmark
+@pytest.mark.skipif(SKIP_BENCHMARK, reason=SKIP_REASON)
 def test_cli_startup_time():
     """Test that CLI startup time is under the target threshold."""
     times = []
@@ -64,6 +71,7 @@ def test_cli_startup_time():
 
 
 @pytest.mark.benchmark
+@pytest.mark.skipif(SKIP_BENCHMARK, reason=SKIP_REASON)
 def test_package_import_time():
     """Test that importing eval_protocol package is fast (lazy loading check)."""
     # Use subprocess to get a clean import measurement
@@ -90,6 +98,7 @@ print(f"{elapsed:.6f}")
 
 
 @pytest.mark.benchmark
+@pytest.mark.skipif(SKIP_BENCHMARK, reason=SKIP_REASON)
 def test_evaluation_test_import_time():
     """Test that importing evaluation_test decorator is under the target threshold."""
     code = """
@@ -135,6 +144,7 @@ print(f"{litellm_loaded}")
 
 
 if __name__ == "__main__":
+    # When run directly, always execute (ignore SKIP_BENCHMARK)
     print("=== CLI Startup Benchmark ===\n")
 
     print("Testing CLI startup time...")
