@@ -12,6 +12,7 @@ from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.utils.evaluation_row_utils import filter_longest_conversation
 from eval_protocol.types.remote_rollout_processor import DataLoaderConfig, RolloutMetadata, InitRequest
 from eval_protocol.pytest.types import RolloutProcessorConfig
+from eval_protocol.pytest.evaluation_test_utils import normalize_fireworks_model_for_litellm
 
 
 def default_fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:
@@ -94,6 +95,9 @@ def build_init_request(
         row_cp = row.input_metadata.completion_params
         if isinstance(row_cp, dict):
             completion_params_dict.update(row_cp)
+
+    # Normalize Fireworks model names for LiteLLM routing
+    completion_params_dict = normalize_fireworks_model_for_litellm(completion_params_dict) or {}
 
     # Validate model is present
     if not completion_params_dict.get("model"):

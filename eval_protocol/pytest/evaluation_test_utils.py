@@ -621,7 +621,7 @@ def build_rollout_processor_config(
     )
 
 
-def normalize_fireworks_model(completion_params: CompletionParams | None) -> CompletionParams | None:
+def normalize_fireworks_model_for_litellm(completion_params: CompletionParams | None) -> CompletionParams | None:
     """Fireworks model names like 'accounts/<org>/models/<model>' need the fireworks_ai/
     prefix when routing through LiteLLM. This function adds the prefix if missing.
     """
