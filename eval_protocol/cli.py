@@ -210,6 +210,78 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         help_overrides=help_overrides,
     )
 
+    # Create evj (Evaluation Job) subcommand
+    evj_parser = create_subparsers.add_parser(
+        "evj",
+        help="Create an Evaluation Job on Fireworks",
+    )
+
+    evj_parser.add_argument("--yes", "-y", action="store_true", help="Non-interactive mode")
+    evj_parser.add_argument("--dry-run", action="store_true", help="Print planned SDK call without sending")
+    evj_parser.add_argument("--skip-validation", action="store_true", help="Skip local dataset/evaluator validation")
+    evj_parser.add_argument(
+        "--ignore-docker",
+        action="store_true",
+        help="Ignore Dockerfile even if present; run pytest on host during evaluator validation",
+    )
+    evj_parser.add_argument(
+        "--docker-build-extra",
+        default="",
+        metavar="",
+        help="Extra flags to pass to 'docker build' when validating evaluator (quoted string, e.g. \"--no-cache --pull --progress=plain\")",
+    )
+    evj_parser.add_argument(
+        "--docker-run-extra",
+        default="",
+        metavar="",
+        help="Extra flags to pass to 'docker run' when validating evaluator (quoted string, e.g. \"--env-file .env --memory=8g\")",
+    )
+    evj_parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="If set, only errors will be printed.",
+    )
+
+    # Auto-generate flags from SDK Fireworks().evaluation_jobs.create() signature
+    create_evj_fn = Fireworks().evaluation_jobs.create
+
+    evj_skip_fields = {
+        "__top_level__": {
+            "account_id",  # auto-detected
+            "extra_headers",
+            "extra_query",
+            "extra_body",
+            "timeout",
+        },
+        "evaluation_job": {
+            "output_stats",  # read-only, set by server
+        },
+    }
+    evj_aliases = {
+        "evaluation_job_id": ["--job-id"],
+        "evaluation_job.evaluator": ["--evaluator"],
+        "evaluation_job.input_dataset": ["--dataset"],  # --input-dataset is auto-added
+        "evaluation_job.display_name": ["--name"],
+        # output_dataset, evaluator_version get their short forms auto-added
+    }
+    evj_help_overrides = {
+        "evaluation_job_id": "Evaluation Job ID to use",
+        "evaluation_job.evaluator": "Evaluator resource name (format: accounts/{account_id}/evaluators/{evaluator_id})",
+        "evaluation_job.input_dataset": "Input dataset resource name (format: accounts/{account_id}/datasets/{dataset_id})",
+        "evaluation_job.output_dataset": "Output dataset resource name where results will be written",
+        "evaluation_job.display_name": "Display name for the evaluation job",
+        "evaluation_job.evaluator_version": "Specific evaluator version to use (defaults to current version)",
+        "leaderboard_ids": "Optional leaderboard IDs to attach this job to upon creation",
+    }
+
+    add_args_from_callable_signature(
+        evj_parser,
+        create_evj_fn,
+        skip_fields=evj_skip_fields,
+        aliases=evj_aliases,
+        help_overrides=evj_help_overrides,
+    )
+
     # Local test command
     local_test_parser = subparsers.add_parser(
         "local-test",
@@ -351,7 +423,11 @@ def main():
             from .cli_commands.create_rft import create_rft_command
 
             return create_rft_command(args)
-        print("Error: missing subcommand for 'create'. Try: eval-protocol create rft")
+        elif args.create_command == "evj":
+            from .cli_commands.create_evj import create_evj_command
+
+            return create_evj_command(args)
+        print("Error: missing subcommand for 'create'. Try: eval-protocol create rft|evj")
         return 1
     elif args.command == "local-test":
         from .cli_commands.local_test import local_test_command

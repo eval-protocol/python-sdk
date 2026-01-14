@@ -752,3 +752,105 @@ def add_args_from_callable_signature(
         help_text = help_overrides.get(name, help.get(name))
 
         _add_flag(parser, flags, hints.get(name), help_text)
+
+
+def validate_evaluator_locally(
+    project_root: str,
+    selected_test_file: Optional[str],
+    selected_test_func: Optional[str],
+    ignore_docker: bool,
+    docker_build_extra: str,
+    docker_run_extra: str,
+) -> bool:
+    """Run pytest locally for the selected evaluation test to validate the evaluator.
+
+    The pytest helpers always enforce a small success threshold (0.01) for
+    evaluation_test-based suites so that an evaluation run where all scores are
+    0.0 will naturally fail with a non-zero pytest exit code, which we then treat
+    as a failed validator.
+    """
+    # Lazy import to avoid circular dependency (local_test imports from utils)
+    from .local_test import run_evaluator_test
+
+    if not selected_test_file or not selected_test_func:
+        # No local test associated; skip validation but warn the user.
+        print("Warning: Could not resolve a local evaluation test for this evaluator; skipping local validation.")
+        return True
+
+    pytest_target = _build_entry_point(project_root, selected_test_file, selected_test_func)
+    exit_code = run_evaluator_test(
+        project_root=project_root,
+        pytest_target=pytest_target,
+        ignore_docker=ignore_docker,
+        docker_build_extra=docker_build_extra,
+        docker_run_extra=docker_run_extra,
+    )
+    return exit_code == 0
+
+
+def resolve_evaluator(
+    project_root: str,
+    evaluator_arg: Optional[str],
+    non_interactive: bool,
+    account_id: str,
+    command_name: str = "create",
+) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+    """Resolve evaluator id/resource and associated local test (file + func).
+
+    Args:
+        project_root: Path to the project root directory.
+        evaluator_arg: The evaluator argument provided by the user (id or fully-qualified resource).
+        non_interactive: Whether to run in non-interactive mode.
+        account_id: The Fireworks account ID.
+        command_name: The CLI command name for error messages (e.g., 'create rft', 'create evj').
+
+    Returns:
+        A tuple of (evaluator_id, evaluator_resource_name, selected_test_file_path, selected_test_func_name).
+        Returns (None, None, None, None) if resolution fails.
+    """
+    evaluator_id = evaluator_arg
+    selected_test_file_path: Optional[str] = None
+    selected_test_func_name: Optional[str] = None
+
+    if not evaluator_id:
+        selected_tests = _discover_and_select_tests(project_root, non_interactive=non_interactive)
+        if not selected_tests:
+            return None, None, None, None
+
+        if len(selected_tests) != 1:
+            if non_interactive and len(selected_tests) > 1:
+                print("Error: Multiple evaluation tests found in --yes (non-interactive) mode.")
+                print("       Please pass --evaluator or --entry to disambiguate.")
+            else:
+                print(f"Error: Please select exactly one evaluation test for '{command_name}'.")
+            return None, None, None, None
+
+        chosen = selected_tests[0]
+        func_name = chosen.qualname.split(".")[-1]
+        source_file_name = os.path.splitext(os.path.basename(chosen.file_path))[0]
+        evaluator_id = _normalize_evaluator_id(f"{source_file_name}-{func_name}")
+        # Resolve selected test once for downstream
+        selected_test_file_path, selected_test_func_name = _resolve_selected_test(
+            project_root, evaluator_id, selected_tests=selected_tests
+        )
+    else:
+        # Caller provided an evaluator id or fully-qualified resource; try to resolve local test
+        short_id = evaluator_id
+        if evaluator_id.startswith("accounts/"):
+            short_id = _extract_terminal_segment(evaluator_id)
+        st_path, st_func = _resolve_selected_test(project_root, short_id)
+        if st_path and st_func:
+            selected_test_file_path = st_path
+            selected_test_func_name = st_func
+        evaluator_id = short_id
+
+    if not evaluator_id:
+        return None, None, None, None
+
+    # Resolve evaluator resource name to fully-qualified format required by API.
+    if evaluator_arg and evaluator_arg.startswith("accounts/"):
+        evaluator_resource_name = evaluator_arg
+    else:
+        evaluator_resource_name = f"accounts/{account_id}/evaluators/{evaluator_id}"
+
+    return evaluator_id, evaluator_resource_name, selected_test_file_path, selected_test_func_name

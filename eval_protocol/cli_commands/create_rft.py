@@ -31,6 +31,8 @@ from .utils import (
     _print_links,
     _resolve_selected_test,
     load_module_from_file_path,
+    resolve_evaluator,
+    validate_evaluator_locally,
 )
 from .local_test import run_evaluator_test
 
@@ -335,108 +337,31 @@ def _validate_dataset(dataset_jsonl: Optional[str]) -> bool:
     return _validate_dataset_jsonl(dataset_jsonl)
 
 
-def _validate_evaluator_locally(
-    project_root: str,
-    selected_test_file: Optional[str],
-    selected_test_func: Optional[str],
-    ignore_docker: bool,
-    docker_build_extra: str,
-    docker_run_extra: str,
-) -> bool:
-    """Run pytest locally for the selected evaluation test to validate the evaluator.
-
-    The pytest helpers always enforce a small success threshold (0.01) for
-    evaluation_test-based suites so that an evaluation run where all scores are
-    0.0 will naturally fail with a non-zero pytest exit code, which we then treat
-    as a failed validator.
-    """
-    if not selected_test_file or not selected_test_func:
-        # No local test associated; skip validation but warn the user.
-        print("Warning: Could not resolve a local evaluation test for this evaluator; skipping local validation.")
-        return True
-
-    pytest_target = _build_entry_point(project_root, selected_test_file, selected_test_func)
-    exit_code = run_evaluator_test(
-        project_root=project_root,
-        pytest_target=pytest_target,
-        ignore_docker=ignore_docker,
-        docker_build_extra=docker_build_extra,
-        docker_run_extra=docker_run_extra,
-    )
-    return exit_code == 0
-
-
-def _resolve_evaluator(
-    project_root: str,
-    evaluator_arg: Optional[str],
-    non_interactive: bool,
-    account_id: str,
-) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
-    """Resolve evaluator id/resource and associated local test (file + func)."""
-    evaluator_id = evaluator_arg
-    selected_test_file_path: Optional[str] = None
-    selected_test_func_name: Optional[str] = None
-
-    if not evaluator_id:
-        selected_tests = _discover_and_select_tests(project_root, non_interactive=non_interactive)
-        if not selected_tests:
-            return None, None, None, None
-
-        if len(selected_tests) != 1:
-            if non_interactive and len(selected_tests) > 1:
-                print("Error: Multiple evaluation tests found in --yes (non-interactive) mode.")
-                print("       Please pass --evaluator or --entry to disambiguate.")
-            else:
-                print("Error: Please select exactly one evaluation test for 'create rft'.")
-            return None, None, None, None
-
-        chosen = selected_tests[0]
-        func_name = chosen.qualname.split(".")[-1]
-        source_file_name = os.path.splitext(os.path.basename(chosen.file_path))[0]
-        evaluator_id = _normalize_evaluator_id(f"{source_file_name}-{func_name}")
-        # Resolve selected test once for downstream
-        selected_test_file_path, selected_test_func_name = _resolve_selected_test(
-            project_root, evaluator_id, selected_tests=selected_tests
-        )
-    else:
-        # Caller provided an evaluator id or fully-qualified resource; try to resolve local test
-        short_id = evaluator_id
-        if evaluator_id.startswith("accounts/"):
-            short_id = _extract_terminal_segment(evaluator_id)
-        st_path, st_func = _resolve_selected_test(project_root, short_id)
-        if st_path and st_func:
-            selected_test_file_path = st_path
-            selected_test_func_name = st_func
-        evaluator_id = short_id
-
-    if not evaluator_id:
-        return None, None, None, None
-
-    # Resolve evaluator resource name to fully-qualified format required by API.
-    if evaluator_arg and evaluator_arg.startswith("accounts/"):
-        evaluator_resource_name = evaluator_arg
-    else:
-        evaluator_resource_name = f"accounts/{account_id}/evaluators/{evaluator_id}"
-
-    return evaluator_id, evaluator_resource_name, selected_test_file_path, selected_test_func_name
-
-
-def _resolve_dataset(
+def resolve_dataset(
     project_root: str,
     account_id: str,
-    args: argparse.Namespace,
+    dataset_id_arg: Optional[str],
+    dataset_jsonl_arg: Optional[str],
     selected_test_file_path: Optional[str],
     selected_test_func_name: Optional[str],
 ) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """Resolve dataset source without performing any uploads.
+
+    Args:
+        project_root: Path to the project root directory.
+        account_id: The Fireworks account ID.
+        dataset_id_arg: Dataset ID or fully-qualified resource name (from --dataset).
+        dataset_jsonl_arg: Path to a local JSONL file (from --dataset-jsonl).
+        selected_test_file_path: Path to the selected test file (for inference).
+        selected_test_func_name: Name of the selected test function (for inference).
 
     Returns a tuple of:
       - dataset_id: existing dataset id when using --dataset or fully-qualified dataset resource
       - dataset_resource: fully-qualified dataset resource for existing datasets; None for JSONL sources
       - dataset_jsonl: local JSONL path when using --dataset-jsonl or inferred sources; None for id-only datasets
     """
-    dataset_id = getattr(args, "dataset", None)
-    dataset_jsonl = getattr(args, "dataset_jsonl", None)
+    dataset_id = dataset_id_arg
+    dataset_jsonl = dataset_jsonl_arg
     dataset_resource_override: Optional[str] = None
 
     if dataset_id and dataset_jsonl:
@@ -506,7 +431,7 @@ def _resolve_dataset(
     return dataset_id, dataset_resource, dataset_jsonl
 
 
-def _upload_dataset(
+def upload_dataset(
     project_root: str,
     account_id: str,
     api_key: str,
@@ -515,13 +440,28 @@ def _upload_dataset(
     dataset_id: Optional[str],
     dataset_resource: Optional[str],
     dataset_jsonl: Optional[str],
-    args: argparse.Namespace,
+    dataset_display_name: Optional[str],
     dry_run: bool,
 ) -> tuple[Optional[str], Optional[str]]:
     """Create/upload the dataset when using a local JSONL source.
 
     For existing datasets (--dataset or fully-qualified ids), this is a no-op that
     simply ensures dataset_id and dataset_resource are populated.
+
+    Args:
+        project_root: Path to the project root directory.
+        account_id: The Fireworks account ID.
+        api_key: Fireworks API key.
+        api_base: Fireworks API base URL.
+        evaluator_id: The evaluator ID (used for generating dataset ID if needed).
+        dataset_id: Existing dataset ID (if known).
+        dataset_resource: Existing dataset resource name (if known).
+        dataset_jsonl: Path to local JSONL file to upload (if any).
+        dataset_display_name: Display name for the dataset (optional).
+        dry_run: If True, simulate the upload without actually creating.
+
+    Returns:
+        A tuple of (dataset_id, dataset_resource).
     """
     # Existing dataset case: nothing to upload
     if not dataset_jsonl:
@@ -533,7 +473,7 @@ def _upload_dataset(
 
     # JSONL-based dataset: upload or simulate upload
     inferred_dataset_id = _build_trimmed_dataset_id(evaluator_id)
-    dataset_display_name = getattr(args, "dataset_display_name", None) or inferred_dataset_id
+    display_name = dataset_display_name or inferred_dataset_id
 
     # Resolve dataset_jsonl path relative to CWD if needed
     jsonl_path_for_upload = (
@@ -552,7 +492,7 @@ def _upload_dataset(
             api_key=api_key,
             api_base=api_base,
             dataset_id=inferred_dataset_id,
-            display_name=dataset_display_name,
+            display_name=display_name,
             jsonl_path=jsonl_path_for_upload,
         )
         print(f"✓ Created and uploaded dataset: {dataset_id}")
@@ -719,15 +659,16 @@ def create_rft_command(args) -> int:
         evaluator_resource_name,
         selected_test_file_path,
         selected_test_func_name,
-    ) = _resolve_evaluator(project_root, evaluator_arg, non_interactive, account_id)
+    ) = resolve_evaluator(project_root, evaluator_arg, non_interactive, account_id, command_name="create rft")
     if not evaluator_id or not evaluator_resource_name:
         return 1
 
     # 2) Resolve dataset source (id or JSONL path)
-    dataset_id, dataset_resource, dataset_jsonl = _resolve_dataset(
+    dataset_id, dataset_resource, dataset_jsonl = resolve_dataset(
         project_root=project_root,
         account_id=account_id,
-        args=args,
+        dataset_id_arg=getattr(args, "dataset", None),
+        dataset_jsonl_arg=getattr(args, "dataset_jsonl", None),
         selected_test_file_path=selected_test_file_path,
         selected_test_func_name=selected_test_func_name,
     )
@@ -752,7 +693,7 @@ def create_rft_command(args) -> int:
             return 1
 
         # Evaluator validation (run pytest for the selected test, possibly via Docker)
-        if not _validate_evaluator_locally(
+        if not validate_evaluator_locally(
             project_root=project_root,
             selected_test_file=selected_test_file_path,
             selected_test_func=selected_test_func_name,
@@ -763,7 +704,7 @@ def create_rft_command(args) -> int:
             return 1
 
     # 4) Upload dataset when using JSONL sources (no-op for existing datasets)
-    dataset_id, dataset_resource = _upload_dataset(
+    dataset_id, dataset_resource = upload_dataset(
         project_root=project_root,
         account_id=account_id,
         api_key=api_key,
@@ -772,7 +713,7 @@ def create_rft_command(args) -> int:
         dataset_id=dataset_id,
         dataset_resource=dataset_resource,
         dataset_jsonl=dataset_jsonl,
-        args=args,
+        dataset_display_name=getattr(args, "dataset_display_name", None),
         dry_run=dry_run,
     )
     if not dataset_id or not dataset_resource:
