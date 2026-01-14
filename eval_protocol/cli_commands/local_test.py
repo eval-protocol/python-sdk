@@ -5,6 +5,7 @@ import subprocess
 import sys
 from typing import List
 
+from ..auth import get_dotenv_values
 from .utils import _build_entry_point, _discover_and_select_tests
 
 
@@ -70,6 +71,12 @@ def _run_pytest_in_docker(
         "-w",
         workdir,
     ]
+
+    # Forward environment variables from .env file to the container
+    dotenv_vars = get_dotenv_values(project_root)
+    for key, value in dotenv_vars.items():
+        if value is not None:
+            cmd += ["-e", f"{key}={value}"]
 
     # If EP_SUMMARY_JSON is set on the host, mirror it into the container so that
     # pytest evaluation tests can write summary artifacts that are visible to the
