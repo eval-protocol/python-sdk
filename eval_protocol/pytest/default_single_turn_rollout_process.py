@@ -17,7 +17,7 @@ from eval_protocol.models import EvaluationRow, Message
 from openai.types import CompletionUsage
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
-from eval_protocol.pytest.evaluation_test_utils import normalize_fireworks_model_for_litellm
+from eval_protocol.pytest.utils import normalize_fireworks_model_for_litellm
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,7 @@ from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.utils.evaluation_row_utils import filter_longest_conversation
 from eval_protocol.types.remote_rollout_processor import DataLoaderConfig, RolloutMetadata, InitRequest
 from eval_protocol.pytest.types import RolloutProcessorConfig
-from eval_protocol.pytest.evaluation_test_utils import normalize_fireworks_model_for_litellm
+from eval_protocol.pytest.utils import normalize_fireworks_model_for_litellm
 
 
 def default_fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDataLoader:

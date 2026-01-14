@@ -22,7 +22,7 @@ from eval_protocol.models import (
 from openai.types import CompletionUsage
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
-from eval_protocol.pytest.evaluation_test_utils import normalize_fireworks_model_for_litellm
+from eval_protocol.pytest.utils import normalize_fireworks_model_for_litellm
 from pydantic import BaseModel
 from typing import Optional
 
