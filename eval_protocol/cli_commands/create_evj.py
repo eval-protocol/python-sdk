@@ -14,6 +14,7 @@ from .utils import (
     _ensure_account_id,
     _extract_terminal_segment,
     resolve_evaluator,
+    upload_and_ensure_evaluator,
     validate_evaluator_locally,
 )
 from .create_rft import (
@@ -211,7 +212,19 @@ def create_evj_command(args) -> int:
     if not input_dataset_id or not input_dataset_resource:
         return 1
 
-    # 6) Create the Evaluation Job
+    # 6) Ensure evaluator exists and its latest version is ACTIVE (upload + poll if needed)
+    if not dry_run:
+        if not upload_and_ensure_evaluator(
+            project_root=project_root,
+            evaluator_id=evaluator_id,
+            api_key=api_key,
+            api_base=api_base,
+            selected_test_file_path=selected_test_file_path,
+            selected_test_func_name=selected_test_func_name,
+        ):
+            return 1
+
+    # 7) Create the Evaluation Job
     return _create_evj_job(
         account_id=account_id,
         api_key=api_key,

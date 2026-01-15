@@ -106,7 +106,7 @@ def rft_test_harness(tmp_path, monkeypatch, stub_fireworks):
     monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
     monkeypatch.setattr(cr, "_poll_evaluator_version_status", lambda **kwargs: True)
-    monkeypatch.setattr(cr, "_upload_and_ensure_evaluator", lambda *a, **k: True)
+    monkeypatch.setattr(cr, "upload_and_ensure_evaluator", lambda *a, **k: True)
 
     return project
 
@@ -641,7 +641,7 @@ def test_create_rft_quiet_existing_evaluator_skips_upload(tmp_path, monkeypatch,
     monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "acct123")
 
     # Mock evaluator upload and version polling - evaluator becomes ACTIVE
-    monkeypatch.setattr(cr, "_upload_and_ensure_evaluator", lambda *a, **k: True)
+    monkeypatch.setattr(cr, "upload_and_ensure_evaluator", lambda *a, **k: True)
 
     # Provide dataset via --dataset-jsonl so no test discovery needed
     ds_path = project / "dataset.jsonl"
@@ -693,8 +693,8 @@ def test_create_rft_quiet_new_evaluator_ambiguous_without_entry_errors(tmp_path,
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://api.fireworks.ai")
     monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "acct123")
 
-    # Mock _upload_and_ensure_evaluator to fail (ambiguous tests)
-    monkeypatch.setattr(cr, "_upload_and_ensure_evaluator", lambda *a, **k: False)
+    # Mock upload_and_ensure_evaluator to fail (ambiguous tests)
+    monkeypatch.setattr(cr, "upload_and_ensure_evaluator", lambda *a, **k: False)
 
     # Two discovered tests (ambiguous)
     f1 = project / "a.py"
@@ -936,7 +936,7 @@ def test_create_rft_quiet_existing_evaluator_infers_dataset_from_matching_test(r
     monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [d1, d2])
 
     # Evaluator upload succeeds and version becomes ACTIVE
-    monkeypatch.setattr(cr, "_upload_and_ensure_evaluator", lambda *a, **k: True)
+    monkeypatch.setattr(cr, "upload_and_ensure_evaluator", lambda *a, **k: True)
 
     # We will provide JSONL via input_dataset extractor for matching test (beta.test_two)
     jsonl_path = project / "data.jsonl"
@@ -1018,7 +1018,7 @@ def test_cli_full_command_style_evaluator_and_dataset_flags(tmp_path, monkeypatc
     monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "pyroworks-dev")
 
     # Mock evaluator upload succeeds and version becomes ACTIVE
-    monkeypatch.setattr(cr, "_upload_and_ensure_evaluator", lambda *a, **k: True)
+    monkeypatch.setattr(cr, "upload_and_ensure_evaluator", lambda *a, **k: True)
 
     captured = stub_fireworks
 

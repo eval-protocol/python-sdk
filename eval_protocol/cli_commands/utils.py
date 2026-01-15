@@ -23,6 +23,7 @@ from ..auth import (
     get_fireworks_api_key,
     verify_api_key_and_get_account_id,
 )
+from ..fireworks_client import create_fireworks_client
 from ..fireworks_rft import _map_api_host_to_app_host
 
 
@@ -854,3 +855,151 @@ def resolve_evaluator(
         evaluator_resource_name = f"accounts/{account_id}/evaluators/{evaluator_id}"
 
     return evaluator_id, evaluator_resource_name, selected_test_file_path, selected_test_func_name
+
+
+def _poll_evaluator_version_status(
+    evaluator_id: str,
+    version_id: str,
+    api_key: str,
+    api_base: str,
+    timeout_minutes: int = 10,
+) -> bool:
+    """
+    Poll a specific evaluator version status until it becomes ACTIVE or times out.
+
+    Uses the Fireworks SDK to get the specified version of the evaluator and checks
+    its build state.
+
+    Args:
+        evaluator_id: The evaluator ID (not full resource name)
+        version_id: The specific version ID to poll
+        api_key: Fireworks API key
+        api_base: Fireworks API base URL
+        timeout_minutes: Maximum time to wait in minutes
+
+    Returns:
+        True if evaluator version becomes ACTIVE, False if timeout or BUILD_FAILED
+    """
+    timeout_seconds = timeout_minutes * 60
+    poll_interval = 10  # seconds
+    start_time = time.time()
+
+    print(
+        f"Polling evaluator version '{version_id}' status (timeout: {timeout_minutes}m, interval: {poll_interval}s)..."
+    )
+
+    client = create_fireworks_client(api_key=api_key, base_url=api_base)
+
+    while time.time() - start_time < timeout_seconds:
+        try:
+            version = client.evaluator_versions.get(version_id, evaluator_id=evaluator_id)
+            state = version.state or "STATE_UNSPECIFIED"
+            status_msg = ""
+            if version.status and version.status.message:
+                status_msg = version.status.message
+
+            if state == "ACTIVE":
+                print("✅ Evaluator version is ACTIVE and ready!")
+                return True
+            elif state == "BUILD_FAILED":
+                print(f"❌ Evaluator version build failed. Status: {status_msg}")
+                return False
+            elif state == "BUILDING":
+                elapsed_minutes = (time.time() - start_time) / 60
+                print(f"⏳ Evaluator version is still building... ({elapsed_minutes:.1f}m elapsed)")
+            else:
+                print(f"⏳ Evaluator version state: {state}, status: {status_msg}")
+
+        except Exception as e:
+            print(f"Warning: Failed to check evaluator version status: {e}")
+
+        # Wait before next poll
+        time.sleep(poll_interval)
+
+    # Timeout reached
+    elapsed_minutes = (time.time() - start_time) / 60
+    print(f"⏰ Timeout after {elapsed_minutes:.1f}m - evaluator version is not yet ACTIVE")
+    return False
+
+
+def upload_and_ensure_evaluator(
+    project_root: str,
+    evaluator_id: str,
+    api_key: str,
+    api_base: str,
+    selected_test_file_path: Optional[str] = None,
+    selected_test_func_name: Optional[str] = None,
+) -> bool:
+    """Upload evaluator and ensure its version becomes ACTIVE.
+
+    Creates/updates the evaluator and uploads the code, then polls the specific
+    version until it becomes ACTIVE. This is the shared implementation used by
+    both 'ep upload', 'ep create rft', and 'ep create evj' commands.
+
+    Args:
+        project_root: Path to the project root directory.
+        evaluator_id: The evaluator ID.
+        api_key: Fireworks API key.
+        api_base: Fireworks API base URL.
+        selected_test_file_path: Optional path to the selected test file.
+        selected_test_func_name: Optional name of the selected test function.
+
+    Returns:
+        True if evaluator was uploaded and became ACTIVE, False otherwise.
+    """
+    from eval_protocol.evaluation import create_evaluation
+
+    try:
+        tests = _discover_tests(project_root)
+        selected_entry: Optional[str] = None
+
+        # Use provided test info if available, otherwise try to resolve
+        if selected_test_file_path and selected_test_func_name:
+            selected_entry = _build_entry_point(project_root, selected_test_file_path, selected_test_func_name)
+        else:
+            st_path, st_func = _resolve_selected_test(project_root, evaluator_id, selected_tests=tests)
+            if st_path and st_func:
+                selected_entry = _build_entry_point(project_root, st_path, st_func)
+
+        # If still unresolved and multiple tests exist, fail fast to avoid uploading unintended evaluators
+        if selected_entry is None and len(tests) > 1:
+            print(
+                f"Error: Multiple evaluation tests found, and the selected evaluator {evaluator_id} does not match any discovered test.\n"
+                "       Please re-run specifying the evaluator.\n"
+            )
+            return False
+
+        print(f"\nUploading evaluator '{evaluator_id}'...")
+        result, version_id = create_evaluation(
+            evaluator_id=evaluator_id,
+            display_name=evaluator_id,
+            description=f"Evaluator for {evaluator_id}",
+            entry_point=selected_entry,
+        )
+
+        if not version_id:
+            print("Warning: Evaluator created but version upload failed.")
+            return False
+
+        print(f"✓ Uploaded evaluator: {evaluator_id} (version: {version_id})")
+
+        # Poll for the specific evaluator version status
+        print(f"Waiting for evaluator '{evaluator_id}' version '{version_id}' to become ACTIVE...")
+        is_active = _poll_evaluator_version_status(
+            evaluator_id=evaluator_id,
+            version_id=version_id,
+            api_key=api_key,
+            api_base=api_base,
+            timeout_minutes=10,
+        )
+
+        if not is_active:
+            dashboard_url = _build_evaluator_dashboard_url(evaluator_id)
+            print("\n❌ Evaluator version is not ready within the timeout period.")
+            print(f"📊 Please check the evaluator status at: {dashboard_url}")
+            print("   Wait for it to become ACTIVE, then run the command again.")
+            return False
+        return True
+    except Exception as e:
+        print(f"Warning: Failed to upload evaluator automatically: {e}")
+        return False
