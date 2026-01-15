@@ -16,61 +16,6 @@ from .utils import (
 )
 
 
-def _to_pyargs_nodeid(file_path: str, func_name: str) -> str | None:
-    """Attempt to build a pytest nodeid suitable for `pytest <nodeid>`.
-
-    Preference order:
-    1) Dotted package module path with double-colon: pkg.subpkg.module::func
-    2) Filesystem path with double-colon: path/to/module.py::func
-
-    Returns dotted form when package root can be inferred (directory chain with __init__.py
-    leading up to a directory contained in sys.path). Returns None if no reasonable
-    nodeid can be created (should be rare).
-    """
-    try:
-        abs_path = os.path.abspath(file_path)
-        dir_path, filename = os.path.split(abs_path)
-        module_base, ext = os.path.splitext(filename)
-        if ext != ".py":
-            # Not a python file
-            return None
-
-        # Walk up while packages have __init__.py
-        segments: list[str] = [module_base]
-        current = dir_path
-        package_root = None
-        while True:
-            if os.path.isfile(os.path.join(current, "__init__.py")):
-                segments.insert(0, os.path.basename(current))
-                parent = os.path.dirname(current)
-                # Stop if parent is not within current sys.path import roots
-                if parent == current:
-                    break
-                current = parent
-            else:
-                package_root = current
-                break
-
-        # If we found a package chain, check that the package_root is importable (in sys.path)
-        if package_root and any(
-            os.path.abspath(sp).rstrip(os.sep) == os.path.abspath(package_root).rstrip(os.sep) for sp in sys.path
-        ):
-            dotted = ".".join(segments)
-            return f"{dotted}::{func_name}"
-
-        # Do not emit a dotted top-level module for non-packages; prefer path-based nodeid
-
-        # Fallback to relative path (if under cwd) or absolute path
-        cwd = os.getcwd()
-        try:
-            rel = os.path.relpath(abs_path, cwd)
-        except Exception:
-            rel = abs_path
-        return f"{rel}::{func_name}"
-    except Exception:
-        return None
-
-
 def _parse_entry(entry: str, cwd: str) -> tuple[str, str]:
     # Accept module::function, path::function, or legacy module:function
     entry = entry.strip()
