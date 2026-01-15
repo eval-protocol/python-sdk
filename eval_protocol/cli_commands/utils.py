@@ -448,12 +448,12 @@ def _normalize_evaluator_id(evaluator_id: str) -> str:
     return normalized
 
 
-def _ensure_account_id() -> Optional[str]:
+def _ensure_account_id(api_key: Optional[str] = None) -> Optional[str]:
     """Resolve Fireworks account id from FIREWORKS_API_KEY via verifyApiKey."""
-    api_key = get_fireworks_api_key()
-    if not api_key:
+    resolved_key = api_key or get_fireworks_api_key()
+    if not resolved_key:
         return None
-    return verify_api_key_and_get_account_id(api_key=api_key, api_base=get_fireworks_api_base())
+    return verify_api_key_and_get_account_id(api_key=resolved_key, api_base=get_fireworks_api_base())
 
 
 def _extract_terminal_segment(resource_name: str) -> str:
