@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 
 from ..auth import get_fireworks_api_base, get_fireworks_api_key
 from ..fireworks_client import create_fireworks_client
+from .secrets import handle_secrets_upload
 from .utils import (
     _build_trimmed_dataset_id,
     _build_evaluator_dashboard_url,
@@ -167,6 +168,14 @@ def create_evj_command(args) -> int:
     ) = resolve_evaluator(project_root, evaluator_arg, non_interactive, account_id, command_name="create evj")
     if not evaluator_id or not evaluator_resource_name:
         return 1
+
+    # 1.5) Handle secrets upload (with double verification for existing secrets)
+    env_file = getattr(args, "env_file", None)
+    handle_secrets_upload(
+        project_root=project_root,
+        env_file=env_file,
+        non_interactive=non_interactive,
+    )
 
     # 2) Resolve input dataset source (id or JSONL path)
     input_dataset_id, input_dataset_resource, dataset_jsonl = resolve_dataset(

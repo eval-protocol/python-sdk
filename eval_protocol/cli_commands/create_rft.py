@@ -19,6 +19,7 @@ from ..fireworks_rft import (
     materialize_dataset_via_builder,
 )
 from ..models import EvaluationRow
+from .secrets import handle_secrets_upload
 from .utils import (
     _build_entry_point,
     _build_trimmed_dataset_id,
@@ -534,6 +535,14 @@ def create_rft_command(args) -> int:
     ) = resolve_evaluator(project_root, evaluator_arg, non_interactive, account_id, command_name="create rft")
     if not evaluator_id or not evaluator_resource_name:
         return 1
+
+    # 1.5) Handle secrets upload (with double verification for existing secrets)
+    env_file = getattr(args, "env_file", None)
+    handle_secrets_upload(
+        project_root=project_root,
+        env_file=env_file,
+        non_interactive=non_interactive,
+    )
 
     # 2) Resolve dataset source (id or JSONL path)
     dataset_id, dataset_resource, dataset_jsonl = resolve_dataset(
