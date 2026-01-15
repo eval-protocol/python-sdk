@@ -170,21 +170,25 @@ def _mask_secret_value(value: str) -> str:
 def _prompt_select_secrets(
     secrets: Dict[str, str],
     secrets_from_env_file: Dict[str, str],
+    existing_secrets: set[str],
     non_interactive: bool,
 ) -> Dict[str, str]:
     """
     Prompt user to select which environment variables to upload as secrets.
+    Existing secrets are unchecked by default and marked with [exists].
     Returns the selected secrets.
     """
     if not secrets:
         return {}
 
     if non_interactive:
-        return secrets
+        # In non-interactive mode, only return new secrets (skip existing ones)
+        return {k: v for k, v in secrets.items() if k not in existing_secrets}
 
     # Check if running in a non-TTY environment (e.g., CI/CD)
     if not sys.stdin.isatty():
-        return secrets
+        # In non-TTY, only return new secrets (skip existing ones)
+        return {k: v for k, v in secrets.items() if k not in existing_secrets}
 
     try:
         import questionary
@@ -192,17 +196,23 @@ def _prompt_select_secrets(
         custom_style = _get_questionary_style()
 
         # Build choices with source info and masked values
+        # Existing secrets are unchecked by default
         choices = []
         for key, value in secrets.items():
             source = ".env" if key in secrets_from_env_file else "env"
             masked = _mask_secret_value(value)
-            label = f"{key} ({source}: {masked})"
-            choices.append(questionary.Choice(title=label, value=key, checked=True))
+            is_existing = key in existing_secrets
+            exists_marker = " [exists]" if is_existing else ""
+            label = f"{key}{exists_marker} ({source}: {masked})"
+            # Uncheck existing secrets by default
+            choices.append(questionary.Choice(title=label, value=key, checked=not is_existing))
 
         if len(choices) == 0:
             return {}
 
         print("\nFound environment variables to upload as Fireworks secrets:")
+        if existing_secrets:
+            print("   (Secrets marked [exists] are unchecked - selecting them will override)")
         selected_keys = questionary.checkbox(
             "Select secrets to upload:",
             choices=choices,
@@ -220,7 +230,7 @@ def _prompt_select_secrets(
 
     except ImportError:
         # Fallback to simple text-based selection
-        return _prompt_select_secrets_fallback(secrets, secrets_from_env_file)
+        return _prompt_select_secrets_fallback(secrets, secrets_from_env_file, existing_secrets)
     except KeyboardInterrupt:
         print("\n\nSecret upload cancelled.")
         return {}
@@ -229,6 +239,7 @@ def _prompt_select_secrets(
 def _prompt_select_secrets_fallback(
     secrets: Dict[str, str],
     secrets_from_env_file: Dict[str, str],
+    existing_secrets: set[str],
 ) -> Dict[str, str]:
     """Fallback prompt selection for when questionary is not available."""
     print("\n" + "=" * 60)
@@ -237,13 +248,22 @@ def _prompt_select_secrets_fallback(
     print("\nTip: Install questionary for better UX: pip install questionary\n")
 
     secret_list = list(secrets.items())
+    new_indices = []
     for idx, (key, value) in enumerate(secret_list, 1):
         source = ".env" if key in secrets_from_env_file else "env"
         masked = _mask_secret_value(value)
-        print(f"  [{idx}] {key} ({source}: {masked})")
+        is_existing = key in existing_secrets
+        exists_marker = " [exists]" if is_existing else ""
+        print(f"  [{idx}] {key}{exists_marker} ({source}: {masked})")
+        if not is_existing:
+            new_indices.append(idx)
 
     print("\n" + "=" * 60)
-    print("Enter numbers to select (comma-separated), 'all' for all, or 'none' to skip:")
+    if existing_secrets:
+        print("Note: Secrets marked [exists] will be overridden if selected.")
+    default_selection = ",".join(str(i) for i in new_indices) if new_indices else "none"
+    print("Enter numbers (comma-separated), 'all' for all, or 'none' to skip.")
+    print(f"Default (new secrets only): {default_selection}")
 
     try:
         choice = input("Selection: ").strip().lower()
@@ -251,7 +271,11 @@ def _prompt_select_secrets_fallback(
         print("\nSecret upload cancelled.")
         return {}
 
-    if not choice or choice == "none":
+    if not choice:
+        # Default: only new secrets
+        choice = default_selection
+
+    if choice == "none":
         return {}
 
     if choice == "all":
@@ -418,19 +442,21 @@ def upload_command(args: argparse.Namespace) -> int:
             if secrets_from_env_file and os.path.exists(env_file_path):
                 print(f"Loading secrets from: {env_file_path}")
 
+            # Check which secrets already exist on Fireworks BEFORE prompting
+            print("Checking for existing secrets on Fireworks...")
+            existing_secrets = _check_existing_secrets(secrets_from_file, fw_account_id)
+
             # Prompt user to select which secrets to upload
+            # Existing secrets are unchecked by default
             selected_secrets = _prompt_select_secrets(
                 secrets_from_file,
                 secrets_from_env_file,
+                existing_secrets,
                 non_interactive,
             )
 
             if selected_secrets:
-                # Check which secrets already exist
-                print("\nChecking for existing secrets on Fireworks...")
-                existing_secrets = _check_existing_secrets(selected_secrets, fw_account_id)
-
-                # Separate new secrets from existing ones
+                # Separate new secrets from existing ones that user explicitly selected
                 new_secrets = {k: v for k, v in selected_secrets.items() if k not in existing_secrets}
                 secrets_needing_override = {k: v for k, v in selected_secrets.items() if k in existing_secrets}
 
