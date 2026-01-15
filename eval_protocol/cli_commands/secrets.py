@@ -9,6 +9,8 @@ import os
 import sys
 from typing import Dict
 
+from dotenv import dotenv_values
+
 from eval_protocol.auth import get_fireworks_api_key
 from eval_protocol.platform_api import create_or_update_fireworks_secret, get_fireworks_secret
 from .utils import _ensure_account_id, _get_questionary_style
@@ -17,24 +19,24 @@ from .utils import _ensure_account_id, _get_questionary_style
 def load_secrets_from_env_file(env_file_path: str) -> Dict[str, str]:
     """
     Load secrets from a .env file that should be uploaded to Fireworks.
+
+    Uses python-dotenv's dotenv_values() for proper parsing of .env files,
+    which correctly handles:
+    - End-of-line comments (e.g., KEY=value # comment)
+    - Quoted values (single and double quotes)
+    - Escape sequences
+    - Multi-line values
     """
     if not os.path.exists(env_file_path):
         return {}
 
-    # Load the .env file into a temporary environment
-    env_vars = {}
-    with open(env_file_path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
-                key = key.strip()
-                value = value.strip().strip('"').strip("'")  # Remove quotes
-                env_vars[key] = value
-    return env_vars
+    # Use dotenv_values for proper .env parsing (handles comments, quotes, etc.)
+    parsed = dotenv_values(env_file_path)
+    # Filter out None values and convert to Dict[str, str]
+    return {k: v for k, v in parsed.items() if v is not None}
 
 
-def mask_secret_value(value: str) -> str:
+def mask_secret_value(value: str | None) -> str:
     """
     Return a masked representation of a secret showing only a small prefix/suffix.
     Example: fw_3Z*******Xgnk
