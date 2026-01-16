@@ -13,11 +13,14 @@ import asyncio
 from flask import Flask, request, jsonify
 from openai import OpenAI
 import openai
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 from eval_protocol import Status, InitRequest, FireworksTracingHttpHandler, RolloutIdFilter
 
-load_dotenv()
+# Use explicit path to avoid find_dotenv() searching up the directory tree
+load_dotenv(dotenv_path=Path(".") / ".env")
 
 # Configure logging so INFO and below go to stdout, WARNING+ to stderr.
 # This avoids Vercel marking INFO logs as [error] (stderr).

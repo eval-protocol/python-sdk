@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
+from eval_protocol.pytest.utils import normalize_fireworks_model_for_litellm
 
 from eval_protocol.pytest.default_agent_rollout_processor import Agent
 from klavis import Klavis
@@ -30,7 +31,7 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
         self.server_name = server_name
         self.initialize_data_factory = initialize_data_factory
         self.klavis_client = Klavis(api_key=os.environ.get("KLAVIS_API_KEY"))
-        
+
     def _init_sandbox(self) -> CreateSandboxResponse:
         try:
             server_name_enum = SandboxMcpServer(self.server_name)
@@ -38,7 +39,7 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
         except Exception as e:
             logger.error(f"Error creating sandbox: {str(e)}", exc_info=True)
             raise
-    
+
     @staticmethod
     def create_mcp_config(server_url: str, server_key: str = "main", auth_token: str | None = None) -> str:
         """Create a temporary MCP config file and return its path."""
@@ -47,26 +48,24 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
                 server_key: {
                     "url": server_url,
                     "transport": "streamable_http",
-                    **({"authorization": f"Bearer {auth_token}"} if auth_token else {})
+                    **({"authorization": f"Bearer {auth_token}"} if auth_token else {}),
                 }
             }
         }
-        
+
         # Create a temp file that persists for the session
         fd, path = tempfile.mkstemp(suffix=".json", prefix="mcp_config_")
-        with os.fdopen(fd, 'w') as f:
+        with os.fdopen(fd, "w") as f:
             json.dump(config, f)
         return path
 
-    def __call__(
-        self, rows: List[EvaluationRow], config: RolloutProcessorConfig
-    ) -> List[asyncio.Task[EvaluationRow]]:
+    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Process evaluation rows with Klavis sandbox lifecycle management"""
         semaphore = config.semaphore
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with complete sandbox lifecycle"""
-            
+
             start_time = time.perf_counter()
             agent: Agent | None = None
             temp_config_path: str | None = None
@@ -88,25 +87,32 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
                         if row.input_metadata is not None
                         else None
                     )
-                
+
                 if init_data:
-                    logger.info(f"Initializing {self.server_name} sandbox {sandbox.sandbox_id}")
+                    logger.info(f"Initializing {self.server_name} sandbox {sandbox.sandbox_id}")  # pyright: ignore[reportOptionalMemberAccess]
                     initialize_method = getattr(
-                        self.klavis_client.sandbox, f"initialize_{sandbox.server_name.value}_sandbox"
+                        self.klavis_client.sandbox,
+                        f"initialize_{sandbox.server_name.value}_sandbox",  # pyright: ignore[reportOptionalMemberAccess]
                     )
-                    init_response = initialize_method(sandbox_id=sandbox.sandbox_id, **init_data)
+                    init_response = initialize_method(sandbox_id=sandbox.sandbox_id, **init_data)  # pyright: ignore[reportOptionalMemberAccess]
                     logger.info(f"Initialization response: {init_response}")
-                    
+
                 # Step 2: Create temporary MCP config with sandbox URL
                 temp_config_path = self.create_mcp_config(
-                    server_url=sandbox.server_url, server_key=sandbox.server_name.value
+                    server_url=sandbox.server_url,  # pyright: ignore[reportOptionalMemberAccess]
+                    server_key=sandbox.server_name.value,  # pyright: ignore[reportOptionalMemberAccess]
                 )
                 logger.info(f"MCP config created: {temp_config_path}")
 
                 # Step 3: Run agent with sandbox MCP server
-                logger.info(f"Running agent for row {row.execution_metadata.rollout_id} with {self.server_name} sandbox")
+                logger.info(
+                    f"Running agent for row {row.execution_metadata.rollout_id} with {self.server_name} sandbox"
+                )
+                # Normalize Fireworks model names for LiteLLM routing
+                completion_params = normalize_fireworks_model_for_litellm(row.input_metadata.completion_params) or {}
+                row.input_metadata.completion_params = completion_params
                 agent = Agent(
-                    model=row.input_metadata.completion_params["model"],
+                    model=completion_params["model"],
                     row=row,
                     config_path=temp_config_path,
                     logger=config.logger,
@@ -124,8 +130,8 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
                 logger.info(f"Agent execution completed for row {row.execution_metadata.rollout_id}")
 
                 # Step 4: Export sandbox data
-                dump_method = getattr(self.klavis_client.sandbox, f"dump_{sandbox.server_name.value}_sandbox")
-                dump_response = dump_method(sandbox_id=sandbox.sandbox_id)
+                dump_method = getattr(self.klavis_client.sandbox, f"dump_{sandbox.server_name.value}_sandbox")  # pyright: ignore[reportOptionalMemberAccess]
+                dump_response = dump_method(sandbox_id=sandbox.sandbox_id)  # pyright: ignore[reportOptionalMemberAccess]
                 sandbox_data = dump_response.data
                 logger.info(f"Sandbox data: {sandbox_data}")
 
@@ -133,7 +139,7 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
                 if not row.execution_metadata.extra:
                     row.execution_metadata.extra = {}
                 row.execution_metadata.extra["sandbox_data"] = sandbox_data
-                row.execution_metadata.extra["sandbox_id"] = sandbox.sandbox_id
+                row.execution_metadata.extra["sandbox_id"] = sandbox.sandbox_id  # pyright: ignore[reportOptionalMemberAccess]
                 row.execution_metadata.extra["server_name"] = self.server_name
 
             except Exception as e:
@@ -149,7 +155,7 @@ class KlavisSandboxRolloutProcessor(RolloutProcessor):
                     await agent.mcp_client.cleanup()
                 if temp_config_path and os.path.exists(temp_config_path):
                     os.unlink(temp_config_path)
-                
+
                 # Release sandbox
                 if sandbox and sandbox.sandbox_id:
                     try:

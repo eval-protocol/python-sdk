@@ -22,6 +22,7 @@ from eval_protocol.models import (
 from openai.types import CompletionUsage
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import Dataset, RolloutProcessorConfig
+from eval_protocol.pytest.utils import normalize_fireworks_model_for_litellm
 from pydantic import BaseModel
 from typing import Optional
 
@@ -251,8 +252,11 @@ class AgentRolloutProcessor(RolloutProcessor):
             """Process a single row with agent rollout."""
             start_time = time.perf_counter()
 
+            # Normalize Fireworks model names for LiteLLM routing
+            completion_params = normalize_fireworks_model_for_litellm(row.input_metadata.completion_params) or {}
+            row.input_metadata.completion_params = completion_params
             agent = Agent(
-                model=row.input_metadata.completion_params["model"],
+                model=completion_params["model"],
                 row=row,
                 config_path=config.mcp_config_path,
                 logger=config.logger,

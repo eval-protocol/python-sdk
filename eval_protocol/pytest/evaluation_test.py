@@ -55,9 +55,9 @@ from eval_protocol.pytest.evaluation_test_utils import (
     AggregationMethod,
     add_cost_metrics,
     log_eval_status_and_rows,
-    normalize_fireworks_model,
     parse_ep_completion_params,
     parse_ep_completion_params_overwrite,
+    parse_ep_max_concurrent_evaluations,
     parse_ep_max_concurrent_rollouts,
     parse_ep_max_rows,
     parse_ep_num_runs,
@@ -205,10 +205,10 @@ def evaluation_test(
     # into input_params (e.g., '{"temperature":0,"extra_body":{"reasoning":{"effort":"low"}}}').
     num_runs = parse_ep_num_runs(num_runs)
     max_concurrent_rollouts = parse_ep_max_concurrent_rollouts(max_concurrent_rollouts)
+    max_concurrent_evaluations = parse_ep_max_concurrent_evaluations(max_concurrent_evaluations)
     max_dataset_rows = parse_ep_max_rows(max_dataset_rows)
     completion_params = parse_ep_completion_params(completion_params)
     completion_params = parse_ep_completion_params_overwrite(completion_params)
-    completion_params = [normalize_fireworks_model(cp) for cp in completion_params]
     original_completion_params = completion_params
     passed_threshold = parse_ep_passed_threshold(passed_threshold)
     data_loaders = parse_ep_dataloaders(data_loaders)
@@ -369,7 +369,6 @@ def evaluation_test(
                             row.input_metadata.row_id = generate_id(seed=0, index=index)
 
                     completion_params = kwargs["completion_params"] if "completion_params" in kwargs else None
-                    completion_params = normalize_fireworks_model(completion_params)
                     # Create eval metadata with test function info and current commit hash
                     eval_metadata = EvalMetadata(
                         name=test_func.__name__,

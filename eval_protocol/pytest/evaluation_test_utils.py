@@ -229,6 +229,15 @@ def parse_ep_max_concurrent_rollouts(default_value: int) -> int:
     return int(raw) if raw is not None else default_value
 
 
+def parse_ep_max_concurrent_evaluations(default_value: int) -> int:
+    """Read EP_MAX_CONCURRENT_EVALUATIONS env override as int.
+
+    Assumes the environment variable was already validated by plugin.py.
+    """
+    raw = os.getenv("EP_MAX_CONCURRENT_EVALUATIONS")
+    return int(raw) if raw is not None else default_value
+
+
 def parse_ep_completion_params(
     completion_params: Sequence[CompletionParams | None] | None,
 ) -> Sequence[CompletionParams | None]:
@@ -628,22 +637,3 @@ def build_rollout_processor_config(
         server_script_path=None,
         kwargs=rollout_processor_kwargs,
     )
-
-
-def normalize_fireworks_model(completion_params: CompletionParams | None) -> CompletionParams | None:
-    """Fireworks model names like 'accounts/<org>/models/<model>' need the fireworks_ai/
-    prefix when routing through LiteLLM. This function adds the prefix if missing.
-    """
-    if completion_params is None:
-        return None
-
-    model = completion_params.get("model")
-    if (
-        model
-        and isinstance(model, str)
-        and not model.startswith("fireworks_ai/")
-        and re.match(r"^accounts/[^/]+/models/.+", model)
-    ):
-        completion_params = completion_params.copy()
-        completion_params["model"] = f"fireworks_ai/{model}"
-    return completion_params

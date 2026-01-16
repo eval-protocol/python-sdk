@@ -11,8 +11,8 @@ from eval_protocol.event_bus.logger import logger
 
 
 # Retry configuration for database operations
-SQLITE_RETRY_MAX_TRIES = 5
-SQLITE_RETRY_MAX_TIME = 30  # seconds
+SQLITE_RETRY_MAX_TRIES = 10
+SQLITE_RETRY_MAX_TIME = 60  # seconds
 
 
 def _is_database_locked_error(e: Exception) -> bool:
@@ -53,6 +53,49 @@ def execute_with_sqlite_retry(operation: Callable[[], T]) -> T:
         return operation()
 
     return _execute()
+
+
+def connect_with_retry(db: SqliteDatabase) -> None:
+    """
+    Connect to the database with retry logic, ensuring pragmas are always applied.
+
+    Peewee's connect() method sets the connection state *before* executing pragmas
+    (in _initialize_connection). If pragma execution fails with "database is locked",
+    the connection is marked as open but pragmas are not applied. Subsequent calls
+    to connect(reuse_if_open=True) would see the connection as already open and
+    skip pragma execution entirely.
+
+    This function handles this edge case by:
+    1. Closing the connection if a lock error occurs during connect
+    2. Retrying with exponential backoff until pragmas are successfully applied
+
+    Args:
+        db: The SqliteDatabase instance to connect
+    """
+
+    @backoff.on_exception(
+        backoff.expo,
+        OperationalError,
+        max_tries=SQLITE_RETRY_MAX_TRIES,
+        max_time=SQLITE_RETRY_MAX_TIME,
+        giveup=lambda e: not _is_database_locked_error(e),
+        jitter=backoff.full_jitter,
+    )
+    def _connect() -> None:
+        try:
+            # Close any partially-open connection before retrying to ensure
+            # a fresh connection is opened and pragmas are executed
+            if not db.is_closed():
+                db.close()
+            db.connect()
+        except OperationalError:
+            # If connect fails (e.g., during pragma execution), ensure the
+            # connection is closed so the next retry starts fresh
+            if not db.is_closed():
+                db.close()
+            raise
+
+    _connect()
 
 
 # SQLite pragmas for hardened concurrency safety
@@ -181,9 +224,10 @@ class SqliteEventBusDatabase:
             processed = BooleanField(default=False)  # Track if event has been processed
 
         self._Event = Event
-        self._db.connect()
+        # Connect with retry logic that properly handles pragma execution failures
+        connect_with_retry(self._db)
         # Use safe=True to avoid errors when tables already exist
-        self._db.create_tables([Event], safe=True)
+        execute_with_sqlite_retry(lambda: self._db.create_tables([Event], safe=True))
 
     def publish_event(self, event_type: str, data: Any, process_id: str) -> None:
         """Publish an event to the database."""

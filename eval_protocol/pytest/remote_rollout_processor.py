@@ -11,6 +11,7 @@ from eval_protocol.exceptions import exception_for_status_code
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
 from .tracing_utils import default_fireworks_output_data_loader, build_init_request, update_row_with_remote_trace
+from .utils import normalize_fireworks_model_for_litellm
 import logging
 
 import os
@@ -86,6 +87,12 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 raise ValueError("Run ID is required in RemoteRolloutProcessor")
             if row.input_metadata.row_id is None:
                 raise ValueError("Row ID is required in RemoteRolloutProcessor")
+
+            # Normalize Fireworks model names for LiteLLM routing
+            config.completion_params = (
+                normalize_fireworks_model_for_litellm(config.completion_params) or config.completion_params
+            )
+            row.input_metadata.completion_params = config.completion_params
 
             init_payload = build_init_request(row, config, model_base_url)
 

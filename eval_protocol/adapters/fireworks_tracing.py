@@ -253,6 +253,7 @@ class FireworksTracingAdapter(BaseAdapter):
         project_id: Optional[str] = None,
         base_url: str = "https://tracing.fireworks.ai",
         timeout: int = 300,
+        api_key: Optional[str] = None,
     ):
         """Initialize the Fireworks Tracing adapter.
 
@@ -260,10 +261,16 @@ class FireworksTracingAdapter(BaseAdapter):
             project_id: Optional project ID. If not provided, uses the default project configured on the server.
             base_url: The base URL of the tracing proxy (default: https://tracing.fireworks.ai)
             timeout: Request timeout in seconds (default: 300)
+            api_key: Optional API key. If not provided, falls back to FIREWORKS_API_KEY environment variable.
         """
         self.project_id = project_id
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self._api_key = api_key
+
+    def _get_api_key(self) -> Optional[str]:
+        """Get the API key, preferring instance-level key over environment variable."""
+        return self._api_key or os.environ.get("FIREWORKS_API_KEY")
 
     def search_logs(self, tags: List[str], limit: int = 100, hours_back: int = 24) -> List[Dict[str, Any]]:
         """Fetch logs from Fireworks tracing gateway /logs endpoint.
@@ -276,7 +283,7 @@ class FireworksTracingAdapter(BaseAdapter):
         from ..common_utils import get_user_agent
 
         headers = {
-            "Authorization": f"Bearer {os.environ.get('FIREWORKS_API_KEY')}",
+            "Authorization": f"Bearer {self._get_api_key()}",
             "User-Agent": get_user_agent(),
         }
         params: Dict[str, Any] = {"tags": tags, "limit": limit, "hours_back": hours_back, "program": "eval_protocol"}
@@ -407,7 +414,7 @@ class FireworksTracingAdapter(BaseAdapter):
         from ..common_utils import get_user_agent
 
         headers = {
-            "Authorization": f"Bearer {os.environ.get('FIREWORKS_API_KEY')}",
+            "Authorization": f"Bearer {self._get_api_key()}",
             "User-Agent": get_user_agent(),
         }
 

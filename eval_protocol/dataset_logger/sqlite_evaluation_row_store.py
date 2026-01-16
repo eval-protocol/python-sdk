@@ -7,6 +7,7 @@ from playhouse.sqlite_ext import JSONField
 from eval_protocol.event_bus.sqlite_event_bus_database import (
     SQLITE_HARDENED_PRAGMAS,
     check_and_repair_database,
+    connect_with_retry,
     execute_with_sqlite_retry,
 )
 from eval_protocol.models import EvaluationRow
@@ -42,9 +43,10 @@ class SqliteEvaluationRowStore:
 
         self._EvaluationRow = EvaluationRow
 
-        self._db.connect()
+        # Connect with retry logic that properly handles pragma execution failures
+        connect_with_retry(self._db)
         # Use safe=True to avoid errors when tables/indexes already exist
-        self._db.create_tables([EvaluationRow], safe=True)
+        execute_with_sqlite_retry(lambda: self._db.create_tables([EvaluationRow], safe=True))
 
     @property
     def db_path(self) -> str:

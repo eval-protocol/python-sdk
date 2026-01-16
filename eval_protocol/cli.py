@@ -284,8 +284,10 @@ def main():
         from dotenv import load_dotenv
 
         # .env.dev for development-specific overrides, .env for general
+        # Use explicit paths to avoid find_dotenv() searching up the directory tree
+        # and potentially finding a different .env file (e.g., in some other repo)
         load_dotenv(dotenv_path=Path(".") / ".env.dev", override=True)
-        load_dotenv(override=True)
+        load_dotenv(dotenv_path=Path(".") / ".env", override=True)
     except ImportError:
         pass
 
