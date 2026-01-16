@@ -226,6 +226,15 @@ def parse_ep_max_concurrent_rollouts(default_value: int) -> int:
     return int(raw) if raw is not None else default_value
 
 
+def parse_ep_max_concurrent_evaluations(default_value: int) -> int:
+    """Read EP_MAX_CONCURRENT_EVALUATIONS env override as int.
+
+    Assumes the environment variable was already validated by plugin.py.
+    """
+    raw = os.getenv("EP_MAX_CONCURRENT_EVALUATIONS")
+    return int(raw) if raw is not None else default_value
+
+
 def parse_ep_completion_params(
     completion_params: Sequence[CompletionParams | None] | None,
 ) -> Sequence[CompletionParams | None]:
