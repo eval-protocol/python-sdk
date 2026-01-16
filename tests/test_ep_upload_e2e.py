@@ -151,7 +151,8 @@ def test_ep_upload_discovers_and_uploads_evaluation_test(
     - Upload via upload_command
     - Verify all API calls
     """
-    from eval_protocol.cli_commands.upload import upload_command, _discover_tests
+    from eval_protocol.cli_commands.upload import upload_command
+    from eval_protocol.cli_commands.utils import _discover_tests
 
     # 1. CREATE TEST PROJECT STRUCTURE
     test_content = """
@@ -211,7 +212,7 @@ async def test_simple_evaluation(row: EvaluationRow) -> EvaluationRow:
         )
 
         # Mock the selection (auto-select the discovered test)
-        with patch("eval_protocol.cli_commands.upload._prompt_select") as mock_select:
+        with patch("eval_protocol.cli_commands.utils._prompt_select") as mock_select:
             mock_select.return_value = discovered_tests
 
             # Execute upload command
@@ -280,7 +281,8 @@ def test_ep_upload_with_parametrized_test(
     Test ep upload with a parametrized @evaluation_test
     Verifies that parametrized tests are discovered and uploaded as single evaluator
     """
-    from eval_protocol.cli_commands.upload import upload_command, _discover_tests
+    from eval_protocol.cli_commands.upload import upload_command
+    from eval_protocol.cli_commands.utils import _discover_tests
 
     test_content = """
 import pytest
@@ -327,7 +329,7 @@ async def test_multi_model_eval(row: EvaluationRow) -> EvaluationRow:
             yes=True,
         )
 
-        with patch("eval_protocol.cli_commands.upload._prompt_select") as mock_select:
+        with patch("eval_protocol.cli_commands.utils._prompt_select") as mock_select:
             mock_select.return_value = discovered_tests
             exit_code = upload_command(args)
 
@@ -352,7 +354,7 @@ def test_ep_upload_discovery_skips_problematic_files(mock_env_variables):
     Test that discovery properly skips files like setup.py, versioneer.py
     that would cause issues during pytest collection
     """
-    from eval_protocol.cli_commands.upload import _discover_tests
+    from eval_protocol.cli_commands.utils import _discover_tests
 
     test_content = """
 from eval_protocol.pytest import evaluation_test
@@ -400,7 +402,7 @@ def test_ep_upload_discovers_non_test_prefixed_files(mock_env_variables):
     Test that discovery finds @evaluation_test in files like quickstart.py
     (files that don't start with 'test_')
     """
-    from eval_protocol.cli_commands.upload import _discover_tests
+    from eval_protocol.cli_commands.utils import _discover_tests
 
     test_content = """
 from eval_protocol.pytest import evaluation_test
@@ -450,7 +452,8 @@ def test_ep_upload_complete_workflow_with_entry_point_validation(
     - Full 5-step upload flow
     - Payload structure
     """
-    from eval_protocol.cli_commands.upload import upload_command, _discover_tests
+    from eval_protocol.cli_commands.upload import upload_command
+    from eval_protocol.cli_commands.utils import _discover_tests
 
     test_content = """
 from typing import List
@@ -506,7 +509,7 @@ async def test_math_correctness(row: EvaluationRow) -> EvaluationRow:
             yes=True,
         )
 
-        with patch("eval_protocol.cli_commands.upload._prompt_select") as mock_select:
+        with patch("eval_protocol.cli_commands.utils._prompt_select") as mock_select:
             mock_select.return_value = discovered_tests
             exit_code = upload_command(args)
 

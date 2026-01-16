@@ -8,6 +8,7 @@ import pytest
 
 from eval_protocol.cli_commands import create_rft as cr
 from eval_protocol.cli_commands import upload as upload_mod
+from eval_protocol.cli_commands import local_test as local_test_mod
 import eval_protocol.fireworks_rft as fr
 from eval_protocol.cli import parse_args
 import eval_protocol.cli_commands.utils as cli_utils
@@ -103,7 +104,7 @@ def rft_test_harness(tmp_path, monkeypatch, stub_fireworks):
     # Account id is derived from API key; mock the verify call to keep tests offline.
     monkeypatch.setattr(cli_utils, "verify_api_key_and_get_account_id", lambda *a, **k: "acct123")
 
-    monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
+    monkeypatch.setattr(cli_utils, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
     monkeypatch.setattr(cr, "_poll_evaluator_version_status", lambda **kwargs: True)
     monkeypatch.setattr(cr, "upload_and_ensure_evaluator", lambda *a, **k: True)
@@ -225,7 +226,7 @@ def test_create_rft_evaluator_validation_fails(rft_test_harness, monkeypatch):
     test_file.parent.mkdir(parents=True, exist_ok=True)
     test_file.write_text("# dummy eval test", encoding="utf-8")
     single_disc = SimpleNamespace(qualname="metric.test_eval_validation", file_path=str(test_file))
-    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+    monkeypatch.setattr(cli_utils, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
 
     # Force local evaluator validation to fail
     calls = {"count": 0, "pytest_target": None}
@@ -235,7 +236,7 @@ def test_create_rft_evaluator_validation_fails(rft_test_harness, monkeypatch):
         calls["pytest_target"] = pytest_target
         return 1  # non-zero exit code => validation failure
 
-    monkeypatch.setattr(cr, "run_evaluator_test", _fake_run_evaluator_test)
+    monkeypatch.setattr(local_test_mod, "run_evaluator_test", _fake_run_evaluator_test)
 
     args = argparse.Namespace(
         evaluator=None,
@@ -284,7 +285,7 @@ def test_create_rft_evaluator_validation_passes(rft_test_harness, monkeypatch):
     test_file.parent.mkdir(parents=True, exist_ok=True)
     test_file.write_text("# dummy ok eval test", encoding="utf-8")
     single_disc = SimpleNamespace(qualname="metric.test_eval_ok", file_path=str(test_file))
-    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+    monkeypatch.setattr(cli_utils, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
 
     # Force local evaluator validation to succeed
     calls = {"count": 0, "pytest_target": None}
@@ -294,7 +295,7 @@ def test_create_rft_evaluator_validation_passes(rft_test_harness, monkeypatch):
         calls["pytest_target"] = pytest_target
         return 0  # success
 
-    monkeypatch.setattr(cr, "run_evaluator_test", _fake_run_evaluator_test)
+    monkeypatch.setattr(local_test_mod, "run_evaluator_test", _fake_run_evaluator_test)
 
     args = argparse.Namespace(
         evaluator=None,
@@ -442,8 +443,8 @@ def test_create_rft_picks_most_recent_evaluator_and_dataset_id_follows(rft_test_
     one_file.write_text("# single", encoding="utf-8")
     single_disc = SimpleNamespace(qualname="metric.test_single", file_path=str(one_file))
     # New flow uses _discover_and_select_tests; patch it to return our single test.
-    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
-    monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
+    monkeypatch.setattr(cli_utils, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+    monkeypatch.setattr(cli_utils, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
     monkeypatch.setattr(cr, "_poll_evaluator_version_status", lambda **kwargs: True)
 
@@ -505,7 +506,7 @@ def test_create_rft_passes_matching_evaluator_id_and_entry_with_multiple_tests(r
     # Fake discovered tests: foo and bar
     cal_disc = SimpleNamespace(qualname="foo_eval.test_bar_evaluation", file_path=str(cal_file))
     svg_disc = SimpleNamespace(qualname="bar_eval.test_baz_evaluation", file_path=str(svg_file))
-    monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [cal_disc, svg_disc])
+    monkeypatch.setattr(cli_utils, "_discover_tests", lambda cwd: [cal_disc, svg_disc])
 
     # Capture dataset id used during dataset creation
     captured = {"dataset_id": None}
@@ -572,7 +573,7 @@ def test_create_rft_interactive_selector_single_test(rft_test_harness, monkeypat
     test_file.write_text("# one", encoding="utf-8")
     single_disc = SimpleNamespace(qualname="metric.test_one", file_path=str(test_file))
     # New flow uses _discover_and_select_tests; patch it to return our single test.
-    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+    monkeypatch.setattr(cli_utils, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
 
     # Capture dataset id used during dataset creation
     captured = {"dataset_id": None}
@@ -703,7 +704,7 @@ def test_create_rft_quiet_new_evaluator_ambiguous_without_entry_errors(tmp_path,
     f2.write_text("# b", encoding="utf-8")
     d1 = SimpleNamespace(qualname="a.test_one", file_path=str(f1))
     d2 = SimpleNamespace(qualname="b.test_two", file_path=str(f2))
-    monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [d1, d2])
+    monkeypatch.setattr(cli_utils, "_discover_tests", lambda cwd: [d1, d2])
 
     args = argparse.Namespace(
         evaluator="some-eval",
@@ -742,9 +743,9 @@ def test_create_rft_fallback_to_dataset_builder(rft_test_harness, monkeypatch):
     test_file.write_text("# builder case", encoding="utf-8")
     single_disc = SimpleNamespace(qualname="metric.test_builder", file_path=str(test_file))
     # New flow uses _discover_and_select_tests for evaluator resolution; patch it to return our single test.
-    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+    monkeypatch.setattr(cli_utils, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
     # Also patch _discover_tests for any direct calls during dataset inference.
-    monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [single_disc])
+    monkeypatch.setattr(cli_utils, "_discover_tests", lambda cwd: [single_disc])
 
     # Dataset builder fallback
     out_jsonl = project / "metric" / "builder_out.jsonl"
@@ -807,7 +808,7 @@ def test_create_rft_rejects_dataloader_jsonl(rft_test_harness, monkeypatch):
     test_file.write_text("# loader case", encoding="utf-8")
     single_disc = SimpleNamespace(qualname="metric.test_loader", file_path=str(test_file))
     # New flow uses _discover_and_select_tests; patch it to return our single test.
-    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+    monkeypatch.setattr(cli_utils, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
 
     # Provide JSONL via dataloader extractor
     dl_jsonl = project / "metric" / "loader_out.jsonl"
@@ -868,7 +869,7 @@ def test_create_rft_uses_input_dataset_jsonl_when_available(rft_test_harness, mo
     test_file.write_text("# input_dataset case", encoding="utf-8")
     single_disc = SimpleNamespace(qualname="metric.test_input_ds", file_path=str(test_file))
     # New flow uses _discover_and_select_tests; patch it to return our single test.
-    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+    monkeypatch.setattr(cli_utils, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
 
     # Provide JSONL via input_dataset extractor
     id_jsonl = project / "metric" / "input_ds_out.jsonl"
@@ -933,7 +934,7 @@ def test_create_rft_quiet_existing_evaluator_infers_dataset_from_matching_test(r
     f2.write_text("# beta", encoding="utf-8")
     d1 = SimpleNamespace(qualname="alpha.test_one", file_path=str(f1))
     d2 = SimpleNamespace(qualname="beta.test_two", file_path=str(f2))
-    monkeypatch.setattr(cr, "_discover_tests", lambda cwd: [d1, d2])
+    monkeypatch.setattr(cli_utils, "_discover_tests", lambda cwd: [d1, d2])
 
     # Evaluator upload succeeds and version becomes ACTIVE
     monkeypatch.setattr(cr, "upload_and_ensure_evaluator", lambda *a, **k: True)
@@ -1097,9 +1098,9 @@ def test_create_rft_prefers_explicit_dataset_jsonl_over_input_dataset(rft_test_h
     test_file.write_text("# prefer explicit dataset_jsonl", encoding="utf-8")
     single_disc = SimpleNamespace(qualname="metric.test_pref", file_path=str(test_file))
     # New flow uses _discover_and_select_tests; patch it to return our single test.
-    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+    monkeypatch.setattr(cli_utils, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
 
-    monkeypatch.setattr(upload_mod, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
+    monkeypatch.setattr(cli_utils, "_prompt_select", lambda tests, non_interactive=False: tests[:1])
     monkeypatch.setattr(upload_mod, "upload_command", lambda args: 0)
     monkeypatch.setattr(cr, "_poll_evaluator_version_status", lambda **kwargs: True)
 
@@ -1203,7 +1204,7 @@ def test_adapt(row: EvaluationRow) -> EvaluationRow:
 
     # Discovery: exactly one test, and resolve_selected_test points to our module/function
     single_disc = SimpleNamespace(qualname="metric.test_adapt.test_adapt", file_path=str(test_file))
-    monkeypatch.setattr(cr, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
+    monkeypatch.setattr(cli_utils, "_discover_and_select_tests", lambda cwd, non_interactive=False: [single_disc])
     monkeypatch.setattr(
         cr,
         "_resolve_selected_test",
