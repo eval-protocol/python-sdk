@@ -573,6 +573,14 @@ def _upload_and_ensure_evaluator(
     non_interactive: bool = False,
 ) -> bool:
     """Ensure the evaluator exists and is ACTIVE, uploading it if needed."""
+    # Always upload secrets before checking evaluator status, as secrets may be
+    # needed for evaluation even if the evaluator already exists.
+    upload_secrets_to_fireworks(
+        root=project_root,
+        env_file=env_file,
+        non_interactive=non_interactive,
+    )
+
     # Optional short-circuit: if evaluator already exists and not forcing, skip upload path
     if not force:
         try:
@@ -601,13 +609,6 @@ def _upload_and_ensure_evaluator(
                 return True
         except requests.exceptions.RequestException:
             pass
-
-    # Upload secrets before ensuring evaluator exists
-    upload_secrets_to_fireworks(
-        root=project_root,
-        env_file=env_file,
-        non_interactive=non_interactive,
-    )
 
     # Ensure evaluator exists by invoking the upload flow programmatically
     try:
