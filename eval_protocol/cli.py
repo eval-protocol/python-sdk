@@ -156,6 +156,11 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         metavar="",
         help="Extra flags to pass to 'docker run' when validating evaluator (quoted string, e.g. \"--env-file .env --memory=8g\")",
     )
+    rft_parser.add_argument(
+        "--env-file",
+        metavar="",
+        help="Path to .env file containing secrets to upload to Fireworks (default: .env in project root)",
+    )
 
     # The flags below are Eval Protocol CLI workflow controls (not part of the Fireworks SDK `create()` signature),
     # so they can’t be auto-generated via signature introspection and must be maintained here.

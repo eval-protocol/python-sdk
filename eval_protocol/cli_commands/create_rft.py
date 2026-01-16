@@ -19,7 +19,7 @@ from ..fireworks_rft import (
     materialize_dataset_via_builder,
 )
 from ..models import EvaluationRow
-from .upload import upload_command
+from .upload import upload_command, upload_secrets_to_fireworks
 from .utils import (
     _build_entry_point,
     _build_trimmed_dataset_id,
@@ -569,6 +569,8 @@ def _upload_and_ensure_evaluator(
     api_key: str,
     api_base: str,
     force: bool,
+    env_file: Optional[str] = None,
+    non_interactive: bool = False,
 ) -> bool:
     """Ensure the evaluator exists and is ACTIVE, uploading it if needed."""
     # Optional short-circuit: if evaluator already exists and not forcing, skip upload path
@@ -600,6 +602,13 @@ def _upload_and_ensure_evaluator(
         except requests.exceptions.RequestException:
             pass
 
+    # Upload secrets before ensuring evaluator exists
+    upload_secrets_to_fireworks(
+        root=project_root,
+        env_file=env_file,
+        non_interactive=non_interactive,
+    )
+
     # Ensure evaluator exists by invoking the upload flow programmatically
     try:
         tests = _discover_tests(project_root)
@@ -625,13 +634,13 @@ def _upload_and_ensure_evaluator(
             description=None,
             force=force,  # Pass through the --force flag
             yes=True,
-            env_file=None,  # Add the new env_file parameter
+            env_file=None,  # Secrets already handled above via upload_secrets_to_fireworks
         )
 
         if force:
             print(f"🔄 Force flag enabled - will overwrite existing evaluator '{evaluator_id}'")
 
-        rc = upload_command(upload_args)
+        rc = upload_command(upload_args, skip_secrets=True)  # Secrets already handled above
         if rc == 0:
             print(f"✓ Uploaded/ensured evaluator: {evaluator_id}")
 
@@ -811,6 +820,7 @@ def create_rft_command(args) -> int:
         return 1
 
     # 5) Ensure evaluator exists and is ACTIVE (upload + poll if needed)
+    env_file: Optional[str] = getattr(args, "env_file", None)
     if not _upload_and_ensure_evaluator(
         project_root=project_root,
         evaluator_id=evaluator_id,
@@ -818,6 +828,8 @@ def create_rft_command(args) -> int:
         api_key=api_key,
         api_base=api_base,
         force=force,
+        env_file=env_file,
+        non_interactive=non_interactive,
     ):
         return 1
 

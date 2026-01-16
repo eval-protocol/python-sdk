@@ -270,29 +270,24 @@ def _prompt_select_secrets_fallback(
         return {}
 
 
-def upload_command(args: argparse.Namespace) -> int:
-    root = os.path.abspath(getattr(args, "path", "."))
-    entries_arg = getattr(args, "entry", None)
-    non_interactive: bool = bool(getattr(args, "yes", False))
-    if entries_arg:
-        entries = [e.strip() for e in re.split(r"[,\s]+", entries_arg) if e.strip()]
-        selected_specs: list[tuple[str, str]] = []
-        for e in entries:
-            qualname, resolved_path = _resolve_entry_to_qual_and_source(e, root)
-            selected_specs.append((qualname, resolved_path))
-    else:
-        selected_tests: list[DiscoveredTest] | None = _discover_and_select_tests(root, non_interactive=non_interactive)
-        if not selected_tests:
-            return 1
-        selected_specs = [(t.qualname, t.file_path) for t in selected_tests]
+def upload_secrets_to_fireworks(
+    root: str,
+    env_file: str | None = None,
+    non_interactive: bool = False,
+) -> None:
+    """
+    Upload secrets from .env file and environment to Fireworks.
 
-    base_id = getattr(args, "id", None)
-    display_name = getattr(args, "display_name", None)
-    description = getattr(args, "description", None)
-    force = bool(getattr(args, "force", False))
-    env_file = getattr(args, "env_file", None)
+    This function:
+    1. Loads secrets from the specified .env file (or default .env in root)
+    2. Prompts user to select which secrets to upload (unless non_interactive)
+    3. Creates/updates the selected secrets on Fireworks
 
-    # Load secrets from .env file and ensure they're available on Fireworks
+    Args:
+        root: The project root directory
+        env_file: Optional path to a .env file. If None, uses {root}/.env
+        non_interactive: If True, skip interactive prompts and upload all secrets
+    """
     try:
         fw_account_id = _ensure_account_id()
 
@@ -349,6 +344,37 @@ def upload_command(args: argparse.Namespace) -> int:
                 print("Warning: No API keys found in environment or .env file; no secrets to register.")
     except Exception as e:
         print(f"Warning: Skipped Fireworks secret registration due to error: {e}")
+
+
+def upload_command(args: argparse.Namespace, skip_secrets: bool = False) -> int:
+    root = os.path.abspath(getattr(args, "path", "."))
+    entries_arg = getattr(args, "entry", None)
+    non_interactive: bool = bool(getattr(args, "yes", False))
+    if entries_arg:
+        entries = [e.strip() for e in re.split(r"[,\s]+", entries_arg) if e.strip()]
+        selected_specs: list[tuple[str, str]] = []
+        for e in entries:
+            qualname, resolved_path = _resolve_entry_to_qual_and_source(e, root)
+            selected_specs.append((qualname, resolved_path))
+    else:
+        selected_tests: list[DiscoveredTest] | None = _discover_and_select_tests(root, non_interactive=non_interactive)
+        if not selected_tests:
+            return 1
+        selected_specs = [(t.qualname, t.file_path) for t in selected_tests]
+
+    base_id = getattr(args, "id", None)
+    display_name = getattr(args, "display_name", None)
+    description = getattr(args, "description", None)
+    force = bool(getattr(args, "force", False))
+    env_file = getattr(args, "env_file", None)
+
+    # Upload secrets from .env file and environment to Fireworks
+    if not skip_secrets:
+        upload_secrets_to_fireworks(
+            root=root,
+            env_file=env_file,
+            non_interactive=non_interactive,
+        )
 
     exit_code = 0
     for i, (qualname, source_file_path) in enumerate(selected_specs):
