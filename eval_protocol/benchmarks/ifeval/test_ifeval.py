@@ -77,7 +77,7 @@ class IFEvalRolloutProcessor(SingleTurnRolloutProcessor):
 def test_ifeval_benchmark(row: EvaluationRow) -> EvaluationRow:
     """
     Evaluate instruction-following constraints.
-    
+
     Returns partial credit score (0.0 to 1.0) representing the fraction
     of constraints satisfied in the response.
     """
