@@ -4,10 +4,10 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Set
 
 from eval_protocol.auth import get_fireworks_api_key
-from eval_protocol.platform_api import create_or_update_fireworks_secret
+from eval_protocol.platform_api import create_or_update_fireworks_secret, get_fireworks_secret
 
 from eval_protocol.evaluation import create_evaluation
 from .utils import (
@@ -167,13 +167,119 @@ def _mask_secret_value(value: str) -> str:
         return "<masked>"
 
 
+def _check_existing_secrets(
+    account_id: str,
+    secret_keys: list[str],
+) -> Set[str]:
+    """
+    Check which secrets already exist on Fireworks.
+    Returns a set of key names that already exist.
+    """
+    existing: Set[str] = set()
+    for key in secret_keys:
+        try:
+            secret = get_fireworks_secret(account_id=account_id, key_name=key)
+            if secret is not None:
+                existing.add(key)
+        except Exception:
+            # If we can't check, assume it doesn't exist
+            pass
+    return existing
+
+
+def _confirm_overwrite_secrets(
+    secrets_to_overwrite: list[str],
+    non_interactive: bool,
+) -> bool:
+    """
+    Prompt user to confirm overwriting existing secrets with double confirmation.
+    Returns True if user confirms both prompts, False otherwise.
+    """
+    if not secrets_to_overwrite:
+        return True
+
+    if non_interactive:
+        return True
+
+    if not sys.stdin.isatty():
+        return True
+
+    print(
+        f"\n⚠️  The following {len(secrets_to_overwrite)} secret(s) already exist on Fireworks and will be overwritten:"
+    )
+    for key in secrets_to_overwrite:
+        print(f"   • {key}")
+
+    print("\n" + "=" * 70)
+    print("⚠️  WARNING: Overwriting secrets may affect running jobs!")
+    print("=" * 70)
+    print("Make sure any new or existing evaluator jobs will work with the new")
+    print("secret values before proceeding. Existing RFT jobs and evaluators that")
+    print("depend on these secrets may fail if the new values are incompatible.")
+    print("=" * 70)
+
+    try:
+        import questionary
+
+        custom_style = _get_questionary_style()
+
+        # First confirmation
+        confirm1 = questionary.confirm(
+            "Do you want to overwrite these existing secrets?",
+            default=False,
+            style=custom_style,
+        ).ask()
+
+        if confirm1 is None or not confirm1:
+            print("\nSecret overwrite cancelled.")
+            return False
+
+        # Second confirmation
+        confirm2 = questionary.confirm(
+            "Are you SURE? This may break existing jobs using these secrets.",
+            default=False,
+            style=custom_style,
+        ).ask()
+
+        if confirm2 is None or not confirm2:
+            print("\nSecret overwrite cancelled.")
+            return False
+
+        return True
+
+    except ImportError:
+        # Fallback to simple text-based confirmation
+        try:
+            print("\nFirst confirmation:")
+            response1 = input("Type 'yes' to confirm overwrite: ").strip().lower()
+            if response1 != "yes":
+                print("Secret overwrite cancelled.")
+                return False
+
+            print("\nSecond confirmation:")
+            response2 = input("Type 'yes' again to confirm (this may break existing jobs): ").strip().lower()
+            if response2 != "yes":
+                print("Secret overwrite cancelled.")
+                return False
+
+            return True
+        except KeyboardInterrupt:
+            print("\nSecret upload cancelled.")
+            return False
+    except KeyboardInterrupt:
+        print("\n\nSecret upload cancelled.")
+        return False
+
+
 def _prompt_select_secrets(
     secrets: Dict[str, str],
     secrets_from_env_file: Dict[str, str],
+    existing_secrets: Set[str],
     non_interactive: bool,
 ) -> Dict[str, str]:
     """
     Prompt user to select which environment variables to upload as secrets.
+    Existing secrets are shown but deselected by default.
     Returns the selected secrets.
     """
     if not secrets:
@@ -192,17 +298,23 @@ def _prompt_select_secrets(
         custom_style = _get_questionary_style()
 
         # Build choices with source info and masked values
+        # Existing secrets are unchecked by default
         choices = []
         for key, value in secrets.items():
             source = ".env" if key in secrets_from_env_file else "env"
             masked = _mask_secret_value(value)
-            label = f"{key} ({source}: {masked})"
-            choices.append(questionary.Choice(title=label, value=key, checked=True))
+            is_existing = key in existing_secrets
+            status = " [exists]" if is_existing else ""
+            label = f"{key}{status} ({source}: {masked})"
+            # Existing secrets are unchecked by default
+            choices.append(questionary.Choice(title=label, value=key, checked=not is_existing))
 
         if len(choices) == 0:
             return {}
 
         print("\nFound environment variables to upload as Fireworks secrets:")
+        if existing_secrets:
+            print("(Secrets marked [exists] are deselected by default to avoid overwriting)")
         selected_keys = questionary.checkbox(
             "Select secrets to upload:",
             choices=choices,
@@ -220,7 +332,7 @@ def _prompt_select_secrets(
 
     except ImportError:
         # Fallback to simple text-based selection
-        return _prompt_select_secrets_fallback(secrets, secrets_from_env_file)
+        return _prompt_select_secrets_fallback(secrets, secrets_from_env_file, existing_secrets)
     except KeyboardInterrupt:
         print("\n\nSecret upload cancelled.")
         return {}
@@ -229,6 +341,7 @@ def _prompt_select_secrets(
 def _prompt_select_secrets_fallback(
     secrets: Dict[str, str],
     secrets_from_env_file: Dict[str, str],
+    existing_secrets: Set[str],
 ) -> Dict[str, str]:
     """Fallback prompt selection for when questionary is not available."""
     print("\n" + "=" * 60)
@@ -237,12 +350,20 @@ def _prompt_select_secrets_fallback(
     print("\nTip: Install questionary for better UX: pip install questionary\n")
 
     secret_list = list(secrets.items())
+    new_secret_indices = []
     for idx, (key, value) in enumerate(secret_list, 1):
         source = ".env" if key in secrets_from_env_file else "env"
         masked = _mask_secret_value(value)
-        print(f"  [{idx}] {key} ({source}: {masked})")
+        is_existing = key in existing_secrets
+        status = " [exists]" if is_existing else ""
+        print(f"  [{idx}] {key}{status} ({source}: {masked})")
+        if not is_existing:
+            new_secret_indices.append(idx)
 
     print("\n" + "=" * 60)
+    if existing_secrets:
+        print("Secrets marked [exists] already exist on Fireworks.")
+        print(f"Default selection (new secrets only): {','.join(str(i) for i in new_secret_indices) or 'none'}")
     print("Enter numbers to select (comma-separated), 'all' for all, or 'none' to skip:")
 
     try:
@@ -251,7 +372,15 @@ def _prompt_select_secrets_fallback(
         print("\nSecret upload cancelled.")
         return {}
 
-    if not choice or choice == "none":
+    if not choice:
+        # Default: select only new secrets
+        selected = {}
+        for idx in new_secret_indices:
+            key, value = secret_list[idx - 1]
+            selected[key] = value
+        return selected
+
+    if choice == "none":
         return {}
 
     if choice == "all":
@@ -280,8 +409,10 @@ def upload_secrets_to_fireworks(
 
     This function:
     1. Loads secrets from the specified .env file (or default .env in root)
-    2. Prompts user to select which secrets to upload (unless non_interactive)
-    3. Creates/updates the selected secrets on Fireworks
+    2. Checks which secrets already exist on Fireworks
+    3. Prompts user to select which secrets to upload (existing secrets are deselected by default)
+    4. Confirms before overwriting any existing secrets
+    5. Creates/updates the selected secrets on Fireworks
 
     Args:
         root: The project root directory
@@ -307,32 +438,56 @@ def upload_secrets_to_fireworks(
             secrets_from_file["FIREWORKS_API_KEY"] = fw_api_key_value
 
         if fw_account_id and secrets_from_file:
+            print(f"\n🔐 Managing secrets for Fireworks account: {fw_account_id}")
             if secrets_from_env_file and os.path.exists(env_file_path):
                 print(f"Loading secrets from: {env_file_path}")
 
+            # Check which secrets already exist on Fireworks
+            print("Checking existing secrets on Fireworks...")
+            existing_secrets = _check_existing_secrets(
+                account_id=fw_account_id,
+                secret_keys=list(secrets_from_file.keys()),
+            )
+            if existing_secrets:
+                print(f"Found {len(existing_secrets)} existing secret(s): {', '.join(sorted(existing_secrets))}")
+
             # Prompt user to select which secrets to upload
+            # Existing secrets are deselected by default
             selected_secrets = _prompt_select_secrets(
                 secrets_from_file,
                 secrets_from_env_file,
+                existing_secrets,
                 non_interactive,
             )
 
             if selected_secrets:
+                # Check if any selected secrets already exist and need confirmation
+                secrets_to_overwrite = [k for k in selected_secrets.keys() if k in existing_secrets]
+                if secrets_to_overwrite:
+                    if not _confirm_overwrite_secrets(secrets_to_overwrite, non_interactive):
+                        # User declined to overwrite - remove existing secrets from selection
+                        selected_secrets = {k: v for k, v in selected_secrets.items() if k not in existing_secrets}
+                        if not selected_secrets:
+                            print("No new secrets to upload.")
+                            return
+                        print(f"\nProceeding with {len(selected_secrets)} new secret(s) only...")
+
                 print(f"\nUploading {len(selected_secrets)} selected secret(s) to Fireworks...")
                 for secret_name, secret_value in selected_secrets.items():
                     source = ".env" if secret_name in secrets_from_env_file else "environment"
-                    print(
-                        f"Ensuring {secret_name} is registered as a secret on Fireworks for rollout... "
-                        f"({source}: {_mask_secret_value(secret_value)})"
-                    )
+                    is_overwrite = secret_name in existing_secrets
+                    action = "Overwriting" if is_overwrite else "Creating"
+                    print(f"{action} {secret_name} on Fireworks... ({source}: {_mask_secret_value(secret_value)})")
                     if create_or_update_fireworks_secret(
                         account_id=fw_account_id,
                         key_name=secret_name,
                         secret_value=secret_value,
                     ):
-                        print(f"✓ {secret_name} secret created/updated on Fireworks.")
+                        print(f"✓ {secret_name} secret {'updated' if is_overwrite else 'created'} on Fireworks.")
                     else:
-                        print(f"Warning: Failed to create/update {secret_name} secret on Fireworks.")
+                        print(
+                            f"Warning: Failed to {'update' if is_overwrite else 'create'} {secret_name} secret on Fireworks."
+                        )
             else:
                 print("No secrets selected for upload.")
         else:
