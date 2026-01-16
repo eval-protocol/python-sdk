@@ -10,7 +10,10 @@ Run with:
 
 import asyncio
 import json
+import os
 from pathlib import Path
+
+import pytest
 
 from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest import evaluation_test
@@ -80,6 +83,10 @@ class IFEvalGroundTruthRolloutProcessor(RolloutProcessor):
         return self.single_turn_processor(processed, config)
 
 
+@pytest.mark.skipif(
+    not os.getenv("FIREWORKS_API_KEY"),
+    reason="FIREWORKS_API_KEY not set",
+)
 @evaluation_test(
     input_messages=_IFBENCH_MESSAGES,
     completion_params=[
