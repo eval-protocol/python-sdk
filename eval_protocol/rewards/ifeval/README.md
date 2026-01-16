@@ -22,9 +22,10 @@ score = ifeval_partial_credit_reward(response, ground_truth)
 ## Dependencies
 
 ```bash
-pip install spacy nltk langdetect emoji syllapy immutabledict
-python -m spacy download en_core_web_sm
+pip install nltk langdetect emoji syllapy immutabledict absl-py
 ```
+
+NLTK resources are downloaded automatically on first use.
 
 ## Notes
 
@@ -39,7 +40,7 @@ python -m spacy download en_core_web_sm
 - `ifeval_registry.py` (from `instructions_registry.py`)
 - `ifeval_util.py` (from `instructions_util.py`)
 
-**Copied from `IFBench/`:**
+**Copied from `IFBench/` (commit 8e6a9be, 2025-01):**
 - `ifbench_instructions.py` (from `instructions.py`)
 - `ifbench_registry.py` (from `instructions_registry.py`)
 - `ifbench_util.py` (from `instructions_util.py`)

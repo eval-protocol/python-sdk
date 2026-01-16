@@ -15,13 +15,20 @@
 """Library of instructions."""
 
 import logging
+import os
 import random
 import re
 import string
+from pathlib import Path
 from typing import Dict, Optional, Sequence, Union
+
+# Set NLTK data path to local directory before importing nltk
+_nltk_data_dir = Path(__file__).parent / ".nltk_data"
+_nltk_data_dir.mkdir(exist_ok=True)
+os.environ.setdefault("NLTK_DATA", str(_nltk_data_dir))
+
 import nltk
-import spacy
-from spacy.cli import download
+nltk.data.path.insert(0, str(_nltk_data_dir))
 import emoji
 import syllapy
 import unicodedata
@@ -29,12 +36,7 @@ from collections import Counter
 import csv
 import io
 
-try:
-    from . import ifbench_util as instructions_util
-except ImportError:
-    import ifbench_util as instructions_util
-
-download('en_core_web_sm')
+import ifbench_util as instructions_util
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +210,8 @@ class StopWordPercentageChecker(Instruction):
 	def check_following(self, value):
 		"""Checks if the response contains the expected percentage of stop words."""
 		num_words = instructions_util.count_words(value)
+		if num_words == 0:
+			return False
 		num_stopwords = instructions_util.count_stopwords(value)
 		stopword_percentage = (num_stopwords / num_words) * 100
 		return stopword_percentage <= self._percentage
@@ -219,7 +223,7 @@ class SentTypeRatioChecker(Instruction):
 	def build_description(self):
 		"""Build the instruction description."""
 		self._description_pattern = "Maintain a 2:1 ratio of declarative to interrogative sentences."
-		nltk.download('punkt_tab')
+
 		return self._description_pattern
 
 	def get_instruction_args(self):
@@ -245,7 +249,7 @@ class SentBalanceChecker(Instruction):
 
 	def build_description(self):
 		"""Build the instruction description."""
-		nltk.download('punkt_tab')
+
 		self._description_pattern = "Ensure that the ratio of sentence types (declarative, interrogative, exclamatory) is balanced."
 		return self._description_pattern
 
@@ -310,7 +314,7 @@ class ConjunctionCountChecker(Instruction):
 
 
 class PersonNameCountChecker(Instruction):
-	"""Mention at least {N} different person names in the response."""
+	"""Mention at least {N} different person names in the response, from this list of person names: Emma, Liam, Sophia..."""
 
 	def build_description(self, *, N=None):
 		"""Build the instruction description.
@@ -325,8 +329,6 @@ class PersonNameCountChecker(Instruction):
 
 		if self._num_person_names is None or self._num_person_names < 0:
 			self._num_person_names = random.randint(1, 50)
-
-		self.nlp = spacy.load("en_core_web_sm")
 
 		self._description_pattern = "Mention at least {N} different person names in the response, from this list of person names: Emma, Liam, Sophia, Jackson, Olivia, Noah, Ava, Lucas, Isabella, Mason, Mia, Ethan, Charlotte, Alexander, Amelia, Benjamin, Harper, Leo, Zoe, Daniel, Chloe, Samuel, Lily, Matthew, Grace, Owen, Abigail, Gabriel, Ella, Jacob, Scarlett, Nathan, Victoria, Elijah, Layla, Nicholas, Audrey, David, Hannah, Christopher, Penelope, Thomas, Nora, Andrew, Aria, Joseph, Claire, Ryan, Stella, Jonathan ."
 		return self._description_pattern.format(N=self._num_person_names)
@@ -384,7 +386,9 @@ class PersonNameCountChecker(Instruction):
 		# Extract the named entities
 		person_names = []
 		for name in person_name_list:
-			if name in value:
+			# Use regex with word boundaries
+			pattern = r'\b{}\b'.format(re.escape(name))
+			if re.search(pattern, value):
 				person_names.append(name)
 		unique_person_names = set(person_names)
 
@@ -426,6 +430,8 @@ class NGramOverlapChecker(Instruction):
 		n = 3
 		ngrams = set(nltk.ngrams(value, n))
 		ref_ngrams = set(nltk.ngrams(self._reference_text, n))
+		if not ngrams:
+			return False
 		overlap = len(ngrams.intersection(ref_ngrams)) / len(ngrams)
 		return self._percentage - 2 <= overlap * 100 <= self._percentage + 2
 
@@ -486,6 +492,8 @@ class AlphabetLoopChecker(Instruction):
 		"""Checks if each word of the response starts with the next letter of the alphabet."""
 		value = value.translate(str.maketrans('', '', string.punctuation))
 		words = value.strip(''.join(string.punctuation) + ' ').split()
+		if not words:
+			return False
 		alphabet = string.ascii_lowercase
 		correct_letter = words[0][0].lower()
 		if correct_letter not in alphabet:  # numbers are fails
@@ -564,7 +572,7 @@ class IncrementingAlliterationChecker(Instruction):
 
 	def build_description(self):
 		"""Build the instruction description."""
-		nltk.download('punkt_tab')
+
 		self._description_pattern = "Each sentence must have a longer sequence of consecutive alliterative words than the previous one."
 		return self._description_pattern
 
@@ -851,7 +859,7 @@ class EmojiSentenceChecker(Instruction):
 
 	def build_description(self):
 		"""Build the instruction description."""
-		nltk.download('punkt_tab')
+
 		self._description_pattern = "Please use an emoji at the end of every sentence."
 		return self._description_pattern
 
@@ -869,6 +877,9 @@ class EmojiSentenceChecker(Instruction):
 		sentences = instructions_util.split_into_sentences(value)
 		for i, sentence in enumerate(sentences):
 			stripped = sentence.translate(str.maketrans('', '', string.punctuation)).strip()
+			# check for empty string
+			if not stripped:
+				return False
 			last_char = stripped[-1]
 			# because blank spaces are treated oddly
 			second_last_char = stripped[-2] if len(stripped) > 1 else stripped[-1]
@@ -891,7 +902,7 @@ class CharacterCountUniqueWordsChecker(Instruction):
 
 	def build_description(self):
 		"""Build the instruction description."""
-		nltk.download('punkt_tab')
+
 		self._description_pattern = "Respond with three sentences, all containing the same number of characters but using all different words."
 		return self._description_pattern
 
@@ -980,7 +991,7 @@ class StartWithVerbChecker(Instruction):
 	def build_description(self):
 		"""Build the instruction description."""
 		self._description_pattern = "The response must start with a verb."
-		nltk.download('averaged_perceptron_tagger_eng')
+
 		return self._description_pattern
 
 	def get_instruction_args(self):
@@ -1050,7 +1061,7 @@ class IncludeKeywordChecker(Instruction):
 		Returns:
 		  A string representing the instruction description.
 		"""
-		nltk.download('punkt_tab')
+
 
 		if not word:
 			self._keyword = instructions_util.generate_keywords(
@@ -1078,7 +1089,9 @@ class IncludeKeywordChecker(Instruction):
 		sentences = instructions_util.split_into_sentences(value)
 		if len(sentences) < self._keyword_position:
 			return False
-		return self._keyword.lower() in sentences[int(self._keyword_position - 1)].lower()
+		# Use regex with word boundaries for robust matching
+		pattern = r'\b{}\b'.format(re.escape(self._keyword))
+		return bool(re.search(pattern, sentences[int(self._keyword_position - 1)], re.IGNORECASE))
 
 
 class PronounCountChecker(Instruction):
@@ -1117,8 +1130,8 @@ class PronounCountChecker(Instruction):
 			 'itself', 'they', 'them', 'their', 'theirs', 'themselves'])
 		value = value.replace('/',
 							  ' ')  # to correctly count pronoun sets like she/her/hers, a common use case of pronouns
-		value = value.lower().translate(str.maketrans('', '', string.punctuation))
-		words = value.split()
+		# Use NLTK word_tokenize for better tokenization
+		words = nltk.word_tokenize(value.lower())
 		pronoun_count = sum(1 for word in words if word in pronouns)
 		return pronoun_count >= self._num_pronouns
 
@@ -1151,7 +1164,7 @@ class LastWordFirstNextChecker(Instruction):
 
 	def build_description(self):
 		"""Build the instruction description."""
-		nltk.download('punkt_tab')
+
 		self._description_pattern = "The last word of each sentence must become the first word of the next sentence."
 		return self._description_pattern
 
@@ -1167,9 +1180,11 @@ class LastWordFirstNextChecker(Instruction):
 		"""Checks if the last word of each sentence in the response is the first word of the next sentence."""
 		sentences = instructions_util.split_into_sentences(value)
 		for i in range(len(sentences) - 1):
-			last_word = sentences[i].rstrip(''.join(string.punctuation) + ' ').split()[-1]
-			first_word = sentences[i + 1].lstrip(''.join(string.punctuation) + ' ').split()[0]
-			if last_word.lower() != first_word.lower():
+			last_words = sentences[i].rstrip(''.join(string.punctuation) + ' ').split()
+			first_words = sentences[i + 1].lstrip(''.join(string.punctuation) + ' ').split()
+			if not last_words or not first_words:
+				return False
+			if last_words[-1].lower() != first_words[0].lower():
 				return False
 		return True
 
@@ -1222,7 +1237,7 @@ class IncrementingWordCountChecker(Instruction):
 		if self._num_increment is None or self._num_increment < 0:
 			self._num_increment = random.randint(1, _NUM_INCREMENT)
 
-		nltk.download('punkt_tab')
+
 
 		self._description_pattern = "Each sentence must contain exactly {small_n} more words than the previous one."
 		return self._description_pattern.format(small_n=self._num_increment)
@@ -1326,12 +1341,13 @@ class QuoteExplanationChecker(Instruction):
 	def check_following(self, value):
 		"""Checks if there are no quotes next to each other
 		and the passage does not end with a quote."""
-		value = value.replace('“', '"').replace('”', '"')
+		value = value.replace('"', '"').replace('"', '"')
 		value = value.replace("'\"'", '')  # remove references to the character '"'
 		value = ''.join(value.split())  # remove all whitespace
 		if '""' in value:
 			return False
-		if value.strip(string.digits + string.punctuation.replace('"', ''))[-1] == '"':
+		stripped = value.strip(string.digits + string.punctuation.replace('"', ''))
+		if stripped and stripped[-1] == '"':
 			return False
 		return True
 
@@ -1605,7 +1621,7 @@ class WordReverseOrderChecker(Instruction):
 	"""What animal is the national symbol of the US? Respond to this query, but make your sentence in reverse order of what it should be, per word."""
 
 	def build_description(self, **kwargs):
-		nltk.download('punkt_tab')
+
 		self._description_pattern = "What animal is the national symbol of the US? Respond to this query, but make your sentence in reverse order of what it should be, per word."
 		return self._description_pattern
 
@@ -1650,7 +1666,7 @@ class SentenceAlphabetChecker(Instruction):
 	"""Tell me a 26-sentence story where each sentence's first word starts with the letters of the alphabet in order."""
 
 	def build_description(self, **kwargs):
-		nltk.download('punkt_tab')
+
 		self._description_pattern = "Tell me a 26-sentence story where each sentence's first word starts with the letters of the alphabet in order."
 		return self._description_pattern
 
@@ -1667,7 +1683,10 @@ class SentenceAlphabetChecker(Instruction):
 		if len(sentences) != 26:
 			return False
 		for i, sentence in enumerate(sentences):
-			if sentence.lstrip().split()[0].lower()[0] != chr(97 + i):
+			words = sentence.lstrip().split()
+			if not words or not words[0]:
+				return False
+			if words[0].lower()[0] != chr(97 + i):
 				return False
 		return True
 
@@ -1976,7 +1995,7 @@ class KeywordSpecificPositionChecker(Instruction):
 		words = instructions_util.nltk.word_tokenize(sentences[self._n - 1])
 		if len(words) < self._m:
 			return False
-		if words[self._m - 1] == self._keyword:
+		if words[self._m - 1].lower() == self._keyword.lower():
 			return True
 		else:
 			return False
@@ -2024,7 +2043,7 @@ class WordsPositionChecker(Instruction):
 		words = instructions_util.nltk.word_tokenize(value)
 		if len(words) < 2:
 			return False
-		if words[1] == words[-2] == self._keyword:
+		if words[1].lower() == words[-2].lower() == self._keyword.lower():
 			return True
 		else:
 			return False
@@ -2109,7 +2128,7 @@ class RepeatSimpleChecker(Instruction):
 
 
 class RepeatSpanChecker(Instruction):
-	"Copy the span of words that lies between (and including) index {n_start} and {n_end}, the indices are word indices, split by whitespace!"
+	"Copy the span of words that lies between (and including) index {n_start} and {n_end}, the indices are character indices!"
 
 	def build_description(self, prompt_to_repeat=None, n_start=None, n_end=None):
 		"""Build the instruction description.
@@ -2183,6 +2202,12 @@ class TitleCaseChecker(Instruction):
 		"""
 		words = instructions_util.nltk.word_tokenize(value)
 		for word in words:
+			if not word or not word[0].isalpha():
+				continue
+			if len(word) == 1:
+				if word[0].islower():
+					return False
+				continue
 			if word[0].isupper() and word[1:].islower():
 				continue
 			elif word[0].islower() and word[1:].isupper():
