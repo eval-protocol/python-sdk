@@ -181,9 +181,10 @@ class SqliteEventBusDatabase:
             processed = BooleanField(default=False)  # Track if event has been processed
 
         self._Event = Event
-        self._db.connect()
+        # Wrap connect() in retry logic since setting pragmas can fail with "database is locked"
+        execute_with_sqlite_retry(lambda: self._db.connect(reuse_if_open=True))
         # Use safe=True to avoid errors when tables already exist
-        self._db.create_tables([Event], safe=True)
+        execute_with_sqlite_retry(lambda: self._db.create_tables([Event], safe=True))
 
     def publish_event(self, event_type: str, data: Any, process_id: str) -> None:
         """Publish an event to the database."""

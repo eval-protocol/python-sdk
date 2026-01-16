@@ -42,9 +42,10 @@ class SqliteEvaluationRowStore:
 
         self._EvaluationRow = EvaluationRow
 
-        self._db.connect()
+        # Wrap connect() in retry logic since setting pragmas can fail with "database is locked"
+        execute_with_sqlite_retry(lambda: self._db.connect(reuse_if_open=True))
         # Use safe=True to avoid errors when tables/indexes already exist
-        self._db.create_tables([EvaluationRow], safe=True)
+        execute_with_sqlite_retry(lambda: self._db.create_tables([EvaluationRow], safe=True))
 
     @property
     def db_path(self) -> str:
