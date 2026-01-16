@@ -36,7 +36,10 @@ from collections import Counter
 import csv
 import io
 
-import ifbench_util as instructions_util
+try:
+    from . import ifbench_util as instructions_util
+except ImportError:
+    import ifbench_util as instructions_util
 
 logger = logging.getLogger(__name__)
 

@@ -8,13 +8,15 @@ Run with:
     pytest eval_protocol/benchmarks/ifeval/test_ifeval.py -v
 """
 
+import asyncio
 import json
 from pathlib import Path
-from typing import Any
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, InputMetadata, Message, MetricResult
+from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricResult
 from eval_protocol.pytest import evaluation_test
 from eval_protocol.pytest.default_single_turn_rollout_process import SingleTurnRolloutProcessor
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
+from eval_protocol.pytest.types import RolloutProcessorConfig
 
 from .reward import ifeval_partial_credit_reward
 
@@ -46,21 +48,36 @@ def _coerce_content_to_str(content: str | list | None) -> str:
 _IFBENCH_MESSAGES = _load_ifbench_messages()
 
 
-class IFEvalRolloutProcessor(SingleTurnRolloutProcessor):
-    """Preprocess rows to extract ground_truth from __GT__ messages."""
+class IFEvalGroundTruthRolloutProcessor(RolloutProcessor):
+    """Extract ground truth from __GT__ system messages, then run single-turn rollouts."""
 
-    def preprocess_row(self, row: EvaluationRow) -> EvaluationRow:
-        """Extract ground truth and remove __GT__ messages."""
-        filtered_messages: list[Message] = []
-        for m in row.messages:
-            content_str = _coerce_content_to_str(m.content)
-            if m.role == "system" and content_str.startswith("__GT__:"):
-                # Extract ground truth
-                row.ground_truth = content_str.split(":", 1)[1].strip()
-            else:
-                filtered_messages.append(m)
-        row.messages = filtered_messages
-        return row
+    def __init__(self) -> None:
+        super().__init__()
+        self.single_turn_processor = SingleTurnRolloutProcessor()
+
+    def __call__(
+        self, rows: list[EvaluationRow], config: RolloutProcessorConfig
+    ) -> list[asyncio.Task[EvaluationRow]]:
+        processed: list[EvaluationRow] = []
+        for r in rows:
+            gt_tokens: list[str] = []
+            for m in r.messages:
+                if m.role == "system":
+                    content_str = _coerce_content_to_str(m.content)
+                    if content_str.startswith("__GT__:"):
+                        gt_tokens.append(content_str)
+            if gt_tokens:
+                r.ground_truth = gt_tokens[-1].split(":", 1)[1].strip()
+                filtered: list[Message] = []
+                for m in r.messages:
+                    if m.role == "system":
+                        content_str = _coerce_content_to_str(m.content)
+                        if content_str.startswith("__GT__:"):
+                            continue
+                    filtered.append(m)
+                r.messages = filtered
+            processed.append(r)
+        return self.single_turn_processor(processed, config)
 
 
 @evaluation_test(
@@ -68,7 +85,7 @@ class IFEvalRolloutProcessor(SingleTurnRolloutProcessor):
     completion_params=[
         {"model": "fireworks_ai/accounts/fireworks/models/qwen3-8b"}
     ],
-    rollout_processor=IFEvalRolloutProcessor(),
+    rollout_processor=IFEvalGroundTruthRolloutProcessor(),
     aggregation_method="mean",
     passed_threshold=0.5,
     num_runs=1,
