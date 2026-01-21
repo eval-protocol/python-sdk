@@ -19,7 +19,6 @@ import multiprocessing
 import os
 import platform
 import re
-import resource
 import shlex  # Added for robust splitting of arguments
 import signal
 import subprocess
@@ -174,7 +173,7 @@ def local_code_execution_reward(
     # Normalize content to string; Message.content may be str or list of content parts
     last_content = messages[-1].content
     response_content = (
-        last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])
+        last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])  # pyright: ignore[reportAttributeAccessIssue]
     )
     expected_output_str = ground_truth
 
@@ -320,31 +319,44 @@ def _execute_python_in_subprocess(code: str, timeout: int) -> Dict[str, Any]:
     Returns:
         Dictionary with execution results
     """
+    # Try to import resource module (Unix-only)
+    try:
+        import resource as resource_module
+    except ImportError:
+        resource_module = None
+
     try:
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as temp_file:
             temp_file_path = temp_file.name
 
+            # Build platform-appropriate reliability guard
+            # The generated code checks for resource availability at runtime
             safe_code = (
                 "import sys\n"
                 "import os\n"
-                "import signal\n"
-                "import resource\n"
                 "import platform\n\n"
                 "def _reliability_guard():\n"
                 "    memory_limit = 100 * 1024 * 1024  # 100 MB\n"
-                "    if platform.uname().system != 'Darwin':\n"
-                "        resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))\n"
-                "        resource.setrlimit(resource.RLIMIT_DATA, (memory_limit, memory_limit))\n"
-                "        resource.setrlimit(resource.RLIMIT_STACK, (memory_limit, memory_limit))\n"
+                "    try:\n"
+                "        import resource\n"
+                "        if platform.uname().system != 'Darwin':\n"
+                "            if hasattr(resource, 'RLIMIT_AS'):\n"
+                "                resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))\n"
+                "            if hasattr(resource, 'RLIMIT_DATA'):\n"
+                "                resource.setrlimit(resource.RLIMIT_DATA, (memory_limit, memory_limit))\n"
+                "            if hasattr(resource, 'RLIMIT_STACK'):\n"
+                "                resource.setrlimit(resource.RLIMIT_STACK, (memory_limit, memory_limit))\n"
+                "    except ImportError:\n"
+                "        pass  # resource module not available (e.g., Windows)\n"
                 "    import builtins\n"
                 "    builtins.exit = None\n"
                 "    builtins.quit = None\n"
                 "    os.environ['OMP_NUM_THREADS'] = '1'\n"
                 "    os.system = None\n"
                 "    os.popen = None\n"
-                "    os.execl = None\n"
-                "    os.execve = None\n"
-                "    os.fork = None\n"
+                "    if hasattr(os, 'execl'): os.execl = None\n"
+                "    if hasattr(os, 'execve'): os.execve = None\n"
+                "    if hasattr(os, 'fork'): os.fork = None\n"
                 "    os.remove = None\n"
                 "    os.removedirs = None\n"
                 "    os.rmdir = None\n"
@@ -356,42 +368,87 @@ def _execute_python_in_subprocess(code: str, timeout: int) -> Dict[str, Any]:
 
             temp_file.write(safe_code.encode("utf-8"))
 
-        def timeout_handler(signum, frame):
-            raise TimeoutError(f"Execution timed out after {timeout} seconds")
+        # Check if we can use Unix-specific features (SIGALRM, preexec_fn with resource limits)
+        has_sigalrm = hasattr(signal, "SIGALRM")
 
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(timeout)
+        if has_sigalrm and resource_module is not None:
+            # Unix: use SIGALRM for timeout and resource limits
+            def timeout_handler(signum, frame):
+                raise TimeoutError(f"Execution timed out after {timeout} seconds")
 
-        try:
-            process = subprocess.Popen(
-                [sys.executable, temp_file_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                preexec_fn=lambda: resource.setrlimit(resource.RLIMIT_CPU, (timeout, timeout + 1)),
-            )
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(timeout)
 
-            stdout, stderr = process.communicate()
-            signal.alarm(0)
+            try:
+                preexec = None
+                if hasattr(resource_module, "RLIMIT_CPU"):
+                    preexec = lambda: resource_module.setrlimit(resource_module.RLIMIT_CPU, (timeout, timeout + 1))
 
-            if process.returncode == 0:
-                return {
-                    "success": True,
-                    "output": stdout.strip(),
-                    "error": None,
-                }
-            else:
-                return {
-                    "success": False,
-                    "output": None,
-                    "error": stderr.strip(),
-                }
-        except TimeoutError as e:
-            return {"success": False, "output": None, "error": str(e)}
-        finally:
-            signal.alarm(0)
-            if os.path.exists(temp_file_path):
-                os.unlink(temp_file_path)
+                process = subprocess.Popen(
+                    [sys.executable, temp_file_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    preexec_fn=preexec,
+                )
+
+                stdout, stderr = process.communicate()
+                signal.alarm(0)
+
+                if process.returncode == 0:
+                    return {
+                        "success": True,
+                        "output": stdout.strip(),
+                        "error": None,
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "output": None,
+                        "error": stderr.strip(),
+                    }
+            except TimeoutError as e:
+                return {"success": False, "output": None, "error": str(e)}
+            finally:
+                signal.alarm(0)
+                if os.path.exists(temp_file_path):
+                    os.unlink(temp_file_path)
+        else:
+            # Windows or systems without SIGALRM: use subprocess timeout only
+            try:
+                process = subprocess.Popen(
+                    [sys.executable, temp_file_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+
+                try:
+                    stdout, stderr = process.communicate(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.communicate()
+                    return {
+                        "success": False,
+                        "output": None,
+                        "error": f"Timeout: execution timed out after {timeout} seconds",
+                    }
+
+                if process.returncode == 0:
+                    return {
+                        "success": True,
+                        "output": stdout.strip(),
+                        "error": None,
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "output": None,
+                        "error": stderr.strip(),
+                    }
+            finally:
+                if os.path.exists(temp_file_path):
+                    os.unlink(temp_file_path)
     except Exception as e:
         error_traceback = traceback.format_exc()
         return {
@@ -473,11 +530,7 @@ def _execute_javascript_in_subprocess(code: str, timeout: int) -> Dict[str, Any]
 
             temp_file.write(safe_code.encode("utf-8"))
 
-        def timeout_handler(signum, frame):
-            raise TimeoutError(f"Execution timed out after {timeout} seconds")
-
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(timeout)
+        has_sigalrm = hasattr(signal, "SIGALRM")
 
         try:
             process = subprocess.Popen(
@@ -492,19 +545,30 @@ def _execute_javascript_in_subprocess(code: str, timeout: int) -> Dict[str, Any]
                 text=True,
             )
 
+            # On Unix, we can use SIGALRM as a backup timeout mechanism
+            if has_sigalrm:
+
+                def timeout_handler(signum, frame):
+                    raise TimeoutError(f"Execution timed out after {timeout} seconds")
+
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(timeout)
+
             try:
                 stdout, stderr = process.communicate(timeout=timeout)
             except subprocess.TimeoutExpired:
                 process.kill()
                 stdout, stderr = process.communicate()
-                signal.alarm(0)
+                if has_sigalrm:
+                    signal.alarm(0)
                 return {
                     "success": False,
                     "output": None,
                     "error": f"JavaScript execution timed out after {timeout} seconds (subprocess.TimeoutExpired). Output: {stdout.strip()}, Error: {stderr.strip()}",
                 }
 
-            signal.alarm(0)
+            if has_sigalrm:
+                signal.alarm(0)
 
             if process.returncode == 0:
                 return {
@@ -527,7 +591,8 @@ def _execute_javascript_in_subprocess(code: str, timeout: int) -> Dict[str, Any]
                 "error": f"JavaScript execution timed out after {timeout} seconds (signal.alarm): {str(e)}",
             }
         finally:
-            signal.alarm(0)
+            if has_sigalrm:
+                signal.alarm(0)
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
 
@@ -941,7 +1006,7 @@ def e2b_code_execution_reward(
 
     last_content = messages[-1].content
     response_content = (
-        last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])
+        last_content if isinstance(last_content, str) else "".join([p.text for p in (last_content or [])])  # pyright: ignore[reportAttributeAccessIssue]
     )
     expected_output_str = ground_truth
 
@@ -1549,17 +1614,20 @@ def reliability_guard(maximum_memory_bytes: Optional[int] = None) -> None:
         This function is NOT a security sandbox. Untrusted code should not be
         blindly executed outside of a proper sandbox environment.
     """
+    # Resource limits are only available on Unix systems
     if maximum_memory_bytes is not None:
-        if platform.uname().system != "Darwin":
-            resource.setrlimit(resource.RLIMIT_AS, (maximum_memory_bytes, maximum_memory_bytes))
-            resource.setrlimit(
-                resource.RLIMIT_DATA,
-                (maximum_memory_bytes, maximum_memory_bytes),
-            )
-            resource.setrlimit(
-                resource.RLIMIT_STACK,
-                (maximum_memory_bytes, maximum_memory_bytes),
-            )
+        try:
+            import resource
+
+            if platform.uname().system != "Darwin":
+                if hasattr(resource, "RLIMIT_AS"):
+                    resource.setrlimit(resource.RLIMIT_AS, (maximum_memory_bytes, maximum_memory_bytes))
+                if hasattr(resource, "RLIMIT_DATA"):
+                    resource.setrlimit(resource.RLIMIT_DATA, (maximum_memory_bytes, maximum_memory_bytes))
+                if hasattr(resource, "RLIMIT_STACK"):
+                    resource.setrlimit(resource.RLIMIT_STACK, (maximum_memory_bytes, maximum_memory_bytes))
+        except ImportError:
+            pass  # resource module not available (e.g., Windows)
 
     faulthandler.disable()
 
@@ -1576,22 +1644,32 @@ def reliability_guard(maximum_memory_bytes: Optional[int] = None) -> None:
     os.remove = noop  # type: ignore
     os.removedirs = noop  # type: ignore
     os.rmdir = noop  # type: ignore
-    os.fchdir = noop  # type: ignore
-    os.setuid = noop  # type: ignore
-    os.fork = noop  # type: ignore
-    os.forkpty = noop  # type: ignore
-    os.killpg = noop  # type: ignore
     os.rename = noop  # type: ignore
     os.renames = noop  # type: ignore
     os.truncate = noop  # type: ignore
     os.replace = noop  # type: ignore
     os.unlink = noop  # type: ignore
-    os.fchmod = noop  # type: ignore
-    os.fchown = noop  # type: ignore
     os.chmod = noop  # type: ignore
-    os.chown = noop  # type: ignore
-    os.chroot = noop  # type: ignore
 
+    # Unix-only attributes
+    if hasattr(os, "fchdir"):
+        os.fchdir = noop  # type: ignore
+    if hasattr(os, "setuid"):
+        os.setuid = noop  # type: ignore
+    if hasattr(os, "fork"):
+        os.fork = noop  # type: ignore
+    if hasattr(os, "forkpty"):
+        os.forkpty = noop  # type: ignore
+    if hasattr(os, "killpg"):
+        os.killpg = noop  # type: ignore
+    if hasattr(os, "fchmod"):
+        os.fchmod = noop  # type: ignore
+    if hasattr(os, "fchown"):
+        os.fchown = noop  # type: ignore
+    if hasattr(os, "chown"):
+        os.chown = noop  # type: ignore
+    if hasattr(os, "chroot"):
+        os.chroot = noop  # type: ignore
     if hasattr(os, "lchflags"):
         os.lchflags = noop  # type: ignore
     if hasattr(os, "lchmod"):
