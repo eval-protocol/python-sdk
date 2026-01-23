@@ -22,6 +22,9 @@ from .base_policy import LLMBasePolicy
 
 logger = logging.getLogger(__name__)
 
+# Disable LiteLLM's document inlining feature that appends #transform=inline
+# to base64 image URLs, which breaks base64 decoding
+litellm.disable_add_transform_inline_image_block = True
 
 class LiteLLMPolicy(LLMBasePolicy):
     """
