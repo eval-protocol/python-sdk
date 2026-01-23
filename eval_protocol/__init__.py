@@ -13,6 +13,10 @@ import sys
 import warnings
 from typing import TYPE_CHECKING
 
+import litellm
+
+litellm.disable_add_transform_inline_image_block = True
+
 warnings.filterwarnings("default", category=DeprecationWarning, module="eval_protocol")
 
 # Eager imports for symbols that conflict with module names - ONLY when pytest is running.
