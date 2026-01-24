@@ -351,12 +351,7 @@ def evaluation_test(
                     apply preprocess_fn.
                     """
                     if preprocess_fn:
-                        if not data_loaders:
-                            data = preprocess_fn(data)
-                        else:
-                            raise ValueError(
-                                "preprocess_fn should not be used with data_loaders. Pass preprocess_fn to data_loaders instead."
-                            )
+                        data = preprocess_fn(data)
 
                     for row in data:
                         # generate a stable row_id for each row
