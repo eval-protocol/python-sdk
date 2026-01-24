@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Retry configuration for 404 errors
 # 8 retries with exponential backoff (1, 2, 4, 8, 16, 32, 64, 128 seconds)
 # Total wait time: ~255 seconds (~4.25 minutes)
-MAX_RETRIES_ON_404 = 8
+MAX_RETRIES_ON_404 = 9
 RETRY_BASE_DELAY_SECONDS = 1
 
 
