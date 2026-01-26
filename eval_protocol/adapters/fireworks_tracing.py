@@ -8,8 +8,9 @@ from __future__ import annotations
 import logging
 import requests
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Protocol
+import ast
 import os
+from typing import Any, Dict, List, Optional, Protocol
 
 from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, Message
 from .base import BaseAdapter
@@ -42,6 +43,38 @@ class TraceDictConverter(Protocol):
             EvaluationRow or None if the trace should be skipped
         """
         ...
+
+
+def extract_openai_response(observations: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Attempt to extract and parse attributes from raw_gen_ai_request observation. This only works when stored in OTEL format.
+
+    Args:
+        observations: List of observation dictionaries from the trace
+
+    Returns:
+        Dict with all attributes parsed. Or None if not found.
+    """
+    for obs in observations:
+        if obs.get("name") == "raw_gen_ai_request" and obs.get("type") == "SPAN":
+            metadata = obs.get("metadata", {})
+            attributes = metadata.get("attributes", {})
+
+            result: Dict[str, Any] = {}
+
+            for key, value in attributes.items():
+                # Try to parse stringified Python literals, otherwise keep as-is
+                if isinstance(value, str) and value.startswith(("[", "{")):
+                    try:
+                        result[key] = ast.literal_eval(value)
+                    except Exception:
+                        result[key] = value
+                else:
+                    result[key] = value
+
+            if result:
+                return result
+
+    return None
 
 
 def convert_trace_dict_to_evaluation_row(
@@ -95,6 +128,14 @@ def convert_trace_dict_to_evaluation_row(
                     and row_id
                 ):
                     break  # Break early if we've found all the metadata we need
+
+        observations = trace.get("observations", [])
+        # We can only extract when stored in OTEL format.
+        openai_response = extract_openai_response(observations)
+        if openai_response:
+            choices = openai_response.get("llm.openai.choices")
+            if choices and len(choices) > 0:
+                execution_metadata.finish_reason = choices[0].get("finish_reason")
 
         return EvaluationRow(
             messages=messages,
