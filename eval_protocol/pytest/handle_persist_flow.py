@@ -209,7 +209,7 @@ def handle_persist_flow(all_results: list[list[EvaluationRow]], test_func_name: 
 
                         store_experiment_link(
                             experiment_id,
-                            f"https://app.fireworks.ai/dashboard/evaluation-jobs/{job_id}",
+                            f"https://app.fireworks.ai/dashboard/evaluation-jobs/{job_id}?account={fireworks_account_id}",
                             "success",
                         )
                     else:
