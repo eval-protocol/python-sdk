@@ -9,6 +9,7 @@ import logging
 import requests
 from datetime import datetime
 import ast
+import json
 import os
 from typing import Any, Dict, List, Optional, Protocol
 
@@ -56,18 +57,23 @@ def extract_openai_response(observations: List[Dict[str, Any]]) -> Optional[Dict
     """
     for obs in observations:
         if obs.get("name") == "raw_gen_ai_request" and obs.get("type") == "SPAN":
-            metadata = obs.get("metadata", {})
-            attributes = metadata.get("attributes", {})
+            metadata = obs.get("metadata") or {}
+            attributes = metadata.get("attributes") or {}
 
             result: Dict[str, Any] = {}
 
             for key, value in attributes.items():
-                # Try to parse stringified Python literals, otherwise keep as-is
+                # Try to parse stringified objects (could be Python repr or JSON)
                 if isinstance(value, str) and value.startswith(("[", "{")):
                     try:
                         result[key] = ast.literal_eval(value)
-                    except Exception:
-                        result[key] = value
+                    except Exception as e:
+                        logger.debug("Failed to parse %s with ast.literal_eval: %s", key, e)
+                        try:
+                            result[key] = json.loads(value)
+                        except Exception as e:
+                            logger.debug("Failed to parse %s with json.loads: %s", key, e)
+                            result[key] = value
                 else:
                     result[key] = value
 
@@ -129,7 +135,7 @@ def convert_trace_dict_to_evaluation_row(
                 ):
                     break  # Break early if we've found all the metadata we need
 
-        observations = trace.get("observations", [])
+        observations = trace.get("observations") or []
         # We can only extract when stored in OTEL format.
         openai_response = extract_openai_response(observations)
         if openai_response:
@@ -201,7 +207,7 @@ def extract_messages_from_trace_dict(
         # Fallback: use the last GENERATION observation which typically contains full chat history
         if not messages:
             try:
-                all_observations = trace.get("observations", [])
+                all_observations = trace.get("observations") or []
                 gens = [obs for obs in all_observations if obs.get("type") == "GENERATION"]
                 if gens:
                     gens.sort(key=lambda x: x.get("start_time", ""))
@@ -227,7 +233,7 @@ def get_final_generation_in_span_dict(trace: Dict[str, Any], span_name: str) -> 
         The final generation dictionary, or None if not found
     """
     # Get all observations from the trace
-    all_observations = trace.get("observations", [])
+    all_observations = trace.get("observations") or []
 
     # Find a span with the given name that has generation children
     parent_span = None
