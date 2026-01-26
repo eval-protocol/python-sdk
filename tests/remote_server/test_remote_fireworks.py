@@ -141,4 +141,8 @@ async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> Evaluat
     assert "data_loader_type" in row.input_metadata.dataset_info
     assert "data_loader_num_rows" in row.input_metadata.dataset_info
 
+    assert row.execution_metadata.finish_reason == "stop", (
+        f"Expected finish_reason='stop', got {row.execution_metadata.finish_reason}"
+    )
+
     return row
