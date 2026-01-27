@@ -1330,7 +1330,7 @@ requires-dist = [
     { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=0.3.0" },
     { name = "langchain-core", marker = "extra == 'langgraph'", specifier = ">=0.3.75" },
     { name = "langfuse", marker = "extra == 'langfuse'", specifier = ">=2.0.0" },
-    { name = "langfuse", marker = "extra == 'proxy'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "langfuse", marker = "extra == 'proxy'", specifier = ">=2.0.0" },
     { name = "langgraph", marker = "extra == 'langgraph'", specifier = ">=0.6.7" },
     { name = "langgraph", marker = "extra == 'langgraph-tools'", specifier = ">=0.6.7" },
     { name = "langsmith", marker = "extra == 'langsmith'", specifier = ">=0.1.86" },

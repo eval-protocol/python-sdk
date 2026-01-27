@@ -151,7 +151,7 @@ langgraph_tools = [
 
 proxy = [
     "redis>=5.0.0",
-    "langfuse>=2.0.0,<3.0.0",
+    "langfuse>=2.0.0",
     "uuid6>=2025.0.0",
     "litellm>=1.81.0,<1.82.0",
     "opentelemetry-api>=1.29.0",
