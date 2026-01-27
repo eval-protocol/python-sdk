@@ -72,6 +72,7 @@ class ObservationResponse(BaseModel):
     input: Optional[Any] = None
     output: Optional[Any] = None
     parent_observation_id: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class TraceResponse(BaseModel):
