@@ -46,7 +46,7 @@ class TraceDictConverter(Protocol):
         ...
 
 
-def extract_openai_response(observations: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def extract_otel_attributes(observations: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """Attempt to extract and parse attributes from raw_gen_ai_request observation. This only works when stored in OTEL format.
 
     Args:
@@ -137,9 +137,14 @@ def convert_trace_dict_to_evaluation_row(
 
         observations = trace.get("observations") or []
         # We can only extract when stored in OTEL format.
-        openai_response = extract_openai_response(observations)
-        if openai_response:
-            choices = openai_response.get("llm.openai.choices")
+        otel_attributes = extract_otel_attributes(observations)
+        if otel_attributes:
+            # Find choices from any provider (llm.*.choices pattern)
+            choices = None
+            for key, value in otel_attributes.items():
+                if key.endswith(".choices") and isinstance(value, list):
+                    choices = value
+                    break
             if choices and len(choices) > 0:
                 execution_metadata.finish_reason = choices[0].get("finish_reason")
 
