@@ -1,4 +1,4 @@
-# Metadata Extraction Gateway - Sits in front of LiteLLM
+# Metadata Extraction Gateway - Uses LiteLLM SDK directly with Langfuse OTEL
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -19,5 +19,5 @@ COPY ./proxy_core /app/proxy_core
 EXPOSE 4000
 
 # Run the gateway as a module
-# LITELLM_URL will be set by environment (docker-compose or Cloud Run)
+# LANGFUSE_HOST and REDIS_HOST will be set by environment (docker-compose or Cloud Run)
 CMD ["python", "-m", "proxy_core.main"]

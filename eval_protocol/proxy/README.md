@@ -59,9 +59,9 @@ This enables distributed evaluation systems to track which LLM completions belon
    - Stores insertion IDs per rollout for completeness checking
    - Uses Redis Sets: `rollout_id -> {insertion_id_1, insertion_id_2, ...}`
 
-#### 3. **LiteLLM Backend**
-   - Standard LiteLLM proxy for routing to LLM providers
-   - Configured with Langfuse callbacks for automatic tracing
+#### 3. **LiteLLM SDK (Direct)**
+   - Uses LiteLLM SDK directly for LLM calls (no separate proxy server needed)
+   - Integrated with Langfuse via `langfuse_otel` OpenTelemetry callback
 
 ## Key Features
 
@@ -244,12 +244,11 @@ Forwards any other request to LiteLLM backend with API key injection.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `LITELLM_URL` | Yes | - | URL of LiteLLM backend |
 | `REDIS_HOST` | Yes | - | Redis hostname |
 | `REDIS_PORT` | No | 6379 | Redis port |
 | `REDIS_PASSWORD` | No | - | Redis password |
 | `SECRETS_PATH` | No | `proxy_core/secrets.yaml` | Path to secrets file (YAML) |
-| `LANGFUSE_HOST` | No | `https://cloud.langfuse.com` | Langfuse base URL |
+| `LANGFUSE_HOST` | No | `https://us.cloud.langfuse.com` | Langfuse OTEL host for tracing |
 | `REQUEST_TIMEOUT` | No | 300.0 | Request timeout (LLM calls) in seconds |
 | `LOG_LEVEL` | No | INFO | Logging level |
 | `PORT` | No | 4000 | Gateway port |
@@ -272,15 +271,14 @@ default_project_id: project-1
 
 ### LiteLLM Configuration
 
-The `config_no_cache.yaml` configures LiteLLM:
+The `config_no_cache.yaml` configures LiteLLM (only needed if running a standalone LiteLLM proxy):
 ```yaml
 model_list:
   - model_name: "*"
     litellm_params:
       model: "*"
 litellm_settings:
-  success_callback: ["langfuse"]
-  failure_callback: ["langfuse"]
+  callbacks: ["langfuse_otel"]
   drop_params: True
 general_settings:
   allow_client_side_credentials: true
@@ -288,8 +286,10 @@ general_settings:
 
 Key settings:
 - **Wildcard model support**: Route any model to any provider
-- **Langfuse callbacks**: Automatic tracing on success/failure
+- **Langfuse OTEL**: OpenTelemetry-based tracing via `langfuse_otel` callback
 - **Client-side credentials**: Accept API keys from request body
+
+**Note:** The proxy now uses the LiteLLM SDK directly with `langfuse_otel` integration, so a separate LiteLLM proxy server is no longer required.
 
 ## Security Considerations
 

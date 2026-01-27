@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 
 from .models import ProxyConfig, LangfuseTracesResponse, TracesParams, ChatParams, ChatRequestHook, TracesRequestHook
 from .auth import AuthProvider, NoAuthProvider
-from .litellm import handle_chat_completion, proxy_to_litellm
+from .litellm import handle_chat_completion
 from .langfuse import fetch_langfuse_traces, pointwise_fetch_langfuse_trace
 
 # Configure logging before any other imports (so all modules inherit this config)
@@ -35,10 +35,6 @@ def build_proxy_config(
     preprocess_traces_request: Optional[TracesRequestHook] = None,
 ) -> ProxyConfig:
     """Load environment and secrets, and build ProxyConfig"""
-    # Env
-    litellm_url = os.getenv("LITELLM_URL")
-    if not litellm_url:
-        raise ValueError("LITELLM_URL environment variable must be set")
     request_timeout = float(os.getenv("REQUEST_TIMEOUT", "300.0"))
     langfuse_host = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
@@ -66,7 +62,6 @@ def build_proxy_config(
         raise ValueError(f"Invalid format in secrets file {secrets_path.name}: {e}")
 
     return ProxyConfig(
-        litellm_url=litellm_url,
         request_timeout=request_timeout,
         langfuse_host=langfuse_host,
         langfuse_keys=langfuse_keys,
@@ -112,6 +107,10 @@ def create_app(
         # Build runtime on startup
         app.state.config = build_proxy_config(preprocess_chat_request, preprocess_traces_request)
         app.state.redis = init_redis()
+
+        import litellm
+
+        litellm.callbacks = ["langfuse_otel"]
 
         try:
             yield
@@ -296,14 +295,5 @@ def create_app(
     @app.get("/health")
     async def health():
         return {"status": "healthy", "service": "metadata-proxy"}
-
-    # Catch-all
-    @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
-    async def catch_all_proxy(
-        path: str,
-        request: Request,
-        config: ProxyConfig = Depends(get_config),
-    ):
-        return await proxy_to_litellm(config, path, request)
 
     return app
