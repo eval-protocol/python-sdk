@@ -99,6 +99,7 @@ async def handle_chat_completion(
 
     try:
         # Make the completion call - pass all params through
+        # Note: langfuse_host is set via LANGFUSE_HOST env var at startup; OTEL doesn't support per-request host override
         response = await acompletion(
             **data,
             metadata=litellm_metadata,
