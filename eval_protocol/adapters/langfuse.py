@@ -46,9 +46,13 @@ class TraceConverter(Protocol):
 
 
 try:
-    from langfuse import get_client  # pyright: ignore[reportPrivateImportUsage]
+    from langfuse import Langfuse
 
     LANGFUSE_AVAILABLE = True
+
+    def get_client():
+        """Compatibility shim for langfuse 2.x (returns Langfuse instance)."""
+        return Langfuse()
 except ImportError:
     LANGFUSE_AVAILABLE = False
 

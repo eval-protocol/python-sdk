@@ -11,12 +11,12 @@ from tests.chinook.pydantic.agent import setup_agent
 from tests.chinook.dataset import collect_dataset
 
 try:
-    from langfuse import get_client, observe  # pyright: ignore[reportPrivateImportUsage]
+    from langfuse import Langfuse, observe
     from pydantic_ai.agent import Agent
     from pydantic_ai.models.openai import OpenAIChatModel
 
     LANGFUSE_AVAILABLE = True
-    langfuse_client = get_client()
+    langfuse_client = Langfuse()
 
     Agent.instrument_all()
 

@@ -24,10 +24,10 @@ from eval_protocol.pytest import evaluation_test, NoOpRolloutProcessor
 
 # Langfuse client setup
 try:
-    from langfuse import get_client  # pyright: ignore[reportPrivateImportUsage]
+    from langfuse import Langfuse
 
     LANGFUSE_AVAILABLE = True
-    langfuse = get_client()
+    langfuse = Langfuse()
 except ImportError:
     LANGFUSE_AVAILABLE = False
     langfuse = None
