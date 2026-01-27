@@ -16,8 +16,8 @@ services:
   # Metadata Gateway - Handles LLM calls directly via LiteLLM SDK with Langfuse OTEL
   metadata-gateway:
     build:
-      context: .
-      dockerfile: Dockerfile.gateway
+      context: ../..
+      dockerfile: eval_protocol/proxy/Dockerfile.gateway
     container_name: metadata-gateway
     environment:
       - PORT=4000

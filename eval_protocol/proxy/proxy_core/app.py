@@ -108,6 +108,12 @@ def create_app(
         app.state.config = build_proxy_config(preprocess_chat_request, preprocess_traces_request)
         app.state.redis = init_redis()
 
+        config = app.state.config
+        default_keys = config.langfuse_keys[config.default_project_id]
+        os.environ["LANGFUSE_PUBLIC_KEY"] = default_keys["public_key"]
+        os.environ["LANGFUSE_SECRET_KEY"] = default_keys["secret_key"]
+        os.environ.setdefault("LANGFUSE_HOST", config.langfuse_host)
+
         import litellm
 
         litellm.callbacks = ["langfuse_otel"]
