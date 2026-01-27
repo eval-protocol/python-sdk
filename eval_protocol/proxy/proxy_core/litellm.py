@@ -91,8 +91,10 @@ async def handle_chat_completion(
     # Check if streaming is requested
     is_streaming = data.get("stream", False)
 
-    # Pop timeout to avoid duplicate kwarg - use client's if provided, else config default
+    # Pop fields that we pass explicitly to avoid duplicate kwarg errors
     request_timeout = data.pop("timeout", None) or config.request_timeout
+    data.pop("langfuse_public_key", None)
+    data.pop("langfuse_secret_key", None)
 
     try:
         # Make the completion call - pass all params through
