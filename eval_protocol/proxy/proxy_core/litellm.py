@@ -5,30 +5,17 @@ LiteLLM client - handles all LLM calls directly via LiteLLM SDK with Langfuse OT
 import json
 import base64
 import logging
-import os
 from uuid6 import uuid7
 from fastapi import Request, Response, HTTPException
+from fastapi.responses import StreamingResponse
 import redis
+import openai
 from litellm import acompletion
 
 from .redis_utils import register_insertion_id
 from .models import ProxyConfig, ChatParams
 
 logger = logging.getLogger(__name__)
-
-
-def _configure_langfuse_otel(config: ProxyConfig, project_id: str) -> None:
-    """Configure Langfuse OTEL credentials via environment variables."""
-    public_key = config.langfuse_keys[project_id]["public_key"]
-    secret_key = config.langfuse_keys[project_id]["secret_key"]
-
-    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
-    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
-    os.environ.setdefault("LANGFUSE_HOST", config.langfuse_host)
-
-    logger.info(
-        f"Langfuse OTEL configured: project={project_id}, host={os.environ['LANGFUSE_HOST']}, public_key={public_key[:20]}..."
-    )
 
 
 async def handle_chat_completion(
@@ -78,7 +65,7 @@ async def handle_chat_completion(
     if auth_header.startswith("Bearer "):
         data["api_key"] = auth_header.replace("Bearer ", "").strip()
 
-    # Build metadata with tags for Langfuse OTEL
+    # Build metadata with tags for Langfuse
     insertion_id = None
     metadata = data.pop("metadata", {}) or {}
     tags = list(metadata.pop("tags", []) or [])
@@ -96,14 +83,16 @@ async def handle_chat_completion(
             ]
         )
 
-    # Configure Langfuse OTEL
-    _configure_langfuse_otel(config, project_id)
-
-    # Build Langfuse OTEL metadata (becomes span attributes prefixed with langfuse.*)
+    # Build Langfuse metadata (tags, trace context)
     litellm_metadata = {"tags": tags, **metadata}
     if rollout_id is not None:
         litellm_metadata["trace_id"] = rollout_id
         litellm_metadata["generation_name"] = f"chat-{insertion_id}"
+
+    langfuse_keys = config.langfuse_keys[project_id]
+
+    # Check if streaming is requested
+    is_streaming = data.get("stream", False)
 
     try:
         # Make the completion call - pass all params through
@@ -111,32 +100,45 @@ async def handle_chat_completion(
             **data,
             metadata=litellm_metadata,
             timeout=config.request_timeout,
+            langfuse_public_key=langfuse_keys["public_key"],
+            langfuse_secret_key=langfuse_keys["secret_key"],
         )
 
         # Register insertion_id in Redis on success
         if insertion_id is not None and rollout_id is not None:
             register_insertion_id(redis_client, rollout_id, insertion_id)
 
-        # Convert ModelResponse to JSON
-        return Response(
-            content=response.model_dump_json(),
-            status_code=200,
-            media_type="application/json",
-        )
+        if is_streaming:
+            # For streaming, return a StreamingResponse with SSE format
+            async def stream_generator():
+                async for chunk in response:  # type: ignore[union-attr]
+                    yield f"data: {chunk.model_dump_json()}\n\n"
+                yield "data: [DONE]\n\n"
+
+            return StreamingResponse(
+                stream_generator(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                },
+            )
+        else:
+            # Non-streaming: return JSON response
+            return Response(
+                content=response.model_dump_json(),
+                status_code=200,
+                media_type="application/json",
+            )
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"LiteLLM error: {e}", exc_info=True)
-        return Response(
-            content=json.dumps(
-                {
-                    "error": {
-                        "message": str(e),
-                        "type": type(e).__name__,
-                    }
-                }
-            ),
-            status_code=500,
-            media_type="application/json",
+    except openai.APIError as e:
+        # Convert to HTTPException and let FastAPI handle it
+        raise HTTPException(
+            status_code=getattr(e, "status_code", 500),
+            detail=str(e),
         )
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
