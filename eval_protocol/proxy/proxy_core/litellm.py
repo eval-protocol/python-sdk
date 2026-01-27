@@ -83,11 +83,8 @@ async def handle_chat_completion(
             ]
         )
 
-    # Build Langfuse metadata (tags, trace context)
+    # Build Langfuse metadata (tags)
     litellm_metadata = {"tags": tags, **metadata}
-    if rollout_id is not None:
-        litellm_metadata["trace_id"] = rollout_id
-        litellm_metadata["generation_name"] = f"chat-{insertion_id}"
 
     langfuse_keys = config.langfuse_keys[project_id]
 
@@ -108,16 +105,16 @@ async def handle_chat_completion(
             langfuse_secret_key=langfuse_keys["secret_key"],
         )
 
-        # Register insertion_id in Redis on success
-        if insertion_id is not None and rollout_id is not None:
-            register_insertion_id(redis_client, rollout_id, insertion_id)
-
         if is_streaming:
             # For streaming, return a StreamingResponse with SSE format
+            # Register insertion_id only after stream completes successfully
             async def stream_generator():
                 async for chunk in response:  # type: ignore[union-attr]
                     yield f"data: {chunk.model_dump_json()}\n\n"
                 yield "data: [DONE]\n\n"
+                # Stream completed successfully - now register
+                if insertion_id is not None and rollout_id is not None:
+                    register_insertion_id(redis_client, rollout_id, insertion_id)
 
             return StreamingResponse(
                 stream_generator(),
@@ -128,7 +125,10 @@ async def handle_chat_completion(
                 },
             )
         else:
-            # Non-streaming: return JSON response
+            # Non-streaming: register insertion_id on success
+            if insertion_id is not None and rollout_id is not None:
+                register_insertion_id(redis_client, rollout_id, insertion_id)
+
             return Response(
                 content=response.model_dump_json(),
                 status_code=200,

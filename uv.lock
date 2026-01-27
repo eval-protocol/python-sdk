@@ -1265,6 +1265,9 @@ openevals = [
 ]
 proxy = [
     { name = "langfuse" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-sdk" },
     { name = "redis" },
     { name = "uuid6" },
 ]
@@ -1340,6 +1343,9 @@ requires-dist = [
     { name = "openai", marker = "extra == 'dev'", specifier = ">=1.78.1" },
     { name = "openenv-core", marker = "extra == 'openenv'" },
     { name = "openevals", marker = "extra == 'openevals'", specifier = ">=0.1.0" },
+    { name = "opentelemetry-api", marker = "extra == 'proxy'", specifier = ">=1.20.0" },
+    { name = "opentelemetry-exporter-otlp", marker = "extra == 'proxy'", specifier = ">=1.20.0" },
+    { name = "opentelemetry-sdk", marker = "extra == 'proxy'", specifier = ">=1.20.0" },
     { name = "pandas", marker = "extra == 'dev'", specifier = ">=1.5.0" },
     { name = "peewee", specifier = ">=3.18.2" },
     { name = "peft", marker = "extra == 'trl'", specifier = ">=0.7.0" },
