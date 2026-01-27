@@ -94,12 +94,15 @@ async def handle_chat_completion(
     # Check if streaming is requested
     is_streaming = data.get("stream", False)
 
+    # Pop timeout to avoid duplicate kwarg - use client's if provided, else config default
+    request_timeout = data.pop("timeout", None) or config.request_timeout
+
     try:
         # Make the completion call - pass all params through
         response = await acompletion(
             **data,
             metadata=litellm_metadata,
-            timeout=config.request_timeout,
+            timeout=request_timeout,
             langfuse_public_key=langfuse_keys["public_key"],
             langfuse_secret_key=langfuse_keys["secret_key"],
         )
