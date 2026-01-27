@@ -83,8 +83,12 @@ async def handle_chat_completion(
             ]
         )
 
-    # Build Langfuse metadata (tags)
+    # Build Langfuse metadata (tags + user if present)
+    # Convert user_id (from preprocess hook) to trace_user_id for Langfuse
+    user_id = metadata.pop("user_id", None) or data.get("user")
     litellm_metadata = {"tags": tags, **metadata}
+    if user_id:
+        litellm_metadata["trace_user_id"] = user_id
 
     langfuse_keys = config.langfuse_keys[project_id]
 
