@@ -1,23 +1,29 @@
-# Solver-Judge Evaluation Example
+# Solver-Judge Evaluation Example (Countdown Task)
 
 This example demonstrates a two-phase evaluation workflow using the Eval Protocol framework:
 
 1. **Solver Phase**: Generate multiple candidate solutions for a problem using an LLM
 2. **Judge Phase**: Use an LLM judge to select the best solution from the candidates
 
-## Overview
+## The Countdown Task
 
-The Solver-Judge pattern is commonly used in:
+The Countdown task is a classic arithmetic puzzle where:
+- You're given a **target number** and a set of **available numbers**
+- You must create an arithmetic expression that equals the target
+- Each available number can only be used **exactly once**
+- Only basic arithmetic operations are allowed: `+`, `-`, `*`, `/`
+- The answer should be provided in `<answer>...</answer>` tags
 
-- **Best-of-N sampling**: Generate N solutions and select the best one
-- **Self-consistency**: Use majority voting or intelligent selection among multiple solutions
-- **Verifier-guided generation**: Use a separate model to verify/score solutions
-- **MCTS-style exploration**: Generate candidates and use value models for selection
+Example:
+- Target: 24
+- Numbers: [1, 2, 3, 4]
+- Solution: `<answer>(1 + 2 + 3) * 4</answer>` (equals 24)
 
 ## Files
 
 - `main.py` - Main implementation with reward functions and evaluation tests
 - `conf/solver_judge_eval.yaml` - Hydra configuration for running evaluations
+- `tests/test_solver_judge.py` - Unit tests for the countdown reward functions
 
 ## Running the Example
 
@@ -31,16 +37,16 @@ pytest examples/solver_judge/main.py::test_solver_single -v
 pytest examples/solver_judge/main.py::test_solver_judge -v
 ```
 
-### Option 2: Run with Hydra configuration
-
-```bash
-eval-protocol run --config-path examples/solver_judge/conf --config-name solver_judge_eval
-```
-
-### Option 3: Run as standalone script
+### Option 2: Run as standalone script
 
 ```bash
 python examples/solver_judge/main.py
+```
+
+### Option 3: Run unit tests (no API key needed)
+
+```bash
+pytest examples/solver_judge/tests/test_solver_judge.py -v
 ```
 
 ## Configuration
@@ -54,25 +60,11 @@ python examples/solver_judge/main.py
 | `JUDGE_MODEL` | Model for the judge LLM | `accounts/fireworks/models/llama-v3p1-70b-instruct` |
 | `N_SOLUTIONS` | Number of candidate solutions | `3` |
 
-### Customizing the Judge
-
-You can customize the judge configuration by modifying `JUDGE_CONFIG` in `main.py`:
-
-```python
-JUDGE_CONFIG = {
-    "model": "your-preferred-model",
-    "temperature": 0.0,
-    "max_tokens": 4096,
-    "api_key": os.getenv("YOUR_API_KEY"),
-    "base_url": "https://your-api-endpoint",
-}
-```
-
 ## How It Works
 
 ### 1. Solver Phase
 
-The solver generates N candidate solutions for each problem:
+The solver generates N candidate solutions for each countdown problem:
 
 ```python
 @evaluation_test(
@@ -87,73 +79,77 @@ async def test_solver_judge(rows: List[EvaluationRow], **kwargs):
     ...
 ```
 
-### 2. Judge Phase
+### 2. Scoring Phase
 
-The judge evaluates all solutions and selects the best one:
+Each solution is scored using `countdown_reward()`:
+- **1.0**: Correct equation that evaluates to target
+- **0.1**: Valid format but wrong result (partial credit)
+- **0.0**: No answer tags or invalid format
+
+### 3. Judge Phase
+
+The LLM judge evaluates all solutions and selects the best one:
 
 ```python
-judge_result = await run_judge(problem, solutions)
+judge_result = await run_judge(target, numbers, solutions)
 selected_index = judge_result["selected_index"]
 ```
 
-### 3. Metrics
+### 4. Final Scoring
 
 The evaluation reports:
-
-- **solver_accuracy**: Fraction of individual solutions that are correct
+- **solver_accuracy**: Fraction of solutions that are fully correct (score=1.0)
 - **judge_accuracy**: Whether the judge selected a correct solution
 - **individual_scores**: Scores for each candidate solution
 
+## Reward Function Details
+
+The countdown reward function (`countdown_reward`) performs these checks:
+
+1. **Format Check**: Does the response contain `<answer>...</answer>` tags?
+2. **Validation Check**: Does the equation use exactly the available numbers?
+3. **Correctness Check**: Does the equation evaluate to the target?
+
+```python
+from examples.solver_judge import countdown_reward
+
+result = countdown_reward(
+    solution_str="<answer>(1 + 2 + 3) * 4</answer>",
+    ground_truth={"target": 24, "numbers": [1, 2, 3, 4]}
+)
+print(result.score)  # 1.0 if correct
+print(result.metrics)  # Detailed breakdown
+```
+
 ## Extending the Example
-
-### Custom Problem Domain
-
-1. Modify `parse_solver_answer()` to handle your answer format
-2. Update `check_answer_correct()` with domain-specific validation
-3. Customize `create_judge_prompt()` for your evaluation criteria
 
 ### Custom Dataset
 
-Replace `DEMO_ROWS` with your own dataset:
-
 ```python
+from eval_protocol.models import EvaluationRow, Message
+from examples.solver_judge import get_countdown_prompt
+
 MY_ROWS = [
     EvaluationRow(
-        messages=[Message(role="user", content="Your problem here")],
-        ground_truth="expected_answer",
+        messages=[Message(role="user", content=get_countdown_prompt(100, [25, 50, 2, 4]))],
+        ground_truth={"target": 100, "numbers": [25, 50, 2, 4]},
     ),
-    # ... more rows
 ]
 
 @evaluation_test(input_rows=[MY_ROWS], ...)
-async def test_my_solver_judge(...):
+async def my_test(...):
     ...
 ```
 
-### Using External Datasets
-
-Load from JSONL files:
-
-```python
-@evaluation_test(
-    input_dataset=["path/to/your/dataset.jsonl"],
-    ...
-)
-async def test_solver_judge_external(...):
-    ...
-```
-
-## Programmatic Usage
-
-The workflow can also be used outside of pytest:
+### Programmatic Usage
 
 ```python
 import asyncio
-from examples.solver_judge.main import run_solver_judge_workflow
+from examples.solver_judge import run_solver_judge_workflow
 
 result = asyncio.run(run_solver_judge_workflow(
-    problem="What is 2 + 2?",
-    ground_truth="4",
+    target=24,
+    numbers=[1, 2, 3, 4],
     n_solutions=5,
 ))
 
@@ -164,38 +160,48 @@ print(f"Selected: {result['selected_solution']}")
 
 ## Comparison with Original RLLM Implementation
 
-This eval_protocol implementation provides equivalent functionality to the RLLM Solver-Judge workflow:
-
 | RLLM Concept | Eval Protocol Equivalent |
 |--------------|-------------------------|
 | `Trajectory` | `EvaluationRow` |
-| `Step` | Individual message in `EvaluationRow.messages` |
-| `Episode` | Collection of `EvaluationRow` objects with shared `row_id` |
+| `Step` | Individual `Message` in `EvaluationRow.messages` |
+| `Episode` | Collection of `EvaluationRow` objects |
 | `RolloutEngine` | `SingleTurnRolloutProcessor` + `AsyncOpenAI` |
-| `RewardFunction` | `@reward_function` decorator |
+| `RewardFunction` / `RewardOutput` | `@reward_function` decorator / `EvaluateResult` |
 | `Workflow.run()` | `@evaluation_test` with `mode="groupwise"` |
 
-## Metrics Output
+## Example Output
 
-Example output from the evaluation:
+```
+Solver-Judge Workflow Demo (Countdown Task)
+============================================================
 
-```json
-{
-  "score": 1.0,
-  "reason": "Judge selected solution 2 (1-indexed). Correct",
-  "metrics": {
-    "solver_accuracy": {
-      "score": 0.67,
-      "reason": "Solver accuracy: 66.67% (2/3 correct)"
-    },
-    "judge_accuracy": {
-      "score": 1.0,
-      "reason": "Judge selection correct"
-    },
-    "individual_scores": {
-      "score": 0.67,
-      "data": {"scores": [1.0, 1.0, 0.0]}
-    }
-  }
-}
+Target: 24
+Available Numbers: [1, 2, 3, 4]
+
+Running workflow...
+
+----------------------------------------
+Results:
+----------------------------------------
+
+Solver Accuracy: 66.67%
+Individual Scores: [1.0, 1.0, 0.1]
+
+Judge Selected: Solution 1
+Judge Accuracy: 100.00%
+
+----------------------------------------
+Solutions Generated:
+----------------------------------------
+
+✓ Solution 1 (score: 1.00) [SELECTED]:
+Let me work through this step by step...
+<answer>(1 + 2 + 3) * 4</answer>
+
+✓ Solution 2 (score: 1.00):
+I'll try different combinations...
+<answer>4 * 3 * 2 * 1</answer>
+
+~ Solution 3 (score: 0.10):
+<answer>1 + 2 + 3 + 4</answer>
 ```
