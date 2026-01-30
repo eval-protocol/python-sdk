@@ -200,7 +200,7 @@ def _configure_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         "training_config.gradient_accumulation_steps": "The number of batches to accumulate gradients before updating the model parameters. The effective batch size will be batch-size multiplied by this value.",
         "training_config.learning_rate_warmup_steps": "The number of learning rate warmup steps for the reinforcement fine-tuning job.",
         "mcp_server": "The MCP server resource name to use for the reinforcement fine-tuning job. (Optional)",
-        "loss_config.method": "RL loss method for underlying trainers. One of {grpo,dapo}.",
+        "loss_config.method": "RL loss method for underlying trainers. One of {grpo,dapo,gspo-token}.",
     }
 
     create_rft_job_fn = Fireworks().reinforcement_fine_tuning_jobs.create
