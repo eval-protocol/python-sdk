@@ -72,6 +72,8 @@ def _normalize_token_id_sequence(values: Any) -> List[int]:
         return []
     if isinstance(values, Mapping):
         values = values.get("input_ids", values.get("ids", []))
+    if values is None:
+        return []
     if hasattr(values, "tolist") and not isinstance(values, list):
         values = values.tolist()
     if isinstance(values, tuple):
@@ -347,12 +349,12 @@ class FireworksV1CompletionsClient:
         active_tools = tools if tools is not None else (self.default_tools or None)
         normalized_prompt_token_ids = [int(x) for x in list(prompt_token_ids)]
         request_payload = {
+            **self.request_params,
             "model": self.model_id,
             "prompt": normalized_prompt_token_ids,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "logprobs": True if self.logprobs else None,
-            **self.request_params,
         }
         if not self.logprobs:
             request_payload.pop("logprobs", None)
