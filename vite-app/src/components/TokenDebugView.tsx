@@ -584,7 +584,7 @@ export const TokenDebugView = ({ extra }: TokenDebugViewProps) => {
             colorMode={colorMode}
             showIds={showIds}
           />
-        ) : (
+        ) : tokenTurnTraces.length > 0 ? (
           tokenTurnTraces.map((trace, i) => (
             <TurnSection
               key={i}
@@ -593,6 +593,10 @@ export const TokenDebugView = ({ extra }: TokenDebugViewProps) => {
               showIds={showIds}
             />
           ))
+        ) : (
+          <div className="text-xs text-gray-400 italic p-2">
+            No token data available for this view
+          </div>
         )}
       </div>
     </div>

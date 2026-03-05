@@ -290,11 +290,13 @@ class FireworksV1CompletionsClient:
         tokenizer = self._get_tokenizer()
         sanitized_messages = _sanitize_messages_for_template(messages=[assistant_message])
         token_ids: Any
+        thinking_kw = self._thinking_kwargs()
         try:
             token_ids = tokenizer.apply_chat_template(
                 sanitized_messages,
                 tokenize=True,
                 add_generation_prompt=False,
+                **thinking_kw,
             )
         except Exception as exc:
             logger.debug("Tokenizer assistant turn template failed, using fallback text prompt: %s", exc)
