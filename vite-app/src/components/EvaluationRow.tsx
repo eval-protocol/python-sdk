@@ -345,7 +345,7 @@ const ChatInterfaceSection = observer(
 
 const TokenDebugSection = observer(
   ({ extra }: { extra: Record<string, any> | undefined }) => {
-    if (!extra?.token_turn_traces?.length) return null;
+    if (!extra?.token_turn_traces?.length && !extra?.full_episode) return null;
     return <TokenDebugView extra={extra} />;
   }
 );

@@ -342,7 +342,7 @@ class FireworksV1CompletionsClient:
         will include ``choices[0].message.tool_calls``.  Otherwise the message
         will contain only the raw ``content``.
         """
-        active_tools = tools or self.default_tools or None
+        active_tools = tools if tools is not None else (self.default_tools or None)
         normalized_prompt_token_ids = [int(x) for x in list(prompt_token_ids)]
         request_payload = {
             "model": self.model_id,
@@ -470,7 +470,7 @@ class FireworksV1CompletionsClient:
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """High-level helper: tokenize *messages* then call ``create_completion_from_prompt_ids``."""
-        active_tools = tools or self.default_tools or None
+        active_tools = tools if tools is not None else (self.default_tools or None)
         prompt_token_ids = self.build_prompt_token_ids(messages=messages, tools=active_tools)
         return await self.create_completion_from_prompt_ids(
             prompt_token_ids=prompt_token_ids,

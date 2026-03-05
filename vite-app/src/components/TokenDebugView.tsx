@@ -233,7 +233,7 @@ function TurnSection({
         </span>
         {trace.step_reward !== undefined && (
           <span
-            className={`font-mono ${trace.step_reward > 0 ? "text-green-600" : "text-red-600"}`}
+            className={`font-mono ${trace.step_reward > 0 ? "text-green-600" : trace.step_reward < 0 ? "text-red-600" : "text-gray-600"}`}
           >
             reward: {trace.step_reward}
           </span>
@@ -519,7 +519,9 @@ export const TokenDebugView = ({ extra }: TokenDebugViewProps) => {
               className={`text-xs font-mono px-1.5 py-0.5 rounded ${
                 episodeReward > 0
                   ? "bg-green-100 text-green-700"
-                  : "bg-red-100 text-red-700"
+                  : episodeReward < 0
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-700"
               }`}
             >
               reward: {episodeReward}
