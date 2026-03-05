@@ -6,6 +6,7 @@ import type {
 import { ChatInterface } from "./ChatInterface";
 import { MetadataSection } from "./MetadataSection";
 import { LogsSection } from "./LogsSection";
+import { TokenDebugView } from "./TokenDebugView";
 import StatusIndicator from "./StatusIndicator";
 import { state } from "../App";
 import { TableCell, TableRowInteractive } from "./TableContainer";
@@ -342,6 +343,13 @@ const ChatInterfaceSection = observer(
   )
 );
 
+const TokenDebugSection = observer(
+  ({ extra }: { extra: Record<string, any> | undefined }) => {
+    if (!extra?.token_turn_traces?.length) return null;
+    return <TokenDebugView extra={extra} />;
+  }
+);
+
 const ExpandedContent = observer(
   ({
     row,
@@ -370,6 +378,9 @@ const ExpandedContent = observer(
         <div className="min-w-0">
           <ChatInterfaceSection messages={messages} />
         </div>
+
+        {/* Token Debug Column */}
+        <TokenDebugSection extra={(execution_metadata as any)?.extra} />
 
         {/* Middle Column - Logs */}
         <LogsSection rolloutId={row.execution_metadata?.rollout_id} inputMetadata={row.input_metadata} />
