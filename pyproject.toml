@@ -36,7 +36,7 @@ dependencies = [
     "pytest-asyncio>=0.21.0",
     "peewee>=3.18.2",
     "backoff>=2.2.0",
-    "fireworks-ai==1.0.0a20",
+    "fireworks-ai>=1.0.0a20,<2",
     "questionary>=2.0.0",
     # Dependencies for vendored tau2 package
     "toml>=0.10.0",
