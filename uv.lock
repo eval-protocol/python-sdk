@@ -1315,7 +1315,7 @@ requires-dist = [
     { name = "dspy", marker = "extra == 'dspy'", specifier = ">=3.0.0" },
     { name = "e2b", marker = "extra == 'dev'" },
     { name = "fastapi", specifier = ">=0.116.1" },
-    { name = "fireworks-ai", specifier = "==1.0.0a20" },
+    { name = "fireworks-ai", specifier = ">=1.0.0a20,<2" },
     { name = "google-auth", marker = "extra == 'bigquery'", specifier = ">=2.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'bigquery'", specifier = ">=3.0.0" },
     { name = "gymnasium", marker = "extra == 'dev'", specifier = ">=1.2.0" },
