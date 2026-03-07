@@ -6,6 +6,7 @@ import type {
 import { ChatInterface } from "./ChatInterface";
 import { MetadataSection } from "./MetadataSection";
 import { LogsSection } from "./LogsSection";
+import { TokenDebugView } from "./TokenDebugView";
 import StatusIndicator from "./StatusIndicator";
 import { state } from "../App";
 import { TableCell, TableRowInteractive } from "./TableContainer";
@@ -336,10 +337,85 @@ const ToolsSection = observer(
   )
 );
 
+function buildToolDeclareContent(tools: EvaluationRowType["tools"]): string {
+  if (!tools?.length) return "";
+  const blocks = tools
+    .map((tool) => {
+      const fn = (tool as any)?.function || {};
+      const properties = fn.parameters?.properties || {};
+      const actionEnum = Array.isArray(properties.action?.enum)
+        ? properties.action.enum.map((value: string) => `"${value}"`).join(" | ")
+        : "string";
+      return [
+        `// ${fn.description || "Tool declaration."}`,
+        `type ${fn.name || "tool"} = (_: {`,
+        `  // ${properties.action?.description || "Tool argument."}`,
+        `  action: ${actionEnum},`,
+        "  [k: string]: never",
+        "}) => any;",
+      ].join("\n");
+    })
+    .join("\n");
+
+  return `# Tools\n\n## functions\nnamespace functions {\n${blocks}\n}`;
+}
+
+function buildPromptFaithfulMessages(
+  messages: EvaluationRowType["messages"],
+  tools: EvaluationRowType["tools"]
+): EvaluationRowType["messages"] {
+  const toolDeclareContent = buildToolDeclareContent(tools);
+  if (!toolDeclareContent) return messages;
+  const nextMessages = [...(messages || [])];
+  const firstSystemIdx = nextMessages.findIndex(
+    (message) => message?.role === "system"
+  );
+  if (firstSystemIdx === -1) {
+    return [{ role: "system", content: toolDeclareContent } as any, ...nextMessages];
+  }
+
+  const firstSystem = nextMessages[firstSystemIdx] as any;
+  const existingContent =
+    typeof firstSystem?.content === "string"
+      ? firstSystem.content
+      : Array.isArray(firstSystem?.content)
+      ? firstSystem.content
+          .map((part: any) => {
+            if (part?.type === "text") return part.text || "";
+            if (part?.type === "image_url") return "[Image]";
+            return JSON.stringify(part);
+          })
+          .join("")
+      : firstSystem?.content != null
+      ? JSON.stringify(firstSystem.content)
+      : "";
+
+  nextMessages[firstSystemIdx] = {
+    ...firstSystem,
+    content: existingContent
+      ? `${toolDeclareContent}\n\n${existingContent}`
+      : toolDeclareContent,
+  } as any;
+  return nextMessages;
+}
+
 const ChatInterfaceSection = observer(
-  ({ messages }: { messages: EvaluationRowType["messages"] }) => (
-    <ChatInterface messages={messages} />
+  ({
+    messages,
+    tools,
+  }: {
+    messages: EvaluationRowType["messages"];
+    tools: EvaluationRowType["tools"];
+  }) => (
+    <ChatInterface messages={buildPromptFaithfulMessages(messages, tools)} />
   )
+);
+
+const TokenDebugSection = observer(
+  ({ extra }: { extra: Record<string, any> | undefined }) => {
+    if (!extra?.token_turn_traces?.length && !extra?.full_episode) return null;
+    return <TokenDebugView extra={extra} />;
+  }
 );
 
 const ExpandedContent = observer(
@@ -368,8 +444,11 @@ const ExpandedContent = observer(
       <div className="flex gap-3 w-fit">
         {/* Left Column - Chat Interface */}
         <div className="min-w-0">
-          <ChatInterfaceSection messages={messages} />
+          <ChatInterfaceSection messages={messages} tools={tools} />
         </div>
+
+        {/* Token Debug Column */}
+        <TokenDebugSection extra={(execution_metadata as any)?.extra} />
 
         {/* Middle Column - Logs */}
         <LogsSection rolloutId={row.execution_metadata?.rollout_id} inputMetadata={row.input_metadata} />
