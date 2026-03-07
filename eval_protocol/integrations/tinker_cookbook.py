@@ -6,7 +6,6 @@ from typing import Any, Callable, Literal, Optional, Sequence, List
 
 try:
     import chz
-    from tinker_cookbook import renderers, tokenizer_utils
     from tinker_cookbook.rl.problem_env import ProblemGroupBuilder
     from tinker_cookbook.rl.types import RLDataset, RLDatasetBuilder
     from tinker_cookbook.eval.evaluators import SamplingClientEvaluator
@@ -23,6 +22,7 @@ except ImportError:
     SamplingClientEvaluator = object
 
 from eval_protocol.adapters.base import BaseAdapter
+from eval_protocol.integrations.tinker_utils import TINKER_AVAILABLE, build_tinker_renderer
 from eval_protocol.models import EvaluationRow
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
@@ -160,8 +160,10 @@ def create_eval_protocol_dataset_builder(
         seed: int = 0
 
         async def __call__(self) -> tuple[RLDataset, RLDataset]:
-            tokenizer = tokenizer_utils.get_tokenizer(self.model_name_for_tokenizer)
-            renderer = renderers.get_renderer(self.renderer_name, tokenizer=tokenizer)
+            _tokenizer, renderer = build_tinker_renderer(
+                model_name=self.model_name_for_tokenizer,
+                renderer_name=self.renderer_name,
+            )
 
             # Create adapter
             adapter = adapter_factory()

@@ -87,6 +87,9 @@ trl = [
     "transformers>=4.0.0",
     "accelerate>=0.28.0",
 ]
+tinker = [
+    "tinker-cookbook @ git+https://github.com/thinking-machines-lab/tinker-cookbook.git@41cc57642f6373f342151ad95d418349d85512c5 ; python_version >= '3.11'",
+]
 openevals = [
     "openevals>=0.1.0",
 ]

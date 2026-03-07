@@ -1,22 +1,24 @@
 import asyncio
 import logging
-import os
 import time
 import traceback
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional
 
 from eval_protocol.dataset_logger import default_logger
-from eval_protocol.models import EvaluationRow, Message
+from eval_protocol.models import EvaluationRow
+from eval_protocol.integrations.tinker_utils import (
+    TINKER_AVAILABLE,
+    build_tinker_renderer,
+    normalize_eval_protocol_messages,
+    tinker_message_to_eval_protocol_message,
+)
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
 from eval_protocol.pytest.types import RolloutProcessorConfig
 
 try:
     import tinker
-    from tinker_cookbook import renderers, tokenizer_utils
-
-    TINKER_AVAILABLE = True
 except ImportError:
-    TINKER_AVAILABLE = False
+    tinker = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -58,19 +60,13 @@ class TinkerRolloutProcessor(RolloutProcessor):
             service_client = tinker.ServiceClient()
             self.sampling_client = service_client.create_sampling_client(base_model=self.model_name)
 
-        # Initialize tokenizer and renderer
-        # We need the model name to get the correct tokenizer.
-        # If sampling_client was provided without model_name, we might need to infer it or require it.
         if self.model_name:
-            self.tokenizer = tokenizer_utils.get_tokenizer(self.model_name)
+            self.tokenizer, self.renderer = build_tinker_renderer(
+                model_name=self.model_name,
+                renderer_name=self.renderer_name,
+            )
         else:
-            # Fallback or try to get from client if possible?
-            # For now, require model_name even if client is passed, or use a default
-            # But usually we want the renderer to match the model.
-            # Let's assume Llama-3 tokenizer if not specified for now or raise error
             raise ValueError("model_name is required to initialize tokenizer/renderer")
-
-        self.renderer = renderers.get_renderer(self.renderer_name, tokenizer=self.tokenizer)
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
         """Generate rollout tasks using Tinker."""
@@ -81,20 +77,7 @@ class TinkerRolloutProcessor(RolloutProcessor):
             if not row.messages:
                 raise ValueError("Messages is empty")
 
-            # Prepare prompt using renderer
-            # Convert messages to Tinker ModelInput
-            # We need to convert EvaluationRow messages (standard format) to the renderer's expected input
-            # The renderer expects a list of dicts or objects with role/content
-            # eval_protocol Message objects have role/content attributes, which should work if renderer supports objects
-            # checking renderer code... it typically iterates and accesses keys or attributes.
-            # Let's convert to dicts to be safe.
-
-            convo = [
-                {"role": m.role, "content": m.content}
-                for m in row.messages
-                if m.role in ["system", "user", "assistant"]
-            ]
-
+            convo = normalize_eval_protocol_messages(row.messages)
             prompt = self.renderer.build_generation_prompt(convo)
 
             # Prepare sampling params
@@ -130,32 +113,29 @@ class TinkerRolloutProcessor(RolloutProcessor):
                 sampled_tokens = sample_result.sequences[0].tokens
                 message, parse_success = self.renderer.parse_response(sampled_tokens)
 
-                if message:
-                    assistant_content = message["content"]
-                else:
-                    assistant_content = ""
+                assistant_message = (
+                    tinker_message_to_eval_protocol_message(message)
+                    if message
+                    else tinker_message_to_eval_protocol_message({"role": "assistant", "content": ""})
+                )
 
             except Exception as e:
-                # Try to extract more info if '0' is not helpful
                 error_details = str(e)
                 if error_details == "0":
                     try:
                         error_details = f"Code: {e.code}, Message: {getattr(e, 'message', 'unknown')}"
-                    except Exception as e2:
+                    except Exception:
                         pass
-                # Log full traceback for debugging
                 tb_str = traceback.format_exc()
                 logger.error(f"Tinker sampling failed: {error_details}\nTraceback:\n{tb_str}")
-                assistant_content = ""  # Or handle error more gracefully
-                # Could set status on row
+                assistant_message = tinker_message_to_eval_protocol_message(
+                    {"role": "assistant", "content": ""}
+                )
 
-            # Update row
-            new_messages = list(row.messages) + [Message(role="assistant", content=assistant_content)]
+            new_messages = list(row.messages) + [assistant_message]
             row.messages = new_messages
             row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
-            # Log usage (approximate since Tinker might not return usage stats in same format)
-            # We can count tokens ourselves
             row.execution_metadata.usage = None  # Placeholder
 
             default_logger.log(row)
