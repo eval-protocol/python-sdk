@@ -14,9 +14,12 @@ export const MessageBubble = ({ message }: { message: Message }) => {
   const isTool = message.role === "tool";
   const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
   const hasFunctionCall = message.function_call;
+  const hideMessageContent = message.role === "assistant" && hasToolCalls;
 
   // Get the message content as a string
   const reasoning = (message as any).reasoning_content as string | undefined;
+  const titleLabel =
+    message.role === "system" && message.name ? message.name : message.role;
   const getMessageContent = () => {
     if (typeof message.content === "string") {
       return message.content;
@@ -33,11 +36,14 @@ export const MessageBubble = ({ message }: { message: Message }) => {
     }
   };
 
-  const messageContent = getMessageContent();
+  const messageContent = hideMessageContent ? "" : getMessageContent();
   const hasMessageContent = messageContent.trim().length > 0;
   const isLongMessage = messageContent.length > 200; // Threshold for considering a message "long"
 
   const renderContent = () => {
+    if (hideMessageContent) {
+      return null;
+    }
     if (typeof message.content === "string") {
       return isLongMessage && !isExpanded
         ? message.content.substring(0, 200) + "..."
@@ -161,7 +167,7 @@ export const MessageBubble = ({ message }: { message: Message }) => {
             hasMessageContent ? "pr-8" : ""
           }`}
         >
-          {message.role}
+          {titleLabel}
         </div>
         <div className="whitespace-pre-wrap break-words overflow-hidden text-xs">
           {renderContent()}
