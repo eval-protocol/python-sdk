@@ -723,6 +723,10 @@ def add_args_from_callable_signature(
     help = _parse_args_section_from_doc(inspect.getdoc(fn) or "")
     hints = typing.get_type_hints(fn, include_extras=True)
 
+    # Track registered flags to avoid argparse conflicts when multiple
+    # TypedDicts share the same field name (e.g. credentials_secret).
+    _registered_flags: set[str] = set()
+
     for name in sig.parameters.keys():
         resolved_type = unwrap_union(hints.get(name))
 
@@ -738,10 +742,15 @@ def add_args_from_callable_signature(
                 prefix = name.replace("_", "-")
                 field_kebab = field_name.replace("_", "-")
                 flag_name = f"--{prefix}-{field_kebab}"
-                flags = [flag_name] + aliases.get(f"{name}.{field_name}", []) + [f"--{field_kebab}"]
+                short_flag = f"--{field_kebab}"
+                flags = [flag_name] + aliases.get(f"{name}.{field_name}", [])
+                # Only add the short alias if it hasn't been registered yet.
+                if short_flag not in _registered_flags:
+                    flags.append(short_flag)
                 help_text = help_overrides.get(f"{name}.{field_name}", field_help.get(field_name))
 
                 _add_flag(parser, flags, field_hints.get(field_name, field_type), help_text)
+                _registered_flags.update(flags)
             continue
 
         if name in top_level_skip:
@@ -752,3 +761,4 @@ def add_args_from_callable_signature(
         help_text = help_overrides.get(name, help.get(name))
 
         _add_flag(parser, flags, hints.get(name), help_text)
+        _registered_flags.update(flags)
