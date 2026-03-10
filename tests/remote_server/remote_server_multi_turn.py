@@ -12,6 +12,9 @@ from eval_protocol import Status, InitRequest, FireworksTracingHttpHandler, Roll
 
 app = FastAPI()
 
+# Configure logging for the remote server (required for INFO-level logs to be emitted)
+logging.basicConfig(level=logging.INFO, format="%(name)s - %(levelname)s - %(message)s")
+
 # Attach Fireworks tracing handler to root logger
 fireworks_handler = FireworksTracingHttpHandler()
 logging.getLogger().addHandler(fireworks_handler)
