@@ -53,6 +53,7 @@ class TracesParams(BaseModel):
 class ProxyConfig(BaseModel):
     """Configuration model for the LiteLLM Metadata Proxy"""
 
+    litellm_url: str
     request_timeout: float = 300.0
     langfuse_host: str
     langfuse_keys: Dict[str, Dict[str, str]]
@@ -72,7 +73,6 @@ class ObservationResponse(BaseModel):
     input: Optional[Any] = None
     output: Optional[Any] = None
     parent_observation_id: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
 
 
 class TraceResponse(BaseModel):

@@ -1,4 +1,4 @@
-# Metadata Extraction Gateway - Uses LiteLLM SDK directly with Langfuse OTEL
+# Metadata Extraction Gateway - Sits in front of LiteLLM
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -6,20 +6,18 @@ WORKDIR /app
 # Prevent Python from buffering stdout/stderr
 ENV PYTHONUNBUFFERED=1
 
-# Copy the entire package for local install (context is repo root)
-COPY pyproject.toml /app/pyproject.toml
-COPY eval_protocol /app/eval_protocol
-COPY README.md /app/README.md
+# Copy requirements file
+COPY ./requirements.txt /app/requirements.txt
 
-# Install from local source with proxy extras
-RUN pip install --no-cache-dir ".[proxy]"
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the proxy package (local overrides for main.py, auth.py, etc.)
-COPY eval_protocol/proxy/proxy_core /app/proxy_core
+# Copy the proxy package
+COPY ./proxy_core /app/proxy_core
 
 # Expose port
 EXPOSE 4000
 
 # Run the gateway as a module
-# LANGFUSE_HOST and REDIS_HOST will be set by environment (docker-compose or Cloud Run)
+# LITELLM_URL will be set by environment (docker-compose or Cloud Run)
 CMD ["python", "-m", "proxy_core.main"]

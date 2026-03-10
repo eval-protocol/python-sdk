@@ -7,19 +7,41 @@ services:
     ports:
       - "6379:6379"  # Expose for debugging if needed
     networks:
-      - proxy-network
+      - litellm-network
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
       - redis-data:/data
 
-  # Metadata Gateway - Handles LLM calls directly via LiteLLM SDK with Langfuse OTEL
+  # LiteLLM Backend - Handles actual LLM proxying
+  litellm-backend:
+    image: litellm/litellm:v1.77.3-stable
+    platform: linux/amd64
+    container_name: litellm-backend
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--host", "0.0.0.0"]
+    # If you want to be able to use other model providers like OpenAI, Anthropic, etc., you need to set keys in .env file.
+    env_file:
+      - .env  # Load API keys from .env file
+    environment:
+      - LANGFUSE_PUBLIC_KEY=dummy  # Set dummy public and private key so Langfuse instance initializes in LiteLLM, then real keys get sent in proxy
+      - LANGFUSE_SECRET_KEY=dummy
+    volumes:
+      - ./config_no_cache.yaml:/app/config.yaml:ro
+    ports:
+      - "4001:4000"  # Expose on 4001 for direct access if needed
+    networks:
+      - litellm-network
+    restart: unless-stopped
+
+  # Metadata Gateway - Public-facing service that extracts metadata from URLs
   metadata-gateway:
     build:
-      context: ../..
-      dockerfile: eval_protocol/proxy/Dockerfile.gateway
+      context: .
+      dockerfile: Dockerfile.gateway
     container_name: metadata-gateway
     environment:
+      # Point to the LiteLLM backend service
+      - LITELLM_URL=http://litellm-backend:4000
       - PORT=4000
       # Redis configuration for assistant message counting
       - REDIS_HOST=redis
@@ -34,13 +56,14 @@ services:
     ports:
       - "4000:4000"  # Main public-facing port
     networks:
-      - proxy-network
+      - litellm-network
     depends_on:
+      - litellm-backend
       - redis
     restart: unless-stopped
 
 networks:
-  proxy-network:
+  litellm-network:
     driver: bridge
 
 volumes:

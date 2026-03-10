@@ -1,17 +1,14 @@
 """
-LiteLLM client - handles all LLM calls directly via LiteLLM SDK with Langfuse OTEL integration.
+LiteLLM client - handles all communication with LiteLLM service.
 """
 
 import json
 import base64
+import httpx
 import logging
 from uuid6 import uuid7
 from fastapi import Request, Response, HTTPException
-from fastapi.responses import StreamingResponse
 import redis
-import openai
-from litellm import acompletion
-
 from .redis_utils import register_insertion_id
 from .models import ProxyConfig, ChatParams
 
@@ -25,12 +22,12 @@ async def handle_chat_completion(
     params: ChatParams,
 ) -> Response:
     """
-    Handle chat completion requests using LiteLLM SDK directly with Langfuse OTEL.
+    Handle chat completion requests and forward to LiteLLM.
 
     If metadata IDs (rollout_id, etc.) are provided, they'll be added as tags
     and the assistant message count will be tracked in Redis.
 
-    If encoded_base_url is provided, it will be decoded and used as api_base.
+    If encoded_base_url is provided, it will be decoded and added to the request.
     """
     body = await request.body()
     data = json.loads(body) if body else {}
@@ -53,26 +50,36 @@ async def handle_chat_completion(
     # Decode and add base_url if provided
     if encoded_base_url:
         try:
+            # Decode from URL-safe base64
             decoded_bytes = base64.urlsafe_b64decode(encoded_base_url)
-            data["base_url"] = decoded_bytes.decode("utf-8")
-            logger.debug(f"Decoded base_url: {data['base_url']}")
+            base_url = decoded_bytes.decode("utf-8")
+            data["base_url"] = base_url
+            logger.debug(f"Decoded base_url: {base_url}")
         except Exception as e:
             logger.error(f"Failed to decode base_url: {e}")
             raise HTTPException(status_code=400, detail=f"Invalid encoded_base_url: {str(e)}")
 
-    # Extract API key from Authorization header and add to data
+    # Extract API key from Authorization header and inject into request body
     auth_header = request.headers.get("authorization", "")
     if auth_header.startswith("Bearer "):
-        data["api_key"] = auth_header.replace("Bearer ", "").strip()
+        api_key = auth_header.replace("Bearer ", "").strip()
+        # Only inject API key if model is a Fireworks model
+        model = data.get("model")
+        if model and isinstance(model, str) and model.startswith("fireworks_ai"):
+            data["api_key"] = api_key
 
-    # Build metadata with tags for Langfuse
+    # If metadata IDs are provided, add them as tags
     insertion_id = None
-    metadata = data.pop("metadata", {}) or {}
-    tags = list(metadata.pop("tags", []) or [])
-
     if rollout_id is not None:
         insertion_id = str(uuid7())
-        tags.extend(
+
+        if "metadata" not in data:
+            data["metadata"] = {}
+        if "tags" not in data["metadata"]:
+            data["metadata"]["tags"] = []
+
+        # Add extracted IDs as tags
+        data["metadata"]["tags"].extend(
             [
                 f"rollout_id:{rollout_id}",
                 f"insertion_id:{insertion_id}",
@@ -83,72 +90,84 @@ async def handle_chat_completion(
             ]
         )
 
-    # Build Langfuse metadata (tags + user if present)
-    # Convert user_id (from preprocess hook) to trace_user_id for Langfuse
-    user_id = metadata.pop("user_id", None) or data.get("user")
-    litellm_metadata = {"tags": tags, **metadata}
-    if user_id:
-        litellm_metadata["trace_user_id"] = user_id
+    # Add Langfuse configuration
+    data["langfuse_public_key"] = config.langfuse_keys[project_id]["public_key"]
+    data["langfuse_secret_key"] = config.langfuse_keys[project_id]["secret_key"]
+    data["langfuse_host"] = config.langfuse_host
 
-    langfuse_keys = config.langfuse_keys[project_id]
+    # Forward to LiteLLM's standard /chat/completions endpoint
+    # Set longer timeout for LLM API calls (LLMs can be slow)
+    timeout = httpx.Timeout(config.request_timeout)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        # Copy headers from original request but exclude content-length (httpx will set it correctly)
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        headers.pop("content-length", None)  # Let httpx calculate the correct length
+        headers["content-type"] = "application/json"
 
-    # Check if streaming is requested
-    is_streaming = data.get("stream", False)
+        # Forward to LiteLLM
+        litellm_url = f"{config.litellm_url}/chat/completions"
 
-    # Pop fields that we pass explicitly to avoid duplicate kwarg errors
-    request_timeout = data.pop("timeout", None) or config.request_timeout
-    data.pop("langfuse_public_key", None)
-    data.pop("langfuse_secret_key", None)
-
-    try:
-        # Make the completion call - pass all params through
-        # Note: langfuse_host is set via LANGFUSE_HOST env var at startup; OTEL doesn't support per-request host override
-        response = await acompletion(
-            **data,
-            metadata=litellm_metadata,
-            timeout=request_timeout,
-            langfuse_public_key=langfuse_keys["public_key"],
-            langfuse_secret_key=langfuse_keys["secret_key"],
+        response = await client.post(
+            litellm_url,
+            json=data,  # httpx will serialize and set correct Content-Length
+            headers=headers,
         )
 
-        if is_streaming:
-            # For streaming, return a StreamingResponse with SSE format
-            # Register insertion_id only after stream completes successfully
-            async def stream_generator():
-                async for chunk in response:  # type: ignore[union-attr]
-                    yield f"data: {chunk.model_dump_json()}\n\n"
-                yield "data: [DONE]\n\n"
-                # Stream completed successfully - now register
-                if insertion_id is not None and rollout_id is not None:
-                    register_insertion_id(redis_client, rollout_id, insertion_id)
+        # Register insertion_id in Redis only on successful response
+        if response.status_code == 200 and insertion_id is not None and rollout_id is not None:
+            register_insertion_id(redis_client, rollout_id, insertion_id)
 
-            return StreamingResponse(
-                stream_generator(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                },
-            )
-        else:
-            # Non-streaming: register insertion_id on success
-            if insertion_id is not None and rollout_id is not None:
-                register_insertion_id(redis_client, rollout_id, insertion_id)
-
-            return Response(
-                content=response.model_dump_json(),
-                status_code=200,
-                media_type="application/json",
-            )
-
-    except HTTPException:
-        raise
-    except openai.APIError as e:
-        # Convert to HTTPException and let FastAPI handle it
-        raise HTTPException(
-            status_code=getattr(e, "status_code", 500),
-            detail=str(e),
+        # Return the response
+        return Response(
+            content=response.content,
+            status_code=response.status_code,
+            headers=dict(response.headers),
         )
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def proxy_to_litellm(config: ProxyConfig, path: str, request: Request) -> Response:
+    """
+    Catch-all proxy: Forward any request to LiteLLM, extracting API key from Authorization header.
+    """
+    # Set longer timeout for LLM API calls (LLMs can be slow)
+    timeout = httpx.Timeout(config.request_timeout)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        # Copy headers
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        headers.pop("content-length", None)
+
+        # Get body
+        body = await request.body()
+
+        # Pass through API key from Authorization header
+        if request.method in ["POST", "PUT", "PATCH"] and body:
+            try:
+                data = json.loads(body)
+
+                auth_header = request.headers.get("authorization", "")
+                if auth_header.startswith("Bearer "):
+                    api_key = auth_header.replace("Bearer ", "").strip()
+                    data["api_key"] = api_key
+
+                # Re-serialize
+                body = json.dumps(data).encode()
+            except json.JSONDecodeError:
+                pass
+
+        # Forward to LiteLLM
+        litellm_url = f"{config.litellm_url}/{path}"
+
+        response = await client.request(
+            method=request.method,
+            url=litellm_url,
+            headers=headers,
+            content=body,
+        )
+
+        return Response(
+            content=response.content,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+        )

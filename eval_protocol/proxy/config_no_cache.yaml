@@ -3,7 +3,8 @@ model_list:
     litellm_params:
       model: "*"
 litellm_settings:
-  callbacks: ["langfuse_otel"]
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
   drop_params: True
 general_settings:
   allow_client_side_credentials: true

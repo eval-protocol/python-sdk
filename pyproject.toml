@@ -31,7 +31,7 @@ dependencies = [
     "omegaconf>=2.3.0",
     "httpx>=0.24.0",
     "anthropic>=0.59.0",
-    "litellm>=1.81.0,<1.82.0",
+    "litellm<1.75.0",
     "pytest>=6.0.0",
     "pytest-asyncio>=0.21.0",
     "peewee>=3.18.2",
@@ -146,17 +146,13 @@ langgraph = [
 langgraph_tools = [
     "langgraph>=0.6.7",
     "langchain>=0.3.0",
-    # langchain-fireworks removed: incompatible with fireworks-ai>=1.0.0
+    "langchain-fireworks>=0.3.0",
 ]
 
 proxy = [
     "redis>=5.0.0",
     "langfuse>=2.0.0",
     "uuid6>=2025.0.0",
-    "litellm>=1.81.0,<1.82.0",
-    "opentelemetry-api>=1.29.0",
-    "opentelemetry-sdk>=1.29.0",
-    "opentelemetry-exporter-otlp>=1.29.0",
 ]
 
 [project.scripts]
