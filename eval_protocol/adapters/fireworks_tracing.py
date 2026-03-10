@@ -8,10 +8,8 @@ from __future__ import annotations
 import logging
 import requests
 from datetime import datetime
-import ast
-import json
-import os
 from typing import Any, Dict, List, Optional, Protocol
+import os
 
 from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, Message
 from .base import BaseAdapter
@@ -44,43 +42,6 @@ class TraceDictConverter(Protocol):
             EvaluationRow or None if the trace should be skipped
         """
         ...
-
-
-def extract_openai_response(observations: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Attempt to extract and parse attributes from raw_gen_ai_request observation. This only works when stored in OTEL format.
-
-    Args:
-        observations: List of observation dictionaries from the trace
-
-    Returns:
-        Dict with all attributes parsed. Or None if not found.
-    """
-    for obs in observations:
-        if obs.get("name") == "raw_gen_ai_request" and obs.get("type") == "SPAN":
-            metadata = obs.get("metadata") or {}
-            attributes = metadata.get("attributes") or {}
-
-            result: Dict[str, Any] = {}
-
-            for key, value in attributes.items():
-                # Try to parse stringified objects (could be Python repr or JSON)
-                if isinstance(value, str) and value.startswith(("[", "{")):
-                    try:
-                        result[key] = ast.literal_eval(value)
-                    except Exception as e:
-                        logger.debug("Failed to parse %s with ast.literal_eval: %s", key, e)
-                        try:
-                            result[key] = json.loads(value)
-                        except Exception as e:
-                            logger.debug("Failed to parse %s with json.loads: %s", key, e)
-                            result[key] = value
-                else:
-                    result[key] = value
-
-            if result:
-                return result
-
-    return None
 
 
 def convert_trace_dict_to_evaluation_row(
@@ -134,14 +95,6 @@ def convert_trace_dict_to_evaluation_row(
                     and row_id
                 ):
                     break  # Break early if we've found all the metadata we need
-
-        observations = trace.get("observations") or []
-        # We can only extract when stored in OTEL format.
-        openai_response = extract_openai_response(observations)
-        if openai_response:
-            choices = openai_response.get("llm.openai.choices")
-            if choices and len(choices) > 0:
-                execution_metadata.finish_reason = choices[0].get("finish_reason")
 
         return EvaluationRow(
             messages=messages,
@@ -207,7 +160,7 @@ def extract_messages_from_trace_dict(
         # Fallback: use the last GENERATION observation which typically contains full chat history
         if not messages:
             try:
-                all_observations = trace.get("observations") or []
+                all_observations = trace.get("observations", [])
                 gens = [obs for obs in all_observations if obs.get("type") == "GENERATION"]
                 if gens:
                     gens.sort(key=lambda x: x.get("start_time", ""))
@@ -233,7 +186,7 @@ def get_final_generation_in_span_dict(trace: Dict[str, Any], span_name: str) -> 
         The final generation dictionary, or None if not found
     """
     # Get all observations from the trace
-    all_observations = trace.get("observations") or []
+    all_observations = trace.get("observations", [])
 
     # Find a span with the given name that has generation children
     parent_span = None

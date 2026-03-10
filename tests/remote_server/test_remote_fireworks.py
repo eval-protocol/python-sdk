@@ -1,6 +1,5 @@
 # AUTO SERVER STARTUP: Server is automatically started and stopped by the test
 
-import logging
 import subprocess
 import socket
 import time
@@ -20,23 +19,10 @@ from eval_protocol.types.remote_rollout_processor import DataLoaderConfig
 ROLLOUT_IDS = set()
 
 
-class StatusLogCaptureHandler(logging.Handler):
-    """Custom handler to capture status log messages."""
-
-    def __init__(self):
-        super().__init__()
-        self.status_100_messages: List[str] = []
-
-    def emit(self, record):
-        msg = record.getMessage()  # Use getMessage(), not .message attribute
-        if "Found Fireworks log" in msg and "with status code 100" in msg:
-            self.status_100_messages.append(msg)
-
-
 @pytest.fixture(autouse=True)
 def check_rollout_coverage(monkeypatch):
     """
-    Ensure we attempted to fetch remote traces for each rollout and received status logs.
+    Ensure we attempted to fetch remote traces for each rollout.
 
     This wraps the built-in default_fireworks_output_data_loader (without making it configurable)
     and tracks rollout_ids passed through its DataLoaderConfig.
@@ -51,31 +37,8 @@ def check_rollout_coverage(monkeypatch):
         return original_loader(config)
 
     monkeypatch.setattr(remote_rollout_processor_module, "default_fireworks_output_data_loader", wrapped_loader)
-
-    # Add custom handler to capture status logs
-    status_handler = StatusLogCaptureHandler()
-    status_handler.setLevel(logging.INFO)
-    rrp_logger = logging.getLogger("eval_protocol.pytest.remote_rollout_processor")
-    rrp_logger.addHandler(status_handler)
-    # Ensure the logger level allows INFO messages through
-    original_level = rrp_logger.level
-    rrp_logger.setLevel(logging.INFO)
-
     yield
-
-    # Cleanup handler and restore level
-    rrp_logger.removeHandler(status_handler)
-    rrp_logger.setLevel(original_level)
-
-    # After test completes, verify we saw status logs for all 3 rollouts
     assert len(ROLLOUT_IDS) == 3, f"Expected to see 3 rollout_ids, but only saw {ROLLOUT_IDS}"
-
-    # Check that we received "Found Fireworks log ... with status code 100" for each rollout
-    assert len(status_handler.status_100_messages) == 3, (
-        f"Expected 3 'Found Fireworks log ... with status code 100' messages, but found {len(status_handler.status_100_messages)}. "
-        f"This means the status logs from the remote server were not received. "
-        f"Messages captured: {status_handler.status_100_messages}"
-    )
 
 
 def find_available_port() -> int:
@@ -177,9 +140,5 @@ async def test_remote_rollout_and_fetch_fireworks(row: EvaluationRow) -> Evaluat
 
     assert "data_loader_type" in row.input_metadata.dataset_info
     assert "data_loader_num_rows" in row.input_metadata.dataset_info
-
-    assert row.execution_metadata.finish_reason == "stop", (
-        f"Expected finish_reason='stop', got {row.execution_metadata.finish_reason}"
-    )
 
     return row

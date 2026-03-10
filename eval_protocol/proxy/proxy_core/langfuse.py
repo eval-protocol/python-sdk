@@ -50,7 +50,6 @@ def _serialize_trace_to_dict(trace_full: Any) -> Dict[str, Any]:
                 "input": getattr(obs, "input", None),
                 "output": getattr(obs, "output", None),
                 "parent_observation_id": getattr(obs, "parent_observation_id", None),
-                "metadata": getattr(obs, "metadata", None),
             }
             for obs in getattr(trace_full, "observations", [])
         ]

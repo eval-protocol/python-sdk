@@ -12,6 +12,7 @@ import requests
 from .models import EvaluateResult, MetricResult
 from .typed_interface import reward_function
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=Callable[..., EvaluateResult])
