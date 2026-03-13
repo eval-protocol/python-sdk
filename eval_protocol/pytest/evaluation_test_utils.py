@@ -476,8 +476,12 @@ async def rollout_processor_with_retry(
                 yield result
 
     finally:
-        await rollout_processor.acleanup()
-        rollout_processor.cleanup()
+        # Cleanup is intentionally NOT called here. rollout_processor_with_retry
+        # is invoked per-run, but the processor (and its session) is shared
+        # across parallel runs.  Closing per-run would kill in-flight requests
+        # in other runs.  Cleanup is called once after all runs complete in
+        # evaluation_test.py.
+        pass
 
 
 def sanitize_filename(text: str) -> str:

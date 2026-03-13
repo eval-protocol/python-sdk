@@ -449,6 +449,8 @@ def evaluation_test(
                         finally:
                             if output_buffer:
                                 await output_buffer.close()
+                            await rollout_processor.acleanup()
+                            rollout_processor.cleanup()
 
                         for res in priority_results:
                             run_idx = (res.execution_metadata.extra or {}).get("run_index", 0)
@@ -697,15 +699,19 @@ def evaluation_test(
                         # Lazy import (cached after first import above)
                         from eval_protocol.pytest.default_mcp_gym_rollout_processor import MCPGymRolloutProcessor
 
-                        if isinstance(rollout_processor, MCPGymRolloutProcessor):
-                            # For MCPGymRolloutProcessor, create and execute tasks one at a time to avoid port conflicts
-                            for run_idx in range(num_runs):
-                                task = asyncio.create_task(execute_run(run_idx, config))
-                                await task
-                        else:
-                            # For other processors, create all tasks at once and run in parallel
-                            # Concurrency is now controlled by the shared semaphore in each rollout processor
-                            await run_tasks_with_run_progress(execute_run, num_runs, config)
+                        try:
+                            if isinstance(rollout_processor, MCPGymRolloutProcessor):
+                                # For MCPGymRolloutProcessor, create and execute tasks one at a time to avoid port conflicts
+                                for run_idx in range(num_runs):
+                                    task = asyncio.create_task(execute_run(run_idx, config))
+                                    await task
+                            else:
+                                # For other processors, create all tasks at once and run in parallel
+                                # Concurrency is now controlled by the shared semaphore in each rollout processor
+                                await run_tasks_with_run_progress(execute_run, num_runs, config)
+                        finally:
+                            await rollout_processor.acleanup()
+                            rollout_processor.cleanup()
 
                         experiment_duration_seconds = time.perf_counter() - experiment_start_time
 
