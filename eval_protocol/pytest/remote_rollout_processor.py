@@ -49,6 +49,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
         self._timeout_seconds = timeout_seconds
         self._tracing_adapter = FireworksTracingAdapter(base_url=self._model_base_url)
         self._session: Optional[aiohttp.ClientSession] = None
+        self._active_runs = 0
 
     def _get_or_create_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -56,6 +57,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
         return self._session
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        self._active_runs += 1
         tasks: List[asyncio.Task[EvaluationRow]] = []
 
         # Start with constructor values
@@ -112,19 +114,6 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         raise RuntimeError(f"Remote /init failed (HTTP {resp.status}): {body}")
                     resp.raise_for_status()
                     await resp.read()  # Drain the response body and release the connection back to the pool
-            except asyncio.CancelledError:
-                # Distinguish intentional cancellation (Ctrl+C, test teardown) from
-                # aiohttp-internal cancellation caused by a poisoned DNS resolver
-                # after a server disconnect.  Task.cancelling() returns the number
-                # of pending cancel() calls; > 0 means someone explicitly cancelled
-                # this task.
-                current = asyncio.current_task()
-                if current is not None and current.cancelling() > 0:  # pyright: ignore[reportAttributeAccessIssue]
-                    raise  # Intentional cancellation — propagate immediately
-                # Network-level failure; discard the session so retries get a
-                # fresh connection pool.
-                self._session = None
-                raise ConnectionError("Remote server connection lost (request cancelled)")
             except asyncio.TimeoutError:
                 raise TimeoutError(
                     f"The /init endpoint tried {init_url} with {init_payload.model_dump()} but timed out after 300 seconds."
@@ -220,19 +209,25 @@ class RemoteRolloutProcessor(RolloutProcessor):
         return tasks
 
     async def acleanup(self) -> None:
-        """Async cleanup - preferred when you can await."""
-        if self._session and not self._session.closed:
+        """Async cleanup - only closes the session when the last run finishes.
+
+        rollout_processor_with_retry calls acleanup() per-run, but the session
+        is shared across parallel runs.  Closing it early would cancel in-flight
+        requests in other runs.
+        """
+        self._active_runs = max(0, self._active_runs - 1)
+        if self._active_runs == 0 and self._session and not self._session.closed:
             await self._session.close()
 
     def cleanup(self) -> None:
         """Sync cleanup - best-effort, schedules close if event loop is running."""
+        if self._active_runs > 0:
+            return
         if self._session and not self._session.closed:
             try:
                 loop = asyncio.get_running_loop()
                 loop.create_task(self._session.close())
             except RuntimeError:
-                # No running event loop - can't safely close the session.
-                # The session will be garbage collected eventually, but warn about it.
                 logger.warning(
                     "RemoteRolloutProcessor.cleanup() called outside of async context. "
                     "Session may not be properly closed. Use `await processor.acleanup()` when possible."
