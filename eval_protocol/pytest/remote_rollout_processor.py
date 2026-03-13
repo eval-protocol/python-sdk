@@ -115,9 +115,11 @@ class RemoteRolloutProcessor(RolloutProcessor):
             except asyncio.CancelledError:
                 # Distinguish intentional cancellation (Ctrl+C, test teardown) from
                 # aiohttp-internal cancellation caused by a poisoned DNS resolver
-                # after a server disconnect.
+                # after a server disconnect.  Task.cancelling() returns the number
+                # of pending cancel() calls; > 0 means someone explicitly cancelled
+                # this task.
                 current = asyncio.current_task()
-                if current is not None and current.cancelled():
+                if current is not None and current.cancelling() > 0:  # pyright: ignore[reportAttributeAccessIssue]
                     raise  # Intentional cancellation — propagate immediately
                 # Network-level failure; discard the session so retries get a
                 # fresh connection pool.
