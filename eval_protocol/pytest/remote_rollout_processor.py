@@ -104,11 +104,25 @@ class RemoteRolloutProcessor(RolloutProcessor):
             try:
                 session = self._get_or_create_session()
                 async with session.post(init_url, json=init_payload.model_dump(), timeout=timeout_init) as resp:
+                    if resp.status >= 500:
+                        body = await resp.text()
+                        raise ConnectionError(f"Remote /init returned server error (HTTP {resp.status}): {body}")
                     if resp.status >= 400:
                         body = await resp.text()
                         raise RuntimeError(f"Remote /init failed (HTTP {resp.status}): {body}")
                     resp.raise_for_status()
                     await resp.read()  # Drain the response body and release the connection back to the pool
+            except asyncio.CancelledError:
+                # Distinguish intentional cancellation (Ctrl+C, test teardown) from
+                # aiohttp-internal cancellation caused by a poisoned DNS resolver
+                # after a server disconnect.
+                current = asyncio.current_task()
+                if current is not None and current.cancelled():
+                    raise  # Intentional cancellation — propagate immediately
+                # Network-level failure; discard the session so retries get a
+                # fresh connection pool.
+                self._session = None
+                raise ConnectionError("Remote server connection lost (request cancelled)")
             except asyncio.TimeoutError:
                 raise TimeoutError(
                     f"The /init endpoint tried {init_url} with {init_payload.model_dump()} but timed out after 300 seconds."

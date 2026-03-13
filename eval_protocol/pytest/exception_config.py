@@ -23,6 +23,7 @@ def get_default_retryable_exceptions() -> Set[Type[Exception]]:
         return _default_retryable_exceptions
 
     # Lazy imports (these are expensive)
+    import aiohttp
     import httpx
     import litellm
     import requests
@@ -32,6 +33,9 @@ def get_default_retryable_exceptions() -> Set[Type[Exception]]:
         ConnectionError,  # type: ignore[assignment]
         TimeoutError,  # type: ignore[assignment]
         OSError,  # type: ignore[assignment]  # Covers network-related OS errors
+        # aiohttp library exceptions
+        aiohttp.ClientConnectionError,
+        aiohttp.ServerDisconnectedError,
         # Requests library exceptions
         requests.exceptions.ConnectionError,
         requests.exceptions.Timeout,
