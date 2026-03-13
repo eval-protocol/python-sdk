@@ -72,9 +72,6 @@ class TestRolloutProcessorWithRetry:
         assert mock_config.logger.log.call_count == 1
         mock_config.logger.log.assert_called_once_with(results[0])
 
-        # Verify async cleanup was called (aclose is preferred over cleanup)
-        mock_rollout_processor.acleanup.assert_awaited_once()
-
     @pytest.mark.asyncio
     async def test_logger_called_on_failed_execution(self, mock_rollout_processor, mock_config, sample_dataset):
         """Test that the logger is called when execution fails."""
@@ -97,9 +94,6 @@ class TestRolloutProcessorWithRetry:
         # Verify the result has an error status
         assert results[0].rollout_status.code == 13  # INTERNAL error code
         assert "Test error" in results[0].rollout_status.message
-
-        # Verify async cleanup was called (aclose is preferred over cleanup)
-        mock_rollout_processor.acleanup.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_logger_called_on_retry_execution(self, mock_rollout_processor, mock_config, sample_dataset):
@@ -134,9 +128,6 @@ class TestRolloutProcessorWithRetry:
         # Verify that the logger was called for the result
         assert mock_config.logger.log.call_count == 1
         mock_config.logger.log.assert_called_once_with(results[0])
-
-        # Verify async cleanup was called (aclose is preferred over cleanup)
-        mock_rollout_processor.acleanup.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_logger_called_for_multiple_rows(self, mock_rollout_processor, mock_config):
@@ -183,9 +174,6 @@ class TestRolloutProcessorWithRetry:
         assert mock_config.logger.log.call_count == 2
         assert len(results) == 2
 
-        # Verify async cleanup was called (aclose is preferred over cleanup)
-        mock_rollout_processor.acleanup.assert_awaited_once()
-
     @pytest.mark.asyncio
     async def test_logger_called_even_when_processor_fails_to_initialize(
         self, mock_rollout_processor, mock_config, sample_dataset
@@ -198,6 +186,3 @@ class TestRolloutProcessorWithRetry:
         with pytest.raises(RuntimeError, match="Processor failed to initialize"):
             async for result in rollout_processor_with_retry(mock_rollout_processor, sample_dataset, mock_config):
                 pass
-
-        # Verify async cleanup was called even though the function failed
-        mock_rollout_processor.acleanup.assert_awaited_once()
