@@ -208,25 +208,26 @@ class RemoteRolloutProcessor(RolloutProcessor):
         tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
         return tasks
 
+    def _should_close_session(self) -> bool:
+        self._active_runs = max(0, self._active_runs - 1)
+        return self._active_runs == 0 and self._session is not None and not self._session.closed
+
     async def acleanup(self) -> None:
-        """Async cleanup - only closes the session when the last run finishes.
+        """Async cleanup — only closes the session when the last run finishes.
 
         rollout_processor_with_retry calls acleanup() per-run, but the session
         is shared across parallel runs.  Closing it early would cancel in-flight
         requests in other runs.
         """
-        self._active_runs = max(0, self._active_runs - 1)
-        if self._active_runs == 0 and self._session and not self._session.closed:
-            await self._session.close()
+        if self._should_close_session():
+            await self._session.close()  # type: ignore[union-attr]
 
     def cleanup(self) -> None:
-        """Sync cleanup - best-effort, schedules close if event loop is running."""
-        if self._active_runs > 0:
-            return
-        if self._session and not self._session.closed:
+        """Sync cleanup — best-effort fallback when not in an async context."""
+        if self._should_close_session():
             try:
                 loop = asyncio.get_running_loop()
-                loop.create_task(self._session.close())
+                loop.create_task(self._session.close())  # type: ignore[union-attr]
             except RuntimeError:
                 logger.warning(
                     "RemoteRolloutProcessor.cleanup() called outside of async context. "
