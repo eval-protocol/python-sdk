@@ -738,7 +738,10 @@ def add_args_from_callable_signature(
                 prefix = name.replace("_", "-")
                 field_kebab = field_name.replace("_", "-")
                 flag_name = f"--{prefix}-{field_kebab}"
-                flags = [flag_name] + aliases.get(f"{name}.{field_name}", []) + [f"--{field_kebab}"]
+                # Omit short alias --{field_kebab} to avoid argparse conflict when multiple
+                # configs (e.g. azure_blob_storage_config, gcs_config) share the same
+                # nested field name (e.g. credentials_secret).
+                flags = [flag_name] + aliases.get(f"{name}.{field_name}", [])
                 help_text = help_overrides.get(f"{name}.{field_name}", field_help.get(field_name))
 
                 _add_flag(parser, flags, field_hints.get(field_name, field_type), help_text)
