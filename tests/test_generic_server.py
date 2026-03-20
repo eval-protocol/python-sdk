@@ -168,7 +168,11 @@ class TestServerEndpoints:
         request_payload = EvaluationRequest(messages=[{"role": "user", "content": "test"}])
         response = self.client.post("/evaluate", json=request_payload.model_dump())
         assert response.status_code == 500
-        assert "Intentional error in dummy_reward_func_error" in response.json()["detail"]
+        assert response.json()["detail"] == "Internal server error during evaluation."
+
+    def test_evaluation_request_kwargs_defaults_to_none(self):
+        payload = EvaluationRequest(messages=[{"role": "user", "content": "test"}])
+        assert payload.kwargs is None
 
     def test_evaluate_endpoint_function_returns_invalid_type(self):
         """

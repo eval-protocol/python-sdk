@@ -243,3 +243,6 @@ package.json
 tau2-bench
 *.err
 eval-protocol
+_pytest_deps/
+.test_deps/
+.test_deps/
