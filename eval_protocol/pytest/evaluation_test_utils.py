@@ -21,6 +21,7 @@ from eval_protocol.models import (
     EvaluationThresholdDict,
     Status,
 )
+from eval_protocol.common_utils import load_jsonl
 from eval_protocol.data_loader import DynamicDataLoader
 from eval_protocol.data_loader.models import EvaluationDataLoader
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
@@ -288,10 +289,21 @@ def _rows_from_jsonl(path: str) -> list[EvaluationRow]:
 
 def parse_ep_dataloaders(
     dataloaders: Sequence[EvaluationDataLoader] | EvaluationDataLoader | None,
+    *,
+    dataset_adapter: Callable[[list[dict[str, Any]]], list[EvaluationRow]] | None = None,
 ) -> Sequence[EvaluationDataLoader] | EvaluationDataLoader | None:
+    """When ``EP_JSONL_PATH`` is set, load JSONL as raw dicts and run ``dataset_adapter`` if provided.
+
+    Without ``dataset_adapter``, rows are built with ``EvaluationRow(**dict)`` (legacy behavior),
+    which skips custom label fields that adapters normally attach.
+    """
     try:
         load_from_jsonl_path = os.getenv("EP_JSONL_PATH")
         if load_from_jsonl_path:
+            if dataset_adapter is not None:
+                return DynamicDataLoader(
+                    generators=[lambda path=load_from_jsonl_path, da=dataset_adapter: da(load_jsonl(path))]
+                )
             return DynamicDataLoader(generators=[lambda path=load_from_jsonl_path: _rows_from_jsonl(path)])
     except Exception:
         pass

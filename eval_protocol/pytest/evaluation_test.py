@@ -211,7 +211,7 @@ def evaluation_test(
     completion_params = parse_ep_completion_params_overwrite(completion_params)
     original_completion_params = completion_params
     passed_threshold = parse_ep_passed_threshold(passed_threshold)
-    data_loaders = parse_ep_dataloaders(data_loaders)
+    data_loaders = parse_ep_dataloaders(data_loaders, dataset_adapter=dataset_adapter)
     custom_invocation_id = os.environ.get("EP_INVOCATION_ID", None)
 
     # ignore other data input params when dataloader is provided
