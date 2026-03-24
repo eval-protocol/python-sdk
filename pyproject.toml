@@ -184,7 +184,7 @@ parentdir_prefix = "eval-protocol-"
 ### Black and isort removed; Ruff provides formatting and imports
 
 [tool.uv.sources]
-tau2 = { git = "https://github.com/sierra-research/tau2-bench.git" }
+tau2 = { git = "https://github.com/sierra-research/tau2-bench.git", rev = "v0.2.0" }
 
 [dependency-groups]
 dev = [

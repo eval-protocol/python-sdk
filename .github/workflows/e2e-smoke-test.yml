@@ -37,7 +37,7 @@ jobs:
         run: uv sync --locked --all-extras --dev
 
       - name: Install tau2 for testing
-        run: uv pip install git+https://github.com/sierra-research/tau2-bench.git@main
+        run: uv pip install git+https://github.com/sierra-research/tau2-bench.git@v0.2.0
 
       - name: Run E2E Smoke Test
         id: run_test
