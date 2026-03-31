@@ -705,6 +705,34 @@ def _add_flag(
     )
 
 
+def _resolve_available_flags(
+    parser: argparse.ArgumentParser,
+    primary_flag: str,
+    alias_flags: list[str],
+    reserved_flags: set[str],
+) -> list[str]:
+    option_string_actions = getattr(parser, "_option_string_actions", {})
+    if primary_flag in option_string_actions:
+        raise ValueError(f"Conflicting primary option string: {primary_flag}")
+
+    flags = [primary_flag]
+    seen = {primary_flag}
+
+    for alias in alias_flags:
+        if alias in seen:
+            continue
+        seen.add(alias)
+
+        if alias in reserved_flags:
+            continue
+        if alias in option_string_actions:
+            continue
+
+        flags.append(alias)
+
+    return flags
+
+
 def add_args_from_callable_signature(
     parser: argparse.ArgumentParser,
     fn: Callable[..., Any],
@@ -722,6 +750,7 @@ def add_args_from_callable_signature(
     sig = inspect.signature(fn)
     help = _parse_args_section_from_doc(inspect.getdoc(fn) or "")
     hints = typing.get_type_hints(fn, include_extras=True)
+    arg_specs: list[tuple[str, list[str], Any, str | None]] = []
 
     for name in sig.parameters.keys():
         resolved_type = unwrap_union(hints.get(name))
@@ -738,17 +767,21 @@ def add_args_from_callable_signature(
                 prefix = name.replace("_", "-")
                 field_kebab = field_name.replace("_", "-")
                 flag_name = f"--{prefix}-{field_kebab}"
-                flags = [flag_name] + aliases.get(f"{name}.{field_name}", []) + [f"--{field_kebab}"]
+                alias_flags = aliases.get(f"{name}.{field_name}", []) + [f"--{field_kebab}"]
                 help_text = help_overrides.get(f"{name}.{field_name}", field_help.get(field_name))
 
-                _add_flag(parser, flags, field_hints.get(field_name, field_type), help_text)
+                arg_specs.append((flag_name, alias_flags, field_hints.get(field_name, field_type), help_text))
             continue
 
         if name in top_level_skip:
             continue
 
         flag_name = "--" + name.replace("_", "-")
-        flags = [flag_name] + aliases.get(name, [])
         help_text = help_overrides.get(name, help.get(name))
+        arg_specs.append((flag_name, aliases.get(name, []), hints.get(name), help_text))
 
-        _add_flag(parser, flags, hints.get(name), help_text)
+    reserved_flags = {primary_flag for primary_flag, _, _, _ in arg_specs}
+
+    for primary_flag, alias_flags, hint, help_text in arg_specs:
+        flags = _resolve_available_flags(parser, primary_flag, alias_flags, reserved_flags)
+        _add_flag(parser, flags, hint, help_text)
