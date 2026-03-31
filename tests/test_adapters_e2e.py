@@ -10,8 +10,29 @@ from datetime import datetime, timedelta
 from typing import Any, Dict
 
 import pytest
+import requests
 
 from eval_protocol.models import EvaluationRow, InputMetadata, Message
+
+
+def _skip_on_external_dataset_network_error(exc: Exception, provider: str) -> None:
+    """Skip flaky real-data E2E tests when the upstream dataset service is unreachable."""
+    transient_markers = (
+        "read timed out",
+        "connection reset",
+        "connection aborted",
+        "temporary failure",
+        "failed to establish a new connection",
+        "max retries exceeded",
+        "name or service not known",
+        "service unavailable",
+    )
+
+    if isinstance(exc, requests.exceptions.RequestException):
+        pytest.skip(f"Skipping due to {provider} network issue: {exc}")
+
+    if any(marker in str(exc).lower() for marker in transient_markers):
+        pytest.skip(f"Skipping due to {provider} network issue: {exc}")
 
 
 class TestLangfuseAdapterE2E:
@@ -295,13 +316,17 @@ class TestHuggingFaceAdapterE2E:
             }
 
         # Create adapter
-        adapter = create_huggingface_adapter(
-            dataset_id="SuperSecureHuman/competition_math_hf_dataset",
-            transform_fn=math_transform,
-        )
+        try:
+            adapter = create_huggingface_adapter(
+                dataset_id="SuperSecureHuman/competition_math_hf_dataset",
+                transform_fn=math_transform,
+            )
 
-        # Test loading data
-        rows = list(adapter.get_evaluation_rows(split="test", limit=3))
+            # Test loading data
+            rows = list(adapter.get_evaluation_rows(split="test", limit=3))
+        except Exception as exc:
+            _skip_on_external_dataset_network_error(exc, provider="Hugging Face")
+            raise
 
         # Verify data
         assert len(rows) > 0, "Should retrieve MATH dataset data"
