@@ -1,10 +1,13 @@
+import argparse
 import subprocess
 import sys
+from typing import TypedDict
 
 import pytest
 
 # Module to be tested
 from eval_protocol.cli import parse_args
+from eval_protocol.cli_commands.utils import add_args_from_callable_signature
 
 
 def test_unknown_flag_fails_fast(capsys):
@@ -41,3 +44,61 @@ def test_verbose_flag():
 
     parsed_not_verbose, _ = parse_args(["upload", "--path", "."])
     assert parsed_not_verbose.verbose is False
+
+
+def test_add_args_skips_duplicate_nested_shorthand_flags():
+    class AwsS3Config(TypedDict):
+        credentials_secret: str
+
+    class AzureBlobStorageConfig(TypedDict):
+        credentials_secret: str
+
+    def create(
+        *,
+        aws_s3_config: AwsS3Config | None = None,
+        azure_blob_storage_config: AzureBlobStorageConfig | None = None,
+    ) -> None:
+        return None
+
+    parser = argparse.ArgumentParser()
+    add_args_from_callable_signature(parser, create)
+
+    parsed = parser.parse_args(
+        [
+            "--credentials-secret",
+            "aws-short",
+            "--azure-blob-storage-config-credentials-secret",
+            "azure-prefixed",
+        ]
+    )
+
+    assert parsed.aws_s3_config_credentials_secret == "aws-short"
+    assert parsed.azure_blob_storage_config_credentials_secret == "azure-prefixed"
+    assert "--credentials-secret" in parser._option_string_actions
+
+
+def test_add_args_preserves_top_level_canonical_flag_over_nested_shorthand():
+    class InferenceParameters(TypedDict):
+        extra_body: str
+
+    def create(
+        *,
+        inference_parameters: InferenceParameters | None = None,
+        extra_body: str | None = None,
+    ) -> None:
+        return None
+
+    parser = argparse.ArgumentParser()
+    add_args_from_callable_signature(parser, create)
+
+    parsed = parser.parse_args(
+        [
+            "--extra-body",
+            "top-level",
+            "--inference-parameters-extra-body",
+            "nested",
+        ]
+    )
+
+    assert parsed.extra_body == "top-level"
+    assert parsed.inference_parameters_extra_body == "nested"
