@@ -738,6 +738,8 @@ def add_args_from_callable_signature(
                 prefix = name.replace("_", "-")
                 field_kebab = field_name.replace("_", "-")
                 flag_name = f"--{prefix}-{field_kebab}"
+                # Skip short alias if already claimed by another TypedDict with the same field name
+                # (e.g. AwsS3Config.credentials_secret and AzureBlobStorageConfig.credentials_secret).
                 short_flag = f"--{field_kebab}"
                 existing = {s for a in parser._actions for s in a.option_strings}
                 flags = [flag_name] + aliases.get(f"{name}.{field_name}", [])
