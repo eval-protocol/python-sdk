@@ -738,7 +738,11 @@ def add_args_from_callable_signature(
                 prefix = name.replace("_", "-")
                 field_kebab = field_name.replace("_", "-")
                 flag_name = f"--{prefix}-{field_kebab}"
-                flags = [flag_name] + aliases.get(f"{name}.{field_name}", []) + [f"--{field_kebab}"]
+                short_flag = f"--{field_kebab}"
+                existing = {s for a in parser._actions for s in a.option_strings}
+                flags = [flag_name] + aliases.get(f"{name}.{field_name}", [])
+                if short_flag not in existing and short_flag != flag_name:
+                    flags.append(short_flag)
                 help_text = help_overrides.get(f"{name}.{field_name}", field_help.get(field_name))
 
                 _add_flag(parser, flags, field_hints.get(field_name, field_type), help_text)
