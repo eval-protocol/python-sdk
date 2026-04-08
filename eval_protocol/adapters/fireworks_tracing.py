@@ -6,6 +6,7 @@ to pull data from Langfuse deployments with simplified retry logic handling.
 
 from __future__ import annotations
 import asyncio
+import json
 import logging
 import aiohttp
 import requests
@@ -349,9 +350,9 @@ class FireworksTracingAdapter(BaseAdapter):
                         last_error = f"404 for {url}"
                         continue
                     resp.raise_for_status()
-                    data = (await resp.json()) or {}
+                    data = (await resp.json(content_type=None)) or {}
                     break
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError) as e:
                 last_error = str(e)
                 continue
         else:
