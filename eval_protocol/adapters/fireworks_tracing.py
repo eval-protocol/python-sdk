@@ -5,7 +5,9 @@ to pull data from Langfuse deployments with simplified retry logic handling.
 """
 
 from __future__ import annotations
+import asyncio
 import logging
+import aiohttp
 import requests
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Protocol
@@ -14,6 +16,7 @@ import os
 from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, Message
 from .base import BaseAdapter
 from .utils import extract_messages_from_data
+from ..common_utils import get_user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -280,8 +283,6 @@ class FireworksTracingAdapter(BaseAdapter):
         if not tags:
             raise ValueError("At least one tag is required to fetch logs")
 
-        from ..common_utils import get_user_agent
-
         headers = {
             "Authorization": f"Bearer {self._get_api_key()}",
             "User-Agent": get_user_agent(),
@@ -313,6 +314,52 @@ class FireworksTracingAdapter(BaseAdapter):
 
         entries: List[Dict[str, Any]] = data.get("entries", []) or []
         # Normalize minimal shape
+        results: List[Dict[str, Any]] = []
+        for e in entries:
+            results.append(
+                {
+                    "timestamp": e.get("timestamp"),
+                    "message": e.get("message"),
+                    "severity": e.get("severity", "INFO"),
+                    "tags": e.get("tags", []),
+                    "status": e.get("status"),
+                    "extras": e.get("extras"),
+                }
+            )
+        return results
+
+    async def async_search_logs(
+        self, session: aiohttp.ClientSession, tags: List[str], limit: int = 100, hours_back: int = 24
+    ) -> List[Dict[str, Any]]:
+        """Async version of search_logs, reuses a caller-provided aiohttp session."""
+        if not tags:
+            raise ValueError("At least one tag is required to fetch logs")
+
+        params: Dict[str, Any] = {"tags": tags, "limit": limit, "hours_back": hours_back, "program": "eval_protocol"}
+        headers = {"Authorization": f"Bearer {self._get_api_key()}", "User-Agent": get_user_agent()}
+        timeout = aiohttp.ClientTimeout(total=self.timeout)
+
+        urls_to_try = [f"{self.base_url}/logs", f"{self.base_url}/v1/logs"]
+        data: Dict[str, Any] = {}
+        last_error: Optional[str] = None
+        for url in urls_to_try:
+            try:
+                async with session.get(url, params=params, headers=headers, timeout=timeout) as resp:
+                    if resp.status == 404:
+                        last_error = f"404 for {url}"
+                        continue
+                    resp.raise_for_status()
+                    data = (await resp.json()) or {}
+                    break
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                last_error = str(e)
+                continue
+        else:
+            if last_error:
+                logger.error("Failed to fetch logs from Fireworks (tried %s): %s", urls_to_try, last_error)
+            return []
+
+        entries: List[Dict[str, Any]] = data.get("entries", []) or []
         results: List[Dict[str, Any]] = []
         for e in entries:
             results.append(
@@ -410,8 +457,6 @@ class FireworksTracingAdapter(BaseAdapter):
             url = f"{self.base_url}/v1/project_id/{self.project_id}/traces/pointwise"
         else:
             url = f"{self.base_url}/v1/traces/pointwise"
-
-        from ..common_utils import get_user_agent
 
         headers = {
             "Authorization": f"Bearer {self._get_api_key()}",

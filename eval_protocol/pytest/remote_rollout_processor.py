@@ -52,7 +52,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
     def _get_or_create_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
+            connector = aiohttp.TCPConnector(limit=0)  # no total connection limit
+            self._session = aiohttp.ClientSession(connector=connector)
         return self._session
 
     def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
@@ -99,7 +100,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
             # Fire-and-poll
             init_url = f"{remote_base_url}/init"
 
-            timeout_init = aiohttp.ClientTimeout(total=300)
+            timeout_init = aiohttp.ClientTimeout(total=600)
 
             try:
                 session = self._get_or_create_session()
@@ -114,15 +115,15 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     await resp.read()  # Drain the response body and release the connection back to the pool
             except asyncio.TimeoutError:
                 raise TimeoutError(
-                    f"The /init endpoint tried {init_url} with {init_payload.model_dump()} but timed out after 300 seconds."
+                    f"The /init endpoint tried {init_url} with {init_payload.model_dump()} but timed out after 600 seconds."
                 )
 
             deadline = time.time() + timeout_seconds
 
             while time.time() < deadline:
-                # Search Fireworks tracing logs for completion (run in thread to avoid blocking event loop)
-                completed_logs = await asyncio.to_thread(
-                    self._tracing_adapter.search_logs, tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
+                session = self._get_or_create_session()
+                completed_logs = await self._tracing_adapter.async_search_logs(
+                    session, tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
                 )
                 # Filter for logs that actually have status information
                 status_logs = []
