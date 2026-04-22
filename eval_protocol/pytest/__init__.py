@@ -18,6 +18,10 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "MCPGymRolloutProcessor": (".default_mcp_gym_rollout_processor", "MCPGymRolloutProcessor"),
     "NoOpRolloutProcessor": (".default_no_op_rollout_processor", "NoOpRolloutProcessor"),
     "SingleTurnRolloutProcessor": (".default_single_turn_rollout_process", "SingleTurnRolloutProcessor"),
+    "FireworksTrainingRolloutProcessor": (
+        ".default_fireworks_training_rollout_processor",
+        "FireworksTrainingRolloutProcessor",
+    ),
     "RemoteRolloutProcessor": (".remote_rollout_processor", "RemoteRolloutProcessor"),
     "GithubActionRolloutProcessor": (".github_action_rollout_processor", "GithubActionRolloutProcessor"),
     "RolloutProcessor": (".rollout_processor", "RolloutProcessor"),
@@ -102,6 +106,7 @@ __all__ = [
     "MCPGymRolloutProcessor",
     "RolloutProcessor",
     "SingleTurnRolloutProcessor",
+    "FireworksTrainingRolloutProcessor",
     "RemoteRolloutProcessor",
     "GithubActionRolloutProcessor",
     "NoOpRolloutProcessor",
@@ -132,6 +137,9 @@ if TYPE_CHECKING:
     from .default_mcp_gym_rollout_processor import MCPGymRolloutProcessor as MCPGymRolloutProcessor
     from .default_no_op_rollout_processor import NoOpRolloutProcessor as NoOpRolloutProcessor
     from .default_single_turn_rollout_process import SingleTurnRolloutProcessor as SingleTurnRolloutProcessor
+    from .default_fireworks_training_rollout_processor import (
+        FireworksTrainingRolloutProcessor as FireworksTrainingRolloutProcessor,
+    )
     from .remote_rollout_processor import RemoteRolloutProcessor as RemoteRolloutProcessor
     from .github_action_rollout_processor import GithubActionRolloutProcessor as GithubActionRolloutProcessor
     from .evaluation_test import evaluation_test as evaluation_test
