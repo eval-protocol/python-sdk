@@ -121,46 +121,39 @@ class RemoteRolloutProcessor(RolloutProcessor):
             deadline = time.time() + timeout_seconds
 
             while time.time() < deadline:
-                session = self._get_or_create_session()
-                completed_logs = await self._tracing_adapter.async_search_logs(
-                    session, tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
+                # Poll status (run in thread to avoid blocking event loop)
+                status_result = await asyncio.to_thread(
+                    self._tracing_adapter.get_status, rollout_id=row.execution_metadata.rollout_id
                 )
-                # Filter for logs that actually have status information
-                status_logs = []
-                for log in completed_logs:
-                    status_dict = log.get("status")
-                    if status_dict and isinstance(status_dict, dict) and "code" in status_dict:
-                        status_logs.append(log)
-
-                if status_logs:
-                    if len(status_logs) > 1:
-                        logger.warning(
-                            "Found %s status logs for rollout %s; expected at most 1. Using the first one: %s",
-                            len(status_logs),
-                            row.execution_metadata.rollout_id,
-                            status_logs[0],
-                        )
-                    # Use the first log with status information
-                    status_log = status_logs[0]
-                    status_dict = status_log.get("status")
-                    raw_extras = status_log.get("extras") or {}
-                    status_extras = {
-                        k: v for k, v in raw_extras.items() if k not in ("logger_name", "level", "timestamp")
-                    }
+                if status_result and status_result.get("status"):
+                    status_code = status_result["status"]["code"]
 
                     logger.info(
-                        f"Found status log for rollout {row.execution_metadata.rollout_id}: {status_log.get('message', '')}"
+                        "Found status for rollout %s with code %s",
+                        row.execution_metadata.rollout_id,
+                        status_code,
                     )
 
-                    status_code = status_dict.get("code")
-                    status_message = status_dict.get("message", "")
-                    status_details = status_dict.get("details", [])
-
-                    logger.info(
-                        f"Found Fireworks log for rollout {row.execution_metadata.rollout_id} with status code {status_code}"
+                    # Backfill message/details/extras from the full Logs table (one-shot)
+                    completed_logs = await asyncio.to_thread(
+                        self._tracing_adapter.search_logs,
+                        tags=[f"rollout_id:{row.execution_metadata.rollout_id}"],
                     )
+                    status_message = ""
+                    status_details: list = []
+                    status_extras: dict = {}
+                    for log in completed_logs:
+                        sd = log.get("status")
+                        if sd and isinstance(sd, dict) and "code" in sd:
+                            status_message = sd.get("message", "")
+                            status_details = sd.get("details", [])
+                            raw_extras = log.get("extras") or {}
+                            status_extras = {
+                                k: v for k, v in raw_extras.items()
+                                if k not in ("logger_name", "level", "timestamp")
+                            }
+                            break
 
-                    # Create and raise exception if appropriate, preserving original message
                     exception = exception_for_status_code(status_code, status_message)
                     if exception is not None:
                         raise exception
