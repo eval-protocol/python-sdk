@@ -58,7 +58,7 @@ def klavis_gmail_sandbox_dataset_adapter(rows: list[dict]) -> list[EvaluationRow
     rollout_processor=KlavisSandboxRolloutProcessor(
         server_name="gmail",
     ),
-    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-thinking"}],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2p5"}],
     mode="pointwise",
     dataset_adapter=klavis_gmail_sandbox_dataset_adapter,
 )
@@ -110,7 +110,7 @@ Return:
 
         try:
             response = await client.chat.completions.create(
-                model="accounts/fireworks/models/kimi-k2-thinking",
+                model="accounts/fireworks/models/kimi-k2p5",
                 messages=[
                     {
                         "role": "system",

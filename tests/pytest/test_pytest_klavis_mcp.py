@@ -22,7 +22,7 @@ into your Notion for the notion test.
 @evaluation_test(
     input_dataset=["tests/pytest/datasets/klavis_mcp_test.jsonl"],
     rollout_processor=AgentRolloutProcessor(),
-    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-thinking"}],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2p5"}],
     mode="pointwise",
     mcp_config_path="tests/pytest/mcp_configurations/klavis_strata_mcp.json",
 )
@@ -34,7 +34,7 @@ async def test_pytest_klavis_mcp(row: EvaluationRow) -> EvaluationRow:
         api_key=os.environ["FIREWORKS_API_KEY"], base_url="https://api.fireworks.ai/inference/v1"
     ) as client:
         response = await client.chat.completions.create(
-            model="accounts/fireworks/models/kimi-k2-thinking",
+            model="accounts/fireworks/models/kimi-k2p5",
             messages=[
                 {
                     "role": "system",
