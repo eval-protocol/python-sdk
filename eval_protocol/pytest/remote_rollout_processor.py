@@ -140,9 +140,9 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     )
 
                     # Backfill message/details/extras from the full Logs table (one-shot)
-                    completed_logs = await asyncio.to_thread(
-                        self._tracing_adapter.search_logs,
-                        tags=[f"rollout_id:{row.execution_metadata.rollout_id}"],
+                    session = self._get_or_create_session()
+                    completed_logs = await self._tracing_adapter.async_search_logs(
+                        session, tags=[f"rollout_id:{row.execution_metadata.rollout_id}"],
                     )
                     status_message = ""
                     status_details: list = []
