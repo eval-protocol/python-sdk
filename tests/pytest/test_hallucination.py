@@ -16,7 +16,7 @@ from eval_protocol.models import EvaluateResult, EvaluationRow, Message, MetricR
 from eval_protocol.pytest import SingleTurnRolloutProcessor, evaluation_test
 
 # Configure the judge model for LiteLLM
-JUDGE_MODEL = "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905"
+JUDGE_MODEL = "fireworks_ai/accounts/fireworks/models/kimi-k2p5"
 
 
 def hallucination_dataset_adapter(data: List[Dict[str, Any]]) -> List[EvaluationRow]:
@@ -38,7 +38,7 @@ def hallucination_dataset_adapter(data: List[Dict[str, Any]]) -> List[Evaluation
         {
             "temperature": 0.0,
             "max_tokens": 512,
-            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905",
+            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2p5",
         }
     ],
     rollout_processor=SingleTurnRolloutProcessor(),

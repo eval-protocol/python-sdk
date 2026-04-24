@@ -17,7 +17,7 @@ from openai import AsyncOpenAI
 
 
 async def aha_judge(
-    row: EvaluationRow, judge_name: str = "kimi-k2-instruct-0905", adapter: Optional[BaseAdapter] = None
+    row: EvaluationRow, judge_name: str = "kimi-k2p5", adapter: Optional[BaseAdapter] = None
 ) -> EvaluationRow:
     """
     LLM Judge evaluation using Arena-Hard-Auto style pairwise comparisons for a single row.

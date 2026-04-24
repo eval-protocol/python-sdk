@@ -40,7 +40,7 @@ REFLECTION_LM_CONFIGS = {
     },
     # Fireworks models
     "kimi-k2": {
-        "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905",
+        "model": "fireworks_ai/accounts/fireworks/models/kimi-k2p5",
         "temperature": 0.6,
         "max_tokens": 131000,
     },
@@ -68,7 +68,7 @@ def build_reflection_lm(reflection_lm_name: str) -> LM:
 
     Args:
         reflection_lm_name: One of the predefined configs ("gpt-5", "gpt-4o",
-                           "claude-sonnet", "kimi-k2-instruct-0905")
+                           "claude-sonnet", "kimi-k2p5")
                            OR a raw LiteLLM model string (e.g., "openai/gpt-4o")
 
     Returns:

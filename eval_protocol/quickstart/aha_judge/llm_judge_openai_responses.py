@@ -50,7 +50,7 @@ def openai_responses_data_generator():
             "model": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1",
         },
         {
-            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905",
+            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2p5",
         },
     ],
 )

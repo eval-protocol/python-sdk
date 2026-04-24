@@ -19,7 +19,7 @@ from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
         ]
     ],
     rollout_processor=AgentRolloutProcessor(),
-    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905"}],
+    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2p5"}],
     mode="all",
 )
 def test_pytest_default_agent_rollout_processor(rows: List[EvaluationRow]) -> List[EvaluationRow]:

@@ -42,7 +42,7 @@ def frozen_lake_to_evaluation_row(data: List[Dict[str, Any]]) -> List[Evaluation
         {
             "temperature": 0.0,
             "max_tokens": 4096,
-            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905",
+            "model": "fireworks_ai/accounts/fireworks/models/kimi-k2p5",
         }
     ],
     rollout_processor=MCPGymRolloutProcessor(),

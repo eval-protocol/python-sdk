@@ -51,8 +51,8 @@ JUDGE_CONFIGS = {
         "api_key": os.getenv("GEMINI_API_KEY"),
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
     },
-    "kimi-k2-instruct-0905": {
-        "model": "accounts/fireworks/models/kimi-k2-instruct-0905",
+    "kimi-k2p5": {
+        "model": "accounts/fireworks/models/kimi-k2p5",
         "temperature": 0.6,  # Kimi recommended temperature
         "max_tokens": 131000,
         "api_key": os.getenv("FIREWORKS_API_KEY"),
