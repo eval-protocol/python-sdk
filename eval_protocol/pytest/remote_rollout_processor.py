@@ -125,8 +125,13 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 status_result = await asyncio.to_thread(
                     self._tracing_adapter.get_status, rollout_id=row.execution_metadata.rollout_id
                 )
-                if status_result and status_result.get("status"):
-                    status_code = status_result["status"]["code"]
+                status = (status_result or {}).get("status")
+                if status and "code" in status:
+                    status_code = status["code"]
+
+                    if status_code == Status.Code.RUNNING:
+                        await asyncio.sleep(poll_interval)
+                        continue
 
                     logger.info(
                         "Found status for rollout %s with code %s",
