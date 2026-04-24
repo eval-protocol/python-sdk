@@ -40,6 +40,7 @@ def agent_factory(config: RolloutProcessorConfig) -> Agent:
         {
             "model": "accounts/fireworks/models/kimi-k2p5",
             "provider": "fireworks",
+            "reasoning_effort": "none",
         },
         {
             "model": "gpt-5",

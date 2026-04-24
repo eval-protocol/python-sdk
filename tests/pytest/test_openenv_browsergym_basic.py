@@ -69,6 +69,7 @@ def test_openenv_browsergym_basic():
         ),
         "temperature": 0.0,
         "max_tokens": 16,
+        "reasoning_effort": "none",
     }
 
     # Limit to a single step to keep the test fast and robust

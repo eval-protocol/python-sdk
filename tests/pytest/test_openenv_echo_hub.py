@@ -77,6 +77,7 @@ ECHO_INLINE_DATA: List[Dict[str, Any]] = [
             "max_tokens": 16,
             # Any working model with your API key; match other tests' default
             "model": "fireworks_ai/accounts/fireworks/models/kimi-k2p5",
+            "reasoning_effort": "none",
         }
     ],
     num_runs=1,
