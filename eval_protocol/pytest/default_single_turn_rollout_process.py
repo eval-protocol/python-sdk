@@ -44,6 +44,28 @@ def _serialize_logprobs(logprobs: Any) -> Any:
         return logprobs
 
 
+def _extract_token_ids_from_logprobs(logprobs: Any) -> List[int] | None:
+    """Extract token IDs from a serialized provider logprobs payload when present."""
+
+    if not isinstance(logprobs, dict):
+        return None
+
+    content = logprobs.get("content")
+    if isinstance(content, list) and content:
+        token_ids: List[int] = []
+        for item in content:
+            if not isinstance(item, dict) or item.get("token_id") is None:
+                return None
+            token_ids.append(int(item["token_id"]))
+        return token_ids
+
+    raw_token_ids = logprobs.get("token_ids")
+    if isinstance(raw_token_ids, list) and raw_token_ids:
+        return [int(token_id) for token_id in raw_token_ids]
+
+    return None
+
+
 class SingleTurnRolloutProcessor(RolloutProcessor):
     """Single turn rollout processor for direct LLM calls."""
 
@@ -136,6 +158,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
             assistant_message = response.choices[0].message
             finish_reason = getattr(response.choices[0], "finish_reason", None)
             assistant_logprobs = _serialize_logprobs(getattr(response.choices[0], "logprobs", None))
+            assistant_token_ids = _extract_token_ids_from_logprobs(assistant_logprobs)
 
             # Extract content
             assistant_content = assistant_message.content or ""
@@ -190,6 +213,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                     content=assistant_content,
                     reasoning_content=reasoning_content,
                     tool_calls=converted_tool_calls,
+                    token_ids=assistant_token_ids,
                     logprobs=assistant_logprobs,
                 )
             ]

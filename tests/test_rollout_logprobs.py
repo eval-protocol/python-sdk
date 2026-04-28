@@ -28,7 +28,7 @@ def test_single_turn_rollout_captures_logprobs(monkeypatch):
     async def fake_acompletion(**kwargs):
         assert kwargs["logprobs"] is True
         assert kwargs["top_logprobs"] == 2
-        logprobs = {"content": [{"token": "hello", "logprob": -0.1, "top_logprobs": []}]}
+        logprobs = {"content": [{"token": "hello", "token_id": 15339, "logprob": -0.1, "top_logprobs": []}]}
         return ModelResponse(
             id="resp-1",
             choices=[
@@ -53,6 +53,7 @@ def test_single_turn_rollout_captures_logprobs(monkeypatch):
         assistant_logprobs = completed_rows[0].messages[-1].logprobs
         assert isinstance(assistant_logprobs, dict)
         assert assistant_logprobs["content"][0]["token"] == "hello"
+        assert completed_rows[0].messages[-1].token_ids == [15339]
         assert assistant_logprobs["content"][0]["logprob"] == -0.1
 
     asyncio.run(_run())
