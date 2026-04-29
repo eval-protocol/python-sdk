@@ -152,7 +152,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         details=status_details,
                     )
 
-                    status_extras = status.get("extras")
+                    status_extras = (status_result or {}).get("extras")
                     if isinstance(status_extras, dict):
                         if row.execution_metadata.extra:
                             row.execution_metadata.extra.update(status_extras)

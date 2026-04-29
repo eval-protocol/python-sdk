@@ -379,7 +379,7 @@ class FireworksTracingAdapter(BaseAdapter):
         """Fetch rollout status from the lightweight /status endpoint.
 
         Returns the parsed JSON response or None if the status is not yet available.
-        Response shape: {"rollout_id": "...", "status": {"code": ...} | null}
+        Response shape: {"rollout_id": "...", "status": {"code": ...} | null, "extras": {...} | null}
         """
         headers = {
             "Authorization": f"Bearer {self._get_api_key()}",
