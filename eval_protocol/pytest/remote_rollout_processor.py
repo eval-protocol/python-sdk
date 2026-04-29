@@ -129,6 +129,9 @@ class RemoteRolloutProcessor(RolloutProcessor):
                 status = (status_result or {}).get("status")
                 if isinstance(status, dict) and "code" in status:
                     status_code = status["code"]
+                    if status_code == Status.Code.RUNNING:
+                        await asyncio.sleep(poll_interval)
+                        continue
 
                     logger.info(
                         "Found status for rollout %s with code %s",
