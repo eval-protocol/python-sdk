@@ -45,6 +45,7 @@ export class FireworksTransport extends Transport {
 
   constructor(opts: {
     gatewayBaseUrl?: string;
+    apiKey?: string;
     rolloutIdEnv?: string;
     waitUntil?: (promise: Promise<any>) => void;
   } = {}) {
@@ -56,7 +57,7 @@ export class FireworksTransport extends Transport {
       'https://tracing.fireworks.ai';
 
     this.rolloutIdEnv = opts.rolloutIdEnv || 'EP_ROLLOUT_ID';
-    this.apiKey = process.env.FIREWORKS_API_KEY;
+    this.apiKey = opts.apiKey || process.env.FIREWORKS_API_KEY;
     this.waitUntil = opts.waitUntil;
   }
 

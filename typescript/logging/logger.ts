@@ -5,6 +5,12 @@
 import winston from 'winston';
 import { FireworksTransport } from './fireworks-transport.js';
 
+type RolloutLoggerOptions = {
+  gatewayBaseUrl?: string;
+  apiKey?: string;
+  name?: string;
+};
+
 // Global reference to waitUntil function
 let globalWaitUntil: ((promise: Promise<any>) => void) | undefined;
 
@@ -36,9 +42,41 @@ export const logger = winston.createLogger({
 /**
  * Create a child logger with rollout_id context.
  */
-export function createRolloutLogger(rolloutId: string, name: string = 'init'): winston.Logger {
-  return logger.child({
+export function createRolloutLogger(
+  rolloutId: string,
+  nameOrOptions: string | RolloutLoggerOptions = 'init'
+): winston.Logger {
+  const options = typeof nameOrOptions === 'string' ? { name: nameOrOptions } : nameOrOptions;
+  const name = options.name || 'init';
+  const defaultMeta = {
     rollout_id: rolloutId,
     logger_name: `${name}.${rolloutId}`
-  });
+  };
+
+  if (options.gatewayBaseUrl || options.apiKey) {
+    return winston.createLogger({
+      level: 'info',
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
+      ),
+      defaultMeta,
+      transports: [
+        new winston.transports.Console({
+          format: winston.format.combine(
+            winston.format.colorize(),
+            winston.format.simple()
+          )
+        }),
+        new FireworksTransport({
+          gatewayBaseUrl: options.gatewayBaseUrl,
+          apiKey: options.apiKey,
+          waitUntil: (promise: Promise<any>) => globalWaitUntil?.(promise)
+        })
+      ]
+    });
+  }
+
+  return logger.child(defaultMeta);
 }
