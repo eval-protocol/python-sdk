@@ -121,17 +121,14 @@ class RemoteRolloutProcessor(RolloutProcessor):
             deadline = time.time() + timeout_seconds
 
             while time.time() < deadline:
-                # Poll status (run in thread to avoid blocking event loop)
-                status_result = await asyncio.to_thread(
-                    self._tracing_adapter.get_status, rollout_id=row.execution_metadata.rollout_id
+                session = self._get_or_create_session()
+                status_result = await self._tracing_adapter.async_get_status(
+                    session,
+                    rollout_id=row.execution_metadata.rollout_id,
                 )
                 status = (status_result or {}).get("status")
-                if status and "code" in status:
+                if isinstance(status, dict) and "code" in status:
                     status_code = status["code"]
-
-                    if status_code == Status.Code.RUNNING:
-                        await asyncio.sleep(poll_interval)
-                        continue
 
                     logger.info(
                         "Found status for rollout %s with code %s",
@@ -139,25 +136,8 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         status_code,
                     )
 
-                    # Backfill message/details/extras from the full Logs table (one-shot)
-                    session = self._get_or_create_session()
-                    completed_logs = await self._tracing_adapter.async_search_logs(
-                        session, tags=[f"rollout_id:{row.execution_metadata.rollout_id}"],
-                    )
-                    status_message = ""
-                    status_details: list = []
-                    status_extras: dict = {}
-                    for log in completed_logs:
-                        sd = log.get("status")
-                        if sd and isinstance(sd, dict) and "code" in sd:
-                            status_message = sd.get("message", "")
-                            status_details = sd.get("details", [])
-                            raw_extras = log.get("extras") or {}
-                            status_extras = {
-                                k: v for k, v in raw_extras.items()
-                                if k not in ("logger_name", "level", "timestamp")
-                            }
-                            break
+                    status_message = status.get("message", "") or ""
+                    status_details = status.get("details", []) or []
 
                     exception = exception_for_status_code(status_code, status_message)
                     if exception is not None:
@@ -169,10 +149,12 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         details=status_details,
                     )
 
-                    if row.execution_metadata.extra:
-                        row.execution_metadata.extra.update(status_extras)
-                    else:
-                        row.execution_metadata.extra = status_extras
+                    status_extras = status.get("extras")
+                    if isinstance(status_extras, dict):
+                        if row.execution_metadata.extra:
+                            row.execution_metadata.extra.update(status_extras)
+                        else:
+                            row.execution_metadata.extra = status_extras
 
                     logger.info("Stopping polling for rollout %s", row.execution_metadata.rollout_id)
                     break

@@ -375,31 +375,30 @@ class FireworksTracingAdapter(BaseAdapter):
             )
         return results
 
-    def get_status(self, rollout_id: str) -> Optional[Dict[str, Any]]:
+    async def async_get_status(self, session: aiohttp.ClientSession, rollout_id: str) -> Optional[Dict[str, Any]]:
         """Fetch rollout status from the lightweight /status endpoint.
 
         Returns the parsed JSON response or None if the status is not yet available.
         Response shape: {"rollout_id": "...", "status": {"code": ...} | null}
         """
-        from ..common_utils import get_user_agent
-
         headers = {
             "Authorization": f"Bearer {self._get_api_key()}",
             "User-Agent": get_user_agent(),
         }
         params: Dict[str, Any] = {"rollout_id": rollout_id}
+        timeout = aiohttp.ClientTimeout(total=self.timeout)
 
-        urls_to_try = [f"{self.base_url}/status", f"{self.base_url}/v1/status"]
+        urls_to_try = [f"{self.base_url}/v1/status", f"{self.base_url}/status"]
         last_error: Optional[str] = None
         for url in urls_to_try:
             try:
-                response = requests.get(url, params=params, timeout=self.timeout, headers=headers)
-                if response.status_code == 404:
-                    last_error = f"404 for {url}"
-                    continue
-                response.raise_for_status()
-                return response.json()
-            except requests.exceptions.RequestException as e:
+                async with session.get(url, params=params, headers=headers, timeout=timeout) as resp:
+                    if resp.status == 404:
+                        last_error = f"404 for {url}"
+                        continue
+                    resp.raise_for_status()
+                    return (await resp.json(content_type=None)) or {}
+            except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError) as e:
                 last_error = str(e)
                 continue
 
