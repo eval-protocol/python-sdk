@@ -48,6 +48,13 @@ dependencies = [
     "deepdiff>=6.0.0",
     "websockets>=15.0.1",
     "fastapi>=0.116.1",
+    "nltk>=3.8.1",
+    "langdetect>=1.0.9",
+    "emoji>=2.12.1",
+    "syllapy>=0.7.2",
+    "immutabledict>=4.2.0",
+    "absl-py>=2.1.0",
+    "setuptools>=61.0",
 ]
 
 [project.urls]
@@ -170,6 +177,7 @@ include = ["eval_protocol*", "development*", "vendor*"]
 "eval_protocol" = ["../vite-app/dist/**/*"]
 "eval_protocol.mcp_servers.tau2" = ["*.md", "tests/system_prompts/*.md"]
 "eval_protocol.benchmarks" = ["data/*.jsonl"]
+"eval_protocol.benchmarks.ifeval" = ["data/*.jsonl"]
 "vendor.tau2" = ["data/**/*.md"]
 
 
