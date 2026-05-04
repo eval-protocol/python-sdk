@@ -100,13 +100,29 @@ def convert_trace_dict_to_evaluation_row(
                 ):
                     break  # Break early if we've found all the metadata we need
 
+        # Extract router replay payloads when present
+        payloads = trace.get("payloads")
+        if isinstance(payloads, dict):
+            router_replay = payloads.get("router_replay")
+            if isinstance(router_replay, dict) and router_replay.get("data"):
+                try:
+                    from .r3_deserializer import decompress_and_parse_r3
+
+                    matrices, r3_meta = decompress_and_parse_r3(router_replay["data"])
+                    if execution_metadata.extra is None:
+                        execution_metadata.extra = {}
+                    execution_metadata.extra["routing_matrices"] = matrices
+                    execution_metadata.extra["routing_metadata"] = r3_meta
+                except Exception as e:
+                    logger.warning("Failed to decompress R3 payload for trace %s: %s", trace.get("id"), e)
+
         return EvaluationRow(
             messages=messages,
             tools=tools,
             input_metadata=InputMetadata(
                 row_id=row_id,
                 session_data={
-                    "langfuse_trace_id": trace.get("id"),  # Store the trace ID here
+                    "langfuse_trace_id": trace.get("id"),
                 },
             ),
             execution_metadata=execution_metadata,
@@ -426,6 +442,7 @@ class FireworksTracingAdapter(BaseAdapter):
         max_retries: int = 3,
         span_name: Optional[str] = None,
         converter: Optional[TraceDictConverter] = None,
+        include_payloads: bool = False,
     ) -> List[EvaluationRow]:
         """Pull traces from Langfuse via proxy and convert to EvaluationRow format.
 
@@ -449,6 +466,8 @@ class FireworksTracingAdapter(BaseAdapter):
             max_retries: Max retry attempts used by proxy (default: 3)
             converter: Optional custom converter implementing TraceDictConverter protocol.
                 If provided, this will be used instead of the default conversion logic.
+            include_payloads: If True, request payload data (e.g., router replay)
+                from the gateway and decompress it into the returned EvaluationRows.
 
         Returns:
             List[EvaluationRow]: Converted evaluation rows
@@ -479,6 +498,7 @@ class FireworksTracingAdapter(BaseAdapter):
             "to_timestamp": to_timestamp.isoformat() if to_timestamp else None,
             "sleep_between_gets": sleep_between_gets,
             "max_retries": max_retries,
+            "include_payloads": include_payloads if include_payloads else None,
         }
 
         # Remove None values

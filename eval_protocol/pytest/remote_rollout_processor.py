@@ -35,11 +35,13 @@ class RemoteRolloutProcessor(RolloutProcessor):
         model_base_url: str = "https://tracing.fireworks.ai",
         poll_interval: float = 1.0,
         timeout_seconds: float = 120.0,
+        include_payloads: bool = False,
     ):
         # Prefer constructor-provided configuration. These can be overridden via
         # config.kwargs at call time for backward compatibility.
         self._remote_base_url = remote_base_url
         self._model_base_url = model_base_url
+        self._include_payloads = include_payloads
         if os.getenv("EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL"):
             self._remote_base_url = os.getenv("EP_REMOTE_ROLLOUT_PROCESSOR_BASE_URL")
         _ep_model_base_url = os.getenv("EP_MODEL_BASE_URL")
@@ -194,7 +196,10 @@ class RemoteRolloutProcessor(RolloutProcessor):
             row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
 
             def _update_with_trace() -> None:
-                return update_row_with_remote_trace(row, default_fireworks_output_data_loader, model_base_url)
+                return update_row_with_remote_trace(
+                    row, default_fireworks_output_data_loader, model_base_url,
+                    include_payloads=self._include_payloads,
+                )
 
             await asyncio.to_thread(_update_with_trace)  # Update row with remote trace in-place
             return row

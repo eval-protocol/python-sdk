@@ -39,6 +39,7 @@ class DataLoaderConfig(BaseModel):
 
     rollout_id: str
     model_base_url: Optional[str] = None
+    include_payloads: bool = False
 
 
 class InitRequest(BaseModel):
