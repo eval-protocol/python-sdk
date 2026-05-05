@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import base64
 import logging
-import math
 import struct
 from enum import IntEnum
 from typing import Any, Dict, List, Optional, Tuple
@@ -25,8 +24,8 @@ import zstandard as zstd
 logger = logging.getLogger(__name__)
 
 MAGIC = b"R3V1"
-HEADER_FORMAT = "<4sBBBBIIHHIIQ"
-HEADER_SIZE = struct.calcsize(HEADER_FORMAT)  # 36 bytes
+HEADER_FORMAT = "<4sBBBBIIIIQ"
+HEADER_SIZE = struct.calcsize(HEADER_FORMAT)  # 32 bytes
 
 
 class _SelectorMode(IntEnum):
@@ -62,8 +61,6 @@ def _parse_header(raw: bytes) -> Dict[str, Any]:
         flags,
         total_token_count,
         replayed_token_count,
-        num_moe_layers,
-        top_k,
         replay_start_token,
         selector_byte_length,
         matrix_byte_length,
@@ -80,8 +77,6 @@ def _parse_header(raw: bytes) -> Dict[str, Any]:
         "flags": flags,
         "total_token_count": total_token_count,
         "replayed_token_count": replayed_token_count,
-        "num_moe_layers": num_moe_layers,
-        "top_k": top_k,
         "replay_start_token": replay_start_token,
         "selector_byte_length": selector_byte_length,
         "matrix_byte_length": matrix_byte_length,
@@ -117,9 +112,9 @@ def decompress_and_parse_r3(
           ``total_token_count``.  Each present position contains a
           base64-encoded routing matrix (matching the format returned by
           the direct inference path); absent positions are ``None``.
-        - ``metadata`` is a dict with keys ``num_moe_layers``, ``top_k``,
-          ``routing_dtype``, ``selector_mode``, ``total_token_count``,
-          ``replayed_token_count``, ``replay_start_token``.
+        - ``metadata`` is a dict with keys ``routing_dtype``,
+          ``selector_mode``, ``total_token_count``, ``replayed_token_count``,
+          ``replay_start_token``.
     """
     compressed = base64.b64decode(data_b64)
 
@@ -132,14 +127,23 @@ def decompress_and_parse_r3(
     routing_dtype = header["routing_dtype"]
     total_token_count = header["total_token_count"]
     replayed_token_count = header["replayed_token_count"]
-    num_moe_layers = header["num_moe_layers"]
-    top_k = header["top_k"]
     replay_start_token = header["replay_start_token"]
     selector_byte_length = header["selector_byte_length"]
     matrix_byte_length = header["matrix_byte_length"]
 
-    dtype_byte_width = _RoutingDtype(routing_dtype).byte_width
-    matrix_elem_size = num_moe_layers * top_k * dtype_byte_width
+    # Per-token matrix byte size is implicit in the payload: all replayed
+    # tokens share the same matrix length, so we can recover it from the
+    # matrix section total length divided by the replayed-token count.
+    if replayed_token_count > 0:
+        if matrix_byte_length % replayed_token_count != 0:
+            raise ValueError(
+                f"matrix_byte_length ({matrix_byte_length}) is not a multiple of "
+                f"replayed_token_count ({replayed_token_count}); cannot split "
+                "into per-token matrices"
+            )
+        matrix_elem_size = matrix_byte_length // replayed_token_count
+    else:
+        matrix_elem_size = 0
 
     body = raw[HEADER_SIZE:]
     selector_bytes = body[:selector_byte_length]
@@ -173,8 +177,6 @@ def decompress_and_parse_r3(
         matrices[pos] = base64.b64encode(matrix_bytes[start:end]).decode("ascii")
 
     metadata: Dict[str, Any] = {
-        "num_moe_layers": num_moe_layers,
-        "top_k": top_k,
         "routing_dtype": _ROUTING_DTYPE_NAMES.get(
             _RoutingDtype(routing_dtype), str(routing_dtype)
         ),

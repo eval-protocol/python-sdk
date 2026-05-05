@@ -28,17 +28,20 @@ def _make_raw_r3(
     routing_dtype: int = _RoutingDtype.UINT8,
     total_token_count: int = 4,
     replayed_token_count: int = 4,
-    num_moe_layers: int = 2,
-    top_k: int = 2,
+    matrix_elem_size: Optional[int] = None,
     replay_start_token: int = 0,
     selector_bytes: bytes = b"",
     matrix_data: Optional[bytes] = None,
 ) -> bytes:
-    """Build a raw (uncompressed) R3/v1 payload for testing."""
-    dtype_byte_width = _RoutingDtype(routing_dtype).byte_width
-    matrix_elem_size = num_moe_layers * top_k * dtype_byte_width
+    """Build a raw (uncompressed) R3/v1 payload for testing.
 
+    ``matrix_elem_size`` is the per-token matrix byte length; when not given
+    and no explicit ``matrix_data`` is supplied, defaults to 4 bytes/token
+    (a minimal placeholder for tests that don't care about shape).
+    """
     if matrix_data is None:
+        if matrix_elem_size is None:
+            matrix_elem_size = 4
         matrix_data = bytes(range(matrix_elem_size)) * replayed_token_count
 
     header = struct.pack(
@@ -50,8 +53,6 @@ def _make_raw_r3(
         0x01,  # flags: little-endian
         total_token_count,
         replayed_token_count,
-        num_moe_layers,
-        top_k,
         replay_start_token,
         len(selector_bytes),
         len(matrix_data),
@@ -86,7 +87,7 @@ class TestParseHeader:
     def test_unsupported_version(self):
         raw = struct.pack(
             HEADER_FORMAT,
-            MAGIC, 99, 0, 1, 0, 4, 4, 2, 2, 0, 0, 16,
+            MAGIC, 99, 0, 1, 0, 4, 4, 0, 0, 16,
         )
         with pytest.raises(ValueError, match="Unsupported R3 header version"):
             _parse_header(raw)
@@ -118,10 +119,8 @@ class TestReadBitmapPositions:
 
 class TestDecompressAndParseR3:
     def test_all_mode_uint8(self):
-        num_moe_layers = 2
-        top_k = 2
+        matrix_elem_size = 4  # e.g. 2 MoE layers * 2 top-k * 1 byte (uint8)
         total_tokens = 4
-        matrix_elem_size = num_moe_layers * top_k  # 4 bytes per token
 
         matrices_raw = []
         for i in range(total_tokens):
@@ -131,8 +130,6 @@ class TestDecompressAndParseR3:
         raw = _make_raw_r3(
             total_token_count=total_tokens,
             replayed_token_count=total_tokens,
-            num_moe_layers=num_moe_layers,
-            top_k=top_k,
             matrix_data=matrix_data,
         )
         blob = _compress_and_b64(raw)
@@ -140,8 +137,6 @@ class TestDecompressAndParseR3:
         matrices, metadata = decompress_and_parse_r3(blob)
 
         assert len(matrices) == total_tokens
-        assert metadata["num_moe_layers"] == num_moe_layers
-        assert metadata["top_k"] == top_k
         assert metadata["routing_dtype"] == "uint8"
         assert metadata["selector_mode"] == "all"
         assert metadata["total_token_count"] == total_tokens
@@ -153,12 +148,10 @@ class TestDecompressAndParseR3:
             assert decoded == matrices_raw[i]
 
     def test_suffix_mode(self):
-        num_moe_layers = 2
-        top_k = 2
+        matrix_elem_size = 4
         total_tokens = 8
         replayed = 3
         start_token = 5
-        matrix_elem_size = num_moe_layers * top_k
 
         matrices_raw = []
         for i in range(replayed):
@@ -169,8 +162,6 @@ class TestDecompressAndParseR3:
             selector_mode=_SelectorMode.SUFFIX,
             total_token_count=total_tokens,
             replayed_token_count=replayed,
-            num_moe_layers=num_moe_layers,
-            top_k=top_k,
             replay_start_token=start_token,
             matrix_data=matrix_data,
         )
@@ -194,10 +185,8 @@ class TestDecompressAndParseR3:
             assert decoded == matrices_raw[i]
 
     def test_bitmap_mode(self):
-        num_moe_layers = 2
-        top_k = 2
+        matrix_elem_size = 4
         total_tokens = 8
-        matrix_elem_size = num_moe_layers * top_k
 
         # Replay tokens at positions 1, 3, 6
         replayed_positions = [1, 3, 6]
@@ -218,8 +207,6 @@ class TestDecompressAndParseR3:
             selector_mode=_SelectorMode.BITMAP,
             total_token_count=total_tokens,
             replayed_token_count=replayed,
-            num_moe_layers=num_moe_layers,
-            top_k=top_k,
             selector_bytes=selector_bytes,
             matrix_data=matrix_data,
         )
@@ -241,10 +228,8 @@ class TestDecompressAndParseR3:
                 assert matrices[i] is None
 
     def test_uint16_dtype(self):
-        num_moe_layers = 2
-        top_k = 2
+        matrix_elem_size = 8  # e.g. 2 MoE layers * 2 top-k * 2 bytes (uint16)
         total_tokens = 2
-        matrix_elem_size = num_moe_layers * top_k * 2  # 2 bytes per element for uint16
 
         matrices_raw = []
         for i in range(total_tokens):
@@ -255,8 +240,6 @@ class TestDecompressAndParseR3:
             routing_dtype=_RoutingDtype.UINT16,
             total_token_count=total_tokens,
             replayed_token_count=total_tokens,
-            num_moe_layers=num_moe_layers,
-            top_k=top_k,
             matrix_data=matrix_data,
         )
         blob = _compress_and_b64(raw)
@@ -336,8 +319,6 @@ class TestRoundTrip:
         data = RouterReplayData(
             routing_matrices=original_matrices,
             total_token_count=total_tokens,
-            num_moe_layers=num_moe_layers,
-            top_k=top_k,
             routing_dtype="uint8",
         )
 
@@ -350,8 +331,7 @@ class TestRoundTrip:
         matrices, metadata = decompress_and_parse_r3(blob_b64)
 
         assert len(matrices) == total_tokens
-        assert metadata["num_moe_layers"] == num_moe_layers
-        assert metadata["top_k"] == top_k
+        assert metadata["total_token_count"] == total_tokens
 
         for i in range(total_tokens):
             if original_b64[i] is None:
@@ -367,10 +347,8 @@ class TestConvertTraceDictWithPayloads:
     def test_trace_with_router_replay_payload(self):
         from eval_protocol.adapters.fireworks_tracing import convert_trace_dict_to_evaluation_row
 
-        num_moe_layers = 2
-        top_k = 2
+        matrix_elem_size = 4
         total_tokens = 4
-        matrix_elem_size = num_moe_layers * top_k
 
         matrices_raw = []
         for i in range(total_tokens):
@@ -380,8 +358,6 @@ class TestConvertTraceDictWithPayloads:
         raw = _make_raw_r3(
             total_token_count=total_tokens,
             replayed_token_count=total_tokens,
-            num_moe_layers=num_moe_layers,
-            top_k=top_k,
             matrix_data=matrix_data,
         )
         blob = _compress_and_b64(raw)
@@ -424,8 +400,8 @@ class TestConvertTraceDictWithPayloads:
             assert decoded == matrices_raw[i]
 
         meta = row.execution_metadata.extra["routing_metadata"]
-        assert meta["num_moe_layers"] == num_moe_layers
-        assert meta["top_k"] == top_k
+        assert meta["routing_dtype"] == "uint8"
+        assert meta["total_token_count"] == total_tokens
 
     def test_trace_without_payloads(self):
         from eval_protocol.adapters.fireworks_tracing import convert_trace_dict_to_evaluation_row
