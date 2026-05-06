@@ -179,12 +179,8 @@ def decompress_and_parse_r3(
         matrices[pos] = base64.b64encode(matrix_bytes[start:end]).decode("ascii")
 
     metadata: Dict[str, Any] = {
-        "routing_dtype": _ROUTING_DTYPE_NAMES.get(
-            _RoutingDtype(routing_dtype), str(routing_dtype)
-        ),
-        "selector_mode": _SELECTOR_MODE_NAMES.get(
-            _SelectorMode(selector_mode), str(selector_mode)
-        ),
+        "routing_dtype": _ROUTING_DTYPE_NAMES.get(routing_dtype, str(routing_dtype)),
+        "selector_mode": _SELECTOR_MODE_NAMES.get(selector_mode, str(selector_mode)),
         "total_token_count": total_token_count,
         "replayed_token_count": replayed_token_count,
         "replay_start_token": replay_start_token,

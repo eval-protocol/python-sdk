@@ -266,6 +266,20 @@ class TestDecompressAndParseR3:
         assert all(m is None for m in matrices)
         assert metadata["replayed_token_count"] == 0
 
+    def test_unknown_routing_dtype_falls_back_to_str(self):
+        """Unknown routing_dtype ints (e.g. a future dtype=3) must not crash
+        metadata construction; the dtype is surfaced as its string repr."""
+        raw = _make_raw_r3(
+            routing_dtype=99,  # not in _RoutingDtype
+            total_token_count=2,
+            replayed_token_count=2,
+            matrix_data=b"\x00" * 8,
+        )
+        blob = _compress_and_b64(raw)
+
+        _, metadata = decompress_and_parse_r3(blob)
+        assert metadata["routing_dtype"] == "99"
+
     def test_high_compression_ratio_payload(self):
         """Highly compressible payloads (e.g. tokens routing to the same
         experts) can compress much better than 20:1; the deserializer must
