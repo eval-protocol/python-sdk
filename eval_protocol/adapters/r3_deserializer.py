@@ -118,8 +118,10 @@ def decompress_and_parse_r3(
     """
     compressed = base64.b64decode(data_b64)
 
+    # ZstdCompressor.compress() embeds the uncompressed size in the frame
+    # header by default, so the library can auto-allocate the output buffer.
     decompressor = zstd.ZstdDecompressor()
-    raw = decompressor.decompress(compressed, max_output_size=len(compressed) * 20)
+    raw = decompressor.decompress(compressed)
 
     header = _parse_header(raw)
 

@@ -266,6 +266,30 @@ class TestDecompressAndParseR3:
         assert all(m is None for m in matrices)
         assert metadata["replayed_token_count"] == 0
 
+    def test_high_compression_ratio_payload(self):
+        """Highly compressible payloads (e.g. tokens routing to the same
+        experts) can compress much better than 20:1; the deserializer must
+        not impose an arbitrary cap on the decompressed size."""
+        # 64 KiB of zeros compresses to ~35 bytes (>1000x ratio).
+        total_tokens = 1024
+        matrix_elem_size = 64  # bytes/token
+        matrix_data = b"\x00" * (total_tokens * matrix_elem_size)
+
+        raw = _make_raw_r3(
+            total_token_count=total_tokens,
+            replayed_token_count=total_tokens,
+            matrix_data=matrix_data,
+        )
+        blob = _compress_and_b64(raw)
+        # Sanity: compression really is >> 20x for this case.
+        assert len(base64.b64decode(blob)) * 20 < len(raw)
+
+        matrices, metadata = decompress_and_parse_r3(blob)
+        assert len(matrices) == total_tokens
+        assert metadata["replayed_token_count"] == total_tokens
+        for m in matrices:
+            assert base64.b64decode(m) == b"\x00" * matrix_elem_size
+
 
 class TestRoundTrip:
     """Round-trip test using the gateway's serializer and EP's deserializer."""
