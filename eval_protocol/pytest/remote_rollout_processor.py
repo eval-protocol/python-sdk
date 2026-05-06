@@ -146,9 +146,12 @@ class RemoteRolloutProcessor(RolloutProcessor):
                     completed_logs = await self._tracing_adapter.async_search_logs(
                         session, tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
                     )
+                    # Pick the log row whose status code matches the terminal
+                    # code from /status, so intermediate RUNNING checkpoints
+                    # don't poison the backfill.
                     for log in completed_logs:
                         sd = log.get("status")
-                        if sd and isinstance(sd, dict) and "code" in sd:
+                        if isinstance(sd, dict) and sd.get("code") == status_code:
                             status_message = sd.get("message", "") or ""
                             status_details = sd.get("details", []) or []
                             raw_extras = log.get("extras") or {}
