@@ -139,8 +139,25 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         status_code,
                     )
 
-                    status_message = status.get("message", "") or ""
-                    status_details = status.get("details", []) or []
+                    # /status only returns the code; backfill message/details/extras from Logs once.
+                    status_message: str = ""
+                    status_details: list = []
+                    status_extras: dict = {}
+                    completed_logs = await self._tracing_adapter.async_search_logs(
+                        session, tags=[f"rollout_id:{row.execution_metadata.rollout_id}"]
+                    )
+                    for log in completed_logs:
+                        sd = log.get("status")
+                        if sd and isinstance(sd, dict) and "code" in sd:
+                            status_message = sd.get("message", "") or ""
+                            status_details = sd.get("details", []) or []
+                            raw_extras = log.get("extras") or {}
+                            status_extras = {
+                                k: v
+                                for k, v in raw_extras.items()
+                                if k not in ("logger_name", "level", "timestamp")
+                            }
+                            break
 
                     exception = exception_for_status_code(status_code, status_message)
                     if exception is not None:
@@ -152,8 +169,7 @@ class RemoteRolloutProcessor(RolloutProcessor):
                         details=status_details,
                     )
 
-                    status_extras = (status_result or {}).get("extras")
-                    if isinstance(status_extras, dict):
+                    if status_extras:
                         if row.execution_metadata.extra:
                             row.execution_metadata.extra.update(status_extras)
                         else:
