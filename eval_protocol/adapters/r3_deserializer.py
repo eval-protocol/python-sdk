@@ -38,10 +38,6 @@ class _RoutingDtype(IntEnum):
     UINT8 = 1
     UINT16 = 2
 
-    @property
-    def byte_width(self) -> int:
-        return self.value
-
 
 _SELECTOR_MODE_NAMES = {v: v.name.lower() for v in _SelectorMode}
 _ROUTING_DTYPE_NAMES = {v: v.name.lower() for v in _RoutingDtype}
