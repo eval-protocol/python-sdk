@@ -14,14 +14,11 @@ by the direct inference path (``DeploymentSampler.sample_with_tokens()``).
 from __future__ import annotations
 
 import base64
-import logging
 import struct
 from enum import IntEnum
 from typing import Any, Dict, List, Optional, Tuple
 
 import zstandard as zstd
-
-logger = logging.getLogger(__name__)
 
 MAGIC = b"R3V1"
 HEADER_FORMAT = "<4sBBBBIIIIQ"
@@ -130,27 +127,40 @@ def decompress_and_parse_r3(
     selector_byte_length = header["selector_byte_length"]
     matrix_byte_length = header["matrix_byte_length"]
 
+    metadata: Dict[str, Any] = {
+        "routing_dtype": _ROUTING_DTYPE_NAMES.get(routing_dtype, str(routing_dtype)),
+        "selector_mode": _SELECTOR_MODE_NAMES.get(selector_mode, str(selector_mode)),
+        "total_token_count": total_token_count,
+        "replayed_token_count": replayed_token_count,
+        "replay_start_token": replay_start_token,
+    }
+
+    if replayed_token_count == 0:
+        return [None] * total_token_count, metadata
+
     # Per-token matrix byte size is implicit in the payload: all replayed
     # tokens share the same matrix length, so we can recover it from the
     # matrix section total length divided by the replayed-token count.
-    if replayed_token_count > 0:
-        if matrix_byte_length % replayed_token_count != 0:
-            raise ValueError(
-                f"matrix_byte_length ({matrix_byte_length}) is not a multiple of "
-                f"replayed_token_count ({replayed_token_count}); cannot split "
-                "into per-token matrices"
-            )
-        matrix_elem_size = matrix_byte_length // replayed_token_count
-    else:
-        matrix_elem_size = 0
+    if matrix_byte_length % replayed_token_count != 0:
+        raise ValueError(
+            f"matrix_byte_length ({matrix_byte_length}) is not a multiple of "
+            f"replayed_token_count ({replayed_token_count}); cannot split "
+            "into per-token matrices"
+        )
+    matrix_elem_size = matrix_byte_length // replayed_token_count
 
     body = raw[HEADER_SIZE:]
+    expected_body_length = selector_byte_length + matrix_byte_length
+    if len(body) < expected_body_length:
+        raise ValueError(
+            f"Payload body too short for selector and matrix sections: "
+            f"{len(body)} < {expected_body_length}"
+        )
+
     selector_bytes = body[:selector_byte_length]
     matrix_bytes = body[selector_byte_length : selector_byte_length + matrix_byte_length]
 
-    if matrix_elem_size == 0:
-        replayed_positions: List[int] = []
-    elif selector_mode == _SelectorMode.ALL:
+    if selector_mode == _SelectorMode.ALL:
         replayed_positions = list(range(total_token_count))
     elif selector_mode == _SelectorMode.SUFFIX:
         replayed_positions = list(
@@ -161,26 +171,17 @@ def decompress_and_parse_r3(
     else:
         raise ValueError(f"Unknown selector_mode: {selector_mode}")
 
+    if len(replayed_positions) != replayed_token_count:
+        raise ValueError(
+            f"Selector produced {len(replayed_positions)} replayed positions, "
+            f"but header replayed_token_count is {replayed_token_count}"
+        )
+
     # Split matrix bytes into per-token chunks and base64-encode each one
     matrices: List[Optional[str]] = [None] * total_token_count
     for idx, pos in enumerate(replayed_positions):
         start = idx * matrix_elem_size
         end = start + matrix_elem_size
-        if end > len(matrix_bytes):
-            logger.warning(
-                "R3 matrix data truncated at token %d (position %d): "
-                "expected %d bytes but only %d remaining",
-                idx, pos, matrix_elem_size, len(matrix_bytes) - start,
-            )
-            break
         matrices[pos] = base64.b64encode(matrix_bytes[start:end]).decode("ascii")
-
-    metadata: Dict[str, Any] = {
-        "routing_dtype": _ROUTING_DTYPE_NAMES.get(routing_dtype, str(routing_dtype)),
-        "selector_mode": _SELECTOR_MODE_NAMES.get(selector_mode, str(selector_mode)),
-        "total_token_count": total_token_count,
-        "replayed_token_count": replayed_token_count,
-        "replay_start_token": replay_start_token,
-    }
 
     return matrices, metadata
