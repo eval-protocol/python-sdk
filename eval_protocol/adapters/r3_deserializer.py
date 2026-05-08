@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 MAGIC = b"R3V1"
 HEADER_FORMAT = "<4sBBBBIIIIQ"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)  # 32 bytes
+BITS_PER_BYTE = 8
 
 
 class _SelectorMode(IntEnum):
@@ -85,8 +86,8 @@ def _read_bitmap_positions(
     """Return sorted token indices where the bitmap bit is set."""
     positions: List[int] = []
     for i in range(total_token_count):
-        byte_idx = i >> 3
-        bit_idx = i & 7
+        byte_idx = i // BITS_PER_BYTE
+        bit_idx = i % BITS_PER_BYTE
         if byte_idx < len(selector_bytes) and (selector_bytes[byte_idx] >> bit_idx) & 1:
             positions.append(i)
     return positions
