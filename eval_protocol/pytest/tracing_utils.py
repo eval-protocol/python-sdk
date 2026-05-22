@@ -103,8 +103,8 @@ def build_init_request(
     if not completion_params_dict.get("model"):
         raise ValueError("Model must be provided in completion_params")
 
-    # Extract base_url from completion_params
-    completion_params_base_url: Optional[str] = completion_params_dict.get("base_url")
+    # Extract base_url from completion_params (encoded into gateway path, not sent to OpenAI SDK)
+    completion_params_base_url: Optional[str] = completion_params_dict.pop("base_url", None)
 
     # Strip non-OpenAI fields from messages
     # Use dump_mdoel_for_chat_completion_request() to automatically exclude unsupported fields (weight, control_plane_step, reasoning_content)

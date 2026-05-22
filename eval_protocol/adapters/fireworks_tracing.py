@@ -116,6 +116,34 @@ def convert_trace_dict_to_evaluation_row(
                 except Exception as e:
                     logger.warning("Failed to decompress R3 payload for trace %s: %s", trace.get("id"), e)
 
+            logprobs_payload = payloads.get("logprobs")
+            if isinstance(logprobs_payload, dict) and logprobs_payload.get("data"):
+                try:
+                    from .lp_deserializer import decompress_and_parse_lp
+
+                    logprobs, token_ids, lp_meta = decompress_and_parse_lp(logprobs_payload["data"])
+                    if execution_metadata.extra is None:
+                        execution_metadata.extra = {}
+                    execution_metadata.extra["completion_logprobs"] = logprobs
+                    if token_ids is not None:
+                        execution_metadata.extra["completion_token_ids"] = token_ids
+                    execution_metadata.extra["logprobs_metadata"] = lp_meta
+
+                    for i in range(len(messages) - 1, -1, -1):
+                        if messages[i].role == "assistant":
+                            content_entries = [{"logprob": lp} for lp in logprobs]
+                            if token_ids is not None:
+                                for entry, tid in zip(content_entries, token_ids):
+                                    entry["token_id"] = tid
+                            messages[i].logprobs = {"content": content_entries}
+                            break
+                except Exception as e:
+                    logger.warning(
+                        "Failed to decompress logprobs payload for trace %s: %s",
+                        trace.get("id"),
+                        e,
+                    )
+
         return EvaluationRow(
             messages=messages,
             tools=tools,
