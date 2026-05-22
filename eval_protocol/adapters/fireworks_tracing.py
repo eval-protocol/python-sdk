@@ -16,6 +16,8 @@ import os
 
 from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, Message
 from .base import BaseAdapter
+from .lp_deserializer import decompress_and_parse_lp
+from .r3_deserializer import decompress_and_parse_r3
 from .utils import extract_messages_from_data
 from ..common_utils import get_user_agent
 
@@ -106,8 +108,6 @@ def convert_trace_dict_to_evaluation_row(
             router_replay = payloads.get("router_replay")
             if isinstance(router_replay, dict) and router_replay.get("data"):
                 try:
-                    from .r3_deserializer import decompress_and_parse_r3
-
                     matrices, r3_meta = decompress_and_parse_r3(router_replay["data"])
                     if execution_metadata.extra is None:
                         execution_metadata.extra = {}
@@ -119,8 +119,6 @@ def convert_trace_dict_to_evaluation_row(
             logprobs_payload = payloads.get("logprobs")
             if isinstance(logprobs_payload, dict) and logprobs_payload.get("data"):
                 try:
-                    from .lp_deserializer import decompress_and_parse_lp
-
                     logprobs, token_ids, lp_meta = decompress_and_parse_lp(logprobs_payload["data"])
                     if execution_metadata.extra is None:
                         execution_metadata.extra = {}
