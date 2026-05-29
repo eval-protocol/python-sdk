@@ -49,7 +49,8 @@ def _parse_header(raw: bytes) -> Dict[str, Any]:
     }
 
 
-def _parse_logprobs_raw(raw: bytes) -> Tuple[List[float], Optional[List[int]], Dict[str, Any]]:
+def parse_logprobs(raw: bytes) -> Tuple[List[float], Optional[List[int]], Dict[str, Any]]:
+    """Parse uncompressed LP/v1 bytes into logprobs, optional token ids, and metadata."""
     header = _parse_header(raw)
     token_count = header["token_count"]
     body_byte_length = header["body_byte_length"]
@@ -90,11 +91,6 @@ def _parse_logprobs_raw(raw: bytes) -> Tuple[List[float], Optional[List[int]], D
     return logprobs, ids_out, header
 
 
-def parse_logprobs(raw: bytes) -> Tuple[List[float], Optional[List[int]], Dict[str, Any]]:
-    """Parse uncompressed LP/v1 bytes into logprobs, optional token ids, and metadata."""
-    return _parse_logprobs_raw(raw)
-
-
 def decompress_and_parse_lp(data_b64: str) -> Tuple[List[float], Optional[List[int]], Dict[str, Any]]:
     """Decompress and unpack an LP/v1 payload into completion logprobs and token ids.
 
@@ -110,4 +106,4 @@ def decompress_and_parse_lp(data_b64: str) -> Tuple[List[float], Optional[List[i
     compressed = base64.b64decode(data_b64)
     decompressor = zstd.ZstdDecompressor()
     raw = decompressor.decompress(compressed)
-    return _parse_logprobs_raw(raw)
+    return parse_logprobs(raw)
