@@ -28,7 +28,55 @@ def default_fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDat
             include_payloads=config.include_payloads,
         )
 
-    return DynamicDataLoader(generators=[fetch_traces], preprocess_fn=filter_longest_conversation)
+    def preprocess_traces(rows: List[EvaluationRow]) -> List[EvaluationRow]:
+        filtered_rows = filter_longest_conversation(rows)
+        if config.include_payloads and filtered_rows:
+            _merge_payloads_into_longest_row(filtered_rows[0], rows)
+        return filtered_rows
+
+    return DynamicDataLoader(generators=[fetch_traces], preprocess_fn=preprocess_traces)
+
+
+def _merge_payloads_into_longest_row(longest_row: EvaluationRow, rows: List[EvaluationRow]) -> None:
+    """
+    Preserve per-turn payload-derived metadata after selecting the longest trace row.
+
+    Each trace row carries payloads for its final assistant turn. The longest row
+    keeps the full conversation, while its top-level execution metadata remains
+    the payload metadata for the final completion for backward compatibility.
+    """
+    target_assistants = longest_row.get_assistant_messages()
+    assistant_turn_payloads = []
+
+    for row in sorted(rows, key=lambda item: len(item.messages)):
+        source = row.last_assistant_message()
+        source_turn_index = len(row.get_assistant_messages()) - 1
+        if source_turn_index < 0 or source_turn_index >= len(target_assistants):
+            continue
+
+        if source and source.logprobs and not target_assistants[source_turn_index].logprobs:
+            target_assistants[source_turn_index].logprobs = source.logprobs
+
+        extra = row.execution_metadata.extra or {}
+        turn_payload = {
+            key: extra[key]
+            for key in (
+                "completion_logprobs",
+                "completion_token_ids",
+                "logprobs_metadata",
+                "routing_matrices",
+                "routing_metadata",
+            )
+            if key in extra
+        }
+        if turn_payload:
+            turn_payload["assistant_turn_index"] = source_turn_index
+            assistant_turn_payloads.append(turn_payload)
+
+    if assistant_turn_payloads:
+        if longest_row.execution_metadata.extra is None:
+            longest_row.execution_metadata.extra = {}
+        longest_row.execution_metadata.extra["assistant_turn_payloads"] = assistant_turn_payloads
 
 
 def build_fireworks_tracing_url(
