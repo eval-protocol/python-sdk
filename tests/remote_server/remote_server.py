@@ -55,8 +55,12 @@ def init(req: InitRequest):
                     md = {k: v for k, v in md.items() if v is not None}
                 messages_payload.append(md)
 
-            # Spread all completion_params (model, temperature, max_tokens, etc.)
-            completion_kwargs = {"messages": messages_payload, **req.completion_params}
+            # Spread completion_params; omit base_url (client uses req.model_base_url; gateway
+            # encodes inference base_url into the tracing path via build_init_request).
+            completion_kwargs = {
+                "messages": messages_payload,
+                **{k: v for k, v in req.completion_params.items() if k != "base_url"},
+            }
 
             if req.tools:
                 completion_kwargs["tools"] = req.tools
