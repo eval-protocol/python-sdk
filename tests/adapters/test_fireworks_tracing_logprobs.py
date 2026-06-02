@@ -71,7 +71,6 @@ class TestConvertTraceLogprobs:
 
         assistant = row.messages[-1]
         assert assistant.role == "assistant"
-        assert assistant.logprobs is not None
         content = assistant.logprobs["content"]
         assert len(content) == len(extra["completion_logprobs"])
         assert content[0]["token_id"] == 10
@@ -84,13 +83,10 @@ class TestConvertTraceLogprobs:
         assert row is not None
 
         extra = row.execution_metadata.extra
-        assert extra is not None
         assert "completion_logprobs" in extra
         assert "completion_token_ids" not in extra
 
-        logprobs = row.messages[-1].logprobs
-        assert logprobs is not None
-        content = logprobs["content"]
+        content = row.messages[-1].logprobs["content"]
         assert len(content) == 2
         assert all("token_id" not in entry for entry in content)
         assert content[0]["logprob"] == pytest.approx(-0.1)
