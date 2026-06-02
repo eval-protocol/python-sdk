@@ -6,7 +6,6 @@ from datetime import timedelta
 from pathlib import Path
 
 from runloop_api_client import RunloopSDK
-from runloop_api_client.types.blueprint_build_parameters import BuildContext
 
 
 DEFAULT_DOCKERFILE = """\
@@ -60,7 +59,7 @@ def main() -> None:
     blueprint = runloop.blueprint.create(
         name=args.name,
         dockerfile=DEFAULT_DOCKERFILE,
-        build_context=BuildContext(type="object", object_id=build_context.id),
+        build_context={"type": "object", "object_id": build_context.id},
     )
 
     print(f"export RUNLOOP_BLUEPRINT_ID={blueprint.id}")

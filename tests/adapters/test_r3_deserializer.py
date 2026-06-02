@@ -143,8 +143,9 @@ class TestDecompressAndParseR3:
         assert metadata["replayed_token_count"] == total_tokens
 
         for i in range(total_tokens):
-            assert matrices[i] is not None
-            decoded = base64.b64decode(matrices[i])
+            matrix = matrices[i]
+            assert matrix is not None
+            decoded = base64.b64decode(matrix)
             assert decoded == matrices_raw[i]
 
     def test_suffix_mode(self):
@@ -180,8 +181,9 @@ class TestDecompressAndParseR3:
         # Positions from start_token to start_token+replayed should have data
         for i in range(replayed):
             pos = start_token + i
-            assert matrices[pos] is not None
-            decoded = base64.b64decode(matrices[pos])
+            matrix = matrices[pos]
+            assert matrix is not None
+            decoded = base64.b64decode(matrix)
             assert decoded == matrices_raw[i]
 
     def test_bitmap_mode(self):
@@ -220,9 +222,10 @@ class TestDecompressAndParseR3:
 
         for i in range(total_tokens):
             if i in replayed_positions:
-                assert matrices[i] is not None
+                matrix = matrices[i]
+                assert matrix is not None
                 idx = replayed_positions.index(i)
-                decoded = base64.b64decode(matrices[i])
+                decoded = base64.b64decode(matrix)
                 assert decoded == matrices_raw[idx]
             else:
                 assert matrices[i] is None
@@ -249,7 +252,9 @@ class TestDecompressAndParseR3:
         assert metadata["routing_dtype"] == "uint16"
         assert len(matrices) == total_tokens
         for i in range(total_tokens):
-            decoded = base64.b64decode(matrices[i])
+            matrix = matrices[i]
+            assert matrix is not None
+            decoded = base64.b64decode(matrix)
             assert decoded == matrices_raw[i]
 
     def test_zero_replayed_tokens(self):
@@ -302,6 +307,7 @@ class TestDecompressAndParseR3:
         assert len(matrices) == total_tokens
         assert metadata["replayed_token_count"] == total_tokens
         for m in matrices:
+            assert m is not None
             assert base64.b64decode(m) == b"\x00" * matrix_elem_size
 
 

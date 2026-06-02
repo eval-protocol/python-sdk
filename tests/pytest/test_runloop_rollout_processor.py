@@ -1,6 +1,7 @@
 import asyncio
 from types import SimpleNamespace
 import urllib.error
+from email.message import Message
 
 import pytest
 
@@ -273,7 +274,9 @@ def test_startup_wait_retries_5xx_http_errors(monkeypatch):
     def _urlopen(request, timeout):
         calls.append((request.full_url, timeout))
         if len(calls) == 1:
-            raise urllib.error.HTTPError(request.full_url, 503, "Service Unavailable", hdrs=None, fp=None)
+            raise urllib.error.HTTPError(
+                request.full_url, 503, "Service Unavailable", hdrs=Message(), fp=None
+            )
         return ReadyResponse()
 
     monkeypatch.setattr(runloop_rollout_processor_module.urllib.request, "urlopen", _urlopen)
@@ -296,7 +299,7 @@ def test_startup_wait_accepts_non_5xx_http_errors(monkeypatch):
 
     def _urlopen(request, timeout):
         calls.append((request.full_url, timeout))
-        raise urllib.error.HTTPError(request.full_url, 404, "Not Found", hdrs=None, fp=None)
+        raise urllib.error.HTTPError(request.full_url, 404, "Not Found", hdrs=Message(), fp=None)
 
     monkeypatch.setattr(runloop_rollout_processor_module.urllib.request, "urlopen", _urlopen)
 
