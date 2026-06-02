@@ -19,6 +19,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "NoOpRolloutProcessor": (".default_no_op_rollout_processor", "NoOpRolloutProcessor"),
     "SingleTurnRolloutProcessor": (".default_single_turn_rollout_process", "SingleTurnRolloutProcessor"),
     "RemoteRolloutProcessor": (".remote_rollout_processor", "RemoteRolloutProcessor"),
+    "RunloopRolloutProcessor": (".runloop_rollout_processor", "RunloopRolloutProcessor"),
     "GithubActionRolloutProcessor": (".github_action_rollout_processor", "GithubActionRolloutProcessor"),
     "RolloutProcessor": (".rollout_processor", "RolloutProcessor"),
     # Dataset adapter
@@ -103,6 +104,7 @@ __all__ = [
     "RolloutProcessor",
     "SingleTurnRolloutProcessor",
     "RemoteRolloutProcessor",
+    "RunloopRolloutProcessor",
     "GithubActionRolloutProcessor",
     "NoOpRolloutProcessor",
     # Dataset
@@ -133,6 +135,7 @@ if TYPE_CHECKING:
     from .default_no_op_rollout_processor import NoOpRolloutProcessor as NoOpRolloutProcessor
     from .default_single_turn_rollout_process import SingleTurnRolloutProcessor as SingleTurnRolloutProcessor
     from .remote_rollout_processor import RemoteRolloutProcessor as RemoteRolloutProcessor
+    from .runloop_rollout_processor import RunloopRolloutProcessor as RunloopRolloutProcessor
     from .github_action_rollout_processor import GithubActionRolloutProcessor as GithubActionRolloutProcessor
     from .evaluation_test import evaluation_test as evaluation_test
     from .exception_config import (
