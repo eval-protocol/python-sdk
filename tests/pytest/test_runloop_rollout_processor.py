@@ -1,5 +1,6 @@
 import asyncio
 from types import SimpleNamespace
+import urllib.error
 
 import pytest
 
@@ -209,6 +210,99 @@ def test_setup_reports_missing_runloop_dependency(monkeypatch):
 
     with pytest.raises(ImportError, match="eval-protocol\\[runloop\\]"):
         processor.setup()
+
+
+def test_setup_cleans_up_owned_devbox_after_startup_failure(fake_runloop, monkeypatch):
+    processor = RunloopRolloutProcessor(
+        blueprint_id="bp-123",
+        server_command="python server.py",
+        startup_timeout_seconds=0,
+    )
+
+    def _fail_startup():
+        raise TimeoutError("server did not start")
+
+    monkeypatch.setattr(processor, "_wait_for_server_startup", _fail_startup)
+
+    with pytest.raises(TimeoutError, match="server did not start"):
+        processor.setup()
+
+    assert fake_runloop.shutdown_calls == ["devbox-created"]
+    assert processor.remote_base_url is None
+    assert FakeRemoteRolloutProcessor.instances == []
+
+
+def test_setup_does_not_shutdown_existing_devbox_after_startup_failure(fake_runloop, monkeypatch):
+    processor = RunloopRolloutProcessor(
+        devbox_id="devbox-existing",
+        server_command="python server.py",
+        startup_timeout_seconds=0,
+    )
+
+    def _fail_startup():
+        raise TimeoutError("server did not start")
+
+    monkeypatch.setattr(processor, "_wait_for_server_startup", _fail_startup)
+
+    with pytest.raises(TimeoutError, match="server did not start"):
+        processor.setup()
+
+    assert fake_runloop.shutdown_calls == []
+
+
+def test_startup_wait_retries_5xx_http_errors(monkeypatch):
+    processor = RunloopRolloutProcessor(
+        devbox_id="devbox-existing",
+        server_command="python server.py",
+        startup_timeout_seconds=5,
+    )
+    processor._remote_base_url = "https://8000-test-tunnel-key.tunnel.runloop.ai"
+
+    calls = []
+
+    class ReadyResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+        def read(self, size):
+            return b"o"
+
+    def _urlopen(request, timeout):
+        calls.append((request.full_url, timeout))
+        if len(calls) == 1:
+            raise urllib.error.HTTPError(request.full_url, 503, "Service Unavailable", hdrs=None, fp=None)
+        return ReadyResponse()
+
+    monkeypatch.setattr(runloop_rollout_processor_module.urllib.request, "urlopen", _urlopen)
+    monkeypatch.setattr(runloop_rollout_processor_module.time, "sleep", lambda seconds: None)
+
+    processor._wait_for_server_startup()
+
+    assert len(calls) == 2
+
+
+def test_startup_wait_accepts_non_5xx_http_errors(monkeypatch):
+    processor = RunloopRolloutProcessor(
+        devbox_id="devbox-existing",
+        server_command="python server.py",
+        startup_timeout_seconds=5,
+    )
+    processor._remote_base_url = "https://8000-test-tunnel-key.tunnel.runloop.ai"
+
+    calls = []
+
+    def _urlopen(request, timeout):
+        calls.append((request.full_url, timeout))
+        raise urllib.error.HTTPError(request.full_url, 404, "Not Found", hdrs=None, fp=None)
+
+    monkeypatch.setattr(runloop_rollout_processor_module.urllib.request, "urlopen", _urlopen)
+
+    processor._wait_for_server_startup()
+
+    assert len(calls) == 1
 
 
 @pytest.mark.asyncio

@@ -99,28 +99,34 @@ class RunloopRolloutProcessor(RolloutProcessor):
             )
 
         RunloopSDK = _load_runloop_sdk()
-        self._client = RunloopSDK(bearer_token=api_key)
+        client: Any = RunloopSDK(bearer_token=api_key)
+        self._client = client
 
-        if self._devbox_id:
-            self._devbox = self._client.devbox.from_id(self._devbox_id)
-            self._owns_devbox = False
-        else:
-            assert self._blueprint_id is not None
-            self._devbox = self._client.devbox.create_from_blueprint_id(self._blueprint_id)
-            self._owns_devbox = True
+        try:
+            if self._devbox_id:
+                devbox = client.devbox.from_id(self._devbox_id)
+                self._owns_devbox = False
+            else:
+                assert self._blueprint_id is not None
+                devbox = client.devbox.create_from_blueprint_id(self._blueprint_id)
+                self._owns_devbox = True
 
-        self._await_running()
-        tunnel = self._create_tunnel()
-        self._remote_base_url = self._derive_remote_base_url(tunnel)
-        self._server_execution = self._devbox.cmd.exec_async(self._server_command)
-        self._wait_for_server_startup()
-        self._remote_processor = RemoteRolloutProcessor(
-            remote_base_url=self._remote_base_url,
-            model_base_url=self._model_base_url,
-            poll_interval=self._poll_interval,
-            timeout_seconds=self._timeout_seconds,
-            include_payloads=self._include_payloads,
-        )
+            self._devbox = devbox
+            self._await_running()
+            tunnel = self._create_tunnel()
+            self._remote_base_url = self._derive_remote_base_url(tunnel)
+            self._server_execution = devbox.cmd.exec_async(self._server_command)
+            self._wait_for_server_startup()
+            self._remote_processor = RemoteRolloutProcessor(
+                remote_base_url=self._remote_base_url,
+                model_base_url=self._model_base_url,
+                poll_interval=self._poll_interval,
+                timeout_seconds=self._timeout_seconds,
+                include_payloads=self._include_payloads,
+            )
+        except Exception:
+            self._cleanup_partial_setup()
+            raise
 
     def __call__(self, rows: list[EvaluationRow], config: RolloutProcessorConfig) -> list[asyncio.Task[EvaluationRow]]:
         if self._remote_processor is None:
@@ -149,6 +155,7 @@ class RunloopRolloutProcessor(RolloutProcessor):
         await_running()
 
     def _create_tunnel(self) -> Any:
+        assert self._devbox is not None
         net = self._devbox.net
         create_tunnel = getattr(net, "create_tunnel", None)
         if create_tunnel is not None:
@@ -190,8 +197,11 @@ class RunloopRolloutProcessor(RolloutProcessor):
                 with urllib.request.urlopen(request, timeout=min(5.0, self._startup_timeout_seconds)) as response:
                     response.read(1)
                     return
-            except urllib.error.HTTPError:
-                return
+            except urllib.error.HTTPError as exc:
+                if exc.code < 500:
+                    return
+                last_error = exc
+                time.sleep(min(1.0, max(0.0, deadline - time.monotonic())))
             except Exception as exc:
                 last_error = exc
                 time.sleep(min(1.0, max(0.0, deadline - time.monotonic())))
@@ -214,3 +224,15 @@ class RunloopRolloutProcessor(RolloutProcessor):
             return
         self._devbox.shutdown()
         self._shutdown_complete = True
+
+    def _cleanup_partial_setup(self) -> None:
+        if self._remote_processor is not None:
+            self._remote_processor.cleanup()
+            self._remote_processor = None
+        if self._should_shutdown_devbox():
+            self._shutdown_devbox()
+        self._devbox = None
+        self._server_execution = None
+        self._remote_base_url = None
+        self._owns_devbox = False
+        self._shutdown_complete = False
