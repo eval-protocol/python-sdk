@@ -63,6 +63,8 @@ def _merge_payloads_into_longest_row(longest_row: EvaluationRow, rows: List[Eval
             for key in (
                 "completion_logprobs",
                 "completion_token_ids",
+                "prompt_token_ids",
+                "prompt_token_ids_metadata",
                 "logprobs_metadata",
                 "routing_matrices",
                 "routing_metadata",

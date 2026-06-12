@@ -13,6 +13,7 @@ def test_merge_payloads_into_longest_row_preserves_each_assistant_turn():
         execution_metadata=ExecutionMetadata(
             extra={
                 "completion_logprobs": [-0.1, -0.2],
+                "prompt_token_ids": [101, 102],
                 "routing_matrices": ["first-matrix"],
                 "routing_metadata": {"total_token_count": 1},
             },
@@ -28,6 +29,7 @@ def test_merge_payloads_into_longest_row_preserves_each_assistant_turn():
         execution_metadata=ExecutionMetadata(
             extra={
                 "completion_logprobs": [-0.3],
+                "prompt_token_ids": [101, 102, 103, 104],
                 "routing_matrices": ["second-matrix"],
                 "routing_metadata": {"total_token_count": 1},
             },
@@ -45,12 +47,14 @@ def test_merge_payloads_into_longest_row_preserves_each_assistant_turn():
         {
             "assistant_turn_index": 0,
             "completion_logprobs": [-0.1, -0.2],
+            "prompt_token_ids": [101, 102],
             "routing_matrices": ["first-matrix"],
             "routing_metadata": {"total_token_count": 1},
         },
         {
             "assistant_turn_index": 1,
             "completion_logprobs": [-0.3],
+            "prompt_token_ids": [101, 102, 103, 104],
             "routing_matrices": ["second-matrix"],
             "routing_metadata": {"total_token_count": 1},
         },

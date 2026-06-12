@@ -17,6 +17,7 @@ import os
 from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, Message
 from .base import BaseAdapter
 from .lp_deserializer import decompress_and_parse_lp
+from .pti_deserializer import decompress_and_parse_pti
 from .r3_deserializer import decompress_and_parse_r3
 from .utils import extract_messages_from_data
 from ..common_utils import get_user_agent
@@ -138,6 +139,21 @@ def convert_trace_dict_to_evaluation_row(
                 except Exception as e:
                     logger.warning(
                         "Failed to decompress logprobs payload for trace %s: %s",
+                        trace.get("id"),
+                        e,
+                    )
+
+            prompt_ids_payload = payloads.get("prompt_token_ids")
+            if isinstance(prompt_ids_payload, dict) and prompt_ids_payload.get("data"):
+                try:
+                    prompt_token_ids, pti_meta = decompress_and_parse_pti(prompt_ids_payload["data"])
+                    if execution_metadata.extra is None:
+                        execution_metadata.extra = {}
+                    execution_metadata.extra["prompt_token_ids"] = prompt_token_ids
+                    execution_metadata.extra["prompt_token_ids_metadata"] = pti_meta
+                except Exception as e:
+                    logger.warning(
+                        "Failed to decompress prompt token IDs payload for trace %s: %s",
                         trace.get("id"),
                         e,
                     )
