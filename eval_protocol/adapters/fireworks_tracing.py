@@ -101,10 +101,7 @@ def convert_trace_dict_to_evaluation_row(
                 ):
                     break  # Break early if we've found all the metadata we need
 
-        # Decode out-of-band gateway payloads (router replay, logprobs, prompt
-        # token ids) via the standalone tracing decoder registry, then map the
-        # decoded values onto the row. Format/decoding lives in
-        # ``eval_protocol.tracing``; this adapter only does EvaluationRow glue.
+        # Decoding lives in eval_protocol.tracing; here we only map results onto the row.
         payloads = trace.get("payloads")
         if isinstance(payloads, dict):
             decoded = decode_payloads(
