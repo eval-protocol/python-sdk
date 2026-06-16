@@ -78,7 +78,7 @@ def test_decode_payloads_all_types():
 
     lp = decoded[PayloadType.LOGPROBS]
     assert lp.value == [-0.25, -0.5]
-    assert lp.extras["token_ids"] == [7, 8]
+    assert lp.token_ids == [7, 8]
 
     r3 = decoded[PayloadType.ROUTER_REPLAY]
     assert len(r3.value) == 2

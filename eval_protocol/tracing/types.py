@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 
 class PayloadType(str, Enum):
@@ -29,7 +29,7 @@ class DecodedPayload:
     ``value`` shape depends on ``payload_type``:
       - ``PROMPT_TOKEN_IDS`` -> ``List[int]``
       - ``LOGPROBS``         -> ``List[float]`` (per completion token); the
-        optional per-token ids are in ``extras["token_ids"]``
+        optional per-token ids are in ``token_ids``
       - ``ROUTER_REPLAY``    -> ``List[Optional[str]]`` (per-token base64 routing
         matrices, ``None`` where absent)
     """
@@ -37,4 +37,5 @@ class DecodedPayload:
     payload_type: PayloadType
     value: Any
     metadata: Dict[str, Any]
-    extras: Dict[str, Any] = field(default_factory=dict)
+    # LOGPROBS only: per-completion-token ids, or None if any were missing.
+    token_ids: Optional[List[int]] = None

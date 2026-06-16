@@ -51,7 +51,7 @@ if PayloadType.PROMPT_TOKEN_IDS in decoded:
 if PayloadType.LOGPROBS in decoded:
     lp = decoded[PayloadType.LOGPROBS]
     logprobs = lp.value                                          # List[float]
-    token_ids = lp.extras.get("token_ids")                      # Optional[List[int]]
+    token_ids = lp.token_ids                                     # Optional[List[int]]
 
 if PayloadType.ROUTER_REPLAY in decoded:
     matrices = decoded[PayloadType.ROUTER_REPLAY].value          # List[Optional[str]]
@@ -90,14 +90,14 @@ decode_payloads(payloads, on_error=lambda pt, e: print(f"{pt} failed: {e}"))
 | `payload_type` | `PayloadType` enum member                                         |
 | `value`        | decoded value (type depends on `payload_type`, see below)         |
 | `metadata`     | decoded header/manifest metadata (token counts, scope, etc.)      |
-| `extras`       | type-specific extras (e.g. logprobs `token_ids`)                  |
+| `token_ids`    | `Optional[List[int]]` — LOGPROBS per-token ids (else `None`)      |
 
 `value` by type:
 
 | `PayloadType`       | `value`                  | notes                                        |
 |---------------------|--------------------------|----------------------------------------------|
 | `PROMPT_TOKEN_IDS`  | `List[int]`              | prompt token ids                             |
-| `LOGPROBS`          | `List[float]`            | per completion token; ids in `extras["token_ids"]` (or `None`) |
+| `LOGPROBS`          | `List[float]`            | per completion token; ids in `token_ids` (or `None`) |
 | `ROUTER_REPLAY`     | `List[Optional[str]]`    | per-token base64 routing matrices; `None` where absent |
 
 ## Adding a new payload type

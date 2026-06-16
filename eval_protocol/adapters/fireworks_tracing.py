@@ -119,7 +119,7 @@ def convert_trace_dict_to_evaluation_row(
 
             if (dp := decoded.get(PayloadType.LOGPROBS)) is not None:
                 logprobs = dp.value
-                token_ids = dp.extras.get("token_ids")
+                token_ids = dp.token_ids
                 execution_metadata.extra["completion_logprobs"] = logprobs
                 if token_ids is not None:
                     execution_metadata.extra["completion_token_ids"] = token_ids
