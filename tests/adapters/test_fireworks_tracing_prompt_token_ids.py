@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import base64
-import struct
+import json
 
 import pytest
 import zstandard as zstd
@@ -11,39 +11,21 @@ import zstandard as zstd
 pytest.importorskip("mcp")
 
 from eval_protocol.adapters.fireworks_tracing import convert_trace_dict_to_evaluation_row
-from eval_protocol.adapters.pti_deserializer import (
-    ENTRY_FORMAT,
-    ENTRY_SIZE,
-    HEADER_FORMAT,
-    MAGIC,
-    decompress_and_parse_pti,
-)
+from eval_protocol.tracing.prompt_token_ids import decode_prompt_token_ids
 
 
 def _pti_b64(token_ids: list[int]) -> str:
-    token_count = len(token_ids)
-    body_byte_length = token_count * ENTRY_SIZE
-    header = struct.pack(
-        HEADER_FORMAT,
-        MAGIC,
-        1,
-        0,
-        0,
-        token_count,
-        body_byte_length,
-        0,
-    )
-    body = b"".join(struct.pack(ENTRY_FORMAT, token_id) for token_id in token_ids)
-    compressed = zstd.ZstdCompressor().compress(header + body)
-    return base64.b64encode(compressed).decode("ascii")
+    """Build a gateway pti/v1 payload: base64(zstd(json int array))."""
+    raw = json.dumps(token_ids).encode("utf-8")
+    return base64.b64encode(zstd.ZstdCompressor().compress(raw)).decode("ascii")
 
 
-def test_decompress_and_parse_pti_round_trip():
-    token_ids, metadata = decompress_and_parse_pti(_pti_b64([101, 102, 103]))
+def test_decode_prompt_token_ids_round_trip():
+    decoded = decode_prompt_token_ids(_pti_b64([101, 102, 103]))
 
-    assert token_ids == [101, 102, 103]
-    assert metadata["scope"] == "prompt_only"
-    assert metadata["token_count"] == 3
+    assert decoded.value == [101, 102, 103]
+    assert decoded.metadata["scope"] == "prompt_only"
+    assert decoded.metadata["token_count"] == 3
 
 
 def test_trace_adapter_attaches_prompt_token_ids_metadata():

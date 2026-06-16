@@ -11,7 +11,7 @@ import zstandard as zstd
 pytest.importorskip("mcp")
 
 from eval_protocol.adapters.fireworks_tracing import convert_trace_dict_to_evaluation_row
-from eval_protocol.adapters.lp_deserializer import (
+from eval_protocol.tracing.logprobs import (
     ENTRY_FORMAT,
     ENTRY_SIZE,
     HEADER_FORMAT,

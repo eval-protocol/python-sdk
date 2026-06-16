@@ -10,7 +10,7 @@ from typing import List, Optional
 import pytest
 import zstandard as zstd
 
-from eval_protocol.adapters.r3_deserializer import (
+from eval_protocol.tracing.router_replay import (
     HEADER_FORMAT,
     HEADER_SIZE,
     MAGIC,

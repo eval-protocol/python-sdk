@@ -20,6 +20,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import zstandard as zstd
 
+from .types import DecodedPayload, PayloadType
+
 MAGIC = b"R3V1"
 HEADER_FORMAT = "<4sBBBBIIIIQ"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)  # 32 bytes
@@ -185,3 +187,16 @@ def decompress_and_parse_r3(
         matrices[pos] = base64.b64encode(matrix_bytes[start:end]).decode("ascii")
 
     return matrices, metadata
+
+
+def decode_router_replay(data_b64: str) -> DecodedPayload:
+    """Decode a gateway ``payloads.router_replay.data`` blob into a ``DecodedPayload``.
+
+    ``value`` is the per-token ``List[Optional[str]]`` of base64 routing matrices.
+    """
+    matrices, metadata = decompress_and_parse_r3(data_b64)
+    return DecodedPayload(
+        payload_type=PayloadType.ROUTER_REPLAY,
+        value=matrices,
+        metadata=metadata,
+    )

@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import zstandard as zstd
 
+from .types import DecodedPayload, PayloadType
+
 MAGIC = b"LP01"
 HEADER_VERSION = 1
 MISSING_TOKEN_ID = -1
@@ -107,3 +109,18 @@ def decompress_and_parse_lp(data_b64: str) -> Tuple[List[float], Optional[List[i
     decompressor = zstd.ZstdDecompressor()
     raw = decompressor.decompress(compressed)
     return parse_logprobs(raw)
+
+
+def decode_logprobs(data_b64: str) -> DecodedPayload:
+    """Decode a gateway ``payloads.logprobs.data`` blob into a ``DecodedPayload``.
+
+    ``value`` is the per-completion-token logprob list; per-token ids (when all
+    valid) are available under ``extras["token_ids"]``.
+    """
+    logprobs, token_ids, metadata = decompress_and_parse_lp(data_b64)
+    return DecodedPayload(
+        payload_type=PayloadType.LOGPROBS,
+        value=logprobs,
+        metadata=metadata,
+        extras={"token_ids": token_ids},
+    )

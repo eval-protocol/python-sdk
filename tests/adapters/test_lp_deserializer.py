@@ -8,7 +8,7 @@ import struct
 import pytest
 import zstandard as zstd
 
-from eval_protocol.adapters.lp_deserializer import (
+from eval_protocol.tracing.logprobs import (
     ENTRY_FORMAT,
     ENTRY_SIZE,
     HEADER_FORMAT,

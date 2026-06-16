@@ -15,10 +15,8 @@ from typing import Any, Dict, List, Optional, Protocol
 import os
 
 from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, Message
+from eval_protocol.tracing import PayloadType, decode_payloads
 from .base import BaseAdapter
-from .lp_deserializer import decompress_and_parse_lp
-from .pti_deserializer import decompress_and_parse_pti
-from .r3_deserializer import decompress_and_parse_r3
 from .utils import extract_messages_from_data
 from ..common_utils import get_user_agent
 
@@ -103,60 +101,45 @@ def convert_trace_dict_to_evaluation_row(
                 ):
                     break  # Break early if we've found all the metadata we need
 
-        # Extract router replay payloads when present
+        # Decode out-of-band gateway payloads (router replay, logprobs, prompt
+        # token ids) via the standalone tracing decoder registry, then map the
+        # decoded values onto the row. Format/decoding lives in
+        # ``eval_protocol.tracing``; this adapter only does EvaluationRow glue.
         payloads = trace.get("payloads")
         if isinstance(payloads, dict):
-            router_replay = payloads.get("router_replay")
-            if isinstance(router_replay, dict) and router_replay.get("data"):
-                try:
-                    matrices, r3_meta = decompress_and_parse_r3(router_replay["data"])
-                    if execution_metadata.extra is None:
-                        execution_metadata.extra = {}
-                    execution_metadata.extra["routing_matrices"] = matrices
-                    execution_metadata.extra["routing_metadata"] = r3_meta
-                except Exception as e:
-                    logger.warning("Failed to decompress R3 payload for trace %s: %s", trace.get("id"), e)
+            decoded = decode_payloads(
+                payloads,
+                on_error=lambda pt, e: logger.warning(
+                    "Failed to decode %s payload for trace %s: %s", pt.value, trace.get("id"), e
+                ),
+            )
+            if decoded and execution_metadata.extra is None:
+                execution_metadata.extra = {}
 
-            logprobs_payload = payloads.get("logprobs")
-            if isinstance(logprobs_payload, dict) and logprobs_payload.get("data"):
-                try:
-                    logprobs, token_ids, lp_meta = decompress_and_parse_lp(logprobs_payload["data"])
-                    if execution_metadata.extra is None:
-                        execution_metadata.extra = {}
-                    execution_metadata.extra["completion_logprobs"] = logprobs
-                    if token_ids is not None:
-                        execution_metadata.extra["completion_token_ids"] = token_ids
-                    execution_metadata.extra["logprobs_metadata"] = lp_meta
+            if (dp := decoded.get(PayloadType.ROUTER_REPLAY)) is not None:
+                execution_metadata.extra["routing_matrices"] = dp.value
+                execution_metadata.extra["routing_metadata"] = dp.metadata
 
-                    for i in range(len(messages) - 1, -1, -1):
-                        if messages[i].role == "assistant":
-                            content_entries = [{"logprob": lp} for lp in logprobs]
-                            if token_ids is not None:
-                                for entry, tid in zip(content_entries, token_ids):
-                                    entry["token_id"] = tid
-                            messages[i].logprobs = {"content": content_entries}
-                            break
-                except Exception as e:
-                    logger.warning(
-                        "Failed to decompress logprobs payload for trace %s: %s",
-                        trace.get("id"),
-                        e,
-                    )
+            if (dp := decoded.get(PayloadType.LOGPROBS)) is not None:
+                logprobs = dp.value
+                token_ids = dp.extras.get("token_ids")
+                execution_metadata.extra["completion_logprobs"] = logprobs
+                if token_ids is not None:
+                    execution_metadata.extra["completion_token_ids"] = token_ids
+                execution_metadata.extra["logprobs_metadata"] = dp.metadata
 
-            prompt_ids_payload = payloads.get("prompt_token_ids")
-            if isinstance(prompt_ids_payload, dict) and prompt_ids_payload.get("data"):
-                try:
-                    prompt_token_ids, pti_meta = decompress_and_parse_pti(prompt_ids_payload["data"])
-                    if execution_metadata.extra is None:
-                        execution_metadata.extra = {}
-                    execution_metadata.extra["prompt_token_ids"] = prompt_token_ids
-                    execution_metadata.extra["prompt_token_ids_metadata"] = pti_meta
-                except Exception as e:
-                    logger.warning(
-                        "Failed to decompress prompt token IDs payload for trace %s: %s",
-                        trace.get("id"),
-                        e,
-                    )
+                for i in range(len(messages) - 1, -1, -1):
+                    if messages[i].role == "assistant":
+                        content_entries = [{"logprob": lp} for lp in logprobs]
+                        if token_ids is not None:
+                            for entry, tid in zip(content_entries, token_ids):
+                                entry["token_id"] = tid
+                        messages[i].logprobs = {"content": content_entries}
+                        break
+
+            if (dp := decoded.get(PayloadType.PROMPT_TOKEN_IDS)) is not None:
+                execution_metadata.extra["prompt_token_ids"] = dp.value
+                execution_metadata.extra["prompt_token_ids_metadata"] = dp.metadata
 
         return EvaluationRow(
             messages=messages,
