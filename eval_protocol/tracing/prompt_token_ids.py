@@ -7,10 +7,12 @@ JSON int array, no bespoke binary header.
 
 from __future__ import annotations
 
+import base64
 import json
 from typing import Any, Dict, List, Tuple
 
-from ._decompress import decompress_b64
+import zstandard as zstd
+
 from .types import DecodedPayload, PayloadType
 
 
@@ -23,7 +25,8 @@ def parse_prompt_token_ids(raw: bytes) -> Tuple[List[int], Dict[str, Any]]:
 
 def decode_prompt_token_ids(data_b64: str) -> DecodedPayload:
     """Decode a gateway ``payloads.prompt_token_ids.data`` blob."""
-    token_ids, metadata = parse_prompt_token_ids(decompress_b64(data_b64))
+    raw = zstd.ZstdDecompressor().decompress(base64.b64decode(data_b64))
+    token_ids, metadata = parse_prompt_token_ids(raw)
     return DecodedPayload(
         payload_type=PayloadType.PROMPT_TOKEN_IDS,
         value=token_ids,
