@@ -184,7 +184,7 @@ def test_reads_ids_and_sampling_logprobs_from_content(monkeypatch):
     result = asyncio.run(client.create_completion_from_prompt_ids(prompt_token_ids=[1, 2]))
     assert "return_token_ids" not in captured
     assert result["completion_ids"] == [271, 248068, 26108]
-    assert result["completion_logprobs"] == [-0.05483185, -0.0014, -1.0]
+    assert result["completion_logprobs"] == pytest.approx([-0.05483185, -0.0014, -1.0])
     assert len(result["completion_ids"]) == len(result["completion_logprobs"])
     asyncio.run(client.close())
 
