@@ -174,7 +174,7 @@ def test_reads_ids_and_sampling_logprobs_from_content(monkeypatch):
                         "content": [
                             {"token_id": 271, "sampling_logprob": -0.05483185, "logprob": -0.0548313},
                             {"token_id": 248068, "sampling_logprob": -0.0014, "logprob": -0.0014},
-                            {"token_id": 26108, "logprob": -1.0},
+                            {"token_id": 26108, "sampling_logprob": -1.0, "logprob": -0.99},
                         ]
                     },
                 }
@@ -186,6 +186,34 @@ def test_reads_ids_and_sampling_logprobs_from_content(monkeypatch):
     assert result["completion_ids"] == [271, 248068, 26108]
     assert result["completion_logprobs"] == [-0.05483185, -0.0014, -1.0]
     assert len(result["completion_ids"]) == len(result["completion_logprobs"])
+    asyncio.run(client.close())
+
+
+def test_raises_when_content_entry_missing_sampling_logprob(monkeypatch):
+    client = FireworksV1CompletionsClient(
+        model_id="test-model",
+        tokenizer_name_or_path="Qwen/Qwen3-0.6B",
+    )
+    monkeypatch.setattr(client, "decode_token_ids", lambda token_ids: "text")
+    _install_fake_completion(
+        client,
+        monkeypatch,
+        {
+            "choices": [
+                {
+                    "finish_reason": "stop",
+                    "logprobs": {
+                        "content": [
+                            {"token_id": 1, "sampling_logprob": -0.1},
+                            {"token_id": 2, "logprob": -0.2},
+                        ]
+                    },
+                }
+            ],
+        },
+    )
+    with pytest.raises(RuntimeError, match="missing .*sampling_logprob"):
+        asyncio.run(client.create_completion_from_prompt_ids(prompt_token_ids=[1]))
     asyncio.run(client.close())
 
 

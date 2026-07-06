@@ -83,19 +83,6 @@ def _normalize_token_id_sequence(values: Any) -> List[int]:
     return [int(x) for x in list(values)]
 
 
-def _extract_entry_logprob(entry: Dict[str, Any]) -> float:
-    """Return the per-token logprob from a ``content[]`` logprobs entry.
-
-    Prefer ``sampling_logprob`` (the exact, full-precision value the sampler
-    actually drew with) over ``logprob`` (a rounded/verification value). The
-    sampler value is what RL training needs for accurate inference KLD.
-    """
-    value = entry.get("sampling_logprob")
-    if value is None:
-        value = entry.get("logprob", 0.0)
-    return float(value) if value is not None else 0.0
-
-
 def _coerce_message_content_to_text(content: Any) -> str:
     if content is None:
         return ""
@@ -437,8 +424,15 @@ class FireworksV1CompletionsClient:
                     f"at index {index}; cannot align per-token logprobs to token ids "
                     "without re-encoding. Refusing to return corrupted data."
                 )
+            if entry.get("sampling_logprob") is None:
+                raise RuntimeError(
+                    "Fireworks /v1/completions content[] entry is missing "
+                    f"sampling_logprob at index {index}. The sampling logprob is the "
+                    "exact value the sampler drew with and is required for correct "
+                    "inference KLD; refusing to substitute the rounded logprob or 0.0."
+                )
             completion_token_ids.append(int(entry["token_id"]))
-            completion_logprobs.append(_extract_entry_logprob(entry))
+            completion_logprobs.append(float(entry["sampling_logprob"]))
 
         completion_text = self.decode_token_ids(token_ids=completion_token_ids)
         if not completion_text:
