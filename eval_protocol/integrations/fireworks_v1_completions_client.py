@@ -83,6 +83,19 @@ def _normalize_token_id_sequence(values: Any) -> List[int]:
     return [int(x) for x in list(values)]
 
 
+def _extract_entry_logprob(entry: Dict[str, Any]) -> float:
+    """Return the per-token logprob from a ``content[]`` logprobs entry.
+
+    Prefer ``sampling_logprob`` (the exact, full-precision value the sampler
+    actually drew with) over ``logprob`` (a rounded/verification value). The
+    sampler value is what RL training needs for accurate inference KLD.
+    """
+    value = entry.get("sampling_logprob")
+    if value is None:
+        value = entry.get("logprob", 0.0)
+    return float(value) if value is not None else 0.0
+
+
 def _coerce_message_content_to_text(content: Any) -> str:
     if content is None:
         return ""
@@ -358,12 +371,6 @@ class FireworksV1CompletionsClient:
         }
         if not self.logprobs:
             request_payload.pop("logprobs", None)
-        # Always request the exact generated token ids so downstream RL training
-        # can align per-token logprobs to token ids position-by-position.
-        # Re-encoding decoded text drops the trailing end-of-turn/EOS token and
-        # misaligns logprobs, corrupting inference KLD. Keep overridable via
-        # request_params, but default the flag on.
-        request_payload.setdefault("return_token_ids", True)
 
         max_retries = 40
         base_delay = 10.0
@@ -399,51 +406,43 @@ class FireworksV1CompletionsClient:
         finish_reason = str(choice.get("finish_reason") or "unknown")
 
         raw_output = choice.get("raw_output") if isinstance(choice.get("raw_output"), dict) else {}
-        completion_token_ids = _normalize_token_id_sequence(
-            choice.get("token_ids") or raw_output.get("completion_token_ids") or []
-        )
-        if not completion_token_ids:
-            raise RuntimeError(
-                "Fireworks /v1/completions returned no exact completion token IDs "
-                "(choices[].token_ids and raw_output.completion_token_ids both empty) "
-                "even though return_token_ids=True was requested. "
-                "Refusing to re-encode decoded text: retokenization drops the "
-                "end-of-turn token and misaligns per-token logprobs, corrupting "
-                f"inference KLD. choice keys={list(choice.keys())}"
-            )
         choice_prompt_token_ids = _normalize_token_id_sequence(
             choice.get("prompt_token_ids") or raw_output.get("prompt_token_ids") or normalized_prompt_token_ids
         )
 
+        # -- Extract per-token ids and logprobs together --------------------
+        # Both come from the same ``content[]`` array entry-by-entry, so they are
+        # inherently the same length and aligned. Reading ids from a different
+        # source (top-level token_ids) and re-encoding decoded text when it is
+        # absent drops the trailing end-of-turn token and misaligns per-token
+        # logprobs, corrupting inference KLD — so we never do that.
+        choice_logprobs = choice.get("logprobs")
+        content_entries = choice_logprobs.get("content") if isinstance(choice_logprobs, dict) else None
+        if not content_entries:
+            raise RuntimeError(
+                "Fireworks /v1/completions returned no content[] logprobs entries. "
+                "This client requires the boolean logprobs=True (content) shape to "
+                "recover exact per-token ids and sampling logprobs. Refusing to "
+                "re-encode decoded text: retokenization drops the end-of-turn token "
+                "and misaligns per-token logprobs, corrupting inference KLD. "
+                f"choice keys={list(choice.keys())}"
+            )
+
+        completion_token_ids: List[int] = []
+        completion_logprobs: List[float] = []
+        for index, entry in enumerate(content_entries):
+            if not isinstance(entry, dict) or entry.get("token_id") is None:
+                raise RuntimeError(
+                    "Fireworks /v1/completions content[] entry is missing token_id "
+                    f"at index {index}; cannot align per-token logprobs to token ids "
+                    "without re-encoding. Refusing to return corrupted data."
+                )
+            completion_token_ids.append(int(entry["token_id"]))
+            completion_logprobs.append(_extract_entry_logprob(entry))
+
         completion_text = self.decode_token_ids(token_ids=completion_token_ids)
         if not completion_text:
             completion_text = str(choice.get("text") or "")
-
-        # -- Extract logprobs -----------------------------------------------
-        completion_logprobs: List[float] = []
-        choice_logprobs = choice.get("logprobs")
-        if isinstance(choice_logprobs, dict):
-            token_logprobs = choice_logprobs.get("token_logprobs") or []
-            if token_logprobs:
-                completion_logprobs = [float(lp) if lp is not None else 0.0 for lp in token_logprobs]
-            else:
-                content_logprobs = choice_logprobs.get("content") or []
-                completion_logprobs = [
-                    float(entry.get("logprob", 0.0)) if isinstance(entry, dict) else 0.0
-                    for entry in content_logprobs
-                ]
-        elif isinstance(choice_logprobs, list):
-            completion_logprobs = [float(lp) if lp is not None else 0.0 for lp in choice_logprobs]
-
-        # Catch any residual token-id / logprob drift at the boundary rather than
-        # as a downstream KLD anomaly.
-        if completion_logprobs and len(completion_token_ids) != len(completion_logprobs):
-            raise RuntimeError(
-                "Fireworks /v1/completions returned mismatched completion token "
-                f"ids ({len(completion_token_ids)}) and logprobs "
-                f"({len(completion_logprobs)}). Per-token logprobs cannot be "
-                "aligned to token ids; refusing to return corrupted data."
-            )
 
         # -- Build message via parser or raw --------------------------------
         if self.tool_call_parser is not None:
