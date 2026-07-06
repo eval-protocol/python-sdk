@@ -358,6 +358,12 @@ class FireworksV1CompletionsClient:
         }
         if not self.logprobs:
             request_payload.pop("logprobs", None)
+        # Always request the exact generated token ids so downstream RL training
+        # can align per-token logprobs to token ids position-by-position.
+        # Re-encoding decoded text drops the trailing end-of-turn/EOS token and
+        # misaligns logprobs, corrupting inference KLD. Keep overridable via
+        # request_params, but default the flag on.
+        request_payload.setdefault("return_token_ids", True)
 
         max_retries = 40
         base_delay = 10.0
@@ -396,6 +402,15 @@ class FireworksV1CompletionsClient:
         completion_token_ids = _normalize_token_id_sequence(
             choice.get("token_ids") or raw_output.get("completion_token_ids") or []
         )
+        if not completion_token_ids:
+            raise RuntimeError(
+                "Fireworks /v1/completions returned no exact completion token IDs "
+                "(choices[].token_ids and raw_output.completion_token_ids both empty) "
+                "even though return_token_ids=True was requested. "
+                "Refusing to re-encode decoded text: retokenization drops the "
+                "end-of-turn token and misaligns per-token logprobs, corrupting "
+                f"inference KLD. choice keys={list(choice.keys())}"
+            )
         choice_prompt_token_ids = _normalize_token_id_sequence(
             choice.get("prompt_token_ids") or raw_output.get("prompt_token_ids") or normalized_prompt_token_ids
         )
@@ -403,9 +418,6 @@ class FireworksV1CompletionsClient:
         completion_text = self.decode_token_ids(token_ids=completion_token_ids)
         if not completion_text:
             completion_text = str(choice.get("text") or "")
-        if not completion_token_ids and completion_text:
-            tokenizer = self._get_tokenizer()
-            completion_token_ids = list(tokenizer.encode(completion_text, add_special_tokens=False))
 
         # -- Extract logprobs -----------------------------------------------
         completion_logprobs: List[float] = []
@@ -422,6 +434,16 @@ class FireworksV1CompletionsClient:
                 ]
         elif isinstance(choice_logprobs, list):
             completion_logprobs = [float(lp) if lp is not None else 0.0 for lp in choice_logprobs]
+
+        # Catch any residual token-id / logprob drift at the boundary rather than
+        # as a downstream KLD anomaly.
+        if completion_logprobs and len(completion_token_ids) != len(completion_logprobs):
+            raise RuntimeError(
+                "Fireworks /v1/completions returned mismatched completion token "
+                f"ids ({len(completion_token_ids)}) and logprobs "
+                f"({len(completion_logprobs)}). Per-token logprobs cannot be "
+                "aligned to token ids; refusing to return corrupted data."
+            )
 
         # -- Build message via parser or raw --------------------------------
         if self.tool_call_parser is not None:
