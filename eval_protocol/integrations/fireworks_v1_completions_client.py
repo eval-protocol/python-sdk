@@ -393,35 +393,50 @@ class FireworksV1CompletionsClient:
         finish_reason = str(choice.get("finish_reason") or "unknown")
 
         raw_output = choice.get("raw_output") if isinstance(choice.get("raw_output"), dict) else {}
-        completion_token_ids = _normalize_token_id_sequence(
-            choice.get("token_ids") or raw_output.get("completion_token_ids") or []
-        )
         choice_prompt_token_ids = _normalize_token_id_sequence(
             choice.get("prompt_token_ids") or raw_output.get("prompt_token_ids") or normalized_prompt_token_ids
         )
 
+        # -- Extract per-token ids and logprobs together --------------------
+        # Both come from the same ``content[]`` array entry-by-entry, so they are
+        # inherently the same length and aligned. Reading ids from a different
+        # source (top-level token_ids) and re-encoding decoded text when it is
+        # absent drops the trailing end-of-turn token and misaligns per-token
+        # logprobs, corrupting inference KLD — so we never do that.
+        choice_logprobs = choice.get("logprobs")
+        content_entries = choice_logprobs.get("content") if isinstance(choice_logprobs, dict) else None
+        if not content_entries:
+            raise RuntimeError(
+                "Fireworks /v1/completions returned no content[] logprobs entries. "
+                "This client requires the boolean logprobs=True (content) shape to "
+                "recover exact per-token ids and sampling logprobs. Refusing to "
+                "re-encode decoded text: retokenization drops the end-of-turn token "
+                "and misaligns per-token logprobs, corrupting inference KLD. "
+                f"choice keys={list(choice.keys())}"
+            )
+
+        completion_token_ids: List[int] = []
+        completion_logprobs: List[float] = []
+        for index, entry in enumerate(content_entries):
+            if not isinstance(entry, dict) or entry.get("token_id") is None:
+                raise RuntimeError(
+                    "Fireworks /v1/completions content[] entry is missing token_id "
+                    f"at index {index}; cannot align per-token logprobs to token ids "
+                    "without re-encoding. Refusing to return corrupted data."
+                )
+            if entry.get("sampling_logprob") is None:
+                raise RuntimeError(
+                    "Fireworks /v1/completions content[] entry is missing "
+                    f"sampling_logprob at index {index}. The sampling logprob is the "
+                    "exact value the sampler drew with and is required for correct "
+                    "inference KLD; refusing to substitute the rounded logprob or 0.0."
+                )
+            completion_token_ids.append(int(entry["token_id"]))
+            completion_logprobs.append(float(entry["sampling_logprob"]))
+
         completion_text = self.decode_token_ids(token_ids=completion_token_ids)
         if not completion_text:
             completion_text = str(choice.get("text") or "")
-        if not completion_token_ids and completion_text:
-            tokenizer = self._get_tokenizer()
-            completion_token_ids = list(tokenizer.encode(completion_text, add_special_tokens=False))
-
-        # -- Extract logprobs -----------------------------------------------
-        completion_logprobs: List[float] = []
-        choice_logprobs = choice.get("logprobs")
-        if isinstance(choice_logprobs, dict):
-            token_logprobs = choice_logprobs.get("token_logprobs") or []
-            if token_logprobs:
-                completion_logprobs = [float(lp) if lp is not None else 0.0 for lp in token_logprobs]
-            else:
-                content_logprobs = choice_logprobs.get("content") or []
-                completion_logprobs = [
-                    float(entry.get("logprob", 0.0)) if isinstance(entry, dict) else 0.0
-                    for entry in content_logprobs
-                ]
-        elif isinstance(choice_logprobs, list):
-            completion_logprobs = [float(lp) if lp is not None else 0.0 for lp in choice_logprobs]
 
         # -- Build message via parser or raw --------------------------------
         if self.tool_call_parser is not None:
