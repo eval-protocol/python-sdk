@@ -1,0 +1,71 @@
+# Runloop Remote Rollouts
+
+`RunloopRolloutProcessor` runs your remote rollout server inside a Runloop Devbox and then delegates rollout execution to Eval Protocol's existing `RemoteRolloutProcessor`.
+
+This is useful when your rollout server needs an isolated, reproducible environment but you still want Eval Protocol to use the standard `/init` request and Fireworks tracing metadata flow.
+
+## Install
+
+```bash
+pip install "eval-protocol[runloop]"
+```
+
+Set the API keys used by the local evaluator and remote server:
+
+```bash
+export RUNLOOP_API_KEY=...
+export FIREWORKS_API_KEY=...
+```
+
+## Usage
+
+```python
+from eval_protocol.pytest import RunloopRolloutProcessor, evaluation_test
+
+
+@evaluation_test(
+    rollout_processor=RunloopRolloutProcessor(
+        blueprint_id="bpt_your_blueprint_id",
+        server_command=(
+            "python -m uvicorn examples.runloop_remote_rollout.server:app "
+            "--host 0.0.0.0 --port 8000"
+        ),
+        port=8000,
+    ),
+)
+async def test_my_eval(row):
+    return row
+```
+
+The server command must bind to `0.0.0.0` on the configured port so the Runloop tunnel can reach it. The server must expose `POST /init` and should use `FireworksTracingHttpHandler` plus `RolloutIdFilter` to publish rollout completion status.
+
+## Creating A Blueprint
+
+`blueprint_id` is required when you want `RunloopRolloutProcessor` to create a fresh Devbox for each eval invocation. The blueprint should contain the rollout server code and its Python dependencies.
+
+The included example can create a blueprint for a new Runloop account:
+
+```bash
+export RUNLOOP_API_KEY=...
+eval "$(python examples/runloop_remote_rollout/create_blueprint.py)"
+```
+
+That helper uploads the current repository as a temporary Runloop build context and builds a Python image with `eval-protocol[runloop]` installed. Use the printed `RUNLOOP_BLUEPRINT_ID` with `examples/runloop_remote_rollout/test_eval.py`.
+
+## Existing Devboxes
+
+You can attach to an existing Devbox instead of creating one from a blueprint:
+
+```python
+RunloopRolloutProcessor(
+    devbox_id="devbox_existing_id",
+    server_command="python -m uvicorn server:app --host 0.0.0.0 --port 8000",
+    port=8000,
+)
+```
+
+Eval Protocol only shuts down Devboxes created by `RunloopRolloutProcessor` when `shutdown_on_cleanup=True`. Existing Devboxes are left running.
+
+## Trace Flow
+
+`RunloopRolloutProcessor` does not change default rollout behavior. After setup it calls `RemoteRolloutProcessor(remote_base_url=...)`; `RemoteRolloutProcessor` sends `/init`, polls Fireworks tracing status by rollout ID, and backfills the final row from trace data.

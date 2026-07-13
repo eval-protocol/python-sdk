@@ -85,6 +85,7 @@ _LAZY_IMPORTS = {
     "evaluation_test": (".pytest", "evaluation_test"),
     "SingleTurnRolloutProcessor": (".pytest", "SingleTurnRolloutProcessor"),
     "RemoteRolloutProcessor": (".pytest", "RemoteRolloutProcessor"),
+    "RunloopRolloutProcessor": (".pytest", "RunloopRolloutProcessor"),
     "GithubActionRolloutProcessor": (".pytest", "GithubActionRolloutProcessor"),
     # From .pytest.parameterize
     "DefaultParameterIdGenerator": (".pytest.parameterize", "DefaultParameterIdGenerator"),
@@ -174,6 +175,7 @@ __all__ = [
     "DataLoaderConfig",
     "Status",
     "RemoteRolloutProcessor",
+    "RunloopRolloutProcessor",
     "GithubActionRolloutProcessor",
     "InputMetadata",
     "EvaluationRow",
@@ -278,6 +280,7 @@ if TYPE_CHECKING:
         evaluation_test,
         SingleTurnRolloutProcessor,
         RemoteRolloutProcessor,
+        RunloopRolloutProcessor,
         GithubActionRolloutProcessor,
     )
     from .pytest.parameterize import DefaultParameterIdGenerator

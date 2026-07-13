@@ -138,6 +138,9 @@ dspy = [
 klavis = [
     "klavis>=2.18.0",
 ]
+runloop = [
+    "runloop-api-client>=1.22.1",
+]
 
 # Optional deps for LangGraph example/tests
 langgraph = [
