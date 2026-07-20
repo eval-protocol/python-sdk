@@ -15,7 +15,7 @@ services:
 
   # LiteLLM Backend - Handles actual LLM proxying
   litellm-backend:
-    image: litellm/litellm:v1.77.3-stable
+    image: litellm/litellm:v1.84.3
     platform: linux/amd64
     container_name: litellm-backend
     command: ["--config", "/app/config.yaml", "--port", "4000", "--host", "0.0.0.0"]

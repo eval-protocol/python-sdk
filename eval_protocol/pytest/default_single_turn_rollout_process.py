@@ -13,6 +13,7 @@ from litellm.types.utils import ModelResponse, Choices
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 
 from eval_protocol.dataset_logger import default_logger
+from eval_protocol.litellm_compat import allow_litellm_logging_to_start
 from eval_protocol.models import EvaluationRow, Message
 from openai.types import CompletionUsage
 from eval_protocol.pytest.rollout_processor import RolloutProcessor
@@ -128,6 +129,8 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
                 response = litellm.stream_chunk_builder(chunks, messages_payload)
             else:
                 response = await acompletion(**request_params)
+
+            await allow_litellm_logging_to_start()
 
             assert response is not None, "Response is None"
             assert isinstance(response, ModelResponse), "Response should be ModelResponse"

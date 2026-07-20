@@ -16,7 +16,7 @@ async def test_litellm_policy_surfaces_provider_specific_reasoning_details(monke
     # Define a fake ModelResponse base class and patch the module's ModelResponse
     class FakeModelResponseBase: ...
 
-    policy_mod.ModelResponse = FakeModelResponseBase
+    monkeypatch.setattr(policy_mod, "ModelResponse", FakeModelResponseBase)
 
     async def fake_acompletion(*args, **kwargs):
         # This mimics the LiteLLM Message object shape we rely on in policy._make_llm_call
