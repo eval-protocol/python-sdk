@@ -18,6 +18,8 @@ from litellm.caching.dual_cache import DualCache
 from litellm.caching.in_memory_cache import InMemoryCache
 from litellm.caching.redis_cache import RedisCache
 
+from eval_protocol.litellm_compat import allow_litellm_logging_to_start
+
 from .base_policy import LLMBasePolicy
 
 logger = logging.getLogger(__name__)
@@ -204,6 +206,8 @@ class LiteLLMPolicy(LLMBasePolicy):
                 response = litellm.stream_chunk_builder(chunks, messages)
             else:
                 response = await acompletion(model=self.model_id, **request_params)
+
+            await allow_litellm_logging_to_start()
 
             assert response is not None, "Response is None"
             assert isinstance(response, ModelResponse), "Response should be ModelResponse"

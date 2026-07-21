@@ -10,6 +10,7 @@ from litellm.caching.caching import Cache
 from litellm.main import ModelResponse, Usage
 from loguru import logger
 
+from eval_protocol.litellm_compat import allow_litellm_logging_to_start
 from vendor.tau2.config import (
     DEFAULT_LLM_CACHE_TYPE,
     DEFAULT_MAX_RETRIES,
@@ -231,6 +232,7 @@ async def generate(
             tool_choice=tool_choice,
             **kwargs,
         )
+        await allow_litellm_logging_to_start()
     except Exception as e:
         logger.error(e)
         raise e
