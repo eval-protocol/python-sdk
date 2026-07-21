@@ -4,6 +4,7 @@ LiteLLM client - handles all communication with LiteLLM service.
 
 import json
 import base64
+import asyncio
 import httpx
 import logging
 from uuid6 import uuid7
@@ -13,6 +14,12 @@ from .redis_utils import register_insertion_id
 from .models import ProxyConfig, ChatParams
 
 logger = logging.getLogger(__name__)
+
+# Retry configuration for 404 errors
+# 8 retries with exponential backoff (1, 2, 4, 8, 16, 32, 64, 128 seconds)
+# Total wait time: ~255 seconds (~4.25 minutes)
+MAX_RETRIES_ON_404 = 9
+RETRY_BASE_DELAY_SECONDS = 1
 
 
 async def handle_chat_completion(
@@ -108,11 +115,28 @@ async def handle_chat_completion(
         # Forward to LiteLLM
         litellm_url = f"{config.litellm_url}/chat/completions"
 
+        # Retry loop with exponential backoff for 404 errors
+        # Initial request
         response = await client.post(
             litellm_url,
             json=data,  # httpx will serialize and set correct Content-Length
             headers=headers,
         )
+
+        for attempt in range(MAX_RETRIES_ON_404):
+            if response.status_code != 404:
+                break
+
+            # Wait with exponential backoff before retry
+            delay = RETRY_BASE_DELAY_SECONDS * (2**attempt)
+            logger.warning(f"Got 404 from LiteLLM, retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES_ON_404})")
+            await asyncio.sleep(delay)
+
+            response = await client.post(
+                litellm_url,
+                json=data,
+                headers=headers,
+            )
 
         # Register insertion_id in Redis only on successful response
         if response.status_code == 200 and insertion_id is not None and rollout_id is not None:
