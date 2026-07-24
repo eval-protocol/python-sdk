@@ -46,11 +46,19 @@ class PydanticAgentRolloutProcessor(RolloutProcessor):
         """Create agent rollout tasks and return them for external handling."""
 
         semaphore = config.semaphore
-        agent = self._setup_agent(config)
+        # NOTE: Do not create the agent outside of the semaphore or multiple rows
+        # will initialize clients and start network calls concurrently. This can
+        # overwhelm local providers like Ollama where only one request should be
+        # active at a time. Instead, construct the agent within the semaphore-guarded
+        # section per row.
 
         async def process_row(row: EvaluationRow) -> EvaluationRow:
             """Process a single row with agent rollout."""
             start_time = time.perf_counter()
+
+            # Build the agent lazily inside the semaphore guard to ensure we fully
+            # respect max_concurrent_rollouts across both setup and run phases.
+            agent = self._setup_agent(config)
 
             tools = []
             for toolset in agent.toolsets:
