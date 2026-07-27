@@ -525,7 +525,7 @@ class Message(BaseModel):
         ),
     )
 
-    def dump_mdoel_for_chat_completion_request(self):
+    def dump_model_for_chat_completion_request(self):
         """Only keep chat completion accepted fields"""
         return self.model_dump(
             exclude_none=True,

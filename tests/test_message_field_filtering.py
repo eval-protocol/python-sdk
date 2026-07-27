@@ -9,7 +9,7 @@ from eval_protocol.models import Message
 
 
 def test_dump_model_excludes_unsupported_fields():
-    """Test that dump_mdoel_for_chat_completion_request excludes unsupported fields."""
+    """Test that dump_model_for_chat_completion_request excludes unsupported fields."""
     # Create a message with all possible fields including unsupported ones
     message = Message(
         role="user",
@@ -21,7 +21,7 @@ def test_dump_model_excludes_unsupported_fields():
     )
 
     # Get the filtered dictionary
-    filtered = message.dump_mdoel_for_chat_completion_request()
+    filtered = message.dump_model_for_chat_completion_request()
 
     # Verify unsupported fields are excluded
     assert "weight" not in filtered, "weight field should be excluded"
@@ -48,7 +48,7 @@ def test_dump_model_with_only_supported_fields():
         tool_call_id=None,
     )
 
-    filtered = message.dump_mdoel_for_chat_completion_request()
+    filtered = message.dump_model_for_chat_completion_request()
 
     # Should only contain supported fields
     assert filtered["role"] == "assistant"

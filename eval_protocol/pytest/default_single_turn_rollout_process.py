@@ -77,7 +77,7 @@ class SingleTurnRolloutProcessor(RolloutProcessor):
 
             # Filter out fields that are not supported by OpenAI/LiteLLM APIs (e.g., weight, control_plane_step, reasoning_content)
             # Use the Message class method that excludes unsupported fields
-            messages_payload = [message.dump_mdoel_for_chat_completion_request() for message in messages_for_request]
+            messages_payload = [message.dump_model_for_chat_completion_request() for message in messages_for_request]
 
             # Normalize Fireworks model names for LiteLLM routing
             completion_params = normalize_fireworks_model_for_litellm(config.completion_params) or {}

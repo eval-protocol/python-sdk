@@ -718,7 +718,7 @@ def test_message_dump_for_chat_completion_request():
         "reasoning_content": "I am thinking about the user's question",
     }
     message = Message(**example)
-    dictionary = message.dump_mdoel_for_chat_completion_request()
+    dictionary = message.dump_model_for_chat_completion_request()
     assert "weight" not in dictionary
     assert "reasoning_content" not in dictionary
     assert dictionary["content"] == "Hello, how are you?"

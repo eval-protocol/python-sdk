@@ -44,8 +44,8 @@ def init(req: InitRequest):
             # excluding any None fields (Fireworks rejects extra keys even when null).
             messages_payload = []
             for m in req.messages:
-                if hasattr(m, "dump_mdoel_for_chat_completion_request"):
-                    md = m.dump_mdoel_for_chat_completion_request()  # type: ignore[attr-defined]
+                if hasattr(m, "dump_model_for_chat_completion_request"):
+                    md = m.dump_model_for_chat_completion_request()  # type: ignore[attr-defined]
                 elif hasattr(m, "model_dump"):
                     md = m.model_dump(exclude_none=True)  # type: ignore[call-arg]
                 elif isinstance(m, dict):

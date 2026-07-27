@@ -141,8 +141,8 @@ class Agent:
         # Convert Message models to plain dicts for LLM call
         # Filter out fields that are not supported by OpenAI/LiteLLM APIs (e.g., weight, control_plane_step, reasoning_content)
         messages_payload: List[Dict[str, Any]] = [
-            message.dump_mdoel_for_chat_completion_request()
-            if hasattr(message, "dump_mdoel_for_chat_completion_request")
+            message.dump_model_for_chat_completion_request()
+            if hasattr(message, "dump_model_for_chat_completion_request")
             else (message.model_dump() if hasattr(message, "model_dump") else message)  # type: ignore[misc]
             for message in messages
         ]
