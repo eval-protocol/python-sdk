@@ -307,6 +307,7 @@ def evaluation_test(
                 try:
                     # Handle dataset loading
                     data: list[EvaluationRow] = []
+                    data_loader_rows_preprocessed = False
                     # Track all rows processed in the current run for error logging
                     processed_rows_in_run: list[EvaluationRow] = []
                     if "data_loaders" in kwargs and kwargs["data_loaders"] is not None:
@@ -318,6 +319,7 @@ def evaluation_test(
                             results = data_loader.load()
                             for result in results:
                                 data.extend(result.rows)
+                                data_loader_rows_preprocessed = data_loader_rows_preprocessed or result.preprocessed
                         # Apply max_dataset_rows limit to data from data loaders
                         if max_dataset_rows is not None:
                             data = data[:max_dataset_rows]
@@ -345,18 +347,11 @@ def evaluation_test(
                     if filtered_row_ids is not None:
                         data = [row for row in data if row.input_metadata.row_id in filtered_row_ids]
 
-                    """
-                    data_loaders handles preprocess_fn internally so we want
-                    to specially handle data_loaders here so we don't double
-                    apply preprocess_fn.
-                    """
                     if preprocess_fn:
-                        if not data_loaders:
+                        # If data loaders already applied preprocessing, skip the decorator-level
+                        # preprocess_fn to avoid running the same transform twice.
+                        if not data_loader_rows_preprocessed:
                             data = preprocess_fn(data)
-                        else:
-                            raise ValueError(
-                                "preprocess_fn should not be used with data_loaders. Pass preprocess_fn to data_loaders instead."
-                            )
 
                     for row in data:
                         # generate a stable row_id for each row
