@@ -31,3 +31,4 @@ repos:
             NODE_OPTIONS: "--max-old-space-size=4096"
         # Only check Python files in the main package to reduce memory usage
         files: ^eval_protocol/.*\.py$
+    additional_dependencies: ["pre-commit>=3.7.0"]

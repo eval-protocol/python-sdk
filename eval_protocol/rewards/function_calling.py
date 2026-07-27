@@ -2,7 +2,7 @@ import json
 import os
 import re
 import warnings
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, Callable, cast
 
 # Import OpenAI at module level for mocking in tests
 try:
@@ -451,7 +451,8 @@ def schema_jaccard_reward(
         DeprecationWarning,
         stacklevel=2,
     )
-    return exact_tool_match_reward(messages=messages, ground_truth=ground_truth, **kwargs)
+    _exact_tool_match: Callable[..., EvaluateResult] = cast(Callable[..., EvaluateResult], exact_tool_match_reward)
+    return _exact_tool_match(messages=messages, ground_truth=ground_truth, **kwargs)
 
 
 @reward_function
@@ -493,7 +494,8 @@ def llm_judge_reward(
         DeprecationWarning,
         stacklevel=2,
     )
-    return exact_tool_match_reward(messages=messages, ground_truth=ground_truth, **kwargs)
+    _exact_tool_match: Callable[..., EvaluateResult] = cast(Callable[..., EvaluateResult], exact_tool_match_reward)
+    return _exact_tool_match(messages=messages, ground_truth=ground_truth, **kwargs)
 
 
 @reward_function
@@ -537,7 +539,8 @@ def composite_function_call_reward(
         DeprecationWarning,
         stacklevel=2,
     )
-    return exact_tool_match_reward(messages=messages, ground_truth=ground_truth, **kwargs)
+    _exact_tool_match: Callable[..., EvaluateResult] = cast(Callable[..., EvaluateResult], exact_tool_match_reward)
+    return _exact_tool_match(messages=messages, ground_truth=ground_truth, **kwargs)
 
 
 # JSON schema reward functions have been moved to json_schema.py module

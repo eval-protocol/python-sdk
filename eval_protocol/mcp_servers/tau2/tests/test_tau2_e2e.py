@@ -747,7 +747,7 @@ def tau2_airline_eval(
         elif role == "user":
             trajectory_objects.append(UserMessage(role=role, content=content))
         elif role == "tool":
-            tool_id = msg.tool_call_id or ""
+            tool_id = msg.tool_call_id if isinstance(msg.tool_call_id, str) else ""
             trajectory_objects.append(ToolMessage(id=tool_id, role=role, content=content, requestor="assistant"))
 
     reward = 1.0
