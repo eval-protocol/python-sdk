@@ -262,6 +262,23 @@ class TestRewardProtocolFunctionality:
         assert msg.role == "user"
         assert msg.content == "Test message"
 
+    def test_message_preserves_token_ids(self):
+        """Test token IDs round-trip on messages."""
+        from eval_protocol import Message
+
+        msg = Message(role="assistant", content="Hi", token_ids=[1, 2], logprobs=[-0.1, -0.2])
+        assert msg.model_dump()["token_ids"] == [1, 2]
+
+    def test_message_rejects_misaligned_float_logprobs(self):
+        """Test token IDs and flat float logprobs must align."""
+        import pytest
+        from pydantic import ValidationError
+
+        from eval_protocol import Message
+
+        with pytest.raises(ValidationError):
+            Message(role="assistant", content="Hi", token_ids=[1, 2], logprobs=[-0.1])
+
     def test_utility_functions(self):
         """Test that utility functions work through eval_protocol."""
         from eval_protocol import create_llm_resource, load_jsonl

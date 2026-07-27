@@ -14,7 +14,7 @@ from openai.types.chat.chat_completion_message import (
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall,
 )
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from eval_protocol.get_pep440_version import get_pep440_version
 from eval_protocol.human_id import generate_id
@@ -517,6 +517,13 @@ class Message(BaseModel):
     function_call: Optional[FunctionCall] = None
     control_plane_step: Optional[Dict[str, Any]] = None
     weight: Optional[int] = None
+    token_ids: Optional[List[int]] = Field(
+        default=None,
+        description=(
+            "Optional token IDs for this message. When set on assistant messages, "
+            "these should come from the same generation call as logprobs."
+        ),
+    )
     logprobs: Optional[Any] = Field(
         default=None,
         description=(
@@ -529,8 +536,20 @@ class Message(BaseModel):
         """Only keep chat completion accepted fields"""
         return self.model_dump(
             exclude_none=True,
-            exclude={"control_plane_step", "reasoning_content", "weight", "logprobs"},
+            exclude={"control_plane_step", "reasoning_content", "weight", "token_ids", "logprobs"},
         )
+
+    @model_validator(mode="after")
+    def _validate_token_ids_logprobs_alignment(self) -> "Message":
+        if self.token_ids is None or self.logprobs is None:
+            return self
+        if isinstance(self.logprobs, list) and all(isinstance(lp, (int, float)) for lp in self.logprobs):
+            if len(self.token_ids) != len(self.logprobs):
+                raise ValueError(
+                    "token_ids and float logprobs must have the same length "
+                    f"(got {len(self.token_ids)} token_ids and {len(self.logprobs)} logprobs)"
+                )
+        return self
 
     @classmethod
     def model_validate(cls, obj, *args, **kwargs):
