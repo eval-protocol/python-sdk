@@ -14,10 +14,60 @@ export const config = {
 	},
 };
 
-// Helper function to build WebSocket URL
-export const getWebSocketUrl = (): string => {
+/**
+ * Extract invocation_ids from URL filterConfig parameter.
+ * Looks for filters on $.execution_metadata.invocation_id field.
+ */
+export const extractInvocationIdsFromUrl = (): string[] => {
+	try {
+		const urlParams = new URLSearchParams(window.location.search);
+		const filterConfigStr = urlParams.get('filterConfig');
+		if (!filterConfigStr) {
+			return [];
+		}
+
+		// Parse the filter config JSON
+		const filterConfig = JSON.parse(filterConfigStr);
+		const invocationIds: string[] = [];
+
+		// filterConfig is an array of FilterGroups
+		if (Array.isArray(filterConfig)) {
+			for (const group of filterConfig) {
+				if (group.filters && Array.isArray(group.filters)) {
+					for (const filter of group.filters) {
+						// Check if this filter is on invocation_id field
+						if (
+							filter.field === '$.execution_metadata.invocation_id' &&
+							(filter.operator === '==' || filter.operator === 'equals') &&
+							filter.value
+						) {
+							invocationIds.push(filter.value);
+						}
+					}
+				}
+			}
+		}
+
+		return invocationIds;
+	} catch (error) {
+		console.warn('Failed to extract invocation_ids from URL:', error);
+		return [];
+	}
+};
+
+// Helper function to build WebSocket URL with optional invocation_ids filter
+export const getWebSocketUrl = (invocationIds?: string[]): string => {
 	const { protocol, host, port } = config.websocket;
-	return `${protocol}://${host}:${port}/ws`;
+	const baseUrl = `${protocol}://${host}:${port}/ws`;
+
+	// If invocation_ids provided, add as query param
+	if (invocationIds && invocationIds.length > 0) {
+		const params = new URLSearchParams();
+		params.set('invocation_ids', invocationIds.join(','));
+		return `${baseUrl}?${params.toString()}`;
+	}
+
+	return baseUrl;
 };
 
 // Helper function to build API URL

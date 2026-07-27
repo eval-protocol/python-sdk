@@ -90,8 +90,11 @@ class TestWebSocketManager:
 
         # Test that message is queued
         assert not manager._broadcast_queue.empty()
-        queued_message = manager._broadcast_queue.get_nowait()
-        data = json.loads(queued_message)
+        queued_item = manager._broadcast_queue.get_nowait()
+        # Queue item is now a tuple of (json_message, row_invocation_id)
+        assert isinstance(queued_item, tuple)
+        json_message, row_invocation_id = queued_item
+        data = json.loads(json_message)
         assert data["type"] == "log"
         assert "row" in data
         assert data["row"]["messages"][0]["content"] == "test"
@@ -113,21 +116,22 @@ class TestWebSocketManager:
         assert manager._broadcast_task is None
 
     @pytest.mark.asyncio
-    async def test_send_text_to_all_connections(self):
-        """Test sending text to all connections."""
+    async def test_send_text_to_filtered_connections(self):
+        """Test sending text to filtered connections."""
         manager = WebSocketManager()
         mock_websocket1 = AsyncMock()
         mock_websocket2 = AsyncMock()
 
         # Mock default_logger.read() to return empty logs
+        # Both connections have no filter (None), so they receive all messages
         with patch.object(default_logger, "read", return_value=[]):
             await manager.connect(mock_websocket1)
             await manager.connect(mock_websocket2)
 
         test_message = "test message"
-        await manager._send_text_to_all_connections(test_message)
+        await manager._send_text_to_filtered_connections(test_message)
 
-        # Check that the test message was sent to both websockets
+        # Check that the test message was sent to both websockets (no filter = receives all)
         mock_websocket1.send_text.assert_any_call(test_message)
         mock_websocket2.send_text.assert_any_call(test_message)
 
@@ -151,13 +155,59 @@ class TestWebSocketManager:
         mock_websocket2.send_text = failing_send_text
 
         test_message = "test message"
-        await manager._send_text_to_all_connections(test_message)
+        await manager._send_text_to_filtered_connections(test_message)
 
         # First websocket should receive the message
         mock_websocket1.send_text.assert_any_call(test_message)
         # Second websocket should have been removed due to failure
         assert len(manager.active_connections) == 1
         assert mock_websocket1 in manager.active_connections
+
+    @pytest.mark.asyncio
+    async def test_connect_with_invocation_ids_filter(self):
+        """Test connecting with invocation_ids filter."""
+        manager = WebSocketManager()
+        mock_websocket = AsyncMock()
+
+        # Mock default_logger.read() to verify filter is passed
+        with patch.object(default_logger, "read", return_value=[]) as mock_read:
+            await manager.connect(mock_websocket, invocation_ids=["inv-123", "inv-456"])
+
+        # Verify that read was called with the invocation_ids filter
+        mock_read.assert_called_once_with(invocation_ids=["inv-123", "inv-456"], limit=1000)
+
+        # Verify that the connection has the filter stored
+        assert manager._connection_filters[mock_websocket] == ["inv-123", "inv-456"]
+
+    @pytest.mark.asyncio
+    async def test_send_text_to_filtered_connections_respects_filter(self):
+        """Test that messages are only sent to connections matching the filter."""
+        manager = WebSocketManager()
+        mock_websocket_all = AsyncMock()  # No filter - receives all
+        mock_websocket_inv1 = AsyncMock()  # Filter for inv-123
+        mock_websocket_inv2 = AsyncMock()  # Filter for inv-456
+
+        # Connect with different filters
+        with patch.object(default_logger, "read", return_value=[]):
+            await manager.connect(mock_websocket_all)  # No filter
+            await manager.connect(mock_websocket_inv1, invocation_ids=["inv-123"])
+            await manager.connect(mock_websocket_inv2, invocation_ids=["inv-456"])
+
+        # Reset mocks to clear the initial send_text calls from connect
+        mock_websocket_all.reset_mock()
+        mock_websocket_inv1.reset_mock()
+        mock_websocket_inv2.reset_mock()
+
+        # Send a message for inv-123
+        test_message = '{"type": "log", "row": {}}'
+        await manager._send_text_to_filtered_connections(test_message, row_invocation_id="inv-123")
+
+        # mock_websocket_all should receive (no filter)
+        mock_websocket_all.send_text.assert_called_once_with(test_message)
+        # mock_websocket_inv1 should receive (filter matches)
+        mock_websocket_inv1.send_text.assert_called_once_with(test_message)
+        # mock_websocket_inv2 should NOT receive (filter doesn't match)
+        mock_websocket_inv2.send_text.assert_not_called()
 
 
 class TestEvaluationWatcher:

@@ -8,7 +8,11 @@ import { EvaluationRowSchema, type EvaluationRow } from "./types/eval-protocol";
 import { WebSocketServerMessageSchema } from "./types/websocket";
 import { GlobalState } from "./GlobalState";
 import logoLight from "./assets/logo-light.png";
-import { getWebSocketUrl, discoverServerConfig } from "./config";
+import {
+  getWebSocketUrl,
+  discoverServerConfig,
+  extractInvocationIdsFromUrl,
+} from "./config";
 
 export const state = new GlobalState();
 
@@ -30,7 +34,19 @@ const App = observer(() => {
       return; // Already connected or connecting. This will happen in React strict mode.
     }
 
-    const ws = new WebSocket(getWebSocketUrl());
+    // Extract invocation_ids from URL filter for server-side filtering
+    const invocationIds = extractInvocationIdsFromUrl();
+    const wsUrl = getWebSocketUrl(
+      invocationIds.length > 0 ? invocationIds : undefined
+    );
+    console.log(
+      "Connecting to WebSocket:",
+      wsUrl,
+      "with invocation_ids:",
+      invocationIds
+    );
+
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
