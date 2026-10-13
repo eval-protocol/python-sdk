@@ -14,7 +14,7 @@ from openai.types.chat.chat_completion_message import (
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall,
 )
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from eval_protocol.get_pep440_version import get_pep440_version
 from eval_protocol.human_id import generate_id
@@ -873,7 +873,7 @@ class EvaluationRow(BaseModel):
     supporting both row-wise batch evaluation and trajectory-based RL evaluation.
     """
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", validate_assignment=True)
 
     # Core OpenAI ChatCompletion compatible conversation data
     messages: List[Message] = Field(
@@ -905,6 +905,17 @@ class EvaluationRow(BaseModel):
     evaluation_result: Optional[EvaluateResult] = Field(
         default=None, description="The evaluation result for this row/trajectory."
     )
+
+    @field_validator("evaluation_result", mode="before")
+    @classmethod
+    def _coerce_evaluation_result(
+        cls, value: EvaluateResult | dict[str, Any] | None
+    ) -> EvaluateResult | None:
+        if value is None or isinstance(value, EvaluateResult):
+            return value
+        if isinstance(value, dict):
+            return EvaluateResult(**value)
+        return value
 
     execution_metadata: ExecutionMetadata = Field(
         default_factory=lambda: ExecutionMetadata(run_id=None),

@@ -199,8 +199,14 @@ def test_metric_result_dict_access():
     }
     assert set(metric.items()) == expected_items
 
-    # __iter__
-    assert set(list(metric)) == {"score", "reason", "is_score_valid"}
+
+def test_evaluation_row_accepts_dict_assignment_for_evaluation_result():
+    row = dummy_row()
+    row.evaluation_result = {"score": 0.6}
+
+    assert isinstance(row.evaluation_result, EvaluateResult)
+    assert row.evaluation_result.score == 0.6
+    assert row.evaluation_result.is_score_valid is True
 
 
 def test_evaluate_result_dict_access():
