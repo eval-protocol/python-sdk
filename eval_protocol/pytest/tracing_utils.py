@@ -157,13 +157,13 @@ def build_init_request(
     completion_params_base_url: Optional[str] = completion_params_dict.get("base_url")
 
     # Strip non-OpenAI fields from messages
-    # Use dump_mdoel_for_chat_completion_request() to automatically exclude unsupported fields (weight, control_plane_step, reasoning_content)
+    # Use dump_model_for_chat_completion_request() to automatically exclude unsupported fields (weight, control_plane_step, reasoning_content)
     clean_messages = []
     for m in row.messages:
         md: Dict[str, Any]
-        if hasattr(m, "dump_mdoel_for_chat_completion_request"):
+        if hasattr(m, "dump_model_for_chat_completion_request"):
             # Use the Message method that automatically filters unsupported fields
-            md = m.dump_mdoel_for_chat_completion_request()
+            md = m.dump_model_for_chat_completion_request()
         elif hasattr(m, "model_dump"):
             md = m.model_dump()
         elif isinstance(m, dict):
@@ -177,7 +177,7 @@ def build_init_request(
                 "tool_call_id": getattr(m, "tool_call_id", None),
                 "name": getattr(m, "name", None),
             }
-        # Additional filtering to ensure only allowed fields are kept (already handled by dump_mdoel_for_chat_completion_request for Message objects)
+        # Additional filtering to ensure only allowed fields are kept (already handled by dump_model_for_chat_completion_request for Message objects)
         allowed_message_fields = {"role", "content", "tool_calls", "tool_call_id", "name"}
         clean_messages.append({k: v for k, v in md.items() if k in allowed_message_fields and v is not None})
 

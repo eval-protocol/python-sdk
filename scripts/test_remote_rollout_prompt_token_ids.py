@@ -42,7 +42,7 @@ def _free_port() -> int:
 
 def _message_to_dict(message: Message | dict[str, Any]) -> dict[str, Any]:
     if isinstance(message, Message):
-        return message.dump_mdoel_for_chat_completion_request()
+        return message.dump_model_for_chat_completion_request()
     return {k: v for k, v in dict(message).items() if v is not None}
 
 
