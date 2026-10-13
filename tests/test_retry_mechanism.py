@@ -119,10 +119,6 @@ def test_retry_mechanism_mock_verification():
     print(f"   Batch calls made: {mock_tracker.batch_call.call_count}")
     print(f"   Total row processing calls: {mock_tracker.process_row_call.call_count}")
 
-    if mock_tracker.process_row_call.call_count == 0:
-        print("⚠️  No calls recorded yet. The evaluation test may not have run or completed.")
-        return
-
     # Get all rollout_ids that were processed
     call_args = mock_tracker.process_row_call.call_args_list
     rollout_ids = [call[0][0] for call in call_args]

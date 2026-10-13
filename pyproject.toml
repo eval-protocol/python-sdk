@@ -70,7 +70,8 @@ dev = [
     "versioneer>=0.20",
     "openai>=1.78.1",
     "pre-commit",
-    "e2b",
+    # Reproducible v2 sandbox tests without changing the optional tracing stack.
+    "e2b==2.34.0",
     "pytest-cov",
     "pytest-xdist",
     "docker==7.1.0",

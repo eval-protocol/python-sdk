@@ -2,73 +2,43 @@ import json
 import logging
 import os
 
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message
-from eval_protocol.pytest import KlavisSandboxRolloutProcessor, evaluation_test
+import pytest
 from openai import AsyncOpenAI
 from pydantic import BaseModel
+
+from eval_protocol.models import EvaluateResult, EvaluationRow
+from eval_protocol.pytest import KlavisSandboxRolloutProcessor
+from eval_protocol.pytest.evaluation_test import evaluation_test
+from tests.klavis_helpers import MODEL, klavis_gmail_sandbox_dataset_adapter
 
 logger = logging.getLogger(__name__)
 
 
 class ResponseFormat(BaseModel):
     score: float
-    
-
-def klavis_gmail_sandbox_dataset_adapter(rows: list[dict]) -> list[EvaluationRow]:
-    """Dataset adapter for sandbox JSONL rows.
-
-    Supports the new schema:
-      - initialize_data: dict (passed to Klavis sandbox initializer)
-      - messages: str (task instruction)
-      - ground_truth: dict (expected final sandbox state)
-
-    """
-    adapted: list[EvaluationRow] = []
-    system_prompt = (
-        "You are a helpful assistant with access to Gmail. "
-        "You can send emails, draft emails, and manage messages, etc."
-    )
-
-    for r in rows:
-        if isinstance(r.get("messages"), str) and "initialize_data" in r:
-            init_data = r.get("initialize_data") or {}
-            task = r.get("messages") or ""
-            ground_truth = r.get("ground_truth")
-
-            row = EvaluationRow(
-                messages=[
-                    Message(role="system", content=system_prompt),
-                    Message(role="user", content=task),
-                ],
-                ground_truth=ground_truth,
-            )
-            row.input_metadata.session_data = {
-                "initialize_data": init_data,
-                "task": task,
-            }
-            adapted.append(row)
-        else:
-            adapted.append(EvaluationRow(**r))
-
-    return adapted
 
 
+@pytest.mark.skipif(
+    not (os.environ.get("KLAVIS_API_KEY") and os.environ.get("FIREWORKS_API_KEY")),
+    reason="Live Klavis Gmail test requires KLAVIS_API_KEY and FIREWORKS_API_KEY",
+)
 @evaluation_test(
     input_dataset=["tests/pytest/datasets/klavis_gmail_sandbox_test.jsonl"],
     rollout_processor=KlavisSandboxRolloutProcessor(
         server_name="gmail",
     ),
-    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2p5"}],
+    completion_params=[{"model": f"fireworks_ai/{MODEL}"}],
     mode="pointwise",
     dataset_adapter=klavis_gmail_sandbox_dataset_adapter,
 )
 async def test_pytest_gmail_sandbox(row: EvaluationRow) -> EvaluationRow:
     """
     Evaluate Gmail sandbox results by comparing with ground truth using LLM judge.
-    
+
     The sandbox data is exported after agent execution and compared with expected output.
     Sandbox data is available in row.execution_metadata.extra["sandbox_data"].
     """
+    assert row.rollout_status.is_finished(), row.rollout_status
     ground_truth = row.ground_truth
     sandbox_data = row.execution_metadata.extra.get("sandbox_data", {}) if row.execution_metadata.extra else {}
     final_message = row.messages[-1].content if row.messages else ""
@@ -83,11 +53,10 @@ async def test_pytest_gmail_sandbox(row: EvaluationRow) -> EvaluationRow:
     async with AsyncOpenAI(
         api_key=os.environ["FIREWORKS_API_KEY"], base_url="https://api.fireworks.ai/inference/v1"
     ) as client:
-
         evaluation_prompt = f"""You are evaluating an AI agent's performance on a Gmail sandbox task.
 
 Task:
-{task or (row.messages[-1].content if row.messages else 'N/A')}
+{task or (row.messages[-1].content if row.messages else "N/A")}
 
 Initial Gmail Sandbox State (initialize_data):
 {json.dumps(initialize_data, indent=2, default=str)}
@@ -110,7 +79,7 @@ Return:
 
         try:
             response = await client.chat.completions.create(
-                model="accounts/fireworks/models/kimi-k2p5",
+                model=MODEL,
                 messages=[
                     {
                         "role": "system",
@@ -134,9 +103,6 @@ Return:
             row.evaluation_result = EvaluateResult(score=score)
         except Exception as e:
             logger.error(f"Error during LLM evaluation: {str(e)}", exc_info=True)
-            row.evaluation_result = EvaluateResult(
-                score=0.0,
-                reason=f"Evaluation error: {str(e)}",
-            )
+            raise
 
     return row
