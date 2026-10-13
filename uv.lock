@@ -1471,7 +1471,7 @@ requires-dist = [
     { name = "langsmith", marker = "extra == 'langsmith'", specifier = ">=0.1.86" },
     { name = "litellm", specifier = "==1.105.0" },
     { name = "loguru", specifier = ">=0.6.0" },
-    { name = "mcp", specifier = ">=1.28.1,<2" },
+    { name = "mcp", specifier = ">=1.30.0,<2" },
     { name = "omegaconf", specifier = ">=2.3.0" },
     { name = "openai", specifier = ">=1.78.1" },
     { name = "openai", marker = "extra == 'dev'", specifier = ">=1.78.1" },
