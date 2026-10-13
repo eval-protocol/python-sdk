@@ -833,7 +833,10 @@ def execute_code_with_e2b(
                 "error": "API key is required for E2B execution. Set it using the api_key parameter or E2B_API_KEY environment variable.",
             }
 
-        with Sandbox(api_key=api_key) as sandbox:
+        # E2B v2's factory carries the sandbox access token required by envd.
+        # Retain constructor support for older optional code-interpreter SDKs.
+        sandbox_factory = getattr(Sandbox, "create", Sandbox)
+        with sandbox_factory(api_key=api_key) as sandbox:
             stdout = []
             stderr = []
 
@@ -848,8 +851,6 @@ def execute_code_with_e2b(
                     stderr.append(output.line)
                 else:
                     stderr.append(str(output))
-
-            sandbox.on_exit = lambda *args: None  # type: ignore[method-assign, assignment]
 
             if language.lower() in ["python", "py"]:
                 file_path = "/code/script.py"
@@ -866,7 +867,9 @@ def execute_code_with_e2b(
 
             try:
                 fs_handler = None
-                if _E2B_SOURCE == "e2b_code_interpreter":
+                if hasattr(sandbox, "files"):
+                    fs_handler = sandbox.files
+                elif _E2B_SOURCE == "e2b_code_interpreter":
                     if hasattr(sandbox, "filesystem"):
                         fs_handler = sandbox.filesystem
                 elif _E2B_SOURCE == "e2b":

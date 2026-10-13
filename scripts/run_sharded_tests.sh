@@ -71,9 +71,11 @@ if [ "$DRY_RUN" = "--dry-run" ]; then
 fi
 
 # Run tests for this shard
+# Keep evaluation tests and their shared-processor verification in the same worker.
 # shellcheck disable=SC2086
 exec pytest \
 	-n auto \
+	--dist=loadfile \
 	--ignore=eval_protocol/benchmarks/ \
 	--ignore=eval_protocol/quickstart/ \
 	-v --durations=10 \

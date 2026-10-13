@@ -1,66 +1,25 @@
-from eval_protocol.models import EvaluateResult, EvaluationRow, Message
-from eval_protocol.pytest import AgentRolloutProcessor, evaluation_test
-from openai import AsyncOpenAI
-import json
-from pydantic import BaseModel
-import logging
-
-logger = logging.getLogger(__name__)
 import os
 
+import pytest
 
-class ResponseFormat(BaseModel):
-    score: float
-
-
-"""
-You should copy https://painted-tennis-ebc.notion.site/MCPMark-Source-Hub-23181626b6d7805fb3a7d59c63033819
-into your Notion for the notion test.
-"""
+from eval_protocol.models import EvaluationRow
+from eval_protocol.pytest import AgentRolloutProcessor
+from eval_protocol.pytest.evaluation_test import evaluation_test
+from tests.klavis_helpers import MODEL, judge_klavis_response
 
 
+# Live datasets require a Klavis connection to Gmail/Notion and their seeded test data.
+@pytest.mark.skipif(
+    not (os.environ.get("KLAVIS_AUTH_TOKEN") and os.environ.get("FIREWORKS_API_KEY")),
+    reason="Live Klavis MCP test requires KLAVIS_AUTH_TOKEN and FIREWORKS_API_KEY",
+)
 @evaluation_test(
     input_dataset=["tests/pytest/datasets/klavis_mcp_test.jsonl"],
     rollout_processor=AgentRolloutProcessor(),
-    completion_params=[{"model": "fireworks_ai/accounts/fireworks/models/kimi-k2p5"}],
+    completion_params=[{"model": f"fireworks_ai/{MODEL}"}],
     mode="pointwise",
     mcp_config_path="tests/pytest/mcp_configurations/klavis_strata_mcp.json",
 )
 async def test_pytest_klavis_mcp(row: EvaluationRow) -> EvaluationRow:
-    ground_truth = row.ground_truth
-    # check if the final messages contains the ground truth
-
-    async with AsyncOpenAI(
-        api_key=os.environ["FIREWORKS_API_KEY"], base_url="https://api.fireworks.ai/inference/v1"
-    ) as client:
-        response = await client.chat.completions.create(
-            model="accounts/fireworks/models/kimi-k2p5",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are judging the output of the model versus the ground truth. Return score = 1 if the output contains the ground truth, 0 otherwise.",
-                },
-                {
-                    "role": "user",
-                    "content": f"Final model output: {row.messages[-1].content}\nGround truth: {ground_truth}",
-                },
-            ],
-            response_format={
-                "type": "json_schema",
-                "json_schema": {"name": "ResponseFormat", "schema": ResponseFormat.model_json_schema()},
-            },
-        )
-        response_text = response.choices[0].message.content
-        logger.info("response_text: %s", response_text)
-        try:
-            parsed = json.loads(response_text or "{}")
-            score = parsed.get("score", 0.0)
-        except (json.JSONDecodeError, TypeError):
-            logger.warning("Failed to parse response as JSON: %s", response_text)
-            score = 0.0
-
-        row.evaluation_result = EvaluateResult(
-            score=score,
-            reason=response_text,
-        )
-    return row
+    assert row.rollout_status.is_finished(), row.rollout_status
+    return await judge_klavis_response(row)
