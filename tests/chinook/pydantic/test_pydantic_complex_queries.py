@@ -2,6 +2,7 @@ import os
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
+from pydantic_ai.providers.openai import OpenAIProvider
 import pytest
 
 from eval_protocol.models import EvaluateResult, EvaluationRow
@@ -24,10 +25,23 @@ LLM_JUDGE_PROMPT = (
 
 def agent_factory(config: RolloutProcessorConfig) -> Agent:
     model_name = config.completion_params["model"]
-    provider = config.completion_params.get("provider")
+    provider_param = config.completion_params.get("provider")
     reasoning = config.completion_params.get("reasoning")
-    settings = OpenAIChatModelSettings(openai_reasoning_effort=reasoning)
-    model = OpenAIChatModel(model_name, provider=provider or "openai", settings=settings)
+    # gpt-4o-mini does not support reasoning
+    if model_name == "gpt-4o-mini":
+        settings = OpenAIChatModelSettings()
+    else:
+        settings = OpenAIChatModelSettings(openai_reasoning_effort=reasoning)
+    base_url = config.completion_params.get("base_url")
+    api_key = config.completion_params.get("api_key") or os.getenv("OPENAI_API_KEY") or "dummy"
+    if base_url or provider_param == "ollama":
+        provider = OpenAIProvider(
+            api_key=api_key,
+            base_url=base_url or os.getenv("OLLAMA_OPENAI_BASE_URL", "http://localhost:11434/v1"),
+        )
+    else:
+        provider = provider_param or "openai"
+    model = OpenAIChatModel(model_name, provider=provider, settings=settings)
     return setup_agent(model)
 
 
@@ -51,7 +65,11 @@ def agent_factory(config: RolloutProcessorConfig) -> Agent:
         #     "model": "accounts/fireworks/models/kimi-k2p5",
         #     "provider": "fireworks",
         # },
-        {"model": "gpt-5"},
+        # {"model": "gpt-4o-mini"},
+        {"model": "gpt-5-nano-2025-08-07"},
+        # {"model": "qwen3:4b", "provider": "ollama", "base_url": os.getenv("OLLAMA_OPENAI_BASE_URL", "http://localhost:11434/v1")},
+        # {"model": "qwen3:8b", "provider": "ollama", "base_url": os.getenv("OLLAMA_OPENAI_BASE_URL", "http://localhost:11434/v1")},
+        # {"model": "granite4:micro", "provider": "ollama", "base_url": os.getenv("OLLAMA_OPENAI_BASE_URL", "http://localhost:11434/v1")},
         # {"model": "gpt-5", "reasoning": "high"},
     ],
     rollout_processor=PydanticAgentRolloutProcessor(agent_factory),
