@@ -19,6 +19,10 @@ export function setWaitUntil(waitUntil: (promise: Promise<any>) => void) {
   globalWaitUntil = waitUntil;
 }
 
+/**
+ * @deprecated Forwards logs through FireworksTransport to the hosted Fireworks tracing gateway
+ * (https://tracing.fireworks.ai), which was shut down on October 28, 2026. Will be removed in a future release.
+ */
 export const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -41,6 +45,9 @@ export const logger = winston.createLogger({
 
 /**
  * Create a child logger with rollout_id context.
+ *
+ * @deprecated Forwards logs through FireworksTransport to the hosted Fireworks tracing gateway
+ * (https://tracing.fireworks.ai), which was shut down on October 28, 2026. Will be removed in a future release.
  */
 export function createRolloutLogger(
   rolloutId: string,

@@ -1,5 +1,6 @@
 import asyncio
 import time
+import warnings
 from typing import List, Optional
 
 import aiohttp
@@ -7,6 +8,7 @@ import aiohttp
 from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.adapters.fireworks_tracing import FireworksTracingAdapter
 from eval_protocol.exceptions import exception_for_status_code
+from eval_protocol.hosted_tracing_gateway import hosted_gateway_deprecation_message
 
 from .rollout_processor import RolloutProcessor
 from .types import RolloutProcessorConfig
@@ -25,6 +27,11 @@ class RemoteRolloutProcessor(RolloutProcessor):
 
     Fetches traces from the Fireworks tracing proxy using rollout_id tags.
 
+    DEPRECATED: The hosted Fireworks tracing gateway (https://tracing.fireworks.ai) was shut down on
+    October 28, 2026. This processor depends on it and will be removed in a future release. Until then,
+    it only works with a self-hosted gateway that implements the same API, set via ``model_base_url``
+    or ``EP_MODEL_BASE_URL``.
+
     See https://evalprotocol.io/tutorial/remote-rollout-processor for documentation.
     """
 
@@ -37,6 +44,11 @@ class RemoteRolloutProcessor(RolloutProcessor):
         timeout_seconds: float = 120.0,
         include_payloads: bool = False,
     ):
+        warnings.warn(
+            hosted_gateway_deprecation_message("RemoteRolloutProcessor", "model_base_url or EP_MODEL_BASE_URL"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # Prefer constructor-provided configuration. These can be overridden via
         # config.kwargs at call time for backward compatibility.
         self._remote_base_url = remote_base_url

@@ -1,16 +1,32 @@
 import logging
 import os
 import threading
+import warnings
 from datetime import datetime, timezone
 from typing import Optional, Any, Dict, List, cast
 
 import requests
 
+from eval_protocol.hosted_tracing_gateway import hosted_gateway_deprecation_message
+
 
 class FireworksTracingHttpHandler(logging.Handler):
-    """Logging handler that posts structured logs to tracing.fireworks gateway /logs endpoint."""
+    """Logging handler that posts structured logs to tracing.fireworks gateway /logs endpoint.
+
+    DEPRECATED: The hosted Fireworks tracing gateway (https://tracing.fireworks.ai) was shut down on
+    October 28, 2026. This handler depends on it and will be removed in a future release. Until then,
+    it only works with a self-hosted gateway that implements the same API, set via ``gateway_base_url``
+    or ``FW_TRACING_GATEWAY_BASE_URL``.
+    """
 
     def __init__(self, gateway_base_url: Optional[str] = None, rollout_id_env: str = "EP_ROLLOUT_ID") -> None:
+        warnings.warn(
+            hosted_gateway_deprecation_message(
+                "FireworksTracingHttpHandler", "gateway_base_url or FW_TRACING_GATEWAY_BASE_URL"
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__()
         self.gateway_base_url = (
             gateway_base_url or os.getenv("FW_TRACING_GATEWAY_BASE_URL") or "https://tracing.fireworks.ai"

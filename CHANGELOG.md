@@ -11,10 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - (Your new features here)
 
 ### Changed
-- (Your changes in existing functionality here)
+- `FireworksTracingHttpHandler` is no longer attached automatically by `init_external_logging_from_env()` (used by `@evaluation_test`) when `FIREWORKS_API_KEY` is set; set `FW_TRACING_GATEWAY_BASE_URL` (or `GATEWAY_URL`) to opt in.
 
 ### Deprecated
-- (Your soon-to-be removed features here)
+- The hosted Fireworks tracing gateway (https://tracing.fireworks.ai) was shut down on October 28, 2026. These features depend on it, now emit a `DeprecationWarning`, and will be removed in a future release: `RemoteRolloutProcessor`, `GithubActionRolloutProcessor`, `FireworksTracingAdapter`, `FireworksTracingHttpHandler`, and the Fireworks backend of `ep logs`. In the TypeScript package, `FireworksTransport`, `logger`, and `createRolloutLogger` are marked `@deprecated`, and `FireworksTransport` warns once when it sends to the hosted URL. Until removal they only work with a self-hosted gateway that implements the same API, configured explicitly.
 
 ### Removed
 - (Your now removed features here)

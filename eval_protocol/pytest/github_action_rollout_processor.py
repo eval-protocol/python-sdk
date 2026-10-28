@@ -1,10 +1,12 @@
 import asyncio
 import os
 import time
+import warnings
 from typing import Any, Dict, List, Optional
 import json
 import requests
 from datetime import datetime, timezone, timedelta
+from eval_protocol.hosted_tracing_gateway import hosted_gateway_deprecation_message
 from eval_protocol.models import EvaluationRow, Status
 from eval_protocol.data_loader.dynamic_data_loader import DynamicDataLoader
 
@@ -24,6 +26,11 @@ class GithubActionRolloutProcessor(RolloutProcessor):
     - Traces are fetched later via Fireworks tracing proxy using rollout_id tags
 
     NOTE: GHA has a rate limit of 5000 requests per hour.
+
+    DEPRECATED: The hosted Fireworks tracing gateway (https://tracing.fireworks.ai) was shut down on
+    October 28, 2026. This processor depends on it and will be removed in a future release. Until then,
+    it only works with a self-hosted gateway that implements the same API, set via ``model_base_url``
+    or ``EP_MODEL_BASE_URL``.
     """
 
     def __init__(
@@ -39,6 +46,11 @@ class GithubActionRolloutProcessor(RolloutProcessor):
         max_find_workflow_retries: int = 5,
         github_token: Optional[str] = None,
     ):
+        warnings.warn(
+            hosted_gateway_deprecation_message("GithubActionRolloutProcessor", "model_base_url or EP_MODEL_BASE_URL"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.owner = owner
         self.repo = repo
         self.workflow_id = workflow_id

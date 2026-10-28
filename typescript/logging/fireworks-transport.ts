@@ -5,6 +5,7 @@
 import Transport from 'winston-transport';
 import type { TransformableInfo } from 'logform';
 const LEVEL = Symbol.for('level');
+let warnedAboutHostedGateway = false;
 
 interface FireworksLogInfo extends TransformableInfo {
   rollout_id?: string;
@@ -37,6 +38,12 @@ interface FireworksPayload {
   };
 }
 
+/**
+ * @deprecated The hosted Fireworks tracing gateway (https://tracing.fireworks.ai) was shut down on
+ * October 28, 2026. FireworksTransport depends on it and will be removed in a future release. Until then,
+ * it only works with a self-hosted gateway that implements the same API, set via `gatewayBaseUrl` or
+ * `FW_TRACING_GATEWAY_BASE_URL`.
+ */
 export class FireworksTransport extends Transport {
   private gatewayBaseUrl: string;
   private rolloutIdEnv: string;
@@ -92,6 +99,10 @@ export class FireworksTransport extends Transport {
     const payload = this.buildPayload(info, rolloutId);
     const baseUrl = this.gatewayBaseUrl.replace(/\/$/, '');
     const url = `${baseUrl}/logs`;
+    if (baseUrl === 'https://tracing.fireworks.ai' && !warnedAboutHostedGateway) {
+      warnedAboutHostedGateway = true;
+      console.warn('[FW_LOG] The hosted Fireworks tracing gateway (https://tracing.fireworks.ai) was shut down on October 28, 2026. FireworksTransport depends on it and is deprecated; it will be removed in a future release.');
+    }
 
     let payloadJson: string;
     try {

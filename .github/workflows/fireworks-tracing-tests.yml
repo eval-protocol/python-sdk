@@ -1,15 +1,8 @@
 name: Fireworks Tracing Tests
 
+# These end-to-end tests run against the hosted Fireworks tracing gateway (https://tracing.fireworks.ai),
+# which was shut down on October 28, 2026, so they no longer run on push or pull_request.
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-  pull_request: # Run on all pull requests
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
   workflow_dispatch: # Allow manual triggering
 
 jobs:

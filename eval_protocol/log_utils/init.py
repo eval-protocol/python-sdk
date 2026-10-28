@@ -39,11 +39,11 @@ def init_external_logging_from_env() -> None:
     # Ensure we do not add duplicate handlers if already present
     existing_handler_types = {type(h).__name__ for h in root_logger.handlers}
 
-    # Fireworks tracing: prefer if FIREWORKS_API_KEY is present; default base URL if not provided
+    # Fireworks tracing: only when FIREWORKS_API_KEY and a gateway URL are both set
     fw_key = _get_env("FIREWORKS_API_KEY")
     # Allow remote validation gateway to act as tracing base when provided
-    fw_url = _get_env("FW_TRACING_GATEWAY_BASE_URL") or _get_env("GATEWAY_URL") or "https://tracing.fireworks.ai"
-    if fw_key and "FireworksTracingHttpHandler" not in existing_handler_types:
+    fw_url = _get_env("FW_TRACING_GATEWAY_BASE_URL") or _get_env("GATEWAY_URL")
+    if fw_key and fw_url and "FireworksTracingHttpHandler" not in existing_handler_types:
         fw_handler = FireworksTracingHttpHandler(gateway_base_url=fw_url)
         fw_handler.setLevel(logging.INFO)
         fw_handler.addFilter(ContextRolloutIdFilter())
