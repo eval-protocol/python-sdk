@@ -3,9 +3,11 @@ CLI command for serving logs with file watching and real-time updates.
 """
 
 import sys
+import warnings
 from pathlib import Path
 
 import os
+from ..hosted_tracing_gateway import hosted_gateway_deprecation_message
 from ..utils.logs_server import serve_logs
 from ..event_bus.sqlite_event_bus_database import DatabaseCorruptedError, _backup_and_remove_database
 
@@ -114,6 +116,14 @@ def logs_command(args):
         or os.environ.get("GATEWAY_URL")
         or "https://tracing.fireworks.ai"
     )
+    if use_fireworks:
+        warnings.warn(
+            hosted_gateway_deprecation_message(
+                "The Fireworks backend of 'ep logs'", "FW_TRACING_GATEWAY_BASE_URL or GATEWAY_URL"
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     max_retries = 2
     for attempt in range(max_retries):

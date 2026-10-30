@@ -18,6 +18,8 @@ Eval Protocol makes this possible in two ways:
 
 The result: RL that works out-of-the-box for existing production agents.
 
+> **Deprecation notice:** The hosted Fireworks tracing gateway (https://tracing.fireworks.ai) was shut down on October 28, 2026. SDK features that depend on it (`RemoteRolloutProcessor`, `GithubActionRolloutProcessor`, `FireworksTracingAdapter`, `FireworksTracingHttpHandler`, and the Fireworks backend of `ep logs`) are deprecated and will be removed in a future release. See the [changelog](CHANGELOG.md).
+
 ## Who This Is For
 
 - **Applied AI teams** adding RL to existing production agents.

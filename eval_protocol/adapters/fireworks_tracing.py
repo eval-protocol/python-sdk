@@ -8,12 +8,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import warnings
 import aiohttp
 import requests
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Protocol
 import os
 
+from eval_protocol.hosted_tracing_gateway import hosted_gateway_deprecation_message
 from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, Message
 from eval_protocol.tracing import PayloadType, decode_payloads
 from .base import BaseAdapter
@@ -267,6 +269,10 @@ def get_final_generation_in_span_dict(trace: Dict[str, Any], span_name: str) -> 
 class FireworksTracingAdapter(BaseAdapter):
     """Adapter to pull data from Langfuse via Fireworks tracing proxy.
 
+    DEPRECATED: The hosted Fireworks tracing gateway (https://tracing.fireworks.ai) was shut down on
+    October 28, 2026. This adapter depends on it and will be removed in a future release. Until then,
+    it only works with a self-hosted gateway that implements the same API, set via ``base_url``.
+
     This adapter uses the Fireworks tracing proxy API which handles retry logic
     and rate limiting internally, simplifying the client-side implementation.
 
@@ -305,6 +311,11 @@ class FireworksTracingAdapter(BaseAdapter):
             timeout: Request timeout in seconds (default: 300)
             api_key: Optional API key. If not provided, falls back to FIREWORKS_API_KEY environment variable.
         """
+        warnings.warn(
+            hosted_gateway_deprecation_message("FireworksTracingAdapter", "base_url"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.project_id = project_id
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
